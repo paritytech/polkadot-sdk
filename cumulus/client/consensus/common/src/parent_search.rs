@@ -21,10 +21,7 @@ use cumulus_primitives_core::{
 	ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use polkadot_primitives::{
-	Block as RelayBlock, BlockNumber as RelayBlockNumber, Hash as RelayHash,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
-};
+use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
 use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus_babe::contains_epoch_change;
 use sp_blockchain::Backend as BlockchainBackend;
@@ -45,8 +42,6 @@ pub enum ParentSearchParams {
 	V3 {
 		/// The scheduling-parent that is intended to be used.
 		scheduling_parent: RelayHash,
-		/// The para's `relay_parent_offset`.
-		relay_parent_offset: u32,
 	},
 }
 
@@ -54,7 +49,7 @@ impl ParentSearchParams {
 	fn scheduling_parent(&self) -> &RelayHash {
 		match self {
 			ParentSearchParams::V2 { scheduling_parent } => scheduling_parent,
-			ParentSearchParams::V3 { scheduling_parent, .. } => scheduling_parent,
+			ParentSearchParams::V3 { scheduling_parent } => scheduling_parent,
 		}
 	}
 }
@@ -132,26 +127,22 @@ pub async fn fetch_included_from_relay_chain<B: BlockT>(
 	Ok(Some((included_header, included_hash)))
 }
 
-/// Build the ancestry of `anchor` that is acceptable to build on, `anchor` included.
+/// Build an ancestry of relay parents that are acceptable.
 ///
-/// Spans the `scheduling_lookahead - 1` ancestors prospective-parachains keeps in scope, cut short
-/// at a session boundary. Parachain blocks anchored below that have no chance of still getting
-/// included, so neither would a block built on them.
+/// An acceptable relay parent is one that is no more than `ancestry_lookback` + 1 blocks below the
+/// relay parent we want to build on. Parachain blocks anchored on relay parents older than that can
+/// not be considered potential parents for block building. They have no chance of still getting
+/// included, so our newly build parachain block would also not get included.
 ///
 /// On success, returns a vector of `(header_hash, state_root)` of the relevant relay chain
 /// ancestry blocks.
 async fn build_relay_parent_ancestry(
 	relay_client: &impl RelayChainInterface,
-	anchor: RelayHash,
+	relay_parent: RelayHash,
+	ancestry_lookback: usize,
 ) -> Result<Vec<(RelayHash, RelayHash)>, RelayChainError> {
-	let ancestry_lookback = relay_client
-		.scheduling_lookahead(anchor)
-		.await
-		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-		.saturating_sub(1) as usize;
-
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
-	let mut current_rp = anchor;
+	let mut current_rp = relay_parent;
 	while ancestry.len() <= ancestry_lookback {
 		let Some(header) = relay_client.header(RelayBlockId::hash(current_rp)).await? else {
 			tracing::warn!(
@@ -264,14 +255,11 @@ async fn get_relay_parent<Block: BlockT>(
 	Ok(None)
 }
 
-/// True if `header`'s relay parent is a known ancestor of `scheduling_parent` on the relay chain
-/// and no more than `max_depth` blocks below it. See [`build_relay_parent_ancestry`] for how the
-/// bound is derived.
-async fn can_anchor_at_scheduling_parent<Block: BlockT>(
+/// True if `header`'s relay parent is a known ancestor of `scheduling_parent` on the relay chain,
+/// i.e. one the relay chain still accepts candidates on.
+async fn has_ancestor_relay_parent_info<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	scheduling_parent: RelayHash,
-	scheduling_parent_number: RelayBlockNumber,
-	max_depth: u32,
 	header: &Block::Header,
 ) -> RelayChainResult<bool> {
 	let Some(relay_parent) = get_relay_parent::<Block>(relay_client, header).await? else {
@@ -283,14 +271,10 @@ async fn can_anchor_at_scheduling_parent<Block: BlockT>(
 	}
 
 	let relay_parent_session = relay_client.session_index_for_child(relay_parent).await?;
-	let Some(info) = relay_client
+	let maybe_info = relay_client
 		.ancestor_relay_parent_info(scheduling_parent, relay_parent_session, relay_parent)
-		.await?
-	else {
-		return Ok(false);
-	};
-
-	Ok(scheduling_parent_number.saturating_sub(info.number) <= max_depth)
+		.await?;
+	Ok(maybe_info.is_some())
 }
 
 /// Find the best parent block to build on.
@@ -353,8 +337,14 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 	let best_parent_header = match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
+			let ancestry_lookback = relay_client
+				.scheduling_lookahead(relay_parent)
+				.await
+				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+				.saturating_sub(1) as usize;
 			// Build up the ancestry record of the relay chain to compare against.
-			let rp_ancestry = build_relay_parent_ancestry(relay_client, relay_parent).await?;
+			let rp_ancestry =
+				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
 			// Search for the deepest valid parent starting from the pending/included block.
 			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
@@ -363,33 +353,13 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			})
 			.await
 		},
-		ParentSearchParams::V3 { scheduling_parent, relay_parent_offset } => {
-			// Resolve the scheduling parent before deriving the bound, so a missing header bails
-			// out here instead of silently shortening the ancestry walk below.
-			let Some(scheduling_parent_number) = relay_client
-				.header(RelayBlockId::hash(scheduling_parent))
-				.await?
-				.map(|header| header.number)
-			else {
-				return Ok(None);
-			};
-
-			// The ancestry bounds how deep a parent's *scheduling* parent may sit; its relay parent
-			// is a further `relay_parent_offset` below that.
-			let max_depth = (build_relay_parent_ancestry(relay_client, scheduling_parent)
-				.await?
-				.len()
-				.saturating_sub(1) as u32)
-				.saturating_add(relay_parent_offset);
-
+		ParentSearchParams::V3 { scheduling_parent } => {
 			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
 				let header = header.clone();
 				async move {
-					can_anchor_at_scheduling_parent::<Block>(
+					has_ancestor_relay_parent_info::<Block>(
 						relay_client,
 						scheduling_parent,
-						scheduling_parent_number,
-						max_depth,
 						&header,
 					)
 					.await

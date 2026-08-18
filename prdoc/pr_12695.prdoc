@@ -13,7 +13,7 @@ doc:
       the best head, so they come from the runtime that executes the block.
 crates:
   - name: cumulus-client-consensus-common
-    bump: major
+    bump: patch
   - name: cumulus-pallet-parachain-system
     bump: minor
   - name: cumulus-client-consensus-aura

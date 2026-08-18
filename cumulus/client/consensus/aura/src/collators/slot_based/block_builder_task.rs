@@ -171,6 +171,126 @@ where
 	}
 }
 
+/// Derive the relay chain context and the parent to build on, all consistent with the same
+/// [`SchedulingParams`]. `None` means the slot must be skipped.
+///
+/// Returns `(scheduling parent header, v3 enabled, relay parent offset, relay parent data, parent
+/// search result)`.
+///
+/// Loops because the [`SchedulingParams`] are read at an anchor (initially the para best block)
+/// while `find_parent` may settle on an ancestor of it whose runtime answers differently: the two
+/// straddle a V2 -> V3 upgrade or a V3 -> V2 rollback, or the anchor's `:pending_code` disagrees
+/// with the `:code` that will execute the block. Each pass re-derives the context from the parent
+/// the previous pass picked, until anchor and build parent agree on the parameters.
+async fn derive_candidate_shape<Block, Client, Backend, RelayClient>(
+	para_client: &Client,
+	para_backend: &Backend,
+	relay_client: &RelayClient,
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	scheduling_info: &mut SchedulingInfo<RelayClient>,
+	para_id: ParaId,
+) -> Option<(RelayHeader, bool, u32, RelayParentData, consensus_common::ParentSearchResult<Block>)>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+	Client::Api: SchedulingV3EnabledApi<Block> + RelayParentOffsetApi<Block> + ApiExt<Block>,
+	Backend: sc_client_api::Backend<Block>,
+	RelayClient: RelayChainInterface + 'static,
+{
+	let mut anchor_hash = para_client.info().best_hash;
+	let mut visited = vec![anchor_hash];
+
+	loop {
+		let anchor_params = scheduling_params_at(para_client, anchor_hash);
+
+		let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
+			.wait_for_scheduling_parent(relay_chain_data_cache, anchor_params.v3_enabled)
+			.await
+		else {
+			tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
+			return None;
+		};
+		let scheduling_parent_hash = scheduling_parent_header.hash();
+
+		let max_relay_parent_session_age = if v3_enabled {
+			relay_client
+				.max_relay_parent_session_age(scheduling_parent_hash)
+				.await
+				.unwrap_or(0)
+		} else {
+			0
+		};
+
+		let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
+			relay_chain_data_cache,
+			scheduling_parent_header.clone(),
+			anchor_params.relay_parent_offset,
+			max_relay_parent_session_age,
+		)
+		.await
+		else {
+			return None;
+		};
+
+		let parent_search_params = if v3_enabled {
+			ParentSearchParams::V3 { scheduling_parent: scheduling_parent_hash }
+		} else {
+			ParentSearchParams::V2 { scheduling_parent: relay_parent_data.relay_parent().hash() }
+		};
+		let parent_search_result = crate::collators::find_parent(
+			relay_client,
+			para_backend,
+			para_id,
+			parent_search_params,
+			|parent| {
+				// We never want to build on any "middle block" that isn't the last block in
+				// a core.
+				// When the digest item doesn't exist, we are running in compatibility
+				// mode and all parents are valid.
+				CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
+			},
+		)
+		.await?;
+
+		let build_parent_hash = parent_search_result.best_parent_header.hash();
+		if build_parent_hash == anchor_hash ||
+			scheduling_params_at(para_client, build_parent_hash) == anchor_params
+		{
+			return Some((
+				scheduling_parent_header,
+				v3_enabled,
+				anchor_params.relay_parent_offset,
+				relay_parent_data,
+				parent_search_result,
+			));
+		}
+
+		if visited.contains(&build_parent_hash) {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?anchor_hash,
+				?build_parent_hash,
+				passes = visited.len(),
+				"Scheduling parameters still disagree with the build parent's runtime, \
+				skipping slot.",
+			);
+
+			return None;
+		}
+		visited.push(build_parent_hash);
+
+		tracing::info!(
+			target: LOG_TARGET,
+			anchor = ?anchor_hash,
+			build_parent = ?build_parent_hash,
+			"Build parent's runtime disagrees with the anchor's, re-deriving the \
+			candidate shape from the build parent.",
+		);
+
+		anchor_hash = build_parent_hash;
+	}
+}
+
 /// Run block-builder.
 pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
 	params: BuilderTaskParams<Block, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>,
@@ -274,116 +394,23 @@ where
 				return;
 			};
 
-			let mut anchor_hash = para_client.info().best_hash;
-			let mut visited = vec![anchor_hash];
-			let (
+			let Some((
 				scheduling_parent_header,
 				v3_enabled,
 				relay_parent_offset,
 				relay_parent_data,
 				parent_search_result,
-			) = loop {
-				let anchor_params = scheduling_params_at(&*para_client, anchor_hash);
-
-				let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-					.wait_for_scheduling_parent(
-						&mut relay_chain_data_cache,
-						anchor_params.v3_enabled,
-					)
-					.await
-				else {
-					tracing::warn!(
-						target: LOG_TARGET,
-						"Unable to fetch the scheduling parent hash."
-					);
-					continue 'slots;
-				};
-				let scheduling_parent_hash = scheduling_parent_header.hash();
-
-				let max_relay_parent_session_age = if v3_enabled {
-					relay_client
-						.max_relay_parent_session_age(scheduling_parent_hash)
-						.await
-						.unwrap_or(0)
-				} else {
-					0
-				};
-
-				let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
-					&mut relay_chain_data_cache,
-					scheduling_parent_header.clone(),
-					anchor_params.relay_parent_offset,
-					max_relay_parent_session_age,
-				)
-				.await
-				else {
-					continue 'slots;
-				};
-
-				let parent_search_params = if v3_enabled {
-					ParentSearchParams::V3 {
-						scheduling_parent: scheduling_parent_hash,
-						relay_parent_offset: anchor_params.relay_parent_offset,
-					}
-				} else {
-					ParentSearchParams::V2 {
-						scheduling_parent: relay_parent_data.relay_parent().hash(),
-					}
-				};
-				let Some(parent_search_result) = crate::collators::find_parent(
-					&relay_client,
-					&*para_backend,
-					para_id,
-					parent_search_params,
-					|parent| {
-						// We never want to build on any "middle block" that isn't the last block in
-						// a core.
-						// When the digest item doesn't exist, we are running in compatibility
-						// mode and all parents are valid.
-						CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
-					},
-				)
-				.await
-				else {
-					continue 'slots;
-				};
-
-				let build_parent_hash = parent_search_result.best_parent_header.hash();
-				if build_parent_hash == anchor_hash ||
-					scheduling_params_at(&*para_client, build_parent_hash) == anchor_params
-				{
-					break (
-						scheduling_parent_header,
-						v3_enabled,
-						anchor_params.relay_parent_offset,
-						relay_parent_data,
-						parent_search_result,
-					);
-				}
-
-				if visited.contains(&build_parent_hash) {
-					tracing::warn!(
-						target: LOG_TARGET,
-						?anchor_hash,
-						?build_parent_hash,
-						passes = visited.len(),
-						"Scheduling parameters still disagree with the build parent's runtime, \
-						skipping slot.",
-					);
-
-					continue 'slots;
-				}
-				visited.push(build_parent_hash);
-
-				tracing::info!(
-					target: LOG_TARGET,
-					anchor = ?anchor_hash,
-					build_parent = ?build_parent_hash,
-					"Build parent's runtime disagrees with the anchor's, re-deriving the \
-					candidate shape from the build parent.",
-				);
-
-				anchor_hash = build_parent_hash;
+			)) = derive_candidate_shape(
+				&*para_client,
+				&*para_backend,
+				&relay_client,
+				&mut relay_chain_data_cache,
+				&mut scheduling_info,
+				para_id,
+			)
+			.await
+			else {
+				continue 'slots;
 			};
 
 			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);

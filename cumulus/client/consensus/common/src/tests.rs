@@ -88,9 +88,6 @@ struct Relaychain {
 	inner: Arc<Mutex<RelaychainInner>>,
 	scheduling_lookahead: Option<u32>,
 	allowed_relay_parents_at: HashMap<PHash, Vec<PHash>>,
-	/// Relay block whose header carries a BABE epoch-change digest, i.e. the first block of a
-	/// session.
-	session_start: Option<BlockNumber>,
 }
 
 impl Relaychain {
@@ -99,7 +96,6 @@ impl Relaychain {
 			inner: Arc::new(Mutex::new(RelaychainInner::new())),
 			scheduling_lookahead: None,
 			allowed_relay_parents_at: Default::default(),
-			session_start: None,
 		}
 	}
 }
@@ -274,24 +270,10 @@ impl RelayChainInterface for Relaychain {
 			.map(relay_hash_from_block_num)
 			.unwrap_or_else(|| PHash::zero());
 
-		let mut digest = sp_runtime::Digest::default();
-		if self.session_start == Some(number) {
-			digest.push(sp_runtime::DigestItem::Consensus(
-				sc_consensus_babe::BABE_ENGINE_ID,
-				sc_consensus_babe::ConsensusLog::NextEpochData(
-					sc_consensus_babe::NextEpochDescriptor {
-						authorities: Default::default(),
-						randomness: Default::default(),
-					},
-				)
-				.encode(),
-			));
-		}
-
 		Ok(Some(PHeader {
 			parent_hash,
 			number,
-			digest,
+			digest: sp_runtime::Digest::default(),
 			state_root: PHash::zero(),
 			extrinsics_root: PHash::zero(),
 		}))
@@ -360,7 +342,7 @@ impl RelayChainInterface for Relaychain {
 
 		if allowed_relay_parents.contains(&relay_parent) {
 			return Ok(Some(RelayParentInfo {
-				number: relay_block_num_from_hash(&relay_parent),
+				number: Default::default(),
 				state_root: Default::default(),
 			}));
 		}
@@ -1187,7 +1169,7 @@ fn find_best_parent_with_pending() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: search_relay_parent, relay_parent_offset: 0 },
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1240,7 +1222,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: relay_parent, relay_parent_offset: 0 },
+		ParentSearchParams::V3 { scheduling_parent: relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1287,7 +1269,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: search_relay_parent, relay_parent_offset: 0 },
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1312,117 +1294,7 @@ fn find_best_parent_in_allowed_ancestry() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: search_relay_parent, relay_parent_offset: 0 },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-	assert_eq!(result.best_parent_header.hash(), included_block.hash());
-}
-
-/// A V3 parent is rejected once its relay parent is deeper than the scheduling scope, or once a
-/// session boundary truncates that scope, even while it stays an allowed relay parent.
-#[test]
-fn find_best_parent_v3_respects_scheduling_scope_depth() {
-	sp_tracing::try_init_simple();
-
-	let backend = Arc::new(Backend::new_test(1000, 1));
-	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
-
-	let included_relay_parent = relay_hash_from_block_num(10);
-	let child_relay_parent = relay_hash_from_block_num(11);
-	let included_block = build_and_import_block_ext(
-		&client,
-		BlockOrigin::Own,
-		true,
-		&mut para_import,
-		None,
-		None,
-		Some(included_relay_parent),
-	);
-	let child_block = build_and_import_block_ext(
-		&client,
-		BlockOrigin::Own,
-		true,
-		&mut para_import,
-		Some(included_block.header().hash()),
-		None,
-		Some(child_relay_parent),
-	);
-
-	// `scheduling_lookahead` of 5 allows a relay parent up to 4 blocks below the scheduling parent.
-	let mut relay_chain = Relaychain::new();
-	relay_chain.scheduling_lookahead = Some(5);
-
-	// The child's relay parent stays an allowed relay parent throughout, as it would for the rest
-	// of the session.
-	let in_scope_parent = relay_hash_from_block_num(14);
-	let out_of_scope_parent = relay_hash_from_block_num(20);
-	for scheduling_parent in [in_scope_parent, out_of_scope_parent] {
-		relay_chain
-			.inner
-			.lock()
-			.unwrap()
-			.included_pvd_header_at
-			.insert(scheduling_parent, included_block.header().clone());
-		relay_chain
-			.allowed_relay_parents_at
-			.insert(scheduling_parent, vec![child_relay_parent]);
-	}
-
-	// 3 blocks below the scheduling parent: still in scope, so we extend the chain.
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: in_scope_parent, relay_parent_offset: 0 },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-	assert_eq!(result.best_parent_header.hash(), child_block.hash());
-
-	// 9 blocks below: out of scope, so we fall back to the included block.
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: out_of_scope_parent, relay_parent_offset: 0 },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-	assert_eq!(result.best_parent_header.hash(), included_block.hash());
-
-	// A `relay_parent_offset` shifts the window down by the same amount. 9 blocks below needs an
-	// offset of 5 to come back in scope; 4 leaves the child just out of it.
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: out_of_scope_parent, relay_parent_offset: 4 },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-	assert_eq!(result.best_parent_header.hash(), included_block.hash());
-
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: out_of_scope_parent, relay_parent_offset: 5 },
-	))
-	.unwrap()
-	.expect("Should find a parent");
-	assert_eq!(result.best_parent_header.hash(), child_block.hash());
-
-	// A session boundary between the child's relay parent and the scheduling parent truncates the
-	// window: the ancestry walk stops at the epoch-change digest, so the child sits past the
-	// shortened `max_depth` even though it is only 3 blocks below.
-	relay_chain.session_start = Some(13);
-	let result = block_on(find_parent_for_building(
-		&relay_chain,
-		&*backend,
-		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: in_scope_parent, relay_parent_offset: 0 },
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1564,7 +1436,7 @@ fn find_best_parent_with_forks_returns_deepest() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: search_relay_parent, relay_parent_offset: 0 },
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
@@ -1653,7 +1525,7 @@ fn find_best_parent_returns_deepest_block() {
 		&relay_chain,
 		&*backend,
 		ParaId::from(100),
-		ParentSearchParams::V3 { scheduling_parent: search_relay_parent, relay_parent_offset: 0 },
+		ParentSearchParams::V3 { scheduling_parent: search_relay_parent },
 	))
 	.unwrap()
 	.expect("Should find a parent");
