@@ -4,34 +4,20 @@ doc:
 - audience: Runtime Dev
   description: |-
     `pallet-migrations` aborts a migration that exceeds its `SteppedMigration::max_steps`, but that
-    limit is opt-in and most migrations do not set one. A migration that stops making progress
-    therefore keeps the chain in migration mode - and thus rejects all non-mandatory extrinsics -
-    forever.
+    limit is opt-in and most migrations do not set one, so a migration that stops making progress
+    keeps the chain in migration mode - rejecting all non-mandatory extrinsics - forever.
 
-    This PR adds a `Config::MaxMigrationSteps` that bounds every migration, both as a fallback for
-    migrations that declare no limit of their own and as an upper bound for those that declare a
-    larger one. A migration advances at most once per block, so the limit is effectively a
-    duration. Note that it applies per migration, so a tuple of `n` migrations is bounded by `n`
-    times the limit.
+    The new `Config::MaxMigrationSteps` bounds every migration: a fallback for those that declare no
+    limit of their own, and an upper bound for those that declare a larger one. A migration advances
+    at most once per block, so the limit is effectively a per-migration duration.
 
     Runtimes must now set `MaxMigrationSteps`; use `ConstU32<{ u32::MAX }>` to keep the previous
     unbounded behaviour. The runtimes in this repository set it to one day.
 
-    Exceeding the limit is treated as a failed migration: the migration is left partially applied,
-    is not recorded in `Historic`, and the `FailedMigrationHandler` decides what happens to the
-    chain. The limit is therefore only a safety mechanism if that handler leaves the chain usable.
-    With `FreezeChainOnFailedMigration` it is close to a no-op: `MultiStepMigrator::ongoing()` is
-    true for both an active and a stuck cursor, so the chain only accepts inherents either way and
-    not even the pallet's own `force_set_cursor` can be dispatched to recover it. The runtimes in
-    this repository therefore also switch to `ForceUnstuckOnFailedMigration`, which is what that
-    handler was added for in https://github.com/paritytech/polkadot-sdk/pull/11194.
-
-    Force-unsticking applies to every migration failure, not only to timeouts, and it exposes the
-    partially migrated state to users - the same trade-off a faulty single-block migration already
-    implies. It buys a recovery window: the chain stays usable, so governance can enact a runtime
-    upgrade that drops the faulty migration. Note that the failed migration is not black-listed in
-    `Historic`, so an upgrade that keeps it in the tuple will restart it from scratch and consume
-    the full step budget again.
+    Exceeding the limit counts as a failed migration: it is left partially applied, is not recorded
+    in `Historic`, and is handed to the `FailedMigrationHandler`. These runtimes therefore also
+    switch to `ForceUnstuckOnFailedMigration`, so that a timed out migration leaves the chain usable
+    instead of frozen.
 
 crates:
 - name: pallet-migrations
