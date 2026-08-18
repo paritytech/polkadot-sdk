@@ -38,6 +38,7 @@ use zombienet_sdk::{
 
 const SINGLE_CORE_CANDIDATES: Range<u32> = 7..11;
 const ELASTIC_CANDIDATES: Range<u32> = 17..31;
+const V3_CANDIDATES: Range<u32> = 4..11;
 
 /// Relay config changes (node features included) enact `SESSION_DELAY` sessions after the session
 /// they are applied in. Mirrors `polkadot_runtime_parachains::shared::SESSION_DELAY`.
@@ -289,7 +290,7 @@ async fn v3_dynamic_enablement_test(
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
-		HashMap::from([(para_2902, para_2902_candidates())]),
+		HashMap::from([(para_2902, V3_CANDIDATES)]),
 		10,
 		None,
 	)
