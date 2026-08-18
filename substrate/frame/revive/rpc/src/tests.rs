@@ -2195,7 +2195,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone());
+	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
 	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
