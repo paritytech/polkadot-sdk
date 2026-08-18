@@ -596,8 +596,13 @@ impl frame_support::traits::OnRuntimeUpgrade for RemoveCollectiveFlip {
 	fn on_runtime_upgrade() -> Weight {
 		use frame_support::storage::migration;
 		// Remove the storage value `RandomMaterial` from removed pallet `RandomnessCollectiveFlip`
-		#[allow(deprecated)]
-		migration::remove_storage_prefix(b"RandomnessCollectiveFlip", b"RandomMaterial", b"");
+		let _ = migration::clear_storage_prefix(
+			b"RandomnessCollectiveFlip",
+			b"RandomMaterial",
+			b"",
+			None,
+			None,
+		);
 		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
 	}
 }
