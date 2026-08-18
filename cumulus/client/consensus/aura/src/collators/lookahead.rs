@@ -354,9 +354,9 @@ where
 			let keystore = &params.keystore;
 			let included_block_hash = included_header.hash();
 
-			// Build in a loop until not allowed. Note that the authorities can change
-			// at any block, so we need to re-claim our slot every time.
-			let mut parent_hash = parent_search_result.best_parent_header.hash();
+			// Note that the authorities can change at any block, so we need to re-claim our slot
+			// on every relay parent.
+			let parent_hash = parent_search_result.best_parent_header.hash();
 			let parent_header = parent_search_result.best_parent_header;
 			// Distance from included block to best parent.
 			let initial_parent_depth =
@@ -430,8 +430,6 @@ where
 				max_pov_size,
 			};
 
-			// Build and announce collations recursively until
-			// `can_build_upon` fails or building a collation fails.
 			let relay_proof_request =
 				super::get_relay_proof_request(&*params.para_client, parent_hash);
 
@@ -540,8 +538,6 @@ where
 							"SubmitSegment",
 						)
 						.await;
-
-					parent_hash = new_block_hash;
 				},
 				Ok(None) => {
 					tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
