@@ -19,14 +19,13 @@ doc:
 
     Exceeding the limit is treated as a failed migration: the migration is left partially applied,
     is not recorded in `Historic`, and the `FailedMigrationHandler` decides what happens to the
-    chain. The runtimes in this repository therefore also switch from
-    `FreezeChainOnFailedMigration` to `ForceUnstuckOnFailedMigration`, so that a failed or timed
-    out migration leaves the chain usable and governance reachable. Freezing prevents governance
-    intervention entirely - a frozen chain only accepts inherents, so not even the pallet's own
-    `force_set_cursor` can be dispatched, and a plain runtime upgrade does not recover it either
-    because onboarding re-fails on the existing cursor. Note that force-unsticking exposes the
-    partially migrated state to users, which is the same trade-off a faulty single-block migration
-    already implies.
+    chain. The limit is therefore only a safety net if that handler leaves the chain usable. The
+    runtimes in this repository keep `FreezeChainOnFailedMigration`, which turns a timed out
+    migration into a permanently stuck chain - a frozen chain only accepts inherents, so not even
+    the pallet's own `force_set_cursor` can be dispatched. Runtimes that want a timeout to restore
+    the chain should pair the limit with `ForceUnstuckOnFailedMigration` or
+    `EnterSafeModeOnFailedMigration`, at the cost of exposing the partially migrated state - which
+    is the same trade-off a faulty single-block migration already implies.
 
 crates:
 - name: pallet-migrations

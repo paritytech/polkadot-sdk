@@ -404,7 +404,7 @@ fn migration_timeout_errors() {
 #[cfg_attr(feature = "try-runtime", should_panic)]
 fn migration_without_max_steps_times_out_at_max_migration_steps() {
 	test_closure(|| {
-		MaxMigrationSteps::set(3);
+		MaxMigrationSteps::set(&3);
 		// `u32::MAX` steps mocks a migration that does not declare a limit of its own.
 		MockedMigrations::set(vec![(TimeoutAfter, u32::MAX)]);
 
@@ -431,7 +431,7 @@ fn migration_without_max_steps_times_out_at_max_migration_steps() {
 #[cfg_attr(feature = "try-runtime", should_panic)]
 fn max_migration_steps_caps_a_larger_max_steps() {
 	test_closure(|| {
-		MaxMigrationSteps::set(1);
+		MaxMigrationSteps::set(&1);
 		// The migration asks for 3 steps, but only gets the blanket 1.
 		MockedMigrations::set(vec![(TimeoutAfter, 3)]);
 
@@ -456,7 +456,7 @@ fn migration_within_max_migration_steps_completes() {
 	use Event::*;
 	test_closure(|| {
 		// The migration advances at `took` 1 and 2, so it just fits into the blanket limit.
-		MaxMigrationSteps::set(2);
+		MaxMigrationSteps::set(&2);
 		MockedMigrations::set(vec![(SucceedAfter, 2)]);
 
 		System::set_block_number(1);
@@ -482,7 +482,7 @@ fn max_steps_below_max_migration_steps_still_applies() {
 	test_closure(|| {
 		// The migration asks for less than the blanket limit, so its own limit is the one that
 		// applies.
-		MaxMigrationSteps::set(100);
+		MaxMigrationSteps::set(&100);
 		MockedMigrations::set(vec![(TimeoutAfter, 1)]);
 
 		System::set_block_number(1);
@@ -497,6 +497,32 @@ fn max_steps_below_max_migration_steps_still_applies() {
 			Event::UpgradeFailed,
 		]);
 		assert_eq!(upgrades_started_completed_failed(), (1, 0, 1));
+		assert_eq!(Cursor::<T>::get(), Some(MigrationCursor::Stuck));
+	});
+}
+
+#[test]
+#[cfg_attr(feature = "try-runtime", should_panic)]
+fn timed_out_migration_force_unstuck_works() {
+	test_closure(|| {
+		FailedUpgradeResponse::set(FailedMigrationHandling::ForceUnstuck);
+		MaxMigrationSteps::set(&1);
+		MockedMigrations::set(vec![(TimeoutAfter, u32::MAX)]);
+
+		System::set_block_number(1);
+		Migrations::on_runtime_upgrade();
+		run_to_block(5);
+
+		assert_events(vec![
+			Event::UpgradeStarted { migrations: 1 },
+			Event::MigrationAdvanced { index: 0, took: 1 },
+			Event::MigrationAdvanced { index: 0, took: 2 },
+			Event::MigrationFailed { index: 0, took: 2 },
+			Event::UpgradeFailed,
+		]);
+		// Timed out migrations are not black-listed either.
+		assert!(historic().is_empty());
+		assert!(Cursor::<T>::get().is_none(), "Must unstuck the chain");
 	});
 }
 
@@ -505,7 +531,7 @@ fn progress_reports_the_effective_max_steps() {
 	// The reported limit is the one that will be enforced, not the one that the migration
 	// declared.
 	test_closure(|| {
-		MaxMigrationSteps::set(2);
+		MaxMigrationSteps::set(&2);
 		MockedMigrations::set(vec![(SucceedAfter, 5)]);
 
 		System::set_block_number(1);
@@ -515,8 +541,7 @@ fn progress_reports_the_effective_max_steps() {
 		assert_eq!(progress.current_migration_max_steps, Some(2));
 	});
 
-	// Neither the migration nor the runtime imposes a limit, which is reported as `None` instead
-	// of the `u32::MAX` sentinel.
+	// Neither the migration nor the runtime imposes a limit, which is reported as `None`.
 	test_closure(|| {
 		MockedMigrations::set(vec![(TimeoutAfter, u32::MAX)]);
 

@@ -423,7 +423,10 @@ pub mod pallet {
 		/// bound is per migration, so a tuple of `n` migrations can still take `n` times as long.
 		///
 		/// Exceeding it is treated as a failed migration, which leaves the migration partially
-		/// applied and is handed to the [`Config::FailedMigrationHandler`].
+		/// applied and is handed to the [`Config::FailedMigrationHandler`]. The limit is therefore
+		/// only a safety net if that handler leaves the chain usable;
+		/// [`frame_support::migrations::FreezeChainOnFailedMigration`] turns a timeout into a
+		/// permanently stuck chain instead.
 		///
 		/// Use `u32::MAX` to not impose any limit.
 		#[pallet::constant]
@@ -570,6 +573,9 @@ pub mod pallet {
 				Cursor::<T>::kill();
 			}
 
+			// The blanket step limit is sane.
+			assert!(T::MaxMigrationSteps::get() > 0, "MaxMigrationSteps must be positive");
+
 			// The per-block service weight is sane.
 			{
 				let want = T::MaxServiceWeight::get();
@@ -712,13 +718,11 @@ pub mod pallet {
 						System::<T>::block_number().saturating_sub(cursor.started_at);
 					let estimated_steps = blocks_elapsed.saturated_into::<u32>();
 
-					let max_steps = Self::nth_max_steps(cursor.index)?;
-
 					Some(MbmProgress {
 						current_migration: cursor.index,
 						total_migrations: T::Migrations::len(),
 						current_migration_steps: estimated_steps,
-						current_migration_max_steps: (max_steps != u32::MAX).then_some(max_steps),
+						current_migration_max_steps: Self::effective_max_steps(cursor.index)?,
 					})
 				},
 				_ => None,
@@ -865,7 +869,7 @@ impl<T: Config> Pallet<T> {
 			return Some(ControlFlow::Continue(cursor));
 		}
 
-		let max_steps = Self::nth_max_steps(cursor.index);
+		let max_steps = Self::effective_max_steps(cursor.index);
 
 		// If this is the first time running this migration, exec the pre-upgrade hook.
 		#[cfg(feature = "try-runtime")]
@@ -899,7 +903,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });
 				cursor.inner_cursor = Some(bound_next_cursor);
 
-				if took > max_steps.into() {
+				if max_steps.is_some_and(|max| took > max.into()) {
 					Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 					Self::upgrade_failed(Some(cursor.index));
 					None
@@ -945,10 +949,15 @@ impl<T: Config> Pallet<T> {
 
 	/// The step limit of the `n`th migration, bounded by [`Config::MaxMigrationSteps`].
 	///
-	/// Returns `None` if `n` is out of bounds and `u32::MAX` if the migration is unbounded.
-	fn nth_max_steps(n: u32) -> Option<u32> {
-		T::Migrations::nth_max_steps(n)
-			.map(|max_steps| max_steps.unwrap_or(u32::MAX).min(T::MaxMigrationSteps::get()))
+	/// Returns `None` if `n` is out of bounds and `Some(None)` if neither the migration nor the
+	/// runtime imposes a limit.
+	fn effective_max_steps(n: u32) -> Option<Option<u32>> {
+		let blanket = T::MaxMigrationSteps::get();
+
+		T::Migrations::nth_max_steps(n).map(|max_steps| {
+			let bounded = max_steps.map_or(blanket, |max| max.min(blanket));
+			(bounded != u32::MAX).then_some(bounded)
+		})
 	}
 
 	/// Fail the current runtime upgrade, caused by `migration`.
