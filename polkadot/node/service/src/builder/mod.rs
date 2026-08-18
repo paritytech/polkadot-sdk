@@ -347,8 +347,8 @@ where
 
 		let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
-		let cfg =
-			Protocol::ChunkFetchingV1.get_outbound_only_config::<_, Network>(&req_protocol_names);
+		let cfg = Protocol::CollationFetchingV1
+			.get_outbound_only_config::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		let (collation_req_v2_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
