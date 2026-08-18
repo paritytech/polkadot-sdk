@@ -181,7 +181,7 @@ module main {
     nondet wp1DeclHead = oneOf(Set(false, true))
     // A stale-parent candidate (built on a non-current head) exercises the
     // parent-head check's rejection (§5.1 step 3). Forced to active code so it
-    // is rejected on the parent, not the code, keeping `acc_error_logged` valid.
+    // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
     // registered) has no head; we use 0 — such a candidate is dropped at

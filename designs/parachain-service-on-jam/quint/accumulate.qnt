@@ -369,32 +369,28 @@ module accumulate {
             | None => false
             | Some(pair) => r.validationCode == pair._1.ref
         })
+        // A rejected candidate changes NOTHING: `reaped` is computed only so the
+        // code check sees the post-reap view (a candidate carrying a timed-out
+        // pending code must fail), but its state is discarded on rejection along
+        // with any forget it would have forwarded.
         if (not(codeOk)) {
-          {
-            state: reaped.state,
-            rejected: true,
-            jamSolicit: Set(),
-            jamForget: optionToSet(reaped.jamForget),
-            logs: List(InvalidCodeHashAcc(r.validationCode.hash))
-          }
+          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId)) {
           // §4.3 defense-in-depth: even if Refine should already have
           // rejected this, Accumulate independently verifies and refuses
           // to apply a work-package whose upward messages include
           // restricted host calls from the wrong parachain.
-          {
-            state: reaped.state,
-            rejected: true,
-            jamSolicit: Set(),
-            jamForget: optionToSet(reaped.jamForget),
-            logs: List(InvalidCodeHashAcc(r.validationCode.hash))
-          }
+          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else {
+          // §5.1: the candidate is accepted, so its lookup-anchor prune runs before
+          // any of its own effects are applied. Doing it first also frees space that
+          // would otherwise be reclaimed by evicting entries this prune removes anyway.
+          val pruned = pruneLogBelow(reaped.state, r.paraId, r.lookupAnchor)
           // Step 4a: head update.
-          val pi2 = reaped.state.paraInfo(r.paraId)
+          val pi2 = pruned.paraInfo(r.paraId)
           val sAfterHead = {
-            ...reaped.state,
-            parachains: reaped.state.parachains.put(r.paraId, { ...pi2, headData: r.headData })
+            ...pruned,
+            parachains: pruned.parachains.put(r.paraId, { ...pi2, headData: r.headData })
           }
           // Step 4b: activate code upgrade if this candidate used the pending hash.
           val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCode.hash, codeLen, now)
@@ -453,16 +449,18 @@ module accumulate {
           | Ok(ok) =>
             val pre = accumulateOkPrefix(state, ok, codeLen, now)
             if (pre.rejected) {
-              // §5.1: a candidate rejected at the parent-head or validation-code
-              // check may still record an accumulate event (e.g. `InvalidCodeHashAcc`).
-              // Prune below the lookup-anchor before persisting it.
+              // §5.1: a rejected candidate changes nothing at all. In particular it
+              // does not prune: pruning is justified by the parachain having consumed
+              // its log up to the candidate's lookup-anchor, which a candidate failing
+              // the parent-head or code check demonstrates nothing about, and pruning
+              // here would let anyone holding coretime erase a para's log at any rank
+              // by submitting candidates that are then rejected.
               {
-                state: pruneLogBelow(pre.state, ok.paraId, ok.lookupAnchor)
-                  .appendAccumulateLogs(ok.paraId, now, pre.logs),
+                state: pre.state,
                 solicited: solicited,
                 jamDesignate: prevDesignate,
                 jamAssigns: List(),
-                logPruned: Some((ok.paraId, ok.lookupAnchor))
+                logPruned: None
               }
             } else {
               val baseAcc = {
@@ -482,11 +480,10 @@ module accumulate {
                 | Forget(p) => s.exclude(Set((p.paraId, p.hash, p.len)))
                 | _ => s
               })
-              // §5.1: prune below the candidate's lookup-anchor before
-              // appending this candidate's collected accumulate events.
+              // The lookup-anchor prune already ran inside `accumulateOkPrefix`,
+              // ahead of every effect of this candidate.
               {
-                state: pruneLogBelow(acc.state, ok.paraId, ok.lookupAnchor)
-                  .appendAccumulateLogs(ok.paraId, now, acc.logs),
+                state: acc.state.appendAccumulateLogs(ok.paraId, now, acc.logs),
                 solicited: newSolicited,
                 jamDesignate: acc.jamDesignate,
                 jamAssigns: acc.jamAssigns,

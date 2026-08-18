@@ -214,7 +214,6 @@ module state {
   /// hash, FromSetKV's key hash). `StagedValidatorKeysOverflow` is nullary.
   pure def accumulateLogSize(e: AccumulateLog): int =
   1 + match e {
-    | InvalidCodeHashAcc(_) => 32
     | InsufficientStateBalance(r) =>
       1 + match r {
         // hash 32 + Compact<u32> len.

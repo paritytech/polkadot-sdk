@@ -281,11 +281,6 @@ enum InsufficientBalanceReason {
 }
 
 enum AccumulateLog {
-    /// The work digest's `validation_code_hash` matches neither the active
-    /// `ParaInfo.validation_code` nor the pending upgrade's code hash.
-    /// This is the authoritative validation-code check (Refine does not
-    /// perform it). See §5.1 step 5.
-    InvalidCodeHash { hash: ValidationCodeHash },
     /// Available state balance insufficient for the operation described by
     /// `reason`. See §6.1.
     InsufficientStateBalance { reason: InsufficientBalanceReason },
@@ -675,7 +670,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `kv_remove(para_id: ParaId, key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent: no-op if the key is absent. |
 | `transfer_out(source: Option<ServiceId>, dest: ServiceId, amount: Balance, id: u64, source_supervisor_balance: bool, dest_supervisor_balance: bool, deferred: Option<(Memo, u64)>)` | `()` | Transfer balance between JAM services (Asset Hub only). `source = None` means this service; the two `*_supervisor_balance` flags choose which balance is debited on `source` and credited on `dest` (`true` = the supervisor balance); `deferred` selects between JAM's plain-move and deferred-transfer modes; `id` is caller-chosen and echoed back in `AccumulateLog::TransferFailed` if the transfer fails. See §5.1 step 7. |
 | `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` (Coretime chain only). Mirrors JAM's `assign`, which writes the authorizer queue and the assigner atomically. The entry is cached in service state and forwarded in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any entry cached for the core (no JAM call). `new_assigner = None` keeps this service as the core's assigner and `Some(s)` hands the core to `s`. |
-| `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Panics if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
+| `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Aborts Refine as `Err(RefineLog::SetValidatorKeysTooManyKeys)` if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(slot: Timeslot)` | `()` | Drop every queued transfer bucket up to and including `slot`, marking those transfers consumed (Asset Hub only). See §5.1. |
 | `parachain_service_upgrade(code_hash: Hash, len: u32, min_acc_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_acc_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call unless the new code's preimage is available for lookup. See §5.4. |
 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`; any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
@@ -768,10 +763,8 @@ A work result of gray-paper `WorkExecResult::Error`, either a bug in the paracha
 service's `refine` or a PVF that failed without reporting an actual error (§4.2), is skipped entirely
 here: no `parachain_log` entry, no state change, and it never reaches the steps below.
 
-A candidate **rejected** at any step below is abandoned there: no later step runs for
-it, and in particular its upward messages are never replayed. Rejection is what confines
-the privileged host functions of §4.3, so a candidate failing the parent-head or
-validation-code check can invoke none of them. Otherwise:
+A candidate **rejected** at any step below changes nothing at all: no later step runs
+for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
 
 1. **Registration check**: Reject the work-package immediately, and record no
    `parachain_log` entry, if `para_id` is not in `parachains` or its `ParaInfo`
@@ -793,10 +786,9 @@ validation-code check can invoke none of them. Otherwise:
    before this candidate is considered: release the new code (see §6.1) and clear
    `pending_upgrade`.
  5. **Validation code check**: This is the authoritative check. Verify the work
-   result's `validation_code_hash` matches either the active
-   `ParaInfo.validation_code` hash or the pending upgrade's
-   code hash. If it matches neither, the candidate is rejected and an
-   `AccumulateLog::InvalidCodeHash { hash }` event is emitted for this work package.
+   result's `(validation_code_hash, len)` pair matches either the active
+   `ParaInfo.validation_code` or the pending upgrade's code. If it matches neither,
+   the candidate is rejected.
 6. **Head data update + code upgrade check**: Writes the new `head_data` from the
    work digest into `ParaInfo` for the parachain and immediately checks whether the
    candidate was validated with the pending new PVF code. If so, activate the new
@@ -809,18 +801,20 @@ validation-code check can invoke none of them. Otherwise:
    key updates, etc.). See the side-effect host function table in §4.3 for the full list.
    This replay may itself emit further `AccumulateLog` events for the work package.
 
-All `AccumulateLog` events emitted while processing a work package (the code-hash
-mismatch from step 5 and any from the step 7 replay) are collected and appended to
+All `AccumulateLog` events emitted while processing a work package (necessarily from
+the step 7 replay, since no earlier step emits any) are collected and appended to
 `parachain_log[para_id]` as a single `LogEntry::Accumulate`. Every append to
 `parachain_log[para_id]`, whether the `RefineLogEntry` from step 2 or this
 `LogEntry::Accumulate`, is subject to the eviction rules below.
 
 **Log pruning and eviction.** The per-parachain `parachain_log` is kept bounded
-during Accumulate. When a candidate is processed, before its own refine/accumulate
-entries are appended, entries whose inline timeslot is strictly less than the
-candidate's lookup-anchor timeslot are pruned. The log
-is additionally bounded to a 64 KiB total encoded size (not a fixed entry count),
-so each entry is charged only its actual size.
+during Accumulate. When a candidate is **accepted**, entries whose inline timeslot is
+strictly less than its lookup-anchor timeslot are pruned before any of that candidate's
+own effects are applied. Only accepted candidates prune: the anchor is chosen by whoever
+submitted the package and pruning ignores rank, so letting a rejected candidate prune
+would let anyone holding coretime erase a parachain's log wholesale and bypass the
+ranking below. The log is additionally bounded to a 64 KiB total encoded size (not a
+fixed entry count), so each entry is charged only its actual size.
 
 When a new entry would push the log over 64 KiB, eviction follows a **fixed rank
 order**, lowest rank discarded first:
@@ -1388,7 +1382,9 @@ upgrade lifecycle:
 - `parachain_set_head(para_id, new_head)` overwrites `ParaInfo.head_data`.
 - `parachain_set_validation_code(para_id, new_hash, new_len)` sets
   `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
-  `pending_upgrade`. `used_state_balance` grows by `preimage_footprint(new_len)`
+  `pending_upgrade`. Unless the parachain already references `new_hash`, in which case
+  the solicit is a no-op and nothing is charged, `used_state_balance` grows by
+  `preimage_footprint(new_len)`
   to hold the new validation code. The displaced validation codes (the old active
   code and any pending code) are released via the normal `forget` step (§6.1).
   Each keeps its footprint charged until the parachain calls `forget` again to
@@ -1421,7 +1417,7 @@ Coretime chain
     ▼
 Parachain Service (Accumulate)
 	│  Rejects with `AccumulateLog::TooMuchStateHeld` unless used_state_balance
-	│  is exactly BASELINE_FOOTPRINT + preimage_footprint(validation_code)
+	│  is at most BASELINE_FOOTPRINT + preimage_footprint(validation_code)
 	│  + preimage_footprint(pending_upgrade code, if any), i.e. the parachain
 	│  has already released all other solicited preimages and key_value_storage.
 	│  Otherwise forgets the validation code(s). If any cannot be expunged yet

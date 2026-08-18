@@ -83,8 +83,6 @@ module messages {
   | InsufficientServiceBalance
 
   type AccumulateLog =
-  // Work-result's validation_code_hash matches neither active nor pending.
-  | InvalidCodeHashAcc(ValidationCodeHash)
   // Available state balance insufficient — see the reason for the cause.
   | InsufficientStateBalance(InsufficientBalanceReason)
   // parachain_set_state_balance rejected because attempted < current_used.

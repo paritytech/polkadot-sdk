@@ -415,7 +415,7 @@ module tests {
     // Opaque(1024) ≈ 1033 B per entry; 1 acc + 63 refine fits under the cap,
     // so pushing one more triggers byte-cap eviction of the oldest Refine entry.
     val full = range(0, 64).foldl(List(), (acc, i) =>
-      if (i == 0) acc.append((i, AccumulateLogEntry(List(InvalidCodeHashAcc({ vchBytes: 7 })))))
+      if (i == 0) acc.append((i, AccumulateLogEntry(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 7 } })))))
       else acc.append((i, RefineLogEntry({ error: Opaque(1024), authTrace: 0 }))))
     val after = pushLogEntry(
       full,
@@ -436,10 +436,10 @@ module tests {
     }
   }
 
-  /// A 1-event AccumulateLogEntry with an InvalidCodeHashAcc costs 39 B
+  /// A 1-event AccumulateLogEntry with a 32-octet-payload event costs 39 B
   /// (4 timeslot + 1 LogEntry disc + 1 vec prefix + 33 event), not the worst case.
   run bytecapSmallEntryCostTest = {
-    val entry = (0, AccumulateLogEntry(List(InvalidCodeHashAcc({ vchBytes: 1 }))))
+    val entry = (0, AccumulateLogEntry(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 1 } }))))
     val entrySize = logEntrySize(entry)
     all {
       assert(entrySize < 100),
@@ -451,7 +451,7 @@ module tests {
   /// Fill a log with large Refine entries until near the byte cap, push one
   /// more, and verify the cap holds and the Accumulate entry survived eviction.
   run bytecapEvictionTest = {
-    val bigAcc = (1, AccumulateLogEntry(List(InvalidCodeHashAcc({ vchBytes: 1 }))))
+    val bigAcc = (1, AccumulateLogEntry(List(ServiceUpgradePreimageMissing({ codeHash: { hashBytes: 1 } }))))
     val withAcc = pushLogEntry(List(), bigAcc)
     // Each Refine entry with Opaque(1014) ≈ 1023 B; after 64 pushes the
     // log wraps once (oldest Refine evicted), leaving the Accumulate intact.
@@ -1822,6 +1822,39 @@ module tests {
       // Control: the same message from an accepted candidate does upgrade.
       .then(applyHappyPath(ah, ahCode, List(upgrade)))
       .then(expectThat(svc.serviceCodeHash == newCode))
+  }
+
+  /// §5.1: a rejected candidate changes NOTHING. Pruning in particular must not
+  /// happen: the lookup-anchor is chosen by whoever submitted the package, so a
+  /// rejected candidate that pruned would let anyone holding coretime erase a
+  /// parachain's log at any rank, bypassing the eviction ranking. The log here is
+  /// seeded with an old `Opaque` (rank 1) that a prune to `now` would destroy.
+  run rejectedCandidateChangesNothingTest = {
+    val para = CoretimeParaId
+    val code: ValidationCodeHash = { vchBytes: 1 }
+    // An old, high-value entry the parachain itself reported.
+    val seeded = initialState.appendRefineLog(para, 1, Opaque(64), 0)
+    val ok: ParachainWorkDigestOk = {
+      paraId: para,
+      validationCode: { hash: code, len: FixedCodeLen },
+      // Stale parent: rejected at the parent-head check.
+      parentHeadHash: headHash(StaleParentHead),
+      headData: StaleParentHead,
+      upwardMessages: List(),
+      // A lookup-anchor far above the seeded entry's timeslot: were this candidate
+      // to prune, the entry would be gone.
+      lookupAnchor: 500
+    }
+    val out = accumulateOnePackage(
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), None, FixedCodeLen, 500)
+    all {
+      assert(seeded.paraLog(para).length() == 1),
+      // Nothing at all changed, and the old entry survived.
+      assert(out.state == seeded),
+      assert(out.state.paraLog(para).length() == 1),
+      assert(out.logPruned == None),
+      init
+    }
   }
 
   /// True iff a work result carries a successful digest.

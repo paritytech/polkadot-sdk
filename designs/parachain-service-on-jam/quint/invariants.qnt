@@ -303,47 +303,6 @@ module invariants {
       }
     })
 
-  /// For every bad-code Ok result (code matches neither active nor pending in
-  /// prevSvc, not reapable), an InvalidCodeHashAcc AccumulateLogEntry must
-  /// exist in the flat log at now. Per-result check — all bad-code results must
-  /// be logged.
-  val acc_error_logged: bool =
-    lastStepWorkResults.foldl(true, (acc, r) => acc and match r.result {
-      | WorkErr => true
-      | WorkOk(digest) => match digest {
-        | Err(_) => true
-        | Ok(ok) =>
-          if (not(prevSvc.isLive(ok.paraId))) true
-          else {
-            val pi = prevSvc.paraInfo(ok.paraId)
-            val matchesActive =
-              match pi.validationCode {
-                | None => false
-                | Some(vc) => ok.validationCode == vc.ref
-              }
-            val reapable =
-              match pi.pendingUpgrade {
-                | None => false
-                | Some(pair) => pair._2 <= now
-              }
-            val matchesPending =
-              match pi.pendingUpgrade {
-                | None => false
-                | Some(pair) => ok.validationCode == pair._1.ref
-              }
-            if (reapable or matchesActive or matchesPending) true
-            else svc.paraLog(ok.paraId).foldl(false, (found, pair) =>
-              found or (pair._1 == now and match pair._2 {
-                | AccumulateLogEntry(evs) => evs.foldl(false, (a, e) => match e {
-                  | InvalidCodeHashAcc(_) => true
-                  | _ => a
-                })
-                | RefineLogEntry(_) => false
-              }))
-          }
-      }
-    })
-
   /// The bucket chain is well formed: endpoints exist and bound every occupied
   /// slot, only the tail has `nextSlot == None`, and every other bucket links
   /// forward to a later occupied slot.
@@ -474,7 +433,6 @@ module invariants {
     head_commitment_matches_changed_heads,
     parent_head_continuity,
     refine_error_logged,
-    acc_error_logged,
     incoming_transfers_chain_consistent,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
