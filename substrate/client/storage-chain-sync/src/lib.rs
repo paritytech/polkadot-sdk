@@ -371,7 +371,7 @@ where
 		}
 
 		let wants: Vec<RenewWant> = missing.into_iter().collect();
-		let acquired = self.fetcher.fetch_many(&wants).await?;
+		let mut acquired = self.fetcher.fetch_many(&wants).await?;
 
 		if acquired.len() != wants.len() {
 			return Err(Error::IncompleteFetch {
@@ -384,9 +384,8 @@ where
 			.iter()
 			.map(|w| {
 				let data = acquired
-					.get(&w.hash)
-					.expect("all hashes present; len equality verified above; qed")
-					.clone();
+					.remove(&w.hash)
+					.expect("all hashes present; len equality verified above; qed");
 				(w.hash, data)
 			})
 			.collect();
