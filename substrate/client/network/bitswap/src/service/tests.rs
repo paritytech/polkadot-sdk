@@ -78,12 +78,24 @@ fn build_rig_with(
 	)
 }
 
-fn build_rig_with_inbound_limits(
+/// A not-yet-running service plus the channel ends tests interact with. Most tests
+/// spawn the service via [`build_rig_with_inbound_limits`]; tests that need to call
+/// handlers directly keep the service instead.
+struct TestParts {
+	service: BitswapService<substrate_test_runtime::Block>,
+	user_handle: BitswapHandle,
+	sync_event_tx: mpsc::Sender<SyncEvent>,
+	inbound_tx: mpsc::Sender<TransportEvent>,
+	outbound_req_rx: mpsc::Receiver<(litep2p::PeerId, Vec<(Cid, WantType)>)>,
+	outbound_resp_rx: mpsc::Receiver<(litep2p::PeerId, Vec<ResponseType>)>,
+}
+
+fn build_parts(
 	client: Arc<dyn BlockBackend<substrate_test_runtime::Block> + Send + Sync>,
 	max_live_cids: usize,
 	max_lookups: usize,
 	queued_entries_per_peer: usize,
-) -> TestRig {
+) -> TestParts {
 	let (inbound_tx, inbound_rx) = mpsc::channel(64);
 	let (outbound_req_tx, outbound_req_rx) = mpsc::channel(64);
 	let (outbound_resp_tx, outbound_resp_rx) = mpsc::channel(64);
@@ -114,6 +126,24 @@ fn build_rig_with_inbound_limits(
 	};
 
 	let user_handle = BitswapHandle::new(cmd_tx);
+
+	TestParts { service, user_handle, sync_event_tx, inbound_tx, outbound_req_rx, outbound_resp_rx }
+}
+
+fn build_rig_with_inbound_limits(
+	client: Arc<dyn BlockBackend<substrate_test_runtime::Block> + Send + Sync>,
+	max_live_cids: usize,
+	max_lookups: usize,
+	queued_entries_per_peer: usize,
+) -> TestRig {
+	let TestParts {
+		service,
+		user_handle,
+		sync_event_tx,
+		inbound_tx,
+		outbound_req_rx,
+		outbound_resp_rx,
+	} = build_parts(client, max_live_cids, max_lookups, queued_entries_per_peer);
 	let _handle = tokio::spawn(async move { service.run().await });
 
 	TestRig { user_handle, sync_event_tx, inbound_tx, outbound_req_rx, outbound_resp_rx, _handle }
@@ -337,6 +367,49 @@ fn inbound_queue_drops_overflow_and_counts_it() {
 			.collect::<Vec<_>>()
 	);
 	assert!(queue.next_batch().is_none());
+}
+
+#[test]
+fn inbound_queue_remove_peer_purges_queue_and_rotation() {
+	let peer_a = litep2p::PeerId::random();
+	let peer_b = litep2p::PeerId::random();
+	let entry = |i: u8| (cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [i; 32]), WantType::Block);
+	let mut queue = InboundQueue::new(MAX_QUEUED_INBOUND_ENTRIES_PER_PEER);
+
+	assert_eq!(queue.enqueue(peer_a, (0..4).map(entry).collect()), 0);
+	assert_eq!(queue.enqueue(peer_b, vec![entry(0xff)]), 0);
+
+	assert_eq!(queue.remove_peer(&peer_a), 4);
+	assert_eq!(queue.remove_peer(&peer_a), 0);
+
+	let (peer, batch) = queue.next_batch().unwrap();
+	assert_eq!((peer, batch.len()), (peer_b, 1));
+	assert!(queue.next_batch().is_none());
+}
+
+#[tokio::test]
+async fn disconnect_purges_queued_inbound_entries_of_peer() {
+	let client = Arc::new(substrate_test_runtime_client::new());
+	let mut parts = build_parts(client, MAX_LIVE_CIDS, 1, MAX_QUEUED_INBOUND_ENTRIES_PER_PEER);
+	let peer_a = litep2p::PeerId::random();
+	let peer_b = litep2p::PeerId::random();
+	let entry = |i: u8| (cid_for_digest(BLAKE2B_256_MULTIHASH_CODE, [i; 32]), WantType::Block);
+
+	// Park the only lookup worker so both wantlists stay queued.
+	let permit = parts.service.inbound_lookup_pool.try_acquire_worker().expect("worker is idle");
+	parts.service.on_inbound_request(peer_a, vec![entry(1)]);
+	parts.service.on_inbound_request(peer_b, vec![entry(2)]);
+
+	parts.service.on_peer_disconnected(peer_a).await;
+
+	// Once the worker frees up, only the still-connected peer's wantlist is served.
+	drop(permit);
+	parts.service.dispatch_inbound_lookups();
+	let (served_peer, responses, _permit) =
+		drain_next(&mut parts.service.inbound_lookup_rx).await.expect("lookup result");
+	assert_eq!(served_peer, peer_b);
+	assert_single_dont_have(&responses, entry(2).0);
+	assert!(parts.service.inbound_queue.next_batch().is_none());
 }
 
 #[tokio::test(start_paused = true)]

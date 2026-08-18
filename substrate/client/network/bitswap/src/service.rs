@@ -531,6 +531,15 @@ impl InboundQueue {
 		dropped
 	}
 
+	/// Drops all queued entries of a peer, returning how many were removed.
+	fn remove_peer(&mut self, peer: &litep2p::PeerId) -> usize {
+		let removed = self.per_peer.remove(peer).map_or(0, |queue| queue.len());
+		if removed > 0 {
+			self.rotation.retain(|rotated| rotated != peer);
+		}
+		removed
+	}
+
 	/// Take the next batch of up to [`MAX_WANTED_BLOCKS`] entries, rotating the serviced
 	/// peer to the back of the queue.
 	fn next_batch(&mut self) -> Option<(litep2p::PeerId, Vec<(Cid, WantType)>)> {
@@ -818,8 +827,17 @@ impl<B: BlockT> BitswapService<B> {
 
 	/// Removes a peer and immediately fails over requests it owned.
 	/// Late responses remain safe because peer ownership is checked on completion.
+	/// Queued inbound wantlist entries of the peer are dropped so departed peers
+	/// neither occupy queue capacity nor waste lookup work.
 	async fn on_peer_disconnected(&mut self, peer: litep2p::PeerId) {
 		self.connected_peers.remove(&peer);
+		let dropped = self.inbound_queue.remove_peer(&peer);
+		if dropped > 0 {
+			log::trace!(
+				target: LOG_TARGET,
+				"dropped {dropped} queued inbound entries of disconnected {peer:?}",
+			);
+		}
 		let cids_to_top_up = self.scheduler.remove_in_flight_peer(peer);
 		self.top_up_in_flight(cids_to_top_up).await;
 	}
