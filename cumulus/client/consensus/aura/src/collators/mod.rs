@@ -18,7 +18,7 @@
 //! Stock, pure Aura collators.
 //!
 //! This includes the [`lookahead`] collator, which prospectively builds on parachain blocks which
-//! have not yet been included in the relay chain.
+//! have not yet been included in the relay chain, and also the [`slot_based`] collator.
 
 use crate::collator::SlotClaim;
 use codec::Codec;
