@@ -209,7 +209,7 @@ impl TestRig {
 	async fn send_block(&self, peer: litep2p::PeerId, cid: Cid, data: &[u8]) {
 		self.send_response(
 			peer,
-			vec![TransportResponse::VerifiedBlock { cid, bytes: data.to_vec() }],
+			vec![TransportResponse::VerifiedBlock { cid, bytes: Bytes::copy_from_slice(data) }],
 		)
 		.await;
 	}
@@ -228,7 +228,7 @@ async fn expect_block(rx: &mut mpsc::Receiver<FetchItem>, cid: Cid, data: &[u8])
 	match drain_next(rx).await.expect("stream item") {
 		Ok((got_cid, bytes)) => {
 			assert_eq!(got_cid, cid);
-			assert_eq!(bytes, data);
+			assert_eq!(bytes.as_ref(), data);
 		},
 		other => panic!("expected block, got {other:?}"),
 	}

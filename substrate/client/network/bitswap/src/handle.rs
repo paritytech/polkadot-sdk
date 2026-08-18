@@ -19,6 +19,7 @@
 
 use super::{is_cid_supported, Cid};
 
+use bytes::Bytes;
 use std::collections::HashSet;
 use tokio::sync::mpsc;
 
@@ -39,8 +40,9 @@ pub enum BitswapError {
 	Overloaded,
 }
 
-/// A fetched block or request error.
-pub type FetchItem = Result<(Cid, Vec<u8>), BitswapError>;
+/// A fetched block or request error. Block bytes are [`Bytes`] because a block may be
+/// delivered to multiple concurrent requests without copying.
+pub type FetchItem = Result<(Cid, Bytes), BitswapError>;
 
 /// Handle for submitting Bitswap requests.
 #[derive(Debug, Clone)]

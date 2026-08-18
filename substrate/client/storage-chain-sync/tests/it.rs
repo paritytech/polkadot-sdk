@@ -838,7 +838,7 @@ mod mock {
 				observed.push(cid);
 				let digest: Option<ContentHash> = cid.hash().digest().try_into().ok();
 				if let Some(bytes) = digest.and_then(|d| responses.get(&d).cloned()) {
-					tx.try_send(Ok((cid, bytes))).expect("channel sized for cids.len()");
+					tx.try_send(Ok((cid, bytes.into()))).expect("channel sized for cids.len()");
 				}
 			}
 			Ok(rx)

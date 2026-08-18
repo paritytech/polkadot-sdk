@@ -111,7 +111,8 @@ impl IndexedTransactionFetcher {
 						"bitswap fetched {} bytes for {hash:?}",
 						bytes.len(),
 					);
-					acquired.insert(hash, bytes);
+					// Zero-copy when this stream holds the only reference to the block.
+					acquired.insert(hash, bytes.into());
 				},
 				Ok(Some(Err(BitswapError::ServiceClosed))) => {
 					log::warn!(

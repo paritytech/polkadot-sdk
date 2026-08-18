@@ -35,6 +35,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use litep2p::protocol::libp2p::bitswap::{
 	BitswapEvent, BitswapHandle as Litep2pBitswapHandle, BlockPresenceType, ResponseType, WantType,
@@ -80,7 +81,7 @@ enum TransportResponse {
 	/// the pairing needs no further verification; any other transport must uphold this.
 	VerifiedBlock {
 		cid: Cid,
-		bytes: Vec<u8>,
+		bytes: Bytes,
 	},
 	Presence {
 		cid: Cid,
@@ -103,7 +104,7 @@ impl BitswapTransport for Litep2pBitswapHandle {
 					.into_iter()
 					.map(|response| match response {
 						ResponseType::Block { cid, block } => {
-							TransportResponse::VerifiedBlock { cid, bytes: block }
+							TransportResponse::VerifiedBlock { cid, bytes: block.into() }
 						},
 						ResponseType::Presence { cid, presence } => {
 							TransportResponse::Presence { cid, presence }
@@ -800,7 +801,7 @@ impl<B: BlockT> BitswapService<B> {
 
 	/// Delivers a resolved block to every user request sharing its CID.
 	/// The CID is removed once, releasing any replacement in-flight request.
-	fn deliver_block(&mut self, cid: Cid, bytes: Vec<u8>) {
+	fn deliver_block(&mut self, cid: Cid, bytes: Bytes) {
 		let Some(user_request_ids) = self.scheduler.take_user_requests_for_delivered_cid(cid)
 		else {
 			return;
