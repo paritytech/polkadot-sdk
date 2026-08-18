@@ -2899,7 +2899,7 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
-		parse_ump_signals_internal(
+		parse_ump_signals_for_commitments(
 			&self.commitments,
 			self.descriptor.version(),
 			cores_per_para,
@@ -2911,10 +2911,11 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 
 /// Performs the UMP-signal checks and returns the signals.
 ///
-/// Receipt-free variant of [`CommittedCandidateReceiptV2::parse_ump_signals`]:
-/// takes the descriptor fields the check consumes instead of a built receipt.
-/// For callers that validate commitments before a receipt exists.
-pub fn parse_ump_signals_internal(
+/// The check is on the commitments: it needs the claim queue plus the three descriptor
+/// fields the core-index check consumes, and nothing else from a receipt.
+/// [`CommittedCandidateReceiptV2::parse_ump_signals`] is the convenience wrapper for
+/// callers that already hold a receipt.
+pub fn parse_ump_signals_for_commitments(
 	commitments: &CandidateCommitments,
 	version: CandidateDescriptorVersion,
 	cores_per_para: &TransposedClaimQueue,

@@ -65,7 +65,7 @@
 //!   enabled.
 //!
 //! UMP-signal checks run on the commitments and descriptor fields directly
-//! ([`parse_ump_signals_internal`]);
+//! ([`parse_ump_signals_for_commitments`]);
 //!
 //! # Protocol Details
 //!
@@ -112,7 +112,7 @@ use polkadot_node_subsystem_util::{
 	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	transpose_claim_queue, v9::parse_ump_signals_internal, CandidateCommitments,
+	transpose_claim_queue, v9::parse_ump_signals_for_commitments, CandidateCommitments,
 	CandidateDescriptorVersion, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, TransposedClaimQueue,
 };
@@ -639,7 +639,7 @@ fn construct_segment_entry(
 		hrmp_watermark: collation.hrmp_watermark,
 	};
 
-	parse_ump_signals_internal(
+	parse_ump_signals_for_commitments(
 		&commitments,
 		candidates_descriptor_version,
 		transposed_claim_queue,
