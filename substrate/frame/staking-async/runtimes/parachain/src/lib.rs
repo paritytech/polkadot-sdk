@@ -2311,7 +2311,6 @@ fn ensure_key_ss58() {
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
 }
 
-
 #[test]
 fn non_transfer_proxy_denies_other_asset_instances() {
 	use frame_support::traits::InstanceFilter;
@@ -2331,14 +2330,12 @@ fn non_transfer_proxy_denies_other_asset_instances() {
 		"NonTransfer must deny ForeignAssets transfers",
 	);
 
-	let pool_assets_transfer = RuntimeCall::PoolAssets(pallet_assets::Call::<
-		Runtime,
-		PoolAssetsInstance,
-	>::transfer {
-		id: 1,
-		target: sp_runtime::MultiAddress::Id(AccountId::from([0u8; 32])),
-		amount: 1,
-	});
+	let pool_assets_transfer =
+		RuntimeCall::PoolAssets(pallet_assets::Call::<Runtime, PoolAssetsInstance>::transfer {
+			id: 1,
+			target: sp_runtime::MultiAddress::Id(AccountId::from([0u8; 32])),
+			amount: 1,
+		});
 	assert!(
 		!ProxyType::NonTransfer.filter(&pool_assets_transfer),
 		"NonTransfer must deny PoolAssets transfers",
