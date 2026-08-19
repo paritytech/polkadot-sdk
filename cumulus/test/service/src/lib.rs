@@ -52,8 +52,7 @@ use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImpo
 use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
-	CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
-	StartRelayChainTasksParams,
+	DARecoveryProfile, ParachainTracingExecuteBlock, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
@@ -375,7 +374,6 @@ where
 			metrics: Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
-			sybil_resistance_level: CollatorSybilResistance::Resistant,
 		})
 		.await?;
 

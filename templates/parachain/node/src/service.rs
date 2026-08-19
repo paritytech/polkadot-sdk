@@ -21,8 +21,7 @@ use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params a
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainHostFunctions,
-	StartRelayChainTasksParams,
+	BuildNetworkParams, DARecoveryProfile, ParachainHostFunctions, StartRelayChainTasksParams,
 };
 #[docify::export(cumulus_primitives)]
 use cumulus_primitives_core::{
@@ -292,7 +291,6 @@ pub async fn start_parachain_node(
 			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
-			sybil_resistance_level: CollatorSybilResistance::Resistant, // because of Aura
 			metrics: sc_network::NetworkWorker::<Block, Hash>::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),

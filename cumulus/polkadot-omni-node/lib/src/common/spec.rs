@@ -33,7 +33,7 @@ use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
+	BuildNetworkParams, DARecoveryProfile, ParachainTracingExecuteBlock,
 	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
@@ -357,8 +357,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
 	>;
 
-	const SYBIL_RESISTANCE: CollatorSybilResistance;
-
 	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
@@ -461,7 +459,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					spawn_essential_handle: task_manager.spawn_essential_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
-					sybil_resistance_level: Self::SYBIL_RESISTANCE,
 					metrics,
 				})
 				.await?;
