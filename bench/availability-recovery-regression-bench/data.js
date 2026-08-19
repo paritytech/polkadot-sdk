@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787139719853,
+  "lastUpdate": 1787147713140,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "202ea0217f44fa1e94e52c77bb42dfc7322926b0",
-          "message": "Fix flaky test `zombienet-polkadot-elastic-scaling-slot-based-3cores` (#10826)\n\nWe had 4 failures in the last 90 runs of\n`zombienet-polkadot-elastic-scaling-slot-based-3cores` test where the\nassetion fails by `1` (34 blocks)\n\n\n\nhttps://paritytech.github.io/zombienet-jobs-monitor/web/?search=based-3cores&mergeQueueOnly=true\n<img width=\"1011\" height=\"183\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/07123449-29a0-4f69-bc2d-9c3bc4b865ae\"\n/>\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21035251168/job/60482637320\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20923519106/job/60116752831\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20432629082/job/58707838790\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20264366293/job/58185559463\n\nAnd since we already have some margin we can adjust to remove this\nflakyness.\n\nping @alindima",
-          "timestamp": "2026-01-19T08:38:05Z",
-          "tree_id": "e46a3578aebcd6daaeff3dbb004faa33cd9a0a01",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/202ea0217f44fa1e94e52c77bb42dfc7322926b0"
-        },
-        "date": 1768816102322,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.152276349,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12072068420000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.263305763733333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d43339b83356ca5bf1a8f40d9e058f550c0e7bb",
+          "message": "Rework bitswap client and server (#12686)\n\nThis PR extracts Bitswap from `sc-network` into a dedicated\n`sc-network-bitswap` crate and replaces the backend-specific\nimplementations with a single actor-driven service and streaming handle\nAPI.\n\n## New API\n\n`BitswapHandle::request_stream(cids)` accepts a wantlist of arbitrary\nsize and returns a bounded channel yielding hash-verified (Cid, Vec<u8>)\npairs as each block resolves, so a slow CID never holds back completed\nones. The service retries unresolved CIDs indefinitely and has no\ninternal timeout — the caller sets its own deadline and cancels by\ndropping the receiver. All scheduling now lives in the actor: peers\ntracked via sync events, HAVE-based peer preference, per-peer timeouts,\nfailover on disconnect, and deduplication so concurrent requests for the\nsame CID share one network request.\n\n**Backpressure:** Outbound, a dispatch window caps in-flight CIDs at\n1024 with a FIFO behind it, and the bounded command channel returns\nOverloaded immediately instead of queueing unboundedly. Inbound,\nwantlists go into capped per-peer queues served round-robin, and\ndatabase lookups run on at most 8 semaphore-guarded blocking workers.\nEach permit is only released after the response has been forwarded to\nthe transport, so network backpressure propagates back into the lookup\npool.\n\n*Note:* The rewrite here only supports litep2p. I don't see a good\nreason to support libp2p for this. But up for debate, we could try to\nintroduce libp2p compatibility here again.\n\n## New structure\n\n- `handle.rs`: public request-stream API and errors\n- `service.rs`: request scheduling, peer management, and inbound serving\n- `metrics.rs`: Bitswap metrics\n- `service/tests.rs`: unit and property tests\n- Storage-chain sync and node wiring consume the new handle API\n\n---------\n\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T12:25:40Z",
+          "tree_id": "44dfc0a782805ca9b6bdb1a7998dc0123a7e35ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d43339b83356ca5bf1a8f40d9e058f550c0e7bb"
+        },
+        "date": 1787147679713,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.6601019302,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13895647503333333,
             "unit": "seconds"
           }
         ]
