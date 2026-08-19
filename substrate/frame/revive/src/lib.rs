@@ -2189,7 +2189,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// # Parameters
 	///
-	/// - `tx`: The Ethereum transaction to simulate.
+	/// - `tx`: The Ethereum transaction to simulate. Must carry a `from` address when its
+	///   `authorization_list` is non-empty, since the authorization deposits are charged to it.
 	/// - `timestamp_override`: An optional timestamp to report to the contract instead of the
 	///   current one.
 	/// - `perform_balance_checks`: Whether the origin's balance is checked to cover the fees and
@@ -2206,6 +2207,17 @@ impl<T: Config> Pallet<T> {
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
+
+		// The authorization deposits are charged to `tx.from`. Defaulting a missing `from` to the
+		// zero address would charge an unfunded account, so every authorization would be rolled
+		// back post-validation and silently dropped from the estimate.
+		if !tx.authorization_list.is_empty() && tx.from.is_none() {
+			return Err(EthTransactError::Message(
+				"a transaction with an authorization list requires a `from` address: \
+				 the authorization deposits are charged to it"
+					.into(),
+			));
+		}
 
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);

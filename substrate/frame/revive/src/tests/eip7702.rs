@@ -1369,6 +1369,56 @@ fn dry_run_with_authorization_list() {
 	});
 }
 
+/// A dry run carrying an authorization list but no `from` must be rejected rather than fall back
+/// to the zero address. The zero-address account funds nothing, so every authorization would roll
+/// back post-validation and be dropped from the estimate — an under-priced estimate that looks
+/// valid.
+#[test]
+fn dry_run_with_authorization_list_requires_from() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000_000);
+
+		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+			.build_and_unwrap_contract();
+
+		let chain_id = U256::from(<Test as Config>::ChainId::get());
+		let signer = TestSigner::new(&[0xAB; 32]);
+		let auth = signer.sign_authorization(chain_id, target_contract.addr, U256::zero());
+
+		let result = crate::Pallet::<Test>::dry_run_eth_transact(
+			crate::GenericTransaction {
+				from: None,
+				to: Some(target_contract.addr),
+				authorization_list: vec![auth.clone()],
+				..Default::default()
+			},
+			None,
+			true,
+			None,
+		);
+
+		assert!(
+			matches!(&result, Err(crate::EthTransactError::Message(msg)) if msg.contains("`from`")),
+			"expected a missing-`from` rejection, got: {result:?}"
+		);
+		// The rejection must happen before any delegation is written.
+		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
+
+		// The same transaction with a `from` is accepted.
+		assert_ok!(crate::Pallet::<Test>::dry_run_eth_transact(
+			crate::GenericTransaction {
+				from: Some(ALICE_ADDR),
+				to: Some(target_contract.addr),
+				authorization_list: vec![auth],
+				..Default::default()
+			},
+			None,
+			true,
+			None,
+		));
+	});
+}
+
 /// State-override path: a `code` override of `0xef0100 || target` must install the account as
 /// a `DelegatedEOA` pointing at `target`, not as raw bytecode.
 ///
