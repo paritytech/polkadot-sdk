@@ -529,9 +529,9 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-                // Consume the entitlement: a segment is ONE fetch, spent at launch.The 
-                // segment stays out of later picks via both the `consumed` flag and the
-                // in-flight filter in `eligible_segments`.
+				// Consume the entitlement: a segment is ONE fetch, spent at launch. The
+				// segment stays out of later picks via both the `consumed` flag and the
+				// in-flight filter in `eligible_segments`.
 				if let Some(peer_ads) = self
 					.per_scheduling_parent
 					.get_mut(&advertisement.scheduling_parent)
@@ -1130,9 +1130,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.live_segments().filter_map(move |(_, segment)| {
-						segment.as_advertisement(*peer_id, *sp)
-					})
+					peer_ads
+						.live_segments()
+						.filter_map(move |(_, segment)| segment.as_advertisement(*peer_id, *sp))
 				})
 			})
 			.collect()
@@ -1146,9 +1146,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.live_segments().map(move |(_, segment)| {
-						(*sp, *peer_id, segment.entries.clone())
-					})
+					peer_ads
+						.live_segments()
+						.map(move |(_, segment)| (*sp, *peer_id, segment.entries.clone()))
 				})
 			})
 			.collect()
@@ -1380,21 +1380,21 @@ impl PerSchedulingParent {
 
 	#[cfg(test)]
 	fn add_advertisement(&mut self, advertisement: Advertisement, received_at: Instant) {
-		self.peer_advertisements.entry(advertisement.peer_id).or_default().insert(
-			StoredSegment {
+		self.peer_advertisements
+			.entry(advertisement.peer_id)
+			.or_default()
+			.insert(StoredSegment {
 				descriptor_version: advertisement.advertised_descriptor_version,
 				entries: advertisement.prospective_candidate.into_iter().collect(),
 				received_at,
 				para_id: advertisement.para_id,
 				consumed: false,
-			},
-		);
+			});
 	}
 }
 
 /// Identifies a stored segment within one peer's map, stably across insertions, sweeps and
 /// any other mutation of that map.
-///
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct SegmentId(u64);
 
@@ -1412,7 +1412,10 @@ struct PeerAdvertisements {
 
 impl PeerAdvertisements {
 	fn live_segments(&self) -> impl Iterator<Item = (SegmentId, &StoredSegment)> {
-		self.segments.iter().filter(|(_, segment)| !segment.consumed).map(|(id, s)| (*id, s))
+		self.segments
+			.iter()
+			.filter(|(_, segment)| !segment.consumed)
+			.map(|(id, s)| (*id, s))
 	}
 
 	/// Store `segment` under a fresh id.

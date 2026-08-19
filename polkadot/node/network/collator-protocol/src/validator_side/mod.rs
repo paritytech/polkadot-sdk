@@ -1298,9 +1298,8 @@ async fn process_incoming_peer_message<Context>(
 			}
 		},
 		// Nodes that run this validator side pin their main collation protocol version to V3
-		// (see `main_collation_version` in the service builder), so V4 is never negotiated and
-		// this arm is unreachable. Logged rather than `unreachable!` because the guarantee
-		// rests on service-level configuration, not on anything local to this module.
+		// (see `main_collation_version` in the service builder), so V4 is never negotiated
+		// here — hence a log, not a panic, on this config-level guarantee.
 		CollationProtocols::V4(V4::AdvertiseSegment { .. }) => {
 			gum::error!(
 				target: LOG_TARGET,
