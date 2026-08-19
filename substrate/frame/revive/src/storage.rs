@@ -228,6 +228,21 @@ impl<T: Config> AccountInfo<T> {
 		<AccountInfoOf<T>>::get(address)?.account_type.contract_info()
 	}
 
+	/// [`Self::load_contract`] plus the EIP-7702 delegation target, from a single read.
+	///
+	/// Callers that need both must use this rather than pairing `load_contract` with
+	/// [`Self::get_delegation_target`], which decodes the same entry twice.
+	pub fn load_contract_with_delegation(
+		address: &H160,
+	) -> (Option<ContractInfo<T>>, Option<H160>) {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return (None, None) };
+		let target = match &info.account_type {
+			AccountType::DelegatedEOA { delegate_target, .. } => *delegate_target,
+			_ => None,
+		};
+		(info.account_type.contract_info(), target)
+	}
+
 	/// Insert a contract, existing dust if any will be unchanged.
 	pub fn insert_contract(address: &H160, contract: ContractInfo<T>) {
 		AccountInfoOf::<T>::mutate(address, |account| {
@@ -270,6 +285,15 @@ impl<T: Config> AccountInfo<T> {
 			AccountType::DelegatedEOA { delegate_target: Some(target), .. } => Some(target),
 			_ => None,
 		}
+	}
+
+	/// EIP-7702: `true` when a call to `address` must halt because it delegates to a target that
+	/// is itself delegated. The spec forbids following the chain: the call retrieves the target's
+	/// `0xef0100 || ..` indicator and traps on the leading `0xef`.
+	///
+	/// Costs one [`AccountInfoOf`] read for an undelegated `address`, two otherwise.
+	pub fn is_chained_delegation(address: &H160) -> bool {
+		Self::get_delegation_target(address).is_some_and(|target| Self::is_delegated(&target))
 	}
 
 	/// EIP-7702: Read the account that paid the currently held delegation deposit, if any.

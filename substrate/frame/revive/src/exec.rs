@@ -878,9 +878,7 @@ where
 		// EIP-7702 chained delegation: per spec, calling A→B (where B is itself delegated)
 		// retrieves B's indicator bytes `0xef0100||...` and traps on `0xef`. We surface that
 		// as an empty revert. Mirrored at `PrecompileExt::call` and `delegate_call`.
-		if let Some(target) = AccountInfo::<T>::get_delegation_target(&dest) &&
-			AccountInfo::<T>::is_delegated(&target)
-		{
+		if AccountInfo::<T>::is_chained_delegation(&dest) {
 			return Ok(ExecReturnValue {
 				flags: pallet_revive_uapi::ReturnFlags::REVERT,
 				data: Vec::new(),
@@ -1093,6 +1091,10 @@ where
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
+		// `Some` once the account entry has been read: the delegation target it carried, so
+		// `code_address` below does not decode the same entry a second time.
+		let mut read_delegation: Option<Option<H160>> = None;
+
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let address = T::AddressMapper::to_address(&dest);
@@ -1103,7 +1105,10 @@ where
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
 					(None, None) => {
-						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
+						let (info, target) =
+							AccountInfo::<T>::load_contract_with_delegation(&address);
+						read_delegation = Some(target);
+						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
 							return Ok(None);
@@ -1111,7 +1116,10 @@ where
 					},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
-						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
+						let (info, target) =
+							AccountInfo::<T>::load_contract_with_delegation(&address);
+						read_delegation = Some(target);
+						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
 							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
@@ -1208,7 +1216,7 @@ where
 				if entry_point == ExportedFunction::Constructor {
 					return None;
 				}
-				AccountInfo::<T>::get_delegation_target(&address)
+				read_delegation.unwrap_or_else(|| AccountInfo::<T>::get_delegation_target(&address))
 			})
 			.unwrap_or(address);
 
@@ -2025,9 +2033,7 @@ where
 		// EIP-7702 chained delegation: see comment in `Stack::run_call`. Without this guard
 		// `load_contract` would return `None` (the chained snapshot's `code_hash` is zero) and
 		// the call would silently succeed as a no-op.
-		if let Some(target) = AccountInfo::<T>::get_delegation_target(&address) &&
-			AccountInfo::<T>::is_delegated(&target)
-		{
+		if AccountInfo::<T>::is_chained_delegation(&address) {
 			*self.last_frame_output_mut() = ExecReturnValue {
 				flags: pallet_revive_uapi::ReturnFlags::REVERT,
 				data: Vec::new(),
@@ -2219,9 +2225,7 @@ where
 		// EIP-7702 chained delegation: see `Stack::run_call`. Must precede the `allows_reentry`
 		// flip (early return would leak `false` into the caller's frame) and the value-transfer
 		// fallthrough (would silently succeed as an EOA transfer).
-		if let Some(target) = AccountInfo::<T>::get_delegation_target(dest_addr) &&
-			AccountInfo::<T>::is_delegated(&target)
-		{
+		if AccountInfo::<T>::is_chained_delegation(dest_addr) {
 			*self.last_frame_output_mut() = ExecReturnValue {
 				flags: pallet_revive_uapi::ReturnFlags::REVERT,
 				data: Vec::new(),
