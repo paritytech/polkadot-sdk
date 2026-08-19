@@ -34,8 +34,9 @@
 mod fetcher;
 
 pub(crate) use fetcher::FetchError;
-pub use fetcher::{BitswapPeerSource, IndexedTransactionFetcher, NetworkHandle, SyncingHandle};
+pub use fetcher::{BitswapHandleSlot, BitswapRequest, IndexedTransactionFetcher};
 
+use cid::{multihash::Multihash, Cid};
 use codec::Encode;
 use sc_client_api::{BlockBackend, PrefetchedIndexedTransactions};
 use sc_consensus::{
@@ -113,12 +114,20 @@ pub(crate) struct RenewWant {
 	pub cid_codec: u64,
 }
 
+impl From<RenewWant> for Cid {
+	fn from(want: RenewWant) -> Self {
+		let multihash = Multihash::<64>::wrap(want.hashing.multihash_code(), &want.hash)
+			.expect("a 32-byte content hash always fits into a 64-byte multihash");
+		Cid::new_v1(want.cid_codec, multihash)
+	}
+}
+
 /// Block-import wrapper that bitswap-fetches missing TRANSACTION-column entries
 /// for tip-sync blocks before delegating to the inner block import.
 pub struct StorageChainBlockImport<Block: BlockT, Inner, Client> {
 	inner: Inner,
 	client: Arc<Client>,
-	fetcher: IndexedTransactionFetcher<Block>,
+	fetcher: IndexedTransactionFetcher,
 	_phantom: PhantomData<Block>,
 }
 
@@ -134,11 +143,7 @@ impl<Block: BlockT, Inner: Clone, Client> Clone for StorageChainBlockImport<Bloc
 }
 
 impl<Block: BlockT, Inner, Client> StorageChainBlockImport<Block, Inner, Client> {
-	pub fn new(
-		inner: Inner,
-		client: Arc<Client>,
-		fetcher: IndexedTransactionFetcher<Block>,
-	) -> Self {
+	pub fn new(inner: Inner, client: Arc<Client>, fetcher: IndexedTransactionFetcher) -> Self {
 		Self { inner, client, fetcher, _phantom: PhantomData }
 	}
 }
@@ -366,7 +371,7 @@ where
 		}
 
 		let wants: Vec<RenewWant> = missing.into_iter().collect();
-		let acquired = self.fetcher.fetch_many(&wants).await?;
+		let mut acquired = self.fetcher.fetch_many(&wants).await?;
 
 		if acquired.len() != wants.len() {
 			return Err(Error::IncompleteFetch {
@@ -379,9 +384,8 @@ where
 			.iter()
 			.map(|w| {
 				let data = acquired
-					.get(&w.hash)
-					.expect("all hashes present; len equality verified above; qed")
-					.clone();
+					.remove(&w.hash)
+					.expect("all hashes present; len equality verified above; qed");
 				(w.hash, data)
 			})
 			.collect();
@@ -577,7 +581,7 @@ fn classify_body<Block: BlockT>(
 mod tests {
 	use super::*;
 	use codec::Encode;
-	use sc_network::bitswap::RAW_CODEC;
+	use sc_network_bitswap::RAW_CODEC;
 	use sp_runtime::{generic, traits::BlakeTwo256, OpaqueExtrinsic};
 	use std::collections::HashSet;
 
@@ -601,6 +605,18 @@ mod tests {
 
 	fn extrinsic(bytes: &[u8]) -> OpaqueExtrinsic {
 		OpaqueExtrinsic::from_blob(bytes.to_vec())
+	}
+
+	#[test]
+	fn renew_want_converts_to_cid() {
+		let want =
+			RenewWant { hash: [0xAB; 32], hashing: HashingAlgorithm::Keccak256, cid_codec: 0x70 };
+
+		let cid: Cid = want.into();
+
+		assert_eq!(cid.codec(), 0x70);
+		assert_eq!(cid.hash().code(), HashingAlgorithm::Keccak256.multihash_code());
+		assert_eq!(cid.hash().digest(), &[0xAB; 32]);
 	}
 
 	fn body_info(
