@@ -72,10 +72,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// Used to send an XCM `Transact` to the registrar pallet on the remote parachain.
-///
-/// Deliberately free of XCM types; the runtime supplies the implementation that knows the
-/// parachain's call index and the router to hand the program to.
 pub trait SendToPara {
 	/// Send `message` to the parachain.
 	///
@@ -186,7 +182,7 @@ pub mod pallet {
 	/// Counted so [`Config::MaxPendingRegistrations`] can be enforced with a single read.
 	#[pallet::storage]
 	pub type PendingRegistrations<T: Config> =
-		CountedStorageMap<_, Twox64Concat, ParaId, PendingRegistrationOf<T>>;
+		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingRegistrationOf<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
