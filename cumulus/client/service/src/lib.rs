@@ -20,7 +20,7 @@
 //! Provides functions for starting a collator node or a normal full node.
 
 use cumulus_client_cli::CollatorOptions;
-use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
+use cumulus_client_network::AssumeSybilResistance;
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_client_proof_size_recording::load_proof_size_recording;
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
@@ -261,20 +261,6 @@ pub async fn build_relay_chain_interface(
 	}
 }
 
-/// The expected level of collator sybil-resistance on the network. This is used to
-/// configure the type of metadata passed alongside block announcements on the network.
-pub enum CollatorSybilResistance {
-	/// There is a collator-selection protocol which provides sybil-resistance,
-	/// such as Aura. Sybil-resistant collator-selection protocols are able to
-	/// operate more efficiently.
-	Resistant,
-	/// There is no collator-selection protocol providing sybil-resistance.
-	/// In situations such as "free-for-all" collators, the network is unresistant
-	/// and needs to attach more metadata to block announcements, relying on relay-chain
-	/// validators to avoid handling unbounded numbers of blocks.
-	Unresistant,
-}
-
 /// Parameters given to [`build_network`].
 pub struct BuildNetworkParams<
 	'a,
@@ -301,7 +287,6 @@ pub struct BuildNetworkParams<
 	pub spawn_handle: SpawnTaskHandle,
 	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	pub import_queue: IQ,
-	pub sybil_resistance_level: CollatorSybilResistance,
 	pub metrics: sc_network::NotificationMetrics,
 }
 
@@ -317,7 +302,6 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 		spawn_essential_handle,
 		relay_chain_interface,
 		import_queue,
-		sybil_resistance_level,
 		metrics,
 	}: BuildNetworkParams<'a, Block, Client, Network, RCInterface, IQ>,
 ) -> sc_service::error::Result<(
@@ -366,17 +350,7 @@ where
 		_ => None,
 	};
 
-	let block_announce_validator = match sybil_resistance_level {
-		CollatorSybilResistance::Resistant => {
-			let block_announce_validator = AssumeSybilResistance::allow_seconded_messages();
-			Box::new(block_announce_validator) as Box<_>
-		},
-		CollatorSybilResistance::Unresistant => {
-			let block_announce_validator =
-				RequireSecondedInBlockAnnounce::new(relay_chain_interface, para_id);
-			Box::new(block_announce_validator) as Box<_>
-		},
-	};
+	let block_announce_validator = Box::new(AssumeSybilResistance::allow_seconded_messages());
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,

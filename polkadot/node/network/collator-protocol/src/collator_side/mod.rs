@@ -124,18 +124,22 @@ enum ShouldAdvertiseTo {
 /// Info about validators we are currently connected to.
 ///
 /// It keeps track to which validators we advertised our collation.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct ValidatorGroup {
-	/// Validators discovery ids. Lazily initialized when first
-	/// distributing a collation.
+	/// Validators discovery ids.
 	validators: Vec<AuthorityDiscoveryId>,
 
 	/// Bits indicating which validators have already seen the announcement
-	/// per core.
+	/// per core. Always the same length as `validators`.
 	segment_advertised_to: BitVec,
 }
 
 impl ValidatorGroup {
+	/// Create a group for `validators`, with nothing advertised yet.
+	fn new(validators: Vec<AuthorityDiscoveryId>) -> Self {
+		Self { segment_advertised_to: bitvec![0; validators.len()], validators }
+	}
+
 	/// Returns `true` if we should advertise the segment to the given peer.
 	fn should_advertise_segment(
 		&self,
@@ -292,10 +296,7 @@ impl PerSchedulingParent {
 		for core in &assignments {
 			let GroupValidators { validators } =
 				determine_our_validators(ctx, runtime, *core, block_hash).await?;
-			let mut group = ValidatorGroup::default();
-			group.segment_advertised_to = bitvec![0; validators.len()];
-			group.validators = validators;
-			validator_groups.insert(*core, group);
+			validator_groups.insert(*core, ValidatorGroup::new(validators));
 		}
 		let segments: HashMap<CoreIndex, StoredSegment> = HashMap::new();
 
@@ -444,6 +445,12 @@ impl State {
 /// or the scheduling-parent isn't in the implicit ancestry, we ignore the message
 /// as it must be invalid in that case - although this indicates a logic error
 /// elsewhere in the node.
+///
+/// A segment is write-once per `(scheduling_parent, core_index)`: the first one we accept
+/// wins and any later segment for that key is dropped. Consequently the "already advertised"
+/// bookkeeping (`ValidatorGroup::segment_advertised_to`) is a single bitvec per key rather
+/// than per candidate — there is never a second segment to advertise, so a validator that
+/// has seen this key's segment has seen everything we will ever offer for it.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn distribute_segment<Context>(
 	ctx: &mut Context,
@@ -524,21 +531,21 @@ async fn distribute_segment<Context>(
 		);
 	}
 
-	let validators = per_scheduling_parent
-		.validator_group
-		.get(&core_index)
-		.map(|v| v.validators.clone())
-		.unwrap_or_default();
+	// The group was determined for every assigned core in `PerSchedulingParent::new`, so a
+	// missing or empty one means we have no backers to advertise to.
+	let validators = match per_scheduling_parent.validator_group.get(&core_index) {
+		Some(group) if !group.validators.is_empty() => &group.validators,
+		_ => {
+			gum::warn!(
+				target: LOG_TARGET,
+				core = ?core_index,
+				"there are no validators assigned to core",
+			);
+			return Ok(());
+		},
+	};
 
-	if validators.is_empty() {
-		gum::warn!(
-			target: LOG_TARGET,
-			core = ?core_index,
-			"there are no validators assigned to core",
-		);
-		return Ok(());
-	}
-
+	// Segments are write-once per `(scheduling_parent, core_index)` — see the doc comment above.
 	if per_scheduling_parent.segments.contains_key(&core_index) {
 		gum::debug!(target: LOG_TARGET, "Received a new segment at core {:?}/sp:{}. Dropping it...", core_index, scheduling_parent);
 		return Ok(());
@@ -552,14 +559,6 @@ async fn distribute_segment<Context>(
 		current_validators = ?validators,
 		"Accepted segment, connecting to validators."
 	);
-
-	// Insert validator group for the `core_index` at scheduling parent.
-	per_scheduling_parent.validator_group.entry(core_index).or_insert_with(|| {
-		let mut group = ValidatorGroup::default();
-		group.segment_advertised_to = bitvec![0; validators.len()];
-		group.validators = validators;
-		group
-	});
 
 	let mut segment_fingerprint = vec![];
 	for entry in entries {
@@ -986,22 +985,6 @@ async fn advertise_segment<Context>(
 		},
 	};
 
-	for fingerprint in core_segment {
-		let Some(collation_and_core) =
-			per_scheduling_parent.collations.get_mut(&fingerprint.output_head_data_hash)
-		else {
-			// Should not happen
-			gum::warn!(
-					target: LOG_TARGET,
-					?scheduling_parent,
-					output_head = ?fingerprint.output_head_data_hash,
-					"Segment entry has no stored collation",
-			);
-			continue;
-		};
-		let collation = collation_and_core.collation_mut();
-		collation.status.advance_to_advertised();
-	}
 	let message = match peer_version {
 		CollationVersion::V4 => {
 			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
@@ -1065,6 +1048,27 @@ async fn advertise_segment<Context>(
 
 	ctx.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![*peer], message))
 		.await;
+
+	// Only mark the segment's collations advertised once the message is actually out. The
+	// per-version arms above can bail without sending; advancing the status before that would
+	// report a collation as advertised when nothing was sent, hiding the very bug that made
+	// us bail.
+	for fingerprint in core_segment {
+		let Some(collation_and_core) =
+			per_scheduling_parent.collations.get_mut(&fingerprint.output_head_data_hash)
+		else {
+			// Should not happen
+			gum::warn!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					output_head = ?fingerprint.output_head_data_hash,
+					"Segment entry has no stored collation",
+			);
+			continue;
+		};
+		let collation = collation_and_core.collation_mut();
+		collation.status.advance_to_advertised();
+	}
 
 	validator_group.segment_advertised_to_peer(peer_ids, peer);
 	metrics.on_advertisement_made();

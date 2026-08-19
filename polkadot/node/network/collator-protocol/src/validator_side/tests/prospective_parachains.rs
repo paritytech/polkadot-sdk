@@ -388,9 +388,8 @@ async fn assert_collation_seconded(
 				}
 			);
 		},
-		CollationVersion::V4 => {
-			// This is not supported for V4
-		},
+		// V4 sends no `CollationSeconded`, so there is nothing to assert.
+		CollationVersion::V4 => {},
 	}
 }
 

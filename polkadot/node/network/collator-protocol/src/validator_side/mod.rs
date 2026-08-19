@@ -1297,10 +1297,15 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
-		// Unreachable: the classic validator side only negotiates collation protocol V3,
-		// so a V4 `AdvertiseSegment` is never delivered here.
+		// Nodes that run this validator side pin their main collation protocol version to V3
+		// (see `main_collation_version` in the service builder), so V4 is never negotiated
+		// here — hence a log, not a panic, on this config-level guarantee.
 		CollationProtocols::V4(V4::AdvertiseSegment { .. }) => {
-			gum::error!("We don't handle V4 on classic validator_side");
+			gum::error!(
+				target: LOG_TARGET,
+				peer_id = ?origin,
+				"Received a V4 segment advertisement on the non-experimental validator side",
+			);
 		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
