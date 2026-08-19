@@ -285,7 +285,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#135 id=135 data-nosnippet>135</a>		config.prometheus_config.as_ref().map(|cfg| <span class="kw-2">&amp;</span>cfg.registry),
 <a href=#136 id=136 data-nosnippet>136</a>	);
 <a href=#137 id=137 data-nosnippet>137</a>
-<a href=#138 id=138 data-nosnippet>138</a>	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service) =
+<a href=#138 id=138 data-nosnippet>138</a>	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 <a href=#139 id=139 data-nosnippet>139</a>		sc_service::build_network(sc_service::BuildNetworkParams {
 <a href=#140 id=140 data-nosnippet>140</a>			config: <span class="kw-2">&amp;</span>config,
 <a href=#141 id=141 data-nosnippet>141</a>			net_config,

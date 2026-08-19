@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["BlockPresenceType"],"mod":["wantlist"],"struct":["Block","BlockPresence","Wantlist"]};

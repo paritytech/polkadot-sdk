@@ -400,7 +400,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#250 id=250 data-nosnippet>250</a>			keystore_container,
 <a href=#251 id=251 data-nosnippet>251</a>			select_chain: <span class="kw">_</span>,
 <a href=#252 id=252 data-nosnippet>252</a>			transaction_pool,
-<a href=#253 id=253 data-nosnippet>253</a>			other: (<span class="kw">_</span>, <span class="kw-2">mut </span>telemetry, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>),
+<a href=#253 id=253 data-nosnippet>253</a>			other: (<span class="kw">_</span>, <span class="kw-2">mut </span>telemetry, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>),
 <a href=#254 id=254 data-nosnippet>254</a>		} = <span class="self">Self</span>::new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
 <a href=#255 id=255 data-nosnippet>255</a>
 <a href=#256 id=256 data-nosnippet>256</a>		<span class="comment">// Since this is a dev node, prevent it from connecting to peers.
@@ -424,7 +424,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#274 id=274 data-nosnippet>274</a>			(proto, <span class="kw-2">*</span>ss_config)
 <a href=#275 id=275 data-nosnippet>275</a>		});
 <a href=#276 id=276 data-nosnippet>276</a>
-<a href=#277 id=277 data-nosnippet>277</a>		<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service) =
+<a href=#277 id=277 data-nosnippet>277</a>		<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 <a href=#278 id=278 data-nosnippet>278</a>			sc_service::build_network(sc_service::BuildNetworkParams {
 <a href=#279 id=279 data-nosnippet>279</a>				config: <span class="kw-2">&amp;</span>config,
 <a href=#280 id=280 data-nosnippet>280</a>				client: client.clone(),

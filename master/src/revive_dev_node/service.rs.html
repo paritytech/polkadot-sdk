@@ -277,7 +277,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#127 id=127 data-nosnippet>127</a>	&gt;::new(<span class="kw-2">&amp;</span>config.network, <span class="prelude-val">None</span>);
 <a href=#128 id=128 data-nosnippet>128</a>	<span class="kw">let </span>metrics = Network::register_notification_metrics(<span class="prelude-val">None</span>);
 <a href=#129 id=129 data-nosnippet>129</a>
-<a href=#130 id=130 data-nosnippet>130</a>	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service) =
+<a href=#130 id=130 data-nosnippet>130</a>	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 <a href=#131 id=131 data-nosnippet>131</a>		sc_service::build_network(sc_service::BuildNetworkParams {
 <a href=#132 id=132 data-nosnippet>132</a>			config: <span class="kw-2">&amp;</span>config,
 <a href=#133 id=133 data-nosnippet>133</a>			net_config,

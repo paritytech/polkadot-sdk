@@ -510,7 +510,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#360 id=360 data-nosnippet>360</a>		.map_err(|e| sc_service::Error::Application(Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;))<span class="question-mark">?</span>;
 <a href=#361 id=361 data-nosnippet>361</a>	<span class="macro">tracing::info!</span>(<span class="string">"Parachain id: {:?}"</span>, para_id);
 <a href=#362 id=362 data-nosnippet>362</a>
-<a href=#363 id=363 data-nosnippet>363</a>	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service) =
+<a href=#363 id=363 data-nosnippet>363</a>	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 <a href=#364 id=364 data-nosnippet>364</a>		build_network(BuildNetworkParams {
 <a href=#365 id=365 data-nosnippet>365</a>			parachain_config: <span class="kw-2">&amp;</span>parachain_config,
 <a href=#366 id=366 data-nosnippet>366</a>			net_config,

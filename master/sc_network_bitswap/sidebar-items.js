@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BLAKE2B_256_MULTIHASH_CODE","KECCAK_256_MULTIHASH_CODE","MAX_WANTED_BLOCKS","RAW_CODEC","SHA2_256_MULTIHASH_CODE"],"enum":["BitswapError"],"fn":["is_cid_supported","start"],"struct":["BitswapHandle"],"type":["Cid","FetchItem"]};

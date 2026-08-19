@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["IndexedTransactionFetcher","StorageChainBlockImport"],"trait":["BitswapPeerSource"],"type":["NetworkHandle","SyncingHandle"]};
+window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["IndexedTransactionFetcher","StorageChainBlockImport"],"trait":["BitswapRequest"],"type":["BitswapHandleSlot"]};
