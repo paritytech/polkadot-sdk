@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787139764348,
+  "lastUpdate": 1787147755532,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "83cf79c4c926cb4dbbe4bb392206359527093d3e",
-          "message": "Add more buckets to histogram for bitfields sent (#10827)\n\n# Description\n\n<img width=\"858\" height=\"387\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a\"\n/>\nOn Kusama the chart already goes to infinity, so we need to adjust it to\nthe desired value.\n\n## Integration\n\nShould not affect downstream projects.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-18T22:09:56Z",
-          "tree_id": "51a46833f58091965e17e4f6c87ca46b15294bad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/83cf79c4c926cb4dbbe4bb392206359527093d3e"
-        },
-        "date": 1768778280147,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00987329793333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14331505650666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02307377845333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006867043533333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007607807466666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d43339b83356ca5bf1a8f40d9e058f550c0e7bb",
+          "message": "Rework bitswap client and server (#12686)\n\nThis PR extracts Bitswap from `sc-network` into a dedicated\n`sc-network-bitswap` crate and replaces the backend-specific\nimplementations with a single actor-driven service and streaming handle\nAPI.\n\n## New API\n\n`BitswapHandle::request_stream(cids)` accepts a wantlist of arbitrary\nsize and returns a bounded channel yielding hash-verified (Cid, Vec<u8>)\npairs as each block resolves, so a slow CID never holds back completed\nones. The service retries unresolved CIDs indefinitely and has no\ninternal timeout — the caller sets its own deadline and cancels by\ndropping the receiver. All scheduling now lives in the actor: peers\ntracked via sync events, HAVE-based peer preference, per-peer timeouts,\nfailover on disconnect, and deduplication so concurrent requests for the\nsame CID share one network request.\n\n**Backpressure:** Outbound, a dispatch window caps in-flight CIDs at\n1024 with a FIFO behind it, and the bounded command channel returns\nOverloaded immediately instead of queueing unboundedly. Inbound,\nwantlists go into capped per-peer queues served round-robin, and\ndatabase lookups run on at most 8 semaphore-guarded blocking workers.\nEach permit is only released after the response has been forwarded to\nthe transport, so network backpressure propagates back into the lookup\npool.\n\n*Note:* The rewrite here only supports litep2p. I don't see a good\nreason to support libp2p for this. But up for debate, we could try to\nintroduce libp2p compatibility here again.\n\n## New structure\n\n- `handle.rs`: public request-stream API and errors\n- `service.rs`: request scheduling, peer management, and inbound serving\n- `metrics.rs`: Bitswap metrics\n- `service/tests.rs`: unit and property tests\n- Storage-chain sync and node wiring consume the new handle API\n\n---------\n\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T12:25:40Z",
+          "tree_id": "44dfc0a782805ca9b6bdb1a7998dc0123a7e35ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d43339b83356ca5bf1a8f40d9e058f550c0e7bb"
+        },
+        "date": 1787147722411,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007657403493333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14344512042000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02287271392000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009933774766666658,
             "unit": "seconds"
           }
         ]
