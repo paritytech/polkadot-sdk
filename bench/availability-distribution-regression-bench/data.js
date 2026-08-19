@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787117796308,
+  "lastUpdate": 1787139764348,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b34ecf1ddd5d278147808df92e4f84ae19256d28",
-          "message": "Fix fee handling of pay-over-xcm trait(s) (#10831)\n\nChanged how pay-over-xcm is handling delivery fees. The old behavior was\neffectively allowing free delivery for any origin, and it was either\nburning innexistent tokens (noop at the end of the day), or it was\nminting \"protocol fees\" into the treasury account out of thin air.\n\nIn practice, the traits were always used with waived fees configuration\nso this bug was never exploitable in production, but it was there\nnonetheless.\n\nChanged transfer-over-xcm and pay-over-xcm implementations to use the\nruntime's XCM config, rather than custom Router and FeeHandler. This\nreduces the opportunity for misconfiguration since it relies on the\nmessage delivery and fee handling configurations consolidated at the\nruntime configuration level.\n\nWaived locations for some system pallets were also correctly configured\nto explicitly allow what was previously implicitly allowed by the buggy\ncode.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-01-17T23:14:48Z",
-          "tree_id": "533f00ea7490aa67f5f37b1f97e195797eaeb772",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34ecf1ddd5d278147808df92e4f84ae19256d28"
-        },
-        "date": 1768695879040,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022954032446666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007018845959999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009843370799999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1440461913533333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1436615742666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70c5d8f98ac1156572f5957f5788ae2e619d9623",
+          "message": "[pallet-revive] Report untraced transactions instead of omitting them (#12796)\n\n# Description\n\nFollow-up to polkadot-sdk#12374. A block replay can drop a transaction's\ntrace (the tail hits `ExhaustsResources`). `trace_block` / `trace_tx`\ncurrently omit it and eth-rpc infers this from a block-level `degraded`\nflag. This reshapes the V2 output of both to report each transaction's\nstatus from the runtime directly: traced, couldn't-trace, or nothing to\ntrace.\n\n# Integration\n\n- New `TraceEntryV1 { Traced(TraceV2), NotTraced }` in\n`pallet-revive-types`: a trace, a couldn't-trace signal, or (absent\nentry / `None`) nothing to trace.\n- The **V2** output of `trace_block_versioned` / `trace_tx_versioned`\nnow returns `Vec<(u32, TraceEntryV1)>` / `Option<TraceEntryV1>` instead\nof `Vec<(u32, TraceV2)>` / `Option<TraceV2>`; V1 unchanged,\n`version_declarations` stays at 2.\n- eth-rpc prefers V2: `debug_traceBlock*` renders `NotTraced` as a geth\n`{txHash, error}` and `debug_traceTransaction` returns a real error, not\n\"not found\"; it falls back to the `degraded` path on V1 nodes.\n\n# Review Notes\n\n- **V2 is redefined, not superseded.** Per the versioning policy, an\nunreleased wire format is not yet stabilized. V2 is in no stable\nrelease.\n- **Classification.** The tracer loop builds `TraceEntry` once; V1 drops\n`NotTraced`, V2 keeps it. `TraceEntry::for_untraced` flags only\n`Err(ExhaustsResources)`.\n- **Unit variant, not the drafted enum.** Drafted in\n[polkadot-sdk#12386](https://github.com/paritytech/polkadot-sdk/pull/12386#issuecomment-5052840014)\nas `NotTraced(NotTracedReasonV1)`. Shipped as a unit `NotTraced`:\n`ExhaustsResources` seems to be the only cause that drops a real\ntransaction's trace on a faithful replay, so a reason enum would carry\nno information. Extensible if a second cause appears.\n- **Wraps `TraceV2`.** The `V1` counts this wire type's own iterations,\nnot the payload's, so it carries the newest trace payload.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T10:05:37Z",
+          "tree_id": "ba884c5694a5077663088eb4cd8f680c6102e772",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/70c5d8f98ac1156572f5957f5788ae2e619d9623"
+        },
+        "date": 1787139729478,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14406163878666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023026679013333325,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010102562820000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007607807466666667,
             "unit": "seconds"
           }
         ]
