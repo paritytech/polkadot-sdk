@@ -4401,158 +4401,164 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#4251 id=4251 data-nosnippet>4251</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate</span>::{
 <a href=#4252 id=4252 data-nosnippet>4252</a>						sp_runtime::traits::Block,
 <a href=#4253 id=4253 data-nosnippet>4253</a>						tracing::trace,
-<a href=#4254 id=4254 data-nosnippet>4254</a>						runtime_api::<span class="kw-2">*</span>,
-<a href=#4255 id=4255 data-nosnippet>4255</a>						pallet_revive_types::runtime_api::*
-<a href=#4256 id=4256 data-nosnippet>4256</a>					};
-<a href=#4257 id=4257 data-nosnippet>4257</a>					<span class="kw">use </span>alloc::boxed::Box;
-<a href=#4258 id=4258 data-nosnippet>4258</a>
-<a href=#4259 id=4259 data-nosnippet>4259</a>					<span class="kw">let </span>(input, output_wrapper): (<span class="kw">_</span>, Box&lt;<span class="kw">dyn </span>Fn(TraceBlockOutputPayload) -&gt; TraceBlockVersionedOutputPayload&gt;) = <span class="kw">match </span>input {
-<a href=#4260 id=4260 data-nosnippet>4260</a>						TraceBlockVersionedInputPayload::V1(payload) =&gt; (
-<a href=#4261 id=4261 data-nosnippet>4261</a>							TraceBlockInputPayload::from(payload),
-<a href=#4262 id=4262 data-nosnippet>4262</a>							Box::new(|output| TraceBlockVersionedOutputPayload::V1(output.into()))
-<a href=#4263 id=4263 data-nosnippet>4263</a>						),
-<a href=#4264 id=4264 data-nosnippet>4264</a>						TraceBlockVersionedInputPayload::V2(payload) =&gt; (
-<a href=#4265 id=4265 data-nosnippet>4265</a>							TraceBlockInputPayload::from(payload),
-<a href=#4266 id=4266 data-nosnippet>4266</a>							Box::new(|output| TraceBlockVersionedOutputPayload::V2(output.into()))
-<a href=#4267 id=4267 data-nosnippet>4267</a>						),
-<a href=#4268 id=4268 data-nosnippet>4268</a>					};
-<a href=#4269 id=4269 data-nosnippet>4269</a>
-<a href=#4270 id=4270 data-nosnippet>4270</a>					<span class="kw">if </span><span class="macro">matches!</span>(input.config, <span class="macro-nonterminal">$crate::evm::TracerType::ExecutionTracer</span>(<span class="kw">_</span>)) &amp;&amp;
-<a href=#4271 id=4271 data-nosnippet>4271</a>						!<span class="macro-nonterminal">$crate::DebugSettings::is_execution_tracing_enabled</span>::&lt;Runtime&gt;()
-<a href=#4272 id=4272 data-nosnippet>4272</a>					{
-<a href=#4273 id=4273 data-nosnippet>4273</a>						<span class="kw">return </span>output_wrapper(Default::default())
-<a href=#4274 id=4274 data-nosnippet>4274</a>					}
-<a href=#4275 id=4275 data-nosnippet>4275</a>
-<a href=#4276 id=4276 data-nosnippet>4276</a>					<span class="comment">// Faithful proof-size accounting needs a PoV recorder registered for this call
-<a href=#4277 id=4277 data-nosnippet>4277</a>					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
-<a href=#4278 id=4278 data-nosnippet>4278</a>					// `ExhaustsResources` and drop a trace.
-<a href=#4279 id=4279 data-nosnippet>4279</a>					</span><span class="kw">let </span><span class="kw-2">mut </span>traces = <span class="macro">vec!</span>[];
-<a href=#4280 id=4280 data-nosnippet>4280</a>					<span class="kw">let </span>(header, extrinsics) = input.block.deconstruct();
-<a href=#4281 id=4281 data-nosnippet>4281</a>					&lt;<span class="macro-nonterminal">$Executive</span>&gt;::initialize_block(<span class="kw-2">&amp;</span>header);
-<a href=#4282 id=4282 data-nosnippet>4282</a>					<span class="kw">for </span>(index, ext) <span class="kw">in </span>extrinsics.into_iter().enumerate() {
-<a href=#4283 id=4283 data-nosnippet>4283</a>						<span class="kw">let </span><span class="kw-2">mut </span>tracer = <span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config.clone());
-<a href=#4284 id=4284 data-nosnippet>4284</a>						<span class="kw">let </span>t = tracer.as_tracing();
-<a href=#4285 id=4285 data-nosnippet>4285</a>						<span class="kw">let _ </span>= trace(t, || &lt;<span class="macro-nonterminal">$Executive</span>&gt;::apply_extrinsic(ext));
-<a href=#4286 id=4286 data-nosnippet>4286</a>
-<a href=#4287 id=4287 data-nosnippet>4287</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(tx_trace) = tracer.collect_trace() {
-<a href=#4288 id=4288 data-nosnippet>4288</a>							traces.push((index <span class="kw">as </span>u32, tx_trace));
-<a href=#4289 id=4289 data-nosnippet>4289</a>						}
-<a href=#4290 id=4290 data-nosnippet>4290</a>					}
-<a href=#4291 id=4291 data-nosnippet>4291</a>
-<a href=#4292 id=4292 data-nosnippet>4292</a>					<span class="kw">let </span>output = TraceBlockOutputPayload { traces };
-<a href=#4293 id=4293 data-nosnippet>4293</a>					output_wrapper(output)
-<a href=#4294 id=4294 data-nosnippet>4294</a>				}
-<a href=#4295 id=4295 data-nosnippet>4295</a>
-<a href=#4296 id=4296 data-nosnippet>4296</a>				<span class="kw">fn </span>trace_tx_versioned(
-<a href=#4297 id=4297 data-nosnippet>4297</a>					input: <span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceTxVersionedInputPayload</span>&lt;Block&gt;
-<a href=#4298 id=4298 data-nosnippet>4298</a>				) -&gt; <span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload </span>{
-<a href=#4299 id=4299 data-nosnippet>4299</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api</span>::<span class="kw-2">*</span>;
-<a href=#4300 id=4300 data-nosnippet>4300</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::runtime_api</span>::<span class="kw-2">*</span>;
-<a href=#4301 id=4301 data-nosnippet>4301</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate</span>::{sp_runtime::traits::Block, tracing::trace};
-<a href=#4302 id=4302 data-nosnippet>4302</a>					<span class="kw">use </span>alloc::boxed::Box;
-<a href=#4303 id=4303 data-nosnippet>4303</a>
-<a href=#4304 id=4304 data-nosnippet>4304</a>					<span class="kw">let </span>(input, output_wrapper): (
-<a href=#4305 id=4305 data-nosnippet>4305</a>						<span class="kw">_</span>,
-<a href=#4306 id=4306 data-nosnippet>4306</a>						Box&lt;<span class="kw">dyn </span>Fn(TraceTxOutputPayload) -&gt; TraceTxVersionedOutputPayload&gt;,
-<a href=#4307 id=4307 data-nosnippet>4307</a>					) = <span class="kw">match </span>input {
-<a href=#4308 id=4308 data-nosnippet>4308</a>						TraceTxVersionedInputPayload::V1(payload) =&gt; (
-<a href=#4309 id=4309 data-nosnippet>4309</a>							TraceTxInputPayload::from(payload),
-<a href=#4310 id=4310 data-nosnippet>4310</a>							Box::new(|output| TraceTxVersionedOutputPayload::V1(output.into())),
-<a href=#4311 id=4311 data-nosnippet>4311</a>						),
-<a href=#4312 id=4312 data-nosnippet>4312</a>						TraceTxVersionedInputPayload::V2(payload) =&gt; (
-<a href=#4313 id=4313 data-nosnippet>4313</a>							TraceTxInputPayload::from(payload),
-<a href=#4314 id=4314 data-nosnippet>4314</a>							Box::new(|output| TraceTxVersionedOutputPayload::V2(output.into())),
-<a href=#4315 id=4315 data-nosnippet>4315</a>						),
-<a href=#4316 id=4316 data-nosnippet>4316</a>					};
-<a href=#4317 id=4317 data-nosnippet>4317</a>
-<a href=#4318 id=4318 data-nosnippet>4318</a>					<span class="kw">if </span><span class="macro">matches!</span>(<span class="kw-2">&amp;</span>input.config, <span class="macro-nonterminal">$crate::evm::TracerType::ExecutionTracer</span>(<span class="kw">_</span>)) &amp;&amp;
-<a href=#4319 id=4319 data-nosnippet>4319</a>						!<span class="macro-nonterminal">$crate::DebugSettings::is_execution_tracing_enabled</span>::&lt;Runtime&gt;()
-<a href=#4320 id=4320 data-nosnippet>4320</a>					{
-<a href=#4321 id=4321 data-nosnippet>4321</a>						<span class="kw">return </span>output_wrapper(TraceTxOutputPayload { trace: <span class="prelude-val">None </span>})
-<a href=#4322 id=4322 data-nosnippet>4322</a>					}
-<a href=#4323 id=4323 data-nosnippet>4323</a>
-<a href=#4324 id=4324 data-nosnippet>4324</a>					<span class="comment">// Faithful proof-size accounting needs a PoV recorder registered for this call
-<a href=#4325 id=4325 data-nosnippet>4325</a>					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
-<a href=#4326 id=4326 data-nosnippet>4326</a>					// `ExhaustsResources` and drop a trace.
-<a href=#4327 id=4327 data-nosnippet>4327</a>					</span><span class="kw">let </span><span class="kw-2">mut </span>tracer = <span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config);
-<a href=#4328 id=4328 data-nosnippet>4328</a>					<span class="kw">let </span>(header, extrinsics) = input.block.deconstruct();
-<a href=#4329 id=4329 data-nosnippet>4329</a>
-<a href=#4330 id=4330 data-nosnippet>4330</a>					&lt;<span class="macro-nonterminal">$Executive</span>&gt;::initialize_block(<span class="kw-2">&amp;</span>header);
-<a href=#4331 id=4331 data-nosnippet>4331</a>					<span class="kw">for </span>(index, ext) <span class="kw">in </span>extrinsics.into_iter().enumerate() {
-<a href=#4332 id=4332 data-nosnippet>4332</a>						<span class="kw">if </span>index <span class="kw">as </span>u32 == input.tx_index {
-<a href=#4333 id=4333 data-nosnippet>4333</a>							<span class="kw">let </span>t = tracer.as_tracing();
-<a href=#4334 id=4334 data-nosnippet>4334</a>							<span class="kw">let _ </span>= trace(t, || &lt;<span class="macro-nonterminal">$Executive</span>&gt;::apply_extrinsic(ext));
-<a href=#4335 id=4335 data-nosnippet>4335</a>							<span class="kw">break</span>;
-<a href=#4336 id=4336 data-nosnippet>4336</a>						} <span class="kw">else </span>{
-<a href=#4337 id=4337 data-nosnippet>4337</a>							<span class="kw">let _ </span>= &lt;<span class="macro-nonterminal">$Executive</span>&gt;::apply_extrinsic(ext);
-<a href=#4338 id=4338 data-nosnippet>4338</a>						}
-<a href=#4339 id=4339 data-nosnippet>4339</a>					}
-<a href=#4340 id=4340 data-nosnippet>4340</a>
-<a href=#4341 id=4341 data-nosnippet>4341</a>					<span class="kw">let </span>output = TraceTxOutputPayload {
-<a href=#4342 id=4342 data-nosnippet>4342</a>						trace: tracer.collect_trace()
-<a href=#4343 id=4343 data-nosnippet>4343</a>					};
-<a href=#4344 id=4344 data-nosnippet>4344</a>					output_wrapper(output)
-<a href=#4345 id=4345 data-nosnippet>4345</a>				}
-<a href=#4346 id=4346 data-nosnippet>4346</a>
-<a href=#4347 id=4347 data-nosnippet>4347</a>				<span class="kw">fn </span>trace_call_versioned(
-<a href=#4348 id=4348 data-nosnippet>4348</a>					input: <span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceCallVersionedInputPayload
-<a href=#4349 id=4349 data-nosnippet>4349</a>				</span>) -&gt; <span class="prelude-ty">Result</span>&lt;
-<a href=#4350 id=4350 data-nosnippet>4350</a>					<span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceCallVersionedOutputPayload</span>,
-<a href=#4351 id=4351 data-nosnippet>4351</a>					<span class="macro-nonterminal">$crate::EthTransactError
-<a href=#4352 id=4352 data-nosnippet>4352</a>				</span>&gt; {
-<a href=#4353 id=4353 data-nosnippet>4353</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api</span>::<span class="kw-2">*</span>;
-<a href=#4354 id=4354 data-nosnippet>4354</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::runtime_api</span>::<span class="kw-2">*</span>;
-<a href=#4355 id=4355 data-nosnippet>4355</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::tracing::trace</span>;
-<a href=#4356 id=4356 data-nosnippet>4356</a>					<span class="kw">use </span>alloc::boxed::Box;
-<a href=#4357 id=4357 data-nosnippet>4357</a>
-<a href=#4358 id=4358 data-nosnippet>4358</a>					<span class="kw">let </span>(input, output_wrapper): (
-<a href=#4359 id=4359 data-nosnippet>4359</a>						<span class="kw">_</span>,
-<a href=#4360 id=4360 data-nosnippet>4360</a>						Box&lt;<span class="kw">dyn </span>Fn(TraceCallOutputPayload) -&gt; TraceCallVersionedOutputPayload&gt;,
-<a href=#4361 id=4361 data-nosnippet>4361</a>					) = <span class="kw">match </span>input {
-<a href=#4362 id=4362 data-nosnippet>4362</a>						TraceCallVersionedInputPayload::V1(payload) =&gt; (
-<a href=#4363 id=4363 data-nosnippet>4363</a>							TraceCallInputPayload::from(payload),
-<a href=#4364 id=4364 data-nosnippet>4364</a>							Box::new(|output| TraceCallVersionedOutputPayload::V1(output.into())),
-<a href=#4365 id=4365 data-nosnippet>4365</a>						),
-<a href=#4366 id=4366 data-nosnippet>4366</a>						TraceCallVersionedInputPayload::V2(payload) =&gt; (
-<a href=#4367 id=4367 data-nosnippet>4367</a>							TraceCallInputPayload::from(payload),
-<a href=#4368 id=4368 data-nosnippet>4368</a>							Box::new(|output| TraceCallVersionedOutputPayload::V2(output.into())),
-<a href=#4369 id=4369 data-nosnippet>4369</a>						),
-<a href=#4370 id=4370 data-nosnippet>4370</a>					};
-<a href=#4371 id=4371 data-nosnippet>4371</a>
-<a href=#4372 id=4372 data-nosnippet>4372</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(overrides) = input.state_overrides {
-<a href=#4373 id=4373 data-nosnippet>4373</a>						<span class="macro-nonterminal">$crate::state_overrides::apply_state_overrides</span>::&lt;Runtime&gt;(overrides)<span class="question-mark">?</span>;
-<a href=#4374 id=4374 data-nosnippet>4374</a>					}
-<a href=#4375 id=4375 data-nosnippet>4375</a>
-<a href=#4376 id=4376 data-nosnippet>4376</a>					<span class="kw">if </span><span class="macro">matches!</span>(input.config, <span class="macro-nonterminal">$crate::evm::TracerType::ExecutionTracer</span>(<span class="kw">_</span>)) &amp;&amp;
-<a href=#4377 id=4377 data-nosnippet>4377</a>						!<span class="macro-nonterminal">$crate::DebugSettings::is_execution_tracing_enabled</span>::&lt;Runtime&gt;()
-<a href=#4378 id=4378 data-nosnippet>4378</a>					{
-<a href=#4379 id=4379 data-nosnippet>4379</a>						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro-nonterminal">$crate::EthTransactError::Message</span>(<span class="string">"Execution Tracing is disabled"</span>.into()))
+<a href=#4254 id=4254 data-nosnippet>4254</a>						evm::TraceEntry,
+<a href=#4255 id=4255 data-nosnippet>4255</a>						runtime_api::<span class="kw-2">*</span>,
+<a href=#4256 id=4256 data-nosnippet>4256</a>						pallet_revive_types::runtime_api::*
+<a href=#4257 id=4257 data-nosnippet>4257</a>					};
+<a href=#4258 id=4258 data-nosnippet>4258</a>					<span class="kw">use </span>alloc::boxed::Box;
+<a href=#4259 id=4259 data-nosnippet>4259</a>
+<a href=#4260 id=4260 data-nosnippet>4260</a>					<span class="kw">let </span>(input, output_wrapper): (<span class="kw">_</span>, Box&lt;<span class="kw">dyn </span>Fn(TraceBlockOutputPayload) -&gt; TraceBlockVersionedOutputPayload&gt;) = <span class="kw">match </span>input {
+<a href=#4261 id=4261 data-nosnippet>4261</a>						TraceBlockVersionedInputPayload::V1(payload) =&gt; (
+<a href=#4262 id=4262 data-nosnippet>4262</a>							TraceBlockInputPayload::from(payload),
+<a href=#4263 id=4263 data-nosnippet>4263</a>							Box::new(|output| TraceBlockVersionedOutputPayload::V1(output.into()))
+<a href=#4264 id=4264 data-nosnippet>4264</a>						),
+<a href=#4265 id=4265 data-nosnippet>4265</a>						TraceBlockVersionedInputPayload::V2(payload) =&gt; (
+<a href=#4266 id=4266 data-nosnippet>4266</a>							TraceBlockInputPayload::from(payload),
+<a href=#4267 id=4267 data-nosnippet>4267</a>							Box::new(|output| TraceBlockVersionedOutputPayload::V2(output.into()))
+<a href=#4268 id=4268 data-nosnippet>4268</a>						),
+<a href=#4269 id=4269 data-nosnippet>4269</a>					};
+<a href=#4270 id=4270 data-nosnippet>4270</a>
+<a href=#4271 id=4271 data-nosnippet>4271</a>					<span class="kw">if </span><span class="macro">matches!</span>(input.config, <span class="macro-nonterminal">$crate::evm::TracerType::ExecutionTracer</span>(<span class="kw">_</span>)) &amp;&amp;
+<a href=#4272 id=4272 data-nosnippet>4272</a>						!<span class="macro-nonterminal">$crate::DebugSettings::is_execution_tracing_enabled</span>::&lt;Runtime&gt;()
+<a href=#4273 id=4273 data-nosnippet>4273</a>					{
+<a href=#4274 id=4274 data-nosnippet>4274</a>						<span class="kw">return </span>output_wrapper(Default::default())
+<a href=#4275 id=4275 data-nosnippet>4275</a>					}
+<a href=#4276 id=4276 data-nosnippet>4276</a>
+<a href=#4277 id=4277 data-nosnippet>4277</a>					<span class="comment">// Faithful proof-size accounting needs a PoV recorder registered for this call
+<a href=#4278 id=4278 data-nosnippet>4278</a>					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
+<a href=#4279 id=4279 data-nosnippet>4279</a>					// `ExhaustsResources`. V1 drops such traces; V2 reports them as `NotTraced`.
+<a href=#4280 id=4280 data-nosnippet>4280</a>					</span><span class="kw">let </span><span class="kw-2">mut </span>entries = <span class="macro">vec!</span>[];
+<a href=#4281 id=4281 data-nosnippet>4281</a>					<span class="kw">let </span>(header, extrinsics) = input.block.deconstruct();
+<a href=#4282 id=4282 data-nosnippet>4282</a>					&lt;<span class="macro-nonterminal">$Executive</span>&gt;::initialize_block(<span class="kw-2">&amp;</span>header);
+<a href=#4283 id=4283 data-nosnippet>4283</a>					<span class="kw">for </span>(index, ext) <span class="kw">in </span>extrinsics.into_iter().enumerate() {
+<a href=#4284 id=4284 data-nosnippet>4284</a>						<span class="kw">let </span><span class="kw-2">mut </span>tracer = <span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config.clone());
+<a href=#4285 id=4285 data-nosnippet>4285</a>						<span class="kw">let </span>t = tracer.as_tracing();
+<a href=#4286 id=4286 data-nosnippet>4286</a>						<span class="kw">let </span>result = trace(t, || &lt;<span class="macro-nonterminal">$Executive</span>&gt;::apply_extrinsic(ext));
+<a href=#4287 id=4287 data-nosnippet>4287</a>
+<a href=#4288 id=4288 data-nosnippet>4288</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(tx_trace) = tracer.collect_trace() {
+<a href=#4289 id=4289 data-nosnippet>4289</a>							entries.push((index <span class="kw">as </span>u32, TraceEntry::Traced(tx_trace)));
+<a href=#4290 id=4290 data-nosnippet>4290</a>						} <span class="kw">else if let </span><span class="prelude-val">Some</span>(entry) = TraceEntry::for_untraced(<span class="kw-2">&amp;</span>result) {
+<a href=#4291 id=4291 data-nosnippet>4291</a>							entries.push((index <span class="kw">as </span>u32, entry));
+<a href=#4292 id=4292 data-nosnippet>4292</a>						}
+<a href=#4293 id=4293 data-nosnippet>4293</a>					}
+<a href=#4294 id=4294 data-nosnippet>4294</a>
+<a href=#4295 id=4295 data-nosnippet>4295</a>					<span class="kw">let </span>output = TraceBlockOutputPayload { entries };
+<a href=#4296 id=4296 data-nosnippet>4296</a>					output_wrapper(output)
+<a href=#4297 id=4297 data-nosnippet>4297</a>				}
+<a href=#4298 id=4298 data-nosnippet>4298</a>
+<a href=#4299 id=4299 data-nosnippet>4299</a>				<span class="kw">fn </span>trace_tx_versioned(
+<a href=#4300 id=4300 data-nosnippet>4300</a>					input: <span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceTxVersionedInputPayload</span>&lt;Block&gt;
+<a href=#4301 id=4301 data-nosnippet>4301</a>				) -&gt; <span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload </span>{
+<a href=#4302 id=4302 data-nosnippet>4302</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api</span>::<span class="kw-2">*</span>;
+<a href=#4303 id=4303 data-nosnippet>4303</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::runtime_api</span>::<span class="kw-2">*</span>;
+<a href=#4304 id=4304 data-nosnippet>4304</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate</span>::{evm::TraceEntry, sp_runtime::traits::Block, tracing::trace};
+<a href=#4305 id=4305 data-nosnippet>4305</a>					<span class="kw">use </span>alloc::boxed::Box;
+<a href=#4306 id=4306 data-nosnippet>4306</a>
+<a href=#4307 id=4307 data-nosnippet>4307</a>					<span class="kw">let </span>(input, output_wrapper): (
+<a href=#4308 id=4308 data-nosnippet>4308</a>						<span class="kw">_</span>,
+<a href=#4309 id=4309 data-nosnippet>4309</a>						Box&lt;<span class="kw">dyn </span>Fn(TraceTxOutputPayload) -&gt; TraceTxVersionedOutputPayload&gt;,
+<a href=#4310 id=4310 data-nosnippet>4310</a>					) = <span class="kw">match </span>input {
+<a href=#4311 id=4311 data-nosnippet>4311</a>						TraceTxVersionedInputPayload::V1(payload) =&gt; (
+<a href=#4312 id=4312 data-nosnippet>4312</a>							TraceTxInputPayload::from(payload),
+<a href=#4313 id=4313 data-nosnippet>4313</a>							Box::new(|output| TraceTxVersionedOutputPayload::V1(output.into())),
+<a href=#4314 id=4314 data-nosnippet>4314</a>						),
+<a href=#4315 id=4315 data-nosnippet>4315</a>						TraceTxVersionedInputPayload::V2(payload) =&gt; (
+<a href=#4316 id=4316 data-nosnippet>4316</a>							TraceTxInputPayload::from(payload),
+<a href=#4317 id=4317 data-nosnippet>4317</a>							Box::new(|output| TraceTxVersionedOutputPayload::V2(output.into())),
+<a href=#4318 id=4318 data-nosnippet>4318</a>						),
+<a href=#4319 id=4319 data-nosnippet>4319</a>					};
+<a href=#4320 id=4320 data-nosnippet>4320</a>
+<a href=#4321 id=4321 data-nosnippet>4321</a>					<span class="kw">if </span><span class="macro">matches!</span>(<span class="kw-2">&amp;</span>input.config, <span class="macro-nonterminal">$crate::evm::TracerType::ExecutionTracer</span>(<span class="kw">_</span>)) &amp;&amp;
+<a href=#4322 id=4322 data-nosnippet>4322</a>						!<span class="macro-nonterminal">$crate::DebugSettings::is_execution_tracing_enabled</span>::&lt;Runtime&gt;()
+<a href=#4323 id=4323 data-nosnippet>4323</a>					{
+<a href=#4324 id=4324 data-nosnippet>4324</a>						<span class="kw">return </span>output_wrapper(TraceTxOutputPayload { entry: <span class="prelude-val">None </span>})
+<a href=#4325 id=4325 data-nosnippet>4325</a>					}
+<a href=#4326 id=4326 data-nosnippet>4326</a>
+<a href=#4327 id=4327 data-nosnippet>4327</a>					<span class="comment">// Faithful proof-size accounting needs a PoV recorder registered for this call
+<a href=#4328 id=4328 data-nosnippet>4328</a>					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
+<a href=#4329 id=4329 data-nosnippet>4329</a>					// `ExhaustsResources`. V1 drops such traces; V2 reports them as `NotTraced`.
+<a href=#4330 id=4330 data-nosnippet>4330</a>					</span><span class="kw">let </span><span class="kw-2">mut </span>tracer = <span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config);
+<a href=#4331 id=4331 data-nosnippet>4331</a>					<span class="kw">let </span>(header, extrinsics) = input.block.deconstruct();
+<a href=#4332 id=4332 data-nosnippet>4332</a>
+<a href=#4333 id=4333 data-nosnippet>4333</a>					&lt;<span class="macro-nonterminal">$Executive</span>&gt;::initialize_block(<span class="kw-2">&amp;</span>header);
+<a href=#4334 id=4334 data-nosnippet>4334</a>					<span class="kw">let </span><span class="kw-2">mut </span>entry = <span class="prelude-val">None</span>;
+<a href=#4335 id=4335 data-nosnippet>4335</a>					<span class="kw">for </span>(index, ext) <span class="kw">in </span>extrinsics.into_iter().enumerate() {
+<a href=#4336 id=4336 data-nosnippet>4336</a>						<span class="kw">if </span>index <span class="kw">as </span>u32 == input.tx_index {
+<a href=#4337 id=4337 data-nosnippet>4337</a>							<span class="kw">let </span>t = tracer.as_tracing();
+<a href=#4338 id=4338 data-nosnippet>4338</a>							<span class="kw">let </span>result = trace(t, || &lt;<span class="macro-nonterminal">$Executive</span>&gt;::apply_extrinsic(ext));
+<a href=#4339 id=4339 data-nosnippet>4339</a>							entry = <span class="kw">match </span>tracer.collect_trace() {
+<a href=#4340 id=4340 data-nosnippet>4340</a>								<span class="prelude-val">Some</span>(tx_trace) =&gt; <span class="prelude-val">Some</span>(TraceEntry::Traced(tx_trace)),
+<a href=#4341 id=4341 data-nosnippet>4341</a>								<span class="prelude-val">None </span>=&gt; TraceEntry::for_untraced(<span class="kw-2">&amp;</span>result),
+<a href=#4342 id=4342 data-nosnippet>4342</a>							};
+<a href=#4343 id=4343 data-nosnippet>4343</a>							<span class="kw">break</span>;
+<a href=#4344 id=4344 data-nosnippet>4344</a>						} <span class="kw">else </span>{
+<a href=#4345 id=4345 data-nosnippet>4345</a>							<span class="kw">let _ </span>= &lt;<span class="macro-nonterminal">$Executive</span>&gt;::apply_extrinsic(ext);
+<a href=#4346 id=4346 data-nosnippet>4346</a>						}
+<a href=#4347 id=4347 data-nosnippet>4347</a>					}
+<a href=#4348 id=4348 data-nosnippet>4348</a>
+<a href=#4349 id=4349 data-nosnippet>4349</a>					<span class="kw">let </span>output = TraceTxOutputPayload { entry };
+<a href=#4350 id=4350 data-nosnippet>4350</a>					output_wrapper(output)
+<a href=#4351 id=4351 data-nosnippet>4351</a>				}
+<a href=#4352 id=4352 data-nosnippet>4352</a>
+<a href=#4353 id=4353 data-nosnippet>4353</a>				<span class="kw">fn </span>trace_call_versioned(
+<a href=#4354 id=4354 data-nosnippet>4354</a>					input: <span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceCallVersionedInputPayload
+<a href=#4355 id=4355 data-nosnippet>4355</a>				</span>) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#4356 id=4356 data-nosnippet>4356</a>					<span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api::TraceCallVersionedOutputPayload</span>,
+<a href=#4357 id=4357 data-nosnippet>4357</a>					<span class="macro-nonterminal">$crate::EthTransactError
+<a href=#4358 id=4358 data-nosnippet>4358</a>				</span>&gt; {
+<a href=#4359 id=4359 data-nosnippet>4359</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::pallet_revive_types::runtime_api</span>::<span class="kw-2">*</span>;
+<a href=#4360 id=4360 data-nosnippet>4360</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::runtime_api</span>::<span class="kw-2">*</span>;
+<a href=#4361 id=4361 data-nosnippet>4361</a>					<span class="kw">use </span><span class="macro-nonterminal">$crate::tracing::trace</span>;
+<a href=#4362 id=4362 data-nosnippet>4362</a>					<span class="kw">use </span>alloc::boxed::Box;
+<a href=#4363 id=4363 data-nosnippet>4363</a>
+<a href=#4364 id=4364 data-nosnippet>4364</a>					<span class="kw">let </span>(input, output_wrapper): (
+<a href=#4365 id=4365 data-nosnippet>4365</a>						<span class="kw">_</span>,
+<a href=#4366 id=4366 data-nosnippet>4366</a>						Box&lt;<span class="kw">dyn </span>Fn(TraceCallOutputPayload) -&gt; TraceCallVersionedOutputPayload&gt;,
+<a href=#4367 id=4367 data-nosnippet>4367</a>					) = <span class="kw">match </span>input {
+<a href=#4368 id=4368 data-nosnippet>4368</a>						TraceCallVersionedInputPayload::V1(payload) =&gt; (
+<a href=#4369 id=4369 data-nosnippet>4369</a>							TraceCallInputPayload::from(payload),
+<a href=#4370 id=4370 data-nosnippet>4370</a>							Box::new(|output| TraceCallVersionedOutputPayload::V1(output.into())),
+<a href=#4371 id=4371 data-nosnippet>4371</a>						),
+<a href=#4372 id=4372 data-nosnippet>4372</a>						TraceCallVersionedInputPayload::V2(payload) =&gt; (
+<a href=#4373 id=4373 data-nosnippet>4373</a>							TraceCallInputPayload::from(payload),
+<a href=#4374 id=4374 data-nosnippet>4374</a>							Box::new(|output| TraceCallVersionedOutputPayload::V2(output.into())),
+<a href=#4375 id=4375 data-nosnippet>4375</a>						),
+<a href=#4376 id=4376 data-nosnippet>4376</a>					};
+<a href=#4377 id=4377 data-nosnippet>4377</a>
+<a href=#4378 id=4378 data-nosnippet>4378</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(overrides) = input.state_overrides {
+<a href=#4379 id=4379 data-nosnippet>4379</a>						<span class="macro-nonterminal">$crate::state_overrides::apply_state_overrides</span>::&lt;Runtime&gt;(overrides)<span class="question-mark">?</span>;
 <a href=#4380 id=4380 data-nosnippet>4380</a>					}
 <a href=#4381 id=4381 data-nosnippet>4381</a>
-<a href=#4382 id=4382 data-nosnippet>4382</a>					<span class="kw">let </span><span class="kw-2">mut </span>tracer = <span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config.clone());
-<a href=#4383 id=4383 data-nosnippet>4383</a>					<span class="kw">let </span>t = tracer.as_tracing();
-<a href=#4384 id=4384 data-nosnippet>4384</a>
-<a href=#4385 id=4385 data-nosnippet>4385</a>					t.watch_address(<span class="kw-2">&amp;</span>input.tx.from.unwrap_or_default());
-<a href=#4386 id=4386 data-nosnippet>4386</a>					t.watch_address(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::block_author());
-<a href=#4387 id=4387 data-nosnippet>4387</a>					<span class="kw">let </span>result = trace(t, || {
-<a href=#4388 id=4388 data-nosnippet>4388</a>						<span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::dry_run_eth_transact(input.tx, <span class="prelude-val">None</span>, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)
-<a href=#4389 id=4389 data-nosnippet>4389</a>					});
+<a href=#4382 id=4382 data-nosnippet>4382</a>					<span class="kw">if </span><span class="macro">matches!</span>(input.config, <span class="macro-nonterminal">$crate::evm::TracerType::ExecutionTracer</span>(<span class="kw">_</span>)) &amp;&amp;
+<a href=#4383 id=4383 data-nosnippet>4383</a>						!<span class="macro-nonterminal">$crate::DebugSettings::is_execution_tracing_enabled</span>::&lt;Runtime&gt;()
+<a href=#4384 id=4384 data-nosnippet>4384</a>					{
+<a href=#4385 id=4385 data-nosnippet>4385</a>						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro-nonterminal">$crate::EthTransactError::Message</span>(<span class="string">"Execution Tracing is disabled"</span>.into()))
+<a href=#4386 id=4386 data-nosnippet>4386</a>					}
+<a href=#4387 id=4387 data-nosnippet>4387</a>
+<a href=#4388 id=4388 data-nosnippet>4388</a>					<span class="kw">let </span><span class="kw-2">mut </span>tracer = <span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config.clone());
+<a href=#4389 id=4389 data-nosnippet>4389</a>					<span class="kw">let </span>t = tracer.as_tracing();
 <a href=#4390 id=4390 data-nosnippet>4390</a>
-<a href=#4391 id=4391 data-nosnippet>4391</a>					<span class="kw">let </span>trace = <span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = tracer.collect_trace() {
-<a href=#4392 id=4392 data-nosnippet>4392</a>						<span class="prelude-val">Ok</span>(trace)
-<a href=#4393 id=4393 data-nosnippet>4393</a>					} <span class="kw">else if let </span><span class="prelude-val">Err</span>(err) = result {
-<a href=#4394 id=4394 data-nosnippet>4394</a>						<span class="prelude-val">Err</span>(err)
-<a href=#4395 id=4395 data-nosnippet>4395</a>					} <span class="kw">else </span>{
-<a href=#4396 id=4396 data-nosnippet>4396</a>						<span class="prelude-val">Ok</span>(<span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config).empty_trace())
-<a href=#4397 id=4397 data-nosnippet>4397</a>					}<span class="question-mark">?</span>;
-<a href=#4398 id=4398 data-nosnippet>4398</a>
-<a href=#4399 id=4399 data-nosnippet>4399</a>					<span class="kw">let </span>output = TraceCallOutputPayload { trace };
-<a href=#4400 id=4400 data-nosnippet>4400</a>					<span class="prelude-val">Ok</span>(output_wrapper(output))
-<a href=#4401 id=4401 data-nosnippet>4401</a>				}
-<a href=#4402 id=4402 data-nosnippet>4402</a>			}
-<a href=#4403 id=4403 data-nosnippet>4403</a>		}
-<a href=#4404 id=4404 data-nosnippet>4404</a>	};
-<a href=#4405 id=4405 data-nosnippet>4405</a>}
+<a href=#4391 id=4391 data-nosnippet>4391</a>					t.watch_address(<span class="kw-2">&amp;</span>input.tx.from.unwrap_or_default());
+<a href=#4392 id=4392 data-nosnippet>4392</a>					t.watch_address(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::block_author());
+<a href=#4393 id=4393 data-nosnippet>4393</a>					<span class="kw">let </span>result = trace(t, || {
+<a href=#4394 id=4394 data-nosnippet>4394</a>						<span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::dry_run_eth_transact(input.tx, <span class="prelude-val">None</span>, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)
+<a href=#4395 id=4395 data-nosnippet>4395</a>					});
+<a href=#4396 id=4396 data-nosnippet>4396</a>
+<a href=#4397 id=4397 data-nosnippet>4397</a>					<span class="kw">let </span>trace = <span class="kw">if let </span><span class="prelude-val">Some</span>(trace) = tracer.collect_trace() {
+<a href=#4398 id=4398 data-nosnippet>4398</a>						<span class="prelude-val">Ok</span>(trace)
+<a href=#4399 id=4399 data-nosnippet>4399</a>					} <span class="kw">else if let </span><span class="prelude-val">Err</span>(err) = result {
+<a href=#4400 id=4400 data-nosnippet>4400</a>						<span class="prelude-val">Err</span>(err)
+<a href=#4401 id=4401 data-nosnippet>4401</a>					} <span class="kw">else </span>{
+<a href=#4402 id=4402 data-nosnippet>4402</a>						<span class="prelude-val">Ok</span>(<span class="macro-nonterminal">$crate::Pallet</span>::&lt;<span class="self">Self</span>&gt;::evm_tracer(input.config).empty_trace())
+<a href=#4403 id=4403 data-nosnippet>4403</a>					}<span class="question-mark">?</span>;
+<a href=#4404 id=4404 data-nosnippet>4404</a>
+<a href=#4405 id=4405 data-nosnippet>4405</a>					<span class="kw">let </span>output = TraceCallOutputPayload { trace };
+<a href=#4406 id=4406 data-nosnippet>4406</a>					<span class="prelude-val">Ok</span>(output_wrapper(output))
+<a href=#4407 id=4407 data-nosnippet>4407</a>				}
+<a href=#4408 id=4408 data-nosnippet>4408</a>			}
+<a href=#4409 id=4409 data-nosnippet>4409</a>		}
+<a href=#4410 id=4410 data-nosnippet>4410</a>	};
+<a href=#4411 id=4411 data-nosnippet>4411</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
