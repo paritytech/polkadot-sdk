@@ -43,7 +43,7 @@ use polkadot_node_core_chain_selection::{
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, PeerSetProtocolNames},
+	peer_set::{CollationVersion, PeerSet, PeerSetProtocolNames},
 	request_response::{IncomingRequest, Protocol, ReqProtocolNames},
 };
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
