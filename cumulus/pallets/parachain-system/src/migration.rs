@@ -146,3 +146,47 @@ mod v1 {
 		T::DbWeight::get().writes(1)
 	}
 }
+
+#[cfg(all(feature = "try-runtime", test))]
+mod tests {
+	use super::*;
+	use crate::{
+		mock::{new_test_ext, Test},
+		parachain_inherent::{InboundHrmpMessageId, InboundMessageId},
+	};
+	use frame_support::traits::OnRuntimeUpgrade;
+
+	#[test]
+	#[allow(deprecated)]
+	fn test_migrate_v3_to_v4() {
+		new_test_ext().execute_with(|| {
+			// None
+			let storage_version = StorageVersion::new(3);
+			storage_version.put::<Pallet<Test>>();
+			frame_support::storage::unhashed::kill(
+				&v3::LastProcessedHrmpMessage::<Test>::hashed_key(),
+			);
+			let bytes = v4::MigrateV3ToV4::<Test>::pre_upgrade();
+			assert!(bytes.is_ok());
+			v4::MigrateV3ToV4::<Test>::on_runtime_upgrade();
+			assert!(v4::MigrateV3ToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
+			let post = crate::LastProcessedHrmpMessage::<Test>::get();
+			assert_eq!(post, None);
+
+			// Some
+			let storage_version = StorageVersion::new(3);
+			storage_version.put::<Pallet<Test>>();
+			let pre = InboundMessageId { sent_at: 321, reverse_idx: 123 };
+			frame_support::storage::unhashed::put_raw(
+				&v3::LastProcessedHrmpMessage::<Test>::hashed_key(),
+				&pre.encode(),
+			);
+			let bytes = v4::MigrateV3ToV4::<Test>::pre_upgrade();
+			assert!(bytes.is_ok());
+			v4::MigrateV3ToV4::<Test>::on_runtime_upgrade();
+			assert!(v4::MigrateV3ToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
+			let post = crate::LastProcessedHrmpMessage::<Test>::get();
+			assert_eq!(post, Some(InboundHrmpMessageId::Generic(pre)));
+		});
+	}
+}
