@@ -211,11 +211,8 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 	.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>();
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
-	let (
-		collation_req_v2_receiver,
-		collation_req_v3_receiver,
-		available_data_req_receiver,
-	) = build_request_response_protocol_receivers(&request_protocol_names, &mut net_config);
+	let (collation_req_v2_receiver, collation_req_v3_receiver, available_data_req_receiver) =
+		build_request_response_protocol_receivers(&request_protocol_names, &mut net_config);
 
 	let (cfg, paranode_rx) = bootnode_request_response_config::<_, _, Network>(
 		genesis_hash,
@@ -294,9 +291,5 @@ fn build_request_response_protocol_receivers<
 	let cfg =
 		Protocol::ChunkFetchingV2.get_outbound_only_config::<_, Network>(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	(
-		collation_req_v2_receiver,
-		collation_req_v3_receiver,
-		available_data_req_receiver,
-	)
+	(collation_req_v2_receiver, collation_req_v3_receiver, available_data_req_receiver)
 }
