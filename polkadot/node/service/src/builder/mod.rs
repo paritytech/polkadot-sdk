@@ -481,7 +481,7 @@ where
 			})
 		};
 
-		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				net_config,

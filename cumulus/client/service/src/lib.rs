@@ -309,6 +309,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
 	Arc<SyncingService<Block>>,
+	Option<sc_network_bitswap::BitswapHandle>,
 )>
 where
 	Block: BlockT,

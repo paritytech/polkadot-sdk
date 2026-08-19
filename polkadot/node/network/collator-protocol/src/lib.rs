@@ -58,7 +58,7 @@ use {
 };
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -70,7 +70,12 @@ use futures::{
 };
 
 use polkadot_node_subsystem::CollatorProtocolSenderTrait;
-use polkadot_node_subsystem_util::{database::Database, reputation::ReputationAggregator};
+use polkadot_node_subsystem_util::{
+	database::Database,
+	reputation::ReputationAggregator,
+	request_claim_queue,
+	runtime::{self, fetch_scheduling_lookahead, recv_runtime},
+};
 use sp_consensus_babe::digests::CompatibleDigestItem;
 use sp_core::H256;
 use sp_keystore::KeystorePtr;
@@ -82,7 +87,9 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem::{
 	errors::SubsystemError, messages::ChainApiMessage, overseer, DummySubsystem, SpawnedSubsystem,
 };
-use polkadot_primitives::{CollatorPair, Hash, RELAY_CHAIN_SLOT_DURATION_MILLIS};
+use polkadot_primitives::{
+	CollatorPair, CoreIndex, Hash, Id as ParaId, SessionIndex, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+};
 use sp_consensus_slots::SlotDuration;
 pub use validator_side_experimental::ReputationConfig;
 
@@ -335,5 +342,56 @@ pub(crate) fn is_scheduling_parent_valid(
 		leaf_scheduling_info
 			.iter()
 			.any(|(_, info)| *current_slot == *info.slot && *scheduling_parent == info.parent_hash)
+	}
+}
+
+/// The per-core claim queues for one active leaf, together with the runtime scheduling lookahead
+/// that bounds them.
+///
+/// Experimental (`validator_side_experimental`) goes through the [`Self::slots`] / [`Self::window`]
+/// helpers, which own the lookahead arithmetic. Legacy (`validator_side`) has its own
+/// bitfield-based allocation and reads the fields directly — a properly factored legacy would go
+/// through the helpers too, but legacy is on its way out so we don't invest in that.
+pub(crate) struct LeafClaimQueues {
+	claim_queues: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	scheduling_lookahead: usize,
+}
+
+impl LeafClaimQueues {
+	/// Fetch the per-core claim queues and the scheduling lookahead for `leaf` from the runtime.
+	pub(crate) async fn fetch<Sender: CollatorProtocolSenderTrait>(
+		leaf: Hash,
+		session_index: SessionIndex,
+		sender: &mut Sender,
+	) -> std::result::Result<Self, runtime::Error> {
+		let scheduling_lookahead =
+			fetch_scheduling_lookahead(leaf, session_index, sender).await? as usize;
+		let claim_queues = recv_runtime(request_claim_queue(leaf, sender).await).await?;
+		Ok(Self { claim_queues, scheduling_lookahead })
+	}
+
+	/// The core's claim queue padded to the scheduling lookahead: slot `i` is `Some(para)` where
+	/// scheduled, `None` for positions within the lookahead the runtime left unscheduled. Length
+	/// is always the lookahead. `None` if the core has no claim queue at this leaf.
+	pub(crate) fn slots(&self, core: CoreIndex) -> Option<Vec<Option<ParaId>>> {
+		let cq = self.claim_queues.get(&core)?;
+		Some(
+			cq.iter()
+				.copied()
+				.map(Some)
+				.chain(std::iter::repeat(None))
+				.take(self.scheduling_lookahead)
+				.collect(),
+		)
+	}
+
+	/// Claim-queue positions on `core` reachable from a scheduling parent at `depth` from this
+	/// leaf (leaf = depth 0). A depth-`d` SP can host advertisements landing at leaf-CQ positions
+	/// `i` with `i + d < lookahead`, so the window is `cq[0 .. lookahead - d]` capped to the
+	/// scheduled entries.
+	pub(crate) fn window(&self, core: CoreIndex, depth: usize) -> Vec<ParaId> {
+		let Some(cq) = self.claim_queues.get(&core) else { return Vec::new() };
+		let valid_len = self.scheduling_lookahead.saturating_sub(depth).min(cq.len());
+		cq.iter().take(valid_len).copied().collect()
 	}
 }
