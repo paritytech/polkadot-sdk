@@ -2141,13 +2141,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns true when a value transfer can target `address` without triggering any code
-	/// execution: it is neither the runtime pallets address, a precompile, nor a contract.
+	/// execution: it is neither the runtime pallets address, a precompile, a contract, nor an
+	/// EIP-7702 delegated EOA (a transfer to one executes the delegate's code).
 	fn address_runs_no_code(address: &H160) -> bool {
-		// TODO(eip-7702): also reject delegated (authorized) destinations once EIP-7702
-		// delegations land, since a transfer to one executes the delegate's code.
 		*address != RUNTIME_PALLETS_ADDR &&
 			!exec::is_precompile::<T, ContractBlob<T>>(address) &&
-			!<AccountInfo<T>>::is_contract(address)
+			!<AccountInfo<T>>::is_contract(address) &&
+			!<AccountInfo<T>>::is_delegated(address)
 	}
 
 	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
