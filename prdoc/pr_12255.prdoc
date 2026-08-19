@@ -6,21 +6,21 @@ doc:
     Both validator sides of the collator protocol derived the claim-queue window length from a
     value that is only a *lower bound* on the runtime scheduling lookahead, and so truncated the
     tail of the claim queue — silently dropping advertisement positions that are in fact
-    fetchable.
+    fetchable. Each side used a different bound, and each falls short in a different situation:
 
-    * Experimental (`validator_side_experimental`) used the allowed-ancestry path length.
-    * Legacy (`validator_side`, `is_slot_available`) used the claim-queue length.
-
-    Either bound is below the true scheduling lookahead in two production-reachable situations:
-
-    * near genesis (the chain is shorter than the lookahead), and
-    * for the first `lookahead - 1` blocks after a **session change**, where the implicit view
-      clamps ancestry at the session boundary (the relay chain cannot back candidates from a
-      previous session), so the allowed-ancestry path is shorter than the lookahead.
+    * Experimental (`validator_side_experimental`) used the allowed-ancestry path length. This is
+      below the lookahead near genesis, and for the first `lookahead - 1` blocks after a
+      **session change**, where the implicit view clamps ancestry at the session boundary (the
+      relay chain cannot back candidates from a previous session).
+    * Legacy (`validator_side`, `is_slot_available`) used the claim-queue length. The runtime
+      returns a claim queue shorter than the lookahead when it cannot predict an assignment for
+      every position — principally an **under-scheduled on-demand core**, where fewer orders are
+      queued than there are positions to fill, and more generally any core left unscheduled at
+      some position within the lookahead.
 
     In those windows, advertisements landing on the tail claim-queue positions — reachable from
-    the in-session scheduling parents, including the leaf itself — were rejected, reducing
-    collation throughput for a few blocks after every session rotation.
+    the scheduling parents on the path, including the leaf itself — were rejected, reducing
+    collation throughput.
 
     Fix: fetch the scheduling lookahead from the runtime (`SchedulingLookahead`) per active leaf
     and use it as the window bound in both validator sides. The per-leaf claim queues and the
