@@ -23,8 +23,7 @@ use cumulus_client_resubmission_store::ResubmissionStore;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{
-	MaybeCompressedPoV, SegmentCollation, SubmitCollationParams, SubmitSegmentParams,
-	UpwardMessages,
+	MaybeCompressedPoV, SegmentCollation, SubmitSegmentParams, UpwardMessages, MAX_SEGMENT_LEN,
 };
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
@@ -130,8 +129,8 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 
 impl<Block: BlockT> CollatorMessage<Block> {
 	/// Build the collation(s) carried by this message and forward them to the collation-generation
-	/// subsystem: a single collation via [`CollationGenerationMessage::SubmitCollation`], a segment
-	/// via [`CollationGenerationMessage::SubmitSegment`].
+	/// subsystem via [`CollationGenerationMessage::SubmitSegment`]: a single collation becomes a
+	/// one-element V2 segment, a segment is submitted as V3.
 	async fn handle<RClient, Backend, CHP>(
 		self,
 		collator_service: &impl CollatorServiceInterface<Block>,
@@ -148,34 +147,28 @@ impl<Block: BlockT> CollatorMessage<Block> {
 	{
 		match self {
 			CollatorMessage::Collation { core_index, entry } => {
-				// Single collations are submitted as V2: no scheduling proof, no scheduling parent.
-				let Some(SegmentCollation {
-					relay_parent,
-					collation,
-					validation_code_hash,
-					result_sender,
-					session_index,
-					validation_data,
-				}) = build_collation(entry, None, collator_service, &relay_client, export_pov).await
+				// Single collations are submitted as a one-element V2 segment: no scheduling
+				// proof, the scheduling parent is the collation's relay parent.
+				let Some(segment_collation) =
+					build_collation(entry, None, collator_service, &relay_client, export_pov).await
 				else {
 					return;
 				};
+				let scheduling_parent = segment_collation.relay_parent;
 
-				tracing::debug!(target: LOG_TARGET, ?core_index, ?relay_parent, "Submitting collation for core.");
+				tracing::debug!(target: LOG_TARGET, ?core_index, ?scheduling_parent, "Submitting collation for core.");
 
 				overseer_handle
 					.send_msg(
-						CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-							relay_parent,
-							collation,
-							validation_code_hash,
+						CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+							scheduling_parent,
 							core_index,
-							result_sender,
-							scheduling_parent: None,
-							session_index,
-							validation_data,
+							candidates_descriptor_version: CandidateDescriptorVersion::V2,
+							collations: sp_runtime::BoundedVec::truncate_from(vec![
+								segment_collation,
+							]),
 						}),
-						"SubmitCollation",
+						"SubmitSegment",
 					)
 					.await;
 			},
@@ -220,6 +213,16 @@ impl<Block: BlockT> CollatorMessage<Block> {
 					return;
 				}
 
+				if collations.len() > MAX_SEGMENT_LEN as usize {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?core_index,
+						segment_len = collations.len(),
+						max = MAX_SEGMENT_LEN,
+						"Segment exceeds MAX_SEGMENT_LEN; truncating.",
+					);
+				}
+
 				tracing::debug!(
 					target: LOG_TARGET,
 					?core_index,
@@ -232,7 +235,8 @@ impl<Block: BlockT> CollatorMessage<Block> {
 						CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
 							scheduling_parent,
 							core_index,
-							collations,
+							candidates_descriptor_version: CandidateDescriptorVersion::V3,
+							collations: sp_runtime::BoundedVec::truncate_from(collations),
 						}),
 						"SubmitSegment",
 					)
@@ -372,7 +376,6 @@ async fn build_collation<Block: BlockT, RClient: RelayChainInterface + Clone + '
 		relay_parent,
 		collation,
 		validation_code_hash,
-		result_sender: None,
 		session_index,
 		validation_data,
 	})

@@ -105,12 +105,27 @@ fn main() {
 		.set_file_name(elastic_scaling_v3::WASM_FILE_NAME)
 		.build();
 
+	// Elastic scaling (V2 descriptors) with a relay parent offset of 2.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("velocity-3")
+		.enable_feature("relay-parent-offset-2")
+		.set_file_name(elastic_scaling_rpo::WASM_FILE_NAME)
+		.build();
+
 	// Elastic scaling V3 with a relay parent offset of 2.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
 		.enable_feature("velocity-3")
 		.enable_feature("relay-parent-offset-2")
 		.set_file_name(elastic_scaling_v3_rpo::WASM_FILE_NAME)
+		.build();
+
+	// Block bundling without a relay parent offset: velocity-6 across 3 cores yields 2 blocks
+	// per core.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
+		.enable_feature("velocity-6")
+		.set_file_name(block_bundling_v3::WASM_FILE_NAME)
 		.build();
 
 	// Elastic scaling V3 with a relay parent offset of 2 and block bundling: velocity-6 across
