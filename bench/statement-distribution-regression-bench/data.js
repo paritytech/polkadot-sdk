@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787139856732,
+  "lastUpdate": 1787147842259,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aeab77e33d1e201a75345dc4647fcbd506d5899d",
-          "message": "Omni-node: Move timestamps closer to now (#10807)\n\nIn omni-node dev-mode the timestamps where showing close to the unix\nepoch. Technically not a problem, but its a bit more aesthetic if they\nare closer to now, as requested in\nhttps://github.com/paritytech/polkadot-sdk/issues/10759.\n\nI set them arbitrarily to two hours in the past so that they do not run\nimmediately into the future.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2026-01-15T17:45:37Z",
-          "tree_id": "486b671d9c66c5c1a48e29b297e8c558199ade5a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeab77e33d1e201a75345dc4647fcbd506d5899d"
-        },
-        "date": 1768503665006,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.04999999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06669806407199994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03805436944,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03998790158200001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d43339b83356ca5bf1a8f40d9e058f550c0e7bb",
+          "message": "Rework bitswap client and server (#12686)\n\nThis PR extracts Bitswap from `sc-network` into a dedicated\n`sc-network-bitswap` crate and replaces the backend-specific\nimplementations with a single actor-driven service and streaming handle\nAPI.\n\n## New API\n\n`BitswapHandle::request_stream(cids)` accepts a wantlist of arbitrary\nsize and returns a bounded channel yielding hash-verified (Cid, Vec<u8>)\npairs as each block resolves, so a slow CID never holds back completed\nones. The service retries unresolved CIDs indefinitely and has no\ninternal timeout — the caller sets its own deadline and cancels by\ndropping the receiver. All scheduling now lives in the actor: peers\ntracked via sync events, HAVE-based peer preference, per-peer timeouts,\nfailover on disconnect, and deduplication so concurrent requests for the\nsame CID share one network request.\n\n**Backpressure:** Outbound, a dispatch window caps in-flight CIDs at\n1024 with a FIFO behind it, and the bounded command channel returns\nOverloaded immediately instead of queueing unboundedly. Inbound,\nwantlists go into capped per-peer queues served round-robin, and\ndatabase lookups run on at most 8 semaphore-guarded blocking workers.\nEach permit is only released after the response has been forwarded to\nthe transport, so network backpressure propagates back into the lookup\npool.\n\n*Note:* The rewrite here only supports litep2p. I don't see a good\nreason to support libp2p for this. But up for debate, we could try to\nintroduce libp2p compatibility here again.\n\n## New structure\n\n- `handle.rs`: public request-stream API and errors\n- `service.rs`: request scheduling, peer management, and inbound serving\n- `metrics.rs`: Bitswap metrics\n- `service/tests.rs`: unit and property tests\n- Storage-chain sync and node wiring consume the new handle API\n\n---------\n\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T12:25:40Z",
+          "tree_id": "44dfc0a782805ca9b6bdb1a7998dc0123a7e35ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d43339b83356ca5bf1a8f40d9e058f550c0e7bb"
+        },
+        "date": 1787147808002,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.10399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03965990381,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08448004104599993,
             "unit": "seconds"
           }
         ]
