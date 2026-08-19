@@ -95,7 +95,6 @@ mod claim_queue_window {
 	/// Lookahead is 3; the leaf is at height 1 (ancestry reaches only genesis) with claim queue
 	/// `[A, B]`. B's slot is one ahead of the leaf, which the genesis ancestor can still serve, so
 	/// the advertisement must fetch.
-	///
 	#[crate::sim_test]
 	fn ancestor_can_fetch_last_claim_queue_position<S: CollatorSut>() {
 		let config =

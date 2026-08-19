@@ -749,7 +749,6 @@ mod claim_queue_capacity {
 	/// relay parent by design (`validator_side`: "there's always a single collation being
 	/// fetched at any moment of time"), so it can never satisfy this. See the inverse
 	/// `collation_fetching_prefer_entries_earlier_in_claim_queue` (only = "legacy").
-	///
 	#[crate::sim_test(only = "experimental")]
 	fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 		let config =
@@ -794,7 +793,6 @@ mod claim_queue_capacity {
 	/// produce exactly 2 fetches (the shared `common` slot is not double-counted per fork).
 	/// Both fetches fire concurrently from `common` — experimental-only: legacy serialises
 	/// to one in-flight fetch per relay parent by design, so it never reaches 2.
-	///
 	#[crate::sim_test(only = "experimental")]
 	fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 		let config =
