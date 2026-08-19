@@ -259,6 +259,7 @@ pub struct AccessListMetrics {
 }
 
 /// One entry per distinct state item accessed in the current transaction.
+/// Every entry stands for exactly one state read.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum AccessEntry {
 	/// Account state (`System::Account`) of `address`, read on value transfers.
@@ -277,30 +278,6 @@ pub enum AccessEntry {
 	/// Code blob. Keyed by code hash for the same reason.
 	CodeBlob { hash: H256 },
 }
-
-impl AccessEntry {
-	// Number of state reads per entry.
-	pub(crate) const ACCOUNT_READS: u64 = 1;
-	pub(crate) const ORIGINAL_ACCOUNT_READS: u64 = 1;
-	pub(crate) const ACCOUNT_INFO_READS: u64 = 1;
-	pub(crate) const STORAGE_READS: u64 = 1;
-	pub(crate) const CODE_INFO_READS: u64 = 1;
-	pub(crate) const CODE_BLOB_READS: u64 = 1;
-}
-
-// Compile-time check that every `AccessEntry` variant has a read count.
-const _: () = {
-	fn _reads(entry: &AccessEntry) -> u64 {
-		match entry {
-			AccessEntry::Account { .. } => AccessEntry::ACCOUNT_READS,
-			AccessEntry::OriginalAccount { .. } => AccessEntry::ORIGINAL_ACCOUNT_READS,
-			AccessEntry::Storage { .. } => AccessEntry::STORAGE_READS,
-			AccessEntry::AccountInfo { .. } => AccessEntry::ACCOUNT_INFO_READS,
-			AccessEntry::CodeInfo { .. } => AccessEntry::CODE_INFO_READS,
-			AccessEntry::CodeBlob { .. } => AccessEntry::CODE_BLOB_READS,
-		}
-	}
-};
 
 /// Per-transaction access list with per-frame rollback support. Layout
 /// follows [`crate::transient_storage::TransientStorage`]: a current-state

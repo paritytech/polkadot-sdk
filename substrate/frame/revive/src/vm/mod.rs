@@ -27,7 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{AccessEntry, CodeLoadWarmth},
+	access_list::CodeLoadWarmth,
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -151,7 +151,6 @@ impl<T: Config> Token<T> for CodeLoadToken {
 
 		let load_weight = runtime_costs::weight_by_warmth::<T>(
 			&[self.warmth.info, self.warmth.blob],
-			AccessEntry::CODE_INFO_READS + AccessEntry::CODE_BLOB_READS,
 			|| {
 				// Charge code_load since the call and instantiate benches whitelist the code
 				// reads. This overlaps their ref_time, so it slightly overcharges.

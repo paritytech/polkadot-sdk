@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{AccessEntry, StateWarmth, StorageAccessKind, StorageOp, Warmth},
+	access_list::{StateWarmth, StorageAccessKind, StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -272,8 +272,7 @@ impl RuntimeCosts {
 					Warmth::Hot(paid) if !paid.covers(op) => Self::deferred_write_cost::<T>(),
 					_ => Weight::zero(),
 				};
-				weight_by_warmth::<T>(&[warmth], AccessEntry::STORAGE_READS, cold, hot)
-					.saturating_add(surcharge)
+				weight_by_warmth::<T>(&[warmth], cold, hot).saturating_add(surcharge)
 			},
 			StorageAccessKind::Transient => transient(),
 		}
@@ -284,15 +283,16 @@ impl RuntimeCosts {
 /// Prices hot only if every item is hot.
 pub(crate) fn weight_by_warmth<T: Config>(
 	item_warmths: &[Warmth],
-	state_reads: u64,
 	cold: impl FnOnce() -> Weight,
 	hot: impl FnOnce() -> Weight,
 ) -> Weight {
 	// An empty slice prices cold.
 	let operation_weight =
 		if !item_warmths.is_empty() && item_warmths.iter().all(|warmth| warmth.is_hot()) {
+			// One overlay lookup per item, since each stands for one state read.
 			hot().saturating_add(
-				RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(state_reads),
+				RuntimeCosts::hot_storage_overlay_overhead::<T>()
+					.saturating_mul(item_warmths.len() as u64),
 			)
 		} else {
 			cold()
@@ -400,9 +400,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				StateWarmth::Call { account: Some(account), original_account, account_info } => {
 					weight_by_warmth::<T>(
 						&[account, original_account, account_info],
-						AccessEntry::ACCOUNT_READS +
-							AccessEntry::ORIGINAL_ACCOUNT_READS +
-							AccessEntry::ACCOUNT_INFO_READS,
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
 					)
@@ -410,14 +407,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				StateWarmth::Call { account: None, original_account, account_info } => {
 					weight_by_warmth::<T>(
 						&[original_account, account_info],
-						AccessEntry::ORIGINAL_ACCOUNT_READS + AccessEntry::ACCOUNT_INFO_READS,
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
 					)
 				},
 				StateWarmth::DelegateCall { account_info } => weight_by_warmth::<T>(
 					&[account_info],
-					AccessEntry::ACCOUNT_INFO_READS,
 					T::WeightInfo::seal_delegate_call,
 					T::WeightInfo::seal_delegate_call_hot,
 				),
