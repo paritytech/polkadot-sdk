@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787117832128,
+  "lastUpdate": 1787139809154,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "runcomet@protonmail.com",
-            "name": "runcomet",
-            "username": "runcomet"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "46d4223052a663c40fd7e0580997cd5ba1ac25fc",
-          "message": "Add `genesis-patch` support to frame-omni-bencher (#10735)\n\nresolves #7433\n\n### Summary\nThis PR adds a `--genesis-patch` CLI option to `frame-omni-bencher`,\nenabling users customize genesis states for advanced benchmarking\nscenarios like stress testing with many accounts, merging user-provided\nJSON patches with existing genesis configurations, including parachain\nID patches in overhead benchmarking.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-01-17T12:10:31Z",
-          "tree_id": "5cf964126cc9b0dcc8db19bafa14b48ce5391f31",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/46d4223052a663c40fd7e0580997cd5ba1ac25fc"
-        },
-        "date": 1768656205963,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63625.67999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3093524257799927,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005260072060000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000028042399999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022412579999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022412579999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6200508012099997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6235244524100008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.663065591750017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6878524180900016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7893268365500243,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.644580052093263,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000028042399999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.627698585649999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.6959479031700004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70c5d8f98ac1156572f5957f5788ae2e619d9623",
+          "message": "[pallet-revive] Report untraced transactions instead of omitting them (#12796)\n\n# Description\n\nFollow-up to polkadot-sdk#12374. A block replay can drop a transaction's\ntrace (the tail hits `ExhaustsResources`). `trace_block` / `trace_tx`\ncurrently omit it and eth-rpc infers this from a block-level `degraded`\nflag. This reshapes the V2 output of both to report each transaction's\nstatus from the runtime directly: traced, couldn't-trace, or nothing to\ntrace.\n\n# Integration\n\n- New `TraceEntryV1 { Traced(TraceV2), NotTraced }` in\n`pallet-revive-types`: a trace, a couldn't-trace signal, or (absent\nentry / `None`) nothing to trace.\n- The **V2** output of `trace_block_versioned` / `trace_tx_versioned`\nnow returns `Vec<(u32, TraceEntryV1)>` / `Option<TraceEntryV1>` instead\nof `Vec<(u32, TraceV2)>` / `Option<TraceV2>`; V1 unchanged,\n`version_declarations` stays at 2.\n- eth-rpc prefers V2: `debug_traceBlock*` renders `NotTraced` as a geth\n`{txHash, error}` and `debug_traceTransaction` returns a real error, not\n\"not found\"; it falls back to the `degraded` path on V1 nodes.\n\n# Review Notes\n\n- **V2 is redefined, not superseded.** Per the versioning policy, an\nunreleased wire format is not yet stabilized. V2 is in no stable\nrelease.\n- **Classification.** The tracer loop builds `TraceEntry` once; V1 drops\n`NotTraced`, V2 keeps it. `TraceEntry::for_untraced` flags only\n`Err(ExhaustsResources)`.\n- **Unit variant, not the drafted enum.** Drafted in\n[polkadot-sdk#12386](https://github.com/paritytech/polkadot-sdk/pull/12386#issuecomment-5052840014)\nas `NotTraced(NotTracedReasonV1)`. Shipped as a unit `NotTraced`:\n`ExhaustsResources` seems to be the only cause that drops a real\ntransaction's trace on a faithful replay, so a reason enum would carry\nno information. Extensible if a second cause appears.\n- **Wraps `TraceV2`.** The `V1` counts this wire type's own iterations,\nnot the payload's, so it carries the newest trace payload.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T10:05:37Z",
+          "tree_id": "ba884c5694a5077663088eb4cd8f680c6102e772",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/70c5d8f98ac1156572f5957f5788ae2e619d9623"
+        },
+        "date": 1787139774091,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.530000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6631555269600007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001955862,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.67669002919,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.642923593670001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3490765202500024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002029576,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8369461830799534,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.612999042092706,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.628964735630002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002029576,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005208674660000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001955862,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.802965263439958,
             "unit": "seconds"
           }
         ]
