@@ -20,7 +20,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{DecodeAll, DecodeLimit};
+use codec::DecodeAll;
 use core::{fmt, marker::PhantomData, num::NonZero};
 use frame_support::dispatch::RawOrigin;
 use pallet_revive::{
@@ -32,7 +32,7 @@ use pallet_revive::{
 };
 use pallet_xcm::{Config, WeightInfo};
 use tracing::error;
-use xcm::{v5, IdentifyVersion, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+use xcm::{v5, IdentifyVersion, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/interface/IXcm.sol");
@@ -100,11 +100,11 @@ where
 
 				ensure_xcm_version(&final_destination)?;
 
-				let final_message = VersionedXcm::<()>::decode_all_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut &message[..],
-				)
-				.map_err(|error| revert(&error, "XCM send failed: Invalid message format"))?;
+				let final_message =
+					VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut &message[..])
+						.map_err(|error| {
+							revert(&error, "XCM send failed: Invalid message format")
+						})?;
 
 				ensure_xcm_version(&final_message)?;
 
@@ -127,8 +127,7 @@ where
 					max_weight.saturating_add(<Runtime as Config>::WeightInfo::execute());
 				let charged_amount = env.charge(weight_to_charge)?;
 
-				let final_message = VersionedXcm::decode_all_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
+				let final_message = VersionedXcm::decode_all_with_mem_and_depth_limit(
 					&mut &message[..],
 				)
 				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
@@ -161,8 +160,7 @@ where
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				let _ = env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
 
-				let converted_message = VersionedXcm::decode_all_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
+				let converted_message = VersionedXcm::decode_all_with_mem_and_depth_limit(
 					&mut &message[..],
 				)
 				.map_err(|error| revert(&error, "XCM weightMessage: Invalid message format"))?;
