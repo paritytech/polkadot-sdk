@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787069032174,
+  "lastUpdate": 1787117869533,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2b8cd8bbd17856dfd63729691625c088cc41521b",
-          "message": "Add CLAUDE.md (#10805)\n\nSo that not everybody has to re-generate it when using claude. I\nmanually edited the initially auto generated file. Especially the\ndependencies and build command section. So that it properly uses\n`SKIP_WASM_BUILD` and checks the whole work space.\n\nThis file is mend to grow over time with more instructions to improve\nthe LLMs understanding of the repository.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>",
-          "timestamp": "2026-01-14T23:46:36Z",
-          "tree_id": "252350b5c457f19cdf3ec883979dcb4863249974",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2b8cd8bbd17856dfd63729691625c088cc41521b"
-        },
-        "date": 1768438518078,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.09599999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06779991033199996,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03833959341000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039582045782,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7ff27621927a71fe03dc1545392a9c3c2cb8a67",
+          "message": "Remove basic collator (#12920)\n\nRelated to https://github.com/paritytech/polkadot-sdk/pull/12172\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8145\n\nThis PR:\n- removes the basic collator\n- removes `collation_req_v1_receiver`\n- removes `CollatorSybilResistance`\n- removes `RequireSecondedInBlockAnnounce`\n- removes `WaitToAnnounce`\n\nThese are not used anymore\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T03:55:02Z",
+          "tree_id": "b2582e1a830e80d6aeb6afae17da96c44b902e11",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b7ff27621927a71fe03dc1545392a9c3c2cb8a67"
+        },
+        "date": 1787117839214,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.13199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04051388184199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08535389468399991,
             "unit": "seconds"
           }
         ]
