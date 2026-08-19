@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787116992446,
+  "lastUpdate": 1787139895847,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -115883,6 +115883,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2786491622,
             "range": "± 43779129",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70c5d8f98ac1156572f5957f5788ae2e619d9623",
+          "message": "[pallet-revive] Report untraced transactions instead of omitting them (#12796)\n\n# Description\n\nFollow-up to polkadot-sdk#12374. A block replay can drop a transaction's\ntrace (the tail hits `ExhaustsResources`). `trace_block` / `trace_tx`\ncurrently omit it and eth-rpc infers this from a block-level `degraded`\nflag. This reshapes the V2 output of both to report each transaction's\nstatus from the runtime directly: traced, couldn't-trace, or nothing to\ntrace.\n\n# Integration\n\n- New `TraceEntryV1 { Traced(TraceV2), NotTraced }` in\n`pallet-revive-types`: a trace, a couldn't-trace signal, or (absent\nentry / `None`) nothing to trace.\n- The **V2** output of `trace_block_versioned` / `trace_tx_versioned`\nnow returns `Vec<(u32, TraceEntryV1)>` / `Option<TraceEntryV1>` instead\nof `Vec<(u32, TraceV2)>` / `Option<TraceV2>`; V1 unchanged,\n`version_declarations` stays at 2.\n- eth-rpc prefers V2: `debug_traceBlock*` renders `NotTraced` as a geth\n`{txHash, error}` and `debug_traceTransaction` returns a real error, not\n\"not found\"; it falls back to the `degraded` path on V1 nodes.\n\n# Review Notes\n\n- **V2 is redefined, not superseded.** Per the versioning policy, an\nunreleased wire format is not yet stabilized. V2 is in no stable\nrelease.\n- **Classification.** The tracer loop builds `TraceEntry` once; V1 drops\n`NotTraced`, V2 keeps it. `TraceEntry::for_untraced` flags only\n`Err(ExhaustsResources)`.\n- **Unit variant, not the drafted enum.** Drafted in\n[polkadot-sdk#12386](https://github.com/paritytech/polkadot-sdk/pull/12386#issuecomment-5052840014)\nas `NotTraced(NotTracedReasonV1)`. Shipped as a unit `NotTraced`:\n`ExhaustsResources` seems to be the only cause that drops a real\ntransaction's trace on a faithful replay, so a reason enum would carry\nno information. Extensible if a second cause appears.\n- **Wraps `TraceV2`.** The `V1` counts this wire type's own iterations,\nnot the payload's, so it carries the newest trace payload.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T10:05:37Z",
+          "tree_id": "ba884c5694a5077663088eb4cd8f680c6102e772",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/70c5d8f98ac1156572f5957f5788ae2e619d9623"
+        },
+        "date": 1787139861319,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 18995077,
+            "range": "± 217579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19183082,
+            "range": "± 210394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20541227,
+            "range": "± 150287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24980232,
+            "range": "± 105719",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56860524,
+            "range": "± 323767",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 346613467,
+            "range": "± 4309547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2320803677,
+            "range": "± 82335858",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16634769,
+            "range": "± 126127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16937711,
+            "range": "± 133248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17068146,
+            "range": "± 106732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21676979,
+            "range": "± 123176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58877266,
+            "range": "± 581600",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 343850034,
+            "range": "± 7254305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2568913278,
+            "range": "± 44930703",
             "unit": "ns/iter"
           }
         ]
