@@ -23,6 +23,24 @@ so it is not benchmarked separately):
 Implementations match `sp_crypto_hashing`: `blake2b_simd`, `sha2`, `sha3`,
 `twox-hash` (1/2/4 seeded XxHash64 passes).
 
+Plus the arkworks elliptic-curve host functions of
+[`sp_crypto_ec_utils`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/primitives/crypto/ec-utils/src/lib.rs),
+which are a separate crate from `sp_io` and conditionally enabled per-PVF
+(`ExecutorParam::EnabledHostFunction(EccRfc163)`). All 12 of
+[`HostFunctionsRfc163`](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/primitives/crypto/ec-utils/src/lib.rs#L69):
+
+- `bls12_381`: `multi_miller_loop`, `final_exponentiation`, `msm_g1`, `msm_g2`,
+  `mul_g1`, `mul_g2` — bridges/BEEFY/Ethereum
+- `ed_on_bls12_381_bandersnatch`: `msm`, `mul` — JAM Safrole / ring-VRF curve
+- `pallas`, `vesta`: `msm`, `mul` each — the Pasta cycle
+
+Measured on the plain `ark-*` 0.5.0 crates, not the `-ext` hook crates — those
+are the offload plumbing. Only the compute kernel; the `ArkScale` codec is
+excluded, being noise at these magnitudes.
+
+Two extra rows, `bls12_377` and `bw6_761` pairings, show how cost scales with
+field width. They are in the crate but **not** in `HostFunctionsRfc163`.
+
 ## Results
 
 Setup: PolkaVM **64-bit, recompiler backend, synchronous gas metering** (polkajam's
@@ -95,6 +113,29 @@ host-portable build; see appendix for the host-native results.
 | ecdsa_verify (`libsecp256k1`) | 128.3 µs | 234.4 µs | 1.8× | 112.2 µs | 161.5 µs | 1.4× |
 | secp256k1_ecdsa_recover (`k256`) | 148.9 µs | 459.6 µs | 3.1× | 123.8 µs | 339.0 µs | 2.7× |
 | secp256k1_ecdsa_recover (`libsecp256k1`) | 136.7 µs | 256.5 µs | 1.9× | 119.3 µs | 171.2 µs | 1.4× |
+
+### Elliptic curves (`sp_crypto_ec_utils`, RFC-163)
+
+Single run per machine, not five. The host-native build for these rows also
+enables `ark-ff/asm`, arkworks' bigint assembly. MSM rows are at n=1024; both host
+builds and the full 16/64/256/1024 grids are in the appendix.
+
+| operation | A best host | A PVM | A ratio | B best host | B PVM | B ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| bls12-381 pairing (miller + final_exp) | 858.72 µs | 2.70 ms | 3.2× | 706.78 µs | 1.68 ms | **2.4×** |
+| bls12-381 msm_g1 (n=1024) | 18.22 ms | 45.30 ms | 2.5× | 16.10 ms | 29.41 ms | **1.8×** |
+| bls12-381 msm_g2 (n=1024) | 59.69 ms | 166.83 ms | 2.8× | 52.84 ms | 101.40 ms | **1.9×** |
+| bls12-381 mul_g1 | 129.20 µs | 322.79 µs | 2.5× | 117.73 µs | 213.73 µs | **1.8×** |
+| bls12-381 mul_g2 | 399.68 µs | 1.19 ms | 3.0× | 349.95 µs | 708.19 µs | **2.0×** |
+| bandersnatch msm (n=1024) | 10.77 ms | 23.31 ms | 2.2× | 9.40 ms | 17.17 ms | **1.8×** |
+| bandersnatch mul | 63.72 µs | 154.66 µs | 2.4× | 55.52 µs | 107.59 µs | **1.9×** |
+| pallas msm (n=1024) | 9.79 ms | 20.30 ms | 2.1× | 8.74 ms | 14.46 ms | **1.7×** |
+| pallas mul | 62.57 µs | 144.46 µs | 2.3× | 56.17 µs | 97.30 µs | **1.7×** |
+| vesta msm (n=1024) | 9.74 ms | 19.91 ms | 2.0× | 8.73 ms | 14.48 ms | **1.7×** |
+| vesta mul | 62.57 µs | 143.49 µs | 2.3× | 56.14 µs | 93.18 µs | **1.7×** |
+
+`final_exponentiation` is measured only as part of the full pairing; nothing calls
+it without a Miller loop first.
 
 ### Hardware dependence
 
@@ -345,6 +386,9 @@ host builds) and `tools/benchtool/output_new_01_toaster` (machine B, stable
 host builds incl. signature `*-native` variants) on the `mku-bench-hash` branch (5 runs each; tables use one
 representative run). Host libraries are stable-1.86 builds unless the
 heading says otherwise.
+
+ec-utils raw data (single run each): `tools/benchtool/ec-utils-06-full-machine-a.md`
+(machine A) and `all-results/ec-utils-06-full.md` (machine B).
 
 ### Signatures, host-portable build — machine A
 CPU: AMD Ryzen 9 5950X (Zen 3): AVX2, SHA-NI.
@@ -698,6 +742,77 @@ AVX-512 auto-vectorization) and the twox native columns (+11–17%).
 | 4 KiB | 1.24 µs | 681 ns | 825 ns | 1.82x | 1.51x | 0.83x |
 | 64 KiB | 19.51 µs | 11.25 µs | 12.88 µs | 1.73x | 1.51x | 0.87x |
 | 1 MiB | 307.89 µs | 181.08 µs | 205.81 µs | 1.70x | 1.50x | 0.88x |
+
+### Elliptic curves (ec-utils) — machine A
+CPU: AMD Ryzen 9 5950X (Zen 3): AVX2, SHA-NI. Single run.
+MSM rows carry the number of bases in brackets. *host native* here is
+`target-cpu=native` **+ `ark-ff/asm`**.
+
+| benchmark | host portable | host native | PVM (64-bit, sync gas) | pvm/portable | pvm/native |
+|---|---:|---:|---:|---:|---:|
+| bls381-pairing | 960.60 µs | 858.72 µs | 2.70 ms | 2.81× | 3.15× |
+| bls381-msm-g1 (16) | 848.71 µs | 786.69 µs | 2.06 ms | 2.43× | 2.62× |
+| bls381-msm-g1 (64) | 2.44 ms | 2.29 ms | 5.85 ms | 2.40× | 2.55× |
+| bls381-msm-g1 (256) | 6.53 ms | 6.15 ms | 15.46 ms | 2.37× | 2.51× |
+| bls381-msm-g1 (1024) | 19.36 ms | 18.22 ms | 45.30 ms | 2.34× | 2.49× |
+| bls381-msm-g2 (16) | 2.89 ms | 2.67 ms | 7.48 ms | 2.59× | 2.80× |
+| bls381-msm-g2 (64) | 8.30 ms | 7.79 ms | 21.35 ms | 2.57× | 2.74× |
+| bls381-msm-g2 (256) | 22.18 ms | 20.49 ms | 56.64 ms | 2.55× | 2.76× |
+| bls381-msm-g2 (1024) | 65.28 ms | 59.69 ms | 166.83 ms | 2.56× | 2.79× |
+| bls381-mul-g1 | 143.52 µs | 129.20 µs | 322.79 µs | 2.25× | 2.50× |
+| bls381-mul-g2 | 444.89 µs | 399.68 µs | 1.19 ms | 2.67× | 2.98× |
+| bander-msm (16) | 568.10 µs | 566.63 µs | 1.29 ms | 2.27× | 2.28× |
+| bander-msm (64) | 1.75 ms | 1.72 ms | 3.91 ms | 2.23× | 2.28× |
+| bander-msm (256) | 4.02 ms | 3.94 ms | 8.90 ms | 2.21× | 2.26× |
+| bander-msm (1024) | 10.77 ms | 10.78 ms | 23.31 ms | 2.16× | 2.16× |
+| bander-mul | 67.71 µs | 63.72 µs | 154.66 µs | 2.28× | 2.43× |
+| pallas-msm (16) | 424.46 µs | 375.76 µs | 914.68 µs | 2.15× | 2.43× |
+| pallas-msm (64) | 1.32 ms | 1.18 ms | 2.58 ms | 1.95× | 2.19× |
+| pallas-msm (256) | 3.64 ms | 3.25 ms | 7.02 ms | 1.93× | 2.16× |
+| pallas-msm (1024) | 10.88 ms | 9.79 ms | 20.30 ms | 1.87× | 2.07× |
+| pallas-mul | 70.40 µs | 62.57 µs | 144.46 µs | 2.05× | 2.31× |
+| vesta-msm (16) | 431.13 µs | 373.68 µs | 924.80 µs | 2.15× | 2.47× |
+| vesta-msm (64) | 1.31 ms | 1.18 ms | 2.61 ms | 2.00× | 2.21× |
+| vesta-msm (256) | 3.60 ms | 3.26 ms | 6.80 ms | 1.89× | 2.08× |
+| vesta-msm (1024) | 10.78 ms | 9.74 ms | 19.91 ms | 1.85× | 2.04× |
+| vesta-mul | 70.08 µs | 62.57 µs | 143.49 µs | 2.05× | 2.29× |
+| bls377-pairing *(not RFC-163)* | 1.10 ms | 936.64 µs | 3.04 ms | 2.76× | 3.24× |
+| bw6761-pairing *(not RFC-163)* | 3.85 ms | 3.32 ms | 14.87 ms | 3.86× | 4.48× |
+
+### Elliptic curves (ec-utils) — machine B
+Single run.
+
+| benchmark | host portable | host native | PVM (64-bit, sync gas) | pvm/portable | pvm/native |
+|---|---:|---:|---:|---:|---:|
+| bls381-pairing | 797.01 µs | 706.78 µs | 1.68 ms | 2.11× | 2.38× |
+| bls381-msm-g1 (16) | 713.59 µs | 678.18 µs | 1.29 ms | 1.81× | 1.90× |
+| bls381-msm-g1 (64) | 2.10 ms | 1.97 ms | 3.75 ms | 1.79× | 1.91× |
+| bls381-msm-g1 (256) | 5.70 ms | 5.43 ms | 10.06 ms | 1.76× | 1.85× |
+| bls381-msm-g1 (1024) | 16.93 ms | 16.10 ms | 29.41 ms | 1.74× | 1.83× |
+| bls381-msm-g2 (16) | 2.47 ms | 2.29 ms | 4.60 ms | 1.86× | 2.00× |
+| bls381-msm-g2 (64) | 7.10 ms | 6.76 ms | 13.16 ms | 1.85× | 1.95× |
+| bls381-msm-g2 (256) | 18.97 ms | 18.01 ms | 34.79 ms | 1.83× | 1.93× |
+| bls381-msm-g2 (1024) | 55.77 ms | 52.84 ms | 101.40 ms | 1.82× | 1.92× |
+| bls381-mul-g1 | 124.42 µs | 117.73 µs | 213.73 µs | 1.72× | 1.82× |
+| bls381-mul-g2 | 379.49 µs | 349.95 µs | 708.19 µs | 1.87× | 2.02× |
+| bander-msm (16) | 478.08 µs | 477.65 µs | 919.49 µs | 1.92× | 1.93× |
+| bander-msm (64) | 1.47 ms | 1.48 ms | 2.73 ms | 1.86× | 1.84× |
+| bander-msm (256) | 3.54 ms | 3.52 ms | 6.52 ms | 1.84× | 1.85× |
+| bander-msm (1024) | 9.47 ms | 9.40 ms | 17.17 ms | 1.81× | 1.83× |
+| bander-mul | 57.64 µs | 55.52 µs | 107.59 µs | 1.87× | 1.94× |
+| pallas-msm (16) | 359.67 µs | 340.87 µs | 603.28 µs | 1.68× | 1.77× |
+| pallas-msm (64) | 1.02 ms | 950.88 µs | 1.74 ms | 1.70× | 1.83× |
+| pallas-msm (256) | 3.11 ms | 2.90 ms | 4.94 ms | 1.59× | 1.70× |
+| pallas-msm (1024) | 9.39 ms | 8.74 ms | 14.46 ms | 1.54× | 1.65× |
+| pallas-mul | 60.95 µs | 56.17 µs | 97.30 µs | 1.60× | 1.73× |
+| vesta-msm (16) | 360.01 µs | 335.60 µs | 601.78 µs | 1.67× | 1.79× |
+| vesta-msm (64) | 1.02 ms | 944.35 µs | 1.73 ms | 1.69× | 1.83× |
+| vesta-msm (256) | 3.12 ms | 2.90 ms | 4.94 ms | 1.59× | 1.70× |
+| vesta-msm (1024) | 9.40 ms | 8.73 ms | 14.48 ms | 1.54× | 1.66× |
+| vesta-mul | 60.54 µs | 56.14 µs | 93.18 µs | 1.54× | 1.66× |
+| bls377-pairing *(not RFC-163)* | 933.31 µs | 746.25 µs | 1.94 ms | 2.08× | 2.60× |
+| bw6761-pairing *(not RFC-163)* | 3.09 ms | 2.74 ms | 10.82 ms | 3.50× | 3.95× |
+
 ## Appendix: usage recap
 
 Where each algorithm shows up in the Substrate/Polkadot stack, and which
