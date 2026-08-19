@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787116951018,
+  "lastUpdate": 1787139851490,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -207167,6 +207167,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2609258042,
             "range": "± 95526473",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70c5d8f98ac1156572f5957f5788ae2e619d9623",
+          "message": "[pallet-revive] Report untraced transactions instead of omitting them (#12796)\n\n# Description\n\nFollow-up to polkadot-sdk#12374. A block replay can drop a transaction's\ntrace (the tail hits `ExhaustsResources`). `trace_block` / `trace_tx`\ncurrently omit it and eth-rpc infers this from a block-level `degraded`\nflag. This reshapes the V2 output of both to report each transaction's\nstatus from the runtime directly: traced, couldn't-trace, or nothing to\ntrace.\n\n# Integration\n\n- New `TraceEntryV1 { Traced(TraceV2), NotTraced }` in\n`pallet-revive-types`: a trace, a couldn't-trace signal, or (absent\nentry / `None`) nothing to trace.\n- The **V2** output of `trace_block_versioned` / `trace_tx_versioned`\nnow returns `Vec<(u32, TraceEntryV1)>` / `Option<TraceEntryV1>` instead\nof `Vec<(u32, TraceV2)>` / `Option<TraceV2>`; V1 unchanged,\n`version_declarations` stays at 2.\n- eth-rpc prefers V2: `debug_traceBlock*` renders `NotTraced` as a geth\n`{txHash, error}` and `debug_traceTransaction` returns a real error, not\n\"not found\"; it falls back to the `degraded` path on V1 nodes.\n\n# Review Notes\n\n- **V2 is redefined, not superseded.** Per the versioning policy, an\nunreleased wire format is not yet stabilized. V2 is in no stable\nrelease.\n- **Classification.** The tracer loop builds `TraceEntry` once; V1 drops\n`NotTraced`, V2 keeps it. `TraceEntry::for_untraced` flags only\n`Err(ExhaustsResources)`.\n- **Unit variant, not the drafted enum.** Drafted in\n[polkadot-sdk#12386](https://github.com/paritytech/polkadot-sdk/pull/12386#issuecomment-5052840014)\nas `NotTraced(NotTracedReasonV1)`. Shipped as a unit `NotTraced`:\n`ExhaustsResources` seems to be the only cause that drops a real\ntransaction's trace on a faithful replay, so a reason enum would carry\nno information. Extensible if a second cause appears.\n- **Wraps `TraceV2`.** The `V1` counts this wire type's own iterations,\nnot the payload's, so it carries the newest trace payload.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T10:05:37Z",
+          "tree_id": "ba884c5694a5077663088eb4cd8f680c6102e772",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/70c5d8f98ac1156572f5957f5788ae2e619d9623"
+        },
+        "date": 1787139816488,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4480232,
+            "range": "± 53175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 298291,
+            "range": "± 4216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4814565,
+            "range": "± 84434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 373339,
+            "range": "± 2447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5615593,
+            "range": "± 51870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 889695,
+            "range": "± 3263",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10868444,
+            "range": "± 56998",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4867920,
+            "range": "± 41205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44670111,
+            "range": "± 332547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41433118,
+            "range": "± 1029639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 402741949,
+            "range": "± 3104253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 320234029,
+            "range": "± 2399108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2673406903,
+            "range": "± 13648320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2442507028,
+            "range": "± 25144676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3373092,
+            "range": "± 31924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1847131,
+            "range": "± 9491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3493197,
+            "range": "± 55774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1895442,
+            "range": "± 8270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3921367,
+            "range": "± 23739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2218555,
+            "range": "± 13122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7752952,
+            "range": "± 35559",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5210387,
+            "range": "± 65859",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37961330,
+            "range": "± 540331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 40031758,
+            "range": "± 720753",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 341530787,
+            "range": "± 2281523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 282039901,
+            "range": "± 2280096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2598205430,
+            "range": "± 43294203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2270308171,
+            "range": "± 50291996",
             "unit": "ns/iter"
           }
         ]
