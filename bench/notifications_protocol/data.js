@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787139851490,
+  "lastUpdate": 1787146840969,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -207359,6 +207359,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2270308171,
             "range": "± 50291996",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d43339b83356ca5bf1a8f40d9e058f550c0e7bb",
+          "message": "Rework bitswap client and server (#12686)\n\nThis PR extracts Bitswap from `sc-network` into a dedicated\n`sc-network-bitswap` crate and replaces the backend-specific\nimplementations with a single actor-driven service and streaming handle\nAPI.\n\n## New API\n\n`BitswapHandle::request_stream(cids)` accepts a wantlist of arbitrary\nsize and returns a bounded channel yielding hash-verified (Cid, Vec<u8>)\npairs as each block resolves, so a slow CID never holds back completed\nones. The service retries unresolved CIDs indefinitely and has no\ninternal timeout — the caller sets its own deadline and cancels by\ndropping the receiver. All scheduling now lives in the actor: peers\ntracked via sync events, HAVE-based peer preference, per-peer timeouts,\nfailover on disconnect, and deduplication so concurrent requests for the\nsame CID share one network request.\n\n**Backpressure:** Outbound, a dispatch window caps in-flight CIDs at\n1024 with a FIFO behind it, and the bounded command channel returns\nOverloaded immediately instead of queueing unboundedly. Inbound,\nwantlists go into capped per-peer queues served round-robin, and\ndatabase lookups run on at most 8 semaphore-guarded blocking workers.\nEach permit is only released after the response has been forwarded to\nthe transport, so network backpressure propagates back into the lookup\npool.\n\n*Note:* The rewrite here only supports litep2p. I don't see a good\nreason to support libp2p for this. But up for debate, we could try to\nintroduce libp2p compatibility here again.\n\n## New structure\n\n- `handle.rs`: public request-stream API and errors\n- `service.rs`: request scheduling, peer management, and inbound serving\n- `metrics.rs`: Bitswap metrics\n- `service/tests.rs`: unit and property tests\n- Storage-chain sync and node wiring consume the new handle API\n\n---------\n\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T12:25:40Z",
+          "tree_id": "44dfc0a782805ca9b6bdb1a7998dc0123a7e35ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d43339b83356ca5bf1a8f40d9e058f550c0e7bb"
+        },
+        "date": 1787146809458,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4950120,
+            "range": "± 104507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 315915,
+            "range": "± 4808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 5143164,
+            "range": "± 143564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 387581,
+            "range": "± 8084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5964576,
+            "range": "± 143381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 958442,
+            "range": "± 16576",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11540618,
+            "range": "± 192515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5293656,
+            "range": "± 71194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 48559490,
+            "range": "± 985940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41534869,
+            "range": "± 725593",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 399140562,
+            "range": "± 4324868",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 326526525,
+            "range": "± 3243668",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2836321036,
+            "range": "± 29196070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2558239896,
+            "range": "± 29349534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3674524,
+            "range": "± 60812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1921001,
+            "range": "± 11542",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3734018,
+            "range": "± 44143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1985207,
+            "range": "± 14072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4276529,
+            "range": "± 54706",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2340695,
+            "range": "± 15125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8479478,
+            "range": "± 95018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5592562,
+            "range": "± 50111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 40345250,
+            "range": "± 483585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 39123449,
+            "range": "± 237590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 343688597,
+            "range": "± 3328085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 292039256,
+            "range": "± 2795930",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2637581159,
+            "range": "± 13700238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2362883273,
+            "range": "± 20704550",
             "unit": "ns/iter"
           }
         ]
