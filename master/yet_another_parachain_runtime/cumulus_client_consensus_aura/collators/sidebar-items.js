@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["basic","lookahead","slot_based"],"struct":["RelayParentData"]};
+window.SIDEBAR_ITEMS = {"mod":["lookahead","slot_based"],"struct":["RelayParentData"]};
