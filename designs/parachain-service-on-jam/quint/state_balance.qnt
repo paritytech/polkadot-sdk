@@ -35,8 +35,9 @@ module state_balance {
       CoreCount * (34 + 5 + 2 + AuthorizerQueueLength * 32 + 5)
     // (CoreIndex 4 + Timeslot 4) per core.
     val pendingAssignCores = VecEntryOverhead + CoreCount * 8
-    // Head/tail pointer: 34 + 1 (key) + 1 (Option tag) + first_slot 4 + last_slot 4.
-    val transferChain = 34 + 1 + 1 + 4 + 4
+    // Head/tail pointer: 34 + 1 (key) + 1 (Option tag) + first_slot 4 + last_slot 4
+    // + count 4.
+    val transferChain = 34 + 1 + 1 + 4 + 4 + 4
     // Fixed storage items: the two BoundedVecs, the chain pointer, and one per
     // core for pendingAssigns. The transfer buckets are counted per transfer below.
     val fixedItems = 3 + CoreCount
@@ -67,6 +68,31 @@ module state_balance {
   /// Total = 187 + len balance units (octet subtotal 157 + len, items 30).
   pure def preimageFootprint(len: int): int =
   (20 + 81 + len) + (10 + 34 + 5 + 37)
+
+  /// What Asset Hub is charged for the unreserved part of the transfer queue
+  /// (§5.1), priced per worst-case bucket as §6.1 sizes the reservation itself.
+  pure def excessTransferFootprint(count: int): int =
+    if (count <= MaxIncomingTransfers) 0
+    else (count - MaxIncomingTransfers) * IncomingTransferEntryFootprint
+
+  /// Apply the change in that charge after `count` moved. The transfer funds the
+  /// entry, so Asset Hub's allowance rises with the charge and falls with the
+  /// refund: both move by the per-bucket cost and nothing else. Admission and
+  /// draining both go through here, so the two cannot drift.
+  pure def reattributeTransferQueue(
+    s: ParachainServiceState, oldCount: int, newCount: int
+  ): ParachainServiceState = {
+    val delta = excessTransferFootprint(newCount) - excessTransferFootprint(oldCount)
+    if (delta == 0) s
+    else {
+      val pi = s.paraInfo(AssetHubParaId)
+      { ...s,
+        parachains: s.parachains.put(AssetHubParaId,
+          { ...pi,
+            usedStateBalance: pi.usedStateBalance + delta,
+            totalStateBalance: pi.totalStateBalance + delta }) }
+    }
+  }
 
   // --- Update primitives --------------------------------------------------
 

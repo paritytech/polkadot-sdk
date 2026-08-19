@@ -356,6 +356,8 @@ struct IncomingTransfers {
 struct IncomingTransferChain {
     first_slot: Timeslot,
     last_slot: Timeslot,
+    /// Total queued transfers across every bucket.
+    count: u32,
 }
 
 /// Head data is capped at 4 KiB to bound the per-parachain footprint that
@@ -738,6 +740,12 @@ The queue beyond the reserved portion is therefore self-funding rather than boun
 Each extra entry raises the service's `min_balance`, and the transfer that created it
 credited at least that much, so the service can never be pushed below its threshold by
 accepting one.
+
+Admitting an unreserved entry raises both Asset Hub's `used_state_balance` and its
+`total_state_balance` by the entry's per-bucket cost, not by `amount`, and draining lowers
+both. Its available state balance is therefore the same whatever the queue holds. The
+charge is `max(0, count - MAX_INCOMING_TRANSFERS)` entries, so admission and draining
+cannot drift.
 
 Recording appends to the bucket at `now` when `last_slot == Some(now)`, so further
 arrivals in the same slot add no storage item. That is the point of bucketing. A flat
@@ -1281,11 +1289,11 @@ pending_assigns: Map<CoreIndex, PendingAssign>  — 341 items
 pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 item
   34 + 1 (key) + 2 + 341 × (4 + 4)                         octets      2 765
 incoming_transfer_chain: Option<IncomingTransferChain>  — 1 item
-  34 + 1 (key) + 1 + 4 + 4                                 octets         44
-                                                  octets subtotal   1 235 220
+  34 + 1 (key) + 1 + 4 + 4 + 4 (count)                     octets         48
+                                                  octets subtotal   1 235 224
                                                     344 items × 10      3 440
                                                                     ---------
-                                                                    1 238 660
+                                                                    1 238 664
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
@@ -1305,13 +1313,14 @@ incoming_transfers: Map<Timeslot, IncomingTransfers>  — worst case N items
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 238 660 + 204 × N
+asset_hub_global_items = 1 238 664 + 204 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
-(§5.1), and it is the only input that moves. At `N = 1000` the reservation is
-`1 238 660 + 204 000 = 1 442 660`, or **≈ 1.38 MiB**, on top of the generic per-para
-baseline.
+(§5.1), and it is the only input that moves. Entries past `N` are not part of this
+reservation: each is charged to Asset Hub as it arrives and refunded as it drains
+(§5.1). At `N = 1000` the reservation is `1 238 664 + 204 000 = 1 442 664`, or
+**≈ 1.38 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
 

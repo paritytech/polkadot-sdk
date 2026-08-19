@@ -79,7 +79,11 @@ module state {
         nextSlot: Option[Timeslot]
     },
     // Head and tail of the bucket chain, `None` when the queue is empty.
-    incomingTransferChain: Option[{ firstSlot: Timeslot, lastSlot: Timeslot }],
+    // `count` is the total number of queued transfers across every bucket. It is
+    // maintained on append and drain so the §5.1 admission bound is an O(1) read;
+    // deriving it would mean walking the chain, defeating the bucketing.
+    incomingTransferChain:
+      Option[{ firstSlot: Timeslot, lastSlot: Timeslot, count: int }],
     parachainLog: ParaId -> ParachainLog,
     preimageRegistry: (Hash, int) -> PreimageEntry,
     // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
@@ -146,7 +150,13 @@ module state {
 
   /// Total transfers held across every bucket (§5.1 admission counts transfers,
   /// not buckets).
+  /// Total queued transfers, read from the maintained counter (§5.1).
   pure def queuedTransferCount(s: ParachainServiceState): int =
+  match s.incomingTransferChain { | None => 0 | Some(c) => c.count }
+
+  /// The same total computed the slow way, by walking every bucket. Used only by
+  /// the invariant that pins the counter against the buckets it summarises.
+  pure def queuedTransferCountWalked(s: ParachainServiceState): int =
   s.incomingTransfers.keys().fold(0, (acc, k) =>
     acc + s.incomingTransfers.get(k).transfers.length())
 
@@ -168,9 +178,12 @@ module state {
           // The chain is ordered, so the first survivor is the smallest key left.
           val newFirst =
             survivors.keys().fold(chain.lastSlot, (m, k) => if (k < m) k else m)
+          val dropped = s.incomingTransfers.keys().fold(0, (acc, k) =>
+            if (k <= upTo) acc + s.incomingTransfers.get(k).transfers.length() else acc)
           { ...s,
             incomingTransfers: survivors,
-            incomingTransferChain: Some({ ...chain, firstSlot: newFirst }) }
+            incomingTransferChain:
+              Some({ ...chain, firstSlot: newFirst, count: chain.count - dropped }) }
         }
     }
   }

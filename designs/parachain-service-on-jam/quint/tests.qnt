@@ -148,7 +148,17 @@ module tests {
     ...initialState,
     incomingTransfers: fullIncomingTransfersFixture,
     incomingTransferChain:
-      Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 1 })
+      Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 1,
+             count: MaxIncomingTransfers })
+  }
+
+  /// One slot short of the reservation: the queue can still hold one more.
+  pure val almostFullTransferQueue: ParachainServiceState = {
+    ...fullTransferQueue,
+    incomingTransfers: fullTransferQueue.incomingTransfers.mapRemove(MaxIncomingTransfers - 1),
+    incomingTransferChain:
+      Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 2,
+             count: MaxIncomingTransfers - 1 })
   }
 
   /// `MaxIncomingTransfers` is a reservation, not a cap (§5.1). Below it a
@@ -158,6 +168,20 @@ module tests {
   run reservedPortionThenSelfFundedTest = {
     val full = fullTransferQueue
     val at = MaxIncomingTransfers   // a fresh slot past the fixture's tail
+    // One short of the bound: pushing here would reach the reservation, so the
+    // entry must pay for itself; a zero-amount transfer is dropped.
+    val edge = applyIncomingTransfer(almostFullTransferQueue, MaxIncomingTransfers - 1,
+      { from: MkServiceId(0), amount: 0, memo: 0 })
+    // Two short: the queue can still push one more and stay under the
+    // reservation, so a zero-amount transfer is recorded, reaching M-1.
+    val twoShort = { ...almostFullTransferQueue,
+      incomingTransfers: almostFullTransferQueue.incomingTransfers
+        .mapRemove(MaxIncomingTransfers - 2),
+      incomingTransferChain:
+        Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 3,
+               count: MaxIncomingTransfers - 2 }) }
+    val headroom = applyIncomingTransfer(twoShort, MaxIncomingTransfers - 2,
+      { from: MkServiceId(0), amount: 0, memo: 0 })
     // Below the bound: a zero-amount transfer is still recorded.
     val below = applyIncomingTransfer(initialState, 7,
       { from: MkServiceId(0), amount: 0, memo: 0 })
@@ -168,13 +192,19 @@ module tests {
     val paid = applyIncomingTransfer(full, at,
       { from: MkServiceId(0), amount: IncomingTransferEntryFootprint, memo: 0 })
     all {
+      // At the bound the entry must pay, so the zero-amount transfer is dropped.
+      assert(queuedTransferCount(edge) == MaxIncomingTransfers - 1),
+      // Two short it is free, and the queue ends one short of the reservation,
+      // still able to push one more.
+      assert(queuedTransferCount(headroom) == MaxIncomingTransfers - 1),
       // Empty queue: the new bucket is both endpoints.
-      assert(below.incomingTransferChain == Some({ firstSlot: 7, lastSlot: 7 })),
+      assert(below.incomingTransferChain == Some({ firstSlot: 7, lastSlot: 7, count: 1 })),
       assert(queuedTransferCount(below) == 1),
       assert(short == full),
       // Past the bound: a new bucket, chained from the old tail.
       assert(queuedTransferCount(paid) == MaxIncomingTransfers + 1),
-      assert(paid.incomingTransferChain == Some({ firstSlot: 0, lastSlot: at })),
+      assert(paid.incomingTransferChain ==
+        Some({ firstSlot: 0, lastSlot: at, count: MaxIncomingTransfers + 1 })),
       assert(paid.incomingTransfers.get(at - 1).nextSlot == Some(at)),
       assert(paid.incomingTransfers.get(at).nextSlot == None),
       init
@@ -189,7 +219,7 @@ module tests {
     all {
       assert(b.incomingTransfers.keys() == Set(5)),
       assert(b.incomingTransfers.get(5).transfers.length() == 2),
-      assert(b.incomingTransferChain == Some({ firstSlot: 5, lastSlot: 5 })),
+      assert(b.incomingTransferChain == Some({ firstSlot: 5, lastSlot: 5, count: 2 })),
       assert(queuedTransferCount(b) == 2),
       init
     }
@@ -205,9 +235,9 @@ module tests {
     val partial = dropBucketsUpTo(c, 4, 9)  // anchor 9: no clamp, drops slots 1 and 4
     val everything = dropBucketsUpTo(c, 9, 9)  // drains the chain
     all {
-      assert(c.incomingTransferChain == Some({ firstSlot: 1, lastSlot: 9 })),
+      assert(c.incomingTransferChain == Some({ firstSlot: 1, lastSlot: 9, count: 3 })),
       assert(partial.incomingTransfers.keys() == Set(9)),
-      assert(partial.incomingTransferChain == Some({ firstSlot: 9, lastSlot: 9 })),
+      assert(partial.incomingTransferChain == Some({ firstSlot: 9, lastSlot: 9, count: 1 })),
       assert(everything.incomingTransfers.keys() == Set()),
       assert(everything.incomingTransferChain == None),
       init
@@ -1885,6 +1915,136 @@ module tests {
       assert(seeded.incomingTransfers.keys() == Set(1, 9)),
       // Clamped to 5: bucket 1 drained, bucket 9 survives.
       assert(out.state.incomingTransfers.keys() == Set(9)),
+      init
+    }
+  }
+
+  /// §5.1: removing the unreserved transfers restores the state balance to
+  /// exactly its pre-charge value, while the reserved queue stays untouched.
+  /// §5.1: full queue, three more entries pushed, then the three oldest entries
+  /// drained on the next round. The queue is full again and the state balance is
+  /// back to its pre-charge value.
+  run drainingUnreservedRestoresBalanceTest = {
+    val ah = AssetHubParaId
+    val ahCode: ValidationCodeHash = { vchBytes: 2 }
+    val big = IncomingTransferEntryFootprint
+    val full = fullTransferQueue
+    val used0 = full.paraInfo(ah).usedStateBalance
+    val total0 = full.paraInfo(ah).totalStateBalance
+    // Full queue (count `MaxIncomingTransfers`), then three more entries, each
+    // in its own fresh slot past the tail.
+    val seeded = List(
+      { from: MkServiceId(3), amount: big * 100, memo: 0 },
+      { from: MkServiceId(4), amount: big * 100, memo: 0 },
+      { from: MkServiceId(5), amount: big * 100, memo: 0 })
+      .foldl(full, (acc, t) =>
+        applyIncomingTransfer(acc, queuedTransferCount(acc), t))
+    // Next round, drain the first three entries: `consume_transfers_up_to`
+    // removes buckets from the oldest slot up, so slots 0..2 go and the queue
+    // returns to the reservation size.
+    val ok: ParachainWorkDigestOk = {
+      paraId: ah,
+      validationCode: { hash: ahCode, len: FixedCodeLen },
+      parentHeadHash: headHash(seeded.paraInfo(ah).headData),
+      headData: seeded.paraInfo(ah).headData + 1,
+      upwardMessages: List(ConsumeTransfersUpTo(2)),
+      lookupAnchor: 2
+    }
+    val out = accumulateOnePackage(
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 3)
+    all {
+      // The three extra entries were charged their per-bucket cost.
+      assert(seeded.paraInfo(ah).usedStateBalance == used0 + 3 * big),
+      assert(seeded.paraInfo(ah).totalStateBalance == total0 + 3 * big),
+      // Draining the first three leaves the queue full again...
+      assert(queuedTransferCount(out.state) == MaxIncomingTransfers),
+      // ...with no extra state usage.
+      assert(out.state.paraInfo(ah).usedStateBalance == used0),
+      assert(out.state.paraInfo(ah).totalStateBalance == total0),
+      init
+    }
+  }
+
+  /// §5.1: admitting and draining move `used` and `total` by the same per-bucket
+  /// cost, so the available state balance never changes and draining frees nothing
+  /// for the rest of the candidate. Replay order therefore does not matter, and no
+  /// ordering rule is needed. Breaks if the credit is ever tied to the transfer's
+  /// `amount` again.
+  run consumeTransfersOrderIsUnobservableTest = {
+    val ah = AssetHubParaId
+    val ahCode: ValidationCodeHash = { vchBytes: 2 }
+    val big = IncomingTransferEntryFootprint
+    val h: Hash = { hashBytes: 41 }
+    val len = 512
+    // One unreserved entry, charged to Asset Hub, then pin the allowance so the
+    // solicit only fits once that entry is refunded.
+    val paid = applyIncomingTransfer(
+      fullTransferQueue, MaxIncomingTransfers, { from: MkServiceId(3), amount: big, memo: 0 })
+    val pi = paid.paraInfo(ah)
+    val tight =
+      { ...paid,
+        parachains: paid.parachains.put(
+          ah, pi.setTotal(pi.usedStateBalance + preimageFootprint(len) - 1)) }
+    pure def candidate(msgs: List[UpwardMessage]): ParachainWorkDigestOk = {
+      paraId: ah,
+      validationCode: { hash: ahCode, len: FixedCodeLen },
+      parentHeadHash: headHash(tight.paraInfo(ah).headData),
+      headData: tight.paraInfo(ah).headData + 1,
+      upwardMessages: msgs,
+      lookupAnchor: MaxIncomingTransfers
+    }
+    pure def replay(msgs: List[UpwardMessage]): ParachainServiceState =
+      accumulateOnePackage(
+        tight, { result: WorkOk(Ok(candidate(msgs))), authTrace: 0 },
+        Set(), None, FixedCodeLen, MaxIncomingTransfers + 1).state
+    val consumeFirst =
+      replay(List(ConsumeTransfersUpTo(MaxIncomingTransfers), Solicit({ hash: h, len: len })))
+    val solicitFirst =
+      replay(List(Solicit({ hash: h, len: len }), ConsumeTransfersUpTo(MaxIncomingTransfers)))
+    all {
+      // The allowance is one short of the solicit, and draining does not help.
+      assert(not(tight.paraInfo(ah).hasHeadroom(preimageFootprint(len)))),
+      assert(not(consumeFirst.hasReferencer(h, len, ah))),
+      // Both emission orders land on exactly the same state.
+      assert(consumeFirst == solicitFirst),
+      init
+    }
+  }
+
+  /// §5.1: draining refunds exactly what admission charged, so an unreserved
+  /// entry cannot ratchet `used_state_balance` upward over time.
+  run unreservedTransfersAreSelfFundedTest = {
+    val ah = AssetHubParaId
+    val ahCode: ValidationCodeHash = { vchBytes: 2 }
+    val big = IncomingTransferEntryFootprint
+    val full = fullTransferQueue
+    val at = MaxIncomingTransfers
+    val used0 = full.paraInfo(ah).usedStateBalance
+    val total0 = full.paraInfo(ah).totalStateBalance
+    // Deliberately far more than one entry costs, to pin that the surplus is not
+    // credited to the allowance.
+    val paid = applyIncomingTransfer(full, at, { from: MkServiceId(3), amount: big * 100, memo: 0 })
+    // Drain the whole queue back out through the real accumulate path.
+    val ok: ParachainWorkDigestOk = {
+      paraId: ah,
+      validationCode: { hash: ahCode, len: FixedCodeLen },
+      parentHeadHash: headHash(paid.paraInfo(ah).headData),
+      headData: paid.paraInfo(ah).headData + 1,
+      upwardMessages: List(ConsumeTransfersUpTo(at)),
+      lookupAnchor: at
+    }
+    val out = accumulateOnePackage(
+      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, at + 1)
+    all {
+      // The reserved portion cost nothing beyond the baseline.
+      assert(excessTransferFootprint(MaxIncomingTransfers) == 0),
+      // Both move by the per-bucket cost, never by the transfer's `amount`.
+      assert(paid.paraInfo(ah).usedStateBalance == used0 + big),
+      assert(paid.paraInfo(ah).totalStateBalance == total0 + big),
+      // Draining refunds exactly the charge on both, leaving no residue.
+      assert(queuedTransferCount(out.state) == 0),
+      assert(out.state.paraInfo(ah).usedStateBalance == used0),
+      assert(out.state.paraInfo(ah).totalStateBalance == total0),
       init
     }
   }

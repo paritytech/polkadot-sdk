@@ -303,6 +303,12 @@ module invariants {
       }
     })
 
+  /// The maintained `count` equals the transfers actually held across the buckets.
+  /// It is incremented on append and decremented on drain rather than derived, so
+  /// this is what stops the two drifting apart.
+  val incoming_transfer_count_consistent: bool =
+    queuedTransferCount(svc) == queuedTransferCountWalked(svc)
+
   /// The bucket chain is well formed: endpoints exist and bound every occupied
   /// slot, only the tail has `nextSlot == None`, and every other bucket links
   /// forward to a later occupied slot.
@@ -433,6 +439,7 @@ module invariants {
     head_commitment_matches_changed_heads,
     parent_head_continuity,
     refine_error_logged,
+    incoming_transfer_count_consistent,
     incoming_transfers_chain_consistent,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
