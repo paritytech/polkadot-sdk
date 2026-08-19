@@ -47,7 +47,6 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
-use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -212,7 +211,6 @@ where
 {
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
 	fn start_dev_node(
 		mut config: Configuration,
@@ -731,12 +729,7 @@ where
 			telemetry.clone(),
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
@@ -904,12 +897,7 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
