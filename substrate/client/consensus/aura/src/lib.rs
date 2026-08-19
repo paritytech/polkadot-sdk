@@ -603,7 +603,7 @@ mod tests {
 				.build();
 
 			future::ready(
-				r.map(|b| Proposal { block: b.block, storage_changes: b.storage_changes }),
+				r.map(|b| Proposal { block: b.block, storage_changes: b.storage_changes, additional_data: None }),
 			)
 		}
 	}

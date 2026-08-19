@@ -502,6 +502,7 @@ members = [
 	"substrate/frame/vesting",
 	"substrate/frame/vesting/precompiles",
 	"substrate/frame/whitelist",
+	"substrate/primitives/additional-data",
 	"substrate/primitives/api",
 	"substrate/primitives/api/proc-macro",
 	"substrate/primitives/api/test",
@@ -1356,6 +1357,7 @@ snowbridge-test-utils = { path = "bridges/snowbridge/test-utils" }
 snowbridge-verification-primitives = { path = "bridges/snowbridge/primitives/verification", default-features = false }
 soketto = { version = "0.8.0" }
 solochain-template-runtime = { path = "templates/solochain/runtime" }
+sp-additional-data = { path = "substrate/primitives/additional-data", default-features = false }
 sp-api = { path = "substrate/primitives/api", default-features = false }
 sp-api-proc-macro = { path = "substrate/primitives/api/proc-macro", default-features = false }
 sp-application-crypto = { path = "substrate/primitives/application-crypto", default-features = false }

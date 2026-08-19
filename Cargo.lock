@@ -4691,6 +4691,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-client-api 28.0.0",
+ "sc-consensus",
  "sp-api 26.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
@@ -4698,6 +4699,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
+ "tokio",
  "tracing",
 ]
 
@@ -4754,6 +4756,7 @@ dependencies = [
  "sc-telemetry 15.0.0",
  "sc-utils 14.0.0",
  "schnellru",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-block-builder",
@@ -5077,6 +5080,7 @@ dependencies = [
  "rstest",
  "sc-consensus",
  "scale-info",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-consensus-babe",
  "sp-consensus-slots",
@@ -5475,6 +5479,7 @@ dependencies = [
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
  "sc-service",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-blockchain 28.0.0",
@@ -5537,6 +5542,7 @@ dependencies = [
  "polkadot-primitives",
  "scale-info",
  "serde_json",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -5613,6 +5619,7 @@ dependencies = [
  "sc-transaction-pool-api 28.0.0",
  "serde",
  "serde_json",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-arithmetic 23.0.0",
  "sp-blockchain 28.0.0",
@@ -17654,6 +17661,7 @@ dependencies = [
  "sc-utils 14.0.0",
  "sc-virtualization",
  "slot-range-helper",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-api-proc-macro 15.0.0",
  "sp-application-crypto 30.0.0",
@@ -20777,6 +20785,7 @@ name = "sc-block-builder"
 version = "0.33.0"
 dependencies = [
  "parity-scale-codec",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-blockchain 28.0.0",
@@ -21014,6 +21023,7 @@ dependencies = [
  "sc-network-types 0.10.0",
  "sc-utils 14.0.0",
  "serde",
+ "sp-additional-data",
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
@@ -22188,6 +22198,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project",
  "rand 0.8.5",
+ "sc-block-builder",
  "sc-chain-spec 28.0.0",
  "sc-client-api 28.0.0",
  "sc-client-db",
@@ -22213,6 +22224,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
@@ -24438,6 +24450,19 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version 29.0.0",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "sp-additional-data"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "sp-crypto-hashing 0.1.0",
+ "sp-externalities 0.25.0",
+ "sp-io 30.0.0",
+ "sp-runtime-interface 24.0.0",
+ "sp-state-machine 0.35.0",
 ]
 
 [[package]]
@@ -26788,6 +26813,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-block-builder",

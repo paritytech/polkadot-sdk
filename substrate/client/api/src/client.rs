@@ -19,11 +19,11 @@
 //! A set of APIs supported by the client along with their primitives.
 
 use sp_consensus::BlockOrigin;
-use sp_core::{storage::StorageKey, H256};
+use sp_core::{H256, storage::StorageKey};
 use sp_runtime::{
+	Justifications,
 	generic::SignedBlock,
 	traits::{Block as BlockT, NumberFor},
-	Justifications,
 };
 use std::{
 	collections::HashSet,
@@ -32,7 +32,7 @@ use std::{
 };
 
 use crate::{
-	blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary, StaleBlock,
+	FinalizeSummary, ImportSummary, StaleBlock, blockchain::Info, notifications::StorageEventStream,
 };
 
 use sc_transaction_pool_api::ChainEvent;
@@ -170,6 +170,13 @@ pub trait BlockBackend<Block: BlockT> {
 
 	/// Tells whether the current client configuration requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	/// Get additional data stored for this block, if any.
+	///
+	/// Default returns `None`; backends that store additional data override this.
+	fn block_additional_data(&self, _hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(None)
+	}
 }
 
 /// Provide a list of potential uncle headers for a given block.

@@ -51,6 +51,35 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 // Recorder instance to be used during this validate_block call.
 environmental::environmental!(recorder: trait ProofSizeProvider);
 
+trait AdditionalDataReplay {
+	fn push(&self, item: Vec<u8>);
+	fn finalize(&self) -> Option<[u8; 32]>;
+}
+
+struct ReplayProvider(Vec<u8>);
+
+impl AdditionalDataReplay for ReplayProvider {
+	fn push(&self, _item: Vec<u8>) {}
+
+	fn finalize(&self) -> Option<[u8; 32]> {
+		Some(sp_additional_data::hash_blob(&self.0))
+	}
+}
+
+mod _additional_data_replay_env {
+	use super::AdditionalDataReplay;
+	environmental::environmental!(env: trait AdditionalDataReplay);
+	pub(super) fn using<R, F: FnOnce() -> R>(t: &mut dyn AdditionalDataReplay, f: F) -> R {
+		env::using(t, f)
+	}
+	pub(super) fn with<R, F: for<'a> FnOnce(&'a mut (dyn AdditionalDataReplay + 'a)) -> R>(
+		f: F,
+	) -> Option<R> {
+		env::with(f)
+	}
+}
+use _additional_data_replay_env as additional_data_replay;
+
 /// Validate the given parachain block.
 ///
 /// This function is doing roughly the following:
@@ -131,6 +160,10 @@ where
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
+		sp_additional_data::additional_data::host_push
+			.replace_implementation(host_additional_data_push),
+		sp_additional_data::additional_data::host_finalize
+			.replace_implementation(host_additional_data_finalize),
 		#[cfg(feature = "transaction-index")]
 		sp_io::transaction_index::host_index.replace_implementation(host_transaction_index_index),
 		#[cfg(feature = "transaction-index")]
@@ -167,6 +200,7 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
+	let additional_data_per_block: Vec<Option<Vec<u8>>> = block_data.additional_data().to_vec();
 	let (blocks, proof) = block_data.into_inner();
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
@@ -249,6 +283,46 @@ where
 
 		parent_header = block.header().clone();
 
+		let additional_data_digest_count = parent_header
+			.digest()
+			.logs()
+			.iter()
+			.filter(|item| item.as_additional_data().is_some())
+			.count();
+		assert!(
+			additional_data_digest_count <= 1,
+			"block header contains multiple AdditionalData digest items"
+		);
+		let expected_hash: Option<[u8; 32]> = parent_header
+			.digest()
+			.logs()
+			.iter()
+			.find_map(|item| item.as_additional_data().copied());
+		let blob_opt: Option<Vec<u8>> =
+			additional_data_per_block.get(block_index).and_then(|opt| opt.clone());
+		match (blob_opt.is_some(), expected_hash.is_some()) {
+			(true, false) => {
+				panic!("additional data present but header digest missing AdditionalData item")
+			},
+			(false, true) => {
+				panic!("header has AdditionalData digest but no additional data provided")
+			},
+			_ => {},
+		}
+
+		// Fail fast on a blob/hash mismatch before executing the block. This check is a pure
+		// function of the blob and the header digest (independent of execution), and asserting it
+		// up front guarantees the tampered-data case is rejected by this explicit, named assertion
+		// rather than implicitly by `frame_executive`'s digest-item equality inside
+		// `execute_verified_block` (which would panic with a less specific message).
+		if let Some(ref blob) = blob_opt {
+			assert_eq!(
+				sp_additional_data::hash_blob(blob),
+				expected_hash.expect("checked above that both are Some; qed"),
+				"additional data hash does not match header digest"
+			);
+		}
+
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
 			&mut Default::default(),
@@ -258,18 +332,36 @@ where
 			},
 		);
 
-		run_with_externalities_and_recorder::<B, _, _>(
-			&execute_backend,
-			// Here is the only place where we want to use the recorder.
-			// We want to ensure that we not accidentally read something from the proof, that
-			// was not yet read and thus, alter the proof size. Otherwise, we end up with
-			// mismatches in later blocks.
-			&mut execute_recorder,
-			&mut overlay,
-			|| {
-				E::execute_verified_block(block);
-			},
-		);
+		if let Some(ref blob) = blob_opt {
+			let mut replay_provider = ReplayProvider(blob.clone());
+			additional_data_replay::using(&mut replay_provider, || {
+				run_with_externalities_and_recorder::<B, _, _>(
+					&execute_backend,
+					// Here is the only place where we want to use the recorder.
+					// We want to ensure that we not accidentally read something from the proof,
+					// that was not yet read and thus, alter the proof size. Otherwise, we end
+					// up with mismatches in later blocks.
+					&mut execute_recorder,
+					&mut overlay,
+					|| {
+						E::execute_verified_block(block);
+					},
+				);
+			});
+		} else {
+			run_with_externalities_and_recorder::<B, _, _>(
+				&execute_backend,
+				// Here is the only place where we want to use the recorder.
+				// We want to ensure that we not accidentally read something from the proof, that
+				// was not yet read and thus, alter the proof size. Otherwise, we end up with
+				// mismatches in later blocks.
+				&mut execute_recorder,
+				&mut overlay,
+				|| {
+					E::execute_verified_block(block);
+				},
+			);
+		}
 
 		let code_upgrade_detected =
 			if <PSC as frame_system::Config>::Version::get().system_version >= 3 {
@@ -648,6 +740,14 @@ fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
+
+fn host_additional_data_push(item: Vec<u8>) {
+	additional_data_replay::with(|p| p.push(item));
+}
+
+fn host_additional_data_finalize() -> Option<[u8; 32]> {
+	additional_data_replay::with(|p| p.finalize()).flatten()
+}
 
 /// Parachain validation does not require maintaining a transaction index,
 /// and indexing transactions does **not** contribute to the parachain state.

@@ -53,6 +53,7 @@ sc-utils = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+sp-additional-data = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
@@ -75,6 +76,7 @@ tracing = { workspace = true, default-features = true }
 tracing-futures = { workspace = true }
 
 [dev-dependencies]
+sc-block-builder = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 

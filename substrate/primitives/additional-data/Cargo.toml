@@ -1,0 +1,33 @@
+[package]
+name = "sp-additional-data"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Host functions and extension for per-block additional data collection."
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+sp-crypto-hashing = { workspace = true }
+sp-externalities = { workspace = true }
+sp-runtime-interface = { workspace = true }
+parking_lot = { workspace = true, optional = true }
+
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"parking_lot",
+	"sp-crypto-hashing/std",
+	"sp-externalities/std",
+	"sp-runtime-interface/std",
+]

@@ -120,6 +120,19 @@ pub mod pallet {
 	pub type BigValueMove<T: Config> =
 		StorageMap<_, Twox64Concat, BlockNumberFor<T>, Vec<u8>, OptionQuery>;
 
+	/// `true` when [`push_additional_data`] was called in the current block; consumed and cleared
+	/// by `on_finalize`. Guards the `additional_data::push`/`finalize` call so blocks that never
+	/// call `push_additional_data` never invoke the host function and therefore never require
+	/// `AdditionalDataExt` to be registered in the executor externalities.
+	#[pallet::storage]
+	pub type AdditionalDataPushed<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// The sample bytes pushed by `on_finalize` when the `AdditionalDataPushed` flag is set.
+	///
+	/// Must match the value the e2e test expects: `encode_items(&[SAMPLE])` is the canonical blob
+	/// and `hash_blob(&blob)` is the deposited `DigestItem::AdditionalData`.
+	pub const ADDITIONAL_DATA_SAMPLE: &[u8] = b"additional-data-test";
+
 	pub const HRMP_RECIPIENT_LOW: u32 = 2500;
 	pub const HRMP_RECIPIENT_HIGH: u32 = 2600;
 
@@ -167,6 +180,21 @@ pub mod pallet {
 			}
 
 			Weight::zero()
+		}
+
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			if AdditionalDataPushed::<T>::take() {
+				// The sample push happens here (at finalization) rather than in the
+				// dispatchable, so `push_additional_data` stays valid in the transaction
+				// pool (the host function panics on a missing extension, and pool
+				// validation has no `AdditionalDataExt` registered).
+				sp_additional_data::additional_data::push(ADDITIONAL_DATA_SAMPLE.to_vec());
+				if let Some(hash) = sp_additional_data::additional_data::finalize() {
+					<frame_system::Pallet<T>>::deposit_log(
+						sp_runtime::generic::DigestItem::AdditionalData(hash),
+					);
+				}
+			}
 		}
 	}
 
@@ -331,6 +359,18 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn set_use_full_core(_: OriginFor<T>) -> DispatchResult {
 			frame_system::Pallet::<T>::deposit_log(CumulusDigestItem::UseFullCore.to_digest_item());
+			Ok(())
+		}
+
+		/// Ask the runtime to attach the sample additional data to this block.
+		///
+		/// Sets the `AdditionalDataPushed` flag; `on_finalize` then pushes the sample bytes
+		/// and deposits
+		/// `DigestItem::AdditionalData(hash_blob(&encode_items(&[b"additional-data-test"])))`.
+		/// Blocks that never call this dispatchable carry no `AdditionalData` digest item.
+		#[pallet::weight(0)]
+		pub fn push_additional_data(_: OriginFor<T>) -> DispatchResult {
+			AdditionalDataPushed::<T>::put(true);
 			Ok(())
 		}
 	}

@@ -272,6 +272,13 @@ pub trait BlockImportOperation<Block: BlockT> {
 
 	/// Configure whether to create a block gap if newly imported block is missing parent
 	fn set_create_gap(&mut self, create_gap: bool);
+
+	/// Set additional data for the block being imported.
+	///
+	/// Default implementation is a no-op so existing out-of-tree implementors are not broken.
+	fn set_additional_data(&mut self, _data: Option<Vec<u8>>) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
 }
 
 /// Interface for performing operations on the backend.

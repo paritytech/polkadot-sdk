@@ -37,8 +37,10 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
 
 # Substrate
+sc-consensus = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }

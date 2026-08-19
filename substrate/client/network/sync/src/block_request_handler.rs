@@ -351,6 +351,7 @@ where
 		let get_body = attributes.contains(BlockAttributes::BODY);
 		let get_indexed_body = attributes.contains(BlockAttributes::INDEXED_BODY);
 		let get_justification = attributes.contains(BlockAttributes::JUSTIFICATION);
+		let get_additional_data = attributes.contains(BlockAttributes::ADDITIONAL_DATA);
 
 		let mut blocks = Vec::new();
 
@@ -429,6 +430,12 @@ where
 				Vec::new()
 			};
 
+			let additional_data = if get_additional_data {
+				self.client.block_additional_data(hash)?.unwrap_or_default()
+			} else {
+				Vec::new()
+			};
+
 			let block_data = crate::schema::v1::BlockData {
 				hash: hash.encode(),
 				header: if get_header { header.encode() } else { Vec::new() },
@@ -439,6 +446,7 @@ where
 				is_empty_justification,
 				justifications,
 				indexed_body,
+				additional_data,
 			};
 
 			let new_total_size = total_size + block_data.encoded_len();
@@ -575,6 +583,13 @@ impl FullBlockDownloader {
 					} else {
 						None
 					},
+					additional_data: if request.fields.contains(BlockAttributes::ADDITIONAL_DATA) &&
+						!block_data.additional_data.is_empty()
+					{
+						Some(block_data.additional_data)
+					} else {
+						None
+					},
 				})
 			})
 			.collect::<Result<_, _>>()
@@ -629,5 +644,228 @@ impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
 		// Extract the block data from the protobuf
 		self.blocks_from_schema::<B>(request, response_schema)
 			.map_err(|error| BlockResponseError::ExtractionFailed(error.to_string()))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use schnellru::ByLength;
+	use sp_runtime::traits::NumberFor;
+	use substrate_test_runtime_client::runtime::{Block, Hash, Header};
+
+	struct MockClient {
+		header_map: std::collections::HashMap<Hash, Header>,
+		additional_data_map: std::collections::HashMap<Hash, Vec<u8>>,
+	}
+
+	impl MockClient {
+		fn with_block(header: Header, data: Option<Vec<u8>>) -> Self {
+			let hash = header.hash();
+			let mut header_map = std::collections::HashMap::new();
+			header_map.insert(hash, header);
+			let mut additional_data_map = std::collections::HashMap::new();
+			if let Some(d) = data {
+				additional_data_map.insert(hash, d);
+			}
+			Self { header_map, additional_data_map }
+		}
+	}
+
+	impl sp_blockchain::HeaderBackend<Block> for MockClient {
+		fn header(&self, hash: Hash) -> sp_blockchain::Result<Option<Header>> {
+			Ok(self.header_map.get(&hash).cloned())
+		}
+
+		fn info(&self) -> sp_blockchain::Info<Block> {
+			unimplemented!()
+		}
+
+		fn status(&self, _: Hash) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
+			unimplemented!()
+		}
+
+		fn number(&self, _: Hash) -> sp_blockchain::Result<Option<NumberFor<Block>>> {
+			unimplemented!()
+		}
+
+		fn hash(&self, _: NumberFor<Block>) -> sp_blockchain::Result<Option<Hash>> {
+			Ok(None)
+		}
+	}
+
+	impl BlockBackend<Block> for MockClient {
+		fn block_body(
+			&self,
+			_: Hash,
+		) -> sp_blockchain::Result<Option<Vec<<Block as sp_runtime::traits::Block>::Extrinsic>>> {
+			Ok(None)
+		}
+
+		fn block_indexed_body(&self, _: Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {
+			Ok(None)
+		}
+
+		fn block_indexed_hashes(
+			&self,
+			_: Hash,
+		) -> sp_blockchain::Result<Option<Vec<sp_core::H256>>> {
+			Ok(None)
+		}
+
+		fn block(
+			&self,
+			_: Hash,
+		) -> sp_blockchain::Result<Option<sp_runtime::generic::SignedBlock<Block>>> {
+			Ok(None)
+		}
+
+		fn block_status(&self, _: Hash) -> sp_blockchain::Result<sp_consensus::BlockStatus> {
+			Ok(sp_consensus::BlockStatus::Unknown)
+		}
+
+		fn justifications(
+			&self,
+			_: Hash,
+		) -> sp_blockchain::Result<Option<sp_runtime::Justifications>> {
+			Ok(None)
+		}
+
+		fn block_hash(&self, _: NumberFor<Block>) -> sp_blockchain::Result<Option<Hash>> {
+			Ok(None)
+		}
+
+		fn indexed_transaction(&self, _: sp_core::H256) -> sp_blockchain::Result<Option<Vec<u8>>> {
+			Ok(None)
+		}
+
+		fn requires_full_sync(&self) -> bool {
+			false
+		}
+
+		fn block_additional_data(&self, hash: Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+			Ok(self.additional_data_map.get(&hash).cloned())
+		}
+	}
+
+	fn make_test_header() -> Header {
+		Header {
+			parent_hash: Default::default(),
+			number: 0u64,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		}
+	}
+
+	fn make_handler(client: MockClient) -> BlockRequestHandler<Block, MockClient> {
+		let (_, rx) = async_channel::bounded(1);
+		BlockRequestHandler {
+			client: std::sync::Arc::new(client),
+			request_receiver: rx,
+			seen_requests: LruMap::new(ByLength::new(1)),
+		}
+	}
+
+	fn make_downloader() -> FullBlockDownloader {
+		let provider = crate::service::network::NetworkServiceProvider::new();
+		FullBlockDownloader {
+			protocol_name: ProtocolName::Static("test"),
+			network: provider.handle(),
+		}
+	}
+
+	#[test]
+	fn proto_round_trip_preserves_additional_data() {
+		let expected = vec![0xde, 0xad, 0xbe, 0xef];
+		let block_data = crate::schema::v1::BlockData {
+			hash: vec![0u8; 32],
+			header: vec![],
+			body: vec![],
+			receipt: vec![],
+			message_queue: vec![],
+			justification: vec![],
+			is_empty_justification: false,
+			justifications: vec![],
+			indexed_body: vec![],
+			additional_data: expected.clone(),
+		};
+		let buf = block_data.encode_to_vec();
+		let decoded = crate::schema::v1::BlockData::decode(buf.as_slice()).unwrap();
+		assert_eq!(decoded.additional_data, expected);
+	}
+
+	#[test]
+	fn additional_data_fetched_when_requested() {
+		let expected = vec![1u8, 2, 3];
+		let header = make_test_header();
+		let hash = header.hash();
+		let handler = make_handler(MockClient::with_block(header, Some(expected.clone())));
+
+		let response = handler
+			.get_block_response(
+				BlockAttributes::HEADER | BlockAttributes::ADDITIONAL_DATA,
+				BlockId::Hash(hash),
+				Direction::Ascending,
+				1,
+				false,
+			)
+			.unwrap();
+
+		assert_eq!(response.blocks.len(), 1);
+		assert_eq!(response.blocks[0].additional_data, expected);
+	}
+
+	#[test]
+	fn additional_data_absent_when_not_requested() {
+		let header = make_test_header();
+		let hash = header.hash();
+		let handler = make_handler(MockClient::with_block(header, Some(vec![1u8, 2, 3])));
+
+		let response = handler
+			.get_block_response(
+				BlockAttributes::HEADER,
+				BlockId::Hash(hash),
+				Direction::Ascending,
+				1,
+				false,
+			)
+			.unwrap();
+
+		assert_eq!(response.blocks.len(), 1);
+		assert!(response.blocks[0].additional_data.is_empty());
+	}
+
+	#[test]
+	fn old_peer_compat_field_absent_yields_none() {
+		let downloader = make_downloader();
+		let proto_block = crate::schema::v1::BlockData {
+			hash: Hash::from([1u8; 32]).encode(),
+			header: vec![],
+			body: vec![],
+			receipt: vec![],
+			message_queue: vec![],
+			justification: vec![],
+			is_empty_justification: false,
+			justifications: vec![],
+			indexed_body: vec![],
+			additional_data: vec![],
+		};
+		let response_schema = BlockResponseSchema { blocks: vec![proto_block] };
+		let request = BlockRequest::<Block> {
+			id: 0,
+			fields: BlockAttributes::HEADER | BlockAttributes::ADDITIONAL_DATA,
+			from: FromBlock::Hash(Hash::from([1u8; 32])),
+			direction: sc_network_common::sync::message::Direction::Ascending,
+			max: None,
+		};
+
+		let blocks = downloader.blocks_from_schema::<Block>(&request, response_schema).unwrap();
+
+		assert_eq!(blocks.len(), 1);
+		// An absent/empty field means the block has no additional data at all. It must be
+		// decoded as `None` (not `Some(vec![])`) so downstream import guards treat it as
+		// "no data present" instead of rejecting every no-data block.
+		assert_eq!(blocks[0].additional_data, None);
 	}
 }

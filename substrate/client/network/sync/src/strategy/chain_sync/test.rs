@@ -283,6 +283,7 @@ fn create_block_response(blocks: Vec<Block>) -> BlockResponse<Block> {
 				message_queue: None,
 				justification: None,
 				justifications: None,
+				additional_data: None,
 			})
 			.collect(),
 	}
@@ -1597,4 +1598,21 @@ fn no_ancestry_search_during_major_sync() {
 			assert_ne!(*peer_id, peer_id2, "No request should be sent to peer2 during major sync",);
 		}
 	}
+}
+
+#[test]
+fn required_block_attributes_full_includes_additional_data() {
+	let attrs = ChainSyncMode::Full.required_block_attributes(false, false);
+	assert!(attrs.contains(BlockAttributes::ADDITIONAL_DATA));
+	assert!(attrs.contains(BlockAttributes::BODY));
+	assert!(attrs.contains(BlockAttributes::JUSTIFICATION));
+}
+
+#[test]
+fn required_block_attributes_gap_excludes_body_and_additional_data_in_non_archive_mode() {
+	let attrs = ChainSyncMode::Full.required_block_attributes(true, false);
+	assert!(!attrs.contains(BlockAttributes::BODY));
+	assert!(!attrs.contains(BlockAttributes::ADDITIONAL_DATA));
+	assert!(attrs.contains(BlockAttributes::HEADER));
+	assert!(attrs.contains(BlockAttributes::JUSTIFICATION));
 }

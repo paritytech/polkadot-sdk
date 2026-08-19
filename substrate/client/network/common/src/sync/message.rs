@@ -54,6 +54,8 @@ bitflags! {
 		const JUSTIFICATION = 0b00010000;
 		/// Include indexed transactions for a block.
 		const INDEXED_BODY = 0b00100000;
+		/// Include additional data associated with the block.
+		const ADDITIONAL_DATA = 0b01000000;
 	}
 }
 
@@ -65,9 +67,12 @@ impl BlockAttributes {
 	}
 
 	/// Decodes attributes, encoded with the `encode_to_be_u32()` call.
+	///
+	/// Unknown bits are dropped instead of rejected: a peer must be able to parse a request that
+	/// carries attribute bits it does not know about, otherwise the network would split the moment
+	/// any node requests a new attribute.
 	pub fn from_be_u32(encoded: u32) -> Result<Self, Error> {
-		Self::from_bits(encoded.to_be_bytes()[0])
-			.ok_or_else(|| Error::from("Invalid BlockAttributes"))
+		Ok(Self::from_bits_truncate(encoded.to_be_bytes()[0]))
 	}
 }
 
@@ -149,6 +154,8 @@ pub mod generic {
 		pub justification: Option<EncodedJustification>,
 		/// Justifications if requested.
 		pub justifications: Option<Justifications>,
+		/// Additional data if requested (proto field 10).
+		pub additional_data: Option<Vec<u8>>,
 	}
 
 	/// Request block data from a peer.
@@ -242,5 +249,51 @@ impl<B: BlockT> BlockAnnouncesHandshake<B> {
 		genesis_hash: B::Hash,
 	) -> Self {
 		Self { genesis_hash, roles, best_number, best_hash }
+	}
+}
+
+#[cfg(test)]
+mod block_attributes_tests {
+	use super::*;
+
+	#[test]
+	fn block_attributes_additional_data_roundtrip() {
+		let attrs = BlockAttributes::ADDITIONAL_DATA;
+		let decoded = BlockAttributes::from_be_u32(attrs.to_be_u32()).unwrap();
+		assert_eq!(decoded, attrs);
+	}
+
+	#[test]
+	fn block_attributes_unknown_high_bit_is_dropped() {
+		// 0b10000000 is not a defined attribute; parsing must succeed and drop it.
+		let encoded = BlockAttributes::BODY.to_be_u32() | 0b1000_0000_0000_0000_0000_0000_0000_0000;
+		let decoded = BlockAttributes::from_be_u32(encoded).unwrap();
+		assert_eq!(decoded, BlockAttributes::BODY);
+	}
+
+	#[test]
+	fn block_attributes_known_only_roundtrip_no_regression() {
+		let all_known = BlockAttributes::HEADER |
+			BlockAttributes::BODY |
+			BlockAttributes::RECEIPT |
+			BlockAttributes::MESSAGE_QUEUE |
+			BlockAttributes::JUSTIFICATION |
+			BlockAttributes::INDEXED_BODY;
+		let decoded = BlockAttributes::from_be_u32(all_known.to_be_u32()).unwrap();
+		assert_eq!(decoded, all_known);
+	}
+
+	#[test]
+	fn block_attributes_all_bits_set_truncated_to_known() {
+		// All 8 bits set in the attribute byte: undefined ones are dropped, not rejected.
+		let decoded = BlockAttributes::from_be_u32(0xFF_00_00_00).unwrap();
+		let known = BlockAttributes::HEADER |
+			BlockAttributes::BODY |
+			BlockAttributes::RECEIPT |
+			BlockAttributes::MESSAGE_QUEUE |
+			BlockAttributes::JUSTIFICATION |
+			BlockAttributes::INDEXED_BODY |
+			BlockAttributes::ADDITIONAL_DATA;
+		assert_eq!(decoded, known);
 	}
 }

@@ -31,6 +31,7 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 sp-api = { workspace = true }
+sp-additional-data = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -90,6 +91,7 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
+	"sp-additional-data/std",
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

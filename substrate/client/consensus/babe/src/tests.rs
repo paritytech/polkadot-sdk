@@ -121,7 +121,7 @@ impl DummyProposer {
 		// mutate the block header according to the mutator.
 		(self.factory.mutator)(&mut block.header, Stage::PreSeal);
 
-		future::ready(Ok(Proposal { block, storage_changes: Default::default() }))
+		future::ready(Ok(Proposal { block, storage_changes: Default::default(), additional_data: None }))
 	}
 }
 

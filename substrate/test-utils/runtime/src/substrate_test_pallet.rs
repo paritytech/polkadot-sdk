@@ -41,7 +41,7 @@ pub mod pallet {
 	use crate::TransferData;
 	use frame_system::pallet_prelude::*;
 	use sp_core::storage::well_known_keys;
-	use sp_runtime::{traits::BlakeTwo256, transaction_validity::TransactionPriority, Perbill};
+	use sp_runtime::{Perbill, traits::BlakeTwo256, transaction_validity::TransactionPriority};
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -53,6 +53,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn authorities)]
 	pub type Authorities<T> = StorageValue<_, Vec<Public>, ValueQuery>;
+
+	/// `true` when [`push_additional_data`] was called in the current block; consumed and
+	/// cleared by `on_finalize`. Guards the `additional_data::finalize()` call so blocks
+	/// that never call `push_additional_data` never invoke the host function and therefore
+	/// never require `AdditionalDataExt` to be registered in the executor externalities.
+	#[pallet::storage]
+	pub type AdditionalDataPushed<T> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -66,6 +73,19 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			<Authorities<T>>::put(self.authorities.clone());
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			if AdditionalDataPushed::<T>::take() {
+				if let Some(hash) = sp_additional_data::additional_data::finalize() {
+					<frame_system::Pallet<T>>::deposit_log(
+						sp_runtime::generic::DigestItem::AdditionalData(hash),
+					);
+				}
+			}
 		}
 	}
 
@@ -189,6 +209,19 @@ pub mod pallet {
 		pub fn read_and_panic(_origin: OriginFor<T>, count: u32) -> DispatchResult {
 			Self::execute_read(count, true)
 		}
+
+		/// Push sample additional data for the current block.
+		///
+		/// Calling this once causes `on_finalize` to call `additional_data::finalize()` and
+		/// deposit `DigestItem::AdditionalData(hash_blob(&encode_items(&[b"additional-data-test"
+		/// ])))`. Blocks that never call this dispatchable carry no `AdditionalData` digest item.
+		#[pallet::call_index(12)]
+		#[pallet::weight(100)]
+		pub fn push_additional_data(_origin: OriginFor<T>) -> DispatchResult {
+			sp_additional_data::additional_data::push(b"additional-data-test".to_vec());
+			AdditionalDataPushed::<T>::put(true);
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -209,11 +242,7 @@ pub mod pallet {
 				}
 			}
 
-			if panic_at_end {
-				panic!("BYE")
-			} else {
-				Ok(())
-			}
+			if panic_at_end { panic!("BYE") } else { Ok(()) }
 		}
 	}
 

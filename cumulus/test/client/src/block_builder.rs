@@ -21,6 +21,7 @@ use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDEN
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
+use sp_additional_data::{AdditionalDataExt, RecordingAdditionalDataProvider};
 use sp_api::{ApiExt, ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_externalities::Extensions;
@@ -182,6 +183,7 @@ fn init_block_builder(
 
 	let mut extra_extensions = Extensions::default();
 	extra_extensions.register(ProofSizeExt::new(proof_recorder.clone()));
+	extra_extensions.register(AdditionalDataExt(Box::new(RecordingAdditionalDataProvider::new())));
 
 	let mut block_builder = sc_block_builder::BlockBuilderBuilder::new(client)
 		.on_parent_block(at)

@@ -405,7 +405,7 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		<Runtime as pallet_balances::Config>::Balance: From<u128>,
 		LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 		TokenLocation: Get<Location>
-	{
+{
 		// construct expected bridge configuration
 		let locations =
 			pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
@@ -531,7 +531,7 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		<Runtime as pallet_balances::Config>::Balance: From<u128>,
 		LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 		TokenLocation: Get<Location>
-	{
+{
 		// construct expected bridge configuration
 		let locations =
 			pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(

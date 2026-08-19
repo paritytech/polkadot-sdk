@@ -190,6 +190,7 @@ std = [
 	"polkadot-sdk-frame?/std",
 	"sc-executor?/std",
 	"slot-range-helper?/std",
+	"sp-additional-data?/std",
 	"sp-api-proc-macro?/std",
 	"sp-api?/std",
 	"sp-application-crypto?/std",
@@ -770,6 +771,7 @@ runtime-full = [
 	"sc-chain-spec-derive",
 	"sc-tracing-proc-macro",
 	"slot-range-helper",
+	"sp-additional-data",
 	"sp-api",
 	"sp-api-proc-macro",
 	"sp-application-crypto",
@@ -845,6 +847,7 @@ runtime = [
 	"frame-try-runtime",
 	"polkadot-sdk-frame",
 	"polkadot-sdk-frame?/runtime",
+	"sp-additional-data",
 	"sp-api",
 	"sp-api-proc-macro",
 	"sp-application-crypto",
@@ -1996,6 +1999,11 @@ path = "../substrate/client/tracing/proc-macro"
 default-features = false
 optional = true
 path = "../polkadot/runtime/common/slot_range_helper"
+
+[dependencies.sp-additional-data]
+default-features = false
+optional = true
+path = "../substrate/primitives/additional-data"
 
 [dependencies.sp-api]
 default-features = false

@@ -691,7 +691,7 @@ pub(crate) mod for_pallet_xcm_bridge_hub {
 		<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::AccountId: From<<Runtime as frame_system::Config>::AccountId>,
 		LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 		TokenLocation: Get<Location>,
-	{
+{
 		run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 			// construct expected bridge configuration
 			let locations = pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(

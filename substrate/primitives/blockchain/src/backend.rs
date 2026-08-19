@@ -261,6 +261,11 @@ pub trait Backend<Block: BlockT>:
 	/// `storage_index_transaction`.
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
 
+	/// Get additional data stored for this block, if any.
+	fn block_additional_data(&self, _hash: Block::Hash) -> Result<Option<Vec<u8>>> {
+		Ok(None)
+	}
+
 	/// Returns all leaves that will be displaced after the block finalization.
 	fn displaced_leaves_after_finalizing(
 		&self,

@@ -59,6 +59,7 @@ pub type Executor = client::LocalCallExecutor<
 	WasmExecutor<(
 		sp_io::SubstrateHostFunctions,
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+		sp_additional_data::additional_data::HostFunctions,
 	)>,
 >;
 
@@ -210,6 +211,7 @@ pub fn validate_block(
 	let executor = WasmExecutor::<(
 		sp_io::SubstrateHostFunctions,
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+		sp_additional_data::additional_data::HostFunctions,
 	)>::builder()
 	.with_execution_method(WasmExecutionMethod::default())
 	.with_max_runtime_instances(1)

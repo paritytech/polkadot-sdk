@@ -60,6 +60,7 @@ use sp_blockchain::{
 use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
+use sp_additional_data::{AdditionalDataExt, ReplayAdditionalDataProvider};
 use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
@@ -478,6 +479,7 @@ where
 			post_digests,
 			body,
 			indexed_body,
+			additional_data,
 			finalized,
 			auxiliary,
 			fork_choice,
@@ -515,6 +517,7 @@ where
 		*self.importing_block.write() = Some(hash);
 
 		operation.op.set_create_gap(create_gap);
+		operation.op.set_additional_data(additional_data)?;
 
 		let result = self.execute_and_import_block(
 			operation,
@@ -641,7 +644,7 @@ where
 								None => {
 									return Err(Error::Backend(
 										"Invalid child storage key.".to_string(),
-									))
+									));
 								},
 							};
 							let entry = storage
@@ -818,7 +821,7 @@ where
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
 		{
 			(BlockStatus::KnownBad, _) => {
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad))
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad));
 			},
 			(
 				BlockStatus::InChainPruned,
@@ -827,10 +830,10 @@ where
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
 			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::Unknown, _) => {
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent))
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent));
 			},
 			(BlockStatus::InChainPruned, StateAction::Execute) => {
-				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState))
+				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState));
 			},
 			(BlockStatus::InChainPruned, StateAction::ExecuteIfPossible) => (false, None),
 			(_, StateAction::Execute) => (true, None),
@@ -854,6 +857,40 @@ where
 						.proof_recorder()
 						.expect("Proof recording is enabled in the line above; qed.");
 					runtime_api.register_extension(ProofSizeExt::new(recorder));
+				}
+
+				// Guard: verify digest ↔ additional_data consistency and register the
+				// replay provider so the runtime's `additional_data::push`/`finalize`
+				// host-functions don't panic on a missing extension.
+				let additional_data_digest_count = import_block
+					.header
+					.digest()
+					.logs()
+					.iter()
+					.filter(|item| item.as_additional_data().is_some())
+					.count();
+				match &import_block.additional_data {
+					Some(blob) => {
+						if additional_data_digest_count != 1 {
+							return Err(Error::Consensus(ConsensusError::ClientImport(
+								"additional data present but header digest missing or has \
+							 multiple AdditionalData items"
+									.into(),
+							)));
+						}
+						runtime_api.register_extension(AdditionalDataExt(Box::new(
+							ReplayAdditionalDataProvider::new(blob.clone()),
+						)));
+					},
+					None => {
+						if additional_data_digest_count > 0 {
+							return Err(Error::Consensus(ConsensusError::ClientImport(
+								"header has AdditionalData digest but no additional_data blob \
+							 was provided on the executing import path"
+									.into(),
+							)));
+						}
+					},
 				}
 
 				runtime_api.execute_block(
@@ -1787,9 +1824,7 @@ where
 			BlockLookupResult::Expected(expected_hash) => {
 				trace!(
 					"Rejecting block from known invalid fork. Got {:?}, expected: {:?} at height {}",
-					hash,
-					expected_hash,
-					number
+					hash, expected_hash, number
 				);
 				return Ok(ImportResult::KnownBad);
 			},
@@ -1803,10 +1838,10 @@ where
 			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
 		{
 			BlockStatus::InChainWithState | BlockStatus::Queued => {
-				return Ok(ImportResult::AlreadyInChain)
+				return Ok(ImportResult::AlreadyInChain);
 			},
 			BlockStatus::InChainPruned if !import_existing => {
-				return Ok(ImportResult::AlreadyInChain)
+				return Ok(ImportResult::AlreadyInChain);
 			},
 			BlockStatus::InChainPruned => {},
 			BlockStatus::Unknown => {},
@@ -2008,6 +2043,10 @@ where
 		self.backend.blockchain().block_indexed_body(hash)
 	}
 
+	fn block_additional_data(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		self.backend.blockchain().block_additional_data(hash)
+	}
+
 	fn requires_full_sync(&self) -> bool {
 		self.backend.requires_full_sync()
 	}
@@ -2120,5 +2159,140 @@ where
 			.blockchain()
 			.number(hash)
 			.map_err(|e| sp_transaction_storage_proof::Error::Application(Box::new(e)))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use futures::executor::block_on;
+	use sc_client_api::BlockBackend;
+	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
+	use sp_blockchain::HeaderBackend;
+	use sp_consensus::BlockOrigin;
+	use substrate_test_runtime_client::{
+		runtime::Header, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+	};
+
+	#[test]
+	fn additional_data_stored_end_to_end() {
+		let client = TestClientBuilder::new().build();
+		let genesis_hash = client.info().genesis_hash;
+		let header = Header {
+			parent_hash: genesis_hash,
+			number: 1,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
+		let extra = vec![1u8, 2, 3];
+		let mut params = BlockImportParams::new(BlockOrigin::Own, header);
+		params.state_action = StateAction::Skip;
+		params.additional_data = Some(extra.clone());
+		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		block_on(BlockImport::import_block(&client, params)).unwrap();
+		let hash = client.info().best_hash;
+		assert_eq!(client.block_additional_data(hash).unwrap(), Some(extra));
+	}
+
+	#[test]
+	fn additional_data_extension_registered_on_executing_import() {
+		use sc_block_builder::BlockBuilderBuilder;
+		use sp_runtime::traits::Block as BlockTrait;
+		use substrate_test_runtime_client::runtime::{substrate_test_pallet, ExtrinsicBuilder};
+
+		let client = TestClientBuilder::new().build();
+		let genesis_hash = client.info().best_hash;
+
+		let mut block_builder = BlockBuilderBuilder::new(&client)
+			.on_parent_block(genesis_hash)
+			.with_parent_block_number(0)
+			.enable_additional_data_recording()
+			.build()
+			.unwrap();
+
+		block_builder
+			.push(
+				ExtrinsicBuilder::new(substrate_test_pallet::pallet::Call::push_additional_data {})
+					.build(),
+			)
+			.unwrap();
+
+		let built = block_builder.build().unwrap();
+		let blob = built.additional_data.clone().expect("additional data recorded");
+		let (header, extrinsics) = built.block.deconstruct();
+
+		let mut params = BlockImportParams::new(BlockOrigin::Own, header);
+		params.body = Some(extrinsics);
+		params.additional_data = Some(blob);
+		params.state_action = StateAction::Execute;
+		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+
+		let result = block_on(BlockImport::import_block(&client, params));
+		assert!(
+			result.is_ok(),
+			"executing import with additional data should succeed: {:?}",
+			result
+		);
+	}
+
+	#[test]
+	fn additional_data_digest_without_blob_rejected_before_execute() {
+		use sp_consensus::Error as ConsensusError;
+
+		let client = TestClientBuilder::new().build();
+		let genesis_hash = client.info().best_hash;
+
+		let header = Header {
+			parent_hash: genesis_hash,
+			number: 1,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: sp_runtime::Digest {
+				logs: vec![sp_runtime::DigestItem::AdditionalData([1u8; 32])],
+			},
+		};
+
+		let mut params = BlockImportParams::new(BlockOrigin::Own, header);
+		params.body = Some(vec![]);
+		params.additional_data = None;
+		params.state_action = StateAction::Execute;
+		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+
+		let result = block_on(BlockImport::import_block(&client, params));
+		assert!(
+			matches!(&result, Err(ConsensusError::ClientImport(msg)) if
+				msg.contains("header has AdditionalData digest but no additional_data blob")),
+			"expected additional-data mismatch error, got: {:?}",
+			result,
+		);
+	}
+
+	#[test]
+	fn additional_data_blob_without_digest_rejected_before_execute() {
+		use sp_consensus::Error as ConsensusError;
+
+		let client = TestClientBuilder::new().build();
+		let genesis_hash = client.info().best_hash;
+
+		let header = Header {
+			parent_hash: genesis_hash,
+			number: 1,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
+
+		let mut params = BlockImportParams::new(BlockOrigin::Own, header);
+		params.body = Some(vec![]);
+		params.additional_data = Some(vec![0u8, 1, 2, 3]);
+		params.state_action = StateAction::Execute;
+		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+
+		let result = block_on(BlockImport::import_block(&client, params));
+		assert!(
+			matches!(&result, Err(ConsensusError::ClientImport(msg)) if msg.contains("additional data")),
+			"expected additional-data mismatch error, got: {:?}",
+			result,
+		);
 	}
 }

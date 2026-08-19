@@ -298,6 +298,7 @@ where
 			.with_proof_recorder(storage_proof_recorder)
 			.with_inherent_digests(inherent_digests)
 			.with_extra_extensions(extra_extensions)
+			.enable_additional_data_recording()
 			.build()?;
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
@@ -309,11 +310,13 @@ where
 			},
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
-		let (block, storage_changes) = block_builder.build()?.into_inner();
+		let mut built_block = block_builder.build()?;
+		let additional_data = built_block.additional_data.take();
+		let (block, storage_changes) = built_block.into_inner();
 		let block_took = block_timer.elapsed();
 
 		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
-		Ok(Proposal { block, storage_changes })
+		Ok(Proposal { block, storage_changes, additional_data })
 	}
 
 	/// Apply all inherents to the block.

@@ -51,6 +51,7 @@ pub fn open<H: Clone + AsRef<[u8]>>(
 				columns::BODY_INDEX,
 				columns::TRANSACTION,
 				columns::JUSTIFICATIONS,
+				columns::ADDITIONAL_DATA,
 			];
 
 			for i in compressed {

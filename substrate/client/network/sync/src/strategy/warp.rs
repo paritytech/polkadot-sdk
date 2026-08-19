@@ -417,6 +417,7 @@ where
 					// Shouldn't already exist in the database.
 					import_existing: false,
 					state: None,
+					additional_data: None,
 				}
 			};
 
@@ -646,7 +647,8 @@ where
 				id: 0,
 				fields: BlockAttributes::HEADER |
 					BlockAttributes::BODY |
-					BlockAttributes::JUSTIFICATION,
+					BlockAttributes::JUSTIFICATION |
+					BlockAttributes::ADDITIONAL_DATA,
 				from: FromBlock::Hash(target_hash),
 				direction: Direction::Ascending,
 				max: Some(1),
@@ -1364,6 +1366,7 @@ mod test {
 				skip_execution: true,
 				import_existing: false,
 				state: None,
+				additional_data: None,
 			}
 		);
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1467,6 +1470,7 @@ mod test {
 				skip_execution: true,
 				import_existing: false,
 				state: None,
+				additional_data: None,
 			}
 		);
 		assert!(matches!(warp_sync.phase, Phase::TargetBlock(header) if header == target_header));
@@ -1720,6 +1724,7 @@ mod test {
 				message_queue: None,
 				justification: None,
 				justifications: None,
+				additional_data: None,
 			},
 			BlockData::<Block> {
 				hash: extra_block.header().hash(),
@@ -1730,6 +1735,7 @@ mod test {
 				message_queue: None,
 				justification: None,
 				justifications: None,
+				additional_data: None,
 			},
 		];
 		// Peer is dropped.
@@ -1798,6 +1804,7 @@ mod test {
 			message_queue: None,
 			justification: None,
 			justifications: None,
+			additional_data: None,
 		}];
 		// Peer is dropped.
 		assert!(matches!(
@@ -1855,6 +1862,7 @@ mod test {
 			message_queue: None,
 			justification: None,
 			justifications: justifications.clone(),
+			additional_data: None,
 		}];
 
 		assert!(warp_sync.on_block_response_inner(peer_id, request, response).is_ok());

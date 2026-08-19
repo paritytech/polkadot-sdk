@@ -300,6 +300,7 @@ mod test {
 				receipt: None,
 				justification: None,
 				justifications: None,
+				additional_data: None,
 			})
 			.collect()
 	}

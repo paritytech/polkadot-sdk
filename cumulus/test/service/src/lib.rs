@@ -103,8 +103,11 @@ const LOG_TARGET: &str = "cumulus-test-service";
 /// The signature of the announce block fn.
 pub type AnnounceBlockFn = Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>;
 
-type HostFunctions =
-	(sp_io::SubstrateHostFunctions, cumulus_client_service::storage_proof_size::HostFunctions);
+type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	cumulus_client_service::storage_proof_size::HostFunctions,
+	sp_additional_data::additional_data::HostFunctions,
+);
 /// The client type being used by the test service.
 pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecutor<HostFunctions>>;
 

@@ -44,6 +44,7 @@ use sc_client_api::BackendTransaction;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
+use sp_additional_data::{AdditionalDataExt, RecordingAdditionalDataProvider};
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_consensus::{BlockOrigin, Environment, ProposeArgs, Proposer};
@@ -117,6 +118,13 @@ pub struct BuiltBlock<Block: BlockT> {
 	///
 	/// This contains all the state changes.
 	pub backend_transaction: BackendTransaction<HashingFor<Block>>,
+	/// The additional data blob produced during block building, if any was pushed.
+	///
+	/// `None` when no items were pushed via the additional-data host function, or when the
+	/// [`AdditionalDataExt`] was pre-registered externally (slot-based path) — in that case the
+	/// caller holds its own [`RecordingAdditionalDataProvider`] handle and calls
+	/// `take_data()` directly.
+	pub additional_data: Option<Vec<u8>>,
 }
 
 impl<Block: BlockT> From<BuiltBlock<Block>> for ParachainCandidate<Block> {
@@ -295,6 +303,13 @@ where
 			);
 		}
 
+		let additional_data_recorder = RecordingAdditionalDataProvider::new();
+		if !params.extra_extensions.is_registered(AdditionalDataExt::type_id()) {
+			params
+				.extra_extensions
+				.register(AdditionalDataExt(Box::new(additional_data_recorder.clone())));
+		}
+
 		// Create proposal arguments
 		let propose_args = ProposeArgs {
 			inherent_data: inherent_data_combined,
@@ -311,13 +326,23 @@ where
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
-		let sealed_importable = seal::<_, P>(
+		// The `Proposer` may have registered its own `AdditionalDataExt` (via
+		// `enable_additional_data_recording`) which overwrites the extension we registered
+		// above, so prefer the additional data surfaced on the `Proposal`; fall back to our
+		// own recorder for custom proposers that honor `extra_extensions` without
+		// re-registering.
+		let additional_data =
+			proposal.additional_data.or_else(|| additional_data_recorder.take_data());
+
+		let mut sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
 			&params.slot_claim.author_pub,
 			&self.keystore,
 		)
 		.map_err(|e| e as Box<dyn Error + Send>)?;
+
+		sealed_importable.additional_data = additional_data.clone();
 
 		let block = Block::new(
 			sealed_importable.post_header(),
@@ -340,7 +365,10 @@ where
 
 		let proof = storage_proof_recorder.drain_storage_proof();
 
-		Ok(Some((BuiltBlock { block, proof, backend_transaction }, sealed_importable)))
+		Ok(Some((
+			BuiltBlock { block, proof, backend_transaction, additional_data },
+			sealed_importable,
+		)))
 	}
 
 	/// Import the given `import_block`.
@@ -389,12 +417,14 @@ where
 
 		let Some(candidate) = maybe_candidate else { return Ok(None) };
 
+		let additional_data = vec![candidate.additional_data.clone()];
 		let hash = candidate.block.header().hash();
 		if let Some((collation, block_data)) = self.collator_service.build_collation(
 			parent_header,
 			hash,
 			candidate.into(),
 			scheduling_proof,
+			additional_data,
 		) {
 			block_data.log_size_info();
 

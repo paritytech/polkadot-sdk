@@ -257,6 +257,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	/// Indexed-transaction data attached by upstream block-import wrappers.
 	/// See [`PrefetchedIndexedTransactions`].
 	pub prefetched_indexed_transactions: PrefetchedIndexedTransactions,
+	/// Opaque SCALE-encoded additional data attached to this block.
+	pub additional_data: Option<Vec<u8>>,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -289,6 +291,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
 			prefetched_indexed_transactions: PrefetchedIndexedTransactions::default(),
+			additional_data: None,
 		}
 	}
 
@@ -443,5 +446,44 @@ impl<B: BlockT, L: JustificationSyncLink<B>> JustificationSyncLink<B> for Arc<L>
 
 	fn clear_justification_requests(&self) {
 		L::clear_justification_requests(self);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::import_queue::IncomingBlock;
+	use sp_test_primitives::{Block, Header};
+
+	#[test]
+	fn additional_data_field_constructs() {
+		let header = Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		let mut params: BlockImportParams<Block> = BlockImportParams::new(BlockOrigin::Own, header);
+		assert_eq!(params.additional_data, None);
+		params.additional_data = Some(vec![1, 2, 3]);
+		assert_eq!(params.additional_data, Some(vec![1, 2, 3]));
+
+		let incoming = IncomingBlock::<Block> {
+			hash: Default::default(),
+			header: None,
+			body: None,
+			indexed_body: None,
+			justifications: None,
+			origin: None,
+			allow_missing_state: false,
+			skip_execution: false,
+			import_existing: false,
+			state: None,
+			additional_data: None,
+		};
+		assert_eq!(incoming.additional_data, None);
+		let incoming = IncomingBlock::<Block> { additional_data: Some(vec![1, 2, 3]), ..incoming };
+		assert_eq!(incoming.additional_data, Some(vec![1, 2, 3]));
 	}
 }

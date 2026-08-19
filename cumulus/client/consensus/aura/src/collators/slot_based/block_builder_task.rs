@@ -50,6 +50,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
+use sp_additional_data::{AdditionalDataExt, RecordingAdditionalDataProvider};
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
@@ -746,6 +747,7 @@ where
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
+	let mut per_block_additional_data: Vec<Option<Vec<u8>>> = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
 
 	let mut parent_hash = pov_parent_hash;
@@ -821,6 +823,9 @@ where
 
 		let mut extra_extensions = Extensions::default();
 		extra_extensions.register(ProofSizeExt::new(proof_size_recorder.clone()));
+
+		let additional_data_recorder = RecordingAdditionalDataProvider::new();
+		extra_extensions.register(AdditionalDataExt(Box::new(additional_data_recorder.clone())));
 
 		let block_production_start = Instant::now();
 		// The time we have left to spent for the block.
@@ -901,6 +906,8 @@ where
 			});
 		}
 
+		import_block.additional_data = additional_data_recorder.take_data();
+
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");
 			return Ok(None);
@@ -909,6 +916,7 @@ where
 		// Announce the newly built block to our peers.
 		collator.collator_service().announce_block(parent_hash, None);
 
+		per_block_additional_data.push(additional_data_recorder.take_data());
 		blocks.push(built_block.block);
 		proofs.push(Arc::unwrap_or_clone(proof));
 
@@ -978,6 +986,7 @@ where
 		validation_code_hash,
 		core_index,
 		validation_data,
+		additional_data: per_block_additional_data,
 	}) {
 		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())

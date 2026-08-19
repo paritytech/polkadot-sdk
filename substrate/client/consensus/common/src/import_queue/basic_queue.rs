@@ -629,6 +629,7 @@ mod tests {
 						import_existing: false,
 						state: None,
 						skip_execution: false,
+						additional_data: None,
 					}],
 				))
 				.unwrap();

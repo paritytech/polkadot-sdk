@@ -299,4 +299,9 @@ struct CollatorMessage<Block: BlockT> {
 	pub core_index: CoreIndex,
 	/// The persisted validation data for this collation.
 	pub validation_data: PersistedValidationData,
+	/// Per-block additional data blobs collected during block building.
+	///
+	/// One slot per block in `blocks`. `Some(blob)` when data was pushed via the
+	/// additional-data host function for that block; `None` when nothing was pushed.
+	pub additional_data: Vec<Option<Vec<u8>>>,
 }

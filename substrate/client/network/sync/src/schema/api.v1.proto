@@ -67,6 +67,8 @@ message BlockData {
 	bytes justifications = 8; // optional
 	// Indexed block body if requestd.
 	repeated bytes indexed_body = 9; // optional
+	// Additional data if requested.
+	bytes additional_data = 10; // optional
 }
 
 // Request storage data from a peer.

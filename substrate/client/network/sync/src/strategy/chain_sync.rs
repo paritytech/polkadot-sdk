@@ -279,10 +279,16 @@ impl ChainSyncMode {
 	pub fn required_block_attributes(&self, is_gap: bool, is_archive: bool) -> BlockAttributes {
 		let attrs = match self {
 			ChainSyncMode::Full => {
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+				BlockAttributes::HEADER |
+					BlockAttributes::JUSTIFICATION |
+					BlockAttributes::BODY |
+					BlockAttributes::ADDITIONAL_DATA
 			},
 			ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+				BlockAttributes::HEADER |
+					BlockAttributes::JUSTIFICATION |
+					BlockAttributes::BODY |
+					BlockAttributes::ADDITIONAL_DATA
 			},
 			ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
 				BlockAttributes::HEADER |
@@ -290,10 +296,10 @@ impl ChainSyncMode {
 					BlockAttributes::INDEXED_BODY
 			},
 		};
-		// Skip body requests for gap sync only if not in archive mode.
+		// Skip body and additional_data requests for gap sync only if not in archive mode.
 		// Archive nodes need bodies to maintain complete block history.
 		if is_gap && !is_archive {
-			attrs & !BlockAttributes::BODY
+			attrs & !(BlockAttributes::BODY | BlockAttributes::ADDITIONAL_DATA)
 		} else {
 			attrs
 		}
@@ -1353,6 +1359,7 @@ where
 										import_existing: true,
 										skip_execution: true,
 										state: None,
+										additional_data: None,
 									}
 								})
 								.collect();
@@ -1403,6 +1410,7 @@ where
 									import_existing: self.import_existing,
 									skip_execution: self.skip_execution(),
 									state: None,
+									additional_data: None,
 								}
 							})
 							.collect()
@@ -1545,6 +1553,7 @@ where
 							import_existing: false,
 							skip_execution: true,
 							state: None,
+							additional_data: None,
 						}
 					})
 					.collect()
@@ -1925,6 +1934,7 @@ where
 					import_existing: self.import_existing,
 					skip_execution: self.skip_execution(),
 					state: None,
+					additional_data: block_data.block.additional_data,
 				}
 			})
 			.collect()
@@ -2174,6 +2184,7 @@ where
 					import_existing: true,
 					skip_execution: self.skip_execution(),
 					state: Some(state),
+					additional_data: None,
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });

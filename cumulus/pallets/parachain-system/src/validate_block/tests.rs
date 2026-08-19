@@ -20,7 +20,7 @@ use cumulus_primitives_core::{
 	relay_chain,
 	relay_chain::{UMPSignal, UMP_SEPARATOR},
 	BlockBundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector,
-	CumulusDigestItem, ParaId, ParachainBlockData, PersistedValidationData,
+	CumulusDigestItem, ParaId, ParachainBlockData, PersistedValidationData, SchedulingProof,
 };
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
@@ -1382,4 +1382,171 @@ fn validate_block_with_ump_capacity_constraint_and_4_blocks_per_pov() {
 	// the relay dispatch queue remaining count (3) is exhausted.
 	let ump_count = result.upward_messages.iter().take_while(|m| **m != UMP_SEPARATOR).count();
 	assert_eq!(ump_count, 3);
+}
+
+fn dummy_scheduling_proof() -> SchedulingProof {
+	SchedulingProof {
+		header_chain: vec![],
+		internal_scheduling_parent_header: relay_chain::Header {
+			parent_hash: Default::default(),
+			number: 0,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		},
+		signed_scheduling_info: None,
+	}
+}
+
+/// The sample bytes the test runtime's `push_additional_data` dispatchable pushes.
+///
+/// Must match the value hard-coded in `cumulus/test/runtime/src/test_pallet.rs` exactly, so the
+/// blob we hand to `validate_block` equals what the runtime accumulated while building the block.
+const ADDITIONAL_DATA_SAMPLE: &[u8] = b"additional-data-test";
+
+/// Build a single-block `V3` candidate whose block actually called `push_additional_data` during
+/// block building, so the runtime deposited `DigestItem::AdditionalData` into the header at
+/// finalization time (rather than us injecting it manually).
+fn build_v3_with_runtime_pushed_additional_data(
+	client: &Client,
+	parent_head: Header,
+) -> (ParachainBlockData<Block>, PersistedValidationData) {
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		client,
+		vec![generate_extrinsic(client, Alice, TestPalletCall::push_additional_data {})],
+		parent_head,
+		Default::default(),
+		Default::default(),
+	);
+
+	let expected_hash = sp_additional_data::hash_blob(&sp_additional_data::encode_items(&[
+		ADDITIONAL_DATA_SAMPLE.to_vec(),
+	]));
+	let digest_hashes: Vec<[u8; 32]> = block.blocks()[0]
+		.header()
+		.digest()
+		.logs()
+		.iter()
+		.filter_map(|d| d.as_additional_data().copied())
+		.collect();
+	assert_eq!(digest_hashes, vec![expected_hash]);
+
+	let (blocks, proof) = block.into_inner();
+	let v3 = ParachainBlockData::V3 {
+		blocks,
+		proof,
+		scheduling_proof: dummy_scheduling_proof(),
+		additional_data: vec![Some(sp_additional_data::encode_items(&[
+			ADDITIONAL_DATA_SAMPLE.to_vec()
+		]))],
+	};
+	(v3, validation_data)
+}
+
+#[test]
+fn validate_block_v3_with_additional_data_succeeds() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_test_client();
+	let (block, validation_data) =
+		build_v3_with_runtime_pushed_additional_data(&client, parent_head.clone());
+	let header = block.blocks()[0].header().clone();
+	let res_header =
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.expect("V3 block with correct additional data must validate");
+	assert_eq!(header, res_header);
+}
+
+#[test]
+fn validate_block_v3_tampered_additional_data_fails() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let (mut block, validation_data) =
+			build_v3_with_runtime_pushed_additional_data(&client, parent_head.clone());
+		if let ParachainBlockData::V3 { ref mut additional_data, .. } = block {
+			additional_data[0] = Some(vec![0u8; 32]);
+		}
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_v3_tampered_additional_data_fails", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("additional data hash does not match header digest"));
+	}
+}
+
+#[test]
+fn validate_block_v3_additional_data_digest_without_data_fails() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let (block, validation_data) =
+			build_v3_with_runtime_pushed_additional_data(&client, parent_head.clone());
+		let (blocks, proof) = block.into_inner();
+		let v3 = ParachainBlockData::V3 {
+			blocks,
+			proof,
+			scheduling_proof: dummy_scheduling_proof(),
+			additional_data: vec![None],
+		};
+		call_validate_block(parent_head, v3, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args([
+				"validate_block_v3_additional_data_digest_without_data_fails",
+				"--",
+				"--nocapture",
+			])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("header has AdditionalData digest but no additional data provided"));
+	}
+}
+
+#[test]
+fn validate_block_v3_additional_data_without_digest_fails() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let TestBlockData { block, validation_data } = build_block_with_witness(
+			&client,
+			Vec::new(),
+			parent_head.clone(),
+			Default::default(),
+			Default::default(),
+		);
+		let (blocks, proof) = block.into_inner();
+		let v3 = ParachainBlockData::V3 {
+			blocks,
+			proof,
+			scheduling_proof: dummy_scheduling_proof(),
+			additional_data: vec![Some(sp_additional_data::encode_items(&[
+				ADDITIONAL_DATA_SAMPLE.to_vec(),
+			]))],
+		};
+		call_validate_block(parent_head, v3, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_v3_additional_data_without_digest_fails", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("additional data present but header digest missing AdditionalData item"));
+	}
 }

@@ -84,6 +84,16 @@ pub enum ParachainBlockData<Block> {
 		proof: CompactProof,
 		scheduling_proof: SchedulingProof,
 	},
+	/// V3 adds per-block additional data alongside the scheduling proof.
+	V3 {
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: SchedulingProof,
+		/// One slot per block in `blocks`. `Some(blob)` is the canonical blob (a SCALE-encoded
+		/// `Vec<Vec<u8>>`, treated as an opaque byte blob here). `None` means no digest for that
+		/// block.
+		additional_data: Vec<Option<Vec<u8>>>,
+	},
 }
 
 impl<Block: Encode> Encode for ParachainBlockData<Block> {
@@ -103,6 +113,15 @@ impl<Block: Encode> Encode for ParachainBlockData<Block> {
 				blocks.encode_to(&mut res);
 				proof.encode_to(&mut res);
 				scheduling_proof.encode_to(&mut res);
+				res
+			},
+			Self::V3 { blocks, proof, scheduling_proof, additional_data } => {
+				let mut res = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
+				3u8.encode_to(&mut res);
+				blocks.encode_to(&mut res);
+				proof.encode_to(&mut res);
+				scheduling_proof.encode_to(&mut res);
+				additional_data.encode_to(&mut res);
 				res
 			},
 		}
@@ -129,6 +148,14 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 
 					Ok(Self::V2 { blocks, proof, scheduling_proof })
 				},
+				3 => {
+					let blocks = Vec::<Block>::decode(input)?;
+					let proof = CompactProof::decode(input)?;
+					let scheduling_proof = crate::SchedulingProof::decode(input)?;
+					let additional_data = Vec::<Option<Vec<u8>>>::decode(input)?;
+
+					Ok(Self::V3 { blocks, proof, scheduling_proof, additional_data })
+				},
 				_ => Err("Unknown `ParachainBlockData` version".into()),
 			}
 		} else {
@@ -154,12 +181,28 @@ impl<Block> ParachainBlockData<Block> {
 		}
 	}
 
+	/// Creates a new instance of `Self`, selecting [`Self::V3`] when `additional_data` contains
+	/// any `Some` entry and `scheduling_proof` is provided; otherwise falls back to V1/V2.
+	pub fn new_with_additional_data(
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: Option<SchedulingProof>,
+		additional_data: Vec<Option<Vec<u8>>>,
+	) -> Self {
+		match (additional_data.iter().any(|d| d.is_some()), scheduling_proof) {
+			(true, Some(sp)) => Self::V3 { blocks, proof, scheduling_proof: sp, additional_data },
+			(_, Some(sp)) => Self::V2 { blocks, proof, scheduling_proof: sp },
+			(_, None) => Self::V1 { blocks, proof },
+		}
+	}
+
 	/// Returns references to the stored blocks.
 	pub fn blocks(&self) -> &[Block] {
 		match self {
 			Self::V0 { block, .. } => &block[..],
 			Self::V1 { blocks, .. } => &blocks,
 			Self::V2 { blocks, .. } => &blocks,
+			Self::V3 { blocks, .. } => &blocks,
 		}
 	}
 
@@ -169,6 +212,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { ref mut block, .. } => block,
 			Self::V1 { ref mut blocks, .. } => blocks,
 			Self::V2 { ref mut blocks, .. } => blocks,
+			Self::V3 { ref mut blocks, .. } => blocks,
 		}
 	}
 
@@ -178,6 +222,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { block, .. } => block.into_iter().collect(),
 			Self::V1 { blocks, .. } => blocks,
 			Self::V2 { blocks, .. } => blocks,
+			Self::V3 { blocks, .. } => blocks,
 		}
 	}
 
@@ -187,6 +232,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { proof, .. } => &proof,
 			Self::V1 { proof, .. } => proof,
 			Self::V2 { proof, .. } => proof,
+			Self::V3 { proof, .. } => proof,
 		}
 	}
 
@@ -196,14 +242,25 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { block, proof } => (block.into_iter().collect(), proof),
 			Self::V1 { blocks, proof } => (blocks, proof),
 			Self::V2 { blocks, proof, .. } => (blocks, proof),
+			Self::V3 { blocks, proof, .. } => (blocks, proof),
 		}
 	}
 
-	/// Returns the scheduling proof if this is a V2 POV.
+	/// Returns the scheduling proof if this is a V2 or V3 POV.
 	pub fn scheduling_proof(&self) -> Option<&crate::SchedulingProof> {
 		match self {
-			Self::V2 { scheduling_proof, .. } => Some(scheduling_proof),
+			Self::V2 { scheduling_proof, .. } | Self::V3 { scheduling_proof, .. } => {
+				Some(scheduling_proof)
+			},
 			_ => None,
+		}
+	}
+
+	/// Returns the per-block additional data if this is a V3 POV; empty slice otherwise.
+	pub fn additional_data(&self) -> &[Option<Vec<u8>>] {
+		match self {
+			Self::V3 { additional_data, .. } => additional_data,
+			_ => &[],
 		}
 	}
 }
@@ -236,6 +293,15 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 					.map(|block| Self::V0 { block: [block.clone()], proof: proof.clone() })
 			},
 			Self::V2 { blocks, proof, .. } => {
+				if blocks.len() != 1 {
+					return None;
+				}
+
+				blocks
+					.first()
+					.map(|block| Self::V0 { block: [block.clone()], proof: proof.clone() })
+			},
+			Self::V3 { blocks, proof, .. } => {
 				if blocks.len() != 1 {
 					return None;
 				}
@@ -421,5 +487,112 @@ mod tests {
 			scheduling_proof,
 		};
 		assert!(v2_multi.as_v0().is_none());
+	}
+
+	#[test]
+	fn parachain_block_data_v3_roundtrips() {
+		let scheduling_proof = crate::SchedulingProof {
+			header_chain: vec![make_relay_header(5)],
+			internal_scheduling_parent_header: make_relay_header(4),
+			signed_scheduling_info: None,
+		};
+
+		let block1 = TestBlock::new(
+			Header::new_from_number(10),
+			vec![TestExtrinsic::new_bare(MockCallU64(10))],
+		);
+		let block2 = TestBlock::new(
+			Header::new_from_number(11),
+			vec![TestExtrinsic::new_bare(MockCallU64(20))],
+		);
+
+		let additional_data = vec![Some(vec![1u8, 2, 3]), None];
+
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![block1, block2],
+			proof: CompactProof { encoded_nodes: vec![vec![10u8; 200], vec![20u8; 30]] },
+			scheduling_proof: scheduling_proof.clone(),
+			additional_data: additional_data.clone(),
+		};
+
+		let encoded = v3.encode();
+		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &encoded[..]).unwrap();
+
+		assert_eq!(v3.blocks(), decoded.blocks());
+		assert_eq!(v3.proof(), decoded.proof());
+		assert_eq!(v3.scheduling_proof(), decoded.scheduling_proof());
+		assert_eq!(v3.additional_data(), decoded.additional_data());
+
+		assert_eq!(decoded.additional_data().len(), 2);
+		assert_eq!(decoded.additional_data()[0], Some(vec![1u8, 2, 3]));
+		assert_eq!(decoded.additional_data()[1], None);
+
+		// V0/V1/V2 return empty slice for additional_data
+		let v0 = ParachainBlockData::<TestBlock>::V0 {
+			block: [TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+		};
+		assert!(v0.additional_data().is_empty());
+
+		let v1 = ParachainBlockData::<TestBlock>::V1 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+		};
+		assert!(v1.additional_data().is_empty());
+
+		let v2 = ParachainBlockData::<TestBlock>::V2 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+			scheduling_proof,
+		};
+		assert!(v2.additional_data().is_empty());
+	}
+
+	#[test]
+	fn v3_into_inner_unchanged() {
+		let scheduling_proof = crate::SchedulingProof {
+			header_chain: vec![make_relay_header(5)],
+			internal_scheduling_parent_header: make_relay_header(4),
+			signed_scheduling_info: None,
+		};
+
+		let block = TestBlock::new(Header::new_from_number(10), vec![]);
+		let proof = CompactProof { encoded_nodes: vec![vec![1u8; 10]] };
+
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![block],
+			proof: proof.clone(),
+			scheduling_proof,
+			additional_data: vec![Some(vec![42u8])],
+		};
+
+		// Read additional_data BEFORE into_inner (which consumes self)
+		assert_eq!(v3.additional_data()[0], Some(vec![42u8]));
+		assert_eq!(v3.additional_data().len(), 1);
+
+		let (blocks, returned_proof) = v3.into_inner();
+		assert_eq!(blocks.len(), 1);
+		assert_eq!(returned_proof.encoded_nodes, proof.encoded_nodes);
+	}
+
+	#[test]
+	fn v2_encoded_decodes_as_v2_backward_compat() {
+		let scheduling_proof = crate::SchedulingProof {
+			header_chain: vec![make_relay_header(5)],
+			internal_scheduling_parent_header: make_relay_header(4),
+			signed_scheduling_info: None,
+		};
+
+		let v2 = ParachainBlockData::<TestBlock>::V2 {
+			blocks: vec![TestBlock::new(Header::new_from_number(10), vec![])],
+			proof: CompactProof { encoded_nodes: vec![vec![10u8; 200]] },
+			scheduling_proof,
+		};
+
+		let encoded = v2.encode();
+		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &encoded[..]).unwrap();
+
+		assert!(matches!(decoded, ParachainBlockData::V2 { .. }));
+		assert!(decoded.additional_data().is_empty());
 	}
 }

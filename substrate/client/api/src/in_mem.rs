@@ -441,6 +441,10 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 	) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {
 		unimplemented!("Not supported by the in-mem backend.")
 	}
+
+	fn block_additional_data(&self, _hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(None)
+	}
 }
 
 impl<Block: BlockT> backend::AuxStore for Blockchain<Block> {
@@ -605,6 +609,10 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	}
 
 	fn set_create_gap(&mut self, _create_gap: bool) {}
+
+	fn set_additional_data(&mut self, _data: Option<Vec<u8>>) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
 }
 
 /// In-memory backend. Keeps all states and blocks in memory.
