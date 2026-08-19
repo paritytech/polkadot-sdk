@@ -126,11 +126,21 @@ struct CodeLoadToken {
 	code_len: u32,
 	code_type: BytecodeType,
 	warmth: CodeLoadWarmth,
+	charge_refcount_write: bool,
 }
 
 impl CodeLoadToken {
-	fn from_code_info<T: Config>(code_info: &CodeInfo<T>, warmth: CodeLoadWarmth) -> Self {
-		Self { code_len: code_info.code_len, code_type: code_info.code_type, warmth }
+	fn from_code_info<T: Config>(
+		code_info: &CodeInfo<T>,
+		warmth: CodeLoadWarmth,
+		charge_refcount_write: bool,
+	) -> Self {
+		Self {
+			code_len: code_info.code_len,
+			code_type: code_info.code_type,
+			warmth,
+			charge_refcount_write,
+		}
 	}
 }
 
@@ -139,7 +149,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 		let len_weight_of =
 			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
 
-		let load_weight = runtime_costs::cold_hot_weight::<T>(
+		let load_weight = runtime_costs::weight_by_warmth::<T>(
 			&[self.warmth.info, self.warmth.blob],
 			AccessEntry::CODE_INFO_READS + AccessEntry::CODE_BLOB_READS,
 			|| {
@@ -156,7 +166,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			},
 		);
 
-		match self.code_type {
+		let weight = match self.code_type {
 			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
 			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
 			// instructions here. Let's consider this as a safety margin.
@@ -166,6 +176,14 @@ impl<T: Config> Token<T> for CodeLoadToken {
 					.set_proof_size(0),
 			),
 			BytecodeType::Evm => load_weight,
+		};
+		if self.charge_refcount_write {
+			// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
+			// whitelist. Its trie walk is already paid by this load's read, so add
+			// only the missing part of a write: the block-end re-hash of its path.
+			weight.saturating_add(RuntimeCosts::deferred_write_cost::<T>())
+		} else {
+			weight
 		}
 	}
 }
@@ -176,6 +194,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 		code_len,
 		code_type: BytecodeType::Pvm,
 		warmth: CodeLoadWarmth::cold_non_revertible(),
+		charge_refcount_write: false,
 	})
 }
 
@@ -351,9 +370,14 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
 		warmth: CodeLoadWarmth,
+		charge_refcount_write: bool,
 	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		meter.charge_weight_token(CodeLoadToken::from_code_info(&code_info, warmth))?;
+		meter.charge_weight_token(CodeLoadToken::from_code_info(
+			&code_info,
+			warmth,
+			charge_refcount_write,
+		))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}
@@ -429,11 +453,36 @@ mod tests {
 		tests::Test,
 	};
 
+	/// Instantiating from an existing hash bumps the code's refcount, a write
+	/// the instantiate benches whitelist, so the load charges it here.
+	#[test]
+	fn instantiate_code_load_charges_the_refcount_write() {
+		let weight_of = |charge_refcount_write| {
+			Token::<Test>::weight(&CodeLoadToken {
+				code_len: 1024,
+				code_type: BytecodeType::Pvm,
+				warmth: CodeLoadWarmth::cold_non_revertible(),
+				charge_refcount_write,
+			})
+		};
+
+		assert_eq!(
+			weight_of(true).saturating_sub(weight_of(false)),
+			RuntimeCosts::deferred_write_cost::<Test>(),
+			"the instantiate load must add exactly the refcount write",
+		);
+	}
+
 	#[test]
 	fn code_load_cold_hot_pricing() {
 		let code_len = 1024_u32;
 		let weight_of = |code_type, warmth| {
-			Token::<Test>::weight(&CodeLoadToken { code_len, code_type, warmth })
+			Token::<Test>::weight(&CodeLoadToken {
+				code_len,
+				code_type,
+				warmth,
+				charge_refcount_write: false,
+			})
 		};
 
 		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {

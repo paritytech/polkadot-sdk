@@ -146,6 +146,7 @@ impl Executable<Test> for MockExecutable {
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
 		_warmth: CodeLoadWarmth,
+		_charge_refcount_write: bool,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -208,7 +209,7 @@ fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
 ) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_non_revertible())
+	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_non_revertible(), false)
 }
 
 #[test]

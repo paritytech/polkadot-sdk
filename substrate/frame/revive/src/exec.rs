@@ -610,6 +610,7 @@ pub trait Executable<T: Config>: Sized {
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
 		warmth: CodeLoadWarmth,
+		charge_refcount_write: bool,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1083,9 +1084,10 @@ where
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
 		code_hash: H256,
+		charge_refcount_write: bool,
 	) -> Result<E, DispatchError> {
 		let code_warmth = access_list.code_warmth(code_hash);
-		let executable = E::from_storage(code_hash, meter, code_warmth)?;
+		let executable = E::from_storage(code_hash, meter, code_warmth, charge_refcount_write)?;
 		access_list.warm_code(code_hash);
 		Ok(executable)
 	}
@@ -1109,6 +1111,7 @@ where
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
+				let charge_refcount_write = false;
 
 				// Precompiles don't use cold/hot pricing, so they're not warmed.
 				// Even a plain account reads its AccountInfo, so it's safe to warm here.
@@ -1171,7 +1174,12 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable = Self::load_code(access_list, meter, info.code_hash)?;
+						let executable = Self::load_code(
+							access_list,
+							meter,
+							info.code_hash,
+							charge_refcount_write,
+						)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1185,7 +1193,8 @@ where
 							.as_contract()
 							.expect("When not a precompile the contract was loaded above; qed")
 							.code_hash;
-						let executable = Self::load_code(access_list, meter, code_hash)?;
+						let executable =
+							Self::load_code(access_list, meter, code_hash, charge_refcount_write)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				};
@@ -2182,10 +2191,12 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
+					let charge_refcount_write = true;
 					let executable = Self::load_code(
 						&mut self.access_list,
 						&mut top_frame_mut!(self).frame_meter,
 						*hash,
+						charge_refcount_write,
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

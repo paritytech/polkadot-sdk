@@ -251,9 +251,9 @@ impl RuntimeCosts {
 	}
 
 	/// What a hot write pays on top of the cold read that warmed the slot:
-	/// re-hashing the slot's trie path when the block's storage root is
-	/// computed.
-	fn hot_write_surcharge<T: Config>() -> Weight {
+	/// re-hashing its trie path when the block's storage root is computed. Owed once per written
+	/// key, by whoever's read already paid for the walk.
+	pub(crate) fn deferred_write_cost<T: Config>() -> Weight {
 		let db = T::DbWeight::get();
 		db.writes(1).saturating_sub(db.reads(1))
 	}
@@ -269,10 +269,10 @@ impl RuntimeCosts {
 		match kind {
 			StorageAccessKind::Persistent(warmth) => {
 				let surcharge = match warmth {
-					Warmth::Hot(paid) if !paid.covers(op) => Self::hot_write_surcharge::<T>(),
+					Warmth::Hot(paid) if !paid.covers(op) => Self::deferred_write_cost::<T>(),
 					_ => Weight::zero(),
 				};
-				cold_hot_weight::<T>(&[warmth], AccessEntry::STORAGE_READS, cold, hot)
+				weight_by_warmth::<T>(&[warmth], AccessEntry::STORAGE_READS, cold, hot)
 					.saturating_add(surcharge)
 			},
 			StorageAccessKind::Transient => transient(),
@@ -282,7 +282,7 @@ impl RuntimeCosts {
 
 /// Computes the weight of an operation, given the warmth of each state item it reads.
 /// Prices hot only if every item is hot.
-pub(crate) fn cold_hot_weight<T: Config>(
+pub(crate) fn weight_by_warmth<T: Config>(
 	item_warmths: &[Warmth],
 	state_reads: u64,
 	cold: impl FnOnce() -> Weight,
@@ -397,13 +397,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				StateWarmth::Call { account, account_info } => cold_hot_weight::<T>(
+				StateWarmth::Call { account, account_info } => weight_by_warmth::<T>(
 					&[account, account_info],
 					AccessEntry::ACCOUNT_READS + AccessEntry::ACCOUNT_INFO_READS,
 					|| T::WeightInfo::seal_call(0, 0, 0),
 					T::WeightInfo::seal_call_hot,
 				),
-				StateWarmth::DelegateCall { account_info } => cold_hot_weight::<T>(
+				StateWarmth::DelegateCall { account_info } => weight_by_warmth::<T>(
 					&[account_info],
 					AccessEntry::ACCOUNT_INFO_READS,
 					T::WeightInfo::seal_delegate_call,
@@ -565,7 +565,7 @@ mod tests {
 		const LEN: u32 = 64;
 		let weight = |cost: &RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(cost);
 
-		let surcharge = RuntimeCosts::hot_write_surcharge::<Test>();
+		let surcharge = RuntimeCosts::deferred_write_cost::<Test>();
 		let db = <Test as frame_system::Config>::DbWeight::get();
 		assert!(
 			surcharge.ref_time() > 0 && surcharge.ref_time() < db.writes(1).ref_time(),

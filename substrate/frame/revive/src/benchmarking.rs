@@ -2708,6 +2708,7 @@ mod benchmarks {
 				code_hash,
 				&mut meter,
 				CodeLoadWarmth::cold_non_revertible(),
+				false,
 			);
 		}
 		assert!(blob.is_ok(), "loading the code of an existing contract must succeed");

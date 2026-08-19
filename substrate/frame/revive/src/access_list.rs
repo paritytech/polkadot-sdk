@@ -234,8 +234,7 @@ impl StateAccess {
 pub enum StateWarmth {
 	/// A normal call reads the target's account state and contract metadata.
 	Call { account: Warmth, account_info: Warmth },
-	/// A delegate call runs in the caller's context and reads only the
-	/// target's contract metadata.
+	/// A delegate call reads only the target's contract metadata.
 	DelegateCall { account_info: Warmth },
 }
 
