@@ -494,7 +494,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		if value_len > max_size {
 			// A peek registers nothing, so no rollback is owed.
-			let access_kind = self.ext.peek_storage_access(transient, &key).non_revertible();
+			let access_kind = self.ext.peek_storage_access(transient, &key).to_non_revertible();
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
 				old_bytes: max_size,

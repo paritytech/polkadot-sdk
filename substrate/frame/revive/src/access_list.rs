@@ -155,8 +155,8 @@ impl Warmth {
 		matches!(self, Self::Cold { .. })
 	}
 
-	/// Converts a cold touch to non-revertible.
-	pub fn non_revertible(self) -> Self {
+	/// Returns this warmth with a cold touch made non-revertible.
+	pub fn to_non_revertible(self) -> Self {
 		match self {
 			Self::Hot(paid) => Self::Hot(paid),
 			Self::Cold { .. } => Self::Cold { revertible: false },
@@ -176,10 +176,10 @@ pub enum StorageAccessKind {
 }
 
 impl StorageAccessKind {
-	/// See [`Warmth::non_revertible`].
-	pub fn non_revertible(self) -> Self {
+	/// See [`Warmth::to_non_revertible`].
+	pub fn to_non_revertible(self) -> Self {
 		match self {
-			Self::Persistent(warmth) => Self::Persistent(warmth.non_revertible()),
+			Self::Persistent(warmth) => Self::Persistent(warmth.to_non_revertible()),
 			Self::Transient => Self::Transient,
 		}
 	}
