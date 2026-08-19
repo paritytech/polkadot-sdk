@@ -31,7 +31,7 @@ use frame_support::{
 	pallet_prelude::Weight,
 	traits::{Currency, Get, ReservableCurrency},
 };
-use frame_system::{self, ensure_root, ensure_signed};
+use frame_system::{self, ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
 use polkadot_primitives::{
 	HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE,
 };
@@ -585,15 +585,8 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 
 	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
 		let config = configuration::ActiveConfig::<T>::get();
-		// Same bounds as `validate_onboarding_data`, but on sizes alone: the code itself is not
-		// here yet.
-		if code_len < MIN_CODE_SIZE ||
-			code_len > config.max_code_size ||
-			head_len > config.max_head_data_size
-		{
-			return Err(());
-		}
-		Ok(())
+		Self::validate_onboarding_sizes(&config, head_len as usize, code_len as usize)
+			.map_err(|_| ())
 	}
 
 	fn is_registered(para_id: u32) -> bool {
@@ -736,12 +729,7 @@ impl<T: Config> Pallet<T> {
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::ActiveConfig::<T>::get();
-		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
-		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
-		ensure!(
-			genesis_head.0.len() <= config.max_head_data_size as usize,
-			Error::<T>::HeadDataTooLarge
-		);
+		Self::validate_onboarding_sizes(&config, genesis_head.0.len(), validation_code.0.len())?;
 
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let deposit = T::ParaDeposit::get()
@@ -749,6 +737,18 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul(config.max_code_size.into()));
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
+	}
+
+	/// Check onboarding head and code sizes against the given configuration.
+	fn validate_onboarding_sizes(
+		config: &configuration::HostConfiguration<BlockNumberFor<T>>,
+		head_len: usize,
+		code_len: usize,
+	) -> DispatchResult {
+		ensure!(code_len >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
+		ensure!(code_len <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
+		ensure!(head_len <= config.max_head_data_size as usize, Error::<T>::HeadDataTooLarge);
+		Ok(())
 	}
 
 	/// Swap a lease holding parachain and parathread (on-demand parachain), which involves
