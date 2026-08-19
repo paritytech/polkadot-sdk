@@ -292,6 +292,7 @@ members = [
 	"substrate/client/mixnet",
 	"substrate/client/network",
 	"substrate/client/network-gossip",
+	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
 	"substrate/client/network/statement",
@@ -1276,6 +1277,7 @@ sc-informant = { path = "substrate/client/informant", default-features = false }
 sc-keystore = { path = "substrate/client/keystore", default-features = false }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false }
 sc-network = { path = "substrate/client/network", default-features = false }
+sc-network-bitswap = { path = "substrate/client/network/bitswap", default-features = false }
 sc-network-common = { path = "substrate/client/network/common", default-features = false }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false }
 sc-network-light = { path = "substrate/client/network/light", default-features = false }
