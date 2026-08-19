@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787147797251,
+  "lastUpdate": 1787157307159,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "83cf79c4c926cb4dbbe4bb392206359527093d3e",
-          "message": "Add more buckets to histogram for bitfields sent (#10827)\n\n# Description\n\n<img width=\"858\" height=\"387\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a\"\n/>\nOn Kusama the chart already goes to infinity, so we need to adjust it to\nthe desired value.\n\n## Integration\n\nShould not affect downstream projects.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-18T22:09:56Z",
-          "tree_id": "51a46833f58091965e17e4f6c87ca46b15294bad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/83cf79c4c926cb4dbbe4bb392206359527093d3e"
-        },
-        "date": 1768778313225,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52933.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63612.57000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6368015460400005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.652425136889998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005616123639999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.636418571450002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.730264818370014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6721971079800007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7990092521700103,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025201119999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000025040459999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.6418015259731025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000025040459999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025201119999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3277970802000034,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.374809255850005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ffaca8ccf2239f37ad865dd18ba0165235cdcba1",
+          "message": "Fix inconsistency on session boundaries (#12255)\n\nOn session boundaries, ancestry is truncated and we thus restrict the\naccessible claim queue more than we should.",
+          "timestamp": "2026-08-19T15:06:07Z",
+          "tree_id": "42336c5a5139ef7cfb9dfd798ffaacb4fb0445a7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ffaca8ccf2239f37ad865dd18ba0165235cdcba1"
+        },
+        "date": 1787157272749,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.130000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.348960502319999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8374438766999581,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.474229929732763,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.797388143039957,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6705662043099982,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001899002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.634464660589998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021497790000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005581838550000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021497790000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.668253190359999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001899002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6321178702100005,
             "unit": "seconds"
           }
         ]
