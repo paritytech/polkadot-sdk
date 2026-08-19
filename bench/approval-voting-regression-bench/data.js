@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787139809154,
+  "lastUpdate": 1787147797251,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b34ecf1ddd5d278147808df92e4f84ae19256d28",
-          "message": "Fix fee handling of pay-over-xcm trait(s) (#10831)\n\nChanged how pay-over-xcm is handling delivery fees. The old behavior was\neffectively allowing free delivery for any origin, and it was either\nburning innexistent tokens (noop at the end of the day), or it was\nminting \"protocol fees\" into the treasury account out of thin air.\n\nIn practice, the traits were always used with waived fees configuration\nso this bug was never exploitable in production, but it was there\nnonetheless.\n\nChanged transfer-over-xcm and pay-over-xcm implementations to use the\nruntime's XCM config, rather than custom Router and FeeHandler. This\nreduces the opportunity for misconfiguration since it relies on the\nmessage delivery and fee handling configurations consolidated at the\nruntime configuration level.\n\nWaived locations for some system pallets were also correctly configured\nto explicitly allow what was previously implicitly allowed by the buggy\ncode.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-01-17T23:14:48Z",
-          "tree_id": "533f00ea7490aa67f5f37b1f97e195797eaeb772",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34ecf1ddd5d278147808df92e4f84ae19256d28"
-        },
-        "date": 1768695908264,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63627.44,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.595332024043154,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002584299,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00581978353,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021254230000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.644459074870019,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6754635225299976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7907973963800312,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021254230000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.5981071472200012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002584299,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.658280215720001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6097389953399994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3062520141499894,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.802965263439958,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d43339b83356ca5bf1a8f40d9e058f550c0e7bb",
+          "message": "Rework bitswap client and server (#12686)\n\nThis PR extracts Bitswap from `sc-network` into a dedicated\n`sc-network-bitswap` crate and replaces the backend-specific\nimplementations with a single actor-driven service and streaming handle\nAPI.\n\n## New API\n\n`BitswapHandle::request_stream(cids)` accepts a wantlist of arbitrary\nsize and returns a bounded channel yielding hash-verified (Cid, Vec<u8>)\npairs as each block resolves, so a slow CID never holds back completed\nones. The service retries unresolved CIDs indefinitely and has no\ninternal timeout — the caller sets its own deadline and cancels by\ndropping the receiver. All scheduling now lives in the actor: peers\ntracked via sync events, HAVE-based peer preference, per-peer timeouts,\nfailover on disconnect, and deduplication so concurrent requests for the\nsame CID share one network request.\n\n**Backpressure:** Outbound, a dispatch window caps in-flight CIDs at\n1024 with a FIFO behind it, and the bounded command channel returns\nOverloaded immediately instead of queueing unboundedly. Inbound,\nwantlists go into capped per-peer queues served round-robin, and\ndatabase lookups run on at most 8 semaphore-guarded blocking workers.\nEach permit is only released after the response has been forwarded to\nthe transport, so network backpressure propagates back into the lookup\npool.\n\n*Note:* The rewrite here only supports litep2p. I don't see a good\nreason to support libp2p for this. But up for debate, we could try to\nintroduce libp2p compatibility here again.\n\n## New structure\n\n- `handle.rs`: public request-stream API and errors\n- `service.rs`: request scheduling, peer management, and inbound serving\n- `metrics.rs`: Bitswap metrics\n- `service/tests.rs`: unit and property tests\n- Storage-chain sync and node wiring consume the new handle API\n\n---------\n\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T12:25:40Z",
+          "tree_id": "44dfc0a782805ca9b6bdb1a7998dc0123a7e35ac",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d43339b83356ca5bf1a8f40d9e058f550c0e7bb"
+        },
+        "date": 1787147764190,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.77999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52944.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005282794370000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022441180000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022441180000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.872098408889963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.655907588229998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8566088999699669,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6831973484399967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018188330000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5074179996130255,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018188330000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6524449928,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6438475292299985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.374809255850005,
             "unit": "seconds"
           }
         ]
