@@ -279,8 +279,9 @@ enum CallType {
 }
 
 impl CallType {
-	fn cost(&self, ext: &impl Ext, callee: &H160) -> RuntimeCosts {
-		let state_access = StateAccess::call(*callee, matches!(self, CallType::DelegateCall));
+	fn cost(&self, ext: &impl Ext, callee: &H160, transfers_value: bool) -> RuntimeCosts {
+		let state_access =
+			StateAccess::call(*callee, matches!(self, CallType::DelegateCall), transfers_value);
 		RuntimeCosts::CallBase(ext.operation_warmth(state_access))
 	}
 }
@@ -638,6 +639,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let callee = memory.read_h160(callee_ptr)?;
+		let value = match &call_type {
+			CallType::Call { value_ptr } => memory.read_u256(*value_ptr)?,
+			CallType::DelegateCall => U256::zero(),
+		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
@@ -645,7 +650,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => {
-				let cost = call_type.cost(&*self.ext, &callee);
+				let cost = call_type.cost(&*self.ext, &callee, !value.is_zero());
 				self.charge_gas(cost)?
 			},
 		};
@@ -673,9 +678,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { value_ptr } => {
+			CallType::Call { value_ptr: _ } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
-				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.

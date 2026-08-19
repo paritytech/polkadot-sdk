@@ -203,22 +203,30 @@ impl CodeLoadWarmth {
 /// A state-accessing operation, one variant per opcode.
 #[derive(Clone, Copy, Debug)]
 pub enum StateAccess {
-	Call { target: H160 },
+	Call { target: H160, transfers_value: bool },
 	DelegateCall { target: H160 },
 }
 
 impl StateAccess {
 	/// Builds the call variant matching the `delegate` flag.
-	pub fn call(target: H160, delegate: bool) -> Self {
-		if delegate { Self::DelegateCall { target } } else { Self::Call { target } }
+	pub fn call(target: H160, delegate: bool, transfers_value: bool) -> Self {
+		if delegate {
+			Self::DelegateCall { target }
+		} else {
+			Self::Call { target, transfers_value }
+		}
 	}
 
 	/// Maps `warmth_of` over each state item this operation reads and
 	/// collects the results into a [`StateWarmth`].
 	fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateWarmth {
 		match self {
-			Self::Call { target } => StateWarmth::Call {
-				account: warmth_of(AccessEntry::Account { address: target }),
+			Self::Call { target, transfers_value } => StateWarmth::Call {
+				// Only a value transfer reads the target's account, so a plain call
+				// must not warm it: warm means the read's proof is already paid.
+				account: transfers_value
+					.then(|| warmth_of(AccessEntry::Account { address: target })),
+				original_account: warmth_of(AccessEntry::OriginalAccount { address: target }),
 				account_info: warmth_of(AccessEntry::AccountInfo { address: target }),
 			},
 			Self::DelegateCall { target } => StateWarmth::DelegateCall {
@@ -232,8 +240,9 @@ impl StateAccess {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum StateWarmth {
-	/// A normal call reads the target's account state and contract metadata.
-	Call { account: Warmth, account_info: Warmth },
+	/// A normal call reads the target's address mapping and contract metadata,
+	/// and its account state only when it transfers value (`None` otherwise).
+	Call { account: Option<Warmth>, original_account: Warmth, account_info: Warmth },
 	/// A delegate call reads only the target's contract metadata.
 	DelegateCall { account_info: Warmth },
 }
@@ -252,8 +261,10 @@ pub struct AccessListMetrics {
 /// One entry per distinct state item accessed in the current transaction.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum AccessEntry {
-	/// Account at `address`: both `System::Account` and `OriginalAccount`.
+	/// Account state (`System::Account`) of `address`, read on value transfers.
 	Account { address: H160 },
+	/// Address mapping (`OriginalAccount`) of `address`, read by every call.
+	OriginalAccount { address: H160 },
 	/// A contract storage slot. Field order is `slot, address` so comparison
 	/// decides on `slot` first, the most-discriminating field in the typical
 	/// access pattern (one contract touching many slots within a transaction).
@@ -269,7 +280,8 @@ pub enum AccessEntry {
 
 impl AccessEntry {
 	// Number of state reads per entry.
-	pub(crate) const ACCOUNT_READS: u64 = 2; // `OriginalAccount` + `System::Account`
+	pub(crate) const ACCOUNT_READS: u64 = 1;
+	pub(crate) const ORIGINAL_ACCOUNT_READS: u64 = 1;
 	pub(crate) const ACCOUNT_INFO_READS: u64 = 1;
 	pub(crate) const STORAGE_READS: u64 = 1;
 	pub(crate) const CODE_INFO_READS: u64 = 1;
@@ -281,6 +293,7 @@ const _: () = {
 	fn _reads(entry: &AccessEntry) -> u64 {
 		match entry {
 			AccessEntry::Account { .. } => AccessEntry::ACCOUNT_READS,
+			AccessEntry::OriginalAccount { .. } => AccessEntry::ORIGINAL_ACCOUNT_READS,
 			AccessEntry::Storage { .. } => AccessEntry::STORAGE_READS,
 			AccessEntry::AccountInfo { .. } => AccessEntry::ACCOUNT_INFO_READS,
 			AccessEntry::CodeInfo { .. } => AccessEntry::CODE_INFO_READS,
@@ -603,9 +616,10 @@ mod tests {
 		// The set is below the cap, so peek prices both call entries revertible
 		// cold: it cannot see that touching the first entry fills the cap.
 		assert_eq!(
-			al.operation_warmth(StateAccess::Call { target }),
+			al.operation_warmth(StateAccess::Call { target, transfers_value: true }),
 			StateWarmth::Call {
-				account: Warmth::cold_revertible(),
+				account: Some(Warmth::cold_revertible()),
+				original_account: Warmth::cold_revertible(),
 				account_info: Warmth::cold_revertible(),
 			},
 			"peek sees the not-full set for both entries",
@@ -613,9 +627,10 @@ mod tests {
 
 		// The first touch fills the cap, so ContractInfo lands past it: non-revertible.
 		assert_eq!(
-			al.warm_operation(StateAccess::Call { target }),
+			al.warm_operation(StateAccess::Call { target, transfers_value: true }),
 			StateWarmth::Call {
-				account: Warmth::cold_revertible(),
+				account: Some(Warmth::cold_revertible()),
+				original_account: Warmth::cold_non_revertible(),
 				account_info: Warmth::cold_non_revertible(),
 			},
 			"touch journals only the first entry before the cap fills",

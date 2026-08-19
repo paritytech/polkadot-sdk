@@ -397,12 +397,24 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				StateWarmth::Call { account, account_info } => weight_by_warmth::<T>(
-					&[account, account_info],
-					AccessEntry::ACCOUNT_READS + AccessEntry::ACCOUNT_INFO_READS,
-					|| T::WeightInfo::seal_call(0, 0, 0),
-					T::WeightInfo::seal_call_hot,
-				),
+				StateWarmth::Call { account: Some(account), original_account, account_info } => {
+					weight_by_warmth::<T>(
+						&[account, original_account, account_info],
+						AccessEntry::ACCOUNT_READS +
+							AccessEntry::ORIGINAL_ACCOUNT_READS +
+							AccessEntry::ACCOUNT_INFO_READS,
+						|| T::WeightInfo::seal_call(0, 0, 0),
+						T::WeightInfo::seal_call_hot,
+					)
+				},
+				StateWarmth::Call { account: None, original_account, account_info } => {
+					weight_by_warmth::<T>(
+						&[original_account, account_info],
+						AccessEntry::ORIGINAL_ACCOUNT_READS + AccessEntry::ACCOUNT_INFO_READS,
+						|| T::WeightInfo::seal_call(0, 0, 0),
+						T::WeightInfo::seal_call_hot,
+					)
+				},
 				StateWarmth::DelegateCall { account_info } => weight_by_warmth::<T>(
 					&[account_info],
 					AccessEntry::ACCOUNT_INFO_READS,
@@ -508,15 +520,18 @@ mod tests {
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
 		let all_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
-			account: Warmth::Hot(Paid::Read),
+			account: Some(Warmth::Hot(Paid::Read)),
+			original_account: Warmth::Hot(Paid::Read),
 			account_info: Warmth::Hot(Paid::Read),
 		}));
 		let all_cold = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
-			account: Warmth::cold_non_revertible(),
+			account: Some(Warmth::cold_non_revertible()),
+			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		}));
 		let mixed = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
-			account: Warmth::cold_non_revertible(),
+			account: Some(Warmth::cold_non_revertible()),
+			original_account: Warmth::Hot(Paid::Read),
 			account_info: Warmth::Hot(Paid::Read),
 		}));
 
@@ -533,7 +548,8 @@ mod tests {
 		);
 
 		let revertible = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
-			account: Warmth::cold_revertible(),
+			account: Some(Warmth::cold_revertible()),
+			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		}));
 		assert!(

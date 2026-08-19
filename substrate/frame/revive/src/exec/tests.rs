@@ -3438,29 +3438,39 @@ fn cold_hot_call_target_warms_across_calls() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
-			StateWarmth::Call { account: Warmth::Cold { .. }, account_info: Warmth::Cold { .. } },
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Cold { .. },
+				account_info: Warmth::Cold { .. }
+			},
 			"an uncalled target starts cold",
 		);
 		let before = ctx.ext.access_list_metrics();
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
-			StateWarmth::Call { account: Warmth::Hot(_), account_info: Warmth::Hot(_) },
-			"account state and contract metadata are hot after the first call",
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Hot(_),
+				account_info: Warmth::Hot(_)
+			},
+			"a zero-value call warms the metadata but not the unread account state",
 		);
 		let mid = ctx.ext.access_list_metrics();
 		assert_eq!(
 			mid.cold - before.cold,
 			4,
-			"first call: account + contract info + code metadata + code blob touch cold",
+			"first zero-value call: mapping + contract info + code metadata + blob touch cold",
 		);
 		assert_eq!(mid.hot, before.hot, "first call adds no hot touches");
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		let after = ctx.ext.access_list_metrics();
-		assert_eq!(after.hot - mid.hot, 4, "second call: account + contract info + code hot");
+		assert_eq!(after.hot - mid.hot, 4, "second call: mapping + contract info + code hot");
 		assert_eq!(after.cold, mid.cold, "second call adds no cold touches");
 		exec_success()
 	});
@@ -3500,9 +3510,13 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 
 			let before = ctx.ext.access_list_metrics();
 			assert_matches!(
-				ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
+				ctx.ext.operation_warmth(StateAccess::Call {
+					target: DJANGO_ADDR,
+					transfers_value: true
+				}),
 				StateWarmth::Call {
-					account: Warmth::Cold { .. },
+					account: Some(Warmth::Cold { .. }),
+					original_account: Warmth::Cold { .. },
 					account_info: Warmth::Cold { .. }
 				},
 				"a fresh target starts cold",
@@ -3527,9 +3541,13 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 				"the denied call warms nothing",
 			);
 			assert_matches!(
-				ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
+				ctx.ext.operation_warmth(StateAccess::Call {
+					target: DJANGO_ADDR,
+					transfers_value: true
+				}),
 				StateWarmth::Call {
-					account: Warmth::Cold { .. },
+					account: Some(Warmth::Cold { .. }),
+					original_account: Warmth::Cold { .. },
 					account_info: Warmth::Cold { .. }
 				},
 				"the denied call leaves the target cold",
@@ -3586,7 +3604,7 @@ fn cold_hot_delegate_call_leaves_target_account_cold() {
 		assert_eq!(
 			ctx.ext.access_list_metrics().cold - after_delegate.cold,
 			1,
-			"plain call adds only the account; delegate already warmed metadata and code",
+			"zero-value plain call adds only the mapping a delegate never reads",
 		);
 		exec_success()
 	});
@@ -3612,13 +3630,23 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
 		assert_matches!(
-			ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
-			StateWarmth::Call { account: Warmth::Cold { .. }, account_info: Warmth::Cold { .. } },
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Cold { .. },
+				account_info: Warmth::Cold { .. }
+			},
 			"B's revert drops the warmth of targets B touched",
 		);
 		assert_matches!(
-			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
-			StateWarmth::Call { account: Warmth::Hot(_), account_info: Warmth::Hot(_) },
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Hot(_),
+				account_info: Warmth::Hot(_)
+			},
 			"the caller's touch of B persists even though B reverted",
 		);
 		exec_success()
@@ -3644,7 +3672,7 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		let after = ctx.ext.access_list_metrics();
-		assert_eq!(after.cold - mid.cold, 2, "second address: account + contract info cold");
+		assert_eq!(after.cold - mid.cold, 2, "second address: mapping + contract info cold");
 		assert_eq!(after.hot - mid.hot, 2, "second address: shared code metadata + blob hot");
 		exec_success()
 	});
@@ -3661,9 +3689,14 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 fn cold_hot_first_frame_warms_entry_target() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.operation_warmth(StateAccess::Call { target: BOB_ADDR }),
-			StateWarmth::Call { account: Warmth::Hot(_), account_info: Warmth::Hot(_) },
-			"the entry target is pre-warmed by the first frame",
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Hot(_),
+				account_info: Warmth::Hot(_)
+			},
+			"the entry target's metadata is pre-warmed by the first frame",
 		);
 		exec_success()
 	});
@@ -3676,14 +3709,19 @@ fn cold_hot_first_frame_warms_entry_target() {
 
 #[test]
 fn cold_hot_plain_account_warms_then_code_loads_cold() {
-	// A plain-account call warms account state and contract info, not code. After
-	// code is added, a repeat call reads account and contract info hot, code cold.
+	// A zero-value plain-account call warms contract info only, not code. After
+	// code is added, a repeat call reads contract info hot, code cold.
 	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		assert_matches!(
-			ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
-			StateWarmth::Call { account: Warmth::Cold { .. }, account_info: Warmth::Cold { .. } },
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Cold { .. },
+				account_info: Warmth::Cold { .. }
+			},
 			"an uncalled target starts cold",
 		);
 
@@ -3691,19 +3729,24 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.operation_warmth(StateAccess::Call { target: DJANGO_ADDR }),
-			StateWarmth::Call { account: Warmth::Hot(_), account_info: Warmth::Hot(_) },
-			"a call to a plain account warms it",
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Hot(_),
+				account_info: Warmth::Hot(_)
+			},
+			"a zero-value call to a plain account warms only its metadata",
 		);
 		let after_plain = ctx.ext.access_list_metrics();
-		assert_eq!(after_plain.cold - before.cold, 2, "account + contract info; no code entry");
+		assert_eq!(after_plain.cold - before.cold, 2, "mapping + contract info; no code entry");
 
 		// Place code, then call again: account and contract info stay hot (read by
 		// the first call), while the newly added code loads cold.
 		place_contract(&DJANGO, django_code_hash);
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		let after_coded = ctx.ext.access_list_metrics();
-		assert_eq!(after_coded.hot - after_plain.hot, 2, "account + contract info are already hot");
+		assert_eq!(after_coded.hot - after_plain.hot, 2, "mapping + contract info are already hot");
 		assert_eq!(after_coded.cold - after_plain.cold, 2, "code metadata + blob load");
 		exec_success()
 	});
@@ -3735,7 +3778,7 @@ fn cold_hot_failed_code_load_leaves_code_cold() {
 		assert_eq!(
 			after.cold - before.cold,
 			2,
-			"account + contract info warm up front; the two code entries stay cold",
+			"mapping + contract info warm up front; the two code entries stay cold",
 		);
 		exec_success()
 	});

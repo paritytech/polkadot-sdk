@@ -1118,7 +1118,10 @@ where
 				match &delegated_call {
 					None => {
 						if precompile.is_none() {
-							access_list.warm_operation(StateAccess::Call { target: address });
+							access_list.warm_operation(StateAccess::Call {
+								target: address,
+								transfers_value: !value_transferred.is_zero(),
+							});
 						}
 					},
 					Some(delegated) => {
