@@ -232,8 +232,9 @@ Instead of routing messages through relay chain state, we:
 
 5. **Proofs, all parachain-side**: Everything below the top hash is
    verified by the receiver itself. Its runtime verifies payloads by
-   recomputation (the block body carries only payloads and per-read MMR
-   inclusion proofs—never a `StreamsRoot`); the PVF binds the block's
+   recomputation (the block body carries payloads and trust-free
+   positioning hints—no proof objects, never a `StreamsRoot`); the PVF
+   binds the block's
    consumption to a committed `StreamsRoot` via POV-carried lifts (tree
    inclusion proofs plus MMR extension proofs bridging any unconsumed
    tail)—regenerable by anyone from public data, whether the block
@@ -313,7 +314,8 @@ outright:
 ///
 /// This encoding is CONSENSUS-CRITICAL and frozen: every implementation
 /// must reproduce it bit-identically (a receiver derives the same trie
-/// path the sender used), locked by test vectors in the primitives.
+/// path the sender used), locked by the conformance vector suite (see
+/// Conformance—the id vectors are one part of it).
 /// Decode enforces canonicality (decode∘encode = identity; fixed length,
 /// no redundant encodings) and REJECTS reserved kinds 0x03..=0x7F: no
 /// correct consensus path ever decodes a kind it does not know (you only
@@ -451,7 +453,8 @@ struct StreamsRoot(Hash);
 /// The node encoding is CONSENSUS-CRITICAL and protocol-fixed: every
 /// implementation must reproduce byte-identical StreamsRoots and every
 /// foreign node must verify these proofs. The concrete byte format is
-/// specified with the primitives (companion to the #12346 family), under
+/// specified with the primitives (companion to the #12346 family),
+/// locked by the conformance vector suite (see Conformance), under
 /// four constraints mandated here:
 ///
 /// 1. Domain-tagged node hashing with no ambiguous parses (same
@@ -2950,6 +2953,32 @@ infrastructure:
    reads are an `EventRequest { at: None, under }` on the peer's ack
    stream—`under` per the reader's tier (see Flow Control).
 
+### Conformance
+
+Everything on this list must be **bit-identical across every
+implementation**—a divergence is not a bug but a consensus split:
+
+- the canonical `StreamId` encoding (trie key derivation);
+- tree leaf/inner node byte formats and domain tags, and the canonical
+  `tree_hash` construction (see
+  [The Stream Commitment Tree](#the-stream-commitment-tree));
+- MMR leaf hashing, domain tags and version byte (see
+  [Leaf Hashing](#leaf-hashing-and-domain-separation));
+- extension-proof connecting-node set and order, derived from the two
+  leaf counts;
+- the strict canonical decodes (`RequiresSet`, lift transport,
+  `StreamId`: sorted, unique, no redundant encodings—reject, never
+  normalize);
+- the `stitch`/`build_requires` synthesis semantics running in the PVF
+  (see [Requires Lifting](#requires-lifting-pov-proofs)).
+
+A **conformance vector suite** in the primitives therefore has the same
+normative standing as the encoding rules themselves: id vectors, tree
+vectors (including adversarial step orderings that must *fail*),
+extension/advance vectors, and full record→requires synthesis vectors.
+An implementation that passes the suite and still diverges is a spec
+bug; the suite grows with every such finding.
+
 ### Off-Chain Verification
 
 Consuming messages *before* the sending block's provides commitment is on
@@ -3023,16 +3052,33 @@ they are served and only build against roots they could reproduce.
 
 **Attack**: A candidate includes a fabricated lift.
 
-**Mitigation**: Extension proofs are cryptographically verified by the PVF.
-Invalid proofs cause candidate validation to fail.
+**Mitigation**: An extension/tree proof is not checked against a declared
+root—verification *computes and returns* the root from the proof (see
+[Requires Lifting](#requires-lifting-pov-proofs)), so there is nothing
+for a fabrication to assert against: a wrong proof simply yields a
+different root, which then fails the relay's window match. The
+stitch/forward-only-extension machinery gives the same guarantee across
+gaps and bundles—an advance proof can only move a stream's endpoint
+forward, never rewrite or rewind it.
 
 ### Threat: Message Replay/Skip
 
-**Attack**: Receiving chain processes messages out of order or skips messages.
+**Attack**: Receiving chain processes messages out of order, skips
+messages, or replays old ones.
 
-**Mitigation**: The parachain runtime tracks which messages have been processed
-and enforces consecutive processing. This is internal to the parachain—the relay
-chain only sees the resulting `requires` commitment.
+**Mitigation**: Layered, not a single tracked-state check. Order and
+multiplicity are structural: the runtime hashes payloads into leaves and
+appends to a frontier, so any reordering or duplication yields an
+endpoint no lift can bind (see
+[Verification](#verification)). No-skip is an explicit STF rule, with
+the one gated exception being deliberate skip-ahead (see
+[Delivery Contract](#delivery-contract-ordered-and-guaranteed)). Replay
+of event-stream payloads is blocked by the monotonic highwater rule (see
+[Event Streams](#event-streams)), and cross-block replay within a
+bundle by the interval chain's forward-only stitching (see
+[Requires Lifting](#requires-lifting-pov-proofs)). This is internal to
+the parachain—the relay chain only ever sees the resulting `Requires`
+commitment.
 
 ### Threat: Acknowledgement Without Verification
 
