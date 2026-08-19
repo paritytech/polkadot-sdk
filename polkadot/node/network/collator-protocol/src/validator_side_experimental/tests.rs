@@ -1013,9 +1013,8 @@ impl TestState {
 							}
 						)
 					},
-					CollationVersion::V4 => {
-						// This is not supported for v4
-					}
+					// V4 sends no `CollationSeconded`, so there is nothing to assert.
+					CollationVersion::V4 => {}
 				};
 			}
 		);

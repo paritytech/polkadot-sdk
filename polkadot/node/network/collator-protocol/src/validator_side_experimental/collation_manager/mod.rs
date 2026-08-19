@@ -506,7 +506,7 @@ impl CollationManager {
 					&connected_rep_query_fn,
 				);
 
-				let (advertisement, segment_index) = match outcome {
+				let (advertisement, segment_id) = match outcome {
 					Either::Left(Some(adv)) => adv,
 					Either::Left(None) => continue,
 					Either::Right(delay) => {
@@ -529,24 +529,15 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-				// Consume the entitlement: a segment is ONE fetch, spent at launch. The index
-				// is valid because nothing mutates segment storage between this position's
-				// collection and here, and the next position re-collects.
+				// Consume the entitlement: a segment is ONE fetch, spent at launch. The
+				// segment stays out of later picks via both the `consumed` flag and the
+				// in-flight filter in `eligible_segments`.
 				if let Some(peer_ads) = self
 					.per_scheduling_parent
 					.get_mut(&advertisement.scheduling_parent)
 					.and_then(|per_sp| per_sp.peer_advertisements.get_mut(&advertisement.peer_id))
 				{
-					if segment_index < peer_ads.segments.len() {
-						peer_ads.segments[segment_index].consumed = true;
-					} else {
-						gum::error!(
-							target: LOG_TARGET,
-							?advertisement,
-							segment_index,
-							"Picked segment index out of bounds; entitlement not consumed",
-						);
-					}
+					peer_ads.consume(segment_id);
 				}
 
 				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
@@ -876,7 +867,7 @@ impl CollationManager {
 		&'a self,
 		scheduling_parent: Hash,
 		para_id: ParaId,
-	) -> impl Iterator<Item = (Advertisement, Instant, usize)> + 'a {
+	) -> impl Iterator<Item = (Advertisement, Instant, SegmentId)> + 'a {
 		// `Either` unifies the two iterator types into one `impl Iterator`: empty for an
 		// untracked SP, the filter chain otherwise.
 		let per_sp = match self.per_scheduling_parent.get(&scheduling_parent) {
@@ -901,8 +892,8 @@ impl CollationManager {
 		Either::Right(per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
 			peer_ads
 				.live_segments()
-				.filter(move |(_segment_index, segment)| segment.para_id == para_id)
-				.filter_map(move |(idx, segment)| {
+				.filter(move |(_, segment)| segment.para_id == para_id)
+				.filter_map(move |(segment_id, segment)| {
 					// Single-claim shapes synthesize their advertisement; a multi-entry V4
 					// segment gets the TIP as its interim resolution — replaced by the
 					// fetch-time selection walk later
@@ -919,7 +910,7 @@ impl CollationManager {
 							.candidate_hash()
 							.map_or(true, |h| !per_sp.fetched_collations.contains_key(&h)),
 					};
-					launchable.then(|| (advertisement, segment.received_at, idx))
+					launchable.then(|| (advertisement, segment.received_at, segment_id))
 				})
 		}))
 	}
@@ -939,18 +930,18 @@ impl CollationManager {
 		candidate_sps: impl Iterator<Item = Hash>,
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
-	) -> Either<Option<(Advertisement, usize)>, Duration> {
+	) -> Either<Option<(Advertisement, SegmentId)>, Duration> {
 		let advertisements: BTreeSet<AcceptedAdvertisement> = candidate_sps
 			.filter_map(|sp| {
 				let activated_at = self.per_scheduling_parent.get(&sp)?.activated_at;
 				Some(self.eligible_segments(sp, para_id).filter_map(
-					move |(adv, timestamp, segment_idx)| {
+					move |(adv, timestamp, segment_id)| {
 						Some(AcceptedAdvertisement {
 							adv,
 							score: connected_rep_query_fn(&adv.peer_id, &adv.para_id)?,
 							timestamp,
 							activated_at,
-							segment_idx,
+							segment_id,
 						})
 					},
 				))
@@ -986,7 +977,7 @@ impl CollationManager {
 				?delay,
 				"Delay elapsed; initiating fetch."
 			);
-			Either::Left(Some((best.adv, best.segment_idx)))
+			Either::Left(Some((best.adv, best.segment_id)))
 		} else {
 			gum::trace!(
 				target: LOG_TARGET,
@@ -1139,9 +1130,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.live_segments().filter_map(move |(_segment_index, segment)| {
-						segment.as_advertisement(*peer_id, *sp)
-					})
+					peer_ads
+						.live_segments()
+						.filter_map(move |(_, segment)| segment.as_advertisement(*peer_id, *sp))
 				})
 			})
 			.collect()
@@ -1155,9 +1146,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.live_segments().map(move |(_segment_index, segment)| {
-						(*sp, *peer_id, segment.entries.clone())
-					})
+					peer_ads
+						.live_segments()
+						.map(move |(_, segment)| (*sp, *peer_id, segment.entries.clone()))
 				})
 			})
 			.collect()
@@ -1259,7 +1250,7 @@ struct AcceptedAdvertisement {
 	timestamp: Instant,
 	/// The time at which the scheduling parent was activated
 	activated_at: Instant,
-	segment_idx: usize,
+	segment_id: SegmentId,
 }
 
 impl Ord for AcceptedAdvertisement {
@@ -1269,7 +1260,7 @@ impl Ord for AcceptedAdvertisement {
 			.cmp(&self.score) // Descending: higher score comes first
 			.then_with(|| self.timestamp.cmp(&other.timestamp)) // Ascending: earlier timestamp comes first
 			.then_with(|| self.adv.cmp(&other.adv))
-			.then_with(|| self.segment_idx.cmp(&other.segment_idx))
+			.then_with(|| self.segment_id.cmp(&other.segment_id))
 	}
 }
 
@@ -1384,7 +1375,7 @@ impl PerSchedulingParent {
 	}
 
 	fn add_segment(&mut self, segment: StoredSegment, peer_id: PeerId) {
-		self.peer_advertisements.entry(peer_id).or_default().segments.push(segment);
+		self.peer_advertisements.entry(peer_id).or_default().insert(segment);
 	}
 
 	#[cfg(test)]
@@ -1392,8 +1383,7 @@ impl PerSchedulingParent {
 		self.peer_advertisements
 			.entry(advertisement.peer_id)
 			.or_default()
-			.segments
-			.push(StoredSegment {
+			.insert(StoredSegment {
 				descriptor_version: advertisement.advertised_descriptor_version,
 				entries: advertisement.prospective_candidate.into_iter().collect(),
 				received_at,
@@ -1403,21 +1393,47 @@ impl PerSchedulingParent {
 	}
 }
 
+/// Identifies a stored segment within one peer's map, stably across insertions, sweeps and
+/// any other mutation of that map.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct SegmentId(u64);
+
 #[derive(Default)]
 struct PeerAdvertisements {
-	segments: Vec<StoredSegment>,
+	/// Stored segments keyed by id. Ids are handed out in increasing order, so iteration is
+	/// in arrival order.
+	segments: BTreeMap<SegmentId, StoredSegment>,
+	/// Source of `SegmentId`s. Monotonic per peer, never reused.
+	next_segment_id: u64,
 	// We increment this even for advertisements that we don't end up accepting, so that we take
 	// these into account when rate limiting.
 	total: usize,
 }
 
 impl PeerAdvertisements {
-	fn live_segments(&self) -> impl Iterator<Item = (usize, &StoredSegment)> {
-		self.segments.iter().enumerate().filter(|(_, segment)| !segment.consumed)
+	fn live_segments(&self) -> impl Iterator<Item = (SegmentId, &StoredSegment)> {
+		self.segments
+			.iter()
+			.filter(|(_, segment)| !segment.consumed)
+			.map(|(id, s)| (*id, s))
+	}
+
+	/// Store `segment` under a fresh id.
+	fn insert(&mut self, segment: StoredSegment) {
+		let id = SegmentId(self.next_segment_id);
+		self.next_segment_id += 1;
+		self.segments.insert(id, segment);
+	}
+
+	/// Mark the segment `id` as consumed, if it is still stored.
+	fn consume(&mut self, id: SegmentId) {
+		if let Some(segment) = self.segments.get_mut(&id) {
+			segment.consumed = true;
+		}
 	}
 
 	fn sweep_consumed(&mut self) {
-		self.segments.retain(|segment| !segment.consumed);
+		self.segments.retain(|_, segment| !segment.consumed);
 	}
 
 	fn check_for_duplicates(
@@ -1426,7 +1442,7 @@ impl PeerAdvertisements {
 	) -> std::result::Result<(), AdvertisementError> {
 		// Byte-dedup against currently stored segments only (consumed segments are gone, so
 		// a re-advertisement after launch is accepted as a fresh entitlement).
-		if self.live_segments().any(|(_segment_index, stored_segment)| {
+		if self.live_segments().any(|(_, stored_segment)| {
 			segment.descriptor_version == stored_segment.descriptor_version &&
 				segment.entries == stored_segment.entries
 		}) {
@@ -1730,14 +1746,14 @@ mod tests {
 				score: score(100),
 				timestamp: now,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 			let low_score = AcceptedAdvertisement {
 				adv: adv_2,
 				score: score(50),
 				timestamp: now,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 
 			assert_eq!(high_score.cmp(&low_score), Ordering::Less,);
@@ -1751,14 +1767,14 @@ mod tests {
 				score: score(100),
 				timestamp: now,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 			let later = AcceptedAdvertisement {
 				adv: adv_2,
 				score: score(100),
 				timestamp: later,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 
 			assert_eq!(earlier.cmp(&later), Ordering::Less);
@@ -1772,14 +1788,14 @@ mod tests {
 				score: score(100),
 				timestamp: now,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 			let acc_2 = AcceptedAdvertisement {
 				adv: adv_2,
 				score: score(100),
 				timestamp: now,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 
 			// Result depends on advertisement Ord, but must be consistent and not Equal.
@@ -1795,14 +1811,14 @@ mod tests {
 				score: score(100),
 				timestamp: now,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 			let acc_2 = AcceptedAdvertisement {
 				adv: adv_1,
 				score: score(100),
 				timestamp: now,
 				activated_at: now,
-				segment_idx: 0,
+				segment_id: SegmentId(0),
 			};
 
 			assert_eq!(acc_1.cmp(&acc_2), Ordering::Equal);
@@ -1819,28 +1835,28 @@ mod tests {
 					score: score(50),
 					timestamp: now,
 					activated_at: now,
-					segment_idx: 0,
+					segment_id: SegmentId(0),
 				},
 				AcceptedAdvertisement {
 					adv: adv_2,
 					score: score(200),
 					timestamp: now,
 					activated_at: now,
-					segment_idx: 0,
+					segment_id: SegmentId(0),
 				},
 				AcceptedAdvertisement {
 					adv: adv_3,
 					score: score(100),
 					timestamp: now,
 					activated_at: now,
-					segment_idx: 0,
+					segment_id: SegmentId(0),
 				},
 				AcceptedAdvertisement {
 					adv: adv_4,
 					score: score(150),
 					timestamp: later,
 					activated_at: now,
-					segment_idx: 0,
+					segment_id: SegmentId(0),
 				},
 			]
 			.into_iter()
@@ -1860,21 +1876,21 @@ mod tests {
 					score: score(100),
 					timestamp: later,
 					activated_at: now,
-					segment_idx: 0,
+					segment_id: SegmentId(0),
 				},
 				AcceptedAdvertisement {
 					adv: adv_2,
 					score: score(100),
 					timestamp: now,
 					activated_at: now,
-					segment_idx: 0,
+					segment_id: SegmentId(0),
 				},
 				AcceptedAdvertisement {
 					adv: adv_3,
 					score: score(50),
 					timestamp: now,
 					activated_at: now,
-					segment_idx: 0,
+					segment_id: SegmentId(0),
 				},
 			]
 			.into_iter()
@@ -1969,7 +1985,7 @@ mod tests {
 					score(100), // highest_rep == peer's score, so delay = 0
 					&get_rep,
 				),
-				Either::Left(Some((make_adv(peer_a), 0)))
+				Either::Left(Some((make_adv(peer_a), SegmentId(0))))
 			);
 		}
 
@@ -2030,7 +2046,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(Some((make_adv(peer_b), 0)))
+				Either::Left(Some((make_adv(peer_b), SegmentId(0))))
 			);
 		}
 
@@ -2056,7 +2072,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(Some((make_adv(peer_b), 0)))
+				Either::Left(Some((make_adv(peer_b), SegmentId(0))))
 			);
 		}
 
@@ -2128,7 +2144,7 @@ mod tests {
 					score(100),
 					&get_rep,
 				),
-				Either::Left(Some((make_adv(peer_a), 0)))
+				Either::Left(Some((make_adv(peer_a), SegmentId(0))))
 			);
 		}
 
