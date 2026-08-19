@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787068950976,
+  "lastUpdate": 1787117796308,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "runcomet@protonmail.com",
-            "name": "runcomet",
-            "username": "runcomet"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "46d4223052a663c40fd7e0580997cd5ba1ac25fc",
-          "message": "Add `genesis-patch` support to frame-omni-bencher (#10735)\n\nresolves #7433\n\n### Summary\nThis PR adds a `--genesis-patch` CLI option to `frame-omni-bencher`,\nenabling users customize genesis states for advanced benchmarking\nscenarios like stress testing with many accounts, merging user-provided\nJSON patches with existing genesis configurations, including parachain\nID patches in overhead benchmarking.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-01-17T12:10:31Z",
-          "tree_id": "5cf964126cc9b0dcc8db19bafa14b48ce5391f31",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/46d4223052a663c40fd7e0580997cd5ba1ac25fc"
-        },
-        "date": 1768656173569,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006758291799999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009427418093333351,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14339631284000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022972901986666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14448997700000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7ff27621927a71fe03dc1545392a9c3c2cb8a67",
+          "message": "Remove basic collator (#12920)\n\nRelated to https://github.com/paritytech/polkadot-sdk/pull/12172\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8145\n\nThis PR:\n- removes the basic collator\n- removes `collation_req_v1_receiver`\n- removes `CollatorSybilResistance`\n- removes `RequireSecondedInBlockAnnounce`\n- removes `WaitToAnnounce`\n\nThese are not used anymore\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T03:55:02Z",
+          "tree_id": "b2582e1a830e80d6aeb6afae17da96c44b902e11",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b7ff27621927a71fe03dc1545392a9c3c2cb8a67"
+        },
+        "date": 1787117763079,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010030255693333339,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02295165236000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007980484759999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1436615742666667,
             "unit": "seconds"
           }
         ]
