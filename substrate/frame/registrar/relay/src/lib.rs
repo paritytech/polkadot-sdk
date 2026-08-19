@@ -329,7 +329,7 @@ pub mod pallet {
 			validation_code: &Vec<u8>,
 		) -> TransactionValidityWithRefund {
 			let pending = Self::validate_pending_code(*para_id, validation_code)
-				.map_err(|e| InvalidTransaction::Custom(Self::invalid_tx_code(e)))?;
+				.map_err(|e| InvalidTransaction::Custom(Self::err_to_code(e)))?;
 
 			// No longevity bound: an authorization does not expire, so the transaction stays valid
 			// until the code is applied or the parachain cancels, and revalidation drops it then.
@@ -426,10 +426,13 @@ pub mod pallet {
 		}
 
 		/// Map a validation failure onto the `InvalidTransaction::Custom` code it reports.
-		fn invalid_tx_code(error: Error<T>) -> u8 {
+		fn err_to_code(error: Error<T>) -> u8 {
 			match error {
-				Error::<T>::NothingPending => INVALID_TX_NOTHING_PENDING,
-				_ => INVALID_TX_BAD_CODE,
+				Error::<T>::NothingPending => 0,
+				Error::<T>::CodeHashMismatch => 1,
+				Error::<T>::CodeLenMismatch => 2,
+				Error::<T>::CodeTooLarge => 3,
+				Error::<T>::UnexpectedMessage => 4,
 			}
 		}
 
@@ -458,7 +461,3 @@ pub mod pallet {
 		}
 	}
 }
-
-/// Custom `InvalidTransaction` codes reported by [`Pallet::authorize_apply_authorized_code`].
-pub const INVALID_TX_NOTHING_PENDING: u8 = 1;
-pub const INVALID_TX_BAD_CODE: u8 = 3;
