@@ -1095,6 +1095,11 @@ where
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
 
+				// Release any in-flight download the strategy tracked for this request so the
+				// affected range is retried instead of being pinned to the peer (which can
+				// permanently wedge gap sync).
+				self.strategy.on_request_failed(&peer_id, key);
+
 				match e {
 					RequestFailure::Network(OutboundFailure::Timeout) => {
 						self.network_service.report_peer(peer_id, rep::TIMEOUT);
@@ -1145,6 +1150,7 @@ where
 					target: LOG_TARGET,
 					"Request to peer {peer_id:?} failed due to oneshot being canceled.",
 				);
+				self.strategy.on_request_failed(&peer_id, key);
 				self.network_service
 					.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 			},

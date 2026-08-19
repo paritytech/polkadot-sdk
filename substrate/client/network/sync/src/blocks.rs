@@ -121,6 +121,17 @@ impl<B: BlockT> BlockCollection<B> {
 			// Bail out early
 			return None;
 		}
+		// A peer releases its in-flight range when its response arrives, its request fails, or
+		// it disconnects, so by the time it is asked for a new range it should no longer be
+		// tracked here. If a stale entry somehow remains — e.g. a pending response was dropped
+		// as obsolete without notifying sync — release it now. Otherwise the `peer_requests`
+		// insert at the end of this function would overwrite the entry and orphan the old
+		// `Downloading` marker: nothing would ever clear it, it would pin the collection's
+		// lowest block, and (for gap sync, which downloads each range from a single peer) the
+		// backfill would stall permanently behind `MAX_DOWNLOAD_AHEAD`.
+		if self.peer_requests.contains_key(&who) {
+			self.clear_peer_download(&who);
+		}
 		// First block number that we need to download
 		let first_different = common + <NumberFor<B>>::one();
 		let count = (count as u32).into();
@@ -397,11 +408,15 @@ mod test {
 			.collect();
 		bc.blocks.insert(114305, BlockRangeState::Complete(blocks));
 
+		// Each range is requested by a distinct peer: sync issues at most one in-flight range
+		// per peer, and a peer only asks for another range once its previous one is released.
 		let peer0 = PeerId::random();
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
 		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 0, 1, 200), Some(1..100));
-		assert_eq!(bc.needed_blocks(peer0, 128, 10000, 0, 1, 200), None); // too far ahead
+		assert_eq!(bc.needed_blocks(peer1, 128, 10000, 0, 1, 200), None); // too far ahead
 		assert_eq!(
-			bc.needed_blocks(peer0, 128, 10000, 0, 1, 200000),
+			bc.needed_blocks(peer2, 128, 10000, 0, 1, 200000),
 			Some(100 + 128..100 + 128 + 128)
 		);
 	}
@@ -438,17 +453,21 @@ mod test {
 	fn clear_queued_subsequent_ranges() {
 		let mut bc = BlockCollection::new();
 		assert!(is_empty(&bc));
-		let peer = PeerId::random();
+		// Two consecutive ranges are requested, one per peer: sync issues at most one in-flight
+		// range per peer, so distinct peers stand in for the two requests.
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
 
 		let blocks = generate_blocks(10);
 
 		// Request 2 ranges
-		assert_eq!(bc.needed_blocks(peer, 5, 50, 39, 0, 200), Some(40..45));
-		assert_eq!(bc.needed_blocks(peer, 5, 50, 39, 0, 200), Some(45..50));
+		assert_eq!(bc.needed_blocks(peer1, 5, 50, 39, 0, 200), Some(40..45));
+		assert_eq!(bc.needed_blocks(peer2, 5, 50, 39, 0, 200), Some(45..50));
 
-		// got a response on the request for `40..50`
-		bc.clear_peer_download(&peer);
-		bc.insert(40, blocks.to_vec(), peer);
+		// got a response covering `40..50`
+		bc.clear_peer_download(&peer1);
+		bc.clear_peer_download(&peer2);
+		bc.insert(40, blocks.to_vec(), peer1);
 
 		// request any blocks starting from 1000 or lower.
 		let ready = bc.ready_blocks(1000);
@@ -456,7 +475,7 @@ mod test {
 			ready,
 			blocks
 				.iter()
-				.map(|b| BlockData { block: b.clone(), origin: Some(peer) })
+				.map(|b| BlockData { block: b.clone(), origin: Some(peer1) })
 				.collect::<Vec<_>>()
 		);
 
@@ -527,6 +546,50 @@ mod test {
 		assert_eq!(
 			bc.needed_blocks(peer2, count, peer2_best, peer2_common, max_parallel, max_ahead),
 			Some(16..21),
+		);
+	}
+
+	#[test]
+	fn requesting_a_new_range_releases_a_peers_stale_range() {
+		// A peer must release its previous in-flight range before being recorded against a new
+		// one. If a stale entry lingers (e.g. an obsolete response was dropped without notifying
+		// sync), requesting again must not orphan the old `Downloading` marker — an orphan would
+		// pin the collection's lowest block and stall gap sync behind `max_ahead`.
+		let mut bc = BlockCollection::new();
+		assert!(is_empty(&bc));
+
+		let count = 128;
+		let best = 10_000;
+		let max_parallel = 1;
+		let max_ahead = 2048;
+
+		let peer = PeerId::random();
+
+		// The first request is recorded as in-flight for the peer.
+		let first = bc.needed_blocks(peer, count, best, 0, max_parallel, max_ahead).unwrap();
+		assert_eq!(bc.peer_requests.get(&peer), Some(&first.start));
+		assert!(matches!(
+			bc.blocks.get(&first.start),
+			Some(BlockRangeState::Downloading { .. }),
+		));
+
+		// The same peer is asked for a new range while its previous one is still tracked. The
+		// stale range is released, so the peer is tracked only for the new range and exactly
+		// one `Downloading` marker remains — no orphan is left pinning the collection.
+		let second = bc.needed_blocks(peer, count, best, 200, max_parallel, max_ahead).unwrap();
+		assert_ne!(first.start, second.start);
+		assert_eq!(bc.peer_requests.get(&peer), Some(&second.start));
+
+		let downloading = bc
+			.blocks
+			.iter()
+			.filter(|(_, state)| matches!(state, BlockRangeState::Downloading { .. }))
+			.map(|(n, _)| *n)
+			.collect::<Vec<_>>();
+		assert_eq!(
+			downloading,
+			vec![second.start],
+			"stale range must be released, leaving no orphaned Downloading marker",
 		);
 	}
 

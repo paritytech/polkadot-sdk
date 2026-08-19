@@ -535,6 +535,37 @@ where
 		}
 	}
 
+	fn on_request_failed(&mut self, peer_id: &PeerId, key: StrategyKey) {
+		if key != Self::STRATEGY_KEY {
+			return;
+		}
+
+		// A block request we issued to this peer failed (timed out, was refused, the
+		// connection dropped, or an obsolete response was discarded). Release the in-flight
+		// download so the affected range is retried instead of staying pinned to this peer:
+		// gap sync downloads each range from a single peer, so a range that is never freed
+		// stalls the whole block-history backfill once the download front advances past the
+		// `MAX_DOWNLOAD_AHEAD` window. Unlike `remove_peer`, the peer is kept — it may still
+		// serve announcements and later requests.
+		self.blocks.clear_peer_download(peer_id);
+		if let Some(gap_sync) = &mut self.gap_sync {
+			gap_sync.blocks.clear_peer_download(peer_id);
+		}
+
+		if let Some(peer) = self.peers.get_mut(peer_id) {
+			if matches!(
+				peer.state,
+				PeerSyncState::DownloadingNew(_) |
+					PeerSyncState::DownloadingStale(_) |
+					PeerSyncState::DownloadingGap(_)
+			) {
+				peer.state = PeerSyncState::Available;
+			}
+		}
+
+		self.allowed_requests.add(peer_id);
+	}
+
 	fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,

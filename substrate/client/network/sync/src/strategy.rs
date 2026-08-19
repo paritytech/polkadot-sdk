@@ -98,6 +98,16 @@ where
 		response: Box<dyn Any + Send>,
 	);
 
+	/// Notify the strategy that a request it issued failed.
+	///
+	/// Called when a request (e.g. a block or state request) fails at the network layer — it
+	/// timed out, was refused, the connection dropped, or a pending response was dropped as
+	/// obsolete. The strategy must release any in-flight download bookkeeping tied to the
+	/// request so the affected work is retried, rather than leaving it pinned to the peer until
+	/// the peer happens to disconnect. Leaving it pinned can permanently wedge gap sync (which
+	/// downloads each range from a single peer) behind the download-ahead window.
+	fn on_request_failed(&mut self, peer_id: &PeerId, key: StrategyKey);
+
 	/// A batch of blocks that have been processed, with or without errors.
 	///
 	/// Call this when a batch of blocks that have been processed by the import queue, with or

@@ -1692,6 +1692,84 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 	assert!(request.fields.contains(BlockAttributes::BODY));
 }
 
+// Regression test for the gap-sync head-of-line stall: a gap block request that fails at the
+// network layer must free the in-flight range so it is retried, without waiting for the peer to
+// disconnect. Gap sync downloads each range from a single peer (`max_parallel = 1`), so a range
+// left pinned to an unresponsive peer is never re-requested; once the download front advances
+// past `MAX_DOWNLOAD_AHEAD` the whole block-history backfill wedges.
+#[test]
+fn gap_sync_failed_request_frees_head_of_line_range_without_dropping_peer() {
+	sp_tracing::try_init_simple();
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	client.finalize_block(blocks[9].hash(), None).unwrap();
+
+	// Blocks #1..=#10 exist, #10 is finalized and the gap covers #1..=#9.
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		2,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	sync.gap_sync = Some(GapSync {
+		best_queued_number: 6,
+		target: 9,
+		blocks: BlockCollection::new(),
+		stats: GapSyncStats::new(),
+	});
+
+	// The head-of-line gap range #7..=#8 is requested from `peer1`, which pins it.
+	let peer1 = PeerId::random();
+	sync.add_peer(peer1, blocks[9].hash(), 10);
+	let _ = get_block_request(&mut sync, FromBlock::Number(8), 2, &peer1);
+	assert!(matches!(
+		sync.peers.get(&peer1).unwrap().state,
+		PeerSyncState::DownloadingGap(_),
+	));
+
+	// A second peer cannot take over the pinned range while `peer1` holds it — it is only
+	// offered the next range (#9). This is the wedge: nothing retries #7..=#8 if `peer1`'s
+	// request is lost.
+	let peer2 = PeerId::random();
+	sync.add_peer(peer2, blocks[9].hash(), 10);
+	sync.allowed_requests.set_all();
+	let while_pinned = sync.block_requests();
+	assert!(
+		while_pinned.iter().all(|(_, req)| req.from != FromBlock::Number(8)),
+		"the in-flight head range must not be re-requested while a peer holds it, \
+		 got {while_pinned:?}",
+	);
+
+	// `peer1`'s request now fails at the network layer (timeout / refusal / dropped
+	// connection). The strategy must free the in-flight range so it is retried — and, unlike
+	// `remove_peer`, keep `peer1` around.
+	sync.on_request_failed(&peer1, ChainSync::<Block, TestClient>::STRATEGY_KEY);
+
+	assert!(
+		sync.peers.contains_key(&peer1),
+		"peer must not be removed on request failure",
+	);
+	assert_eq!(sync.peers.get(&peer1).unwrap().state, PeerSyncState::Available);
+
+	// The freed head-of-line range #7..=#8 is requested again.
+	sync.allowed_requests.set_all();
+	let after_failure = sync.block_requests();
+	assert!(
+		after_failure
+			.iter()
+			.any(|(_, req)| req.from == FromBlock::Number(8) && req.max == Some(2)),
+		"the freed head-of-line gap range should be retried, got {after_failure:?}",
+	);
+}
+
 #[test]
 fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 	sp_tracing::try_init_simple();
