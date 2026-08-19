@@ -93,8 +93,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Debug, FixedU128, MultiSignature, MultiSigner, Perbill, Permill,
 };
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, snowbridge::EthereumNetwork, time::*,
@@ -172,12 +170,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 16,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -831,18 +823,37 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::OldIdentityJudgement |
 			ProxyType::OldAuction |
 			ProxyType::OldParaRegistration => false,
+			// NOTE: This is a deny-list, so it fails open: a pallet added to the runtime is
+			// reachable by a `NonTransfer` proxy unless it is listed here. Every call family that
+			// can move the delegator's funds or assets must therefore be denied explicitly.
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
 					RuntimeCall::Assets { .. } |
+					// The other `pallet-assets` instances transfer value just like `Assets` does.
+					RuntimeCall::ForeignAssets { .. } |
+					RuntimeCall::PoolAssets { .. } |
 					RuntimeCall::NftFractionalization { .. } |
 					RuntimeCall::Nfts { .. } |
 					RuntimeCall::Uniques { .. } |
 					RuntimeCall::Scheduler(..) |
 					RuntimeCall::Treasury(..) |
+					// Swaps and liquidity provision move the caller's assets.
+					RuntimeCall::AssetConversion(..) |
+					// Minting and redeeming swap the caller's stablecoins.
+					RuntimeCall::Psm(..) |
+					// `transfer_assets`, `teleport_assets` and friends move assets to another
+					// chain, and `send`/`execute` can express the same thing as raw XCM.
+					RuntimeCall::PolkadotXcm(..) |
+					// Contract calls and instantiations carry a `value` to transfer.
+					RuntimeCall::Revive(..) |
 					// We allow calling `vest` and merging vesting schedules, but obviously not
 					// vested transfers.
 					RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. }) |
+					// Transferring an index repatriates its reserved deposit to the new owner.
+					// Claiming, freeing and freezing an index are still allowed.
+					RuntimeCall::Indices(pallet_indices::Call::transfer { .. }) |
+					RuntimeCall::Indices(pallet_indices::Call::force_transfer { .. }) |
 					RuntimeCall::ConvictionVoting(..) |
 					RuntimeCall::Referenda(..) |
 					RuntimeCall::Whitelist(..)
