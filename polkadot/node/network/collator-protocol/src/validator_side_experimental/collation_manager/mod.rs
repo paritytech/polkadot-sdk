@@ -529,11 +529,9 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-				// Consume the entitlement: a segment is ONE fetch, spent at launch. The id was
-				// just returned by `pick_best_advertisement` and nothing mutates segment storage
-				// in between, so it still names the segment we picked — and because ids are never
-				// reused, it can't name a different one. The segment stays out of later picks via
-				// both the `consumed` flag and the in-flight filter in `eligible_segments`.
+                // Consume the entitlement: a segment is ONE fetch, spent at launch.The 
+                // segment stays out of later picks via both the `consumed` flag and the
+                // in-flight filter in `eligible_segments`.
 				if let Some(peer_ads) = self
 					.per_scheduling_parent
 					.get_mut(&advertisement.scheduling_parent)
@@ -1397,17 +1395,13 @@ impl PerSchedulingParent {
 /// Identifies a stored segment within one peer's map, stably across insertions, sweeps and
 /// any other mutation of that map.
 ///
-/// Deliberately not a positional index, so a holder of an id needs no assumption about what
-/// happened to the map since: a stale id resolves to nothing rather than to whatever moved
-/// into that position. Ids are per peer, handed out in increasing order and never reused, so
-/// ordering by id is ordering by arrival.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct SegmentId(u64);
 
 #[derive(Default)]
 struct PeerAdvertisements {
 	/// Stored segments keyed by id. Ids are handed out in increasing order, so iteration is
-	/// in arrival order — which `live_segments` callers rely on.
+	/// in arrival order.
 	segments: BTreeMap<SegmentId, StoredSegment>,
 	/// Source of `SegmentId`s. Monotonic per peer, never reused.
 	next_segment_id: u64,
