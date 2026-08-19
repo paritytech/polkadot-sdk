@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787117749394,
+  "lastUpdate": 1787139719853,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "83cf79c4c926cb4dbbe4bb392206359527093d3e",
-          "message": "Add more buckets to histogram for bitfields sent (#10827)\n\n# Description\n\n<img width=\"858\" height=\"387\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a\"\n/>\nOn Kusama the chart already goes to infinity, so we need to adjust it to\nthe desired value.\n\n## Integration\n\nShould not affect downstream projects.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-18T22:09:56Z",
-          "tree_id": "51a46833f58091965e17e4f6c87ca46b15294bad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/83cf79c4c926cb4dbbe4bb392206359527093d3e"
-        },
-        "date": 1768778245231,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.509813719666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1311388004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13585810289999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "monica@parity.io",
+            "name": "Monica Jin",
+            "username": "mokita-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70c5d8f98ac1156572f5957f5788ae2e619d9623",
+          "message": "[pallet-revive] Report untraced transactions instead of omitting them (#12796)\n\n# Description\n\nFollow-up to polkadot-sdk#12374. A block replay can drop a transaction's\ntrace (the tail hits `ExhaustsResources`). `trace_block` / `trace_tx`\ncurrently omit it and eth-rpc infers this from a block-level `degraded`\nflag. This reshapes the V2 output of both to report each transaction's\nstatus from the runtime directly: traced, couldn't-trace, or nothing to\ntrace.\n\n# Integration\n\n- New `TraceEntryV1 { Traced(TraceV2), NotTraced }` in\n`pallet-revive-types`: a trace, a couldn't-trace signal, or (absent\nentry / `None`) nothing to trace.\n- The **V2** output of `trace_block_versioned` / `trace_tx_versioned`\nnow returns `Vec<(u32, TraceEntryV1)>` / `Option<TraceEntryV1>` instead\nof `Vec<(u32, TraceV2)>` / `Option<TraceV2>`; V1 unchanged,\n`version_declarations` stays at 2.\n- eth-rpc prefers V2: `debug_traceBlock*` renders `NotTraced` as a geth\n`{txHash, error}` and `debug_traceTransaction` returns a real error, not\n\"not found\"; it falls back to the `degraded` path on V1 nodes.\n\n# Review Notes\n\n- **V2 is redefined, not superseded.** Per the versioning policy, an\nunreleased wire format is not yet stabilized. V2 is in no stable\nrelease.\n- **Classification.** The tracer loop builds `TraceEntry` once; V1 drops\n`NotTraced`, V2 keeps it. `TraceEntry::for_untraced` flags only\n`Err(ExhaustsResources)`.\n- **Unit variant, not the drafted enum.** Drafted in\n[polkadot-sdk#12386](https://github.com/paritytech/polkadot-sdk/pull/12386#issuecomment-5052840014)\nas `NotTraced(NotTracedReasonV1)`. Shipped as a unit `NotTraced`:\n`ExhaustsResources` seems to be the only cause that drops a real\ntransaction's trace on a faithful replay, so a reason enum would carry\nno information. Extensible if a second cause appears.\n- **Wraps `TraceV2`.** The `V1` counts this wire type's own iterations,\nnot the payload's, so it carries the newest trace payload.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-19T10:05:37Z",
+          "tree_id": "ba884c5694a5077663088eb4cd8f680c6102e772",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/70c5d8f98ac1156572f5957f5788ae2e619d9623"
+        },
+        "date": 1787139684807,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13806380990000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.263305763733333,
             "unit": "seconds"
           }
         ]
