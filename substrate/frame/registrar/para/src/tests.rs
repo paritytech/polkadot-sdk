@@ -141,18 +141,20 @@ mod register {
 			));
 			assert_eq!(
 				registrar_events(),
-				vec![Event::RegisterRequested { para_id, manager: ALICE }]
+				vec![Event::RegisterRequested { para_id, message_id: 0, manager: ALICE }]
 			);
 			assert_eq!(
 				take_sent(),
 				vec![MessageToRelay::V1(MessageToRelayV1::Register {
 					para_id,
+					message_id: 0,
 					manager: ALICE,
 					genesis_head: head(head_len),
 					code_hash: hash_of(&blob),
 					code_len: code_len as u32,
 				})]
 			);
+			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
 		});
 	}
 
@@ -262,9 +264,10 @@ mod register {
 				Error::<Test>::SendFailed
 			);
 
-			// The hold and the state change went with it.
+			// The hold, the state change and the message id went with it.
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
 			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
+			assert_eq!(crate::NextMessageId::<Test>::get(), 0);
 		});
 	}
 }
@@ -272,12 +275,12 @@ mod register {
 mod receive {
 	use super::*;
 
-	fn result_message(para_id: u32, outcome: Outcome) -> MessageToPara {
-		MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome })
+	fn result_message(para_id: u32, message_id: u64, outcome: Outcome) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, message_id, outcome })
 	}
 
-	fn cancel_message(para_id: u32, outcome: Outcome) -> MessageToPara {
-		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome })
+	fn cancel_message(para_id: u32, message_id: u64, outcome: Outcome) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id, outcome })
 	}
 
 	#[test]
@@ -288,14 +291,20 @@ mod receive {
 			let _ = registrar_events();
 			let deposit = PER_BYTE * (20 + 300);
 
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(())),));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 0, Ok(())),
+			));
 
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
 				RegistrationState::Registered { .. }
 			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-			assert_eq!(registrar_events(), vec![Event::Registered { para_id, manager: ALICE }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Registered { para_id, message_id: 0, manager: ALICE }]
+			);
 		});
 	}
 
@@ -308,7 +317,7 @@ mod receive {
 
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
-				result_message(para_id, Err(FailureReason::AlreadyRegistered)),
+				result_message(para_id, 0, Err(FailureReason::AlreadyRegistered)),
 			));
 
 			// Back to square one, para id still ours, only the para deposit still held.
@@ -318,6 +327,7 @@ mod receive {
 				registrar_events(),
 				vec![Event::RegistrationFailed {
 					para_id,
+					message_id: 0,
 					manager: ALICE,
 					reason: FailureReason::AlreadyRegistered,
 				}]
@@ -332,7 +342,10 @@ mod receive {
 			request_registration(ALICE, para_id, 20, 300);
 
 			assert_noop!(
-				Registrar::receive(RuntimeOrigin::signed(ALICE), result_message(para_id, Ok(())),),
+				Registrar::receive(
+					RuntimeOrigin::signed(ALICE),
+					result_message(para_id, 0, Ok(())),
+				),
 				DispatchError::BadOrigin
 			);
 		});
@@ -343,7 +356,7 @@ mod receive {
 	#[should_panic(expected = "register response for unknown para, dropping")]
 	fn a_report_for_an_unknown_para_is_defensive() {
 		new_test_ext().execute_with(|| {
-			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(4242, Ok(())));
+			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(4242, 0, Ok(())));
 		});
 	}
 
@@ -353,7 +366,7 @@ mod receive {
 	fn a_report_for_a_non_pending_para_is_defensive() {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
-			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(())));
+			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(para_id, 0, Ok(())));
 		});
 	}
 
@@ -366,10 +379,11 @@ mod receive {
 			let deposit = PER_BYTE * (20 + 300);
 
 			// The code landed on the relay chain after all and the success report was lost, so the
-			// cancellation comes back refused and the deposit is owed.
+			// cancellation comes back refused and the deposit is owed. The event echoes the
+			// cancellation's message id, not the registration's.
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
-				cancel_message(para_id, Err(FailureReason::AlreadyRegistered)),
+				cancel_message(para_id, 1, Err(FailureReason::AlreadyRegistered)),
 			));
 
 			assert!(matches!(
@@ -377,7 +391,10 @@ mod receive {
 				RegistrationState::Registered { .. }
 			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-			assert_eq!(registrar_events(), vec![Event::Registered { para_id, manager: ALICE }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Registered { para_id, message_id: 1, manager: ALICE }]
+			);
 		});
 	}
 
@@ -389,12 +406,18 @@ mod receive {
 			let deposit = PER_BYTE * (20 + 300);
 
 			// A verdict already in flight settles the registration first.
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), result_message(para_id, Ok(()))));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 0, Ok(()))
+			));
 			let _ = registrar_events();
 
 			// The answer to the cancellation then has nothing left to do. Unlike a stray register
 			// response this is expected, so it is not defensive.
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_message(para_id, Ok(()))));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				cancel_message(para_id, 1, Ok(()))
+			));
 
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
@@ -410,7 +433,7 @@ mod receive {
 	#[should_panic(expected = "cancel response for unknown para, dropping")]
 	fn a_cancel_response_for_an_unknown_para_is_defensive() {
 		new_test_ext().execute_with(|| {
-			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, Ok(())));
+			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 0, Ok(())));
 		});
 	}
 }
@@ -418,12 +441,12 @@ mod receive {
 mod cancel_registration {
 	use super::*;
 
-	fn cancel_request(para_id: u32) -> MessageToRelay<AccountId> {
-		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id })
+	fn cancel_request(para_id: u32, message_id: u64) -> MessageToRelay<AccountId> {
+		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id, message_id })
 	}
 
-	fn cancel_confirmation(para_id: u32) -> MessageToPara {
-		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome: Ok(()) })
+	fn cancel_confirmation(para_id: u32, message_id: u64) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id, outcome: Ok(()) })
 	}
 
 	#[test]
@@ -460,19 +483,20 @@ mod cancel_registration {
 				RegistrationState::Pending { cancellable_at, .. } if cancellable_at == expected_at
 			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-			assert_eq!(take_sent(), vec![cancel_request(para_id)]);
+			// The registration took message id 0, so the cancellation is message 1.
+			assert_eq!(take_sent(), vec![cancel_request(para_id, 1)]);
 			assert_eq!(
 				registrar_events(),
-				vec![Event::CancelRequested { para_id, manager: ALICE }]
+				vec![Event::CancelRequested { para_id, message_id: 1, manager: ALICE }]
 			);
 
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
 
 			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
 			assert_eq!(
 				registrar_events(),
-				vec![Event::RegistrationCancelled { para_id, manager: ALICE }]
+				vec![Event::RegistrationCancelled { para_id, message_id: 1, manager: ALICE }]
 			);
 
 			// And the manager can simply try again on the same id.
@@ -499,7 +523,8 @@ mod cancel_registration {
 
 			run_to_block(System::block_number() + 1);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
-			assert_eq!(take_sent(), vec![cancel_request(para_id)]);
+			// Register was 0, the first cancellation 1, so the retry carries 2.
+			assert_eq!(take_sent(), vec![cancel_request(para_id, 2)]);
 		});
 	}
 

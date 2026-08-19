@@ -119,8 +119,11 @@ mod benchmarks {
 	fn receive() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
 		let para_id = make_pending::<T>(&who)?;
-		let message =
-			MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome: Ok(()) });
+		let message = MessageToPara::V1(MessageToParaV1::CancelResponse {
+			para_id,
+			message_id: 0,
+			outcome: Ok(()),
+		});
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, message);

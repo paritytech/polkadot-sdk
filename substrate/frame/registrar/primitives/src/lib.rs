@@ -64,6 +64,8 @@ pub enum MessageToRelayV1<AccountId> {
 	Register {
 		/// The para id being registered. Already reserved on the parachain.
 		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
 		/// The account that manages this registration and holds the deposit on the parachain.
 		manager: AccountId,
 		/// The genesis head data of the new parachain.
@@ -86,6 +88,8 @@ pub enum MessageToRelayV1<AccountId> {
 	CancelRegistration {
 		/// The para id whose authorization should be dropped.
 		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
 	},
 }
 
@@ -108,13 +112,16 @@ pub enum MessageToPara {
 pub enum MessageToParaV1 {
 	/// Report how a registration requested with [`MessageToRelayV1::Register`] ended.
 	///
-	/// `para_id` alone correlates the response with its request: a parachain only sends
+	/// `para_id` correlates the response with its request: a parachain only sends
 	/// [`MessageToRelayV1::Register`] for a para id that is reserved and otherwise idle, so at
-	/// most one request per para id is ever in flight.
+	/// most one request per para id is ever in flight. `message_id` echoes the request's id on
+	/// top, tying the two together across chains and in events.
 	#[codec(index = 0)]
 	RegisterResponse {
 		/// The para id the report is about.
 		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::Register`] this answers, echoed back.
+		message_id: u64,
 		/// Whether the registration was applied on the relay chain.
 		outcome: Outcome,
 	},
@@ -128,6 +135,8 @@ pub enum MessageToParaV1 {
 	CancelResponse {
 		/// The para id the answer is about.
 		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::CancelRegistration`] this answers, echoed back.
+		message_id: u64,
 		/// Whether the authorization was dropped.
 		outcome: Outcome,
 	},

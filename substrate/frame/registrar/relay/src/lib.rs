@@ -94,6 +94,9 @@ impl SendToPara for () {
 )]
 #[scale_info(skip_type_params(MaxHeadDataSize))]
 pub struct PendingRegistration<AccountId, MaxHeadDataSize: Get<u32>> {
+	/// The id of the [`MessageToRelayV1::Register`] that created this entry, echoed back in the
+	/// response once the code arrives.
+	pub message_id: u64,
 	/// The account managing this registration on the parachain.
 	pub manager: AccountId,
 	/// The genesis head data, held here until the code arrives.
@@ -188,20 +191,20 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A registration request was accepted and is waiting on its validation code.
-		RegistrationPending { para_id: ParaId, code_hash: H256 },
+		RegistrationPending { para_id: ParaId, message_id: u64, code_hash: H256 },
 		/// A registration request was rejected out of hand.
-		RegistrationRejected { para_id: ParaId, reason: FailureReason },
+		RegistrationRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// A para was onboarded.
-		Registered { para_id: ParaId, manager: T::AccountId },
+		Registered { para_id: ParaId, message_id: u64, manager: T::AccountId },
 		/// An authorization was dropped at the parachain's request.
-		AuthorizationCancelled { para_id: ParaId },
+		AuthorizationCancelled { para_id: ParaId, message_id: u64 },
 		/// A cancellation arrived after the para had already been onboarded, and was refused.
-		CancellationRefused { para_id: ParaId },
+		CancellationRefused { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
 		///
 		/// The relay chain's own state is already correct; the parachain is now out of step and
 		/// will need its manager to ask again.
-		ReportFailed { para_id: ParaId },
+		ReportFailed { para_id: ParaId, message_id: u64 },
 	}
 
 	#[pallet::error]
@@ -240,12 +243,20 @@ pub mod pallet {
 			match message {
 				MessageToRelay::V1(MessageToRelayV1::Register {
 					para_id,
+					message_id,
 					manager,
 					genesis_head,
 					code_hash,
 					code_len,
 				}) => {
-					Self::on_register_request(para_id, manager, genesis_head, code_hash, code_len);
+					Self::on_register_request(
+						para_id,
+						message_id,
+						manager,
+						genesis_head,
+						code_hash,
+						code_len,
+					);
 					Ok(())
 				},
 				_ => Err(Error::<T>::UnexpectedMessage.into()),
@@ -278,8 +289,13 @@ pub mod pallet {
 			)?;
 			PendingRegistrations::<T>::remove(para_id);
 
-			Self::report_registration(para_id, Ok(()));
-			Self::deposit_event(Event::Registered { para_id, manager: pending.manager });
+			let message_id = pending.message_id;
+			Self::report_registration(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::Registered {
+				para_id,
+				message_id,
+				manager: pending.manager,
+			});
 			Ok(Pays::No.into())
 		}
 
@@ -305,8 +321,11 @@ pub mod pallet {
 			T::ParaOrigin::ensure_origin_or_root(origin)?;
 
 			match message {
-				MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id }) => {
-					Self::on_cancel_request(para_id);
+				MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
+					para_id,
+					message_id,
+				}) => {
+					Self::on_cancel_request(para_id, message_id);
 					Ok(())
 				},
 				_ => Err(Error::<T>::UnexpectedMessage.into()),
@@ -345,44 +364,45 @@ pub mod pallet {
 		/// Apply a registration request from the parachain, accepting or rejecting it.
 		fn on_register_request(
 			para_id: ParaId,
+			message_id: u64,
 			manager: T::AccountId,
 			genesis_head: Vec<u8>,
 			code_hash: H256,
 			code_len: u32,
 		) {
 			let Ok(head_len) = u32::try_from(genesis_head.len()) else {
-				return Self::reject(para_id, FailureReason::InvalidOnboardingData);
+				return Self::reject(para_id, message_id, FailureReason::InvalidOnboardingData);
 			};
 
 			if T::Registrar::is_registered(para_id) ||
 				PendingRegistrations::<T>::contains_key(para_id)
 			{
-				return Self::reject(para_id, FailureReason::AlreadyRegistered);
+				return Self::reject(para_id, message_id, FailureReason::AlreadyRegistered);
 			}
 			if PendingRegistrations::<T>::count() >= T::MaxPendingRegistrations::get() {
-				return Self::reject(para_id, FailureReason::TooManyPending);
+				return Self::reject(para_id, message_id, FailureReason::TooManyPending);
 			}
 			if code_len > T::MaxCodeSize::get() ||
 				T::Registrar::check_onboarding(head_len, code_len).is_err()
 			{
-				return Self::reject(para_id, FailureReason::InvalidOnboardingData);
+				return Self::reject(para_id, message_id, FailureReason::InvalidOnboardingData);
 			}
 			let Ok(genesis_head) = BoundedVec::try_from(genesis_head) else {
-				return Self::reject(para_id, FailureReason::InvalidOnboardingData);
+				return Self::reject(para_id, message_id, FailureReason::InvalidOnboardingData);
 			};
 
 			PendingRegistrations::<T>::insert(
 				para_id,
-				PendingRegistration { manager, genesis_head, code_hash, code_len },
+				PendingRegistration { message_id, manager, genesis_head, code_hash, code_len },
 			);
 
-			Self::deposit_event(Event::RegistrationPending { para_id, code_hash });
+			Self::deposit_event(Event::RegistrationPending { para_id, message_id, code_hash });
 		}
 
 		/// Turn a request away and tell the parachain to release the deposit.
-		fn reject(para_id: ParaId, reason: FailureReason) {
-			Self::report_registration(para_id, Err(reason.clone()));
-			Self::deposit_event(Event::RegistrationRejected { para_id, reason });
+		fn reject(para_id: ParaId, message_id: u64, reason: FailureReason) {
+			Self::report_registration(para_id, message_id, Err(reason.clone()));
+			Self::deposit_event(Event::RegistrationRejected { para_id, message_id, reason });
 		}
 
 		/// Drop the authorization for `para_id`, unless the code beat the cancellation here.
@@ -392,16 +412,20 @@ pub mod pallet {
 		/// this chain has registered is not one whose deposit can be handed back, so that is the
 		/// whole test. The entry goes either way: once the id is taken, an authorization for it can
 		/// never be applied.
-		fn on_cancel_request(para_id: ParaId) {
+		fn on_cancel_request(para_id: ParaId, message_id: u64) {
 			PendingRegistrations::<T>::remove(para_id);
 
 			if T::Registrar::is_registered(para_id) {
-				Self::report_cancellation(para_id, Err(FailureReason::AlreadyRegistered));
-				return Self::deposit_event(Event::CancellationRefused { para_id });
+				Self::report_cancellation(
+					para_id,
+					message_id,
+					Err(FailureReason::AlreadyRegistered),
+				);
+				return Self::deposit_event(Event::CancellationRefused { para_id, message_id });
 			}
 
-			Self::report_cancellation(para_id, Ok(()));
-			Self::deposit_event(Event::AuthorizationCancelled { para_id });
+			Self::report_cancellation(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::AuthorizationCancelled { para_id, message_id });
 		}
 
 		/// Check `validation_code` against the pending entry for `para_id`.
@@ -426,7 +450,7 @@ pub mod pallet {
 		}
 
 		/// Map a validation failure onto the `InvalidTransaction::Custom` code it reports.
-		fn err_to_code(error: Error<T>) -> u8 {
+		pub fn err_to_code(error: Error<T>) -> u8 {
 			match error {
 				Error::<T>::NothingPending => 0,
 				Error::<T>::CodeHashMismatch => 1,
@@ -437,26 +461,34 @@ pub mod pallet {
 		}
 
 		/// Tell the parachain how a registration ended.
-		fn report_registration(para_id: ParaId, outcome: Outcome) {
-			Self::report(para_id, MessageToParaV1::RegisterResponse { para_id, outcome });
+		fn report_registration(para_id: ParaId, message_id: u64, outcome: Outcome) {
+			Self::report(
+				para_id,
+				message_id,
+				MessageToParaV1::RegisterResponse { para_id, message_id, outcome },
+			);
 		}
 
 		/// Tell the parachain what became of its cancellation.
-		fn report_cancellation(para_id: ParaId, outcome: Outcome) {
-			Self::report(para_id, MessageToParaV1::CancelResponse { para_id, outcome });
+		fn report_cancellation(para_id: ParaId, message_id: u64, outcome: Outcome) {
+			Self::report(
+				para_id,
+				message_id,
+				MessageToParaV1::CancelResponse { para_id, message_id, outcome },
+			);
 		}
 
 		/// Hand a report to the transport.
 		///
 		/// A transport failure is only logged and surfaced as an event: every caller has already
 		/// committed relay-chain state that must not be unwound just because the report bounced.
-		fn report(para_id: ParaId, message: MessageToParaV1) {
+		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
 			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
 				log::error!(
 					target: "runtime::registrar-relay",
 					"failed to report the outcome for para {para_id} back to the parachain",
 				);
-				Self::deposit_event(Event::ReportFailed { para_id });
+				Self::deposit_event(Event::ReportFailed { para_id, message_id });
 			}
 		}
 	}

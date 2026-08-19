@@ -17,9 +17,7 @@
 
 //! Tests for `pallet-registrar-relay`.
 
-use crate::{
-	mock::*, Error, Event, PendingRegistrations, INVALID_TX_BAD_CODE, INVALID_TX_NOTHING_PENDING,
-};
+use crate::{mock::*, Error, Event, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
@@ -42,6 +40,14 @@ fn hash_of(code: &[u8]) -> sp_core::H256 {
 	BlakeTwo256::hash(code)
 }
 
+/// The message id every test registration request carries. An arbitrary value: this side only
+/// echoes what the parachain sent.
+const MSG_ID: u64 = 5;
+
+/// The message id every test cancellation carries. Distinct from [`MSG_ID`] so the tests notice
+/// if a cancellation were answered with the registration's id.
+const CANCEL_ID: u64 = 6;
+
 fn register_msg(
 	para_id: ParaId,
 	head_len: usize,
@@ -50,6 +56,7 @@ fn register_msg(
 	let blob = code(code_len);
 	let msg = MessageToRelay::V1(MessageToRelayV1::Register {
 		para_id,
+		message_id: MSG_ID,
 		manager: ALICE,
 		genesis_head: head(head_len),
 		code_hash: hash_of(&blob),
@@ -66,19 +73,27 @@ fn request(para_id: ParaId, head_len: usize, code_len: usize) -> Vec<u8> {
 }
 
 fn failure_report(para_id: ParaId, reason: FailureReason) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome: Err(reason) })
+	MessageToPara::V1(MessageToParaV1::RegisterResponse {
+		para_id,
+		message_id: MSG_ID,
+		outcome: Err(reason),
+	})
 }
 
 fn success_report(para_id: ParaId) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::RegisterResponse { para_id, outcome: Ok(()) })
+	MessageToPara::V1(MessageToParaV1::RegisterResponse {
+		para_id,
+		message_id: MSG_ID,
+		outcome: Ok(()),
+	})
 }
 
 fn cancel_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
-	MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id })
+	MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id, message_id: CANCEL_ID })
 }
 
 fn cancel_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, outcome })
+	MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id: CANCEL_ID, outcome })
 }
 
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
@@ -120,6 +135,7 @@ mod authorize_code {
 
 			let pending = PendingRegistrations::<Test>::get(PARA_A).unwrap();
 			assert_eq!(pending.manager, ALICE);
+			assert_eq!(pending.message_id, MSG_ID);
 			assert_eq!(pending.genesis_head.into_inner(), head(20));
 			assert_eq!(pending.code_hash, hash_of(&blob));
 			assert_eq!(pending.code_len, 300);
@@ -127,7 +143,11 @@ mod authorize_code {
 
 			assert_eq!(
 				registrar_events(),
-				vec![Event::RegistrationPending { para_id: PARA_A, code_hash: hash_of(&blob) }]
+				vec![Event::RegistrationPending {
+					para_id: PARA_A,
+					message_id: MSG_ID,
+					code_hash: hash_of(&blob),
+				}]
 			);
 			// Nothing is reported until the code actually lands.
 			assert!(take_sent().is_empty());
@@ -161,6 +181,7 @@ mod authorize_code {
 				registrar_events(),
 				vec![Event::RegistrationRejected {
 					para_id: PARA_A,
+					message_id: MSG_ID,
 					reason: FailureReason::AlreadyRegistered,
 				}]
 			);
@@ -240,7 +261,7 @@ mod apply_authorized_code {
 			assert_eq!(take_sent(), vec![success_report(PARA_A)]);
 			assert_eq!(
 				registrar_events(),
-				vec![Event::Registered { para_id: PARA_A, manager: ALICE }]
+				vec![Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE }]
 			);
 		});
 	}
@@ -250,7 +271,10 @@ mod apply_authorized_code {
 		new_test_ext().execute_with(|| {
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, code(300));
 
-			assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_NOTHING_PENDING)));
+			assert_eq!(
+				authorized,
+				Err(InvalidTransaction::Custom(Registrar::err_to_code(Error::NothingPending)))
+			);
 			assert_eq!(dispatched, Err(Error::<Test>::NothingPending.into()));
 			assert!(Onboarded::get().is_empty());
 		});
@@ -265,7 +289,10 @@ mod apply_authorized_code {
 
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, impostor);
 
-			assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_BAD_CODE)));
+			assert_eq!(
+				authorized,
+				Err(InvalidTransaction::Custom(Registrar::err_to_code(Error::CodeHashMismatch)))
+			);
 			assert_eq!(dispatched, Err(Error::<Test>::CodeHashMismatch.into()));
 			assert!(Onboarded::get().is_empty());
 			// Still waiting for the real thing.
@@ -282,7 +309,10 @@ mod apply_authorized_code {
 
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, short);
 
-			assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_BAD_CODE)));
+			assert_eq!(
+				authorized,
+				Err(InvalidTransaction::Custom(Registrar::err_to_code(Error::CodeLenMismatch)))
+			);
 			assert_eq!(dispatched, Err(Error::<Test>::CodeLenMismatch.into()));
 			assert!(Onboarded::get().is_empty());
 		});
@@ -296,7 +326,10 @@ mod apply_authorized_code {
 			let (authorized, dispatched) =
 				authorize_and_dispatch(PARA_A, code(MAX_CODE_SIZE as usize + 1));
 
-			assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_BAD_CODE)));
+			assert_eq!(
+				authorized,
+				Err(InvalidTransaction::Custom(Registrar::err_to_code(Error::CodeTooLarge)))
+			);
 			assert_eq!(dispatched, Err(Error::<Test>::CodeTooLarge.into()));
 		});
 	}
@@ -323,7 +356,10 @@ mod apply_authorized_code {
 			assert_eq!(authorize_and_dispatch(PARA_A, blob.clone()).1, Ok(()));
 
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, blob);
-			assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_NOTHING_PENDING)));
+			assert_eq!(
+				authorized,
+				Err(InvalidTransaction::Custom(Registrar::err_to_code(Error::NothingPending)))
+			);
 			assert_eq!(dispatched, Err(Error::<Test>::NothingPending.into()));
 			// Onboarded exactly once.
 			assert_eq!(Onboarded::get().len(), 1);
@@ -385,11 +421,17 @@ mod cancel_authorization {
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(PendingRegistrations::<Test>::count(), 0);
 			assert_eq!(take_sent(), vec![cancel_report(PARA_A, Ok(()))]);
-			assert_eq!(registrar_events(), vec![Event::AuthorizationCancelled { para_id: PARA_A }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::AuthorizationCancelled { para_id: PARA_A, message_id: CANCEL_ID }]
+			);
 
 			// And the code can no longer be pushed through.
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, blob);
-			assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_NOTHING_PENDING)));
+			assert_eq!(
+				authorized,
+				Err(InvalidTransaction::Custom(Registrar::err_to_code(Error::NothingPending)))
+			);
 			assert_eq!(dispatched, Err(Error::<Test>::NothingPending.into()));
 		});
 	}
@@ -429,7 +471,10 @@ mod cancel_authorization {
 				take_sent(),
 				vec![cancel_report(PARA_A, Err(FailureReason::AlreadyRegistered))]
 			);
-			assert_eq!(registrar_events(), vec![Event::CancellationRefused { para_id: PARA_A }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CancellationRefused { para_id: PARA_A, message_id: CANCEL_ID }]
+			);
 		});
 	}
 
@@ -450,7 +495,10 @@ mod cancel_authorization {
 				take_sent(),
 				vec![cancel_report(PARA_A, Err(FailureReason::AlreadyRegistered))]
 			);
-			assert_eq!(registrar_events(), vec![Event::CancellationRefused { para_id: PARA_A }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CancellationRefused { para_id: PARA_A, message_id: CANCEL_ID }]
+			);
 		});
 	}
 
@@ -462,7 +510,10 @@ mod cancel_authorization {
 			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert_eq!(take_sent(), vec![cancel_report(PARA_A, Ok(()))]);
-			assert_eq!(registrar_events(), vec![Event::AuthorizationCancelled { para_id: PARA_A }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::AuthorizationCancelled { para_id: PARA_A, message_id: CANCEL_ID }]
+			);
 		});
 	}
 
@@ -519,8 +570,8 @@ mod reporting {
 			assert_eq!(
 				registrar_events(),
 				vec![
-					Event::ReportFailed { para_id: PARA_A },
-					Event::Registered { para_id: PARA_A, manager: ALICE },
+					Event::ReportFailed { para_id: PARA_A, message_id: MSG_ID },
+					Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE },
 				]
 			);
 		});

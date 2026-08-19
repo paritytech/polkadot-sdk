@@ -40,6 +40,7 @@ fn code_of(len: u32) -> Vec<u8> {
 fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	let genesis_head = alloc::vec![2u8; T::MaxHeadDataSize::get() as usize];
 	let pending = PendingRegistration {
+		message_id: 0,
 		manager: account("manager", 0, 0),
 		genesis_head: genesis_head.try_into().map_err(|_| "head data exceeds its own bound")?,
 		code_hash: BlakeTwo256::hash(code),
@@ -61,6 +62,7 @@ mod benchmarks {
 		let code = code_of(T::MaxCodeSize::get());
 		let message = MessageToRelay::V1(MessageToRelayV1::Register {
 			para_id: PARA_ID,
+			message_id: 0,
 			manager,
 			genesis_head: alloc::vec![2u8; h as usize],
 			code_hash: BlakeTwo256::hash(&code),
@@ -116,7 +118,10 @@ mod benchmarks {
 	#[benchmark]
 	fn cancel_authorization() -> Result<(), BenchmarkError> {
 		park::<T>(&code_of(T::MaxCodeSize::get()))?;
-		let message = MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id: PARA_ID });
+		let message = MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
+			para_id: PARA_ID,
+			message_id: 0,
+		});
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, message);

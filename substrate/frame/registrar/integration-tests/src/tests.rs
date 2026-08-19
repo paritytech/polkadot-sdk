@@ -339,6 +339,7 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 
 		let message = MessageToRelay::V1(MessageToRelayV1::Register {
 			para_id: 3000,
+			message_id: 0,
 			manager: BOB,
 			genesis_head: head(32),
 			code_hash: hash_of(&code(64)),
