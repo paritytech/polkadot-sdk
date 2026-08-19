@@ -2610,7 +2610,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "schemars 0.8.13",
+ "schemars 1.2.1",
  "serde",
 ]
 
@@ -2838,7 +2838,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -5095,7 +5095,7 @@ dependencies = [
  "sp-version 29.0.0",
  "staging-xcm",
  "staging-xcm-builder",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-standardmap",
 ]
 
@@ -22812,7 +22812,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "763f8cd0d4c71ed8389c90cb8100cba87e763bd01a8e614d4f0af97bcd50a161"
 dependencies = [
  "dyn-clone",
- "schemars_derive",
+ "schemars_derive 0.8.13",
  "serde",
  "serde_json",
 ]
@@ -22837,6 +22837,7 @@ checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
  "dyn-clone",
  "ref-cast",
+ "schemars_derive 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -22849,8 +22850,20 @@ checksum = "ec0f696e21e10fa546b7ffb1c9672c6de8fbc7a81acf59524386d8639bf12737"
 dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
- "serde_derive_internals",
+ "serde_derive_internals 0.26.0",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d115b50f4aaeea07e79c1912f645c7513d81715d0420f8bc77a18c6260b307f"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "serde_derive_internals 0.29.1",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -23208,6 +23221,17 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -25591,7 +25615,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -25612,7 +25636,7 @@ dependencies = [
  "sp-trie 44.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
 ]
 
 [[package]]
@@ -25768,7 +25792,7 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "trie-bench",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -25795,7 +25819,7 @@ dependencies = [
  "substrate-prometheus-endpoint 0.17.7",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
  "trie-root",
 ]
 
@@ -26761,7 +26785,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -26841,7 +26865,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -28652,16 +28676,16 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a03bee4700c5dd6b2ceba5e4e4d5a7017704a761481824d3033d223f9660973a"
+checksum = "5bdf11c77ca165a25b7e22acff7c05b7888794acb84d21078305b41ab6b5f627"
 dependencies = [
  "criterion",
  "hash-db",
  "keccak-hasher",
  "memory-db",
  "parity-scale-codec",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -28671,6 +28695,18 @@ name = "trie-db"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
+dependencies = [
+ "hash-db",
+ "log",
+ "rustc-hex",
+ "smallvec",
+]
+
+[[package]]
+name = "trie-db"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "559b3902fbd74c14b64ea1690792be25bd5ccd3820f8b6b6228754e00fe3c1d6"
 dependencies = [
  "hash-db",
  "log",
