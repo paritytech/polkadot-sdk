@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787238988286,
+  "lastUpdate": 1787256794879,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "83cf79c4c926cb4dbbe4bb392206359527093d3e",
-          "message": "Add more buckets to histogram for bitfields sent (#10827)\n\n# Description\n\n<img width=\"858\" height=\"387\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/c48ed21e-71dd-42ef-84ef-c21a7305a95a\"\n/>\nOn Kusama the chart already goes to infinity, so we need to adjust it to\nthe desired value.\n\n## Integration\n\nShould not affect downstream projects.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-18T22:09:56Z",
-          "tree_id": "51a46833f58091965e17e4f6c87ca46b15294bad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/83cf79c4c926cb4dbbe4bb392206359527093d3e"
-        },
-        "date": 1768778346469,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04999999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0637482409339999,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03808384861999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08312074026799995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aff2e5c0202695852eebe9bc6a22c5d4dcd8da2d",
+          "message": "XCM hardening (#12832)\n\nImproved XCM benchmarks\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-20T17:54:30Z",
+          "tree_id": "0d72942b3cdaa587f9f2707d2897cf647bd0c00b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aff2e5c0202695852eebe9bc6a22c5d4dcd8da2d"
+        },
+        "date": 1787256761469,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11999999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08410316209799996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039675911674,
             "unit": "seconds"
           }
         ]
