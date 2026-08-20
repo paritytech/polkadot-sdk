@@ -1418,6 +1418,36 @@ mod tests {
 		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
 	}
 
+	/// The default node key (`Secret::New`) generates a fresh key per `into_keypair()` call:
+	/// completing the addresses must pin the resolved key, or the backend would serve a
+	/// certificate matching neither the advertised `/certhash` nor each other's.
+	#[tokio::test]
+	async fn webrtc_certhash_consistent_with_default_node_key() {
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+		network_config.validate_and_complete_webrtc_addresses().unwrap();
+
+		// Completing the addresses pinned the key, so this is the key the backend serves.
+		let (keypair, _peer_id) =
+			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
+		let node_certhash: NetworkMultihash =
+			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config).unwrap();
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+
+		let advertised = network_service.listen_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+
+		let advertised = network_service.external_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+	}
+
 	#[tokio::test]
 	async fn webrtc_public_address_completed_at_config_creation_accepted() {
 		let mut network_config = NetworkConfiguration::new_local();

@@ -794,6 +794,9 @@ impl NetworkConfiguration {
 			// appended to public addresses.
 			(true, _) => {
 				let keypair = self.node_key.clone().into_keypair()?;
+				// Pin the resolved key, so that each following `into_keypair()` returns
+				// the same secret key.
+				self.node_key = NodeKeyConfig::Ed25519(Secret::Input(keypair.secret()));
 				let certificate = webrtc::derive_certificate(keypair.secret().into())
 					.map_err(crate::error::Error::Litep2p)?;
 				webrtc::validate_and_complete_addresses(
