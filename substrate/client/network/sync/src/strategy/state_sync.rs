@@ -255,11 +255,10 @@ where
 {
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
-		if response.entries.is_empty() && response.proof.is_empty() {
-			debug!(target: LOG_TARGET, "Bad state response");
+		if self.metadata.skip_proof && response.entries.is_empty() {
+			debug!(target: LOG_TARGET, "Missing state entries");
 			return ImportResult::BadResponse;
-		}
-		if !self.metadata.skip_proof && response.proof.is_empty() {
+		} else if !self.metadata.skip_proof && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse;
 		}
