@@ -23,13 +23,17 @@ use crate::{
 use jsonrpsee::core::async_trait;
 use sp_core::H256;
 use std::sync::Arc;
-use subxt::{OnlineClient, backend::legacy::LegacyRpcMethods};
+use subxt::{
+	OnlineClient, config::RpcConfigFor, error::OnlineClientAtBlockError,
+	rpcs::methods::LegacyRpcMethods,
+};
 use tokio::sync::RwLock;
 
 /// BlockInfoProvider cache and retrieves information about blocks.
 #[async_trait]
 pub trait BlockInfoProvider: Send + Sync {
-	/// Update the latest block
+	/// Update the latest block for the provided `subscription_type` to the given block, which is
+	/// ignored if it is not a valid new head.
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType);
 
 	/// Return the latest finalized block.
@@ -40,7 +44,7 @@ pub trait BlockInfoProvider: Send + Sync {
 
 	/// Return the latest block number
 	async fn latest_block_number(&self) -> SubstrateBlockNumber {
-		return self.latest_block().await.number();
+		return self.latest_block().await.block_number();
 	}
 
 	/// Get block by block_number.
@@ -63,7 +67,7 @@ pub struct SubxtBlockInfoProvider {
 	latest_finalized_block: Arc<RwLock<Arc<SubstrateBlock>>>,
 
 	/// The rpc client, used to fetch blocks not in the cache.
-	rpc: LegacyRpcMethods<SrcChainConfig>,
+	rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
 
 	/// The api client, used to fetch blocks not in the cache.
 	api: OnlineClient<SrcChainConfig>,
@@ -72,14 +76,16 @@ pub struct SubxtBlockInfoProvider {
 impl SubxtBlockInfoProvider {
 	pub async fn new(
 		api: OnlineClient<SrcChainConfig>,
-		rpc: LegacyRpcMethods<SrcChainConfig>,
+		rpc: LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
 	) -> Result<Self, ClientError> {
-		let latest = Arc::new(api.blocks().at_latest().await?);
+		let latest_finalized_block = Arc::new(api.at_current_block().await?);
+		let best_hash = rpc.chain_get_block_hash(None).await?.ok_or(ClientError::BlockNotFound)?;
+		let latest_block = Arc::new(api.at_block(best_hash).await?);
 		Ok(Self {
 			api,
 			rpc,
-			latest_block: Arc::new(RwLock::new(latest.clone())),
-			latest_finalized_block: Arc::new(RwLock::new(latest)),
+			latest_block: Arc::new(RwLock::new(latest_block)),
+			latest_finalized_block: Arc::new(RwLock::new(latest_finalized_block)),
 		})
 	}
 }
@@ -87,11 +93,27 @@ impl SubxtBlockInfoProvider {
 #[async_trait]
 impl BlockInfoProvider for SubxtBlockInfoProvider {
 	async fn update_latest(&self, block: Arc<SubstrateBlock>, subscription_type: SubscriptionType) {
-		let mut latest = match subscription_type {
-			SubscriptionType::FinalizedBlocks => self.latest_finalized_block.write().await,
-			SubscriptionType::BestBlocks => self.latest_block.write().await,
-		};
-		*latest = block;
+		// The finalized block only ever increases, while the best block can move back on a reorg.
+		// Both streams are seeded with the finalized block on subscription (re)init; don't move
+		// the best/finalized back in this scenario.
+		match subscription_type {
+			SubscriptionType::FinalizedBlocks => {
+				let mut latest = self.latest_finalized_block.write().await;
+				if block.block_number() >= latest.block_number() {
+					*latest = block;
+				}
+			},
+			SubscriptionType::BestBlocks => {
+				let finalized_number = self.latest_finalized_block.read().await.block_number();
+				let mut latest = self.latest_block.write().await;
+				// A lower block above the finalized one is a reorg, not a replay.
+				if block.block_number() >= latest.block_number() ||
+					block.block_number() > finalized_number
+				{
+					*latest = block;
+				}
+			},
+		}
 	}
 
 	async fn latest_block(&self) -> Arc<SubstrateBlock> {
@@ -107,12 +129,12 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		let latest = self.latest_block().await;
-		if block_number == latest.number() {
+		if block_number == latest.block_number() {
 			return Ok(Some(latest));
 		}
 
 		let latest_finalized = self.latest_finalized_block().await;
-		if block_number == latest_finalized.number() {
+		if block_number == latest_finalized.block_number() {
 			return Ok(Some(latest_finalized));
 		}
 
@@ -120,27 +142,33 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 			return Ok(None);
 		};
 
-		match self.api.blocks().at(hash).await {
+		match self.api.at_block(hash).await {
 			Ok(block) => Ok(Some(Arc::new(block))),
-			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => Ok(None),
+			Err(
+				OnlineClientAtBlockError::BlockHeaderNotFound { .. } |
+				OnlineClientAtBlockError::BlockNotFound { .. },
+			) => Ok(None),
 			Err(err) => Err(err.into()),
 		}
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		let latest = self.latest_block().await;
-		if hash == &latest.hash() {
+		if hash == &latest.block_hash() {
 			return Ok(Some(latest));
 		}
 
 		let latest_finalized = self.latest_finalized_block().await;
-		if hash == &latest_finalized.hash() {
+		if hash == &latest_finalized.block_hash() {
 			return Ok(Some(latest_finalized));
 		}
 
-		match self.api.blocks().at(*hash).await {
+		match self.api.at_block(*hash).await {
 			Ok(block) => Ok(Some(Arc::new(block))),
-			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => {
+			Err(
+				OnlineClientAtBlockError::BlockHeaderNotFound { .. } |
+				OnlineClientAtBlockError::BlockNotFound { .. },
+			) => {
 				log::trace!(target: LOG_TARGET, "block_by_hash: block {hash:?} not found");
 				Ok(None)
 			},
@@ -192,7 +220,7 @@ pub mod test {
 		}
 
 		async fn latest_block_number(&self) -> SubstrateBlockNumber {
-			2u32
+			2u64
 		}
 
 		async fn block_by_number(

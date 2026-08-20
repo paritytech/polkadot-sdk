@@ -347,7 +347,7 @@ jobs:
           cat .github/zombienet-flaky-tests
 
       #
-      #
+      # Set docker images
       #
       - name: Set docker images version
         id: set_images_version

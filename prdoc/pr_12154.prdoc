@@ -1,12 +1,22 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
-title: Expand try_state checks in PSM pallet
+title: Add storage invariant checks to pallet-psm try_state
 
 doc:
   - audience: Runtime Dev
     description: |
-      Expansion of `do_try_state` checks for `pallet-psm`, and introduction of more unit tests.
+      Adds `do_try_state` to `pallet-psm`, wired to the `try_state` hook under the
+      `try-runtime` feature. Sixteen checks cover the multi-instance storage layout:
+      decimal snapshots against live metadata, reserve coverage of tracked debt,
+      internal issuance against instance debt, orphaned rows without a parent PSM,
+      and debt tracked for non-approved pairs.
+
+      Four checks are advisory and log a warning rather than returning an error,
+      since governance can legitimately produce those states: per-asset debt over
+      its ceiling, instance debt over `max_debt`, a funded reserve with zero ceiling
+      weight and zero debt, and fee or weight rows set before their external asset
+      is approved.
+
+      Each check has a corresponding unit test that corrupts exactly one storage
+      item and asserts the specific failure, or asserts `Ok` for advisory checks.
 
 crates:
   - name: pallet-psm

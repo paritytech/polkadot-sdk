@@ -464,6 +464,7 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
+	type IsValidatorInactive = ();
 }
 
 // Relay chain session keys matching Westend configuration.
@@ -645,14 +646,15 @@ impl pallet_nomination_pools::Config for Runtime {
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
-	type PostUnbondingPoolsWindow = ConstU32<4>;
+	// Buffer (30) + bonding duration (2).
+	type MaxUnbondingPools = ConstU32<32>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
 	type MaxUnbonding = <Self as pallet_staking_async::Config>::MaxUnlockingChunks;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {

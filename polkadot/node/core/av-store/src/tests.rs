@@ -764,7 +764,7 @@ fn stored_but_not_included_data_is_pruned() {
 		);
 
 		// Wait until pruning.
-		test_state.clock.inc(test_state.pruning_config.keep_unavailable_for);
+		test_state.clock.advance(test_state.pruning_config.keep_unavailable_for);
 		test_state.wait_for_pruning().await;
 
 		// The block was not included by this point so it should be pruned now.
@@ -832,7 +832,7 @@ fn stored_data_kept_until_finalized() {
 		.await;
 
 		// Wait until unavailable data would definitely be pruned.
-		test_state.clock.inc(test_state.pruning_config.keep_unavailable_for * 10);
+		test_state.clock.advance(test_state.pruning_config.keep_unavailable_for * 10);
 		test_state.wait_for_pruning().await;
 
 		// At this point data should _still_ be in the store.
@@ -850,7 +850,7 @@ fn stored_data_kept_until_finalized() {
 		.await;
 
 		// Wait until unavailable data would definitely be pruned.
-		test_state.clock.inc(test_state.pruning_config.keep_finalized_for / 2);
+		test_state.clock.advance(test_state.pruning_config.keep_finalized_for / 2);
 		test_state.wait_for_pruning().await;
 
 		// At this point data should _still_ be in the store.
@@ -862,7 +862,7 @@ fn stored_data_kept_until_finalized() {
 		assert!(has_all_chunks(&mut virtual_overseer, candidate_hash, n_validators, true).await);
 
 		// Wait until it definitely should be gone.
-		test_state.clock.inc(test_state.pruning_config.keep_finalized_for);
+		test_state.clock.advance(test_state.pruning_config.keep_finalized_for);
 		test_state.wait_for_pruning().await;
 
 		// At this point data should be gone from the store.
@@ -1165,7 +1165,7 @@ fn forkfullness_works() {
 		assert!(has_all_chunks(&mut virtual_overseer, candidate_2_hash, n_validators, true).await);
 
 		// Candidate 2 should now be considered unavailable and will be pruned.
-		test_state.clock.inc(test_state.pruning_config.keep_unavailable_for);
+		test_state.clock.advance(test_state.pruning_config.keep_unavailable_for);
 		test_state.wait_for_pruning().await;
 
 		assert_eq!(
@@ -1180,7 +1180,7 @@ fn forkfullness_works() {
 		assert!(has_all_chunks(&mut virtual_overseer, candidate_2_hash, n_validators, false).await);
 
 		// Wait for longer than finalized blocks should be kept for
-		test_state.clock.inc(test_state.pruning_config.keep_finalized_for);
+		test_state.clock.advance(test_state.pruning_config.keep_finalized_for);
 		test_state.wait_for_pruning().await;
 
 		// Everything should be pruned now.

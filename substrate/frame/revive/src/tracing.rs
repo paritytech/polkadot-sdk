@@ -117,7 +117,7 @@ pub trait Tracing {
 	}
 
 	/// Record a log event
-	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
+	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8], _log_index: u32) {}
 
 	/// Called after a contract call is executed
 	fn exit_child_span(

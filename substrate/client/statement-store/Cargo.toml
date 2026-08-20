@@ -38,8 +38,8 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
-subxt = { version = "0.50", features = ["jsonrpsee", "native"], optional = true }
-subxt-signer = { version = "0.50", features = ["sr25519"], optional = true }
+subxt = { workspace = true, features = ["jsonrpsee", "native"], optional = true }
+subxt-signer = { workspace = true, features = ["sr25519"], optional = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]
@@ -49,5 +49,16 @@ tempfile = { workspace = true }
 
 [[bench]]
 name = "statement_store"
+harness = false
+required-features = []
+
+[[bench]]
+name = "full_store"
+path = "benches/full_store/main.rs"
+harness = false
+required-features = []
+
+[[bench]]
+name = "add_filter"
 harness = false
 required-features = []

@@ -323,7 +323,6 @@ impl<T: Config> Pallet<T> {
 				config.scheduler_params.lookahead,
 				parent_storage_root,
 				current_session,
-				config.max_relay_parent_session_age,
 			);
 		}
 

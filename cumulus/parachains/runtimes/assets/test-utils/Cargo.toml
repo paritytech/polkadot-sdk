@@ -73,6 +73,29 @@ std = [
 	"xcm-runtime-apis/std",
 	"xcm/std",
 ]
+runtime-benchmarks = [
+	"assets-common/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"parachains-runtimes-test-utils/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm-runtime-apis/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
 try-runtime = [
 	"assets-common/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -89,5 +112,6 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
+	"parachains-runtimes-test-utils/try-runtime",
 	"sp-runtime/try-runtime",
 ]

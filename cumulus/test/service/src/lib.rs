@@ -72,7 +72,7 @@ use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
 	multiaddr,
 	service::traits::NetworkService,
-	NetworkBackend, NetworkBlock, NetworkStateInfo,
+	NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
 };
 use sc_service::{
 	config::{
@@ -257,7 +257,7 @@ async fn build_relay_chain_interface(
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
-) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
+) -> RelayChainResult<(Arc<dyn RelayChainInterface + 'static>, PeerId)> {
 	let relay_chain_node = match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
@@ -279,20 +279,25 @@ async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await
-			.map(|r| r.0)
+			.map(|r| (r.0, r.2.local_peer_id()))
 		},
 	};
 
+	let relay_chain_peer_id = relay_chain_node.network.local_peer_id();
+
 	task_manager.add_child(relay_chain_node.task_manager);
 	tracing::info!("Using inprocess node.");
-	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_node.client.clone(),
-		relay_chain_node.backend.clone(),
-		relay_chain_node.sync_service.clone(),
-		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
-			"Overseer should be running in full node.".to_string(),
-		))?,
-	)))
+	Ok((
+		Arc::new(RelayChainInProcessInterface::new(
+			relay_chain_node.client.clone(),
+			relay_chain_node.backend.clone(),
+			relay_chain_node.sync_service.clone(),
+			relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
+				"Overseer should be running in full node.".to_string(),
+			))?,
+		)),
+		relay_chain_peer_id,
+	))
 }
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
@@ -309,6 +314,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
 	use_slot_based_collator: bool,
+	collator_reserved_slots: usize,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -331,7 +337,7 @@ where
 	let backend = params.backend.clone();
 
 	let (block_import, block_import_handle) = params.other;
-	let relay_chain_interface = build_relay_chain_interface(
+	let (relay_chain_interface, relay_chain_peer_id) = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
 		collator_key.clone(),
@@ -374,6 +380,29 @@ where
 		.await?;
 
 	let keystore = params.keystore_container.keystore();
+
+	if collator_key.is_some() && collator_reserved_slots > 0 {
+		cumulus_client_collator_discovery::start_collator_discovery(
+			cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
+				max_reserved: collator_reserved_slots,
+				client: client.clone(),
+				authority_discovery: client.clone(),
+				network: network.clone(),
+				sync_service: sync_service.clone(),
+				network_event_stream: network.event_stream("para-authority-discovery"),
+				keystore: keystore.clone(),
+				genesis_hash: client.chain_info().genesis_hash,
+				fork_id: parachain_config.chain_spec.fork_id().map(ToString::to_string),
+				publish_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
+				public_addresses: parachain_config.network.public_addresses.clone(),
+				persisted_cache_directory: parachain_config.network.net_config_path.clone(),
+				prometheus_registry: prometheus_registry.clone(),
+				spawn_handle: task_manager.spawn_handle(),
+			},
+		)
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+	}
+
 	let rpc_builder = {
 		let client = client.clone();
 		Box::new(move |_| rpc_ext_builder(client.clone()))
@@ -433,7 +462,7 @@ where
 		prometheus_registry: None,
 	})?;
 
-	let collator_peer_id = network.local_peer_id();
+	let collator_peer_id = relay_chain_peer_id;
 	if let Some(collator_key) = collator_key {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -725,6 +754,7 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
+						0,
 					)
 					.await
 					.expect("could not create Cumulus test service")
@@ -740,6 +770,7 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
+						0,
 					)
 					.await
 					.expect("could not create Cumulus test service")

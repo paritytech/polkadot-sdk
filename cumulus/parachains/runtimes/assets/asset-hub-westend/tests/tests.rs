@@ -21,8 +21,9 @@ use alloy_core::{
 	primitives::U256,
 	sol_types::{sol_data, SolType},
 };
+use approx::assert_relative_eq;
 use asset_hub_westend_runtime::{
-	xcm_config,
+	staking, xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
@@ -67,10 +68,18 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{generic::Era, traits::MaybeEquivalence, Either, MultiAddress, MultiSignature};
+use sp_runtime::{
+	generic::Era,
+	traits::{MaybeEquivalence, TryConvertInto},
+	Either, MultiAddress, MultiSignature,
+};
+use sp_staking::budget::IssuanceCurve;
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
-use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
+use testnet_parachains_constants::westend::{
+	consensus::*,
+	currency::{CENTS, UNITS},
+};
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::{
 	latest::{
@@ -84,7 +93,7 @@ use xcm_builder::{
 	NonFungiblesAdapter as OldNftAdapter, WithLatestLocationConverter,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader},
+	traits::{ConvertLocation, TransactAsset, WeightTrader},
 	AssetsInHolding,
 };
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -94,6 +103,7 @@ use sp_runtime::traits::OpaqueKeys;
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -130,6 +140,15 @@ fn bare_instantiate(origin: &AccountId, code: Vec<u8>) -> BareInstantiateBuilder
 }
 
 fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedExtrinsic {
+	let nonce = frame_system::Pallet::<Runtime>::account(&AccountId::from(sender.public())).nonce;
+	construct_extrinsic_with_nonce(sender, call, nonce)
+}
+
+fn construct_extrinsic_with_nonce(
+	sender: Sr25519Keyring,
+	call: RuntimeCall,
+	nonce: u32,
+) -> UncheckedExtrinsic {
 	let account_id = AccountId::from(sender.public());
 	let tx_ext: TxExtension = (
 		frame_system::AuthorizeCall::<Runtime>::new(),
@@ -138,9 +157,7 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 		frame_system::CheckTxVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
 		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
-		),
+		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_pgas_allowance::ChargePGAS::<
 			Runtime,
@@ -301,8 +318,13 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
-			let asset_fee =
-				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
+			let asset_fee = AssetConversion::get_amount_in(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&fee,
+				&pool_liquidity,
+				&pool_liquidity,
+			)
+			.unwrap();
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (asset_1_location.clone(), asset_fee + extra_amount).into();
@@ -341,8 +363,13 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 				xcm::v5::Location::try_from(asset_1_location.clone()).expect("conversion works"),
 			)
 			.unwrap();
-			let asset_refund =
-				AssetConversion::get_amount_out(&refund, &reserve1, &reserve2).unwrap();
+			let asset_refund = AssetConversion::get_amount_out(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&refund,
+				&reserve1,
+				&reserve2,
+			)
+			.unwrap();
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
@@ -428,8 +455,13 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
-			let asset_fee =
-				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
+			let asset_fee = AssetConversion::get_amount_in(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&fee,
+				&pool_liquidity,
+				&pool_liquidity,
+			)
+			.unwrap();
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (foreign_location.clone(), asset_fee + extra_amount).into();
@@ -466,8 +498,13 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let refund = WeightToFee::weight_to_fee(&refund_weight);
 			let (reserve1, reserve2) =
 				AssetConversion::get_reserves(native_location, foreign_location.clone()).unwrap();
-			let asset_refund =
-				AssetConversion::get_amount_out(&refund, &reserve1, &reserve2).unwrap();
+			let asset_refund = AssetConversion::get_amount_out(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&refund,
+				&reserve1,
+				&reserve2,
+			)
+			.unwrap();
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
@@ -1126,7 +1163,7 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	XcmConfig,
 	ForeignAssetsInstance,
 	xcm::v5::Location,
-	JustTry,
+	TryConvertInto,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
 	xcm::v5::Location {
@@ -2098,6 +2135,62 @@ fn expensive_erc20_runs_out_of_gas() {
 }
 
 #[test]
+fn staking_inflation_correct_single_era() {
+	let total = staking::IssuanceCurve::issue(0, MILLISECONDS_PER_HOUR);
+	// Total per hour is ~47.6 WND
+	assert_relative_eq!(total as f64, (4_760 * CENTS) as f64, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_longer_era() {
+	// Twice the era duration means twice the emission:
+	let total_1x = staking::IssuanceCurve::issue(0, MILLISECONDS_PER_HOUR);
+	let total_2x = staking::IssuanceCurve::issue(0, 2 * MILLISECONDS_PER_HOUR);
+	assert_relative_eq!(total_2x as f64, total_1x as f64 * 2.0, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_whole_year() {
+	let yearly_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 100);
+	// Our yearly emissions is about 417k WND:
+	assert_relative_eq!(yearly_emission as f64, (417_307 * UNITS) as f64, max_relative = 0.001);
+}
+
+// 10 years into the future, our values do not overflow.
+#[test]
+fn staking_inflation_correct_not_overflow() {
+	let ten_year_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 10);
+	let initial_ti: i128 = 5_216_342_402_773_185_773;
+	let projected_total_issuance = ten_year_emission as i128 + initial_ti;
+
+	// In 2034, there will be about 9.39 million WND in existence.
+	assert_relative_eq!(
+		projected_total_issuance as f64,
+		(9_390_000 * UNITS) as f64,
+		max_relative = 0.001
+	);
+}
+
+// Print percent per year, just as convenience.
+#[test]
+fn staking_inflation_correct_print_percent() {
+	let yearly_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 100);
+	let mut ti: i128 = 5_216_342_402_773_185_773;
+
+	for y in 0..10 {
+		let new_ti = ti + yearly_emission as i128;
+		let inflation = 100.0 * (new_ti - ti) as f64 / ti as f64;
+		println!("Year {y} inflation: {inflation}%");
+		ti = new_ti;
+
+		assert!(inflation <= 8.0 && inflation > 2.0, "sanity check");
+	}
+}
+
+#[test]
 fn exchange_asset_success() {
 	exchange_asset_on_asset_hub_works::<
 		Runtime,
@@ -2770,5 +2863,152 @@ mod pgas_allowance {
 			assert!(native_after < native_before, "native charged");
 			assert_eq!(pgas_fee_paid_event(&sender), None);
 		});
+	}
+}
+
+// Regression tests for the revive trace-replay proof-size reclaim fix: replaying a block via
+// `trace_block`/`trace_tx` registers a proof recorder so the accumulated worst-case `proof_size` is
+// reclaimed instead of tripping `ExhaustsResources` and dropping the tail's traces.
+mod revive_trace_reclaim {
+	use super::*;
+	use frame_support::dispatch::DispatchClass;
+	use frame_system::pallet_prelude::HeaderFor;
+	use pallet_revive::{
+		pallet_revive_types::runtime_api::{
+			TraceBlockInputPayloadV1, TraceBlockVersionedInputPayload,
+			TraceBlockVersionedOutputPayload, TraceTxInputPayloadV1, TraceTxVersionedInputPayload,
+			TraceTxVersionedOutputPayload, TraceV1, TracerTypeV1,
+		},
+		runtime_decl_for_revive_api::ReviveApiV2,
+	};
+	use pallet_revive_fixtures::compile_module;
+	use sp_core::H160;
+	use sp_runtime::{traits::Header as _, BuildStorage};
+	use sp_trie::{proof_size_extension::ProofSizeExt, ProofSizeProvider};
+
+	const SENDER: Sr25519Keyring = Sr25519Keyring::Bob;
+	// Enough reads that each call meters ~the per-call proof_size limit.
+	const ROUNDS: u32 = 100_000;
+
+	// Reports a constant size, so the per-extrinsic proof diff is zero: models a recorder being
+	// present, letting reclaim refund the full over-charge.
+	struct ConstantRecorder;
+	impl ProofSizeProvider for ConstantRecorder {
+		fn estimate_encoded_size(&self) -> usize {
+			0
+		}
+	}
+
+	fn setup_ext() -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		pallet_balances::GenesisConfig::<Runtime> {
+			balances: vec![
+				(SENDER.to_account_id(), 1_000_000_000 * UNITS),
+				(pallet_revive::Pallet::<Runtime>::account_id(), 1_000_000 * UNITS),
+			],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		let mut ext: sp_io::TestExternalities = t.into();
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	fn signed_revive_call(addr: H160, nonce: u32, weight_limit: Weight) -> UncheckedExtrinsic {
+		let call = RuntimeCall::Revive(pallet_revive::Call::call {
+			dest: addr,
+			value: 0,
+			weight_limit,
+			storage_deposit_limit: 0,
+			data: ROUNDS.to_le_bytes().to_vec(),
+		});
+		construct_extrinsic_with_nonce(SENDER, call, nonce)
+	}
+
+	// Deploy the repeated-read contract, build a block of two calls, and replay it through `f`
+	// (`trace_block` or `trace_tx`), registering the proof recorder when `with_recorder`.
+	fn with_block<R>(with_recorder: bool, f: impl FnOnce(Block) -> R) -> R {
+		let code = compile_module("repeated_storage_read").unwrap().0;
+		let mut ext = setup_ext();
+		if with_recorder {
+			ext.register_extension(ProofSizeExt::new(ConstantRecorder));
+		}
+		ext.execute_with(|| {
+			let budget = <Runtime as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.expect("normal class has a max_total; qed")
+				.proof_size();
+			// ~60% of the budget each, so the two calls only both fit when reclaim is in effect.
+			let weight_limit = Weight::from_parts(500_000_000_000, budget * 3 / 5);
+
+			let contract = bare_instantiate(&SENDER.to_account_id(), code)
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::from_parts(500_000_000_000, 10 * 1024 * 1024),
+					deposit_limit: Balance::MAX,
+				})
+				.build_and_unwrap_contract();
+
+			// deploying bumped the sender's nonce
+			let base = frame_system::Pallet::<Runtime>::account(&SENDER.to_account_id()).nonce;
+			let extrinsics = vec![
+				signed_revive_call(contract.addr, base, weight_limit),
+				signed_revive_call(contract.addr, base + 1, weight_limit),
+			];
+			let header = <HeaderFor<Runtime>>::new(
+				frame_system::Pallet::<Runtime>::block_number() + 1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			);
+
+			f(Block { header, extrinsics })
+		})
+	}
+
+	fn tracer() -> TracerTypeV1 {
+		TracerTypeV1::CallTracer(None)
+	}
+
+	fn trace_block(block: Block) -> usize {
+		let input = TraceBlockVersionedInputPayload::V1(TraceBlockInputPayloadV1 {
+			block,
+			config: tracer(),
+		});
+		let TraceBlockVersionedOutputPayload::V1(output) = Runtime::trace_block_versioned(input)
+		else {
+			panic!("v1 input must produce v1 output");
+		};
+		output.traces.len()
+	}
+
+	fn trace_tx(block: Block, tx_index: u32) -> Option<TraceV1> {
+		let input = TraceTxVersionedInputPayload::V1(TraceTxInputPayloadV1 {
+			block,
+			tx_index,
+			config: tracer(),
+		});
+		let TraceTxVersionedOutputPayload::V1(output) = Runtime::trace_tx_versioned(input) else {
+			panic!("v1 input must produce v1 output");
+		};
+		output.trace
+	}
+
+	#[test]
+	fn trace_block_drops_tail_trace_without_proof_recorder() {
+		let with_recorder = with_block(true, trace_block);
+		let without = with_block(false, trace_block);
+		assert_eq!(with_recorder, 2, "both calls traced with a recorder");
+		assert!(without < with_recorder, "tail trace dropped without a recorder");
+	}
+
+	#[test]
+	fn trace_tx_drops_tail_trace_without_proof_recorder() {
+		let with_recorder = with_block(true, |b| trace_tx(b, 1));
+		let without = with_block(false, |b| trace_tx(b, 1));
+		assert!(with_recorder.is_some(), "tail tx traced with a recorder");
+		assert!(without.is_none(), "tail tx trace dropped without a recorder");
 	}
 }

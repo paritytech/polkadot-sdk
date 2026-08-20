@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, assert_statements_match, base_dir, collator_args,
-	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	online_client_from_node, spawn_network, spawn_network_sudo,
-	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter, wait_for_first_block, COLLATOR_INFO_LOG_FILTER,
-	COLLATOR_TRACE_LOG_FILTER,
+	add_filter_unstable, assert_no_more_statements, assert_statements_match, base_dir,
+	collator_args, create_chain_spec_with_allowances, expect_one_statement,
+	expect_statements_unordered, online_client_from_node, remove_filter_unstable, spawn_network,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
+	submit_statement_unstable, subscribe_topic, subscribe_topic_filter, subscribe_unstable,
+	unstable_subscription_id, wait_for_first_block, UnstableAddFilterResponse,
+	UnstableStatementEvent, COLLATOR_INFO_LOG_FILTER, COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use futures::future::join_all;
@@ -21,18 +22,67 @@ use sc_statement_store::{
 	test_utils::{create_allowance_items, create_test_statement, get_keypair},
 };
 use sp_core::{sr25519, Bytes, Pair};
+use sp_runtime::BoundedVec;
 use sp_statement_store::{
-	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
+	RejectionReason, Statement, StatementAllowance, SubmitOutcome, SubmitResult, Topic, TopicFilter,
 };
-use statement_store_subxt::transactions::Signer;
 use std::{
 	cell::Cell,
 	collections::HashSet,
 	sync::Arc,
 	time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use subxt::transactions::Signer;
 use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
+
+async fn expect_unstable_event(
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		UnstableStatementEvent,
+	>,
+	timeout_secs: u64,
+) -> Result<UnstableStatementEvent, anyhow::Error> {
+	tokio::time::timeout(Duration::from_secs(timeout_secs), subscription.next())
+		.await
+		.map_err(|_| anyhow::anyhow!("Timeout waiting for unstable statement event"))?
+		.ok_or_else(|| anyhow::anyhow!("Unstable statement subscription ended"))?
+		.map_err(|e| anyhow::anyhow!("Unstable statement subscription error: {}", e))
+}
+
+async fn collect_unstable_replay(
+	subscription: &mut zombienet_sdk::subxt::ext::subxt_rpcs::client::RpcSubscription<
+		UnstableStatementEvent,
+	>,
+	filter_id: &str,
+) -> Result<Vec<Bytes>, anyhow::Error> {
+	let mut statements = Vec::new();
+	loop {
+		match expect_unstable_event(subscription, 20).await? {
+			UnstableStatementEvent::ReplayStatements { filter_id: id, statements: chunk }
+				if id == filter_id =>
+			{
+				statements.extend(chunk)
+			},
+			UnstableStatementEvent::ReplayDone { filter_id: id } if id == filter_id => {
+				return Ok(statements)
+			},
+			event => anyhow::bail!("Unexpected unstable event before replayDone: {:?}", event),
+		}
+	}
+}
+
+fn match_all_filter(topic: Topic) -> TopicFilter {
+	TopicFilter::MatchAll(BoundedVec::truncate_from(vec![topic]))
+}
+
+fn filter_id(response: UnstableAddFilterResponse) -> String {
+	match response {
+		UnstableAddFilterResponse::Ok(id) => id,
+		UnstableAddFilterResponse::LimitReached(result) => {
+			panic!("Expected filter id, got {result:?}")
+		},
+	}
+}
 
 /// Verifies basic statement propagation and data integrity across two nodes
 ///
@@ -63,6 +113,112 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 	let received = expect_one_statement(&mut sub, 20).await?;
 	assert_eq!(received, expected, "Statement data mismatch");
 	info!("Basic propagation: verified");
+
+	Ok(())
+}
+
+/// End-to-end smoke test of the v2 unstable statement RPC API on a two-node network: replay and
+/// live delivery on the submitting node, cross-node live delivery, and multi-filter attribution
+/// plus filter removal
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_unstable_rpc_smoke() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network_with_injected_allowances(&["alice", "bob"], 6).await?;
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
+
+	let topic: Topic = [0xA1; 32].into();
+	let pre_existing = create_test_statement(&get_keypair(0), &[topic], None, vec![1], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &pre_existing).await?, SubmitOutcome::New);
+
+	let mut subscription = subscribe_unstable(&alice_rpc).await?;
+	let subscription_id = unstable_subscription_id(&subscription)?;
+	let alice_filter = filter_id(
+		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(topic)).await?,
+	);
+
+	let replayed = collect_unstable_replay(&mut subscription, &alice_filter).await?;
+	assert_eq!(replayed, vec![Bytes::from(pre_existing.encode())]);
+
+	let live = create_test_statement(&get_keypair(1), &[topic], None, vec![2], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &live).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(live.encode()));
+			assert_eq!(statements[0].filter_ids, vec![alice_filter.clone()]);
+		},
+		event => anyhow::bail!("Expected newStatements event, got {:?}", event),
+	}
+
+	// Cross-node: a statement submitted on alice reaches a subscription on bob live. A fresh topic
+	// keeps bob's replay empty, so the assertion does not race statement propagation
+	let cross_topic: Topic = [0xB2; 32].into();
+	let mut bob_sub = subscribe_unstable(&bob_rpc).await?;
+	let bob_sub_id = unstable_subscription_id(&bob_sub)?;
+	let bob_filter =
+		filter_id(add_filter_unstable(&bob_rpc, &bob_sub_id, match_all_filter(cross_topic)).await?);
+
+	let bob_replay = collect_unstable_replay(&mut bob_sub, &bob_filter).await?;
+	assert!(bob_replay.is_empty());
+
+	let cross = create_test_statement(&get_keypair(2), &[cross_topic], None, vec![3], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &cross).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut bob_sub, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(cross.encode()));
+			assert_eq!(statements[0].filter_ids, vec![bob_filter]);
+		},
+		event => anyhow::bail!("Expected cross-node newStatements on bob, got {:?}", event),
+	}
+
+	// Multi-filter attribution and removal: a statement matching two filters reports both ids;
+	// after the first filter is removed, the next statement reports only the remaining one
+	let second_topic: Topic = [0xA2; 32].into();
+	let alice_filter_2 = filter_id(
+		add_filter_unstable(&alice_rpc, &subscription_id, match_all_filter(second_topic)).await?,
+	);
+	let replay = collect_unstable_replay(&mut subscription, &alice_filter_2).await?;
+	assert!(replay.is_empty());
+
+	let multi =
+		create_test_statement(&get_keypair(3), &[topic, second_topic], None, vec![4], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &multi).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(multi.encode()));
+			let ids: HashSet<_> = statements[0].filter_ids.iter().cloned().collect();
+			assert_eq!(ids, HashSet::from([alice_filter.clone(), alice_filter_2.clone()]));
+		},
+		event => anyhow::bail!("Expected multi-filter newStatements on alice, got {:?}", event),
+	}
+
+	// The removal is enqueued to the single matcher channel before the notification for the next
+	// submit enters it, so the removed filter can never race into the next event
+	remove_filter_unstable(&alice_rpc, &subscription_id, &alice_filter).await?;
+
+	let after_remove =
+		create_test_statement(&get_keypair(4), &[topic, second_topic], None, vec![5], u32::MAX, 0);
+	assert_eq!(submit_statement_unstable(&alice_rpc, &after_remove).await?, SubmitOutcome::New);
+
+	match expect_unstable_event(&mut subscription, 20).await? {
+		UnstableStatementEvent::NewStatements { statements } => {
+			assert_eq!(statements.len(), 1);
+			assert_eq!(statements[0].statement, Bytes::from(after_remove.encode()));
+			assert_eq!(statements[0].filter_ids, vec![alice_filter_2]);
+		},
+		event => anyhow::bail!("Expected newStatements after removal, got {:?}", event),
+	}
 
 	Ok(())
 }
@@ -643,10 +799,9 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 	let bob_node = network.get_node("bob")?;
 	let para_client = online_client_from_node(alice_node).await?;
 
-	let alice = statement_store_subxt_signer::sr25519::dev::alice();
-	let alice_account_id = <statement_store_subxt_signer::sr25519::Keypair as Signer<
-		CustomConfig,
-	>>::account_id(&alice);
+	let alice = subxt_signer::sr25519::dev::alice();
+	let alice_account_id =
+		<subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
 
 	info!("Granting attestation allowance to Alice...");
 	let increase_call = create_increase_allowance_call(alice_account_id.0.to_vec(), 1);

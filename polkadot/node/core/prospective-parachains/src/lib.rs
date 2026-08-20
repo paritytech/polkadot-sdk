@@ -28,6 +28,13 @@
 
 #![deny(unused_crate_dependencies)]
 
+// Acknowledge dev-deps that are only consumed by integration tests under `tests/`,
+// keeping the `unused_crate_dependencies` lint quiet. The lint checks each Cargo target
+// against the whole dependency set, so the lib target flags a dep that only the `tests/`
+// target uses. See https://github.com/rust-lang/rust/issues/95513.
+#[cfg(test)]
+use polkadot_subsystem_test_sim as _;
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use fragment_chain::CandidateStorage;
