@@ -31,13 +31,16 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
-		ConstU32, ConstU64, OnInitialize,
+		ConstU32, ConstU64, OnInitialize, OnRuntimeUpgrade,
 	},
 	PalletId,
 };
 
 use super::*;
-use crate as treasury;
+use crate::{
+	self as treasury,
+	migration::legacy::{Approvals, Proposal, ProposalCount, Proposals},
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type UtilityCall = pallet_utility::Call<Test>;
@@ -246,11 +249,11 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 // bypassing the now-removed `spend_local` call. Returns the proposal index. Kept around so that
 // spend-period / integrity tests exercising the legacy approvals queue still work.
 fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
-	let proposal_index = ProposalCount::<Test>::get();
-	Approvals::<Test>::try_append(proposal_index).expect("too many approvals");
+	let proposal_index = ProposalCount::<Test, ()>::get();
+	Approvals::<Test, ()>::try_append(proposal_index).expect("too many approvals");
 	let proposal = Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
-	Proposals::<Test>::insert(proposal_index, proposal);
-	ProposalCount::<Test>::put(proposal_index + 1);
+	Proposals::<Test, ()>::insert(proposal_index, proposal);
+	ProposalCount::<Test, ()>::put(proposal_index + 1);
 	proposal_index
 }
 
@@ -258,7 +261,7 @@ fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(ProposalCount::<Test>::get(), 0);
+		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 
@@ -423,8 +426,8 @@ fn max_approvals_limited() {
 			add_proposal(100, 3);
 		}
 
-		let proposal_index = ProposalCount::<Test>::get();
-		assert!(Approvals::<Test>::try_append(proposal_index).is_err());
+		let proposal_index = ProposalCount::<Test, ()>::get();
+		assert!(Approvals::<Test, ()>::try_append(proposal_index).is_err());
 	});
 }
 
@@ -757,12 +760,12 @@ fn try_state_proposals_invariant_1_works() {
 		// Add a proposal and approve it
 		add_proposal(1, 3);
 
-		assert_eq!(Proposals::<Test>::iter().count(), 1);
-		assert_eq!(ProposalCount::<Test>::get(), 1);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(ProposalCount::<Test, ()>::get(), 1);
 		// Check invariant 1 holds
-		assert!(ProposalCount::<Test>::get() as usize >= Proposals::<Test>::iter().count());
+		assert!(ProposalCount::<Test, ()>::get() as usize >= Proposals::<Test, ()>::iter().count());
 		// Break invariant 1 by decreasing `ProposalCount`
-		ProposalCount::<Test>::put(0);
+		ProposalCount::<Test, ()>::put(0);
 		// Invariant 1 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
@@ -778,24 +781,25 @@ fn try_state_proposals_invariant_2_works() {
 		// Add a proposal and approve it
 		add_proposal(1, 3);
 
-		assert_eq!(Proposals::<Test>::iter().count(), 1);
-		assert_eq!(Approvals::<Test>::get().len(), 1);
-		let current_proposal_count = ProposalCount::<Test>::get();
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+		let current_proposal_count = ProposalCount::<Test, ()>::get();
 		assert_eq!(current_proposal_count, 1);
 		// Check invariant 2 holds
 		assert!(
-			Proposals::<Test>::iter_keys()
+			Proposals::<Test, ()>::iter_keys()
 			.all(|proposal_index| {
 					proposal_index < current_proposal_count
 			})
 		);
 		// Break invariant 2 by inserting the proposal under key = 1
-		let proposal = Proposals::<Test>::take(0).unwrap();
-		Proposals::<Test>::insert(1, proposal);
+		let proposal = Proposals::<Test, ()>::take(0).unwrap();
+		Proposals::<Test, ()>::insert(1, proposal);
 		// Invariant 2 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
-			Err(Other("`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."))
+			Err(Other("`ProposalCount` should be strictly greater than any ProposalIndex used as a key \
+				 for `Proposals`."))
 		);
 	});
 }
@@ -807,16 +811,16 @@ fn try_state_proposals_invariant_3_works() {
 		// Add a proposal and approve it
 		add_proposal(10, 3);
 
-		assert_eq!(Proposals::<Test>::iter().count(), 1);
-		assert_eq!(Approvals::<Test>::get().len(), 1);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
 		// Check invariant 3 holds
-		assert!(Approvals::<Test>::get()
+		assert!(Approvals::<Test, ()>::get()
 			.iter()
-			.all(|proposal_index| { Proposals::<Test>::contains_key(proposal_index) }));
+			.all(|proposal_index| { Proposals::<Test, ()>::contains_key(proposal_index) }));
 		// Break invariant 3 by adding another key to `Approvals`
-		let mut approvals_modified = Approvals::<Test>::get();
+		let mut approvals_modified = Approvals::<Test, ()>::get();
 		approvals_modified.try_push(2).unwrap();
-		Approvals::<Test>::put(approvals_modified);
+		Approvals::<Test, ()>::put(approvals_modified);
 		// Invariant 3 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
@@ -933,5 +937,60 @@ fn multiple_spend_periods_work() {
 		assert_eq!(Treasury::pot(), 64);
 		// Even though we are on block 9, the last spend period was block 8.
 		assert_eq!(LastSpendPeriod::<Test>::get(), Some(8));
+	});
+}
+
+struct TestLegacyProposalConverter;
+impl crate::migration::LegacyProposalConverter<Test, ()> for TestLegacyProposalConverter {
+	fn convert(
+		proposal: crate::migration::legacy::Proposal<u128, u64>,
+	) -> (u32, u64, u128) {
+		(0, proposal.value, proposal.beneficiary)
+	}
+}
+
+pub struct ZeroWeight;
+impl frame_support::traits::Get<Weight> for ZeroWeight {
+	fn get() -> Weight {
+		Weight::zero()
+	}
+}
+
+#[test]
+fn migrate_legacy_proposals_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		Balances::reserve(&1, 10).unwrap();
+
+		let _p0 = add_proposal(50, 6);
+		let p1 = ProposalCount::<Test, ()>::get();
+		ProposalCount::<Test, ()>::put(p1 + 1);
+		Proposals::<Test, ()>::insert(
+			p1,
+			Proposal { proposer: 1, value: 30, beneficiary: 7, bond: 10 },
+		);
+
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 2);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+		assert_eq!(SpendCount::<Test>::get(), 0);
+
+		// Run migration
+		crate::migration::migrate_legacy_proposals::Migration::<
+			Test,
+			(),
+			TestLegacyProposalConverter,
+			ZeroWeight,
+		>::on_runtime_upgrade();
+
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 0);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 0);
+		// Bond reserved for proposer 1 should be fully unreserved
+		assert_eq!(Balances::reserved_balance(1), 0);
+		// SpendCount should advance by 1 (only approved proposal became a Spend)
+		assert_eq!(SpendCount::<Test>::get(), 1);
+		let spend = Spends::<Test, _>::get(0).unwrap();
+		assert_eq!(spend.amount, 50);
+		assert_eq!(spend.beneficiary, 6);
+		assert_eq!(spend.status, PaymentState::Pending);
 	});
 }

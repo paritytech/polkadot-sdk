@@ -1702,6 +1702,39 @@ pub mod migrations {
 		pub BalanceTransferAllowDeath: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::transfer_allow_death();
 	}
 
+	/// Converter for legacy treasury `spend_local` proposals to the new typed `SpendStatus` flow.
+	///
+	/// Rococo's treasury pays via XCM (`PayOverXcm`). The legacy `spend_local` proposals were
+	/// native-token transfers to a local `AccountId`. We convert them using:
+	/// - `asset_kind`: a local-chain native asset expressed as a `VersionedLocatableAsset`.
+	/// - `beneficiary`: the beneficiary `AccountId` wrapped in a `VersionedLocation` (local account
+	///   junction), which is what `PayOverXcm` / `VersionedLocationConverter` expects.
+	/// - `amount`: the native balance, which maps 1:1 to the asset balance for the native asset.
+	pub struct LegacyTreasuryProposalConverter;
+	impl pallet_treasury::migration::LegacyProposalConverter<Runtime, ()>
+		for LegacyTreasuryProposalConverter
+	{
+		fn convert(
+			proposal: pallet_treasury::migration::legacy::Proposal<AccountId, Balance>,
+		) -> (VersionedLocatableAsset, Balance, VersionedLocation) {
+			use xcm::latest::prelude::*;
+			// Native asset on the local (Rococo relay) chain.
+			let asset_kind = VersionedLocatableAsset::V4 {
+				location: xcm::v4::Location::here(),
+				asset_id: xcm::v4::AssetId(xcm::v4::Location::parent()),
+			};
+			// Encode the legacy AccountId as an AccountId32 junction relative to the local chain.
+			let beneficiary = VersionedLocation::V4(xcm::v4::Location::new(
+				0,
+				[xcm::v4::Junction::AccountId32 {
+					network: None,
+					id: proposal.beneficiary.into(),
+				}],
+			));
+			(asset_kind, proposal.value, beneficiary)
+		}
+	}
+
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
 	// implementing their configs on [`Runtime`].
 	pub struct UnlockConfig;
@@ -1755,7 +1788,12 @@ pub mod migrations {
         pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
-        pallet_treasury::migration::cleanup_proposals::Migration<Runtime, (), BalanceUnreserveWeight>,
+        pallet_treasury::migration::migrate_legacy_proposals::Migration<
+            Runtime,
+            (),
+            LegacyTreasuryProposalConverter,
+            BalanceUnreserveWeight,
+        >,
 
         // Delete all Gov v1 pallet storage key/values.
 

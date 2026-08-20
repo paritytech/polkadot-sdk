@@ -63,10 +63,12 @@
 //! within some temporal bounds, starting from the moment they become valid and within one
 //! [`pallet::Config::PayoutPeriod`].
 //!
-//! A legacy queue of approvals (see [`Approvals`]) may still exist from before the removal of the
-//! deprecated `spend_local` call. Any entries left in that queue continue to be drained and paid
-//! out from [`Pallet::spend_funds`] every [`pallet::Config::SpendPeriod`]. The bounties pallet
-//! keeps its own approvals queue, bounded by the same [`pallet::Config::MaxApprovals`].
+//! A legacy queue of approvals (see [`migration::legacy::Approvals`]) may still exist from before
+//! the removal of the deprecated `spend_local` call. Any entries left in that queue continue to
+//! be drained and paid out from [`Pallet::spend_funds`] every [`pallet::Config::SpendPeriod`].
+//! Runtimes should apply [`migration::migrate_legacy_proposals::Migration`] to clear this queue
+//! and remove the legacy storage entirely. The bounties pallet keeps its own approvals queue,
+//! bounded by the same [`pallet::Config::MaxApprovals`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -102,7 +104,7 @@ use frame_support::{
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
-	BoundedVec, PalletId,
+	PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 
@@ -143,24 +145,8 @@ pub trait SpendFunds<T: Config<I>, I: 'static = ()> {
 	);
 }
 
-/// An index of a proposal. Just a `u32`.
+/// Index of a legacy spending proposal.
 pub type ProposalIndex = u32;
-
-/// A spending proposal.
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
-)]
-pub struct Proposal<AccountId, Balance> {
-	/// The account proposing it.
-	pub proposer: AccountId,
-	/// The (total) amount that should be paid if the proposal is accepted.
-	pub value: Balance,
-	/// The account to whom the payment should be made if the proposal is accepted.
-	pub beneficiary: AccountId,
-	/// The amount held on deposit (reserved) for making this proposal.
-	pub bond: Balance,
-}
 
 /// The state of the payment claim.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
@@ -297,36 +283,10 @@ pub mod pallet {
 	}
 
 	/// Legacy leftover from the removed `spend_local` call.
-	///
-	/// Number of proposals that have been made.
-	#[pallet::storage]
-	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
-
-	/// Legacy leftover from the removed `spend_local` call.
-	///
-	/// Proposals that have been made.
-	#[pallet::storage]
-	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Twox64Concat,
-		ProposalIndex,
-		Proposal<T::AccountId, BalanceOf<T, I>>,
-		OptionQuery,
-	>;
-
 	/// The amount which has been reported as inactive to Currency.
 	#[pallet::storage]
 	pub type Deactivated<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceOf<T, I>, ValueQuery>;
-
-	/// Legacy leftover from the removed `spend_local` call. Still drained by
-	/// [`Pallet::spend_funds`] every spend period. Note the bounties pallet keeps its own
-	/// separate queue (`BountyApprovals`), bounded by the same [`Config::MaxApprovals`].
-	///
-	/// Proposal indices that have been approved but not yet awarded.
-	#[pallet::storage]
-	pub type Approvals<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BoundedVec<ProposalIndex, T::MaxApprovals>, ValueQuery>;
 
 	/// The count of spends that have been made.
 	#[pallet::storage]
@@ -765,20 +725,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut missed_any = false;
 		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
-		let proposals_len = Approvals::<T, I>::mutate(|v| {
+		// Drain any remaining legacy `spend_local` approvals. Once the runtime has applied
+		// `migration::migrate_legacy_proposals::Migration`, this storage will be empty and
+		// this block becomes a no-op (0 reads beyond the Approvals key itself).
+		let proposals_len = migration::legacy::Approvals::<T, I>::mutate(|v: &mut _| {
 			let proposals_approvals_len = v.len() as u32;
 			v.retain(|&index| {
 				// Should always be true, but shouldn't panic if false or we're screwed.
-				if let Some(p) = Proposals::<T, I>::get(index) {
+				if let Some(p) = migration::legacy::Proposals::<T, I>::get(index) {
 					if p.value <= budget_remaining {
 						budget_remaining -= p.value;
-						Proposals::<T, I>::remove(index);
+						migration::legacy::Proposals::<T, I>::remove(index);
 
-						// return their deposit.
+						// Return their deposit.
 						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
 						debug_assert!(err_amount.is_zero());
 
-						// provide the allocation.
+						// Provide the allocation.
 						imbalance.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
 
 						Self::deposit_event(Event::Awarded {
@@ -858,40 +821,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// ### Invariants of proposal storage items
+	/// ### Invariants of legacy proposal storage items
 	///
-	/// 1. [`ProposalCount`] >= Number of elements in [`Proposals`].
-	/// 2. Each entry in [`Proposals`] should be saved under a key strictly less than current
-	/// [`ProposalCount`].
-	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
-	/// Note, that this automatically implies [`Approvals`].count() <= [`Proposals`].count().
+	/// Delegates to [`migration::try_state_proposals`], which checks the historic
+	/// [`migration::legacy::ProposalCount`], [`migration::legacy::Proposals`], and
+	/// [`migration::legacy::Approvals`] storage aliases.
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
-		let current_proposal_count = ProposalCount::<T, I>::get();
-		ensure!(
-			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
-			"Actual number of proposals exceeds `ProposalCount`."
-		);
-
-		Proposals::<T, I>::iter_keys().try_for_each(|proposal_index| -> DispatchResult {
-			ensure!(
-				current_proposal_count as u32 > proposal_index,
-				"`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."
-			);
-			Ok(())
-		})?;
-
-		Approvals::<T, I>::get()
-			.iter()
-			.try_for_each(|proposal_index| -> DispatchResult {
-				ensure!(
-					Proposals::<T, I>::contains_key(proposal_index),
-					"Proposal indices in `Approvals` must also be contained in `Proposals`."
-				);
-				Ok(())
-			})?;
-
-		Ok(())
+		migration::try_state_proposals::<T, I>()
 	}
 
 	/// ## Invariants of spend storage items
