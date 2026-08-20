@@ -35,7 +35,7 @@ strum = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 
-[target.'cfg(substrate_runtime)'.dependencies]
+[target.'cfg(all(substrate_runtime, rfc145))'.dependencies]
 picoalloc = { workspace = true }
 
 [target.'cfg(not(substrate_runtime))'.dependencies]

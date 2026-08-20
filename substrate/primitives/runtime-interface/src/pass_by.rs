@@ -790,6 +790,8 @@ pub struct AllocateAndReturnPointer<T, const N: usize>(PhantomData<(T, [u8; N])>
 impl<T, const N: usize> RIType for AllocateAndReturnPointer<T, N> {
 	type FFIType = u32;
 	type Inner = T;
+
+	const HOST_ALLOCATES: bool = true;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -849,6 +851,8 @@ pub struct AllocateAndReturnFatPointer<T>(PhantomData<T>);
 impl<T> RIType for AllocateAndReturnFatPointer<T> {
 	type FFIType = u64;
 	type Inner = T;
+
+	const HOST_ALLOCATES: bool = true;
 }
 
 #[cfg(not(substrate_runtime))]
@@ -904,6 +908,8 @@ pub struct AllocateAndReturnByCodec<T>(PhantomData<T>);
 impl<T> RIType for AllocateAndReturnByCodec<T> {
 	type FFIType = u64;
 	type Inner = T;
+
+	const HOST_ALLOCATES: bool = true;
 }
 
 #[cfg(not(substrate_runtime))]

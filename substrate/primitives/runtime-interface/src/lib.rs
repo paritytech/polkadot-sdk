@@ -124,6 +124,26 @@ pub use sp_std;
 ///         [18].to_vec()
 ///     }
 ///
+///     /// A function version can be declared as belonging to an ABI epoch. Epoch 1 is the
+///     /// original, pre-RFC-145 ABI using host-side allocation and is always compiled in.
+///     /// Higher epochs are gated behind a `cfg` (`--cfg rfc145` for epoch 2): their versions
+///     /// only exist in builds with that `cfg` enabled. In such builds the bare function calls
+///     /// the latest version as usual; in builds without it, the bare function falls back to
+///     /// the latest first-epoch version. The versions of gated epochs must be the newest
+///     /// versions of a function.
+///     ///
+///     /// `#[abi_epoch]` can also be put on a `#[wrapper]` function, where it means "this
+///     /// wrapper only exists in builds of this ABI epoch". A wrapper takes over the
+///     /// module-level name it is defined with, so no bare function with the same name is
+///     /// generated for the epochs the wrapper exists in. That allows keeping one public API
+///     /// across the epochs: a wrapper gated to an epoch provides the name where the bare
+///     /// function signature changed, and the bare function provides it elsewhere.
+///     #[version(4)]
+///     #[abi_epoch(2)]
+///     fn call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
+///         [19].to_vec()
+///     }
+///
 ///     /// A function can take a `&self` or `&mut self` argument to get access to the
 ///     /// `Externalities`. (The generated method does not require
 ///     /// this argument, so the function can be called just with the `optional` argument)
@@ -384,6 +404,9 @@ pub trait RIType: Sized {
 
 	/// The inner type without any serialization strategy wrapper.
 	type Inner;
+
+	/// Whether this marshalling strategy makes the host allocate guest memory.
+	const HOST_ALLOCATES: bool = false;
 }
 
 /// A raw pointer that can be used in a runtime interface function signature.

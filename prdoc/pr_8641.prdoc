@@ -3,6 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     This implements the host functions introduced by [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145).
+    The implementation is gated behind the `rfc145` compile-time `cfg`.
 crates:
 - name: sp-io
   bump: major

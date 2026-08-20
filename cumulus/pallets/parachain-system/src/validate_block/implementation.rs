@@ -34,7 +34,11 @@ use frame_support::{
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
 use sp_core::storage::{well_known_keys, ChildInfo};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::{hashing::blake2_128, StorageIterations};
+use sp_io::hashing::blake2_128;
+#[cfg(not(rfc145))]
+use sp_io::KillStorageResult;
+#[cfg(rfc145)]
+use sp_io::StorageIterations;
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
@@ -92,6 +96,7 @@ where
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
 		.expect("Invalid parachain block data");
 
+	#[cfg(rfc145)]
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -125,6 +130,53 @@ where
 		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::misc::host_last_cursor.replace_implementation(host_misc_last_cursor),
+		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
+		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
+			.replace_implementation(host_storage_proof_size),
+		#[cfg(feature = "transaction-index")]
+		sp_io::transaction_index::host_index.replace_implementation(host_transaction_index_index),
+		#[cfg(feature = "transaction-index")]
+		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
+	);
+	#[cfg(not(rfc145))]
+	let _guard = (
+		// Replace storage calls with our own implementations, targeting the legacy
+		// (pre-RFC-145, host-allocating) host function versions
+		sp_io::storage::host_get_version_1.replace_implementation(host_storage_get),
+		sp_io::storage::host_read_version_1.replace_implementation(host_storage_read),
+		sp_io::storage::host_set.replace_implementation(host_storage_set),
+		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
+		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
+		sp_io::storage::host_root_version_2.replace_implementation(host_storage_root),
+		sp_io::storage::host_clear_prefix_version_2
+			.replace_implementation(host_storage_clear_prefix),
+		sp_io::storage::host_append.replace_implementation(host_storage_append),
+		sp_io::storage::host_next_key_version_1.replace_implementation(host_storage_next_key),
+		sp_io::storage::host_start_transaction
+			.replace_implementation(host_storage_start_transaction),
+		sp_io::storage::host_rollback_transaction
+			.replace_implementation(host_storage_rollback_transaction),
+		sp_io::storage::host_commit_transaction
+			.replace_implementation(host_storage_commit_transaction),
+		sp_io::default_child_storage::host_get_version_1
+			.replace_implementation(host_default_child_storage_get),
+		sp_io::default_child_storage::host_read_version_1
+			.replace_implementation(host_default_child_storage_read),
+		sp_io::default_child_storage::host_set
+			.replace_implementation(host_default_child_storage_set),
+		sp_io::default_child_storage::host_clear
+			.replace_implementation(host_default_child_storage_clear),
+		sp_io::default_child_storage::host_storage_kill_version_3
+			.replace_implementation(host_default_child_storage_storage_kill),
+		sp_io::default_child_storage::host_exists
+			.replace_implementation(host_default_child_storage_exists),
+		sp_io::default_child_storage::host_clear_prefix_version_2
+			.replace_implementation(host_default_child_storage_clear_prefix),
+		sp_io::default_child_storage::host_root_version_2
+			.replace_implementation(host_default_child_storage_root),
+		sp_io::default_child_storage::host_next_key_version_1
+			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
@@ -515,6 +567,7 @@ fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
 
+#[cfg(rfc145)]
 fn host_storage_read(
 	key: &[u8],
 	value_out: &mut [u8],
@@ -535,6 +588,25 @@ fn host_storage_read(
 	}
 }
 
+#[cfg(not(rfc145))]
+fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+	match with_externalities(|ext| ext.storage(key)) {
+		Some(value) => {
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			let written = core::cmp::min(data.len(), value_out.len());
+			value_out[..written].copy_from_slice(&data[..written]);
+			Some(data.len() as u32)
+		},
+		None => None,
+	}
+}
+
+#[cfg(not(rfc145))]
+fn host_storage_get(key: &[u8]) -> Option<bytes::Bytes> {
+	with_externalities(|ext| ext.storage(key).map(|value| value.into()))
+}
+
 fn host_storage_set(key: &[u8], value: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), Some(value.to_vec())))
 }
@@ -551,6 +623,7 @@ fn host_storage_proof_size() -> u64 {
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
+#[cfg(rfc145)]
 fn host_storage_root(out: &mut [u8]) {
 	with_externalities(|ext| {
 		let root = ext.storage_root();
@@ -565,6 +638,15 @@ fn host_storage_root(out: &mut [u8]) {
 	})
 }
 
+#[cfg(not(rfc145))]
+fn host_storage_root(version: sp_core::storage::StateVersion) -> Vec<u8> {
+	with_externalities(|ext| {
+		ext.set_runtime_state_version(version);
+		ext.storage_root()
+	})
+}
+
+#[cfg(rfc145)]
 fn host_storage_clear_prefix(
 	prefix: &[u8],
 	maybe_limit: Option<u32>,
@@ -588,10 +670,16 @@ fn host_storage_clear_prefix(
 	})
 }
 
+#[cfg(not(rfc145))]
+fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageResult {
+	with_externalities(|ext| ext.clear_prefix(prefix, limit, None).into())
+}
+
 fn host_storage_append(key: &[u8], value: Vec<u8>) {
 	with_externalities(|ext| ext.storage_append(key.to_vec(), value))
 }
 
+#[cfg(rfc145)]
 fn host_storage_next_key(key_in: &[u8], key_out: &mut [u8]) -> u32 {
 	with_externalities(|ext| {
 		let next_key = ext.next_storage_key(key_in);
@@ -602,6 +690,11 @@ fn host_storage_next_key(key_in: &[u8], key_out: &mut [u8]) -> u32 {
 		}
 		next_key_len as u32
 	})
+}
+
+#[cfg(not(rfc145))]
+fn host_storage_next_key(key: &[u8]) -> Option<Vec<u8>> {
+	with_externalities(|ext| ext.next_storage_key(key))
 }
 
 fn host_storage_start_transaction() {
@@ -618,6 +711,7 @@ fn host_storage_commit_transaction() {
 		.expect("No open transaction that can be committed.");
 }
 
+#[cfg(rfc145)]
 fn host_default_child_storage_read(
 	storage_key: &[u8],
 	key: &[u8],
@@ -640,6 +734,32 @@ fn host_default_child_storage_read(
 	}
 }
 
+#[cfg(not(rfc145))]
+fn host_default_child_storage_read(
+	storage_key: &[u8],
+	key: &[u8],
+	value_out: &mut [u8],
+	value_offset: u32,
+) -> Option<u32> {
+	let child_info = ChildInfo::new_default(storage_key);
+	match with_externalities(|ext| ext.child_storage(&child_info, key)) {
+		Some(value) => {
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			let written = core::cmp::min(data.len(), value_out.len());
+			value_out[..written].copy_from_slice(&data[..written]);
+			Some(data.len() as u32)
+		},
+		None => None,
+	}
+}
+
+#[cfg(not(rfc145))]
+fn host_default_child_storage_get(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| ext.child_storage(&child_info, key))
+}
+
 fn host_default_child_storage_set(storage_key: &[u8], key: &[u8], value: &[u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
@@ -652,6 +772,7 @@ fn host_default_child_storage_clear(storage_key: &[u8], key: &[u8]) {
 	with_externalities(|ext| ext.place_child_storage(&child_info, key.to_vec(), None))
 }
 
+#[cfg(rfc145)]
 fn host_default_child_storage_storage_kill(
 	storage_key: &[u8],
 	maybe_limit: Option<u32>,
@@ -675,11 +796,21 @@ fn host_default_child_storage_storage_kill(
 	})
 }
 
+#[cfg(not(rfc145))]
+fn host_default_child_storage_storage_kill(
+	storage_key: &[u8],
+	limit: Option<u32>,
+) -> KillStorageResult {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| ext.kill_child_storage(&child_info, limit, None).into())
+}
+
 fn host_default_child_storage_exists(storage_key: &[u8], key: &[u8]) -> bool {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.exists_child_storage(&child_info, key))
 }
 
+#[cfg(rfc145)]
 fn host_default_child_storage_clear_prefix(
 	storage_key: &[u8],
 	prefix: &[u8],
@@ -705,6 +836,17 @@ fn host_default_child_storage_clear_prefix(
 	})
 }
 
+#[cfg(not(rfc145))]
+fn host_default_child_storage_clear_prefix(
+	storage_key: &[u8],
+	prefix: &[u8],
+	limit: Option<u32>,
+) -> KillStorageResult {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| ext.clear_child_prefix(&child_info, prefix, limit, None).into())
+}
+
+#[cfg(rfc145)]
 fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
@@ -715,6 +857,19 @@ fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
 	})
 }
 
+#[cfg(not(rfc145))]
+fn host_default_child_storage_root(
+	storage_key: &[u8],
+	version: sp_core::storage::StateVersion,
+) -> Vec<u8> {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| {
+		ext.set_runtime_state_version(version);
+		ext.child_storage_root(&child_info)
+	})
+}
+
+#[cfg(rfc145)]
 fn host_default_child_storage_next_key(
 	storage_key: &[u8],
 	key_in: &[u8],
@@ -732,6 +887,13 @@ fn host_default_child_storage_next_key(
 	})
 }
 
+#[cfg(not(rfc145))]
+fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| ext.next_child_storage_key(&child_info, key))
+}
+
+#[cfg(rfc145)]
 fn host_misc_last_cursor(out: &mut [u8]) -> Option<u32> {
 	with_externalities(|ext| {
 		let cursor = ext.take_last_cursor()?;

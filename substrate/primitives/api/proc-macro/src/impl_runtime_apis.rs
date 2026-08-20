@@ -231,7 +231,10 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 
 				quote!(
 					#c::std_disabled! {
+						// RFC-145 (V2) entry point: the input data is pulled in through the
+						// `input::read` host function.
 						#( #attrs )*
+						#[cfg(rfc145)]
 						#[no_mangle]
 						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
 						pub unsafe extern fn #fn_name(input_len: usize) -> u64 {
@@ -241,6 +244,27 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 									#c::sp_io::input::read(&mut input_vec[..]);
 								}
 								&input_vec[..]
+							};
+
+							#c::init_runtime_logger();
+
+							let output = (move || { #impl_ })();
+							#c::to_substrate_wasm_fn_return_value(&output)
+						}
+
+						// Legacy (V1) entry point: the host allocates runtime memory and writes
+						// the input data into it before the call.
+						#( #attrs )*
+						#[cfg(not(rfc145))]
+						#[no_mangle]
+						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+						pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
+							let mut #input = if input_len == 0 {
+								&[0u8; 0]
+							} else {
+								unsafe {
+									::core::slice::from_raw_parts(input_data, input_len)
+								}
 							};
 
 							#c::init_runtime_logger();
