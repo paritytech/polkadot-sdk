@@ -4343,6 +4343,77 @@ async fn short_claim_queue_does_not_reject_ancestor_advertisements() {
 	assert_eq!(state.advertisements(), [adv].into());
 }
 
+// Lookahead-truncation regression (the bug this PR fixes): the leaf-CQ window must be bounded
+// by the runtime scheduling lookahead, NOT by the implicit-view ancestry path length.
+//
+// After a session change the implicit view clamps ancestry at the session boundary (the relay
+// chain cannot back candidates from a previous session), so the allowed-ancestry path is
+// shorter than the lookahead. Here leaf 10 (session 1) has ancestors 9 and 8 in session 0, so
+// the path under the leaf is just `[10]` (length 1) even though the lookahead is 3.
+//
+// leaf-10's CQ for our core is `[100, 200, 100]` — para 100 owns positions 0 and 2. The leaf
+// SP (depth 0) reaches positions `0 .. lookahead = 0..3`, so both 100-slots are fetchable.
+//
+// Pre-fix the window length was the ancestry path length (1), so only position 0 was reached
+// and para 100 got a single fetch; the position-2 slot was silently dropped. With the lookahead
+// sourced from the runtime, both para-100 ads must fetch.
+#[tokio::test]
+async fn lookahead_not_truncated_by_short_ancestry_after_session_change() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	// Sanity: leaf-10 CQ for our core has para 100 at positions 0 and 2, lookahead is 3.
+	assert_eq!(
+		test_state.rp_info[&active_leaf].claim_queue[&core],
+		vec![100.into(), 200.into(), 100.into()]
+	);
+	assert_eq!(test_state.session_info[&1].scheduling_lookahead, 3);
+
+	// Put the ancestors in a previous session so the implicit view truncates ancestry at the
+	// session boundary, leaving the leaf as the only relay parent in its own allowed ancestry.
+	for h in [get_hash(9), get_hash(8)] {
+		test_state.rp_info.get_mut(&h).unwrap().session_index = 0;
+	}
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// Two peers, both for para 100, advertising two distinct candidates at the leaf SP.
+	let peers: Vec<_> = (0..2).map(peer_id).collect();
+	for &p in &peers {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+	for (i, &p) in peers.iter().enumerate() {
+		let (_, adv) = dummy_candidate(
+			active_leaf,
+			100.into(),
+			p,
+			core,
+			1,
+			Hash::from_low_u64_be(i as u64 + 100),
+		);
+		test_state.handle_advertisement(&mut state, adv).await;
+	}
+
+	// Both para-100 slots (positions 0 and 2) are reachable from the leaf SP, so both ads fetch.
+	// Pre-fix the truncated window (length 1) would have produced only a single fetch.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(
+				reqs.len(), 2,
+				"both para-100 slots must be fetchable from the leaf; lookahead must not be \
+				 truncated to the ancestry path length, got {} fetch(es)",
+				reqs.len()
+			);
+		}
+	);
+	test_state.assert_no_messages().await;
+}
+
 #[tokio::test]
 async fn startup_populates_db_from_finalized_chain() {
 	let mut test_state = TestState::default();
