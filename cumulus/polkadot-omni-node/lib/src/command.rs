@@ -373,11 +373,7 @@ where
 					!relay_network_params.force_enable_webrtc &&
 					relay_network_params.listen_addr.is_empty()
 				{
-					polkadot_config.network.listen_addresses.retain(|address| {
-						!address.iter().any(|protocol| {
-							matches!(protocol, sc_network::multiaddr::Protocol::WebRTCDirect)
-						})
-					});
+					polkadot_config.network.remove_webrtc_addresses();
 				}
 
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });

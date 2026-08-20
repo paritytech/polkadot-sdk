@@ -521,6 +521,34 @@ mod tests {
 	}
 
 	#[test]
+	fn removing_webrtc_addresses_drops_completed_public_address() {
+		// A collator drops the relay-side WebRTC listeners after validation completed the
+		// public address: the removal must drop the now listener-less public address with
+		// them instead of leaving it advertised with nothing serving it.
+		let mut config = webrtc_config("/ip4/203.0.113.9/udp/31234/webrtc-direct");
+		config.validate_and_complete_webrtc_addresses().unwrap();
+
+		config.remove_webrtc_addresses();
+
+		assert!(config.listen_addresses.is_empty());
+		assert!(config.public_addresses.is_empty());
+	}
+
+	#[test]
+	fn removing_webrtc_addresses_keeps_other_addresses() {
+		let public_address = "/ip4/203.0.113.9/tcp/31234";
+		let mut config = webrtc_config(public_address);
+		let tcp_listener: Multiaddr = "/ip4/0.0.0.0/tcp/30333".parse().unwrap();
+		config.listen_addresses.push(tcp_listener.clone());
+		config.validate_and_complete_webrtc_addresses().unwrap();
+
+		config.remove_webrtc_addresses();
+
+		assert_eq!(config.listen_addresses, vec![tcp_listener]);
+		assert_eq!(config.public_addresses, vec![public_address.parse::<Multiaddr>().unwrap()]);
+	}
+
+	#[test]
 	fn malformed_webrtc_public_address_rejected() {
 		// `tcp` rather than `udp`, so there is no shape to complete.
 		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234/webrtc-direct");

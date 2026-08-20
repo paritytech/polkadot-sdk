@@ -92,11 +92,7 @@ fn main() -> Result<(), sc_cli::Error> {
 				!relay_network_params.force_enable_webrtc &&
 				relay_network_params.listen_addr.is_empty()
 			{
-				relay_chain_config.network.listen_addresses.retain(|address| {
-					!address.iter().any(|protocol| {
-						matches!(protocol, sc_network::multiaddr::Protocol::WebRTCDirect)
-					})
-				});
+				relay_chain_config.network.remove_webrtc_addresses();
 			}
 
 			tracing::info!(

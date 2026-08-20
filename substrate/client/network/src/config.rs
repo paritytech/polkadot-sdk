@@ -807,6 +807,25 @@ impl NetworkConfiguration {
 			},
 		}
 	}
+
+	/// Remove every `webrtc-direct` address of this node.
+	///
+	/// The relay chain side of a collator uses this to drop the WebRTC listeners appended by
+	/// default for a full node. The public WebRTC addresses go with the listeners serving them.
+	/// Dropping one is warned about, as it can only have been configured explicitly.
+	pub fn remove_webrtc_addresses(&mut self) {
+		self.listen_addresses.retain(|address| !webrtc::is_webrtc_address(address));
+		self.public_addresses.retain(|address| {
+			let keep = !webrtc::is_webrtc_address(address);
+			if !keep {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"removing public WebRTC address {address}: no WebRTC listener on this node",
+				);
+			}
+			keep
+		});
+	}
 }
 
 /// IPFS server configuration.
