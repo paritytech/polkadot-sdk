@@ -786,20 +786,18 @@ fn try_state_proposals_invariant_2_works() {
 		let current_proposal_count = ProposalCount::<Test, ()>::get();
 		assert_eq!(current_proposal_count, 1);
 		// Check invariant 2 holds
-		assert!(
-			Proposals::<Test, ()>::iter_keys()
-			.all(|proposal_index| {
-					proposal_index < current_proposal_count
-			})
-		);
+		assert!(Proposals::<Test, ()>::iter_keys()
+			.all(|proposal_index| { proposal_index < current_proposal_count }));
 		// Break invariant 2 by inserting the proposal under key = 1
 		let proposal = Proposals::<Test, ()>::take(0).unwrap();
 		Proposals::<Test, ()>::insert(1, proposal);
 		// Invariant 2 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
-			Err(Other("`ProposalCount` should be strictly greater than any ProposalIndex used as a key \
-				 for `Proposals`."))
+			Err(Other(
+				"`ProposalCount` should be strictly greater than any ProposalIndex used as a key \
+				 for `Proposals`."
+			))
 		);
 	});
 }
@@ -942,9 +940,7 @@ fn multiple_spend_periods_work() {
 
 struct TestLegacyProposalConverter;
 impl crate::migration::LegacyProposalConverter<Test, ()> for TestLegacyProposalConverter {
-	fn convert(
-		proposal: crate::migration::legacy::Proposal<u128, u64>,
-	) -> (u32, u64, u128) {
+	fn convert(proposal: crate::migration::legacy::Proposal<u128, u64>) -> (u32, u64, u128) {
 		(0, proposal.value, proposal.beneficiary)
 	}
 }

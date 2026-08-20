@@ -1726,10 +1726,7 @@ pub mod migrations {
 			// Encode the legacy AccountId as an AccountId32 junction relative to the local chain.
 			let beneficiary = VersionedLocation::V4(xcm::v4::Location::new(
 				0,
-				[xcm::v4::Junction::AccountId32 {
-					network: None,
-					id: proposal.beneficiary.into(),
-				}],
+				[xcm::v4::Junction::AccountId32 { network: None, id: proposal.beneficiary.into() }],
 			));
 			(asset_kind, proposal.value, beneficiary)
 		}

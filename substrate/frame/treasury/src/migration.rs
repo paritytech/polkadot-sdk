@@ -22,11 +22,7 @@ use alloc::collections::BTreeSet;
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::{
-	defensive,
-	storage_alias,
-	traits::OnRuntimeUpgrade,
-};
+use frame_support::{defensive, storage_alias, traits::OnRuntimeUpgrade};
 
 const LOG_TARGET: &str = "runtime::treasury";
 
@@ -43,15 +39,7 @@ pub mod legacy {
 	/// Re-declared here so that `#[storage_alias]` can decode historic on-chain data without
 	/// importing a type that no longer exists in the pallet's public API.
 	#[derive(
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		Clone,
-		PartialEq,
-		Eq,
-		MaxEncodedLen,
-		Debug,
-		TypeInfo,
+		Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 	)]
 	pub struct Proposal<AccountId, Balance> {
 		/// The account that originally proposed this spend.
@@ -84,8 +72,11 @@ pub mod legacy {
 	/// Proposal indices that have been approved but not yet awarded (legacy queue).
 	#[allow(invalid_type_param_default)]
 	#[storage_alias]
-	pub type Approvals<T: Config<I>, I: 'static> =
-		StorageValue<Pallet<T, I>, BoundedVec<ProposalIndex, <T as Config<I>>::MaxApprovals>, ValueQuery>;
+	pub type Approvals<T: Config<I>, I: 'static> = StorageValue<
+		Pallet<T, I>,
+		BoundedVec<ProposalIndex, <T as Config<I>>::MaxApprovals>,
+		ValueQuery,
+	>;
 }
 
 /// Called from [`Pallet::try_state`] so that try-runtime and tests can still verify the
@@ -96,8 +87,7 @@ pub mod legacy {
 /// 2. Every key in [`legacy::Proposals`] is strictly less than [`legacy::ProposalCount`].
 /// 3. Every index in [`legacy::Approvals`] exists as a key in [`legacy::Proposals`].
 #[cfg(any(feature = "try-runtime", test))]
-pub fn try_state_proposals<T: Config<I>, I: 'static>(
-) -> Result<(), sp_runtime::TryRuntimeError> {
+pub fn try_state_proposals<T: Config<I>, I: 'static>() -> Result<(), sp_runtime::TryRuntimeError> {
 	use frame_support::ensure;
 
 	let current_proposal_count = legacy::ProposalCount::<T, I>::get();
@@ -117,15 +107,15 @@ pub fn try_state_proposals<T: Config<I>, I: 'static>(
 		},
 	)?;
 
-	legacy::Approvals::<T, I>::get()
-		.iter()
-		.try_for_each(|proposal_index| -> Result<(), sp_runtime::TryRuntimeError> {
+	legacy::Approvals::<T, I>::get().iter().try_for_each(
+		|proposal_index| -> Result<(), sp_runtime::TryRuntimeError> {
 			ensure!(
 				legacy::Proposals::<T, I>::contains_key(proposal_index),
 				"Proposal indices in `Approvals` must also be contained in `Proposals`."
 			);
 			Ok(())
-		})?;
+		},
+	)?;
 
 	Ok(())
 }
@@ -235,7 +225,6 @@ pub mod cleanup_proposals {
 	}
 }
 
-
 /// Converts a deprecated native-token legacy proposal into the typed fields needed for a
 /// new [`SpendStatus`] entry.
 ///
@@ -273,8 +262,8 @@ pub mod migrate_legacy_proposals {
 	/// - The proposer's bond is unreserved (for both approved and unapproved proposals).
 	/// - If the proposal index is listed in [`legacy::Approvals`], it is converted into a
 	///   [`SpendStatus`] entry in [`Spends`] with `status = Pending`, using the runtime-supplied
-	///   [`LegacyProposalConverter`]. This preserves the intent of approved spends without
-	///   forcing a potentially-unfunded payout at upgrade time.
+	///   [`LegacyProposalConverter`]. This preserves the intent of approved spends without forcing
+	///   a potentially-unfunded payout at upgrade time.
 	/// - Unapproved proposals are dropped after bond refund (their spend authority was never
 	///   granted).
 	///
@@ -290,7 +279,6 @@ pub mod migrate_legacy_proposals {
 	/// If `unreserve` returns a non-zero remainder (bond was partially slashed or the account
 	/// was reaped since the proposal was created), a `defensive!` warning is emitted and the
 	/// migration continues, the stranded amount cannot be recovered automatically.
-	///
 	pub struct Migration<T, I, Converter, UnreserveWeight>(
 		PhantomData<(T, I, Converter, UnreserveWeight)>,
 	);
@@ -377,8 +365,8 @@ pub mod migrate_legacy_proposals {
 				.saturating_add(spends_created)
 				.saturating_add(if spends_created > 0 { 3 } else { 2 });
 
-			T::DbWeight::get().reads_writes(reads, writes)
-				+ UnreserveWeight::get().saturating_mul(proposals_processed)
+			T::DbWeight::get().reads_writes(reads, writes) +
+				UnreserveWeight::get().saturating_mul(proposals_processed)
 		}
 
 		#[cfg(feature = "try-runtime")]
