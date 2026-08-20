@@ -1,0 +1,27 @@
+title: '[pallet-revive] capture long execution traces one window at a time'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    The execution tracer collects every step into one contiguous buffer, which the runtime allocator rejects past `MAX_POSSIBLE_ALLOCATION` (32 MiB). A trace of roughly 262k steps exhausts it, so tracing anything larger has meant patching the allocator.
+    `ExecutionTracerConfig` gains `step_offset`. Paired with `limit` it selects the window `step_offset..step_offset + limit`, so replaying with successive offsets returns a long trace one window at a time, and the windows concatenate into what the caller would have received in one piece.
+
+    # Integration
+
+    - `ExecutionTracerConfigV2` adds `step_offset`, selected by a new `TracerTypeV2`. The V2 input payloads of `trace_block`, `trace_tx` and `trace_call` carry it in place of `TracerTypeV1`.
+    - V1 payloads, `version_declarations` and every output type are unchanged. `step_offset` defaults to `0`, at which the tracer captures exactly what it captured before.
+    - `From<TracerTypeV1> for TracerTypeV2` widens a V1 selection with `step_offset: 0`.
+
+    # Review Notes
+
+    - **Scoped per execution, as `limit` is.** `trace_block` applies the window to each transaction, matching Geth's per-transaction struct logger. So this does not bound `trace_block`'s total memory, which accumulates every transaction's trace.
+    - **V2 redefined, not superseded.** Unreleased wire formats are not stabilized: the V2 payloads are in no stable release.
+    - **eth-rpc still can't serve oversized traces.** `debug_traceTransaction` past the ~262k step ceiling fails as it does today. Geth's `TraceConfig` has no offset and eth-rpc exists to be Geth-compatible, so `stepOffset` stays off the JSON surface and the window is for direct`state_call` consumers only. eth-rpc could window internally (concatenating in native memory, no new field, needs its own response cap). Worth doing, or leave it?
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-types
+  bump: major
