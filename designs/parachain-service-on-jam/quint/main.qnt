@@ -163,13 +163,13 @@ module main {
     // §4.2: `report_error` aborts and is logged; a bare panic is not caught and
     // yields a work error with no digest at all.
     nondet wp1Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
+    nondet wp1NoParasPrefix = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
       wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash))
     nondet wp1M1 = oneOf(wp1Pool)
     nondet wp1M2 = oneOf(wp1Pool)
     nondet wp1NumMsgs = oneOf(Set(0, 1, 2))
     nondet wp1ItemCount = oneOf(Set(0, 1, 2))
-    nondet wp1AuthMalformed = oneOf(Set(false, true))
     nondet wp1AuthTrace = oneOf(Set(0, 1, 2))
     // Gray paper `WorkExecResult::Error`: JAM substituted an error for this
     // work-item before the service's refine ran. Accumulate sees the no-op
@@ -195,7 +195,7 @@ module main {
       result:
         if (wp1IsJamSkip) WorkErr
         else refine(
-          svc, wp1.pkg, wp1AuthMalformed, wp1Pvf,
+          svc, wp1.pkg, wp1NoParasPrefix, wp1Pvf,
           wp1.parentHead, wp1.newHead, wp1.msgs, lookupAnchor1
         )[0],
       authTrace: wp1AuthTrace
@@ -205,13 +205,13 @@ module main {
     nondet wp2Para = oneOf(svc.parachains.keys())
     nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
     nondet wp2Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
+    nondet wp2NoParasPrefix = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
       wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash))
     nondet wp2M1 = oneOf(wp2Pool)
     nondet wp2M2 = oneOf(wp2Pool)
     nondet wp2NumMsgs = oneOf(Set(0, 1, 2))
     nondet wp2ItemCount = oneOf(Set(0, 1, 2))
-    nondet wp2AuthMalformed = oneOf(Set(false, true))
     nondet wp2AuthTrace = oneOf(Set(0, 1, 2))
     nondet wp2IsJamSkip = oneOf(Set(false, true))
     nondet wp2DeclParent = oneOf(Set(false, true))
@@ -229,7 +229,7 @@ module main {
       result:
         if (wp2IsJamSkip) WorkErr
         else refine(
-          svc, wp2.pkg, wp2AuthMalformed, wp2Pvf,
+          svc, wp2.pkg, wp2NoParasPrefix, wp2Pvf,
           wp2.parentHead, wp2.newHead, wp2.msgs, lookupAnchor2
         )[0],
       authTrace: wp2AuthTrace

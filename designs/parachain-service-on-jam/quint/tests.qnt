@@ -2040,6 +2040,34 @@ module tests {
     }
   }
 
+  /// §4.1 step 1 / §4.2: every package-level failure panics, because none has an
+  /// authoritative `para_id` to attribute a `RefineLog` to. A work error carries
+  /// no digest, so nothing is logged for any of them.
+  run packageLevelFailuresPanicTest = {
+    val wi = { validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 }
+    val good: WorkPackage = { authorizedParas: List(CoretimeParaId), items: List(wi) }
+    // Two items: not single-item (§3.2).
+    val twoItems: WorkPackage = {
+      authorizedParas: List(CoretimeParaId, CoretimeParaId), items: List(wi, wi) }
+    // Config length disagrees with the item count.
+    val mismatch: WorkPackage = {
+      authorizedParas: List(CoretimeParaId, CoretimeParaId), items: List(wi) }
+    // No para named at all: the old code fabricated `MkParaId(0)` here.
+    val noParas: WorkPackage = { authorizedParas: List(), items: List(wi) }
+    pure def go(pkg: WorkPackage, noPrefix: bool): WorkExecResult =
+      refine(initialState, pkg, noPrefix, PvfOk, Some(headHash(0)), Some(1), List(), 0)[0]
+    all {
+      // Config carries no `Vec<ParaId>` prefix, so no para can be sourced.
+      assert(go(good, true) == WorkErr),
+      assert(go(twoItems, false) == WorkErr),
+      assert(go(mismatch, false) == WorkErr),
+      assert(go(noParas, false) == WorkErr),
+      // The same package without those faults still refines to a digest.
+      assert(isOkDigest(go(good, false))),
+      init
+    }
+  }
+
   /// §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
   /// Both an empty and an over-long queue abort Refine the same way.
   run assignQueueLengthRangeTest = {

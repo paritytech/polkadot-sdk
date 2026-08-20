@@ -232,6 +232,10 @@ struct AccumulateLogEntry {
 /// parachain can act on. The rest are valuable for debugging, but each is a fixed
 /// structural failure carrying no parachain-supplied detail. The log's eviction
 /// ranking is built around that (§5.1).
+///
+/// Every variant is raised only after §4.1 step 2 fixes an authoritative
+/// `para_id`, since the entry lands in `parachain_log[para_id]`. Failures before
+/// that panic instead (§4.2).
 enum RefineLog {
     /// `historical_lookup(validation_code_hash)` returned `None`: the
     /// validation code preimage is not available in the service's store
@@ -251,15 +255,6 @@ enum RefineLog {
     /// Hub or the Coretime chain), or named a `para_id` it may not act for.
     /// See §4.3.
     RestrictedHostFunction,
-    /// The authorizer config's `authorized_paras` prefix length does not
-    /// match the work package's item count. See §4.1 step 1.
-    AuthConfigMismatch,
-    /// The work package has more than 1 item; only single-item packages are
-    /// currently supported (§3.2). A 0-item package is structurally impossible
-    /// (the Gray Paper bounds packages to 1–16 items).
-    InvalidItemCount,
-    /// The opaque `AuthorizerConfig` blob failed to decode. See §4.1 step 1.
-    MalformedAuthorizerConfig,
     /// The work item payload failed to decode into a `ParachainCandidate`.
     /// See §4.1 step 3.
     MalformedPayload,
@@ -595,8 +590,8 @@ Refine is invoked **per work item** by JAM. For each work item at
 index `item_index` the Parachain Service performs:
 
 1. Reads the authorizer config via `auth_config()` and decodes the `authorized_paras`
-   prefix; if `len(authorized_paras) != len(workitems)` this Refine invocation aborts
-   with an `Err`.
+   prefix (§3.2). A config not prefixed with a `Vec<ParaId>` panics (§4.2) rather than
+   logging: there is no authoritative `para_id` to attribute an entry to.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
 3. Decodes the `ParachainCandidate` (validation code hash + PoV) from the work item
    payload passed to Refine. If the payload fails to decode, aborts with

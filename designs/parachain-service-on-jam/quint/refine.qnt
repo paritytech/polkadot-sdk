@@ -234,11 +234,10 @@ module refine {
 
   /// Per-work-package Refine entry point (§4.1).
   ///
-  /// Performs the package-level check on the authorizer config: if
-  /// `len(authorized_paras) != len(workitems)` the Refine invocation
-  /// aborts and every item is tagged with `AuthConfigMismatch` (§4.1
-  /// step 1). Otherwise each item is refined independently via
-  /// `refineItem`, with its `para_id` sourced from `authorized_paras`.
+  /// Every package-level failure panics, because `para_id` is only authoritative
+  /// from §4.1 step 2 onward and a `RefineLog` with no para to land in is
+  /// useless. Otherwise each item is refined via `refineItem`, with its
+  /// `para_id` sourced from `authorized_paras`.
   ///
   /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`, and
   /// `msgs` are per-item scalars declared by the PVF. `parentHead` / `newHead`
@@ -247,22 +246,25 @@ module refine {
   pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
-    authConfigMalformed: bool,
+    // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
+    // so the service cannot source a `para_id` from it (§4.1 step 1).
+    authParasPrefixMissing: bool,
     pvf: PvfOutcome,
     parentHead: Option[Hash],
     newHead: Option[HeadData],
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot
   ): List[WorkExecResult] = {
-    val errParaId =
-      if (pkg.authorizedParas.length() > 0) pkg.authorizedParas[0]
-      else MkParaId(0)
-    if (authConfigMalformed)
-    List(WorkOk(refineErr(errParaId, MalformedAuthorizerConfig)))
-    else if (pkg.items.length() != 1)
-    List(WorkOk(refineErr(errParaId, InvalidItemCount)))
-    else if (pkg.authorizedParas.length() != pkg.items.length())
-    List(WorkOk(refineErr(errParaId, AuthConfigMismatch)))
+    // Package-level failures are settled before §4.1 step 2 fixes an
+    // authoritative `para_id`, so none can name a para to log against and all
+    // panic (§4.2): a missing `Vec<ParaId>` prefix, a package that is not
+    // single-item (§3.2), and an `authorized_paras` length that disagrees with
+    // the item count. A config that will not decode at all never gets here:
+    // `is_authorized` fails on it first, so it never becomes a work report (§7).
+    if (authParasPrefixMissing
+        or pkg.items.length() != 1
+        or pkg.authorizedParas.length() != pkg.items.length())
+    List(WorkErr)
     else
     match refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
