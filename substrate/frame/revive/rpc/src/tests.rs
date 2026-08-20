@@ -56,7 +56,7 @@ use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
 	BlockV1, CallTracerConfigV1, CodeV1, GenericTransactionV1, HashesOrTransactionInfosV1,
 	TraceBlockInputPayloadV1, TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload,
-	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1,
+	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1, TracerTypeV2,
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -2047,14 +2047,11 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 		})
 		.collect::<Result<Vec<_>, _>>()?;
 	let block = SubstrateTracingBlock { header, extrinsics };
-	let config = TracerTypeV1::CallTracer(Some(CallTracerConfigV1 {
-		with_logs: true,
-		only_top_call: false,
-	}));
+	let call_tracer_config = Some(CallTracerConfigV1 { with_logs: true, only_top_call: false });
 
 	let v1_input = TraceBlockVersionedInputPayload::V1(TraceBlockInputPayloadV1 {
 		block: subxt::utils::Static(block.clone()),
-		config: config.clone(),
+		config: TracerTypeV1::CallTracer(call_tracer_config.clone()),
 	});
 	let v1_payload = subxt_client::runtime_apis()
 		.revive_api()
@@ -2083,7 +2080,7 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 
 	let v2_input = TraceBlockVersionedInputPayload::V2(TraceBlockInputPayloadV2 {
 		block: subxt::utils::Static(block),
-		config,
+		config: TracerTypeV2::CallTracer(call_tracer_config),
 	});
 	let v2_payload = subxt_client::runtime_apis()
 		.revive_api()
