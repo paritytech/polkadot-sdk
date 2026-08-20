@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787256752013,
+  "lastUpdate": 1787267489193,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "11be995be95ac1e25a5b2a6dd941006e7097bffc",
-          "message": "remote-externalities: Support downloading from multiple RPC servers in parallel + major refactoring (#10779)\n\nThis is a major refactoring of `remote-externalities` to improve the\ndownload speed of the state of chain. This is mainly achieved by\ndownload keys + values from multiple RPC servers in parallel. Also the\nkey downloading is done more smartly by dividing downloaded key ranges\ndynamically, instead of having fixed number of key ranges at startup.\n\nBesides this it does a lot more refactoring + clean ups.\n\nAll in all this brings down the download time for PAH from 2h+ to 15min\nwith ~5 RPC servers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-19T21:20:29Z",
-          "tree_id": "7be942a563d8d5472a48c1744d3921a3b1524e0d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/11be995be95ac1e25a5b2a6dd941006e7097bffc"
-        },
-        "date": 1768861714357,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63634.95,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022935390000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000026880160000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022935390000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.804547436120019,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.638179989172957,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005210139630000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000026880160000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7078099635399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.739233472020015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.616763775649999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6276333506000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.330139459159997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.647129347320001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.66573475099,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+Thiago316316@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "Thiago316316"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "98ceb0bd740c1508146f7c2917da7c9d3b5c54b3",
+          "message": "statement-store: reject submissions from a depleted allowance (#12883)\n\n# Description\n\n`Store::submit` accepted any allowance found in chain state, including\none that is depleted —\n`max_count == 0` or `max_size == 0`. A depleted allowance permits no\nstatements at all, but the\nper-account constraint check never enforced that for an account's\n*first* statement, so such an\naccount could store one statement it was not entitled to.\n\nThis rejects a depleted allowance up front, alongside the existing\nrejection for an account with\nno allowance at all.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12776\n\n## Integration\n\nNo API change: no public type, trait or signature is touched, and\n`RejectionReason` keeps exactly\nthe variants it had.\n\nThe observable change is that `submit` now returns\n`SubmitResult::Rejected(RejectionReason::NoAllowance)`\nfor an account whose on-chain allowance is present but depleted on\neither axis, where it previously\nreturned `SubmitResult::New` for that account's first statement.\n\nDownstream projects need to act only if a runtime grants zero-valued\nallowances, e.g.\n\n```diff\n- increase_allowance_by(&who, StatementAllowance { max_count: 0, max_size: 1_000 });\n+ increase_allowance_by(&who, StatementAllowance { max_count: 10, max_size: 1_000 });\n```\n\n`increase_allowance_by` writes such a value through unchanged\n(`get_or_default` + `saturating_add`),\nso `{ max_count: 0, max_size: N }` is reachable and was, until now,\npartially honoured. Accounts\nmeant to store statements need both axes non-zero. Nothing needs to\nchange for a runtime that never\ngrants a zero-valued allowance, since `decrease_allowance_by` already\ndeletes the storage key once\nan allowance becomes depleted, which the store has always read as\n`NoAllowance`.\n\nOne log line changed text, for anyone matching on it:\n\n```diff\n- \"Account {} has no statement allowance set\"\n+ \"Account {} has no usable statement allowance\"\n```\n\n## Review Notes\n\nThe gap is in `plan_insert`. The only place `max_count` is evaluated is\nthe satisfaction predicate\ninside the loop that walks the account's existing statements:\n\n```rust\n// Check if we can evict enough lower priority statements to satisfy constraints\nfor (entry, details) in record.by_priority.iter() {\n    if (record.data_size - would_free_size + statement_len <= max_size) &&\n        record.by_priority.len() + 1 - evicted_hashes.len() <= max_count\n    {\n        break; // Satisfied\n    }\n    ...\n}\n```\n\nFor an account with no statements yet, `record.by_priority` is empty,\nthe loop body never runs, and\n`max_count` is never read. The submission then passes the global store\nlimits and is admitted. The\npreceding `statement_len > max_size` gate does not catch it either,\nbeing about the single\nstatement's size rather than the account's quota.\n\n`max_count == 0` is the only value that escapes this way. After the loop\nhas evicted all `n`\nexisting entries the predicate reads `n + 1 - n <= max_count`, i.e. `1\n<= max_count`, which holds\nfor every `max_count >= 1`. So the empty-record case and the\nevicted-everything case are the same\nhole seen from two sides.\n\nThe impact was bounded: the account settles at one stored statement\nrather than zero, since the\ncheck does run from the second submission onward, and\n`enforce_account_allowance` evicts the\nstatement on its next pass because it reads the finalized allowance and\nsees\n`remaining_count (1) > max_count (0)`.\n\n<details>\n<summary>Why reject in <code>submit</code> rather than fix the\nloop</summary>\n\nHoisting the count check out of the loop in `plan_insert` also works,\nbut it needs a rejection\nreason for the zero-count case, and the natural candidate `AccountFull`\ncarries a `min_expiry`\nfield describing the existing statement that blocked admission — there\nis no such statement here.\nA new `RejectionReason` variant would be a breaking change to a public,\nserde-tagged enum that is\nsurfaced over RPC.\n\nRejecting in `submit` instead reuses `StatementAllowance::is_depleted`,\nwhich already exists and\nalready encodes this exact rule (`decrease_allowance_by` uses it to\ndelete a depleted allowance\nfrom storage), and matches the documented intent on\n`StatementAllowance`: \"An account with no\nallowance (or a depleted one) cannot store statements.\" `plan_insert` is\nthen never reached with a\nzero `max_count`.\n\n</details>\n\nThe change itself:\n\n```diff\n  let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {\n- Ok(Some(allowance)) => allowance,\n- Ok(None) => {\n+ Ok(Some(allowance)) if !allowance.is_depleted() => allowance,\n+ Ok(Some(_)) | Ok(None) => {\n```\n\nTests cover both depletion axes, since `is_depleted` covers both. Two\naccounts were added to the\ntest client's allowance stub, holding an allowance that is depleted on\none axis while still present\nin state — the state that `decrease_allowance_by` never produces but\n`increase_allowance_by` can:\n\n- account 50, `{ max_count: 0, max_size: 1000 }`, submitting a 100-byte\nstatement. The size is\ndeliberately non-zero to show the `statement_len > max_size` gate is not\nwhat is being tested.\n- account 51, `{ max_count: 5, max_size: 0 }`, submitting a zero-length\nstatement, which is the\n  case that slips past that gate because `0 > 0` is false.\n\nBoth assert the full `Rejected(NoAllowance)` result plus\n`statement_count() == 0` and\n`total_size() == 0`, so a fix that rejected but still moved the counters\nwould not pass. Both fail\non master and pass with this change; the full `sc-statement-store` suite\nis green at 85 tests.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-20T21:44:26Z",
+          "tree_id": "eecdaf2375f45b47621270328f3b7cceea18c50d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/98ceb0bd740c1508146f7c2917da7c9d3b5c54b3"
+        },
+        "date": 1787267455967,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63567.659999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002059479,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.639170797450001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018377879999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005628085670000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018377879999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002059479,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6952268123599987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6289817689800006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.668466018480001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3522028303499942,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8222629392499933,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.81193925253999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.423430828792895,
             "unit": "seconds"
           }
         ]
