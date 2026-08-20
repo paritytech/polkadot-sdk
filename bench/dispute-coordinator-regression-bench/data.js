@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787233346866,
+  "lastUpdate": 1787239029169,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b34ecf1ddd5d278147808df92e4f84ae19256d28",
-          "message": "Fix fee handling of pay-over-xcm trait(s) (#10831)\n\nChanged how pay-over-xcm is handling delivery fees. The old behavior was\neffectively allowing free delivery for any origin, and it was either\nburning innexistent tokens (noop at the end of the day), or it was\nminting \"protocol fees\" into the treasury account out of thin air.\n\nIn practice, the traits were always used with waived fees configuration\nso this bug was never exploitable in production, but it was there\nnonetheless.\n\nChanged transfer-over-xcm and pay-over-xcm implementations to use the\nruntime's XCM config, rather than custom Router and FeeHandler. This\nreduces the opportunity for misconfiguration since it relies on the\nmessage delivery and fee handling configurations consolidated at the\nruntime configuration level.\n\nWaived locations for some system pallets were also correctly configured\nto explicitly allow what was previously implicitly allowed by the buggy\ncode.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-01-17T23:14:48Z",
-          "tree_id": "533f00ea7490aa67f5f37b1f97e195797eaeb772",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b34ecf1ddd5d278147808df92e4f84ae19256d28"
-        },
-        "date": 1768695963431,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006729364109999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027784466099999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009489219369999982,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011239395229999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7ca06d79c03f826414d11a78e277547795ddcc59",
+          "message": "Update trie-db to 0.32.0 (#12935)\n\nUpdated trie-db to v0.32.0. Fixes #12565 .\n\nAlso make root checks mandatory in the API. This provides some safety\nagainst misuse, because the check is necessary to prevent overly long\nproof decoding.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-20T13:29:20Z",
+          "tree_id": "872ea5e27f5650a8dfc443c3a051b102fd2d8510",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ca06d79c03f826414d11a78e277547795ddcc59"
+        },
+        "date": 1787238998564,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010317139309999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002581294669999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009870411049999984,
             "unit": "seconds"
           }
         ]
