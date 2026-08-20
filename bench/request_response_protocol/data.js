@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787252876818,
+  "lastUpdate": 1787266598545,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -116531,6 +116531,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2721172196,
             "range": "± 16671558",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+Thiago316316@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "Thiago316316"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "98ceb0bd740c1508146f7c2917da7c9d3b5c54b3",
+          "message": "statement-store: reject submissions from a depleted allowance (#12883)\n\n# Description\n\n`Store::submit` accepted any allowance found in chain state, including\none that is depleted —\n`max_count == 0` or `max_size == 0`. A depleted allowance permits no\nstatements at all, but the\nper-account constraint check never enforced that for an account's\n*first* statement, so such an\naccount could store one statement it was not entitled to.\n\nThis rejects a depleted allowance up front, alongside the existing\nrejection for an account with\nno allowance at all.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12776\n\n## Integration\n\nNo API change: no public type, trait or signature is touched, and\n`RejectionReason` keeps exactly\nthe variants it had.\n\nThe observable change is that `submit` now returns\n`SubmitResult::Rejected(RejectionReason::NoAllowance)`\nfor an account whose on-chain allowance is present but depleted on\neither axis, where it previously\nreturned `SubmitResult::New` for that account's first statement.\n\nDownstream projects need to act only if a runtime grants zero-valued\nallowances, e.g.\n\n```diff\n- increase_allowance_by(&who, StatementAllowance { max_count: 0, max_size: 1_000 });\n+ increase_allowance_by(&who, StatementAllowance { max_count: 10, max_size: 1_000 });\n```\n\n`increase_allowance_by` writes such a value through unchanged\n(`get_or_default` + `saturating_add`),\nso `{ max_count: 0, max_size: N }` is reachable and was, until now,\npartially honoured. Accounts\nmeant to store statements need both axes non-zero. Nothing needs to\nchange for a runtime that never\ngrants a zero-valued allowance, since `decrease_allowance_by` already\ndeletes the storage key once\nan allowance becomes depleted, which the store has always read as\n`NoAllowance`.\n\nOne log line changed text, for anyone matching on it:\n\n```diff\n- \"Account {} has no statement allowance set\"\n+ \"Account {} has no usable statement allowance\"\n```\n\n## Review Notes\n\nThe gap is in `plan_insert`. The only place `max_count` is evaluated is\nthe satisfaction predicate\ninside the loop that walks the account's existing statements:\n\n```rust\n// Check if we can evict enough lower priority statements to satisfy constraints\nfor (entry, details) in record.by_priority.iter() {\n    if (record.data_size - would_free_size + statement_len <= max_size) &&\n        record.by_priority.len() + 1 - evicted_hashes.len() <= max_count\n    {\n        break; // Satisfied\n    }\n    ...\n}\n```\n\nFor an account with no statements yet, `record.by_priority` is empty,\nthe loop body never runs, and\n`max_count` is never read. The submission then passes the global store\nlimits and is admitted. The\npreceding `statement_len > max_size` gate does not catch it either,\nbeing about the single\nstatement's size rather than the account's quota.\n\n`max_count == 0` is the only value that escapes this way. After the loop\nhas evicted all `n`\nexisting entries the predicate reads `n + 1 - n <= max_count`, i.e. `1\n<= max_count`, which holds\nfor every `max_count >= 1`. So the empty-record case and the\nevicted-everything case are the same\nhole seen from two sides.\n\nThe impact was bounded: the account settles at one stored statement\nrather than zero, since the\ncheck does run from the second submission onward, and\n`enforce_account_allowance` evicts the\nstatement on its next pass because it reads the finalized allowance and\nsees\n`remaining_count (1) > max_count (0)`.\n\n<details>\n<summary>Why reject in <code>submit</code> rather than fix the\nloop</summary>\n\nHoisting the count check out of the loop in `plan_insert` also works,\nbut it needs a rejection\nreason for the zero-count case, and the natural candidate `AccountFull`\ncarries a `min_expiry`\nfield describing the existing statement that blocked admission — there\nis no such statement here.\nA new `RejectionReason` variant would be a breaking change to a public,\nserde-tagged enum that is\nsurfaced over RPC.\n\nRejecting in `submit` instead reuses `StatementAllowance::is_depleted`,\nwhich already exists and\nalready encodes this exact rule (`decrease_allowance_by` uses it to\ndelete a depleted allowance\nfrom storage), and matches the documented intent on\n`StatementAllowance`: \"An account with no\nallowance (or a depleted one) cannot store statements.\" `plan_insert` is\nthen never reached with a\nzero `max_count`.\n\n</details>\n\nThe change itself:\n\n```diff\n  let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {\n- Ok(Some(allowance)) => allowance,\n- Ok(None) => {\n+ Ok(Some(allowance)) if !allowance.is_depleted() => allowance,\n+ Ok(Some(_)) | Ok(None) => {\n```\n\nTests cover both depletion axes, since `is_depleted` covers both. Two\naccounts were added to the\ntest client's allowance stub, holding an allowance that is depleted on\none axis while still present\nin state — the state that `decrease_allowance_by` never produces but\n`increase_allowance_by` can:\n\n- account 50, `{ max_count: 0, max_size: 1000 }`, submitting a 100-byte\nstatement. The size is\ndeliberately non-zero to show the `statement_len > max_size` gate is not\nwhat is being tested.\n- account 51, `{ max_count: 5, max_size: 0 }`, submitting a zero-length\nstatement, which is the\n  case that slips past that gate because `0 > 0` is false.\n\nBoth assert the full `Rejected(NoAllowance)` result plus\n`statement_count() == 0` and\n`total_size() == 0`, so a fix that rejected but still moved the counters\nwould not pass. Both fail\non master and pass with this change; the full `sc-statement-store` suite\nis green at 85 tests.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-20T21:44:26Z",
+          "tree_id": "eecdaf2375f45b47621270328f3b7cceea18c50d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/98ceb0bd740c1508146f7c2917da7c9d3b5c54b3"
+        },
+        "date": 1787266564076,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19647077,
+            "range": "± 126558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19553246,
+            "range": "± 80286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21265560,
+            "range": "± 78163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25915772,
+            "range": "± 169442",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58115146,
+            "range": "± 876200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 337090739,
+            "range": "± 4861563",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2544705346,
+            "range": "± 96489661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16798730,
+            "range": "± 163780",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17059024,
+            "range": "± 209007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17486578,
+            "range": "± 201296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22105743,
+            "range": "± 162956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60554202,
+            "range": "± 698081",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 354777026,
+            "range": "± 11230820",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2679154227,
+            "range": "± 17476906",
             "unit": "ns/iter"
           }
         ]
