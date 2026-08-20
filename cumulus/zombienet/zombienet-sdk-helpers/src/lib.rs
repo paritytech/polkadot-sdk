@@ -11,17 +11,20 @@ use tokio::{
 	join,
 	time::{sleep, Duration},
 };
-use zombienet_sdk::subxt::{
-	self,
-	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
-	dynamic::Value,
-	events::Events,
-	ext::scale_value::value,
-	metadata::Metadata,
-	tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
-	utils::H256,
-	Config, OnlineClient, PolkadotConfig,
+use zombienet_sdk::{
+	subxt::{
+		self,
+		blocks::Block,
+		config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
+		dynamic::Value,
+		events::Events,
+		ext::scale_value::value,
+		metadata::Metadata,
+		tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
+		utils::H256,
+		Config, OnlineClient, PolkadotConfig,
+	},
+	LocalFileSystem, Network,
 };
 
 /// Specifies which block should occupy a full core.
@@ -36,6 +39,13 @@ pub enum BlockToCheck {
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
+
+// Maximum time to wait for PVF preparation to conclude on a validator before
+// starting throughput measurement. PVF preparation is a one-off ~20s wasm
+// compile per validator that contends for CPU. The clock starts at the session
+// change, but the first parachain candidate (which triggers PVF preparation)
+// can be delayed by several minutes of collator warm-up, which we must account for.
+const PVF_PREPARE_TIMEOUT_SECS: u64 = 300;
 
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
 ///
@@ -89,6 +99,10 @@ async fn is_session_change(
 // chain blocks. The counting window starts from the relay chain block after the first one that
 // contains a backed candidate for a tracked para. Relay chain blocks with session changes are
 // generally ignored, but it is ensured that no blocks are build on top of these relay blocks.
+//
+// For tests where PVF preparation timing affects throughput (e.g. elastic scaling, runtime
+// upgrades), call [`wait_for_pvf_prepare`] before this helper to ensure all validators have
+// finished preparing the relevant PVFs.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
@@ -127,6 +141,51 @@ where
 		.map(|_| ())
 }
 
+/// Waits until every relaychain validator in `network` reports
+/// `polkadot_pvf_prepare_concluded >= min_total_prepares`.
+///
+/// Use this before [`assert_para_throughput`] in tests where PVF preparation timing demonstrably
+/// affects throughput — typically elastic-scaling tests (high core count, validators bound on
+/// PVF-compile CPU) and tests that measure throughput across a parachain runtime upgrade (which
+/// triggers re-preparation of the new PVF).
+///
+/// `min_total_prepares` is the absolute minimum value the metric must reach, in cumulative
+/// concluded prepare jobs since validator startup. For one round of preparation (one PVF per
+/// tracked parachain), pass `tracked_paras as u32`. For a measurement after a runtime upgrade,
+/// pass `2 * tracked_paras as u32`. Caller is responsible for tracking the round — we
+/// deliberately do not read a baseline from the metric and add a delta, because validators
+/// may already have started or finished preparing a new PVF before the baseline read, which
+/// makes the delta racy.
+pub async fn wait_for_pvf_prepare(
+	network: &Network<LocalFileSystem>,
+	min_total_prepares: u32,
+) -> Result<(), anyhow::Error> {
+	let validators = network.relaychain().nodes();
+	let target = min_total_prepares as f64;
+	log::info!(
+		"Waiting for PVF preparation to conclude on {} validator(s) (target {} concluded job(s) per validator).",
+		validators.len(),
+		target,
+	);
+	for node in &validators {
+		let node_name = node.name();
+		log::info!("Waiting for {node_name} PVF prep (target={target})...");
+		node.wait_metric_with_timeout(
+			"polkadot_pvf_prepare_concluded",
+			|c| c >= target,
+			PVF_PREPARE_TIMEOUT_SECS,
+		)
+		.await
+		.map_err(|e| anyhow!("{node_name}: PVF prepare did not conclude within timeout: {e}"))?;
+	}
+	log::info!(
+		"All {} validator(s) have prepared PVF artifacts (target {})",
+		validators.len(),
+		target,
+	);
+	Ok(())
+}
+
 async fn collect_para_throughput<F>(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
@@ -153,60 +212,42 @@ where
 		"First session change detected. Waiting for backed candidates from all tracked paras before counting."
 	);
 
-	// Skip relay chain blocks until every tracked para has had at least one backed candidate.
-	// This avoids counting the initial warm-up period where the backing pipeline (PVF
-	// compilation, first collation) hasn't reached steady state yet.
 	let mut paras_seen = std::collections::HashSet::new();
-	loop {
-		let block = blocks_sub
-			.next()
-			.await
-			.ok_or_else(|| anyhow!("Block stream ended while waiting for first candidate"))??;
-
-		if is_session_change(&block).await? {
-			continue;
-		}
-
-		let events = block.events().await?;
-		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
-			&events,
-			"ParaInclusion",
-			"CandidateBacked",
-		)?;
-
-		for receipt in &receipts {
-			let para_id = receipt.descriptor.para_id();
-			if valid_para_ids.contains(&para_id) {
-				paras_seen.insert(para_id);
-			}
-		}
-
-		if paras_seen.len() == valid_para_ids.len() {
-			log::info!(
-				"All tracked paras have produced candidates by relay block {}. Counting {stop_after} blocks from the next one.",
-				block.number()
-			);
-			break;
-		}
-	}
-
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
-		let events = block.events().await?;
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change(&block).await? {
 			continue;
 		}
 
-		current_block_count += 1;
-
+		let events = block.events().await?;
 		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
 			&events,
 			"ParaInclusion",
 			"CandidateBacked",
 		)?;
+
+		// Skip relay chain blocks until every tracked para has had at least one backed candidate.
+		// This avoids counting the initial warm-up period where the backing pipeline (PVF
+		// compilation, first collation) hasn't reached steady state yet.
+		for receipt in &receipts {
+			let para_id = receipt.descriptor.para_id();
+			if valid_para_ids.contains(&para_id) {
+				paras_seen.insert(para_id);
+			}
+		}
+		if paras_seen.len() != valid_para_ids.len() {
+			log::info!(
+				"Not all tracked paras have produced candidates by relay block {}. \
+				Not counting blocks yet.",
+				block.number()
+			);
+			continue;
+		}
+
+		current_block_count += 1;
 
 		for receipt in receipts {
 			let para_id = receipt.descriptor.para_id();
@@ -670,21 +711,18 @@ async fn ensure_is_block_in_core_impl(
 ) -> Result<(), anyhow::Error> {
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_hash).await?;
-	let block_core_info = find_core_info(&block)?;
 
 	if is_only_block_in_core {
-		let parent = blocks.at(block.header().parent_hash).await?;
-
-		// Genesis is for sure on a different core :)
-		if parent.number() != 0 {
-			let parent_core_info = find_core_info(&parent)?;
-
-			if parent_core_info == block_core_info {
-				return Err(anyhow::anyhow!(
-					"Not first block ({}) in core, at least the parent block is on the same core.",
-					block.header().number
-				));
-			}
+		// A block with a non-zero bundle index continues the bundle of its parent, i.e. shares
+		// the core with it. Comparing the parent's `CoreInfo` instead would produce false
+		// positives: the core selector restarts at `0` every parachain slot, so after a reorg a
+		// first-in-core block may legitimately carry the same `CoreInfo` as a parent that was
+		// produced in a previous slot.
+		if find_block_bundle_info(&block)?.index != 0 {
+			return Err(anyhow::anyhow!(
+				"Not first block ({}) in core, the block continues the bundle of its parent.",
+				block.header().number
+			));
 		}
 	}
 
@@ -712,9 +750,9 @@ async fn ensure_is_block_in_core_impl(
 		}
 	};
 
-	let next_block_core_info = find_core_info(&next_block)?;
-
-	if next_block_core_info == block_core_info {
+	// The direct descendant either opens a new bundle (index 0), meaning it occupies a new
+	// core, or continues the bundle of the checked block, meaning it shares the core with it.
+	if find_block_bundle_info(&next_block)?.index != 0 {
 		return Err(anyhow::anyhow!(
 			"Not {} block ({}) in core, at least the following block is on the same core.",
 			if is_only_block_in_core { "first" } else { "last" },
@@ -940,4 +978,32 @@ pub async fn wait_for_runtime_upgrade(
 	}
 
 	Err(anyhow!("Did not find a runtime upgrade"))
+}
+
+/// Poll a node's WebSocket endpoint until its subxt metadata reports the given pallet,
+/// returning a fresh `OnlineClient` against that metadata, or fail on timeout.
+///
+/// After a runtime upgrade that introduces a new pallet, subxt's cached metadata can lag
+/// the on-chain state until a new client is constructed against a block executed under the
+/// upgraded runtime.
+pub async fn wait_for_pallet_in_metadata(
+	ws_url: &str,
+	pallet_name: &str,
+	timeout: Duration,
+	poll_interval: Duration,
+) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
+	let deadline = std::time::Instant::now() + timeout;
+	loop {
+		if std::time::Instant::now() >= deadline {
+			return Err(anyhow!(
+				"metadata at {ws_url} never reflected pallet `{pallet_name}` within {timeout:?}",
+			));
+		}
+		sleep(poll_interval).await;
+		let candidate = OnlineClient::<PolkadotConfig>::from_url(ws_url).await?;
+		if candidate.metadata().pallet_by_name(pallet_name).is_some() {
+			return Ok(candidate);
+		}
+		log::debug!("`{pallet_name}` not in metadata yet, retrying");
+	}
 }

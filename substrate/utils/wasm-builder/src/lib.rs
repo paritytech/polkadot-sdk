@@ -77,6 +77,9 @@
 //!   environment variable should only be required in certain circumstances.
 //! - `WASM_BUILD_RUSTFLAGS` - Extend `RUSTFLAGS` given to `cargo build` while building the wasm
 //!   binary.
+//! - `RFC145` - Build the runtime with RFC-145 support (`--cfg rfc145`), i.e. using the
+//!   allocator-free host function ABI. This is implied when the outer build itself is compiled with
+//!   `--cfg rfc145` in its `RUSTFLAGS`.
 //! - `WASM_BUILD_NO_COLOR` - Disable color output of the wasm build.
 //! - `WASM_TARGET_DIRECTORY` - Will copy any build Wasm binary to the given directory. The path
 //!   needs to be absolute.
@@ -173,6 +176,27 @@ const WASM_BUILD_CARGO_ARGS: &str = "WASM_BUILD_CARGO_ARGS";
 
 /// The target to use for the runtime. Valid values are `wasm` (default) or `riscv`.
 const RUNTIME_TARGET: &str = "SUBSTRATE_RUNTIME_TARGET";
+
+/// Environment variable that makes the runtime be built with RFC-145 support
+/// (`--cfg rfc145`), the same as when the outer build itself is compiled with that
+/// `cfg` in its `RUSTFLAGS`.
+const RFC145_ENV: &str = "RFC145";
+
+/// Returns `true` if the runtime should be built with RFC-145 support (`--cfg rfc145`).
+///
+/// That is the case when the outer build itself is compiled with `--cfg rfc145` (the
+/// flag is inherited from the `RUSTFLAGS`/`CARGO_ENCODED_RUSTFLAGS` visible to the build script,
+/// so that a node built with RFC-145 support embeds an RFC-145 runtime), or when the
+/// `SUBSTRATE_RFC145` environment variable is set to a truthy value (for runtime-only builds).
+fn is_rfc145_build() -> bool {
+	let flags_contain =
+		|var: &str| env::var(var).map(|flags| flags.contains("rfc145")).unwrap_or(false);
+	let env_enabled = env::var(RFC145_ENV)
+		.map(|v| !matches!(v.as_str(), "" | "0" | "false"))
+		.unwrap_or(false);
+
+	flags_contain("CARGO_ENCODED_RUSTFLAGS") || flags_contain("RUSTFLAGS") || env_enabled
+}
 
 /// Write to the given `file` if the `content` is different.
 fn write_file_if_changed(file: impl AsRef<Path>, content: impl AsRef<str>) {
@@ -332,6 +356,21 @@ impl CargoCommand {
 
 		// Check if major and minor are greater or equal than 1.68 or this is a nightly.
 		version.major > 1 || (version.major == 1 && version.minor >= 68) || version.is_nightly
+	}
+
+	/// Returns whether this cargo accepts the `-Z json-target-spec` flag.
+	///
+	/// Newer cargo requires the flag to be opted into for any `--target=*.json` invocation,
+	/// older cargo rejects it as unknown. It landed partway through the 1.95 cycle, so a
+	/// toolchain from early in that cycle reports 1.95 while its cargo does not know the
+	/// flag yet: no version comparison can express this, hence the probe.
+	fn supports_json_target_spec(&self) -> bool {
+		// `-Z` flags are nightly-only, so make a stable cargo answer as a nightly would.
+		self.command()
+			.env("RUSTC_BOOTSTRAP", "1")
+			.args(["-Z", "help"])
+			.output()
+			.is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains("json-target-spec"))
 	}
 
 	/// Returns whether this version of the toolchain supports the `wasm32v1-none` target.

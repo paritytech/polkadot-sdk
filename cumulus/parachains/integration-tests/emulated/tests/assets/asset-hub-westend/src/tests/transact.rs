@@ -134,14 +134,12 @@ fn transact_from_para_to_para_through_asset_hub() {
 	);
 
 	let usdt_from_asset_hub = PenpalUsdtFromAssetHub::get();
-	PenpalA::execute_with(|| {
-		type Assets = <PenpalA as PenpalAPallet>::Assets;
-		assert_ok!(<Assets as Mutate<_>>::mint_into(
-			usdt_from_asset_hub.clone(),
-			&sender,
-			fee_amount_to_send,
-		));
-	});
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		usdt_from_asset_hub.clone(),
+		sender.clone(),
+		fee_amount_to_send,
+	);
 
 	// Give the sender enough Relay tokens to pay for local delivery fees.
 	PenpalA::mint_foreign_asset(

@@ -217,12 +217,12 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		let max_block =
 			<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block;
 		// Reserve headroom for DAP drip weight which also runs in on_initialize.
-		max_block.saturating_sub(<() as pallet_dap::weights::WeightInfo>::drip_issuance())
+		max_block.saturating_sub(<() as pallet_dap::WeightInfo>::drip_issuance())
 	}
 	fn rc_on_offence(_: u32) -> Weight {
 		Default::default()
 	}
-	fn rc_on_session_report() -> Weight {
+	fn rc_on_session_report(_: u32) -> Weight {
 		Default::default()
 	}
 	fn prune_era_stakers_paged(_: u32) -> Weight {
@@ -247,6 +247,9 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn prune_era_validator_slash_in_era(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn chill_inactive(_: u32) -> Weight {
 		unreachable!()
 	}
 }

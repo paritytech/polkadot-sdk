@@ -92,8 +92,6 @@ where
 	pub sync_service: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
-	/// Collations request receiver for network protocol v1.
-	pub collation_req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 	/// Collations request receiver for network protocol v2.
 	pub collation_req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	/// Receiver for available data requests.
@@ -161,7 +159,6 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver: _,
 		collation_req_v2_receiver: _,
 		available_data_req_receiver,
 		registry,
@@ -314,6 +311,7 @@ where
 							metrics: Metrics::register(registry)?,
 							db: parachains_db.clone(),
 							reputation_config,
+							clock: polkadot_node_clock::system_clock(),
 						}
 					} else {
 						ProtocolSide::Validator {
@@ -322,6 +320,7 @@ where
 							metrics: Metrics::register(registry)?,
 							invulnerables: invulnerable_ah_collators,
 							collator_protocol_hold_off,
+							clock: polkadot_node_clock::system_clock(),
 						}
 					}
 				},
@@ -390,7 +389,6 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver: _,
 		collation_req_v2_receiver,
 		available_data_req_receiver,
 		registry,
@@ -495,6 +493,7 @@ where
 					collator_pair,
 					request_receiver_v2: collation_req_v2_receiver,
 					metrics: Metrics::register(registry)?,
+					clock: polkadot_node_clock::system_clock(),
 				},
 				IsParachainNode::FullNode => ProtocolSide::None,
 			};

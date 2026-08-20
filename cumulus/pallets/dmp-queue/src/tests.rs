@@ -102,15 +102,25 @@ fn migration_works() {
 	});
 	ext.commit_all().unwrap();
 	// Then it cleans up the remaining storage items.
-	// With cursor-based iteration, the cleanup now completes in 2 blocks
-	// (2 keys per block, 4 total remaining keys).
+	// With cursor-based iteration (RFC-145), the cleanup completes in 2 blocks (2 keys per
+	// block, 4 total remaining keys). The legacy `clear_prefix` restarts the iteration on
+	// every block, so it needs one block more.
+	let last_block = if cfg!(rfc145) { 23 } else { 24 };
 	ext.execute_with(|| {
 		run_to_block(21);
 		assert_only_event(Event::CleanedSome { keys_removed: 2 });
 	});
 	ext.commit_all().unwrap();
+	#[cfg(not(rfc145))]
+	{
+		ext.execute_with(|| {
+			run_to_block(22);
+			assert_only_event(Event::CleanedSome { keys_removed: 2 });
+		});
+		ext.commit_all().unwrap();
+	}
 	ext.execute_with(|| {
-		run_to_block(23);
+		run_to_block(last_block);
 		assert_eq!(
 			System::events().into_iter().map(|e| e.event).collect::<Vec<_>>(),
 			vec![
@@ -138,7 +148,7 @@ fn migration_works() {
 			assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::Completed);
 			assert!(System::events().is_empty());
 			// ... besides the block number
-			System::set_block_number(23);
+			System::set_block_number(last_block);
 		}
 	});
 }

@@ -46,7 +46,7 @@ use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
-	collections::{BTreeSet, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	io,
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -149,12 +149,14 @@ enum DbExtrinsic<B: BlockT> {
 	/// Complete extrinsic data.
 	Full(B::Extrinsic),
 	/// Extrinsic that renews multiple indexed data items within a single call.
-	/// Used by bulk-renewal inherents (e.g. `process_auto_renewals`) where one extrinsic
-	/// references multiple previously-stored data blobs.
+	///
+	/// `hashes` is in submission order: the proof-of-storage inherent provider
+	/// walks `block_indexed_body` linearly and the runtime indexes a parallel
+	/// `Vec<TransactionInfo>` by the same position, so reordering here would
+	/// desync proof construction from verification.
 	MultiRenew {
-		/// Hashes of all renewed indexed data items.
-		hashes: BTreeSet<DbHash>,
-		/// The full encoded extrinsic (used to reconstruct the block body).
+		/// Submission order; see variant docs.
+		hashes: Vec<DbHash>,
 		extrinsic: Vec<u8>,
 	},
 }
@@ -560,6 +562,14 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			}
 			meta.finalized_number = number;
 			meta.finalized_hash = hash;
+
+			// A finalized block is canonical and must be reflected by the best block.
+			// If the current best block is behind the newly finalized one, advance it
+			// to maintain the invariant `best_number >= finalized_number`.
+			if number > meta.best_number {
+				meta.best_number = number;
+				meta.best_hash = hash;
+			}
 		}
 	}
 
@@ -909,6 +919,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	create_gap: bool,
 	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
+	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
 }
 
 impl<Block: BlockT> BlockImportOperation<Block> {
@@ -1069,6 +1080,11 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 
 	fn update_transaction_index(&mut self, index_ops: Vec<IndexOperation>) -> ClientResult<()> {
 		self.index_ops = index_ops;
+		Ok(())
+	}
+
+	fn set_renew_payloads(&mut self, payloads: HashMap<DbHash, Vec<u8>>) -> ClientResult<()> {
+		self.prefetched_indexed_transactions = payloads;
 		Ok(())
 	}
 
@@ -1273,6 +1289,22 @@ impl<Block: BlockT> Backend<Block> {
 	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
+		Self::new_test_with_tx_storage_source(
+			blocks_pruning,
+			canonicalization_delay,
+			DatabaseSource::Custom { db, require_create_flag: true },
+			pruning_filters,
+		)
+	}
+
+	/// Test backend with caller-chosen `DatabaseSource` (memdb / rocksdb / parity-db).
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_tx_storage_source(
+		blocks_pruning: BlocksPruning,
+		canonicalization_delay: u64,
+		source: DatabaseSource,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+	) -> Self {
 		let state_pruning = match blocks_pruning {
 			BlocksPruning::KeepAll => PruningMode::ArchiveAll,
 			BlocksPruning::KeepFinalized => PruningMode::ArchiveCanonical,
@@ -1281,7 +1313,7 @@ impl<Block: BlockT> Backend<Block> {
 		let db_setting = DatabaseSettings {
 			trie_cache_maximum_size: Some(16 * 1024 * 1024),
 			state_pruning: Some(state_pruning),
-			source: DatabaseSource::Custom { db, require_create_flag: true },
+			source,
 			blocks_pruning,
 			pruning_filters,
 			metrics_registry: None,
@@ -1667,13 +1699,17 @@ impl<Block: BlockT> Backend<Block> {
 
 			transaction.set_from_vec(columns::HEADER, &lookup_key, pending_block.header.encode());
 			if let Some(body) = pending_block.body {
-				// If we have any index operations we save block in the new format with indexed
-				// extrinsic headers Otherwise we save the body as a single blob.
+				// If we have index ops, store body in indexed format; otherwise store as a
+				// plain blob.
 				if operation.index_ops.is_empty() {
 					transaction.set_from_vec(columns::BODY, &lookup_key, body.encode());
 				} else {
-					let body =
-						apply_index_ops::<Block>(&mut transaction, body, operation.index_ops);
+					let body = apply_index_ops::<Block>(
+						&mut transaction,
+						body,
+						operation.index_ops,
+						operation.prefetched_indexed_transactions,
+					);
 					transaction.set_from_vec(columns::BODY_INDEX, &lookup_key, body);
 				}
 			}
@@ -2232,10 +2268,13 @@ fn apply_index_ops<Block: BlockT>(
 	transaction: &mut Transaction<DbHash>,
 	body: Vec<Block::Extrinsic>,
 	ops: Vec<IndexOperation>,
+	mut prefetched: HashMap<DbHash, Vec<u8>>,
 ) -> Vec<u8> {
 	let mut extrinsic_index: Vec<DbExtrinsic<Block>> = Vec::with_capacity(body.len());
 	let mut index_map = HashMap::new();
-	let mut renewed_map: HashMap<u32, BTreeSet<DbHash>> = HashMap::new();
+	// Submission order matters; see `DbExtrinsic::MultiRenew`. Duplicates are kept so
+	// per-occurrence refcount inc/dec stays symmetric with prune-time release.
+	let mut renewed_map: HashMap<u32, Vec<DbHash>> = HashMap::new();
 	for op in ops {
 		match op {
 			IndexOperation::Insert { extrinsic, hash, size } => {
@@ -2245,10 +2284,17 @@ fn apply_index_ops<Block: BlockT>(
 				renewed_map
 					.entry(extrinsic)
 					.or_default()
-					.insert(DbHash::from_slice(hash.as_ref()));
+					.push(DbHash::from_slice(hash.as_ref()));
 			},
 		}
 	}
+	let mut store_or_reference = |tx: &mut Transaction<DbHash>, hash: DbHash| {
+		if let Some(bytes) = prefetched.remove(&hash) {
+			tx.store(columns::TRANSACTION, hash, bytes);
+		} else {
+			tx.reference(columns::TRANSACTION, hash);
+		}
+	};
 	let mut n_inserted = 0usize;
 	let mut n_renew_slots = 0usize;
 	let mut n_renew_hashes = 0usize;
@@ -2260,13 +2306,13 @@ fn apply_index_ops<Block: BlockT>(
 			let encoded = extrinsic.encode();
 			if hashes.len() == 1 {
 				// Single renewal: backwards-compatible Indexed variant
-				let hash = *hashes.iter().next().expect("len == 1; qed");
-				transaction.reference(columns::TRANSACTION, hash);
+				let hash = hashes[0];
+				store_or_reference(transaction, hash);
 				DbExtrinsic::Indexed { hash, header: encoded }
 			} else {
 				// Multi-renewal: bump ref counter for each hash
 				for hash in &hashes {
-					transaction.reference(columns::TRANSACTION, *hash);
+					store_or_reference(transaction, *hash);
 				}
 				DbExtrinsic::MultiRenew { hashes, extrinsic: encoded }
 			}
@@ -2370,6 +2416,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			create_gap: true,
 			reset_storage: false,
 			index_ops: Default::default(),
+			prefetched_indexed_transactions: Default::default(),
 		})
 	}
 
@@ -2927,6 +2974,26 @@ pub(crate) mod tests {
 		body: Vec<UncheckedXt>,
 		transaction_index: Option<Vec<IndexOperation>>,
 	) -> Result<H256, sp_blockchain::Error> {
+		insert_block_with_prefetched(
+			backend,
+			number,
+			parent_hash,
+			extrinsics_root,
+			body,
+			transaction_index,
+			HashMap::new(),
+		)
+	}
+
+	pub fn insert_block_with_prefetched(
+		backend: &Backend<Block>,
+		number: u64,
+		parent_hash: H256,
+		extrinsics_root: H256,
+		body: Vec<UncheckedXt>,
+		transaction_index: Option<Vec<IndexOperation>>,
+		prefetched: HashMap<H256, Vec<u8>>,
+	) -> Result<H256, sp_blockchain::Error> {
 		use sp_runtime::testing::Digest;
 
 		let digest = Digest::default();
@@ -2936,11 +3003,54 @@ pub(crate) mod tests {
 		let block_hash = if number == 0 { Default::default() } else { parent_hash };
 		let mut op = backend.begin_operation().unwrap();
 		backend.begin_state_operation(&mut op, block_hash).unwrap();
+		if !prefetched.is_empty() {
+			op.set_renew_payloads(prefetched).unwrap();
+		}
 		if let Some(index) = transaction_index {
 			op.update_transaction_index(index).unwrap();
 		}
 
-		// Insert some fake data to ensure that the block can be found in the state column.
+		let (root, overlay) = op.old_state.storage_root(
+			vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
+			StateVersion::V1,
+		);
+		op.update_db_storage(overlay).unwrap();
+		header.state_root = root.into();
+
+		op.set_block_data(header.clone(), Some(body), None, None, NewBlockState::Best, true)
+			.unwrap();
+
+		backend.commit_operation(op)?;
+
+		Ok(header.hash())
+	}
+
+	/// Mirrors `apply_block` so runtime ops override wrapper-supplied ones when both are present.
+	pub fn insert_block_with_synthetic_ops(
+		backend: &Backend<Block>,
+		number: u64,
+		parent_hash: H256,
+		extrinsics_root: H256,
+		body: Vec<UncheckedXt>,
+		runtime_index_ops: Vec<IndexOperation>,
+		synthetic_index_ops: Vec<IndexOperation>,
+		renew_payloads: HashMap<H256, Vec<u8>>,
+	) -> Result<H256, sp_blockchain::Error> {
+		use sp_runtime::testing::Digest;
+
+		let digest = Digest::default();
+		let mut header =
+			Header { number, parent_hash, state_root: Default::default(), digest, extrinsics_root };
+
+		let block_hash = if number == 0 { Default::default() } else { parent_hash };
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, block_hash).unwrap();
+		op.set_renew_payloads(renew_payloads).unwrap();
+		op.update_transaction_index(synthetic_index_ops).unwrap();
+		if !runtime_index_ops.is_empty() {
+			op.update_transaction_index(runtime_index_ops).unwrap();
+		}
+
 		let (root, overlay) = op.old_state.storage_root(
 			vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
 			StateVersion::V1,
@@ -4041,6 +4151,38 @@ pub(crate) mod tests {
 	}
 
 	#[test]
+	fn finalize_block_does_not_leave_best_behind_finalized() {
+		let backend = Backend::<Block>::new_test(10, 10);
+
+		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+		let block1 = insert_header(&backend, 1, block0, None, Default::default());
+		let block2 = insert_header(&backend, 2, block1, None, Default::default());
+		let block3 = insert_header(&backend, 3, block2, None, Default::default());
+		let block4 = insert_header(&backend, 4, block3, None, Default::default());
+
+		assert_eq!(backend.blockchain().info().best_number, 4);
+
+		// Move `best` back to block 3, e.g. as the result of a re-org.
+		let mut op = backend.begin_operation().unwrap();
+		op.mark_head(block3).unwrap();
+		backend.commit_operation(op).unwrap();
+		assert_eq!(backend.blockchain().info().best_hash, block3);
+		assert_eq!(backend.blockchain().info().best_number, 3);
+
+		// Finalizing block 4 must not leave `best_number` behind `finalized_number`.
+		backend.finalize_block(block1, None).unwrap();
+		backend.finalize_block(block2, None).unwrap();
+		backend.finalize_block(block3, None).unwrap();
+		backend.finalize_block(block4, None).unwrap();
+
+		let info = backend.blockchain().info();
+		assert_eq!(info.finalized_number, 4);
+		assert_eq!(info.finalized_hash, block4);
+		assert!(info.best_number >= info.finalized_number);
+		assert_eq!(info.best_hash, block4);
+	}
+
+	#[test]
 	fn test_finalize_multiple_blocks_in_single_op() {
 		let backend = Backend::<Block>::new_test(10, 10);
 
@@ -4858,43 +5000,12 @@ pub(crate) mod tests {
 
 	#[test]
 	fn multi_renew_duplicate_hash_balanced_lifecycle() {
-		// A block emitting `[Renew{0, X}, Renew{0, X}]` for the same hash twice gets
-		// dedup'd by `renewed_map`'s BTreeSet to a single entry, so the slot is stored
-		// as `Indexed { hash: X, .. }` (not MultiRenew) and contributes +1 ref. The
-		// block must release that +1 cleanly when it is pruned. Asymmetric +/- (e.g.
-		// if dedup was skipped on the +1 side but kept on -1, or vice versa) would
-		// either leak X forever or panic at parity-db level.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
 
 		let x1 = UncheckedXt::new_transaction(0.into(), ()).encode();
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
-
-		// Variant-shape assertion: this is the realistic shape produced by
-		// `utility.batch(renew[X], renew[X], ...)`. Confirm directly that N >= 2 Renews
-		// of the same hash collapse to `Indexed` (not `MultiRenew`) after BTreeSet dedup,
-		// independent of the lifecycle test below. Tested at N = 3 to make the dedup
-		// non-trivial.
-		{
-			let mut tx: Transaction<DbHash> = Transaction::new();
-			let dummy_body = vec![UncheckedXt::new_transaction(10.into(), ())];
-			let dup_ops = vec![
-				IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() },
-				IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() },
-				IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() },
-			];
-			let encoded = apply_index_ops::<Block>(&mut tx, dummy_body, dup_ops);
-			let decoded: Vec<DbExtrinsic<Block>> =
-				Decode::decode(&mut &encoded[..]).expect("apply_index_ops output must decode");
-			assert_eq!(decoded.len(), 1);
-			assert!(
-				matches!(decoded[0], DbExtrinsic::Indexed { .. }),
-				"N duplicate Renews of the same hash must dedup to Indexed (not MultiRenew); \
-				 got {:?}",
-				decoded[0],
-			);
-		}
 
 		for i in 0..6 {
 			let mut index = Vec::new();
@@ -4906,7 +5017,6 @@ pub(crate) mod tests {
 				});
 				vec![UncheckedXt::new_transaction(0.into(), ())]
 			} else if i == 1 {
-				// Duplicate Renew at the same extrinsic index — the scenario this test exists for.
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() });
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() });
 				vec![UncheckedXt::new_transaction(10.into(), ())]
@@ -4921,11 +5031,8 @@ pub(crate) mod tests {
 		}
 
 		let bc = backend.blockchain();
-		// Pre-finalization: X is alive (refcount = 1 from insert + 1 from dedup'd renew = 2)
 		assert!(bc.indexed_transaction(x1_hash).unwrap().is_some());
 
-		// Finalize step-by-step. With BlocksPruning::Some(2), after finalizing block N
-		// blocks 0..(N-2) are pruned (last 2 finalized blocks are kept).
 		for i in 1..6 {
 			let mut op = backend.begin_operation().unwrap();
 			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
@@ -4933,26 +5040,12 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		// After all finalization, blocks 0 and 1 are both pruned. If dedup was applied
-		// asymmetrically (e.g. on the +1 side but not the -1 side), X would either leak
-		// or over-release; the assertion below catches both cases.
-		assert!(
-			bc.indexed_transaction(x1_hash).unwrap().is_none(),
-			"X should be deleted: insert (+1) + dedup'd renew block (+1) all pruned",
-		);
+		assert!(bc.indexed_transaction(x1_hash).unwrap().is_none());
 	}
 
 	#[test]
 	fn multi_renew_mixed_duplicates_and_uniques() {
-		// `[Renew{0, W}, Renew{0, X}, Renew{0, Y}, Renew{0, W}, Renew{0, Z}]` — the realistic
-		// shape of a `utility.batch(renew[..])` call where one content_hash appears twice
-		// alongside several uniques. 5 ops, 4 distinct hashes, 1 duplicate.
-		// Locks in three things at once:
-		// (1) Stored hashes are deduplicated (the duplicate W collapses to a single entry).
-		// (2) block_indexed_body returns one blob per distinct hash; lookup is by membership,
-		//     not position (BTreeSet iteration order is by hash bytes, not insertion order).
-		// (3) Refcount lifecycle is correct after dedup: each of W/X/Y/Z gets +1 from the
-		//     multi-renew block (not +2 for W), and all are released when the block is pruned.
+		// Ops [W, X, Y, W, Z]: insertion-order preserved, duplicate W kept.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
@@ -5015,18 +5108,14 @@ pub(crate) mod tests {
 
 		let bc = backend.blockchain();
 
-		// (1) and (2): block_indexed_body returns one blob per distinct hash, regardless
-		// of how many times that hash appeared in the input ops. Order is by hash bytes
-		// (BTreeSet iteration), so we check membership rather than positions.
 		let indexed_body = bc.block_indexed_body(blocks[1]).unwrap().unwrap();
-		assert_eq!(indexed_body.len(), 4, "duplicate W collapsed; 4 distinct blobs remain");
-		let blobs: BTreeSet<&[u8]> = indexed_body.iter().map(|b| b.as_slice()).collect();
-		assert!(blobs.contains(&&w[1..]), "W blob must be present");
-		assert!(blobs.contains(&&x[1..]), "X blob must be present");
-		assert!(blobs.contains(&&y[1..]), "Y blob must be present");
-		assert!(blobs.contains(&&z[1..]), "Z blob must be present");
+		assert_eq!(indexed_body.len(), 5);
+		assert_eq!(&indexed_body[0][..], &w[1..]);
+		assert_eq!(&indexed_body[1][..], &x[1..]);
+		assert_eq!(&indexed_body[2][..], &y[1..]);
+		assert_eq!(&indexed_body[3][..], &w[1..]);
+		assert_eq!(&indexed_body[4][..], &z[1..]);
 
-		// (3) Lifecycle: finalize through pruning.
 		for i in 1..6 {
 			let mut op = backend.begin_operation().unwrap();
 			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
@@ -5034,17 +5123,85 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		// After all blocks pruned: refcounts zero out. With BTreeSet dedup the multi-renew
-		// block contributed exactly +1 per distinct hash, so each is released cleanly when
-		// that block is pruned.
-		// W: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
-		// X: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
-		// Y: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
-		// Z: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
 		assert!(bc.indexed_transaction(w_hash).unwrap().is_none(), "W deleted");
 		assert!(bc.indexed_transaction(x_hash).unwrap().is_none(), "X deleted");
 		assert!(bc.indexed_transaction(y_hash).unwrap().is_none(), "Y deleted");
 		assert!(bc.indexed_transaction(z_hash).unwrap().is_none(), "Z deleted");
+	}
+
+	#[test]
+	fn block_indexed_body_preserves_renew_op_submission_order() {
+		// `block_indexed_body(N)` returns blobs in submission order of the underlying
+		// Renew ops. Sorting (e.g. via BTreeSet) would desync off-chain proof
+		// construction from on-chain verification.
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::KeepAll, 10);
+
+		let payloads: Vec<Vec<u8>> = (0..5)
+			.map(|i: u64| UncheckedXt::new_transaction(i.into(), ()).encode())
+			.collect();
+		let hashes: Vec<<HashingFor<Block> as sp_core::Hasher>::Out> = payloads
+			.iter()
+			.map(|p| <HashingFor<Block> as sp_core::Hasher>::hash(&p[1..]))
+			.collect();
+
+		let mut prev_hash = Default::default();
+		let insert_ops: Vec<IndexOperation> = (0..5)
+			.map(|i| IndexOperation::Insert {
+				extrinsic: i as u32,
+				hash: hashes[i].as_ref().to_vec(),
+				size: (payloads[i].len() - 1) as u32,
+			})
+			.collect();
+		let body0: Vec<UncheckedXt> =
+			(0..5).map(|i| UncheckedXt::new_transaction((i as u64).into(), ())).collect();
+		prev_hash =
+			insert_block(&backend, 0, prev_hash, None, Default::default(), body0, Some(insert_ops))
+				.unwrap();
+
+		// Non-monotonic submission order so any sort would visibly disturb it.
+		let submission_order = [4usize, 1, 0, 3, 2];
+		let renew_ops: Vec<IndexOperation> = submission_order
+			.iter()
+			.map(|&i| IndexOperation::Renew { extrinsic: 0, hash: hashes[i].as_ref().to_vec() })
+			.collect();
+		let block1 = insert_block(
+			&backend,
+			1,
+			prev_hash,
+			None,
+			Default::default(),
+			vec![UncheckedXt::new_transaction(100.into(), ())],
+			Some(renew_ops),
+		)
+		.unwrap();
+
+		let bc = backend.blockchain();
+		let body_index_bytes = read_db(
+			&*backend.storage.db,
+			columns::KEY_LOOKUP,
+			columns::BODY_INDEX,
+			BlockId::<Block>::Hash(block1),
+		)
+		.unwrap()
+		.expect("block 1 must have a BODY_INDEX entry");
+		let decoded: Vec<DbExtrinsic<Block>> =
+			Decode::decode(&mut &body_index_bytes[..]).expect("must decode");
+		assert_eq!(decoded.len(), 1);
+		match &decoded[0] {
+			DbExtrinsic::MultiRenew { hashes: stored_hashes, .. } => {
+				assert_eq!(stored_hashes.len(), 5);
+				for (i, &order_idx) in submission_order.iter().enumerate() {
+					assert_eq!(stored_hashes[i].as_ref(), hashes[order_idx].as_ref());
+				}
+			},
+			other => panic!("expected MultiRenew; got {other:?}"),
+		}
+
+		let blobs = bc.block_indexed_body(block1).unwrap().unwrap();
+		assert_eq!(blobs.len(), 5);
+		for (i, &order_idx) in submission_order.iter().enumerate() {
+			assert_eq!(blobs[i].as_slice(), &payloads[order_idx][1..]);
+		}
 	}
 
 	#[test]
@@ -5098,35 +5255,24 @@ pub(crate) mod tests {
 
 		let bc = backend.blockchain();
 
-		// X exists from block 0's Insert; block 1's Renew bumped its refcount.
-		assert!(
-			bc.indexed_transaction(x_hash).unwrap().is_some(),
-			"X stored at block 0; renewed at block 1",
-		);
-
-		// Y was NEVER stored — the Insert{0, Y, ...} op was discarded because Renew won.
+		assert!(bc.indexed_transaction(x_hash).unwrap().is_some());
 		assert!(
 			bc.indexed_transaction(y_hash).unwrap().is_none(),
-			"Y must NOT be stored — its Insert was silently discarded by Renew precedence",
+			"Insert at the same extrinsic index as a Renew is silently dropped",
 		);
 
-		// Block 1's BODY_INDEX entry references X only (single hash from Renew),
-		// so block_indexed_body returns the data at X's hash.
 		let indexed = bc.block_indexed_body(block1).unwrap().unwrap();
-		assert_eq!(indexed.len(), 1, "single Indexed entry from the Renew");
-		assert_eq!(&indexed[0][..], &x[1..], "data is X (the renewed hash)");
+		assert_eq!(indexed.len(), 1);
+		assert_eq!(&indexed[0][..], &x[1..]);
 	}
 
 	#[test]
 	fn db_extrinsic_encoding_round_trip() {
-		// SCALE round-trip stability for all three variants. Catches future variant
-		// reordering or field reshape that would corrupt on-disk BODY_INDEX entries.
-		// DbExtrinsic doesn't derive PartialEq so we re-encode and compare bytes.
 		let entries: Vec<DbExtrinsic<Block>> = vec![
 			DbExtrinsic::Indexed { hash: H256::repeat_byte(0xAA), header: vec![0x01, 0x02, 0x03] },
 			DbExtrinsic::Full(UncheckedXt::new_transaction(42.into(), ())),
 			DbExtrinsic::MultiRenew {
-				hashes: BTreeSet::from([H256::repeat_byte(0xBB), H256::repeat_byte(0xCC)]),
+				hashes: vec![H256::repeat_byte(0xBB), H256::repeat_byte(0xCC)],
 				extrinsic: vec![0x04, 0x05, 0x06, 0x07],
 			},
 		];
@@ -5134,30 +5280,11 @@ pub(crate) mod tests {
 		let encoded = entries.encode();
 		let decoded: Vec<DbExtrinsic<Block>> =
 			Decode::decode(&mut &encoded[..]).expect("encoded DbExtrinsic vec must decode");
-		let re_encoded = decoded.encode();
-		assert_eq!(encoded, re_encoded, "encode -> decode -> encode must be byte-stable");
-
-		// Sanity-check structural shape of each decoded entry.
-		assert_eq!(decoded.len(), 3);
-		assert!(matches!(decoded[0], DbExtrinsic::Indexed { .. }));
-		assert!(matches!(decoded[1], DbExtrinsic::Full(_)));
-		match &decoded[2] {
-			DbExtrinsic::MultiRenew { hashes, extrinsic } => {
-				assert_eq!(hashes.len(), 2);
-				assert!(hashes.contains(&H256::repeat_byte(0xBB)));
-				assert!(hashes.contains(&H256::repeat_byte(0xCC)));
-				assert_eq!(extrinsic, &vec![0x04, 0x05, 0x06, 0x07]);
-			},
-			other => panic!("expected MultiRenew, got {other:?}"),
-		}
+		assert_eq!(encoded, decoded.encode());
 	}
 
 	#[test]
 	fn apply_index_ops_deterministic() {
-		// `renewed_map` uses BTreeSet<DbHash> so encoded bytes are deterministic across
-		// nodes (sorted by hash, dedup'd). The BODY_INDEX entry is part of the on-disk
-		// representation that must match across replicas. Pin determinism with a test
-		// instead of relying on convention.
 		let body = vec![
 			UncheckedXt::new_transaction(0.into(), ()),
 			UncheckedXt::new_transaction(1.into(), ()),
@@ -5169,44 +5296,36 @@ pub(crate) mod tests {
 		let ops = vec![
 			IndexOperation::Renew { extrinsic: 0, hash: h1.clone() },
 			IndexOperation::Renew { extrinsic: 0, hash: h2.clone() },
-			IndexOperation::Renew { extrinsic: 0, hash: h1.clone() }, // duplicate
+			IndexOperation::Renew { extrinsic: 0, hash: h1.clone() },
 			IndexOperation::Renew { extrinsic: 1, hash: h3.clone() },
 		];
 
 		let mut tx1: Transaction<DbHash> = Transaction::new();
-		let bytes1 = apply_index_ops::<Block>(&mut tx1, body.clone(), ops.clone());
+		let bytes1 = apply_index_ops::<Block>(&mut tx1, body.clone(), ops.clone(), HashMap::new());
 
 		let mut tx2: Transaction<DbHash> = Transaction::new();
-		let bytes2 = apply_index_ops::<Block>(&mut tx2, body, ops);
+		let bytes2 = apply_index_ops::<Block>(&mut tx2, body, ops, HashMap::new());
 
-		assert_eq!(bytes1, bytes2, "apply_index_ops must be deterministic across calls");
+		assert_eq!(bytes1, bytes2);
 
-		// Sanity: ensure we actually built a multi-renew variant (so the test exercises
-		// the new codepath, not just the trivial Indexed/Full branches).
 		let decoded: Vec<DbExtrinsic<Block>> =
 			Decode::decode(&mut &bytes1[..]).expect("apply_index_ops output must decode");
 		assert_eq!(decoded.len(), 2);
-		assert!(
-			matches!(decoded[0], DbExtrinsic::MultiRenew { .. }),
-			"index 0 (3 renew ops including duplicate) must be MultiRenew",
-		);
-		assert!(
-			matches!(decoded[1], DbExtrinsic::Indexed { .. }),
-			"index 1 (single renew op) must be Indexed",
-		);
+		match &decoded[0] {
+			DbExtrinsic::MultiRenew { hashes, .. } => {
+				assert_eq!(hashes.len(), 3);
+				assert_eq!(hashes[0].as_ref(), h1.as_slice());
+				assert_eq!(hashes[1].as_ref(), h2.as_slice());
+				assert_eq!(hashes[2].as_ref(), h1.as_slice());
+			},
+			other => panic!("expected MultiRenew, got {other:?}"),
+		}
+		assert!(matches!(decoded[1], DbExtrinsic::Indexed { .. }));
 	}
 
 	#[test]
 	fn multi_renew_in_one_block_indexed_in_another() {
-		// Cross-block lifecycle: same content hash X is referenced by three blocks
-		// via two different DbExtrinsic shapes (the duplicate-renew block dedups to
-		// a single hash and so also takes the Indexed shape):
-		//   - Block 0 (Insert):                 `Indexed { hash: X, header: partial }`  → +1 ref
-		//   - Block 1 (single Renew):           `Indexed { hash: X, header: full }`     → +1 ref
-		//   - Block 2 (Renew{X}, Renew{X}):     `Indexed { hash: X, header: full }`     → +1 ref
-		//     (BTreeSet collapses the duplicate; len == 1, so it's not MultiRenew)
-		// Total refcount peaks at 3. Each block's prune must release exactly its
-		// contribution. Realistic auto-renewal pattern on Bulletin chain.
+		// X across three blocks: Insert, single Renew, duplicate Renew. Refcount peaks at 4.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
@@ -5217,7 +5336,6 @@ pub(crate) mod tests {
 		for i in 0..6 {
 			let mut index = Vec::new();
 			let body = if i == 0 {
-				// Insert path: Indexed { hash, header: partial }
 				index.push(IndexOperation::Insert {
 					extrinsic: 0,
 					hash: x_hash.as_ref().to_vec(),
@@ -5225,17 +5343,13 @@ pub(crate) mod tests {
 				});
 				vec![UncheckedXt::new_transaction(0.into(), ())]
 			} else if i == 1 {
-				// Single Renew path: Indexed { hash, header: full_encoded }
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
 				vec![UncheckedXt::new_transaction(10.into(), ())]
 			} else if i == 2 {
-				// Two Renew ops with the same hash; BTreeSet dedups to one, so this
-				// produces Indexed { hash: X, header: full } (not MultiRenew).
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
 				vec![UncheckedXt::new_transaction(20.into(), ())]
 			} else {
-				// Empty filler blocks
 				vec![UncheckedXt::new_transaction(i.into(), ())]
 			};
 			let hash =
@@ -5246,11 +5360,8 @@ pub(crate) mod tests {
 		}
 
 		let bc = backend.blockchain();
-		// Pre-finalization: refcount = 1 + 1 + 1 = 3 (block 2's duplicate dedup'd). X is alive.
 		assert!(bc.indexed_transaction(x_hash).unwrap().is_some());
 
-		// Finalize step-by-step. With BlocksPruning::Some(2), after finalizing block N,
-		// blocks 0..(N-2) are pruned (last 2 finalized blocks are kept).
 		for i in 1..6 {
 			let mut op = backend.begin_operation().unwrap();
 			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
@@ -5258,16 +5369,7 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		// After finalize 5: blocks 0, 1, 2, 3 all pruned.
-		// Each block's prune released its own contribution:
-		//   block 0 (Indexed insert):                  -1
-		//   block 1 (Indexed single-renew):            -1
-		//   block 2 (Indexed dedup'd duplicate-renew): -1
-		// Total releases = 3. Refcount = 3 - 3 = 0. X should be deleted.
-		assert!(
-			bc.indexed_transaction(x_hash).unwrap().is_none(),
-			"X must be deleted: insert + single-renew + dedup'd-renew all pruned",
-		);
+		assert!(bc.indexed_transaction(x_hash).unwrap().is_none());
 	}
 
 	#[test]
@@ -6477,5 +6579,1050 @@ pub(crate) mod tests {
 		assert!(matches!(gap.gap_type, BlockGapType::MissingHeaderAndBody));
 		assert_eq!(gap.start, 1);
 		assert_eq!(gap.end, 2);
+	}
+
+	mod indexed_transaction_tests {
+		use super::*;
+		use crate::utils::NUM_COLUMNS;
+		use rstest::rstest;
+		use sp_database::Transaction as DbTransaction;
+		use std::{path::PathBuf, sync::Arc};
+		use tempfile::TempDir;
+
+		#[derive(Debug, Clone, Copy)]
+		enum BackendKind {
+			KvdbMemdb,
+			ParityDb,
+			RocksDb,
+		}
+
+		enum DbFactory {
+			Persistent(Arc<dyn Database<DbHash>>),
+			OnDisk { path: PathBuf, kind: BackendKind, _tmp: TempDir },
+		}
+
+		impl DbFactory {
+			fn new(kind: BackendKind) -> Self {
+				match kind {
+					BackendKind::KvdbMemdb => Self::Persistent(sp_database::as_database(
+						kvdb_memorydb::create(NUM_COLUMNS),
+					)),
+					BackendKind::ParityDb | BackendKind::RocksDb => {
+						let tmp = TempDir::new().unwrap();
+						let path = tmp.path().to_path_buf();
+						Self::OnDisk { path, kind, _tmp: tmp }
+					},
+				}
+			}
+
+			fn open(&self) -> Arc<dyn Database<DbHash>> {
+				match self {
+					Self::Persistent(arc) => arc.clone(),
+					Self::OnDisk { path, kind: BackendKind::ParityDb, .. } => {
+						crate::parity_db::open::<DbHash>(path, DatabaseType::Full, true, false)
+							.expect("parity-db open succeeds in test")
+					},
+					Self::OnDisk { path, kind: BackendKind::RocksDb, .. } => {
+						let mut cfg = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
+						cfg.create_if_missing = true;
+						let db = kvdb_rocksdb::Database::open(&cfg, path)
+							.expect("kvdb-rocksdb open succeeds in test");
+						sp_database::as_database(db)
+					},
+					Self::OnDisk { kind: BackendKind::KvdbMemdb, .. } => unreachable!(),
+				}
+			}
+		}
+
+		const TEST_COL: u32 = columns::TRANSACTION;
+
+		fn hash(seed: u8) -> DbHash {
+			DbHash::repeat_byte(seed)
+		}
+
+		fn commit_store(factory: &DbFactory, h: DbHash, bytes: Vec<u8>) {
+			let db = factory.open();
+			let mut tx = DbTransaction::new();
+			tx.store(TEST_COL, h, bytes);
+			db.commit(tx).unwrap();
+		}
+
+		fn commit_reference(factory: &DbFactory, h: DbHash) {
+			let db = factory.open();
+			let mut tx = DbTransaction::new();
+			tx.reference(TEST_COL, h);
+			db.commit(tx).unwrap();
+		}
+
+		fn commit_release(factory: &DbFactory, h: DbHash) {
+			let db = factory.open();
+			let mut tx = DbTransaction::new();
+			tx.release(TEST_COL, h);
+			db.commit(tx).unwrap();
+		}
+
+		fn get_value(factory: &DbFactory, h: DbHash) -> Option<Vec<u8>> {
+			factory.open().get(TEST_COL, h.as_ref())
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_get(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA1);
+			let bytes = b"a1-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_release_separate_commits(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA2);
+			let bytes = b"a2-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			assert!(get_value(&factory, h).is_some(), "present after store");
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "gone after release");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_reference_release_release_separate_commits(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA3);
+			let bytes = b"a3-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			commit_reference(&factory, h);
+			assert!(get_value(&factory, h).is_some(), "rc=2 after reference");
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_some(), "rc=1 still present");
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "rc=0 removed");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_reference_same_commit_keeps_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA4);
+			let bytes = b"a4-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.store(TEST_COL, h, bytes.clone());
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(
+				get_value(&factory, h).as_deref(),
+				Some(bytes.as_slice()),
+				"Store + Reference on fresh hash in a single commit must keep the value \
+				 (observed via fresh DB handle so overlay caching is bypassed)",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_references_same_commit_keeps_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA5);
+			let bytes = b"a5-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.store(TEST_COL, h, bytes.clone());
+				tx.reference(TEST_COL, h);
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(
+				get_value(&factory, h).as_deref(),
+				Some(bytes.as_slice()),
+				"Store + 2x Reference on fresh hash must keep the value (post-sync observation)",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn reference_on_missing_hash_is_noop(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA6);
+			commit_reference(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "reference on missing key is a no-op");
+			let bytes = b"a6-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "single release balances the store");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn release_on_missing_hash_is_noop(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA7);
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "release on missing key is a no-op");
+			let bytes = b"a7-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn release_then_store_missing_same_commit_stores_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAB);
+			let bytes = b"ab-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.release(TEST_COL, h);
+				tx.store(TEST_COL, h, bytes.clone());
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "single release balances the store");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn reference_then_store_missing_same_commit_single_release_removes_value(
+			#[case] kind: BackendKind,
+		) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAC);
+			let bytes = b"ac-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.reference(TEST_COL, h);
+				tx.store(TEST_COL, h, bytes.clone());
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "missing-key reference is a no-op");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn release_then_reference_at_one_same_commit_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAD);
+			let bytes = b"ad-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.release(TEST_COL, h);
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "reference after removal is a no-op");
+		}
+
+		// Same-commit multi-op refcount tests: each Store/Reference/Release must compose.
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_releases_same_commit_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA8);
+			let bytes = b"a8-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			commit_reference(&factory, h);
+			assert!(get_value(&factory, h).is_some(), "rc=2 after store + reference");
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.release(TEST_COL, h);
+				tx.release(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "rc 2 -> 0 after two releases");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_references_same_commit_increments_twice(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA9);
+			let bytes = b"a9-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.reference(TEST_COL, h);
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			commit_release(&factory, h);
+			commit_release(&factory, h);
+			assert_eq!(
+				get_value(&factory, h).as_deref(),
+				Some(bytes.as_slice()),
+				"rc 3 -> 1 after two releases, value still present",
+			);
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "rc=0 after final release");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_release_same_commit_net_zero_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAA);
+			let bytes = b"aa-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.store(TEST_COL, h, bytes);
+				tx.release(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "store + release nets to rc=0");
+		}
+
+		struct BackendFactory {
+			backend: Option<Backend<Block>>,
+			kind: BackendKind,
+			blocks_pruning: BlocksPruning,
+			tmp_path: Option<PathBuf>,
+			_tmp: Option<TempDir>,
+		}
+
+		impl BackendFactory {
+			fn new(kind: BackendKind, blocks_pruning: BlocksPruning) -> Self {
+				match kind {
+					BackendKind::KvdbMemdb => Self {
+						backend: Some(Backend::new_test_with_tx_storage(blocks_pruning, 10)),
+						kind,
+						blocks_pruning,
+						tmp_path: None,
+						_tmp: None,
+					},
+					BackendKind::ParityDb => {
+						let tmp = TempDir::new().unwrap();
+						let tmp_path = tmp.path().to_path_buf();
+						let backend = Backend::new_test_with_tx_storage_source(
+							blocks_pruning,
+							10,
+							DatabaseSource::ParityDb { path: tmp_path.clone() },
+							Default::default(),
+						);
+						Self {
+							backend: Some(backend),
+							kind,
+							blocks_pruning,
+							tmp_path: Some(tmp_path),
+							_tmp: Some(tmp),
+						}
+					},
+					BackendKind::RocksDb => {
+						let tmp = TempDir::new().unwrap();
+						let tmp_path = tmp.path().to_path_buf();
+						let mut cfg = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
+						cfg.create_if_missing = true;
+						let db = kvdb_rocksdb::Database::open(&cfg, &tmp_path)
+							.expect("kvdb-rocksdb open succeeds in test");
+						let db = sp_database::as_database(db);
+						let backend = Backend::new_test_with_tx_storage_source(
+							blocks_pruning,
+							10,
+							DatabaseSource::Custom { db, require_create_flag: true },
+							Default::default(),
+						);
+						Self {
+							backend: Some(backend),
+							kind,
+							blocks_pruning,
+							tmp_path: Some(tmp_path),
+							_tmp: Some(tmp),
+						}
+					},
+				}
+			}
+
+			fn backend(&self) -> &Backend<Block> {
+				self.backend.as_ref().expect("backend present")
+			}
+
+			// parity-db drains commit_overlay on `Drop`. Drop+reopen before
+			// `is_none()` assertions to avoid flakes. No-op for memdb/rocksdb.
+			fn refresh_for_assertion(&mut self) {
+				if !matches!(self.kind, BackendKind::ParityDb) {
+					return;
+				}
+				let path = self.tmp_path.clone().expect("paritydb has tmp_path");
+				self.backend = None;
+				self.backend = Some(Backend::new_test_with_tx_storage_source(
+					self.blocks_pruning,
+					10,
+					DatabaseSource::ParityDb { path },
+					Default::default(),
+				));
+			}
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn prefetched_multi_renew_same_hash_balanced_lifecycle(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let block0 = insert_block_with_prefetched(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(0.into(), ())],
+				Some(vec![
+					IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() },
+					IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() },
+				]),
+				HashMap::from([(payload_hash, payload.clone())]),
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_some());
+
+			let mut prev = block0;
+			for i in 1..6u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..6 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[4]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_none());
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn prefetched_single_renew_full_lifecycle(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let block0 = insert_block_with_prefetched(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(0.into(), ())],
+				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
+				HashMap::from([(payload_hash, payload.clone())]),
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+			);
+
+			let mut prev = block0;
+			for i in 1..6u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..6 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[4]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_none());
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn redundant_prefetch_on_local_data_balanced_lifecycle(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			let payload_xt = UncheckedXt::new_transaction(5.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let block0 = insert_block(
+				factory.backend(),
+				0,
+				Default::default(),
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(5.into(), ())],
+				Some(vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}]),
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			let block1 = insert_block_with_prefetched(
+				factory.backend(),
+				1,
+				block0,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(99.into(), ())],
+				Some(vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }]),
+				HashMap::from([(payload_hash, payload.clone())]),
+			)
+			.unwrap();
+			blocks.push(block1);
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_some());
+
+			let mut prev = block1;
+			for i in 2..7u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..7 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[5]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.is_none(),
+				"redundant prefetch must not leak refcount through prune",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn same_block_insert_and_renew_different_indices_with_prefetch(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			let x_xt = UncheckedXt::new_transaction(0.into(), ()).encode();
+			let x = x_xt[1..].to_vec();
+			let x_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x);
+			let x_hash_arr: [u8; 32] = x_hash.into();
+
+			let mut blocks = Vec::new();
+
+			let block0 = insert_block(
+				factory.backend(),
+				0,
+				Default::default(),
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(0.into(), ())],
+				Some(vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: x_hash_arr.into(),
+					size: x.len() as u32,
+				}]),
+			)
+			.unwrap();
+			blocks.push(block0);
+
+			let block1 = insert_block_with_prefetched(
+				factory.backend(),
+				1,
+				block0,
+				Default::default(),
+				vec![
+					UncheckedXt::new_transaction(0.into(), ()),
+					UncheckedXt::new_transaction(99.into(), ()),
+				],
+				Some(vec![
+					IndexOperation::Insert {
+						extrinsic: 0,
+						hash: x_hash_arr.into(),
+						size: x.len() as u32,
+					},
+					IndexOperation::Renew { extrinsic: 1, hash: x_hash_arr.into() },
+				]),
+				HashMap::from([(x_hash, x.clone())]),
+			)
+			.unwrap();
+			blocks.push(block1);
+
+			assert!(factory.backend().blockchain().indexed_transaction(x_hash).unwrap().is_some());
+
+			let mut prev = block1;
+			for i in 2..8u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..8 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[6]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory.backend().blockchain().indexed_transaction(x_hash).unwrap().is_none(),
+				"same-block Insert+Renew with prefetch must balance refcount through prune",
+			);
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn sequential_renew_blocks_all_prefetched_eventually_pruned(#[case] kind: BackendKind) {
+			let mut factory = BackendFactory::new(kind, BlocksPruning::Some(2));
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let mut blocks = Vec::new();
+			let mut prev = Default::default();
+			for i in 0..4u64 {
+				let block = insert_block_with_prefetched(
+					factory.backend(),
+					i,
+					prev,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					Some(vec![IndexOperation::Renew {
+						extrinsic: 0,
+						hash: payload_hash_arr.into(),
+					}]),
+					HashMap::from([(payload_hash, payload.clone())]),
+				)
+				.unwrap();
+				blocks.push(block);
+				prev = block;
+			}
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(payload_hash)
+				.unwrap()
+				.is_some());
+
+			for i in 4..10u64 {
+				prev = insert_block(
+					factory.backend(),
+					i,
+					prev,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(prev);
+			}
+
+			for i in 1..10 {
+				let mut op = factory.backend().begin_operation().unwrap();
+				factory.backend().begin_state_operation(&mut op, blocks[8]).unwrap();
+				op.mark_finalized(blocks[i], None).unwrap();
+				factory.backend().commit_operation(op).unwrap();
+			}
+
+			factory.refresh_for_assertion();
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.is_none(),
+				"sequential prefetched renews must all release through prune",
+			);
+		}
+
+		// Synthetic-ops precedence tests. kvdb-memdb only — backend-agnostic logic.
+
+		#[test]
+		fn runtime_index_ops_win_over_synthetic() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(11.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let bogus_hash_arr = [0xAAu8; 32];
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(11.into(), ())],
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}],
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: bogus_hash_arr.into(),
+					size: payload.len() as u32,
+				}],
+				HashMap::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+				"runtime ops win",
+			);
+			assert!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(bogus_hash_arr.into())
+					.unwrap()
+					.is_none(),
+				"synthetic dropped",
+			);
+		}
+
+		#[test]
+		fn empty_both_falls_back_to_plain_body() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let body = vec![UncheckedXt::new_transaction(42.into(), ())];
+
+			let block_hash = insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				body.clone(),
+				Vec::new(),
+				Vec::new(),
+				HashMap::new(),
+			)
+			.unwrap();
+
+			let stored_body = factory.backend().blockchain().body(block_hash).unwrap();
+			assert_eq!(stored_body, Some(body));
+		}
+
+		#[test]
+		fn synthetic_renew_uses_prefetched_payload() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload = b"prefetched-blob".to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(1.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }],
+				HashMap::from([(payload_hash, payload.clone())]),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+			);
+		}
+
+		#[test]
+		fn synthetic_renew_without_prefetched_references_existing() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(5.into(), ()).encode();
+			let payload = payload_xt[1..].to_vec();
+			let payload_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&payload);
+			let payload_hash_arr: [u8; 32] = payload_hash.into();
+
+			let block0 = insert_block(
+				factory.backend(),
+				0,
+				Default::default(),
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(5.into(), ())],
+				Some(vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: payload_hash_arr.into(),
+					size: payload.len() as u32,
+				}]),
+			)
+			.unwrap();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				1,
+				block0,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(6.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Renew { extrinsic: 0, hash: payload_hash_arr.into() }],
+				HashMap::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(payload_hash)
+					.unwrap()
+					.as_deref(),
+				Some(payload.as_slice()),
+			);
+		}
+
+		#[test]
+		fn synthetic_insert_extracts_tail_from_body() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(13.into(), ()).encode();
+			let tail_size = 4u32;
+			let tail_start = payload_xt.len() - tail_size as usize;
+			let expected_tail = payload_xt[tail_start..].to_vec();
+			let tail_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&expected_tail);
+			let tail_hash_arr: [u8; 32] = tail_hash.into();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(13.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: tail_hash_arr.into(),
+					size: tail_size,
+				}],
+				HashMap::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory
+					.backend()
+					.blockchain()
+					.indexed_transaction(tail_hash)
+					.unwrap()
+					.as_deref(),
+				Some(expected_tail.as_slice()),
+			);
+		}
+
+		#[test]
+		fn synthetic_insert_oversized_size_falls_back_to_full_extrinsic() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let payload_xt = UncheckedXt::new_transaction(17.into(), ()).encode();
+			let bogus_hash_arr = [0xBBu8; 32];
+			let oversized = (payload_xt.len() + 1) as u32;
+
+			let block_hash = insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![UncheckedXt::new_transaction(17.into(), ())],
+				Vec::new(),
+				vec![IndexOperation::Insert {
+					extrinsic: 0,
+					hash: bogus_hash_arr.into(),
+					size: oversized,
+				}],
+				HashMap::new(),
+			)
+			.unwrap();
+
+			assert!(factory
+				.backend()
+				.blockchain()
+				.indexed_transaction(bogus_hash_arr.into())
+				.unwrap()
+				.is_none());
+			let stored_body = factory.backend().blockchain().body(block_hash).unwrap();
+			assert_eq!(stored_body, Some(vec![UncheckedXt::new_transaction(17.into(), ())]));
+		}
+
+		#[test]
+		fn multiple_synthetic_ops_per_block_apply_in_order() {
+			let factory = BackendFactory::new(BackendKind::KvdbMemdb, BlocksPruning::KeepAll);
+			let xt_a = UncheckedXt::new_transaction(21.into(), ()).encode();
+			let xt_b = UncheckedXt::new_transaction(22.into(), ()).encode();
+			let payload_a = xt_a[1..].to_vec();
+			let payload_b = xt_b[1..].to_vec();
+			let hash_a = <HashingFor<Block> as sp_core::Hasher>::hash(&payload_a);
+			let hash_b = <HashingFor<Block> as sp_core::Hasher>::hash(&payload_b);
+			let hash_a_arr: [u8; 32] = hash_a.into();
+			let hash_b_arr: [u8; 32] = hash_b.into();
+
+			insert_block_with_synthetic_ops(
+				factory.backend(),
+				0,
+				Default::default(),
+				Default::default(),
+				vec![
+					UncheckedXt::new_transaction(21.into(), ()),
+					UncheckedXt::new_transaction(22.into(), ()),
+				],
+				Vec::new(),
+				vec![
+					IndexOperation::Insert {
+						extrinsic: 0,
+						hash: hash_a_arr.into(),
+						size: payload_a.len() as u32,
+					},
+					IndexOperation::Insert {
+						extrinsic: 1,
+						hash: hash_b_arr.into(),
+						size: payload_b.len() as u32,
+					},
+				],
+				HashMap::new(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				factory.backend().blockchain().indexed_transaction(hash_a).unwrap().as_deref(),
+				Some(payload_a.as_slice()),
+				"first op",
+			);
+			assert_eq!(
+				factory.backend().blockchain().indexed_transaction(hash_b).unwrap().as_deref(),
+				Some(payload_b.as_slice()),
+				"second op",
+			);
+		}
 	}
 }

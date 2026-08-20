@@ -502,6 +502,20 @@ pub trait NominationsQuota<Balance> {
 	fn curve(balance: Balance) -> u32;
 }
 
+/// Check if validator was inactive at some era.
+///
+/// The check is based on the [`RewardPoint`] amount received during the era by the given validator.
+pub trait IsValidatorInactive<AccountId> {
+	/// Tell if the validator considered inactive.
+	fn is_inactive(era: EraIndex, stash: &AccountId, era_points: RewardPoint) -> bool;
+}
+
+impl<AccountId> IsValidatorInactive<AccountId> for () {
+	fn is_inactive(_era: EraIndex, _stash: &AccountId, era_points: RewardPoint) -> bool {
+		era_points == 0
+	}
+}
+
 /// A nomination quota that allows up to MAX nominations for all validators.
 pub struct FixedNominationsQuota<const MAX: u32>;
 impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuota<MAX> {

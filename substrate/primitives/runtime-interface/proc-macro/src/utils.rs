@@ -39,11 +39,60 @@ mod attributes {
 	syn::custom_keyword!(register_only);
 }
 
+/// The first ABI epoch: the original, pre-RFC-145 ABI using host-side allocation.
+pub const ABI_EPOCH_LEGACY: u32 = 1;
+/// The second ABI epoch: the RFC-145 ABI using runtime-side allocation.
+pub const ABI_EPOCH_RFC145: u32 = 2;
+
+/// Returns the `#[cfg]` attribute gating items that belong to the given ABI epoch, or `None`
+/// for epoch 1 items, which are always compiled in.
+pub fn abi_epoch_cfg(epoch: u32) -> Option<syn::Attribute> {
+	(epoch >= ABI_EPOCH_RFC145).then(|| parse_quote!( #[cfg(rfc145)] ))
+}
+
+/// Returns the `#[cfg]` attribute gating items that must only be compiled when everything
+/// above the first ABI epoch is disabled.
+pub fn abi_epoch_negative_cfg() -> syn::Attribute {
+	parse_quote!( #[cfg(not(rfc145))] )
+}
+
+/// Parses and strips an `#[abi_epoch(N)]` attribute, if present.
+///
+/// When the attribute denotes a gated epoch, the corresponding `#[cfg]` attribute is pushed
+/// into the item's attributes in its place, so that all the code generation paths that
+/// propagate `#[cfg]` attributes gate the generated items automatically.
+fn extract_abi_epoch(item: &mut TraitItemFn) -> Result<Option<u32>> {
+	let mut epoch = None;
+	for attr in &item.attrs {
+		if attr.path().is_ident("abi_epoch") {
+			if epoch.is_some() {
+				return Err(Error::new(attr.span(), "Duplicated `abi_epoch` attribute"));
+			}
+			let version: LitInt = attr.parse_args()?;
+			let version = version.base10_parse::<u32>()?;
+			if !(ABI_EPOCH_LEGACY..=ABI_EPOCH_RFC145).contains(&version) {
+				return Err(Error::new(attr.span(), "Unknown ABI epoch"));
+			}
+			epoch = Some(version);
+		}
+	}
+	if epoch.is_some() {
+		item.attrs.retain(|attr| !attr.path().is_ident("abi_epoch"));
+	}
+	if let Some(cfg) = epoch.and_then(abi_epoch_cfg) {
+		item.attrs.push(cfg);
+	}
+	Ok(epoch)
+}
+
 /// A concrete, specific version of a runtime interface function.
 pub struct RuntimeInterfaceFunction {
 	item: TraitItemFn,
 	should_trap_on_return: bool,
-	is_wrapped: bool,
+	is_raw_api: bool,
+	register_only: bool,
+	abi_epoch: u32,
+	declared_cfg_attrs: String,
 }
 
 impl std::ops::Deref for RuntimeInterfaceFunction {
@@ -54,17 +103,17 @@ impl std::ops::Deref for RuntimeInterfaceFunction {
 }
 
 impl RuntimeInterfaceFunction {
-	fn new(item: &TraitItemFn) -> Result<Self> {
+	fn new(item: &TraitItemFn, register_only: bool) -> Result<Self> {
 		let mut item = item.clone();
 		let mut should_trap_on_return = false;
-		let mut is_wrapped = false;
+		let mut is_raw_api = false;
 
 		item.attrs.retain(|attr| {
 			if attr.path().is_ident("trap_on_return") {
 				should_trap_on_return = true;
 				false
-			} else if attr.path().is_ident("wrapped") {
-				is_wrapped = true;
+			} else if attr.path().is_ident("raw_api") {
+				is_raw_api = true;
 				false
 			} else {
 				true
@@ -78,16 +127,54 @@ impl RuntimeInterfaceFunction {
 			));
 		}
 
-		Ok(Self { item, should_trap_on_return, is_wrapped })
+		let declared_cfg_attrs = cfg_attrs_string(&item.attrs);
+		let abi_epoch = extract_abi_epoch(&mut item)?.unwrap_or(ABI_EPOCH_LEGACY);
+
+		if register_only && abi_epoch > ABI_EPOCH_LEGACY {
+			return Err(Error::new(
+				item.sig.ident.span(),
+				"`register_only` doesn't make sense for versions of gated ABI epochs: they \
+				 are only compiled in when the epoch is enabled, in which case they are meant \
+				 to be used",
+			));
+		}
+
+		Ok(Self {
+			item,
+			should_trap_on_return,
+			is_raw_api,
+			register_only,
+			abi_epoch,
+			declared_cfg_attrs,
+		})
 	}
 
 	pub fn should_trap_on_return(&self) -> bool {
 		self.should_trap_on_return
 	}
 
-	pub fn is_wrapped(&self) -> bool {
-		self.is_wrapped
+	pub fn is_raw_api(&self) -> bool {
+		self.is_raw_api
 	}
+
+	pub fn is_register_only(&self) -> bool {
+		self.register_only
+	}
+
+	pub fn abi_epoch(&self) -> u32 {
+		self.abi_epoch
+	}
+}
+
+/// Returns the `#[cfg]` attributes of the given attribute list, stringified for comparison.
+fn cfg_attrs_string(attrs: &[syn::Attribute]) -> String {
+	use quote::ToTokens;
+	attrs
+		.iter()
+		.filter(|attr| attr.path().is_ident("cfg"))
+		.map(|attr| attr.to_token_stream().to_string())
+		.collect::<Vec<_>>()
+		.join(" ")
 }
 
 /// Runtime interface function with all associated versions of this function.
@@ -102,7 +189,7 @@ impl RuntimeInterfaceFunctionSet {
 			latest_version_to_call: version.is_callable().then_some(version.version),
 			versions: BTreeMap::from([(
 				version.version,
-				RuntimeInterfaceFunction::new(trait_item)?,
+				RuntimeInterfaceFunction::new(trait_item, !version.is_callable())?,
 			)]),
 		})
 	}
@@ -124,6 +211,30 @@ impl RuntimeInterfaceFunctionSet {
 		})
 	}
 
+	/// Returns the latest callable (non-`register_only`) version of this function that belongs
+	/// to the first ABI epoch, if any.
+	fn latest_legacy_version_to_call(&self) -> Option<(u32, &RuntimeInterfaceFunction)> {
+		self.versions
+			.iter()
+			.rev()
+			.find(|(_, item)| !item.is_register_only() && item.abi_epoch() == ABI_EPOCH_LEGACY)
+			.map(|(v, item)| (*v, item))
+	}
+
+	/// Returns the version the bare function must call when the gated ABI epochs are compiled
+	/// out, if it differs from [`Self::latest_version_to_call`].
+	///
+	/// This is `Some` only for functions that have versions in a gated ABI epoch on top of
+	/// callable first-epoch versions: without the gated epochs the bare function falls back to
+	/// the latest first-epoch version.
+	pub fn legacy_version_to_call(&self) -> Option<(u32, &RuntimeInterfaceFunction)> {
+		let (latest, item) = self.latest_version_to_call()?;
+		(item.abi_epoch() > ABI_EPOCH_LEGACY)
+			.then(|| self.latest_legacy_version_to_call())
+			.flatten()
+			.filter(|(legacy, _)| *legacy != latest)
+	}
+
 	/// Add a different version of the function.
 	fn add_version(&mut self, version: VersionAttribute, trait_item: &TraitItemFn) -> Result<()> {
 		if let Some(existing_item) = self.versions.get(&version.version) {
@@ -136,8 +247,10 @@ impl RuntimeInterfaceFunctionSet {
 			return Err(err);
 		}
 
-		self.versions
-			.insert(version.version, RuntimeInterfaceFunction::new(trait_item)?);
+		self.versions.insert(
+			version.version,
+			RuntimeInterfaceFunction::new(trait_item, !version.is_callable())?,
+		);
 		if self.latest_version_to_call.map_or(true, |v| v < version.version) &&
 			version.is_callable()
 		{
@@ -148,10 +261,18 @@ impl RuntimeInterfaceFunctionSet {
 	}
 }
 
+/// A `#[wrapper]` function of a runtime interface.
+pub struct Wrapper {
+	name: syn::Ident,
+	item: TraitItemFn,
+	/// `None` means the wrapper exists in every ABI epoch.
+	abi_epoch: Option<u32>,
+}
+
 /// All functions of a runtime interface grouped by the function names.
 pub struct RuntimeInterface {
 	items: BTreeMap<syn::Ident, RuntimeInterfaceFunctionSet>,
-	wrappers: BTreeMap<syn::Ident, TraitItemFn>,
+	wrappers: Vec<Wrapper>,
 }
 
 impl RuntimeInterface {
@@ -163,6 +284,15 @@ impl RuntimeInterface {
 		self.items.iter().filter_map(|(_, item)| item.latest_version_to_call())
 	}
 
+	/// Returns an iterator over the versions the bare functions must call when the gated ABI
+	/// epochs are compiled out, for the functions where that version differs from
+	/// [`Self::latest_versions_to_call`].
+	pub fn legacy_versions_to_call(
+		&self,
+	) -> impl Iterator<Item = (u32, &RuntimeInterfaceFunction)> {
+		self.items.iter().filter_map(|(_, item)| item.legacy_version_to_call())
+	}
+
 	pub fn all_versions(&self) -> impl Iterator<Item = (u32, &RuntimeInterfaceFunction)> {
 		self.items
 			.iter()
@@ -171,7 +301,23 @@ impl RuntimeInterface {
 	}
 
 	pub fn wrappers(&self) -> impl Iterator<Item = (&syn::Ident, &TraitItemFn)> {
-		self.wrappers.iter()
+		self.wrappers.iter().map(|wrapper| (&wrapper.name, &wrapper.item))
+	}
+
+	/// Returns whether a wrapper with the given name exists (in the first ABI epoch, in the
+	/// gated ABI epochs).
+	///
+	/// A wrapper takes over the module-level name it is defined with, so no bare function with
+	/// the same name must be generated for the epochs the wrapper exists in.
+	pub fn wrapper_shadow_modes(&self, name: &syn::Ident) -> (bool, bool) {
+		self.wrappers.iter().filter(|wrapper| &wrapper.name == name).fold(
+			(false, false),
+			|(legacy, gated), wrapper| match wrapper.abi_epoch {
+				None => (true, true),
+				Some(epoch) if epoch > ABI_EPOCH_LEGACY => (legacy, true),
+				Some(_) => (true, gated),
+			},
+		)
 	}
 }
 
@@ -322,13 +468,21 @@ fn get_item_version(item: &TraitItemFn) -> Result<Option<VersionAttribute>> {
 /// Returns all runtime interface members, with versions.
 pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> {
 	let mut functions: BTreeMap<syn::Ident, RuntimeInterfaceFunctionSet> = BTreeMap::new();
-	let mut wrappers: BTreeMap<syn::Ident, TraitItemFn> = BTreeMap::new();
+	let mut wrappers: Vec<Wrapper> = Vec::new();
 
 	for item in get_trait_methods(trait_def) {
 		let name = item.sig.ident.clone();
 		let is_wrapper = item.attrs.iter().any(|attr| attr.path().is_ident("wrapper"));
 		if is_wrapper {
-			wrappers.insert(name.clone(), item.clone());
+			let mut item = item.clone();
+			let abi_epoch = extract_abi_epoch(&mut item)?;
+			// For a wrapper, `#[abi_epoch(N)]` means "this wrapper exists only in epoch N", so
+			// (unlike for function versions, which are always registered by the host) the
+			// first epoch is gated as well.
+			if abi_epoch == Some(ABI_EPOCH_LEGACY) {
+				item.attrs.push(abi_epoch_negative_cfg());
+			}
+			wrappers.push(Wrapper { name, item, abi_epoch });
 			continue;
 		}
 
@@ -350,6 +504,8 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 
 	for function in functions.values() {
 		let mut next_expected = 1;
+		let mut callable_cfg: Option<(String, Span)> = None;
+		let mut last_epoch = ABI_EPOCH_LEGACY;
 		for (version, item) in function.versions.iter() {
 			if next_expected != *version {
 				return Err(Error::new(
@@ -361,6 +517,55 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 				));
 			}
 			next_expected += 1;
+
+			// The bare function of a legacy (non-gated) build falls back to the latest
+			// first-epoch version, so the versions belonging to gated epochs must form the
+			// upper contiguous range of the version numbers.
+			if item.abi_epoch() < last_epoch {
+				return Err(Error::new(
+					item.span(),
+					"A newer version of a runtime interface function cannot belong to an \
+					 older ABI epoch than its predecessor",
+				));
+			}
+			last_epoch = item.abi_epoch();
+
+			// Conditional compilation of function versions must keep the interface consistent:
+			// the host must always register every version, and the version selected as the
+			// bare function must not change depending on which versions are compiled in.
+			// ABI epochs are exempt: they are the sanctioned way of gating versions, and the
+			// bare function dispatch is epoch-aware.
+			let cfg = item.declared_cfg_attrs.clone();
+			if item.is_register_only() {
+				if !cfg.is_empty() {
+					return Err(Error::new(
+						item.span(),
+						"`register_only` versions cannot have `#[cfg]` attributes: \
+						 the host must always register them",
+					));
+				}
+			} else {
+				match &callable_cfg {
+					None => callable_cfg = Some((cfg, item.span())),
+					Some((first_cfg, first_span)) => {
+						if *first_cfg != cfg {
+							let mut err = Error::new(
+								item.span(),
+								"All callable versions of a runtime interface function must \
+								 have identical `#[cfg]` attributes; mark the superseded \
+								 version as `register_only`, align the attributes, or use \
+								 `#[abi_epoch]` to gate an ABI epoch",
+							);
+							err.combine(Error::new(
+								*first_span,
+								"Callable version with different `#[cfg]` attributes \
+								 defined here",
+							));
+							return Err(err);
+						}
+					},
+				}
+			}
 		}
 	}
 

@@ -28,7 +28,7 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
-	frame_support::{ensure, error::BadOrigin},
+	frame_support::ensure,
 	metering::{ResourceMeter, State, Token},
 	weights::WeightInfo,
 };
@@ -37,7 +37,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
-use sp_runtime::{DispatchError, Saturating};
+use sp_runtime::{DispatchError, Saturating, traits::BadOrigin};
 
 /// Validated Vm module ready for execution.
 /// This data structure is immutable once created and stored.

@@ -41,7 +41,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use crate::WasmExecutionMethod;
 
 pub type TestExternalities = CoreTestExternalities<BlakeTwo256>;
-type HostFunctions = (sp_io::SubstrateHostFunctions, sp_virtualization::host_fn::HostFunctions);
+type HostFunctions = (sp_io::SubstrateHostFunctions, sp_virtualization::HostFunctions);
 
 /// Simple macro that runs a given method as test with the available wasm execution methods.
 #[macro_export]
@@ -430,11 +430,23 @@ fn should_trap_when_heap_exhausted(wasm_method: WasmExecutionMethod) {
 		.unwrap_err();
 
 	match err {
+		// The runtime-side allocator aborts through the Rust allocation error handler.
+		#[cfg(rfc145)]
 		Error::AbortedDueToPanic(error) => {
 			assert!(
 				error.message.contains("memory allocation of"),
 				"unexpected panic message: {}",
 				error.message,
+			);
+		},
+		// The host-side allocator makes the `malloc` host function panic.
+		#[cfg(not(rfc145))]
+		Error::AbortedDueToTrap(error)
+			if matches!(wasm_method, WasmExecutionMethod::Compiled { .. }) =>
+		{
+			assert_eq!(
+				error.message,
+				r#"host code panicked while being called by the runtime: Failed to allocate memory: "Allocator ran out of space""#
 			);
 		},
 		error => panic!("unexpected error: {:?}", error),
@@ -806,6 +818,9 @@ fn return_overflow(wasm_method: WasmExecutionMethod) {
 test_wasm_execution!(test_virtualization);
 fn test_virtualization(wasm_method: WasmExecutionMethod) {
 	let mut ext = TestExternalities::default();
+	ext.register_extension(sp_virtualization::VirtManagerExt::new(
+		sc_virtualization::VirtManager::default(),
+	));
 	let mut ext = ext.ext();
 	let fixture = sp_virtualization_test_fixture::binary().encode();
 

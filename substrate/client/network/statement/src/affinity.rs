@@ -16,6 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Topic affinity filters for the `statement/2` protocol.
+//!
+//! A peer can advertise the set of topics it is interested in as a space-efficient bloom filter
+//! ([`AffinityFilter`]). Once a peer has advertised one, only statements whose topics match the
+//! filter are propagated to it; statements with no topics always match, as they are broadcasts.
+//!
+//! Filters received from the network are validated against `MAX_BLOOM_BITS` and `MAX_NUM_HASHES`
+//! to bound the memory and CPU a malicious peer can force. Hashing is platform-independent so that
+//! filter bits are identical on `wasm32` and 64-bit targets.
+
 use crate::config::MAX_STATEMENT_NOTIFICATION_SIZE;
 use codec::{Decode, Encode};
 use fastbloom::{BloomFilter, DefaultHasher as BloomDefaultHasher};
@@ -258,7 +268,7 @@ mod tests {
 
 		// Fixed snapshot — if this changes the wire format has been modified.
 		assert_eq!(
-			sp_core::blake2_256(&encoded),
+			sp_crypto_hashing::blake2_256(&encoded),
 			[
 				180, 34, 58, 78, 198, 24, 137, 83, 154, 127, 9, 152, 171, 50, 197, 27, 242, 158,
 				30, 79, 143, 192, 53, 151, 174, 106, 132, 105, 20, 145, 133, 0

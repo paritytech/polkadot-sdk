@@ -50,6 +50,20 @@ type HostFunctions = (
 pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8; 32] {
 	sp_tracing::try_init_simple();
 
+	// An RFC-145 runtime pulls its input in through the `input::read` host function, which
+	// only exists in builds with `--cfg rfc145`. `wasm-builder` is a build dependency, so it
+	// only inherits the flag when `RUSTFLAGS` applies to build scripts (i.e. when no explicit
+	// `--target` is passed to the outer `cargo` invocation). Fail early with a clear message
+	// instead of a cryptic instantiation error.
+	if crate::is_rfc145_build() && !cfg!(rfc145) {
+		panic!(
+			"The runtime is built with RFC-145 support, but `substrate-wasm-builder` is not, \
+			 so it cannot execute the runtime to extract the metadata. Make sure \
+			 `--cfg rfc145` in `RUSTFLAGS` applies to build dependencies as well, e.g. by not \
+			 passing an explicit `--target` to `cargo`.",
+		);
+	}
+
 	let wasm = std::fs::read(wasm).expect("Wasm file was just created and should be readable.");
 
 	let executor = WasmExecutor::<HostFunctions>::builder()

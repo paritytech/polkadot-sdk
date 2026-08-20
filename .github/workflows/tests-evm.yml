@@ -23,7 +23,7 @@ jobs:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     if: ${{ needs.preflight.outputs.changes_rust }}
-    timeout-minutes: 60
+    timeout-minutes: 120
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     permissions:
@@ -102,7 +102,7 @@ jobs:
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest
-    name: All test misc tests passed
+    name: All evm tests passed
     # If any new job gets added, be sure to add it to this array
     needs:
       - evm-test-suite

@@ -510,9 +510,17 @@ fn double_map_basic_insert_remove_remove_prefix_should_work() {
 		DoubleMap::insert(&(key1 + 1), &key2, &4u64);
 		DoubleMap::insert(&(key1 + 1), &(key2 + 1), &4u64);
 		// all in overlay
+		#[cfg(rfc145)]
 		assert!(matches!(
 			DoubleMap::clear_prefix(&key1, u32::max_value(), None),
 			MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 2, loops: 0 }
+		));
+		// The legacy `clear_prefix` shim derives all the counters from the number of backend
+		// deletions, so overlay-only deletions are not reflected in `unique`.
+		#[cfg(not(rfc145))]
+		assert!(matches!(
+			DoubleMap::clear_prefix(&key1, u32::max_value(), None),
+			MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 }
 		));
 		assert!(matches!(
 			DoubleMap::clear_prefix(&key1, u32::max_value(), None),

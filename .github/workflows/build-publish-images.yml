@@ -786,7 +786,8 @@ jobs:
     runs-on: ubuntu-latest
     name: All zombienet tests passed
     needs:
-      # Disabled until zombienet polkadot/cumulus flows are stable
+      # disable polkadot/cumulus requirement to review multiple
+      # flaky tests.
       # - trigger-zombienet-polkadot
       # - trigger-zombienet-cumulus
       - trigger-zombienet-substrate

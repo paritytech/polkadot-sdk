@@ -22,13 +22,20 @@ use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, trai
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_io::{hashing::blake2_256, RIIntOption};
+use sp_io::hashing::blake2_256;
+#[cfg(rfc145)]
+use sp_io::RIIntOption;
 use sp_runtime::{
 	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
 };
 use sp_runtime_interface::pass_by::{
-	AllocateAndReturnByCodec, AllocateAndReturnPointer, ConvertAndReturnAs,
-	PassFatPointerAndDecode, PassFatPointerAndRead, PassFatPointerAndWrite, PassPointerAndWrite,
+	AllocateAndReturnByCodec, AllocateAndReturnPointer, PassFatPointerAndDecode,
+	PassFatPointerAndRead,
+};
+// Marshalling strategies only used by the RFC-145 versions of the host functions.
+#[cfg(rfc145)]
+use sp_runtime_interface::pass_by::{
+	ConvertAndReturnAs, PassFatPointerAndWrite, PassPointerAndWrite,
 };
 use sp_storage::TrackedStorageKey;
 
@@ -284,7 +291,8 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
+	#[abi_epoch(2)]
 	fn current_time(out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		let time = std::time::SystemTime::now()
 			.duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -296,9 +304,10 @@ pub trait Benchmarking {
 
 	/// Wrapper for `current_time`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn current_time() -> [u8; 16] {
 		let mut out = [0u8; 16];
-		current_time__wrapped(&mut out);
+		current_time__raw(&mut out);
 		out
 	}
 
@@ -319,7 +328,8 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
+	#[abi_epoch(2)]
 	fn read_write_count(&self, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		let (a, b, c, d) = self.read_write_count();
 		out[0..4].copy_from_slice(&a.to_le_bytes());
@@ -330,9 +340,10 @@ pub trait Benchmarking {
 
 	/// Wrapper for `read_write_count`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn read_write_count() -> (u32, u32, u32, u32) {
 		let mut out = [0u8; 16];
-		read_write_count__wrapped(&mut out);
+		read_write_count__raw(&mut out);
 		(
 			u32::from_le_bytes(out[0..4].try_into().expect("slice is 4 bytes")),
 			u32::from_le_bytes(out[4..8].try_into().expect("slice is 4 bytes")),
@@ -353,7 +364,8 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
+	#[abi_epoch(2)]
 	fn get_whitelist(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let whitelist = self.get_whitelist();
 		let encoded = codec::Encode::encode(&whitelist);
@@ -364,12 +376,13 @@ pub trait Benchmarking {
 
 	/// Wrapper for `get_whitelist`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn get_whitelist() -> Vec<TrackedStorageKey> {
 		let mut buf = alloc::vec![0u8; 1024 * 1024];
-		let len = get_whitelist__wrapped(&mut buf) as usize;
+		let len = get_whitelist__raw(&mut buf) as usize;
 		if len > buf.len() {
 			buf.resize(len, 0);
-			let len2 = get_whitelist__wrapped(&mut buf) as usize;
+			let len2 = get_whitelist__raw(&mut buf) as usize;
 			debug_assert_eq!(len, len2);
 		}
 		codec::Decode::decode(&mut &buf[..len]).expect("get_whitelist: decoding should not fail")
@@ -383,7 +396,10 @@ pub trait Benchmarking {
 	// Add a new item to the DB whitelist.
 	fn add_to_whitelist(&mut self, add: PassFatPointerAndDecode<TrackedStorageKey>) {
 		let mut whitelist = self.get_whitelist();
-		match whitelist.iter_mut().find(|x| x.key == add.key) {
+		match whitelist
+			.iter_mut()
+			.find(|x| x.key == add.key && x.child_trie_key == add.child_trie_key)
+		{
 			// If we already have this key in the whitelist, update to be the most constrained
 			// value.
 			Some(item) => {
@@ -414,7 +430,8 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
+	#[abi_epoch(2)]
 	fn get_read_and_written_keys(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let keys = self.get_read_and_written_keys();
 		let encoded = codec::Encode::encode(&keys);
@@ -425,12 +442,13 @@ pub trait Benchmarking {
 
 	/// Wrapper for `get_read_and_written_keys`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn get_read_and_written_keys() -> Vec<(Vec<u8>, u32, u32, bool)> {
 		let mut buf = alloc::vec![0u8; 4 * 1024 * 1024];
-		let len = get_read_and_written_keys__wrapped(&mut buf) as usize;
+		let len = get_read_and_written_keys__raw(&mut buf) as usize;
 		if len > buf.len() {
 			buf.resize(len, 0);
-			let len2 = get_read_and_written_keys__wrapped(&mut buf) as usize;
+			let len2 = get_read_and_written_keys__raw(&mut buf) as usize;
 			debug_assert_eq!(len, len2);
 		}
 		codec::Decode::decode(&mut &buf[..len])
@@ -444,15 +462,17 @@ pub trait Benchmarking {
 
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
-	#[wrapped]
+	#[raw_api]
+	#[abi_epoch(2)]
 	fn proof_size(&self) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.proof_size()
 	}
 
 	/// Wrapper for `proof_size`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn proof_size() -> Option<u32> {
-		proof_size__wrapped()
+		proof_size__raw()
 	}
 }
 
@@ -613,4 +633,11 @@ macro_rules! whitelist_account {
 			frame_system::Account::<T>::hashed_key_for(&$acc).into(),
 		);
 	};
+}
+
+/// Helper function to whitelist a child trie storage key.
+pub fn add_to_whitelist_child(child_trie_key: Vec<u8>, key: Vec<u8>) {
+	let mut tracked_key = sp_storage::TrackedStorageKey::new_child(child_trie_key, key);
+	tracked_key.whitelist();
+	self::benchmarking::add_to_whitelist(tracked_key);
 }

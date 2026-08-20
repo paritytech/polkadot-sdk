@@ -164,9 +164,10 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 fn current_relay_parent<T: frame_system::Config>(
 ) -> (BlockNumberFor<T>, <T as frame_system::Config>::Hash) {
 	use codec::Decode as _;
+	let state_version = frame_system::Pallet::<T>::runtime_version().state_version();
 	let relay_parent_number = frame_system::Pallet::<T>::block_number();
 	let relay_parent_storage_root =
-		T::Hash::decode(&mut &sp_io::storage::root::<T::Hash>()[..])
+		T::Hash::decode(&mut &sp_io::storage::root::<T::Hash>(state_version)[..])
 			.expect("storage root must decode to the Hash type; qed");
 	(relay_parent_number, relay_parent_storage_root)
 }
@@ -356,7 +357,7 @@ pub fn session_info<T: session_info::Config>(index: SessionIndex) -> Option<Sess
 pub fn dmq_contents<T: dmp::Config>(
 	recipient: ParaId,
 ) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
-	dmp::Pallet::<T>::dmq_contents(recipient)
+	dmp::Pallet::<T>::dmq_contents_do_not_call_in_consensus(recipient)
 }
 
 /// Implementation for the `inbound_hrmp_channels_contents` function of the runtime API.
@@ -493,7 +494,7 @@ pub fn backing_constraints<T: initializer::Config>(
 	let ump_remaining = config.max_upward_queue_count - ump_msg_count;
 	let ump_remaining_bytes = config.max_upward_queue_size - ump_total_bytes;
 
-	let dmp_remaining_messages = dmp::Pallet::<T>::dmq_contents(para_id)
+	let dmp_remaining_messages = dmp::Pallet::<T>::dmq_contents_do_not_call_in_consensus(para_id)
 		.into_iter()
 		.map(|msg| msg.sent_at)
 		.collect();

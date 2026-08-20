@@ -25,6 +25,7 @@ use sp_runtime::{
 };
 use std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc};
 
+use sc_client_api::PrefetchedIndexedTransactions;
 use sp_consensus::{BlockOrigin, Error};
 
 /// Block import result.
@@ -253,6 +254,9 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub create_gap: bool,
 	/// Cached full header hash (with post-digests applied).
 	pub post_hash: Option<Block::Hash>,
+	/// Indexed-transaction data attached by upstream block-import wrappers.
+	/// See [`PrefetchedIndexedTransactions`].
+	pub prefetched_indexed_transactions: PrefetchedIndexedTransactions,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -284,6 +288,7 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			// block with state is imported.
 			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
+			prefetched_indexed_transactions: PrefetchedIndexedTransactions::default(),
 		}
 	}
 

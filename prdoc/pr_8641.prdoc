@@ -3,11 +3,12 @@ doc:
 - audience: Runtime Dev
   description: |-
     This implements the host functions introduced by [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145).
+    The implementation is gated behind the `rfc145` compile-time `cfg`.
 crates:
 - name: sp-io
   bump: major
 - name: sp-runtime-interface
-  bump: minor
+  bump: major
 - name: sp-externalities
   bump: major
 - name: polkadot-node-core-pvf-common
@@ -80,3 +81,22 @@ crates:
   bump: patch
 - name: pallet-node-authorization
   bump: patch
+- name: pallet-collective
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: frame-remote-externalities
+  bump: patch
+- name: pallet-bounties
+  bump: patch
+- name: pallet-elections-phragmen
+  bump: patch
+- name: pallet-state-trie-migration
+  bump: patch
+- name: sp-statement-store
+  bump: minor
+# Test-only: adds a unit test locking the `OpaqueNetworkState` peer id ABI; no API change.
+- name: sc-offchain
+  bump: none

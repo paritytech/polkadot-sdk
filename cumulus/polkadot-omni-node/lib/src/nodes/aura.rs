@@ -47,7 +47,6 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
-use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -65,6 +64,7 @@ use sc_consensus::{
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
+use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -198,7 +198,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send + 'static,
 	StartConsensus: self::StartConsensus<
 			Block,
 			RuntimeApi,
@@ -211,7 +211,6 @@ where
 {
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
 	fn start_dev_node(
 		mut config: Configuration,
@@ -221,10 +220,12 @@ where
 		// Destructure all fields so the compiler enforces handling new args.
 		let NodeExtraArgs {
 			authoring_policy,
-			export_pov,
+			ref export_pov,
 			max_pov_percentage,
-			statement_store_config,
-			storage_monitor,
+			ref statement_store_config,
+			ref storage_monitor,
+			ref hop,
+			collator_reserved_slots: _,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -249,7 +250,7 @@ where
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _, _),
+			other: (_, mut telemetry, _, _, _),
 		} = Self::new_partial(&config)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
@@ -263,17 +264,17 @@ where
 
 		let metrics = NotificationMetrics::new(None);
 
-		let statement_handler_proto = statement_store_config.map(|ss_config| {
+		let statement_handler_proto = statement_store_config.as_ref().map(|ss_config| {
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
 				&metrics,
 				&mut net_config,
 			);
-			(proto, ss_config)
+			(proto, *ss_config)
 		});
 
-		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				client: client.clone(),
@@ -415,12 +416,34 @@ where
 				);
 			},
 		}
+		let hop_pool = hop
+			.as_ref()
+			.map(|params| {
+				params.build_pool(
+					config.database.path().map(|p| p.to_path_buf()),
+					config.prometheus_registry(),
+				)
+			})
+			.transpose()
+			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
+			let task = sc_hop::build_maintenance_task::<Block, _, _>(
+				&client,
+				&transaction_pool,
+				pool.clone(),
+				hop.promotion_buffer_secs,
+				hop.check_interval,
+			);
+			task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
+		}
+
 		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
 			let statement_store = statement_store.clone();
+			let hop_pool = hop_pool.clone();
 
 			Box::new(move |_| {
 				let module = Self::BuildRpcExtensions::build_rpc_extensions(
@@ -428,6 +451,7 @@ where
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					statement_store.clone(),
+					hop_pool.clone(),
 					spawn_handle.clone(),
 				)?;
 				Ok(module)
@@ -455,7 +479,7 @@ where
 		// Spawn the storage monitor.
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(
-				storage_monitor,
+				storage_monitor.clone(),
 				database_path,
 				&task_manager.spawn_essential_handle(),
 			)
@@ -612,7 +636,11 @@ where
 				Block,
 				SlotBasedBlockImport<
 					Block,
-					Arc<ParachainClient<Block, RuntimeApi>>,
+					StorageChainBlockImport<
+						Block,
+						Arc<ParachainClient<Block, RuntimeApi>>,
+						ParachainClient<Block, RuntimeApi>,
+					>,
 					ParachainClient<Block, RuntimeApi>,
 				>,
 			>,
@@ -648,7 +676,11 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 		RuntimeApi,
 		SlotBasedBlockImport<
 			Block,
-			Arc<ParachainClient<Block, RuntimeApi>>,
+			StorageChainBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				ParachainClient<Block, RuntimeApi>,
+			>,
 			ParachainClient<Block, RuntimeApi>,
 		>,
 		SlotBasedBlockImportHandle<Block>,
@@ -665,7 +697,11 @@ where
 			Block,
 			SlotBasedBlockImport<
 				Block,
-				Arc<ParachainClient<Block, RuntimeApi>>,
+				StorageChainBlockImport<
+					Block,
+					Arc<ParachainClient<Block, RuntimeApi>>,
+					ParachainClient<Block, RuntimeApi>,
+				>,
 				ParachainClient<Block, RuntimeApi>,
 			>,
 		>,
@@ -693,12 +729,7 @@ where
 			telemetry.clone(),
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
@@ -767,15 +798,24 @@ where
 {
 	type BlockImport = SlotBasedBlockImport<
 		Block,
-		Arc<ParachainClient<Block, RuntimeApi>>,
+		StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 		ParachainClient<Block, RuntimeApi>,
 	>;
 	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok(SlotBasedBlockImport::new(client.clone(), client))
+		Ok(SlotBasedBlockImport::new(storage_chain_block_import, client))
 	}
 }
 
@@ -808,8 +848,16 @@ pub(crate) struct StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>(
 );
 
 impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
-	StartConsensus<Block, RuntimeApi, Arc<ParachainClient<Block, RuntimeApi>>, ()>
-	for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
+	StartConsensus<
+		Block,
+		RuntimeApi,
+		StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
+		(),
+	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
@@ -818,7 +866,14 @@ where
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, Arc<ParachainClient<Block, RuntimeApi>>>,
+		block_import: ParachainBlockImport<
+			Block,
+			StorageChainBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				ParachainClient<Block, RuntimeApi>,
+			>,
+		>,
 		prometheus_registry: Option<&Registry>,
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -842,12 +897,7 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {

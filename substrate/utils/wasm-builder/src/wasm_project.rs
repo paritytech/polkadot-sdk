@@ -941,6 +941,9 @@ fn build_bloaty_blob(
 
 	rustflags.push_str(default_rustflags);
 	rustflags.push_str(" --cfg substrate_runtime ");
+	if crate::is_rfc145_build() {
+		rustflags.push_str(" --cfg rfc145 ");
+	}
 	rustflags.push_str(&env::var(crate::WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default());
 
 	build_cmd
@@ -1020,6 +1023,13 @@ fn build_bloaty_blob(
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");
 		}
+	}
+
+	// `--target` for the Riscv runtime points at a JSON target spec produced by
+	// `polkavm-linker`. Newer cargo requires opting into those explicitly, older cargo
+	// does not know the flag at all, so ask this cargo which of the two it is.
+	if matches!(target, RuntimeTarget::Riscv) && cargo_cmd.supports_json_target_spec() {
+		build_cmd.arg("-Z").arg("json-target-spec");
 	}
 
 	// Inherit jobserver in child cargo command to ensure we don't try to use more concurrency than
@@ -1260,6 +1270,7 @@ fn generate_rerun_if_changed_instructions(
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 	println!("cargo:rerun-if-env-changed={}", crate::RUNTIME_TARGET);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_CARGO_ARGS);
+	println!("cargo:rerun-if-env-changed={}", crate::RFC145_ENV);
 }
 
 /// Track files and paths related to the given package to rerun `build.rs` on any relevant change.

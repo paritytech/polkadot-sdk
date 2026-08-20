@@ -71,11 +71,12 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
-	/// Fallback state version used by `storage_root` when no `RuntimeStateVersionExt` is
-	/// registered. In no-std builds (where extensions are not supported) this is the only source.
+	/// State version used by `storage_root` and `child_storage_root` to compute the trie layout.
 	state_version: StateVersion,
 	/// Last cursor of a storage operation.
 	last_cursor: Option<Vec<u8>>,
+	/// Per-transaction snapshots of [`Self::last_cursor`], restored on rollback.
+	last_cursor_snapshots: Vec<Option<Vec<u8>>>,
 }
 
 impl<'a, H, B> Ext<'a, H, B>
@@ -86,7 +87,14 @@ where
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
 	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0, state_version: StateVersion::default(), last_cursor: None }
+		Ext {
+			overlay,
+			backend,
+			id: 0,
+			state_version: StateVersion::default(),
+			last_cursor: None,
+			last_cursor_snapshots: Vec::new(),
+		}
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -103,6 +111,7 @@ where
 			extensions: extensions.map(OverlayedExtensions::new),
 			state_version: StateVersion::default(),
 			last_cursor: None,
+			last_cursor_snapshots: Vec::new(),
 		}
 	}
 
@@ -562,6 +571,7 @@ where
 
 	fn storage_start_transaction(&mut self) {
 		self.overlay.start_transaction();
+		self.last_cursor_snapshots.push(self.last_cursor.clone());
 
 		#[cfg(feature = "std")]
 		if let Some(exts) = self.extensions.as_mut() {
@@ -571,6 +581,11 @@ where
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
 		self.overlay.rollback_transaction().map_err(|_| ())?;
+		// A transaction started before this instance was created has no snapshot; leave the
+		// cursor untouched in that case.
+		if let Some(snapshot) = self.last_cursor_snapshots.pop() {
+			self.last_cursor = snapshot;
+		}
 
 		#[cfg(feature = "std")]
 		if let Some(exts) = self.extensions.as_mut() {
@@ -582,6 +597,7 @@ where
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
 		self.overlay.commit_transaction().map_err(|_| ())?;
+		self.last_cursor_snapshots.pop();
 
 		#[cfg(feature = "std")]
 		if let Some(exts) = self.extensions.as_mut() {
@@ -903,6 +919,34 @@ mod tests {
 
 		// next_overlay exist but next_backend doesn't exist
 		assert_eq!(ext.next_storage_key(&[40]), Some(vec![50]));
+	}
+
+	#[test]
+	fn last_cursor_is_transactional() {
+		let mut overlay = OverlayedChanges::default();
+		let backend = (Storage::default(), StateVersion::default()).into();
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
+
+		// A cursor stored within a rolled back transaction is discarded and the cursor stored
+		// before the transaction started is restored.
+		ext.store_last_cursor(b"outer");
+		ext.storage_start_transaction();
+		ext.store_last_cursor(b"inner");
+		ext.storage_rollback_transaction().unwrap();
+		assert_eq!(ext.take_last_cursor(), Some(b"outer".to_vec()));
+		assert_eq!(ext.take_last_cursor(), None);
+
+		// A cursor stored within a committed transaction is retained.
+		ext.storage_start_transaction();
+		ext.store_last_cursor(b"inner");
+		ext.storage_commit_transaction().unwrap();
+		assert_eq!(ext.take_last_cursor(), Some(b"inner".to_vec()));
+
+		// A rollback also restores the "no cursor" state.
+		ext.storage_start_transaction();
+		ext.store_last_cursor(b"inner");
+		ext.storage_rollback_transaction().unwrap();
+		assert_eq!(ext.take_last_cursor(), None);
 	}
 
 	#[test]

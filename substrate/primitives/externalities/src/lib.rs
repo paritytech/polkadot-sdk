@@ -250,6 +250,10 @@ pub trait Externalities: ExtensionStore {
 	}
 
 	/// Store the last cursor of a storage operation.
+	///
+	/// The stored cursor is transactional: [`Self::storage_start_transaction`] snapshots it, and
+	/// [`Self::storage_rollback_transaction`] restores the snapshot, so a rollback discards any
+	/// cursor stored within the rolled back transaction.
 	fn store_last_cursor(&mut self, _cursor: &[u8]) {
 		unimplemented!("store_last_cursor");
 	}

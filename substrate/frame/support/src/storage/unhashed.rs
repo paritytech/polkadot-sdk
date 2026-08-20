@@ -140,10 +140,8 @@ pub fn clear_prefix(
 /// and is longer than said prefix.
 /// This means that a key which equals the prefix will not be counted.
 pub fn contains_prefixed_key(prefix: &[u8]) -> bool {
-	match sp_io::storage::next_key(prefix) {
-		Some(key) => key.starts_with(prefix),
-		None => false,
-	}
+	let mut key = Vec::new();
+	sp_io::storage::next_key(prefix, &mut key) && key.starts_with(prefix)
 }
 
 /// Get a Vec of bytes from storage.

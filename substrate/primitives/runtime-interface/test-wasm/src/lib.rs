@@ -152,7 +152,7 @@ pub trait TestApi {
 	// ---- V2 marshalling strategies (runtime-side allocation) ----
 
 	/// Test PassFatPointerAndWrite: host writes into a runtime-provided buffer.
-	#[wrapped]
+	#[raw_api]
 	fn return_input(
 		data: PassFatPointerAndRead<&[u8]>,
 		out: sp_runtime_interface::pass_by::PassFatPointerAndWrite<&mut [u8]>,
@@ -166,7 +166,7 @@ pub trait TestApi {
 	#[wrapper]
 	fn return_input(data: Vec<u8>) -> Vec<u8> {
 		let mut out = vec![0u8; data.len()];
-		let len = return_input__wrapped(&data, &mut out) as usize;
+		let len = return_input__raw(&data, &mut out) as usize;
 		out.truncate(len);
 		out
 	}
@@ -183,8 +183,8 @@ pub trait TestApi {
 		}
 	}
 
-	/// Test PassPointerAndWrite with `#[wrapped]`/`#[wrapper]`.
-	#[wrapped]
+	/// Test PassPointerAndWrite with `#[raw_api]`/`#[wrapper]`.
+	#[raw_api]
 	fn get_and_return_array(
 		data: PassPointerAndReadCopy<[u8; 34], 34>,
 		out: PassPointerAndWrite<&mut [u8; 16], 16>,
@@ -196,7 +196,7 @@ pub trait TestApi {
 	#[wrapper]
 	fn get_and_return_array(data: [u8; 34]) -> [u8; 16] {
 		let mut out = [0u8; 16];
-		get_and_return_array__wrapped(data, &mut out);
+		get_and_return_array__raw(data, &mut out);
 		out
 	}
 }

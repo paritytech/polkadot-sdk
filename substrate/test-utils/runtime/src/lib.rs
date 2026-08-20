@@ -72,8 +72,6 @@ use sp_runtime::{
 	},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
@@ -129,12 +127,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 fn version() -> RuntimeVersion {
 	VERSION
-}
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
 /// Transfer data extracted from Extrinsic containing `Balances::transfer_allow_death`.
@@ -919,12 +911,12 @@ fn test_read_storage() {
 	sp_io::storage::set(KEY, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::storage::read(KEY, &mut v, 0);
+	let r = sp_io::storage::read_exact(KEY, &mut v, 0);
 	assert_eq!(r, Some(4));
 	assert_eq!(&v, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::storage::read(KEY, &mut v, 4);
+	let r = sp_io::storage::read_exact(KEY, &mut v, 4);
 	assert_eq!(r, Some(0));
 	assert_eq!(&v, &[0, 0, 0, 0]);
 }
@@ -935,12 +927,12 @@ fn test_read_child_storage() {
 	sp_io::default_child_storage::set(STORAGE_KEY, KEY, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::default_child_storage::read(STORAGE_KEY, KEY, &mut v, 0);
+	let r = sp_io::default_child_storage::read_exact(STORAGE_KEY, KEY, &mut v, 0);
 	assert_eq!(r, Some(4));
 	assert_eq!(&v, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::default_child_storage::read(STORAGE_KEY, KEY, &mut v, 8);
+	let r = sp_io::default_child_storage::read_exact(STORAGE_KEY, KEY, &mut v, 8);
 	assert_eq!(r, Some(0));
 	assert_eq!(&v, &[0, 0, 0, 0]);
 }
@@ -1494,8 +1486,8 @@ mod tests {
 
 			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
 
-			// following keys are not placed during `<RuntimeGenesisConfig as GenesisBuild>::build`
-			// process, add them `keys` to assert against known keys.
+			// following keys are not placed during `<RuntimeGenesisConfig as
+			// BuildGenesisConfig>::build` process, add them `keys` to assert against known keys.
 			keys.push(hex(b":code"));
 			keys.sort();
 

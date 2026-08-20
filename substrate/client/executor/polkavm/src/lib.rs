@@ -183,10 +183,6 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn take_input_data(&mut self) -> sp_wasm_interface::Result<Vec<u8>> {
 		todo!("Implement 'take_input_data' for PolkaVM");
 	}
-
-	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {
-		todo!("Implement virtualization for PolkaVM")
-	}
 }
 
 fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Result<(), String> {

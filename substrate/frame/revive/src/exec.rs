@@ -19,6 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
+	access_list::{AccessEntry, AccessList, StorageAccessKind},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -61,7 +62,7 @@ use sp_core::{
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	DispatchError, SaturatedConversion,
-	traits::{BadOrigin, Saturating, TrailingZeroInput},
+	traits::{BadOrigin, Saturating, TrailingZeroInput, Zero},
 };
 
 #[cfg(test)]
@@ -402,6 +403,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if the caller is origin, and this origin is root.
 	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool;
 
+	/// Check if the origin of the whole call stack is root.
+	///
+	/// Unlike [`Self::caller_is_root`], this does not require the caller to be the origin: any
+	/// number of intermediate frames may sit between this contract and the original dispatch.
+	fn origin_is_root(&self) -> bool;
+
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
 
@@ -543,6 +550,16 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
+	/// Checks if `key` was already accessed in this transaction and inserts it
+	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
+	/// the [`StorageAccessKind`]: hot if `key` was already accessed, cold
+	/// otherwise. When `transient` is true, skips the access list and returns
+	/// the `Transient` variant.
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
+
+	/// Non-mutating sibling of `touch_storage_access`.
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
+
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }
@@ -637,6 +654,8 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
+	/// Per-transaction cold/hot access list for storage slots (EIP-2929 style).
+	access_list: AccessList,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
 	/// No executable is held by the struct but influences its behaviour.
@@ -889,15 +908,16 @@ where
 				)
 			};
 
-			if_tracing(|t| match result {
-				Ok(ref output) => {
-					t.exit_child_span(&output, Default::default(), Default::default())
-				},
-				Err(e) => t.exit_child_span_with_error(
-					e.error.into(),
-					Default::default(),
-					Default::default(),
-				),
+			if_tracing(|t| {
+				let gas_used =
+					transaction_meter.total_consumed_gas().try_into().unwrap_or(u64::MAX);
+				let weight_consumed = transaction_meter.weight_consumed();
+				match result {
+					Ok(ref output) => t.exit_child_span(&output, gas_used, weight_consumed),
+					Err(e) => {
+						t.exit_child_span_with_error(e.error.into(), gas_used, weight_consumed)
+					},
+				}
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -1033,6 +1053,7 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
+			access_list: AccessList::new(),
 			exec_config,
 			_phantom: Default::default(),
 		};
@@ -1220,6 +1241,15 @@ where
 			input_data,
 			self.exec_config,
 		)? {
+			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
+			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
+			if frame.entry_point == ExportedFunction::Constructor &&
+				self.frames().any(|f| {
+					f.entry_point == ExportedFunction::Constructor &&
+						f.account_id == frame.account_id
+				}) {
+				return Err(Error::<T>::DuplicateContract.into());
+			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {
@@ -1296,6 +1326,12 @@ where
 			transient_storage.start_transaction();
 		});
 		let is_first_frame = self.frames.is_empty();
+		// Open an access-list frame for nested CALL/CREATE. The first frame
+		// is skipped; its touches land in the bare journal and persist
+		// for the whole transaction.
+		if !is_first_frame {
+			self.access_list.enter_frame();
+		}
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
@@ -1313,9 +1349,6 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				// Root origin can't be used to instantiate a contract.
-				ensure!(matches!(self.origin, Origin::Signed(_)), DispatchError::RootNotAllowed);
-
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
 					T::Deposit::init_contract(account_id)?;
 				}
@@ -1409,7 +1442,6 @@ where
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
 			let frame = if entry_point == ExportedFunction::Constructor {
-				let origin = self.origin.account_id()?.clone();
 				let frame = top_frame_mut!(self);
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
@@ -1425,7 +1457,21 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
+					// Under Root there is no origin account to attribute the upload
+					// deposit to: use the pallet's own account as a sentinel owner
+					// with zero deposit so charge/refund are no-ops.
+					let mut module = match &self.origin {
+						Origin::Signed(o) => {
+							crate::ContractBlob::<T>::from_evm_runtime_code(data, o.clone())?
+						},
+						Origin::Root => {
+							crate::ContractBlob::<T>::from_evm_runtime_code_with_deposit(
+								data,
+								crate::Pallet::<T>::account_id(),
+								Zero::zero(),
+							)?
+						},
+					};
 					module.store_code(&self.exec_config, &mut frame.frame_meter)?;
 					code_deposit = module.code_info().deposit();
 
@@ -1537,6 +1583,20 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
+		// For the first frame, only log the final metrics since it doesn't open a
+		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
+		if is_first_frame {
+			let m = self.access_list.metrics();
+			log::trace!(
+				target: LOG_TARGET,
+				"access list metrics: size={size} cold={cold} hot={hot}",
+				size = m.size, cold = m.cold, hot = m.hot,
+			);
+		} else if success {
+			self.access_list.commit_frame();
+		} else {
+			self.access_list.rollback_frame();
+		}
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -1550,6 +1610,27 @@ where
 	/// This is called after running the current frame. It commits cached values to storage
 	/// and invalidates all stale references to it that might exist further down the call stack.
 	fn pop_frame(&mut self, persist: bool) {
+		/// Bank the pending storage diff into the cached `ContractInfo`, then invalidate.
+		///
+		/// The `load` covers the case where an earlier same-contract reentry already
+		/// invalidated this frame; without it a removal-bearing diff would be banked with
+		/// no info and silently drop the refund pro-rata. A `None` after `load` means the
+		/// frame is a precompile with no contract info, which has nothing to bank.
+		fn bank_pending_changes_and_invalidate<T: Config>(f: &mut Frame<T>) {
+			let contract = f.account_id.clone();
+			f.contract_info.load(&f.account_id);
+			if let Some(info) = f.contract_info.as_contract() {
+				f.frame_meter.bank_pending_storage_changes(contract, info);
+			}
+			// `invalidate` drops the in-memory update `bank` made to `info`; that is safe
+			// because storage already reflects it. Additions and `set_storage` removals leave
+			// the frame `Cached` (write reloads the cache), so `push_frame` preview-persists
+			// them before we get here. The only diff not yet in storage would be a removal on
+			// an already-invalidated frame — reachable solely via `charge_storage`, which has
+			// no contract-level caller. If that changes, persist here instead of invalidating.
+			f.contract_info.invalidate();
+		}
+
 		// Pop the current frame from the stack and return it in case it needs to interact
 		// with duplicates that might exist on the stack.
 		// A `None` means that we are returning from the `first_frame`.
@@ -1590,7 +1671,8 @@ where
 					contract,
 				);
 				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
-					f.contract_info.invalidate();
+					// Bank before invalidating so finalize doesn't apply the diff a second time.
+					bank_pending_changes_and_invalidate(f);
 				}
 			}
 		} else {
@@ -1667,8 +1749,9 @@ where
 		let ed = <T as Config>::Currency::minimum_balance();
 		let is_eth_tx = exec_config.collect_deposit_from_hold.is_some();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
-			match meter
-				.charge_deposit(&StorageDeposit::Charge(ed))
+			// Meter the ED deposit only after the transfer succeeds: the meter is not rolled
+			// back, so metering earlier would count an ED for an account never created.
+			match Ok::<(), DispatchError>(())
 				.and_then(|_| {
 					if is_eth_tx {
 						let credit = T::FeeInfo::withdraw_txfee(ed)
@@ -1683,6 +1766,7 @@ where
 					}
 				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
+				.and_then(|_| meter.charge_deposit(&StorageDeposit::Charge(ed)))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
@@ -1721,6 +1805,13 @@ where
 	) -> Result<(), DispatchError> {
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
+		// If root created this contract we need to use the pallet account_id because root has no
+		// account.
+		let origin: Origin<T> = match origin {
+			Origin::Signed(o) => Origin::Signed(o.clone()),
+			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
+		};
+
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
 			let refund =
@@ -1739,7 +1830,7 @@ where
 				contract_address.into(),
 			));
 			Self::transfer(
-				origin,
+				&origin,
 				contract_account,
 				&args.beneficiary,
 				balance,
@@ -2145,6 +2236,9 @@ where
 						Default::default(),
 					);
 				});
+
+				let snapshot = if_tracing(|_| top_frame!(self).frame_meter.snapshot());
+
 				let result = if let Some(mock_answer) =
 					self.exec_config.mock_handler.as_ref().and_then(|handler| {
 						handler.mock_call(T::AddressMapper::to_address(&dest), &input_data, value)
@@ -2168,15 +2262,19 @@ where
 					)
 				};
 
-				if_tracing(|t| match result {
-					Ok(ref output) => {
-						t.exit_child_span(&output, Default::default(), Default::default())
-					},
-					Err(e) => t.exit_child_span_with_error(
-						e.error.into(),
-						Default::default(),
-						Default::default(),
-					),
+				if_tracing(|t| {
+					let snapshot = snapshot.as_ref().expect(
+						"snapshot is taken inside if_tracing above; tracing state cannot \
+						 change mid-call, so it is Some whenever this closure runs; qed",
+					);
+					let (gas_used, weight_delta) =
+						top_frame!(self).frame_meter.delta_since(snapshot);
+					match result {
+						Ok(ref output) => t.exit_child_span(&output, gas_used, weight_delta),
+						Err(e) => {
+							t.exit_child_span_with_error(e.error.into(), gas_used, weight_delta)
+						},
+					}
 				});
 
 				result.map(|_| ())
@@ -2317,6 +2415,10 @@ where
 		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
 	}
 
+	fn origin_is_root(&self) -> bool {
+		self.origin == Origin::Root
+	}
+
 	fn balance(&self) -> U256 {
 		self.account_balance(&self.top_frame().account_id)
 	}
@@ -2346,7 +2448,8 @@ where
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
 		if_tracing(|tracer| {
-			tracer.log_event(contract, &topics, &data);
+			let log_index = frame_system::Pallet::<Self::T>::event_count();
+			tracer.log_event(contract, &topics, &data, log_index);
 		});
 
 		// Capture the log only if it is generated by an Ethereum transaction.
@@ -2521,6 +2624,26 @@ where
 			value,
 			Some(&mut frame.frame_meter),
 			take_old,
+		)
+	}
+
+	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.touch(AccessEntry { address, slot: key.into() }),
+		)
+	}
+
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.peek(&AccessEntry { address, slot: key.into() }),
 		)
 	}
 

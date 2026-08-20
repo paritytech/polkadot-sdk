@@ -40,6 +40,8 @@ std = [
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
 	"cumulus-test-relay-sproof-builder?/std",
+	"emulated-integration-tests-common?/std",
+	"fp-coretime?/std",
 	"frame-benchmarking-pallet-pov?/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
@@ -137,13 +139,14 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
+	"pallet-revive-types?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
 	"pallet-safe-mode?/std",
 	"pallet-salary?/std",
+	"pallet-scarcity?/std",
 	"pallet-scheduler?/std",
-	"pallet-scored-pool?/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
@@ -162,7 +165,6 @@ std = [
 	"pallet-tips?/std",
 	"pallet-transaction-payment-rpc-runtime-api?/std",
 	"pallet-transaction-payment?/std",
-	"pallet-transaction-storage?/std",
 	"pallet-treasury?/std",
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
@@ -208,6 +210,7 @@ std = [
 	"sp-debug-derive?/std",
 	"sp-externalities?/std",
 	"sp-genesis-builder?/std",
+	"sp-hop?/std",
 	"sp-inherents?/std",
 	"sp-io?/std",
 	"sp-keyring?/std",
@@ -243,6 +246,7 @@ std = [
 	"xcm-runtime-apis?/std",
 ]
 runtime-benchmarks = [
+	"asset-test-utils?/runtime-benchmarks",
 	"assets-common?/runtime-benchmarks",
 	"bridge-hub-common?/runtime-benchmarks",
 	"bridge-runtime-common?/runtime-benchmarks",
@@ -253,6 +257,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue?/runtime-benchmarks",
 	"cumulus-primitives-core?/runtime-benchmarks",
 	"cumulus-primitives-utility?/runtime-benchmarks",
+	"emulated-integration-tests-common?/runtime-benchmarks",
 	"frame-benchmarking-cli?/runtime-benchmarks",
 	"frame-benchmarking-pallet-pov?/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
@@ -338,6 +343,7 @@ runtime-benchmarks = [
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
 	"pallet-salary?/runtime-benchmarks",
+	"pallet-scarcity?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-session?/runtime-benchmarks",
@@ -352,7 +358,6 @@ runtime-benchmarks = [
 	"pallet-timestamp?/runtime-benchmarks",
 	"pallet-tips?/runtime-benchmarks",
 	"pallet-transaction-payment?/runtime-benchmarks",
-	"pallet-transaction-storage?/runtime-benchmarks",
 	"pallet-treasury?/runtime-benchmarks",
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
@@ -367,6 +372,7 @@ runtime-benchmarks = [
 	"pallet-xcm-precompiles?/runtime-benchmarks",
 	"pallet-xcm?/runtime-benchmarks",
 	"parachains-common?/runtime-benchmarks",
+	"parachains-runtimes-test-utils?/runtime-benchmarks",
 	"polkadot-cli?/runtime-benchmarks",
 	"polkadot-node-metrics?/runtime-benchmarks",
 	"polkadot-omni-node-lib?/runtime-benchmarks",
@@ -389,6 +395,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"asset-test-utils?/try-runtime",
 	"assets-common?/try-runtime",
+	"bridge-hub-test-utils?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
 	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
@@ -397,12 +404,14 @@ try-runtime = [
 	"cumulus-pallet-xcm?/try-runtime",
 	"cumulus-pallet-xcmp-queue?/try-runtime",
 	"cumulus-ping?/try-runtime",
+	"emulated-integration-tests-common?/try-runtime",
 	"frame-benchmarking-pallet-pov?/try-runtime",
 	"frame-election-provider-support?/try-runtime",
 	"frame-executive?/try-runtime",
 	"frame-support?/try-runtime",
 	"frame-system?/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"generate-bags?/try-runtime",
 	"pallet-accumulate-and-forward?/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
@@ -487,8 +496,8 @@ try-runtime = [
 	"pallet-root-testing?/try-runtime",
 	"pallet-safe-mode?/try-runtime",
 	"pallet-salary?/try-runtime",
+	"pallet-scarcity?/try-runtime",
 	"pallet-scheduler?/try-runtime",
-	"pallet-scored-pool?/try-runtime",
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
@@ -502,7 +511,6 @@ try-runtime = [
 	"pallet-timestamp?/try-runtime",
 	"pallet-tips?/try-runtime",
 	"pallet-transaction-payment?/try-runtime",
-	"pallet-transaction-storage?/try-runtime",
 	"pallet-treasury?/try-runtime",
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
@@ -516,6 +524,7 @@ try-runtime = [
 	"pallet-xcm-precompiles?/try-runtime",
 	"pallet-xcm?/try-runtime",
 	"parachains-common?/try-runtime",
+	"parachains-runtimes-test-utils?/try-runtime",
 	"polkadot-cli?/try-runtime",
 	"polkadot-omni-node-lib?/try-runtime",
 	"polkadot-runtime-common?/try-runtime",
@@ -543,7 +552,6 @@ serde = [
 	"pallet-state-trie-migration?/serde",
 	"pallet-tips?/serde",
 	"pallet-transaction-payment?/serde",
-	"pallet-transaction-storage?/serde",
 	"pallet-treasury?/serde",
 	"pallet-xcm?/serde",
 	"sp-application-crypto?/serde",
@@ -607,6 +615,7 @@ runtime-full = [
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
 	"ethereum-standards",
+	"fp-coretime",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -709,13 +718,14 @@ runtime-full = [
 	"pallet-remark",
 	"pallet-revive",
 	"pallet-revive-proc-macro",
+	"pallet-revive-types",
 	"pallet-revive-uapi",
 	"pallet-root-offences",
 	"pallet-root-testing",
 	"pallet-safe-mode",
 	"pallet-salary",
+	"pallet-scarcity",
 	"pallet-scheduler",
-	"pallet-scored-pool",
 	"pallet-session",
 	"pallet-session-benchmarking",
 	"pallet-skip-feeless-payment",
@@ -735,7 +745,6 @@ runtime-full = [
 	"pallet-tips",
 	"pallet-transaction-payment",
 	"pallet-transaction-payment-rpc-runtime-api",
-	"pallet-transaction-storage",
 	"pallet-treasury",
 	"pallet-tx-pause",
 	"pallet-uniques",
@@ -781,6 +790,7 @@ runtime-full = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -855,6 +865,7 @@ runtime = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -890,6 +901,7 @@ node = [
 	"cumulus-client-bootnodes",
 	"cumulus-client-cli",
 	"cumulus-client-collator",
+	"cumulus-client-collator-discovery",
 	"cumulus-client-consensus-aura",
 	"cumulus-client-consensus-common",
 	"cumulus-client-consensus-relay-chain",
@@ -897,6 +909,7 @@ node = [
 	"cumulus-client-parachain-inherent",
 	"cumulus-client-pov-recovery",
 	"cumulus-client-proof-size-recording",
+	"cumulus-client-resubmission-store",
 	"cumulus-client-service",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
@@ -925,6 +938,7 @@ node = [
 	"polkadot-erasure-coding",
 	"polkadot-gossip-support",
 	"polkadot-network-bridge",
+	"polkadot-node-clock",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
 	"polkadot-node-core-approval-voting-parallel",
@@ -979,10 +993,12 @@ node = [
 	"sc-executor-common",
 	"sc-executor-polkavm",
 	"sc-executor-wasmtime",
+	"sc-hop",
 	"sc-informant",
 	"sc-keystore",
 	"sc-mixnet",
 	"sc-network",
+	"sc-network-bitswap",
 	"sc-network-common",
 	"sc-network-gossip",
 	"sc-network-light",
@@ -1000,6 +1016,7 @@ node = [
 	"sc-service",
 	"sc-state-db",
 	"sc-statement-store",
+	"sc-storage-chain-sync",
 	"sc-storage-monitor",
 	"sc-sync-state-rpc",
 	"sc-sysinfo",
@@ -1008,6 +1025,7 @@ node = [
 	"sc-transaction-pool",
 	"sc-transaction-pool-api",
 	"sc-utils",
+	"sc-virtualization",
 	"sp-blockchain",
 	"sp-consensus",
 	"sp-core-hashing",
@@ -1204,6 +1222,11 @@ path = "../cumulus/primitives/utility"
 default-features = false
 optional = true
 path = "../substrate/primitives/ethereum-standards"
+
+[dependencies.fp-coretime]
+default-features = false
+optional = true
+path = "../substrate/frame/primitives/coretime"
 
 [dependencies.frame-benchmarking]
 default-features = false
@@ -1715,6 +1738,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/revive/proc-macro"
 
+[dependencies.pallet-revive-types]
+default-features = false
+optional = true
+path = "../substrate/frame/revive/types"
+
 [dependencies.pallet-revive-uapi]
 default-features = false
 optional = true
@@ -1740,15 +1768,15 @@ default-features = false
 optional = true
 path = "../substrate/frame/salary"
 
+[dependencies.pallet-scarcity]
+default-features = false
+optional = true
+path = "../substrate/frame/scarcity"
+
 [dependencies.pallet-scheduler]
 default-features = false
 optional = true
 path = "../substrate/frame/scheduler"
-
-[dependencies.pallet-scored-pool]
-default-features = false
-optional = true
-path = "../substrate/frame/scored-pool"
 
 [dependencies.pallet-session]
 default-features = false
@@ -1844,11 +1872,6 @@ path = "../substrate/frame/transaction-payment"
 default-features = false
 optional = true
 path = "../substrate/frame/transaction-payment/rpc/runtime-api"
-
-[dependencies.pallet-transaction-storage]
-default-features = false
-optional = true
-path = "../substrate/frame/transaction-storage"
 
 [dependencies.pallet-treasury]
 default-features = false
@@ -2075,6 +2098,11 @@ default-features = false
 optional = true
 path = "../substrate/primitives/genesis-builder"
 
+[dependencies.sp-hop]
+default-features = false
+optional = true
+path = "../substrate/primitives/hop"
+
 [dependencies.sp-inherents]
 default-features = false
 optional = true
@@ -2285,6 +2313,11 @@ default-features = false
 optional = true
 path = "../cumulus/client/collator"
 
+[dependencies.cumulus-client-collator-discovery]
+default-features = false
+optional = true
+path = "../cumulus/client/collator-discovery"
+
 [dependencies.cumulus-client-consensus-aura]
 default-features = false
 optional = true
@@ -2319,6 +2352,11 @@ path = "../cumulus/client/pov-recovery"
 default-features = false
 optional = true
 path = "../cumulus/client/proof-size-recording"
+
+[dependencies.cumulus-client-resubmission-store]
+default-features = false
+optional = true
+path = "../cumulus/client/resubmission-store"
 
 [dependencies.cumulus-client-service]
 default-features = false
@@ -2459,6 +2497,11 @@ path = "../polkadot/node/network/gossip-support"
 default-features = false
 optional = true
 path = "../polkadot/node/network/bridge"
+
+[dependencies.polkadot-node-clock]
+default-features = false
+optional = true
+path = "../polkadot/node/clock"
 
 [dependencies.polkadot-node-collation-generation]
 default-features = false
@@ -2730,6 +2773,11 @@ default-features = false
 optional = true
 path = "../substrate/client/executor/wasmtime"
 
+[dependencies.sc-hop]
+default-features = false
+optional = true
+path = "../substrate/client/hop"
+
 [dependencies.sc-informant]
 default-features = false
 optional = true
@@ -2749,6 +2797,11 @@ path = "../substrate/client/mixnet"
 default-features = false
 optional = true
 path = "../substrate/client/network"
+
+[dependencies.sc-network-bitswap]
+default-features = false
+optional = true
+path = "../substrate/client/network/bitswap"
 
 [dependencies.sc-network-common]
 default-features = false
@@ -2835,6 +2888,11 @@ default-features = false
 optional = true
 path = "../substrate/client/statement-store"
 
+[dependencies.sc-storage-chain-sync]
+default-features = false
+optional = true
+path = "../substrate/client/storage-chain-sync"
+
 [dependencies.sc-storage-monitor]
 default-features = false
 optional = true
@@ -2874,6 +2932,11 @@ path = "../substrate/client/transaction-pool/api"
 default-features = false
 optional = true
 path = "../substrate/client/utils"
+
+[dependencies.sc-virtualization]
+default-features = false
+optional = true
+path = "../substrate/client/virtualization"
 
 [dependencies.sp-blockchain]
 default-features = false

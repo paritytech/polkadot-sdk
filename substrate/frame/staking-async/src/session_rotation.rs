@@ -119,13 +119,20 @@ impl<T: Config> Eras<T> {
 		Self::get_validator_prefs(era, stash).commission
 	}
 
-	/// Returns true if validator has one or more page of era rewards not claimed yet.
+	/// Returns true if the validator has unclaimed pages and earned reward points in the era
+	/// (a zero-point payout transfers nothing, so there is nothing to claim).
 	pub(crate) fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
-		<ErasStakersOverview<T>>::get(&era, validator)
-			.map(|overview| {
-				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
-			})
-			.unwrap_or(false)
+		let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) else {
+			// no exposure, so no rewards to claim.
+			return false;
+		};
+
+		// Zero reward points means a payout transfers nothing, so there is nothing to claim.
+		if Self::get_reward_points_for_validator(era, validator).is_zero() {
+			return false;
+		}
+
+		ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
 	}
 
 	/// Get exposure for a validator at a given era and page.
@@ -191,6 +198,11 @@ impl<T: Config> Eras<T> {
 			// Always returns 1 page for older non-paged exposure.
 			// FIXME: Can be cleaned up with issue #13034.
 			.unwrap_or(1)
+	}
+
+	/// Check whether the validator was exposed at specified era.
+	pub(crate) fn was_validator_exposed(era: EraIndex, validator: &T::AccountId) -> bool {
+		<ErasStakersOverview<T>>::contains_key(era, validator)
 	}
 
 	/// Returns the next page that can be claimed or `None` if nothing to claim.
@@ -401,29 +413,84 @@ impl<T: Config> Eras<T> {
 	}
 
 	/// Add reward points to validators using their stash account ID.
+	///
+	/// As a side effect, accumulates `weight × points` into [`ErasSumWeightedPoints`] for the
+	/// active era, where `weight` is the validator's [`ErasValidatorIncentiveWeight`]. This
+	/// keeps the denominator of the weighted-points share up to date without iterating every
+	/// validator at payout time.
 	pub(crate) fn reward_active_era(
 		validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 	) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
+			let mut sum_weighted_points_delta: BalanceOf<T> = Zero::zero();
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
-					match era_rewards.individual.get_mut(&validator) {
-						Some(individual) => individual.saturating_accrue(points),
+					let weight =
+						ErasValidatorIncentiveWeight::<T>::get(active_era.index, &validator)
+							.unwrap_or_else(Zero::zero);
+
+					let recorded = match era_rewards.individual.get_mut(&validator) {
+						Some(individual) => {
+							individual.saturating_accrue(points);
+							true
+						},
 						None => {
 							// not much we can do -- validators should always be less than
 							// `MaxValidatorSet`.
-							let _ =
-								era_rewards.individual.try_insert(validator, points).defensive();
+							era_rewards.individual.try_insert(validator, points).defensive().is_ok()
 						},
+					};
+
+					// Keep the denominator aligned with `individual`, which is the source used
+					// by payouts and try-state recomputation. A defensive overflow may leave
+					// points unrecorded; those points must not be counted in
+					// `ErasSumWeightedPoints`.
+					if recorded && !weight.is_zero() {
+						sum_weighted_points_delta = sum_weighted_points_delta.saturating_add(
+							weight.saturating_mul(IncentiveWeight::<T>::from(points)),
+						);
 					}
+
 					era_rewards.total.saturating_accrue(points);
 				}
 			});
+			if !sum_weighted_points_delta.is_zero() {
+				ErasSumWeightedPoints::<T>::mutate(active_era.index, |sum| {
+					*sum = sum.saturating_add(sum_weighted_points_delta);
+				});
+			}
 		}
 	}
 
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
+	}
+
+	pub(crate) fn get_reward_points_for_validator(
+		era: EraIndex,
+		validator: &T::AccountId,
+	) -> RewardPoint {
+		let points = ErasRewardPoints::<T>::get(era);
+		points.individual.get(validator).copied().unwrap_or_default()
+	}
+
+	/// Whether era `era` uses the weighted-points incentive-share formula
+	/// `share_i = (w_i · ep_i) / Σ_j(w_j · ep_j)`.
+	///
+	/// Returns `true` for eras at or after [`crate::WeightedPointsFormulaStartEra`], and while
+	/// the cutoff is still unset before the migration records it.
+	///
+	/// Returns `false` for pre-cutoff eras, which fall back to the legacy stake-only share
+	/// `share_i = w_i / Σ_j w_j`. Those eras may have reward points credited before their
+	/// [`crate::ErasSumWeightedPoints`] denominator was maintained; recomputing it for the full
+	/// [`Config::HistoryDepth`] window on upgrade would cost `HistoryDepth × MaxValidatorSet`
+	/// reads, so the migration sets the cutoff to `active_era + 1` instead. See
+	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+	///
+	/// Single source of truth for the cutoff decision, shared by the payout path
+	/// ([`crate::Pallet::calculate_validator_incentive_for_page`]) and [`Self::do_try_state`].
+	pub(crate) fn uses_weighted_points(era: EraIndex) -> bool {
+		crate::WeightedPointsFormulaStartEra::<T>::get().map_or(true, |start| era >= start)
 	}
 }
 
@@ -516,6 +583,13 @@ impl<T: Config> Eras<T> {
 		for e in oldest_present_era..=active_era {
 			Self::era_fully_present(e)?;
 			Self::check_validator_incentive_weight_consistency(e)?;
+			// Eras strictly older than the cutoff use the legacy stake-only formula and may not
+			// have `ErasSumWeightedPoints` populated, so skip the denominator consistency check.
+			// See
+			// [`crate::migrations::SetWeightedPointsFormulaStartEra`].
+			if Self::uses_weighted_points(e) {
+				Self::check_sum_weighted_points_consistency(e)?;
+			}
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
@@ -542,6 +616,31 @@ impl<T: Config> Eras<T> {
 			stored_total == computed_total,
 			"ErasSumValidatorIncentiveWeight mismatch: \
 			 stored vs computed individual weights do not match"
+		);
+
+		Ok(())
+	}
+
+	/// Verify that the incrementally maintained [`ErasSumWeightedPoints`] matches the
+	/// recomputed value `Σ_v(weight_v · ep_v)` from current storage.
+	fn check_sum_weighted_points_consistency(
+		era: EraIndex,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_runtime::traits::Zero;
+
+		let stored = ErasSumWeightedPoints::<T>::get(era);
+		let reward_points = ErasRewardPoints::<T>::get(era);
+		let computed: BalanceOf<T> =
+			reward_points.individual.iter().fold(BalanceOf::<T>::zero(), |acc, (v, &ep)| {
+				let weight =
+					ErasValidatorIncentiveWeight::<T>::get(era, v).unwrap_or_else(Zero::zero);
+				acc.saturating_add(weight.saturating_mul(BalanceOf::<T>::from(ep)))
+			});
+
+		ensure!(
+			stored == computed,
+			"ErasSumWeightedPoints mismatch: \
+			 stored vs computed (Σ weight · era_points) do not match"
 		);
 
 		Ok(())
@@ -668,9 +767,10 @@ impl<T: Config> Rotator<T> {
 	pub(crate) fn end_session(
 		end_index: SessionIndex,
 		activation_timestamp: Option<(u64, u32)>,
+		rewarded_validators: u32,
 	) -> Weight {
 		// baseline weight for processing the relay chain session report
-		let weight = T::WeightInfo::rc_on_session_report();
+		let weight = T::WeightInfo::rc_on_session_report(rewarded_validators);
 
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");

@@ -240,7 +240,7 @@ pub fn can_control_account(
 pub fn root_without_events() -> Vec<u8> {
 	hypothetically!({
 		clear_events();
-		sp_io::storage::root::<sp_core::H256>()
+		sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 	})
 }
 

@@ -272,7 +272,7 @@ fn build_multiple_blocks_with_witness(
 	let proof = proof.into_compact_proof::<BlakeTwo256>(parent_head_root).unwrap();
 
 	TestBlockData {
-		block: ParachainBlockData::new(blocks, proof),
+		block: ParachainBlockData::new(blocks, proof, None),
 		validation_data: persisted_validation_data.unwrap(),
 	}
 }
@@ -857,7 +857,7 @@ fn validate_block_rejects_incomplete_bundle() {
 
 	// Validation with only first block should fail (incomplete bundle)
 	let first_block_only =
-		ParachainBlockData::new(vec![block.blocks()[0].clone()], block.proof().clone());
+		ParachainBlockData::new(vec![block.blocks()[0].clone()], block.proof().clone(), None);
 	let log_capture = capture_test_logs!({
 		call_validate_block_elastic_scaling(
 			parent_head.clone(),

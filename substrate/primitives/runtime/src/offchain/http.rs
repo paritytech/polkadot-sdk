@@ -204,7 +204,7 @@ impl<'a, I: AsRef<[u8]>, T: IntoIterator<Item = I>> Request<'a, T> {
 	/// or the request timeouts.
 	pub fn send(self) -> Result<PendingRequest, HttpError> {
 		// start an http request.
-		let id = sp_io::offchain::http_request_start(self.method.as_ref(), self.url, vec![])
+		let id = sp_io::offchain::http_request_start(self.method.as_ref(), self.url, &[])
 			.map_err(|_| HttpError::IoError)?;
 
 		// add custom headers

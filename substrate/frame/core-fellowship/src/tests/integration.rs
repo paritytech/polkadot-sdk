@@ -83,6 +83,7 @@ impl Config for Test {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = EvidenceSize;
 	type MaxRank = ConstU16<9>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 /// Convert the tally class into the minimum rank required to vote on the poll.
@@ -235,7 +236,7 @@ fn swap_exhaustive_works() {
 
 			// The events mess up the storage root:
 			System::reset_events();
-			sp_io::storage::root::<sp_core::H256>()
+			sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 		});
 
 		let root_swap = hypothetically!({
@@ -248,7 +249,7 @@ fn swap_exhaustive_works() {
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 0, 1));
 
 			System::reset_events();
-			sp_io::storage::root::<sp_core::H256>()
+			sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 		});
 
 		assert_eq!(root_add, root_swap);

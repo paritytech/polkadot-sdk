@@ -214,7 +214,7 @@ impl<T: codec::Decode> core::iter::Iterator for ScaleContainerStreamIter<T> {
 /// state for every access is too slow.
 const STORAGE_INPUT_BUFFER_CAPACITY: usize = 2 * 1024;
 
-/// Implementation of [`codec::Input`] using [`sp_io::storage::read`].
+/// Implementation of [`codec::Input`] using [`sp_io::storage::read_partial`].
 ///
 /// Keeps an internal buffer with a size of [`STORAGE_INPUT_BUFFER_CAPACITY`]. All read accesses
 /// are tried to be served by this buffer. If the buffer doesn't hold enough bytes to fulfill the

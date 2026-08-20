@@ -67,12 +67,13 @@ pub mod __private {
 	pub use sp_io::{self, hashing};
 
 	/// Non-generic helper that returns the storage root bytes for use from macros
-	/// (`assert_noop!`, `assert_storage_noop!`) where no hash type is in scope.
-	pub fn storage_root() -> alloc::vec::Vec<u8> {
-		const MAX_HASH_BYTES: usize = 256;
-		let mut out = alloc::vec![0u8; MAX_HASH_BYTES];
-		sp_io::storage::root__wrapped(&mut out[..]);
-		out
+	/// (`assert_noop!`, `assert_storage_noop!`) and benchmarking, where no hash type is in
+	/// scope.
+	pub fn storage_root(version: sp_runtime::StateVersion) -> alloc::vec::Vec<u8> {
+		// A buffer-sizing stand-in for the runtime's hash type, which isn't available here;
+		// large enough for any hash.
+		type MaxHashBytes = [u8; 256];
+		sp_io::storage::root::<MaxHashBytes>(version)
 	}
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
@@ -1937,34 +1938,6 @@ pub mod pallet_macros {
 	///     }
 	/// }
 	/// ```
-	///
-	/// ## Former Usage
-	///
-	/// Prior to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
-	/// This is deprecated and will soon be removed.
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// pub mod pallet {
-	/// #     #[pallet::config]
-	/// #     pub trait Config: frame_system::Config {}
-	/// #     #[pallet::pallet]
-	/// #     pub struct Pallet<T>(_);
-	/// #     use frame_support::traits::GenesisBuild;
-	///     #[pallet::genesis_config]
-	///     #[derive(frame_support::DefaultNoBound)]
-	///     pub struct GenesisConfig<T: Config> {
-	/// 		foo: Vec<T::AccountId>
-	/// 	}
-	///
-	///     #[pallet::genesis_build]
-	///     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-	///         fn build(&self) {
-	///             todo!()
-	///         }
-	///     }
-	/// }
-	/// ```
 	pub use frame_support_procedural::genesis_build;
 
 	/// Allows adding an associated type trait bounded by
@@ -2289,12 +2262,6 @@ pub mod pallet_macros {
 	/// Read more about origins at the [Origin Reference
 	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
 	pub use frame_support_procedural::origin;
-}
-
-#[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
-pub mod error {
-	#[doc(hidden)]
-	pub use sp_runtime::traits::{BadOrigin, LookupError};
 }
 
 #[doc(inline)]
