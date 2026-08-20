@@ -2838,7 +2838,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -5095,7 +5095,7 @@ dependencies = [
  "sp-version 29.0.0",
  "staging-xcm",
  "staging-xcm-builder",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-standardmap",
 ]
 
@@ -25591,7 +25591,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -25612,7 +25612,7 @@ dependencies = [
  "sp-trie 44.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
 ]
 
 [[package]]
@@ -25768,7 +25768,7 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "trie-bench",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -25795,7 +25795,7 @@ dependencies = [
  "substrate-prometheus-endpoint 0.17.7",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
  "trie-root",
 ]
 
@@ -26761,7 +26761,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -26841,7 +26841,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -28652,16 +28652,16 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a03bee4700c5dd6b2ceba5e4e4d5a7017704a761481824d3033d223f9660973a"
+checksum = "5bdf11c77ca165a25b7e22acff7c05b7888794acb84d21078305b41ab6b5f627"
 dependencies = [
  "criterion",
  "hash-db",
  "keccak-hasher",
  "memory-db",
  "parity-scale-codec",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -28671,6 +28671,18 @@ name = "trie-db"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
+dependencies = [
+ "hash-db",
+ "log",
+ "rustc-hex",
+ "smallvec",
+]
+
+[[package]]
+name = "trie-db"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "559b3902fbd74c14b64ea1690792be25bd5ccd3820f8b6b6228754e00fe3c1d6"
 dependencies = [
  "hash-db",
  "log",
