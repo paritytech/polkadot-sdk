@@ -258,6 +258,29 @@ tables above:
 - The asm code is **not production ready**: benchmark-grade only — no
   fuzzing, no review. 
 
+### Custom 256-bit instructions PoC (25519) — experimental
+
+The other side of the same question: instead of improving the guest code, extend
+the ISA. Eight experimental PVM opcodes for 256-bit add/sub/multiply and
+Montgomery reduction (plus fused variants), with a `curve25519-dalek` backend
+that uses them. Full report — ISA semantics, the register-clobber contract, and
+everything rejected along the way — in
+[wide-arith-results.md](wide-arith-results.md).
+
+Machine B, one ed25519-zebra signature verification (both rows from that
+report's chain, so the host baseline is common):
+
+| configuration | PVM | vs host portable |
+|---|---:|---:|
+| stock PVM — no wide instructions | 63.21 µs | 2.57× |
+| with 256-bit instructions, fused add/sub | **38.58 µs** | **1.56×** |
+
+- −39% wall clock. All three signature benches end under 1.7× host on both axes
+  (ed25519 1.32× portable, sr25519 1.47× native); the non-25519 controls did not
+  move and their blobs stayed byte-identical.
+- **Experimental, not a proposal.** Branches: polkavm `mku-wide-arith`,
+  curve25519-dalek fork `curve25519-4.1.3--dev`.
+
 ## Host-call overhead — measured
 
 A PVF runs in a **nested PVM** (`machine`/`invoke`); its host calls cannot
