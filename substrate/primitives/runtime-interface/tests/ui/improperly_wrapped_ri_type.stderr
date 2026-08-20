@@ -8,11 +8,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndPassAs<T, U, V>
              ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
-             PassFatPointerAndRead<T>
            and $N others
    = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -26,11 +26,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndPassAs<T, U, V>
              ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
-             PassFatPointerAndRead<T>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
@@ -43,11 +43,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndPassAs<T, U, V>
              ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
-             PassFatPointerAndRead<T>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
@@ -57,14 +57,14 @@ error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
    |                           ^^^^^^^^^^ the trait `FromFFIValue<'_>` is not implemented for `Option<u8>`
    |
    = help: the following other types implement trait `FromFFIValue<'a>`:
+             ConvertAndPassAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<&'a [T]>
              PassFatPointerAndRead<&'a [u8]>
              PassFatPointerAndRead<&'a str>
              PassFatPointerAndRead<Vec<u8>>
-             PassFatPointerAndReadOption<&'a [u8]>
-             PassFatPointerAndReadWrite<&'a mut [u8]>
+             PassFatPointerAndReadWrite<&'a mut [T]>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: IntoFFIValue` is not satisfied
@@ -91,14 +91,14 @@ error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
    |                        ^ the trait `FromFFIValue<'_>` is not implemented for `Option<u8>`
    |
    = help: the following other types implement trait `FromFFIValue<'a>`:
+             ConvertAndPassAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<&'a [T]>
              PassFatPointerAndRead<&'a [u8]>
              PassFatPointerAndRead<&'a str>
              PassFatPointerAndRead<Vec<u8>>
-             PassFatPointerAndReadOption<&'a [u8]>
-             PassFatPointerAndReadWrite<&'a mut [u8]>
+             PassFatPointerAndReadWrite<&'a mut [T]>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
@@ -108,14 +108,14 @@ error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
    |     ^^^^^^^^^^^^^^^^^^^^ the trait `FromFFIValue<'_>` is not implemented for `Option<u8>`
    |
    = help: the following other types implement trait `FromFFIValue<'a>`:
+             ConvertAndPassAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<&'a [T]>
              PassFatPointerAndRead<&'a [u8]>
              PassFatPointerAndRead<&'a str>
              PassFatPointerAndRead<Vec<u8>>
-             PassFatPointerAndReadOption<&'a [u8]>
-             PassFatPointerAndReadWrite<&'a mut [u8]>
+             PassFatPointerAndReadWrite<&'a mut [T]>
            and $N others
    = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -129,11 +129,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndPassAs<T, U, V>
              ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
-             PassFatPointerAndRead<T>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
@@ -146,9 +146,9 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndPassAs<T, U, V>
              ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
-             PassFatPointerAndRead<T>
            and $N others

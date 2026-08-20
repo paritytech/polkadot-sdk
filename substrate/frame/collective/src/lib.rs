@@ -797,7 +797,7 @@ pub mod pallet {
 		/// + `proposal_weight_bound`: The maximum amount of weight consumed by executing the closed
 		/// proposal.
 		/// + `length_bound`: The upper bound for the length of the proposal in storage. Checked via
-		/// `storage::read` so it is `size_of::<u32>() == 4` larger than the pure length.
+		/// `storage::read_exact` so it is `size_of::<u32>() == 4` larger than the pure length.
 		///
 		/// ## Complexity
 		/// - `O(B + M + P1 + P2)` where:
@@ -1118,8 +1118,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Ensure that the right proposal bounds were passed and get the proposal from storage.
 	///
-	/// Checks the length in storage via `storage::read` which adds an extra `size_of::<u32>() == 4`
-	/// to the length.
+	/// Checks the length in storage via `storage::read_exact` which adds an extra `size_of::<u32>()
+	/// == 4` to the length.
 	fn validate_and_get_proposal(
 		hash: &T::Hash,
 		length_bound: u32,
@@ -1128,7 +1128,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let key = ProposalOf::<T, I>::hashed_key_for(hash);
 		// read the length of the proposal storage entry directly
 		let proposal_len =
-			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
+			storage::read_exact(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
 		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
 		let proposal_weight = proposal.get_dispatch_info().call_weight;

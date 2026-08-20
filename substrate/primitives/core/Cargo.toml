@@ -27,6 +27,7 @@ bip39 = { workspace = true, default-features = false, features = ["alloc"] }
 bitflags = { workspace = true }
 bounded-collections = { workspace = true, features = ["scale-codec"] }
 bs58 = { optional = true, workspace = true }
+byte-slice-cast = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 futures = { optional = true, workspace = true }
 hash-db = { workspace = true }
@@ -90,6 +91,7 @@ std = [
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
+	"byte-slice-cast/std",
 	"codec/std",
 	"ed25519-zebra/std",
 	"full_crypto",

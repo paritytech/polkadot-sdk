@@ -218,7 +218,10 @@ impl offchain::Externalities for TestOffchainExt {
 	}
 
 	fn network_state(&self) -> Result<OpaqueNetworkState, ()> {
-		Ok(OpaqueNetworkState { peer_id: Default::default(), external_addresses: vec![] })
+		// Mirror the encoding used by the real `sc-offchain` externalities
+		let raw_peer_id: Vec<u8> = (0u8..38).collect();
+		let peer_id = OpaquePeerId::new(codec::Encode::encode(&raw_peer_id));
+		Ok(OpaqueNetworkState { peer_id, external_addresses: vec![] })
 	}
 
 	fn timestamp(&mut self) -> Timestamp {

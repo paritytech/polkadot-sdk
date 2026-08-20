@@ -63,6 +63,7 @@ where
 	/// Get externalities implementation.
 	pub fn ext(&mut self) -> Ext<'_, H, InMemoryBackend<H>> {
 		Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions))
+			.with_state_version(self.state_version)
 	}
 
 	/// Create a new instance of `TestExternalities` with storage.
@@ -258,7 +259,8 @@ where
 			.with_recorder(Default::default())
 			.build();
 		let mut proving_ext =
-			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions))
+				.with_state_version(self.state_version);
 
 		let outcome = sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute);
 		let proof = proving_backend.extract_proof().expect("Failed to extract storage proof");
@@ -276,7 +278,8 @@ where
 		let proving_backend =
 			TrieBackendBuilder::wrap(&self.backend).with_recorder(proof_recorder).build();
 		let mut proving_ext =
-			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions))
+				.with_state_version(self.state_version);
 
 		sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute)
 	}
@@ -420,7 +423,7 @@ mod tests {
 		let root = array_bytes::hex_n_into_unchecked::<_, H256, 32>(
 			"ed4d8c799d996add422395a6abd7545491d40bd838d738afafa1b8a4de625489",
 		);
-		assert_eq!(H256::from_slice(ext.storage_root(Default::default()).as_slice()), root);
+		assert_eq!(H256::from_slice(ext.storage_root().as_slice()), root);
 	}
 
 	#[test]
@@ -536,5 +539,49 @@ mod tests {
 
 		ext.commit_all().unwrap();
 		assert!(ext.backend.eq(&backend), "Both backend should be equal.");
+	}
+
+	#[test]
+	fn ext_honours_configured_state_version() {
+		// `TRIE_VALUE_NODE_THRESHOLD` is 33 bytes: a 64-byte value is inlined into the trie
+		// under `V0` but stored as a separate hashed node under `V1`, so the two versions
+		// produce different storage roots. This makes the checks below non-vacuous.
+		let root_via_ext = |version| {
+			let mut ext = TestExternalities::<BlakeTwo256>::new_with_state_version(
+				Storage::default(),
+				version,
+			);
+			let mut ext = ext.ext();
+			ext.set_storage(b"key".to_vec(), vec![0x42; 64]);
+			ext.storage_root()
+		};
+
+		// `ext()` must honour the configured state version. Previously it dropped
+		// `self.state_version` and defaulted to `V1`, so both closures returned the same root.
+		assert_ne!(
+			root_via_ext(StateVersion::V0),
+			root_via_ext(StateVersion::V1),
+			"ext() must compute version-specific roots",
+		);
+
+		// The root observed inside `execute_with`/`ext()` (e.g. by `System::finalize`) must match
+		// the root the backend commits under the same version.
+		for version in [StateVersion::V0, StateVersion::V1] {
+			let mut ext = TestExternalities::<BlakeTwo256>::new_with_state_version(
+				Storage::default(),
+				version,
+			);
+			let root_in_ext = {
+				let mut ext = ext.ext();
+				ext.set_storage(b"key".to_vec(), vec![0x42; 64]);
+				ext.storage_root()
+			};
+			ext.commit_all().unwrap();
+			assert_eq!(
+				H256::from_slice(&root_in_ext),
+				*ext.backend.root(),
+				"in-`ext` root must match committed backend root for {version:?}",
+			);
+		}
 	}
 }

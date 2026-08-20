@@ -2106,8 +2106,7 @@ impl<T: Config> Pallet<T> {
 			<BlockHash<T>>::remove(to_remove);
 		}
 
-		let version = T::Version::get().state_version();
-		let storage_root = T::Hash::decode(&mut &sp_io::storage::root(version)[..])
+		let storage_root = T::Hash::decode(&mut &sp_io::storage::root()[..])
 			.expect("Node is configured to use the same hash; qed");
 
 		HeaderFor::<T>::new(number, extrinsics_root, storage_root, parent_hash, digest)
@@ -2499,7 +2498,7 @@ impl<T: Config> Pallet<T> {
 /// as a facility to reduce the potential for precalculating results.
 pub fn unique(entropy: impl Encode) -> [u8; 32] {
 	let mut last = [0u8; 32];
-	sp_io::storage::read(well_known_keys::INTRABLOCK_ENTROPY, &mut last[..], 0);
+	sp_io::storage::read_exact(well_known_keys::INTRABLOCK_ENTROPY, &mut last[..], 0);
 	let next = (b"frame_system::unique", entropy, last).using_encoded(blake2_256);
 	sp_io::storage::set(well_known_keys::INTRABLOCK_ENTROPY, &next);
 	next

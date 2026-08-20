@@ -226,6 +226,7 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
+	sp_io::input::HostFunctions,
 );
 
 /// Host functions with ECC (elliptic curve cryptography) support.
@@ -289,11 +290,11 @@ impl sp_externalities::Externalities for ValidationExternalities {
 		panic!("place_child_storage: unsupported feature for parachain validation")
 	}
 
-	fn storage_root(&mut self, _: sp_core::storage::StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
 		panic!("storage_root: unsupported feature for parachain validation")
 	}
 
-	fn child_storage_root(&mut self, _: &ChildInfo, _: sp_core::storage::StateVersion) -> Vec<u8> {
+	fn child_storage_root(&mut self, _: &ChildInfo) -> Vec<u8> {
 		panic!("child_storage_root: unsupported feature for parachain validation")
 	}
 
@@ -319,6 +320,14 @@ impl sp_externalities::Externalities for ValidationExternalities {
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
 		panic!("storage_commit_transaction: unsupported feature for parachain validation")
+	}
+
+	fn store_last_cursor(&mut self, _cursor: &[u8]) {
+		panic!("store_last_cursor: unsupported feature for parachain validation")
+	}
+
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		panic!("take_last_cursor: unsupported feature for parachain validation")
 	}
 
 	fn wipe(&mut self) {

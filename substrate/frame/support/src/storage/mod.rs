@@ -1012,6 +1012,8 @@ pub struct PrefixIterator<T, OnRemoval = ()> {
 	/// Function that take `(raw_key_without_prefix, raw_value)` and decode `T`.
 	/// `raw_key_without_prefix` is the raw storage key without the prefix iterated on.
 	closure: fn(&[u8], &[u8]) -> Result<T, codec::Error>,
+	/// Reusable scratch buffer for the next key fetched on each iteration.
+	next_key: Vec<u8>,
 	phantom: core::marker::PhantomData<OnRemoval>,
 }
 
@@ -1023,6 +1025,7 @@ impl<T, OnRemoval1> PrefixIterator<T, OnRemoval1> {
 			previous_key: self.previous_key,
 			drain: self.drain,
 			closure: self.closure,
+			next_key: self.next_key,
 			phantom: Default::default(),
 		}
 	}
@@ -1058,6 +1061,7 @@ impl<T, OnRemoval> PrefixIterator<T, OnRemoval> {
 			previous_key,
 			drain: false,
 			closure: decode_fn,
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -1089,42 +1093,37 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next;
-					let raw_value = match unhashed::get_raw(&self.previous_key) {
-						Some(raw_value) => raw_value,
-						None => {
-							log::error!(
-								"next_key returned a key with no value at {:?}",
-								self.previous_key,
-							);
-							continue;
-						},
-					};
-					if self.drain {
-						unhashed::kill(&self.previous_key);
-						OnRemoval::on_removal(&self.previous_key, &raw_value);
-					}
-					let raw_key_without_prefix = &self.previous_key[self.prefix.len()..];
-					let item = match (self.closure)(raw_key_without_prefix, &raw_value[..]) {
-						Ok(item) => item,
-						Err(e) => {
-							log::error!(
-								"(key, value) failed to decode at {:?}: {:?}",
-								self.previous_key,
-								e,
-							);
-							continue;
-						},
-					};
-
-					Some(item)
+			if !sp_io::storage::next_key(&self.previous_key, &mut self.next_key) ||
+				!self.next_key.starts_with(&self.prefix)
+			{
+				return None;
+			}
+			core::mem::swap(&mut self.previous_key, &mut self.next_key);
+			let raw_value = match unhashed::get_raw(&self.previous_key) {
+				Some(raw_value) => raw_value,
+				None => {
+					log::error!("next_key returned a key with no value at {:?}", self.previous_key,);
+					continue;
 				},
-				None => None,
 			};
+			if self.drain {
+				unhashed::kill(&self.previous_key);
+				OnRemoval::on_removal(&self.previous_key, &raw_value);
+			}
+			let raw_key_without_prefix = &self.previous_key[self.prefix.len()..];
+			let item = match (self.closure)(raw_key_without_prefix, &raw_value[..]) {
+				Ok(item) => item,
+				Err(e) => {
+					log::error!(
+						"(key, value) failed to decode at {:?}: {:?}",
+						self.previous_key,
+						e,
+					);
+					continue;
+				},
+			};
+
+			return Some(item);
 		}
 	}
 }
@@ -1140,6 +1139,8 @@ pub struct KeyPrefixIterator<T> {
 	/// Function that take `raw_key_without_prefix` and decode `T`.
 	/// `raw_key_without_prefix` is the raw storage key without the prefix iterated on.
 	closure: fn(&[u8]) -> Result<T, codec::Error>,
+	/// Reusable scratch buffer for the next key fetched on each iteration.
+	next_key: Vec<u8>,
 }
 
 impl<T> KeyPrefixIterator<T> {
@@ -1155,7 +1156,13 @@ impl<T> KeyPrefixIterator<T> {
 		previous_key: Vec<u8>,
 		decode_fn: fn(&[u8]) -> Result<T, codec::Error>,
 	) -> Self {
-		KeyPrefixIterator { prefix, previous_key, drain: false, closure: decode_fn }
+		KeyPrefixIterator {
+			prefix,
+			previous_key,
+			drain: false,
+			closure: decode_fn,
+			next_key: Vec::new(),
+		}
 	}
 
 	/// Get the last key that has been iterated upon and return it.
@@ -1185,26 +1192,24 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
-				.filter(|n| n.starts_with(&self.prefix));
-
-			if let Some(next) = maybe_next {
-				self.previous_key = next;
-				if self.drain {
-					unhashed::kill(&self.previous_key);
-				}
-				let raw_key_without_prefix = &self.previous_key[self.prefix.len()..];
-
-				match (self.closure)(raw_key_without_prefix) {
-					Ok(item) => return Some(item),
-					Err(e) => {
-						log::error!("key failed to decode at {:?}: {:?}", self.previous_key, e);
-						continue;
-					},
-				}
+			if !sp_io::storage::next_key(&self.previous_key, &mut self.next_key) ||
+				!self.next_key.starts_with(&self.prefix)
+			{
+				return None;
 			}
+			core::mem::swap(&mut self.previous_key, &mut self.next_key);
+			if self.drain {
+				unhashed::kill(&self.previous_key);
+			}
+			let raw_key_without_prefix = &self.previous_key[self.prefix.len()..];
 
-			return None;
+			match (self.closure)(raw_key_without_prefix) {
+				Ok(item) => return Some(item),
+				Err(e) => {
+					log::error!("key failed to decode at {:?}: {:?}", self.previous_key, e);
+					continue;
+				},
+			}
 		}
 	}
 }
@@ -1226,6 +1231,8 @@ pub struct ChildTriePrefixIterator<T> {
 	/// Function that takes `(raw_key_without_prefix, raw_value)` and decode `T`.
 	/// `raw_key_without_prefix` is the raw storage key without the prefix iterated on.
 	closure: fn(&[u8], &[u8]) -> Result<T, codec::Error>,
+	/// Reusable scratch buffer for the next key fetched on each iteration.
+	next_key: Vec<u8>,
 }
 
 impl<T> ChildTriePrefixIterator<T> {
@@ -1256,6 +1263,7 @@ impl<T: Decode + Sized> ChildTriePrefixIterator<(Vec<u8>, T)> {
 			drain: false,
 			fetch_previous_key: true,
 			closure,
+			next_key: Vec::new(),
 		}
 	}
 }
@@ -1285,6 +1293,7 @@ impl<K: Decode + Sized, T: Decode + Sized> ChildTriePrefixIterator<(K, T)> {
 			drain: false,
 			fetch_previous_key: true,
 			closure,
+			next_key: Vec::new(),
 		}
 	}
 }
@@ -1294,49 +1303,43 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let maybe_next = if self.fetch_previous_key {
+			if self.fetch_previous_key {
 				self.fetch_previous_key = false;
-				Some(self.previous_key.clone())
 			} else {
-				sp_io::default_child_storage::next_key(
+				if !sp_io::default_child_storage::next_key(
 					self.child_info.storage_key(),
 					&self.previous_key,
-				)
-				.filter(|n| n.starts_with(&self.prefix))
-			};
-			break match maybe_next {
-				Some(next) => {
-					self.previous_key = next;
-					let raw_value = match child::get_raw(&self.child_info, &self.previous_key) {
-						Some(raw_value) => raw_value,
-						None => {
-							log::error!(
-								"next_key returned a key with no value at {:?}",
-								self.previous_key,
-							);
-							continue;
-						},
-					};
-					if self.drain {
-						child::kill(&self.child_info, &self.previous_key)
-					}
-					let raw_key_without_prefix = &self.previous_key[self.prefix.len()..];
-					let item = match (self.closure)(raw_key_without_prefix, &raw_value[..]) {
-						Ok(item) => item,
-						Err(e) => {
-							log::error!(
-								"(key, value) failed to decode at {:?}: {:?}",
-								self.previous_key,
-								e,
-							);
-							continue;
-						},
-					};
-
-					Some(item)
+					&mut self.next_key,
+				) || !self.next_key.starts_with(&self.prefix)
+				{
+					return None;
+				}
+				core::mem::swap(&mut self.previous_key, &mut self.next_key);
+			}
+			let raw_value = match child::get_raw(&self.child_info, &self.previous_key) {
+				Some(raw_value) => raw_value,
+				None => {
+					log::error!("next_key returned a key with no value at {:?}", self.previous_key,);
+					continue;
 				},
-				None => None,
 			};
+			if self.drain {
+				child::kill(&self.child_info, &self.previous_key)
+			}
+			let raw_key_without_prefix = &self.previous_key[self.prefix.len()..];
+			let item = match (self.closure)(raw_key_without_prefix, &raw_value[..]) {
+				Ok(item) => item,
+				Err(e) => {
+					log::error!(
+						"(key, value) failed to decode at {:?}: {:?}",
+						self.previous_key,
+						e,
+					);
+					continue;
+				},
+			};
+
+			return Some(item);
 		}
 	}
 }
@@ -1426,6 +1429,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 			previous_key: prefix.to_vec(),
 			drain: false,
 			closure: |_raw_key, mut raw_value| Value::decode(&mut raw_value),
+			next_key: Vec::new(),
 			phantom: Default::default(),
 		}
 	}
@@ -1446,10 +1450,9 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 	fn translate_values<OldValue: Decode, F: FnMut(OldValue) -> Option<Value>>(mut f: F) {
 		let prefix = Self::final_prefix();
 		let mut previous_key = prefix.clone().to_vec();
-		while let Some(next) =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
-		{
-			previous_key = next;
+		let mut next = Vec::new();
+		while sp_io::storage::next_key(&previous_key, &mut next) && next.starts_with(&prefix) {
+			core::mem::swap(&mut previous_key, &mut next);
 			let maybe_value = unhashed::get::<OldValue>(&previous_key);
 			match maybe_value {
 				Some(value) => match f(value) {
@@ -1484,7 +1487,7 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	fn decode_len(key: &[u8]) -> Option<usize> {
 		// `Compact<u32>` is 5 bytes in maximum.
 		let mut data = [0u8; 5];
-		let len = sp_io::storage::read(key, &mut data, 0)?;
+		let len = sp_io::storage::read_partial(key, &mut data, 0)?;
 		let len = data.len().min(len as usize);
 		<Self as codec::DecodeLength>::len(&data[..len]).ok()
 	}
@@ -1507,7 +1510,7 @@ pub trait StorageDecodeNonDedupLength: private::Sealed + codec::DecodeLength {
 	/// Returns `None` if the storage value does not exist or the decoding failed.
 	fn decode_non_dedup_len(key: &[u8]) -> Option<usize> {
 		let mut data = [0u8; 5];
-		let len = sp_io::storage::read(key, &mut data, 0)?;
+		let len = sp_io::storage::read_partial(key, &mut data, 0)?;
 		let len = data.len().min(len as usize);
 		<Self as codec::DecodeLength>::len(&data[..len]).ok()
 	}

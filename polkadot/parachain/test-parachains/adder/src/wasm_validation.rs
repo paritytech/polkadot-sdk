@@ -17,14 +17,18 @@
 //! WASM validation for adder parachain.
 
 use crate::{BlockData, HeadData};
-use alloc::vec::Vec;
+use alloc::vec;
 use codec::{Decode, Encode};
 use core::panic;
-use polkadot_parachain_primitives::primitives::{HeadData as GenericHeadData, ValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	HeadData as GenericHeadData, ValidationParams, ValidationResult,
+};
 
 #[no_mangle]
-pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
-	let params = unsafe { polkadot_parachain_primitives::load_params(params, len) };
+pub extern "C" fn validate_block(arguments_len: usize) -> u64 {
+	let mut buf = vec![0u8; arguments_len];
+	sp_io::input::read(&mut buf[..]);
+	let params = ValidationParams::decode(&mut &buf[..]).expect("Invalid input data");
 	let parent_head =
 		HeadData::decode(&mut &params.parent_head.0[..]).expect("invalid parent head format.");
 

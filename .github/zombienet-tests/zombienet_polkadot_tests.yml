@@ -169,30 +169,36 @@
   runner-type: "default"
   cumulus-image: "colander"
 
-- job-name: "zombienet-polkadot-approved-peer-mixed-validators"
-  test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
-  cumulus-image: "colander"
-  additional-setup: |
-    BIN_DIR="$(pwd)/bin_old"
-    mkdir -p $BIN_DIR
-    for bin in polkadot polkadot-parachain; do
-      OLD_NAME="$bin-old"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
-    done
-    for bin in polkadot-execute-worker polkadot-prepare-worker; do
-      OLD_NAME="$bin"
-      echo "downloading $bin as $OLD_NAME in $BIN_DIR";
-      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
-      chmod 755 $BIN_DIR/$OLD_NAME;
-    done
-    ls -ltr $BIN_DIR
-    export PATH=$BIN_DIR:$PATH
-    echo "PATH=$PATH" >> $GITHUB_ENV
-  additional-env:
-    OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
-    OLD_POLKADOT_COMMAND: "polkadot-old"
+# Temporarily disabled: this test runs pre-RFC-145 validators (polkadot-stable2503) against
+# runtimes built from this branch. RFC-145 runtimes export the new allocator-free ABI only,
+# which old executors cannot call ("Exported function ... has invalid signature"), so the old
+# validators never start and the network spawn times out. Re-enable once the "old" binary
+# below points to a release that ships RFC-145 executor support.
+#
+# - job-name: "zombienet-polkadot-approved-peer-mixed-validators"
+#   test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
+#   cumulus-image: "colander"
+#   additional-setup: |
+#     BIN_DIR="$(pwd)/bin_old"
+#     mkdir -p $BIN_DIR
+#     for bin in polkadot polkadot-parachain; do
+#       OLD_NAME="$bin-old"
+#       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+#       curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+#       chmod 755 $BIN_DIR/$OLD_NAME;
+#     done
+#     for bin in polkadot-execute-worker polkadot-prepare-worker; do
+#       OLD_NAME="$bin"
+#       echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+#       curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+#       chmod 755 $BIN_DIR/$OLD_NAME;
+#     done
+#     ls -ltr $BIN_DIR
+#     export PATH=$BIN_DIR:$PATH
+#     echo "PATH=$PATH" >> $GITHUB_ENV
+#   additional-env:
+#     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
+#     OLD_POLKADOT_COMMAND: "polkadot-old"
 
 - job-name: "zombienet-polkadot-approved-peer-mixed-collators"
   test-filter: "functional::approved_peer_mixed_collators::approved_peer_mixed_collators_test"
@@ -240,25 +246,31 @@
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
-- job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
-  test-filter: "functional::v3_rolling_upgrade::v3_rolling_upgrade"
-  runner-type: "default"
-  use-zombienet-sdk: true
-  cumulus-image: "test-parachain"
-  additional-setup: |
-    BIN_DIR="$(pwd)/bin_old"
-    mkdir -p $BIN_DIR
-    echo "downloading polkadot as polkadot-old in $BIN_DIR"
-    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
-    chmod 755 $BIN_DIR/polkadot-old
-    for bin in polkadot-execute-worker polkadot-prepare-worker; do
-      echo "downloading $bin in $BIN_DIR"
-      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
-      chmod 755 $BIN_DIR/$bin
-    done
-    ls -ltr $BIN_DIR
-    export PATH=$BIN_DIR:$PATH
-    echo "PATH=$PATH" >> $GITHUB_ENV
-  additional-env:
-    OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
-    OLD_POLKADOT_COMMAND: "polkadot-old"
+# Temporarily disabled: this test runs pre-RFC-145 validators (polkadot-stable2512) against
+# runtimes built from this branch. RFC-145 runtimes export the new allocator-free ABI only,
+# which old executors cannot call ("Exported function ... has invalid signature"), so the old
+# validators never start and the network spawn times out. Re-enable once the "old" binary
+# below points to a release that ships RFC-145 executor support.
+#
+# - job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
+#   test-filter: "functional::v3_rolling_upgrade::v3_rolling_upgrade"
+#   runner-type: "default"
+#   use-zombienet-sdk: true
+#   cumulus-image: "test-parachain"
+#   additional-setup: |
+#     BIN_DIR="$(pwd)/bin_old"
+#     mkdir -p $BIN_DIR
+#     echo "downloading polkadot as polkadot-old in $BIN_DIR"
+#     curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
+#     chmod 755 $BIN_DIR/polkadot-old
+#     for bin in polkadot-execute-worker polkadot-prepare-worker; do
+#       echo "downloading $bin in $BIN_DIR"
+#       curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
+#       chmod 755 $BIN_DIR/$bin
+#     done
+#     ls -ltr $BIN_DIR
+#     export PATH=$BIN_DIR:$PATH
+#     echo "PATH=$PATH" >> $GITHUB_ENV
+#   additional-env:
+#     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
+#     OLD_POLKADOT_COMMAND: "polkadot-old"

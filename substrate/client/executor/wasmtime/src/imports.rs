@@ -17,13 +17,14 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{host::HostContext, runtime::StoreData};
-use sc_executor_common::error::WasmError;
+use sc_executor_common::{error::WasmError, RuntimeAllocSanityChecker};
 use sp_wasm_interface::{FunctionContext, HostFunctions};
 use std::collections::HashMap;
 use wasmtime::{ExternType, FuncType, ImportType, Linker, Module};
 
 /// Goes over all imports of a module and prepares the given linker for instantiation of the module.
-/// Returns an error if there are imports that cannot be satisfied.
+/// Returns an error if there are imports that cannot be satisfied or if the runtime mixes both
+/// allocation sides.
 pub(crate) fn prepare_imports<H>(
 	linker: &mut Linker<StoreData>,
 	module: &Module,
@@ -32,6 +33,7 @@ pub(crate) fn prepare_imports<H>(
 where
 	H: HostFunctions,
 {
+	let mut alloc_sanity_checker = RuntimeAllocSanityChecker::new();
 	let mut pending_func_imports = HashMap::new();
 	for import_ty in module.imports() {
 		let name = import_ty.name();
@@ -43,6 +45,8 @@ where
 				name,
 			)));
 		}
+
+		alloc_sanity_checker.check(name);
 
 		match import_ty.ty() {
 			ExternType::Func(func_ty) => {
@@ -83,6 +87,26 @@ where
 				names
 			)));
 		}
+	}
+
+	if !alloc_sanity_checker.check_result() {
+		return Err(WasmError::Other(
+			"runtime imports functions that allocate on both the host and the runtime side"
+				.to_string(),
+		));
+	}
+
+	let unclassified = alloc_sanity_checker.unclassified_imports();
+	if !unclassified.is_empty() {
+		log::warn!(
+			target: "wasm-executor",
+			"The runtime imports host functions that could not be classified by the allocation \
+			 sanity checker, so it cannot be verified that they do not allocate on the wrong side \
+			 of the host-vs-runtime allocation divide: {}. This is expected for chains that define \
+			 their own host functions; otherwise the functions should be added to the checker's \
+			 classification tables in `sc-executor-common`.",
+			unclassified.join(", "),
+		);
 	}
 
 	Ok(())

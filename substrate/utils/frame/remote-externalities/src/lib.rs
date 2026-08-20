@@ -1202,8 +1202,11 @@ mod tests {
 			.await
 			.expect("Can't read state snapshot file")
 			.execute_with(|| {
-				let key =
-					sp_io::storage::next_key(&[]).expect("some key must exist in the snapshot");
+				let mut key = Vec::new();
+				assert!(
+					sp_io::storage::next_key(&[], &mut key),
+					"some key must exist in the snapshot"
+				);
 				assert!(sp_io::storage::get(&key).is_some());
 				key
 			});

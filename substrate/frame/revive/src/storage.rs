@@ -40,7 +40,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
-use sp_io::KillStorageResult;
 use sp_runtime::{
 	Debug, DispatchError,
 	traits::{Hash, Saturating, Zero},
@@ -455,24 +454,21 @@ impl<T: Config> ContractInfo<T> {
 			if key_budget == 0 {
 				break;
 			}
-			#[allow(deprecated)]
-			let outcome = child::kill_storage(
+			let outcome = child::clear_storage(
 				&ChildInfo::new_default(&entry.value.trie_id),
 				Some(key_budget),
+				None,
 			);
-			match outcome {
-				KillStorageResult::SomeRemaining(keys_removed) => {
-					remaining = remaining
-						.saturating_sub(weight_per_trie_key.saturating_mul(keys_removed.into()));
-					break;
-				},
-				KillStorageResult::AllRemoved(keys_removed) => {
-					remaining = remaining.saturating_sub(
-						weight_per_trie_key.saturating_mul(u64::from(keys_removed)),
-					);
-					entry.remove();
-				},
-			};
+
+			if outcome.maybe_cursor.is_some() {
+				remaining = remaining
+					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.backend.into()));
+				break;
+			} else {
+				remaining = remaining
+					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.backend.into()));
+				entry.remove();
+			}
 		}
 
 		meter.consume(budget.saturating_sub(remaining));

@@ -24,7 +24,11 @@ jobs:
 
   check-runtime-compatibility:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    # Tests based on @acala-network/chopsticks-core are temporarily disabled
+    # as Chopsticks doesn't have an idea about new host functions exposed
+    # by RFC-145. Enable back when Chopsticks catches up.
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    if: false
     timeout-minutes: 30
     needs: [preflight]
     container:

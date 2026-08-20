@@ -46,6 +46,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 pub use impl_serde::serialize as bytes;
 
+// This re-export was removed in https://github.com/paritytech/polkadot-sdk/pull/12158 but it
+// breaks `try-runtime-cli` in-CI build introduced by RFC-145 implementation
+// https://github.com/paritytech/polkadot-sdk/pull/8641. May be safely removed after
+// `try-runtime-cli` catches up.
+pub use sp_crypto_hashing::twox_128;
+
 pub mod const_hex2array;
 pub mod crypto;
 pub mod hexdisplay;

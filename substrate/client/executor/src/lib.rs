@@ -86,4 +86,26 @@ mod tests {
 			.unwrap();
 		assert_eq!(res, vec![0u8; 0]);
 	}
+
+	#[test]
+	fn all_host_functions_are_classified() {
+		// Every host function the standard client provides must be classified by the runtime
+		// allocation sanity checker, either as (host- or runtime-side) allocating or as
+		// non-allocating. Otherwise a runtime importing an unclassified host function that turns
+		// out to allocate on the wrong side could slip through the checker and only panic at run
+		// time. If this test fails, add the reported functions to the classification tables in
+		// `sc-executor-common` (`RUNTIME_ALLOC_IMPORTS` if they allocate guest memory, otherwise
+		// `RUNTIME_NON_ALLOC_IMPORTS`).
+		use sc_executor_common::RuntimeAllocSanityChecker;
+
+		let mut checker = RuntimeAllocSanityChecker::new();
+		for function in sp_io::SubstrateHostFunctions::host_functions() {
+			checker.check(function.name());
+		}
+		assert!(
+			checker.unclassified_imports().is_empty(),
+			"host functions not classified by the allocation sanity checker: {:?}",
+			checker.unclassified_imports(),
+		);
+	}
 }
