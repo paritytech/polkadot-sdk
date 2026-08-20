@@ -404,6 +404,9 @@ pub trait RIType: Sized {
 
 	/// The inner type without any serialization strategy wrapper.
 	type Inner;
+
+	/// Whether this marshalling strategy makes the host allocate guest memory.
+	const HOST_ALLOCATES: bool = false;
 }
 
 /// A raw pointer that can be used in a runtime interface function signature.

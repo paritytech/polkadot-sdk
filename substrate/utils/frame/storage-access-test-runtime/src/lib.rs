@@ -172,12 +172,25 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	core::intrinsics::abort();
 }
 
-#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+// RFC-145 (V2) entry point: the input data is pulled in through the `input::read` host
+// function instead of being written into the runtime memory by the host.
+#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks", rfc145))]
 #[no_mangle]
 pub extern "C" fn validate_block(arguments_len: usize) -> u64 {
 	type Block = generic::Block<generic::Header<u32, traits::BlakeTwo256>, OpaqueExtrinsic>;
 	let mut buf = alloc::vec![0u8; arguments_len];
 	sp_io::input::read(&mut buf[..]);
 	proceed_storage_access::<Block>(&buf);
+	1
+}
+
+// Legacy (V1) entry point: the host allocates runtime memory and writes the input data into it
+// before the call.
+#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks", not(rfc145)))]
+#[no_mangle]
+pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
+	type Block = generic::Block<generic::Header<u32, traits::BlakeTwo256>, OpaqueExtrinsic>;
+	let params = unsafe { alloc::slice::from_raw_parts(params, len) };
+	proceed_storage_access::<Block>(params);
 	1
 }

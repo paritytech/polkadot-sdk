@@ -25,7 +25,7 @@ use crate::utils::{
 	create_exchangeable_host_function_ident, create_function_ident_with_version,
 	create_host_function_ident, generate_crate_access, get_function_argument_names,
 	get_function_argument_names_and_types, get_function_argument_types, get_function_arguments,
-	get_runtime_interface, RuntimeInterfaceFunction,
+	get_runtime_interface, RuntimeInterfaceFunction, ABI_EPOCH_RFC145,
 };
 
 use syn::{
@@ -383,7 +383,40 @@ fn generate_host_function_implementation(
 	let cfg_attrs: Vec<_> =
 		method.attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect();
 
+	// Whether any of the marshalling strategies of this host function version makes the host
+	// allocate guest memory; derived from the argument and return types.
+	let host_allocates_expr = {
+		let arg_tys: Vec<_> = get_function_argument_types(&method.sig).collect();
+		let ret_ty = match &method.sig.output {
+			ReturnType::Type(_, ty) => Some((**ty).clone()),
+			ReturnType::Default => None,
+		};
+		let ret_ty = ret_ty.iter();
+		quote! {
+			false
+				#( || <#arg_tys as #crate_::RIType>::HOST_ALLOCATES )*
+				#( || <#ret_ty as #crate_::RIType>::HOST_ALLOCATES )*
+		}
+	};
+	let abi_epoch = method.abi_epoch();
+	// Host functions of the gated ABI epochs exist to avoid host-side allocation, so using a
+	// host-allocating marshalling strategy there is always a bug; catch it at compile time.
+	let maybe_alloc_assert = (abi_epoch >= ABI_EPOCH_RFC145).then(|| {
+		let assert_msg = format!(
+			"`{}` belongs to an RFC-145 ABI epoch, so it must not use host-allocating \
+			 (`AllocateAndReturn*`) marshalling strategies",
+			name,
+		);
+		quote! {
+			#(#cfg_attrs)*
+			#[cfg(not(substrate_runtime))]
+			const _: () = assert!(!(#host_allocates_expr), #assert_msg);
+		}
+	});
+
 	let implementation = quote! {
+		#maybe_alloc_assert
+
 		#(#cfg_attrs)*
 		#[cfg(not(substrate_runtime))]
 		struct #struct_name;
@@ -426,6 +459,14 @@ fn generate_host_function_implementation(
 				)?;
 				#convert_return_value_static_ffi_to_dynamic_ffi
 				__result__
+			}
+
+			fn host_allocates(&self) -> Option<bool> {
+				Some(#host_allocates_expr)
+			}
+
+			fn abi_epoch(&self) -> Option<u32> {
+				Some(#abi_epoch)
 			}
 		}
 	};

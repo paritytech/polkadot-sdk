@@ -33,7 +33,7 @@ pub(crate) fn prepare_imports<H>(
 where
 	H: HostFunctions,
 {
-	let mut alloc_sanity_checker = RuntimeAllocSanityChecker::new();
+	let mut alloc_sanity_checker = RuntimeAllocSanityChecker::new(&H::host_functions());
 	let mut pending_func_imports = HashMap::new();
 	for import_ty in module.imports() {
 		let name = import_ty.name();
@@ -100,11 +100,11 @@ where
 	if !unclassified.is_empty() {
 		log::warn!(
 			target: "wasm-executor",
-			"The runtime imports host functions that could not be classified by the allocation \
-			 sanity checker, so it cannot be verified that they do not allocate on the wrong side \
-			 of the host-vs-runtime allocation divide: {}. This is expected for chains that define \
-			 their own host functions; otherwise the functions should be added to the checker's \
-			 classification tables in `sc-executor-common`.",
+			"The runtime imports host functions that are not registered with this executor, so \
+			 the allocation sanity checker cannot verify that they do not allocate on the wrong \
+			 side of the host-vs-runtime allocation divide: {}. This is expected for chains that \
+			 define their own host functions, provided they are registered with the executor \
+			 actually instantiating the runtime.",
 			unclassified.join(", "),
 		);
 	}

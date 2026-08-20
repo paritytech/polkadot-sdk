@@ -121,15 +121,15 @@ use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
 		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
-		PassFatPointerAndReadWrite, PassFatPointerAndWrite, PassPointerAndRead,
-		PassPointerAndReadCopy, ReturnAs,
+		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
 
 #[cfg(rfc145)]
 use sp_runtime_interface::pass_by::{
-	ConvertAndPassAs, ConvertAndReturnAs, PassOptionalFatPointerAndRead, PassPointerAndWrite,
+	ConvertAndPassAs, ConvertAndReturnAs, PassFatPointerAndWrite, PassOptionalFatPointerAndRead,
+	PassPointerAndWrite,
 };
 
 use codec::{Decode, Encode};
@@ -4428,14 +4428,10 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 }
 
 /// Input data handling functions
-// NOTE: This interface is deliberately compiled in regardless of `rfc145`: tooling
-// that executes freshly built runtimes (e.g. the metadata hash extraction in
-// `substrate-wasm-builder`) must be able to run RFC-145 runtimes even when the tooling itself
-// is not built with `--cfg rfc145`. Nodes only register it as part of
-// [`SubstrateHostFunctions`] when built with RFC-145 support.
 #[runtime_interface(wasm_only)]
 pub trait Input {
 	/// Read input data into the provided buffer.
+	#[abi_epoch(2)]
 	fn read(&mut self, buffer: PassFatPointerAndWrite<&mut [u8]>) {
 		let data = self
 			.take_input_data()
@@ -4448,13 +4444,6 @@ pub trait Input {
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
-
-/// Host functions that only exist when built with RFC-145 support (`--cfg rfc145`).
-#[cfg(all(not(substrate_runtime), rfc145))]
-type Rfc145HostFunctions = (input::HostFunctions,);
-
-#[cfg(all(not(substrate_runtime), not(rfc145)))]
-type Rfc145HostFunctions = ();
 
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
@@ -4475,7 +4464,7 @@ pub type SubstrateHostFunctions = (
 	crate::trie::HostFunctions,
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
-	Rfc145HostFunctions,
+	input::HostFunctions,
 );
 
 #[cfg(test)]

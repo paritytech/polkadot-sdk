@@ -226,15 +226,9 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
-	Rfc145HostFunctions,
+	// Empty in builds without RFC-145 support (`--cfg rfc145`)
+	sp_io::input::HostFunctions,
 );
-
-/// Host functions that only exist when built with RFC-145 support (`--cfg rfc145`).
-#[cfg(rfc145)]
-type Rfc145HostFunctions = (sp_io::input::HostFunctions,);
-
-#[cfg(not(rfc145))]
-type Rfc145HostFunctions = ();
 
 /// Host functions with ECC (elliptic curve cryptography) support.
 /// Only used when `ExecutorParam::EnabledHostFunction(ExecutorHostFunction::EccRfc163)` is present.
