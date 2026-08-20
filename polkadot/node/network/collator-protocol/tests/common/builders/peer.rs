@@ -90,7 +90,7 @@ impl Peer {
 				protocol_v1::CollatorProtocolMessage,
 				protocol_v2::CollatorProtocolMessage,
 				protocol_v3::CollatorProtocolMessage,
-				protocol_v4::CollatorProtocolMessage,
+				protocol_v4::AdvertiseSegment,
 			>,
 		>,
 	) -> CollatorProtocolMessage {

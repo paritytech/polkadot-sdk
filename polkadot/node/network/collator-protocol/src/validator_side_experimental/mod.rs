@@ -441,7 +441,7 @@ async fn process_incoming_peer_message<Sender, B>(
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
-		protocol_v4::CollatorProtocolMessage,
+		protocol_v4::AdvertiseSegment,
 	>,
 ) where
 	Sender: CollatorProtocolSenderTrait,
@@ -450,7 +450,7 @@ async fn process_incoming_peer_message<Sender, B>(
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
-	use protocol_v4::CollatorProtocolMessage as V4;
+	use protocol_v4::AdvertiseSegment as V4;
 
 	match msg {
 		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
@@ -507,7 +507,7 @@ async fn process_incoming_peer_message<Sender, B>(
 				)
 				.await;
 		},
-		CollationProtocols::V4(V4::AdvertiseSegment {
+		CollationProtocols::V4(V4 {
 			scheduling_parent,
 			para_id,
 			candidates_descriptor_version,

@@ -322,7 +322,7 @@ fn wire_kind_from_collation_protocol(
 			},
 		},
 		CollationProtocols::V4(msg) => match msg {
-			protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+			protocol_v4::AdvertiseSegment {
 				scheduling_parent,
 				para_id: _,
 				candidates_descriptor_version: _,

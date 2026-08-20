@@ -987,7 +987,7 @@ async fn advertise_segment<Context>(
 
 	let message = match peer_version {
 		CollationVersion::V4 => {
-			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+			CollationProtocols::V4(protocol_v4::AdvertiseSegment {
 				scheduling_parent,
 				candidates_descriptor_version,
 				candidates: core_segment.clone(),
@@ -1222,13 +1222,12 @@ async fn handle_incoming_peer_message<Context>(
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
-		protocol_v4::CollatorProtocolMessage,
+		protocol_v4::AdvertiseSegment,
 	>,
 ) -> Result<()> {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
-	use protocol_v4::CollatorProtocolMessage as V4;
 
 	match msg {
 		CollationProtocols::V1(V1::Declare(..)) |
@@ -1266,7 +1265,9 @@ async fn handle_incoming_peer_message<Context>(
 			))
 			.await;
 		},
-		CollationProtocols::V4(V4::AdvertiseSegment { .. }) => {
+		// `AdvertiseSegment` is the only V4 message, so this arm covers the whole
+		// version rather than one variant of it.
+		CollationProtocols::V4(_) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
