@@ -40,7 +40,10 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, BlockNumberProvider, Hash},
 	SaturatedConversion, TokenError,
 };
-use xcm::{latest::QueryResponseInfo, prelude::*};
+use xcm::{
+	latest::{QueryResponseInfo, MAX_ITEMS_IN_ASSETS},
+	prelude::*,
+};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
@@ -716,6 +719,82 @@ fn claim_assets_works() {
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 	});
+}
+
+// Like `claim_assets_works` but claiming a trap holding more than one asset.
+#[test]
+fn claim_assets_works_with_multiple_assets() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		use crate::tests::assets_transfer::set_up_foreign_asset;
+		let foreign_amount = 100u128;
+		let (_, _, foreign_asset_id_location) = set_up_foreign_asset(
+			FOREIGN_ASSET_RESERVE_PARA_ID,
+			Some(FOREIGN_ASSET_INNER_JUNCTION),
+			ALICE,
+			foreign_amount,
+			true,
+		);
+		let assets: Assets = vec![
+			(Here, SEND_AMOUNT).into(),
+			(foreign_asset_id_location.clone(), foreign_amount).into(),
+		]
+		.into();
+
+		// First trap both assets with a single trap.
+		let trapping_program =
+			Xcm::<RuntimeCall>::builder_unsafe().withdraw_asset(assets.clone()).build();
+		// Even though assets are trapped, the extrinsic returns success.
+		assert_ok!(XcmPallet::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::from(trapping_program)),
+			BaseXcmWeight::get() * 2,
+		));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+		assert_eq!(AssetsPallet::balance(foreign_asset_id_location.clone(), &ALICE), 0);
+		assert_eq!(AssetTraps::<Test>::iter().count(), 1);
+
+		// Now claim them all back with the extrinsic.
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::from(assets)),
+			Box::new(VersionedLocation::from(Location::from(AccountId32 {
+				network: None,
+				id: ALICE.clone().into()
+			}))),
+		));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(AssetsPallet::balance(foreign_asset_id_location, &ALICE), foreign_amount);
+		assert_eq!(AssetTraps::<Test>::iter().count(), 0);
+	});
+}
+
+/// `claim_assets` weight must grow with the number of claimed assets, otherwise a
+/// many-asset claim is underweighted and can be used to build overweight blocks.
+#[test]
+fn claim_assets_weight_scales_with_number_of_assets() {
+	use frame_support::dispatch::GetDispatchInfo;
+	let beneficiary = Box::new(VersionedLocation::from(Location::from(AccountId32 {
+		network: None,
+		id: ALICE.clone().into(),
+	})));
+	let one_asset: Assets = (Here, SEND_AMOUNT).into();
+	let many_assets: Assets = (0..MAX_ITEMS_IN_ASSETS as u128)
+		.map(|i| (Location::new(0, [GeneralIndex(i)]), SEND_AMOUNT).into())
+		.collect::<Vec<Asset>>()
+		.into();
+	let claim_one = crate::Call::<Test>::claim_assets {
+		assets: Box::new(VersionedAssets::from(one_asset)),
+		beneficiary: beneficiary.clone(),
+	};
+	let claim_many = crate::Call::<Test>::claim_assets {
+		assets: Box::new(VersionedAssets::from(many_assets)),
+		beneficiary,
+	};
+	assert!(
+		claim_many.get_dispatch_info().call_weight.ref_time() >
+			claim_one.get_dispatch_info().call_weight.ref_time()
+	);
 }
 
 /// Test failure to complete execution reverts intermediate side-effects.
