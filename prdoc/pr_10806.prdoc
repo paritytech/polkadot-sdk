@@ -1,0 +1,20 @@
+title: Explore Custom Benchmarking Config Trait
+doc:
+- audience: Runtime Dev
+  description: "# Description\nThis PR explores the use of a custom Benchmarking Config\
+    \ Trait that houses Benchmarking helpers based on @bkchr 's suggestion in #162.\
+    \ It's an attempt to replace the existing approach that uses a type in the pallet\
+    \ Config.\n\nInside `benchmarking.rs`\n```rust\npub trait BenchmarkConfig: pallet::Config\
+    \ {\n\ttype Helper: BenchmarkHelper<Self>;\n}\n\npub trait BenchmarkHelper<T:\
+    \ Config> {\n\tfn initialize_and_get_id() -> u32;\n}\n\nimpl<T: Config> BenchmarkHelper<T>\
+    \ for () {\n\tfn initialize_and_get_id() -> u32 {\n\t    ...\n\t}\n}\n\n#[benchmarks(where\
+    \ T: BenchmarkConfig)]\nmod benchmarks {\n    ...\n}\n```\nInside the Runtime\
+    \ `lib.rs`\n```rust\nimpl pallet_example_custom_benchmarking_config::benchmarking::BenchmarkConfig\
+    \ for Runtime {\n\ttype Helper = ();\n}\n```\n\n# Checklist\n\n* [x] My PR includes\
+    \ a detailed description as outlined in the \"Description\" and its two subsections\
+    \ above.\n* [x] My PR follows the [labeling requirements](\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
+    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
+    \ Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add\
+    \ labels manually\n* [x] I have added tests that prove my fix is effective or\
+    \ that my feature works (if applicable)"
+crates: []

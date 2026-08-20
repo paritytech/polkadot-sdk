@@ -2975,6 +2975,9 @@ mod runtime {
 
 	#[runtime::pallet_index(94)]
 	pub type Dap = pallet_dap::Pallet<Runtime>;
+
+	#[runtime::pallet_index(95)]
+	pub type CustomBenchmarkingConfig = pallet_example_custom_benchmarking_config::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3224,6 +3227,15 @@ mod mmr {
 	pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
 }
 
+impl pallet_example_custom_benchmarking_config::Config for Runtime {
+	type WeightInfo = pallet_example_custom_benchmarking_config::weights::SubstrateWeight<Runtime>;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_example_custom_benchmarking_config::benchmarking::BenchmarkConfig for Runtime {
+	type Helper = ();
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetConversionTxHelper;
 
@@ -3361,6 +3373,7 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
+		[pallet_example_custom_benchmarking_config, CustomBenchmarkingConfig]
 		[pallet_psm, Psm]
 	);
 }

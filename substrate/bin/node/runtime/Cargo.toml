@@ -37,6 +37,7 @@ polkadot-sdk = { features = ["runtime-full", "tuples-96"], workspace = true }
 node-primitives = { workspace = true }
 
 # Example pallets that are not published:
+pallet-example-custom-benchmarking-config = { workspace = true }
 pallet-example-mbm = { workspace = true }
 pallet-example-tasks = { workspace = true }
 pallet-transaction-storage = { workspace = true }
@@ -51,6 +52,7 @@ std = [
 	"codec/std",
 	"log/std",
 	"node-primitives/std",
+	"pallet-example-custom-benchmarking-config/std",
 	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
 	"pallet-transaction-storage/std",
@@ -63,6 +65,7 @@ std = [
 	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
+	"pallet-example-custom-benchmarking-config/runtime-benchmarks",
 	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
 	"pallet-transaction-storage/runtime-benchmarks",
@@ -71,6 +74,7 @@ runtime-benchmarks = [
 	"rand_pcg",
 ]
 try-runtime = [
+	"pallet-example-custom-benchmarking-config/try-runtime",
 	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
 	"pallet-transaction-storage/try-runtime",
