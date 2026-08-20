@@ -259,9 +259,8 @@ mod tests {
 			let mut trie = TrieDBMutBuilder::<Layout>::new(&mut db, &mut root).build();
 			trie.insert(b"top_key", &shared_value).expect("Inserts data");
 
-			let mut child_storage_key = sp_core::storage::well_known_keys::
-				DEFAULT_CHILD_STORAGE_KEY_PREFIX
-				.to_vec();
+			let mut child_storage_key =
+				sp_core::storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec();
 			child_storage_key.extend(b"child1");
 			trie.insert(&child_storage_key, child_root.as_ref()).expect("Inserts data");
 		}
