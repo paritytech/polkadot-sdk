@@ -998,6 +998,7 @@ node = [
 	"sc-keystore",
 	"sc-mixnet",
 	"sc-network",
+	"sc-network-bitswap",
 	"sc-network-common",
 	"sc-network-gossip",
 	"sc-network-light",
@@ -2796,6 +2797,11 @@ path = "../substrate/client/mixnet"
 default-features = false
 optional = true
 path = "../substrate/client/network"
+
+[dependencies.sc-network-bitswap]
+default-features = false
+optional = true
+path = "../substrate/client/network/bitswap"
 
 [dependencies.sc-network-common]
 default-features = false
