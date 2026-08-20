@@ -88,16 +88,16 @@ module state {
     preimageRegistry: (Hash, int) -> PreimageEntry,
     // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
     // install and who owns the core afterwards (`None` = this service,
-    // unchanged). JAM's `assign` writes both atomically, so they are cached
-    // together. Cold: read only for a core that is actually due.
+    // unchanged). A queue that must keep cycling is stored already rotated to
+    // where the next cycle starts, so its own order carries the schedule (§7.1).
+    // Cold: read only for a core that is due.
     pendingAssigns: CoreIndex -> {
         queue: List[AuthorizerHash],
         assigner: Option[ServiceId]
     },
     // Dirty-core index: each core with a pending assign, paired with the
-    // `jam_slot` at which it becomes due. Lets the always-accumulate path find
-    // and gate due entries without reading the (much larger) payloads above.
-    // See `applyAlwaysAccumulate`.
+    // timeslot at which it is due. Sole home of the due time, so the
+    // always-accumulate path can gate without reading the payloads above.
     pendingAssignCores: CoreIndex -> Timeslot,
     // Validator-key buffer (design §5.3) — appended chunk by chunk by
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
@@ -209,6 +209,41 @@ module state {
   })
 
   // --- Log-append helpers (design §3.1, §3.3, §5.1) ----------------------
+
+  // --- Authorizer-queue fill (§7.1) -------------------------------------
+
+  /// `l` repeated `n` times.
+  pure def repeatList(l: List[AuthorizerHash], n: int): List[AuthorizerHash] =
+    range(0, n).foldl(List(), (acc, _) => acc.concat(l))
+
+  /// The first `k` elements of `l`.
+  pure def takeFirst(k: int, l: List[AuthorizerHash]): List[AuthorizerHash] =
+    range(0, k).foldl(List(), (acc, i) => acc.append(l.nth(i)))
+
+  /// `l` re-ordered to start at index `k`, wrapping the earlier elements to the
+  /// end.
+  pure def rotateList(l: List[AuthorizerHash], k: int): List[AuthorizerHash] =
+    if (l.length() == 0) l
+    else {
+      val o = k % l.length()
+      l.slice(o, l.length()).concat(l.slice(0, o))
+    }
+
+  /// True iff `x` authorizers tile JAM's 80 slots exactly, so the installed
+  /// queue cycles correctly forever and never needs re-presenting.
+  pure def fillsDirectly(queueLen: int): bool =
+    queueLen == AuthorizerQueueLength or (AuthorizerQueueLength % queueLen) == 0
+
+  /// The 80 slots JAM sees: `q` repeated and cut to
+  /// `AuthorizerQueueLength`. `q` is stored already rotated to where this cycle
+  /// starts, so no separate offset is needed (§7.1).
+  pure def assignQueueFor(q: List[AuthorizerHash]): List[AuthorizerHash] =
+    takeFirst(AuthorizerQueueLength, repeatList(q, AuthorizerQueueLength / q.length() + 1))
+
+  /// The queue to store for the cycle after `q`: rotated on by the 80 slots just
+  /// consumed, so the next cycle resumes where this one stopped.
+  pure def advanceAssignQueue(q: List[AuthorizerHash]): List[AuthorizerHash] =
+    rotateList(q, AuthorizerQueueLength)
 
   pure def paraLog(s: ParachainServiceState, para_id: ParaId): ParachainLog =
   if (s.parachainLog.keys().contains(para_id)) s.parachainLog.get(para_id)

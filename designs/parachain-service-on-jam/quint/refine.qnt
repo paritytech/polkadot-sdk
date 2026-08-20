@@ -51,6 +51,19 @@ module refine {
       | _ => acc
   })
 
+  /// Per §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
+  /// A queue that hands the core to another service must be exactly
+  /// `AuthorizerQueueLength`: the service can no longer re-present a short one
+  /// after the handoff, so the installed queue has to cycle on its own.
+  pure def wellFormedAssignQueues(msgs: List[UpwardMessage]): bool =
+  msgs.foldl(true, (acc, m) => match m {
+    | AssignCore(p) => acc and (match p.newAssigner {
+        | None => p.queue.length() > 0 and p.queue.length() <= AuthorizerQueueLength
+        | Some(_) => p.queue.length() == AuthorizerQueueLength
+      })
+    | _ => acc
+  })
+
   /// Combined Refine-side well-formedness for emitted upward messages.
   pure def wellFormedUpwardMessages(msgs: List[UpwardMessage]): bool =
   setValidatorKeysCount(msgs) <= 1 and
@@ -81,8 +94,8 @@ module refine {
       6 + compactLen(p.amount) + compactLen(p.id)
         + (match p.source { | Some(_) => 5 | None => 1 })
         + (match p.deferred { | Some(_) => 137 | None => 1 })
-    // core 4 + Vec<AuthorizerHash> (compact len + 32 per entry)
-    // + Option<ServiceId> (1 tag + 4 when Some) + jamSlot 4.
+    // core 4 + jamSlot 4 + Vec<AuthorizerHash> (compact len + 32 per entry)
+    // + Option<ServiceId> (1 tag + 4 when Some).
     | AssignCore(p) =>
       8 + compactLen(p.queue.length()) + p.queue.length() * 32
         + (match p.newAssigner { | Some(_) => 5 | None => 1 })
@@ -198,6 +211,8 @@ module refine {
         Some(refineErr(para_id, TooManyUpwardMessages))
         else if (not(wellFormedUpwardMessages(msgs)))
         Some(refineErr(para_id, SetValidatorKeysTooManyKeys))
+        else if (not(wellFormedAssignQueues(msgs)))
+        Some(refineErr(para_id, InvalidAuthorizerQueue))
         else if (violatesParachainRestrictions(msgs, para_id))
         Some(refineErr(para_id, RestrictedHostFunction))
         else if (resultExceedsBudget(msgs))

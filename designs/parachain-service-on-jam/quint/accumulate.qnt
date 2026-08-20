@@ -255,32 +255,32 @@ module accumulate {
         | Some(_) => acc
       }
       | AssignCore(payload) =>
-      // §5.1 step 7 (replay). Schedules JAM `assign` for `jam_slot`: the entry
-      // (queue + assigner) is cached and `applyAlwaysAccumulate` emits the
-      // `assign` once the timeslot reaches `jam_slot`. An empty `queue` cancels
-      // any cached entry for the core (dropped, no JAM call). If `jam_slot` is
-      // already due (`jam_slot <= now`, the same condition always-accumulate
-      // flushes on), it is applied inline right away, superseding any cached
-      // entry — always-accumulate ran before this replay, so caching would
-      // otherwise defer it to the next block. `newAssigner == None` keeps this
-      // service as the assigner; `Some(s)` hands the core to `s` (one-way).
-      if (payload.queue.length() == 0)
-        { ...acc,
-          state: { ...acc.state,
-            pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
-            pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
-          }
-        }
+      // §5.1 step 7 (replay). Caches the entry for its `jamSlot`. The inline
+      // case exists because always-accumulate ran before this replay, so a
+      // `jamSlot` already due would otherwise wait a block; it fires here
+      // instead, then settles into the same post-fire state as the flush.
+      val queueLen = payload.queue.length()
+      // Refine already rejected an empty queue, so this is defensive only.
+      if (queueLen == 0)
+        acc
       else if (payload.jamSlot <= now)
         { ...acc,
           jamAssigns: acc.jamAssigns.append({
             core: payload.core,
             assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
-            queue: payload.queue
+            queue: assignQueueFor(payload.queue)
           }),
           state: { ...acc.state,
-            pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
-            pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
+            pendingAssigns:
+              if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
+              else acc.state.pendingAssigns.put(payload.core, {
+                queue: advanceAssignQueue(payload.queue),
+                assigner: payload.newAssigner
+              }),
+            pendingAssignCores:
+              if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(payload.core)
+              else acc.state.pendingAssignCores.put(
+                payload.core, now + AuthorizerQueueLength)
           }
         }
       else
@@ -530,34 +530,38 @@ module accumulate {
 
   // ---- Always-accumulate (§5.1, general work) ---------------------------
 
-  /// Apply pending `assign`s that are due. Gating reads ONLY the dirty-core
-  /// index (`pendingAssignCores`): the much larger payload is read just for a
-  /// core that is actually due, then both entries are dropped. Not-yet-due
-  /// cores are retained unchanged. A cached `assigner` of `None` resolves to
-  /// this service (the assigner is unchanged); JAM's `assign` always writes one.
+  /// Fire pending `assign`s that are due (§4.3). Gating reads ONLY the
+  /// dirty-core index; the much larger payload is read just for a core that is
+  /// actually due, and not-yet-due cores are retained unchanged. A stored
+  /// `assigner` of `None` resolves to this service, since JAM's `assign` always
+  /// writes one.
   pure def applyAlwaysAccumulate(
     s: ParachainServiceState,
     now: Timeslot
   ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
     s.pendingAssignCores.keys().fold(
-      { state: { ...s, pendingAssignCores: Map() }, assigns: List() },
+      { state: s, assigns: List() },
       (acc, c) => {
-        val jamSlot = s.pendingAssignCores.get(c)
-        if (now < jamSlot)
-          { ...acc,
-            state: { ...acc.state,
-              pendingAssignCores: acc.state.pendingAssignCores.put(c, jamSlot)
-            }
-          }
+        val dueAt = s.pendingAssignCores.get(c)
+        if (now < dueAt)
+          acc
         else {
-          val entry = s.pendingAssigns.get(c)
+          val pending = s.pendingAssigns.get(c)
+          val queueLen = pending.queue.length()
           { state: { ...acc.state,
-              pendingAssigns: acc.state.pendingAssigns.mapRemove(c)
+              pendingAssigns:
+                if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(c)
+                else acc.state.pendingAssigns.put(c, {
+                  ...pending, queue: advanceAssignQueue(pending.queue)
+                }),
+              pendingAssignCores:
+                if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(c)
+                else acc.state.pendingAssignCores.put(c, now + AuthorizerQueueLength)
             },
             assigns: acc.assigns.append({
               core: c,
-              assigner: entry.assigner.optionGetOr(ParachainServiceId),
-              queue: entry.queue
+              assigner: pending.assigner.optionGetOr(ParachainServiceId),
+              queue: assignQueueFor(pending.queue)
             })
           }
         }

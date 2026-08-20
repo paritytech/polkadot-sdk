@@ -26,6 +26,10 @@ module tests {
 
   // --- Deterministic helpers ---------------------------------------------
 
+  /// A full `assign_core` queue of `h`, repeated to the length JAM requires.
+  pure def fullQ(h: AuthorizerHash): List[AuthorizerHash] =
+    range(0, AuthorizerQueueLength).foldl(List(), (l, _) => l.append(h))
+
   /// Mark a solicited preimage as `Provided`.
   pure def markProvided(
     s: ParachainServiceState, h: Hash, len: int
@@ -1180,78 +1184,6 @@ module tests {
     }
   }
 
-  // --- Authorizer queue scheduling --------------------------------------
-
-  /// A `set_authorizer_queue` caches the queue for its `jam_slot`;
-  /// always-accumulate flushes it (emitting the `assign` and dropping the cached
-  /// queue) once `now >= jam_slot`, and not before.
-  run setAuthorizerQueueCachedUntilJamSlotTest = {
-    val core = 5
-    val anyHash: AuthorizerHash = { authBytes: 5 }
-    val jamSlot = 100
-    val baseAcc: AccumulateOutcome = {
-      state: initialState,
-      jamDesignate: None,
-      jamSolicit: Set(),
-      jamForget: Set(),
-      jamAssigns: List(),
-      logs: List()
-    }
-    val cached = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: List(anyHash), newAssigner: None, jamSlot: jamSlot })
-    ).state
-    val beforeDue = applyAlwaysAccumulate(cached, jamSlot - 1)
-    val atDue = applyAlwaysAccumulate(cached, jamSlot)
-    all {
-      // Cached at jam_slot; the set itself emits no assign.
-      assert(cached.pendingAssignCores.get(core) == jamSlot),
-      assert(cached.pendingAssigns.get(core).queue == List(anyHash)),
-      // Before jam_slot: retained, not flushed.
-      assert(beforeDue.state.pendingAssigns.keys().contains(core)),
-      assert(beforeDue.assigns == List()),
-      // At jam_slot: flushed — assign emitted and the cached queue dropped.
-      assert(not(atDue.state.pendingAssigns.keys().contains(core))),
-      assert(not(atDue.state.pendingAssignCores.keys().contains(core))),
-      assert(atDue.assigns ==
-        List({ core: core, assigner: ParachainServiceId, queue: List(anyHash) })),
-      init
-    }
-  }
-
-  /// A second `set_authorizer_queue` for a core that already has a queue cached
-  /// replaces the pending queue and its `jam_slot` (last write wins).
-  run secondSetAuthorizerQueueReplacesPendingTest = {
-    val core = 5
-    val hash1: AuthorizerHash = { authBytes: 1 }
-    val hash2: AuthorizerHash = { authBytes: 2 }
-    val baseAcc: AccumulateOutcome = {
-      state: initialState,
-      jamDesignate: None,
-      jamSolicit: Set(),
-      jamForget: Set(),
-      jamAssigns: List(),
-      logs: List()
-    }
-    // First call caches hash1 for jam_slot 100.
-    val after1 = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: List(hash1), newAssigner: None, jamSlot: 100 })
-    )
-    // Second call replaces the pending queue and its jam_slot.
-    val after2 = applyUpwardMessage(
-      after1, CoretimeParaId, FixedCodeLen, 1, 1,
-      AssignCore({ core: core, queue: List(hash2), newAssigner: None, jamSlot: 150 })
-    )
-    all {
-      assert(after1.state.pendingAssigns.get(core).queue == List(hash1)),
-      assert(after1.state.pendingAssignCores.get(core) == 100),
-      assert(after2.state.pendingAssigns.get(core).queue == List(hash2)),
-      assert(after2.state.pendingAssignCores.get(core) == 150),
-      init
-    }
-  }
-
   // --- KV store accounting (§6.1) ----------------------------------------
 
   /// SetKV charges `kvEntryFootprint(kLen, vLen)` to `usedStateBalance`.
@@ -1334,149 +1266,221 @@ module tests {
     }
   }
 
-  /// `assign_core` with `Some(s)` hands the core off via JAM `assign`, which
-  /// writes the queue and the assigner atomically. A due handoff applies inline,
-  /// superseding (and dropping) any entry cached for that core. `None` instead
-  /// keeps this service as the assigner.
-  run setAssignerForwardsAssignerTest = {
-    val core = 0
-    val assigner = MkServiceId(7)
-    val authHash: AuthorizerHash = { authBytes: 5 }
-    // Seed a cached entry for the core, so the handoff must supersede it.
-    val seeded = {
-      ...initialState,
-      pendingAssigns:
-        initialState.pendingAssigns.put(core, { queue: List(authHash), assigner: None }),
-      pendingAssignCores: initialState.pendingAssignCores.put(core, 100)
-    }
+  // --- Authorizer queue scheduling (§5.1 / §7.1) --------------------------
+
+  /// A queue that fills the 80 slots exactly, whole or tiled, fires once and
+  /// leaves nothing cached. Both are due here, so both apply inline (§4.3).
+  run tilingQueueForwardsImmediatelyTest = {
+    val core = 5
     val baseAcc: AccumulateOutcome = {
-      state: seeded,
-      jamDesignate: None,
-      jamSolicit: Set(),
-      jamForget: Set(),
-      jamAssigns: List(),
-      logs: List()
+      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List()
     }
-    // Due (`jamSlot <= now`), so it applies inline.
-    val out = applyUpwardMessage(
+    // X = 10 tiles exactly: 8 copies fill 80.
+    val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
+    val tiled = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: List(authHash),
-                   newAssigner: Some(assigner), jamSlot: 0 })
-    )
-    // The same call with `None` keeps this service as the assigner.
-    val kept = applyUpwardMessage(
+      AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 0 }))
+    // A full 80-hash queue is installed as-is.
+    val h80: AuthorizerHash = { authBytes: 1 }
+    val eighty = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: List(authHash),
-                   newAssigner: None, jamSlot: 0 })
-    )
+      AssignCore({ core: core, queue: fullQ(h80), newAssigner: None, jamSlot: 0 }))
     all {
-      // One `assign` carrying BOTH the new assigner and the final queue.
-      assert(out.jamAssigns ==
-        List({ core: core, assigner: assigner, queue: List(authHash) })),
-      // `None` resolves to this service — JAM always gets a concrete assigner.
-      assert(kept.jamAssigns ==
-        List({ core: core, assigner: ParachainServiceId, queue: List(authHash) })),
-      // The cached entry for the core is dropped once applied.
-      assert(not(out.state.pendingAssigns.keys().contains(core))),
+      assert(tiled.jamAssigns ==
+        List({ core: core, assigner: ParachainServiceId, queue: repeatList(ten, 8) })),
+      assert(tiled.jamAssigns.nth(0).queue.length() == AuthorizerQueueLength),
+      assert(eighty.jamAssigns ==
+        List({ core: core, assigner: ParachainServiceId, queue: fullQ(h80) })),
+      // Directly applied, nothing cached.
+      assert(not(tiled.state.pendingAssigns.keys().contains(core))),
+      assert(not(eighty.state.pendingAssignCores.keys().contains(core))),
       init
     }
   }
 
-  /// An empty `queue` cancels any cached queue for the core: it is dropped (not
-  /// applied), with no `assign`.
-  run emptyQueueCancelsCachedQueueTest = {
-    val core = 5
-    val staleHash: AuthorizerHash = { authBytes: 5 }
-    // Core with a queue already cached for a future jam_slot.
-    val cachedState = { ...initialState,
-      pendingAssigns: Map(core -> { queue: List(staleHash), assigner: None }),
-      pendingAssignCores: Map(core -> 100)
-    }
+  /// A queue that tiles the 80 slots but is scheduled ahead is cached, fires at
+  /// its `jam_slot`, and is then gone from both maps — nothing re-presents it.
+  run tilingQueueFiresOnceAtJamSlotTest = {
+    val core = 4
+    val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
     val baseAcc: AccumulateOutcome = {
-      state: cachedState,
-      jamDesignate: None,
-      jamSolicit: Set(),
-      jamForget: Set(),
-      jamAssigns: List(),
-      logs: List()
+      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List()
+    }
+    val cached = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      AssignCore({ core: core, queue: ten, newAssigner: None, jamSlot: 50 })).state
+    val beforeDue = applyAlwaysAccumulate(cached, 49)
+    val atDue = applyAlwaysAccumulate(cached, 50)
+    all {
+      assert(cached.pendingAssignCores.get(core) == 50),
+      assert(beforeDue.assigns == List()),
+      assert(beforeDue.state.pendingAssignCores.get(core) == 50),
+      assert(atDue.assigns ==
+        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(ten) })),
+      assert(not(atDue.state.pendingAssigns.keys().contains(core))),
+      assert(not(atDue.state.pendingAssignCores.keys().contains(core))),
+      init
+    }
+  }
+
+  /// Accumulate ignores an empty `assign_core` queue: no JAM call, nothing
+  /// cached, any entry already stored left alone. Refine rejects it first
+  /// (§4.3), so this only pins the defensive branch.
+  run emptyAssignQueueIsNoOpTest = {
+    val core = 5
+    val storedHash: AuthorizerHash = { authBytes: 5 }
+    val seeded = { ...initialState,
+      pendingAssigns: Map(core -> { queue: List(storedHash), assigner: None }),
+      pendingAssignCores: Map(core -> 100) }
+    val baseAcc: AccumulateOutcome = {
+      state: seeded, jamDesignate: None, jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List()
     }
     val out = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
-      AssignCore({ core: core, queue: List(), newAssigner: None, jamSlot: 0 })
-    )
+      AssignCore({ core: core, queue: List(), newAssigner: None, jamSlot: 0 }))
     all {
-      // cached queue dropped, not applied.
-      assert(not(out.state.pendingAssigns.keys().contains(core))),
-      assert(not(out.state.pendingAssignCores.keys().contains(core))),
-      // no assign.
       assert(out.jamAssigns == List()),
+      assert(out.state.pendingAssigns == seeded.pendingAssigns),
+      assert(out.state.pendingAssignCores == seeded.pendingAssignCores),
       init
     }
   }
 
-  /// A `set_authorizer_queue` whose `jam_slot` is already due (`jam_slot <= now`)
-  /// is applied inline immediately: it emits the `assign` this block and caches
-  /// nothing, superseding any queue currently cached for the core. This case
-  /// exercises the strictly-past sub-case (`jam_slot < now`).
-  run setAuthorizerQueuePastJamSlotAppliedInlineTest = {
+  /// A queue too short to fill the 80 slots exactly is cached until its
+  /// `jam_slot`, then kept and re-presented every 80 blocks with the rotation
+  /// advanced (§7.1).
+  run shortQueueStoredAndScheduledTest = {
     val core = 5
-    val staleHash: AuthorizerHash = { authBytes: 1 }
-    val newHash: AuthorizerHash = { authBytes: 2 }
-    // Core already has a queue cached for a future jam_slot.
-    val cachedState = { ...initialState,
-      pendingAssigns: Map(core -> { queue: List(staleHash), assigner: None }),
-      pendingAssignCores: Map(core -> 100)
-    }
+    val q = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
     val baseAcc: AccumulateOutcome = {
-      state: cachedState,
-      jamDesignate: None,
-      jamSolicit: Set(),
-      jamForget: Set(),
-      jamAssigns: List(),
-      logs: List()
+      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List()
     }
-    // At now = 50, a queue with jam_slot = 10 (< now) applies inline.
-    val out = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 50, 50,
-      AssignCore({ core: core, queue: List(newHash), newAssigner: None, jamSlot: 10 })
-    )
+    // Cached at now = 0 for a future jam_slot of 100.
+    val stored = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      AssignCore({ core: core, queue: q, newAssigner: None, jamSlot: 100 }))
+    // 80 slots from the top of a 3-set: 26 full passes (78) then the first 2.
+    val expected = assignQueueFor(q)
+    val beforeDue = applyAlwaysAccumulate(stored.state, 99)
+    val first = applyAlwaysAccumulate(stored.state, 100)
+    val notDueYet = applyAlwaysAccumulate(first.state, 179)
+    val second = applyAlwaysAccumulate(first.state, 180)
     all {
-      // Applied inline: assign emitted now.
-      assert(out.jamAssigns == List({ core: core, assigner: ParachainServiceId, queue: List(newHash) })),
-      // Nothing cached: the prior cached queue is superseded and dropped.
-      assert(not(out.state.pendingAssigns.keys().contains(core))),
-      assert(not(out.state.pendingAssignCores.keys().contains(core))),
+      // Cached at its jam_slot, nothing forwarded yet.
+      assert(stored.jamAssigns == List()),
+      assert(stored.state.pendingAssigns.get(core).queue == q),
+      assert(stored.state.pendingAssignCores.get(core) == 100),
+      assert(beforeDue.assigns == List()),
+      // At jam_slot: filled queue emitted, rotation advanced, due again in 80.
+      assert(first.assigns ==
+        List({ core: core, assigner: ParachainServiceId, queue: expected })),
+      // The stored queue is rotated on by the 80 slots just consumed.
+      assert(first.state.pendingAssigns.get(core).queue == advanceAssignQueue(q)),
+      assert(first.state.pendingAssignCores.get(core) == 180),
+      assert(notDueYet.assigns == List()),
+      assert(notDueYet.state.pendingAssigns.get(core).queue == advanceAssignQueue(q)),
+      // The next cycle resumes from the rotated queue.
+      assert(second.assigns ==
+        List({ core: core, assigner: ParachainServiceId,
+               queue: assignQueueFor(advanceAssignQueue(q)) })),
+      assert(second.state.pendingAssigns.get(core).queue ==
+        advanceAssignQueue(advanceAssignQueue(q))),
+      assert(second.state.pendingAssignCores.get(core) == 260),
       init
     }
   }
 
-  /// Boundary of the inline-apply rule: a `set_authorizer_queue` whose `jam_slot`
-  /// equals `now` is due (`jam_slot <= now`, the same condition always-accumulate
-  /// flushes on), so it is applied inline this block rather than cached for the
-  /// next one. This is the case that keeps `pending_authorizer_apply_at_future`
-  /// (`apply_at > now`) true: a due queue is never left in the cache.
-  run setAuthorizerQueueJamSlotEqualsNowAppliedInlineTest = {
-    val core = 5
-    val newHash: AuthorizerHash = { authBytes: 2 }
-    val baseAcc: AccumulateOutcome = {
-      state: initialState,
-      jamDesignate: None,
-      jamSolicit: Set(),
-      jamForget: Set(),
-      jamAssigns: List(),
-      logs: List()
-    }
-    // At now = 10, a queue with jam_slot = 10 (== now) is due and applies inline.
-    val out = applyUpwardMessage(
-      baseAcc, CoretimeParaId, FixedCodeLen, 10, 10,
-      AssignCore({ core: core, queue: List(newHash), newAssigner: None, jamSlot: 10 })
-    )
+  /// The X = 11 example: 80 slots do not land on a set boundary, so each cycle
+  /// resumes where the last stopped. Cycle 1 is 7 full passes (77) plus the first
+  /// 3; cycle 2 starts at the 4th authorizer, runs to the 11th, then repeats.
+  run assignQueueCyclesContinuouslyTest = {
+    val q = range(0, 11).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
+    val q1 = advanceAssignQueue(q)
+    val q2 = advanceAssignQueue(q1)
+    val cycle1 = assignQueueFor(q)
+    val cycle2 = assignQueueFor(q1)
+    val cycle3 = assignQueueFor(q2)
     all {
-      // Applied inline: assign emitted now.
-      assert(out.jamAssigns == List({ core: core, assigner: ParachainServiceId, queue: List(newHash) })),
-      // Nothing cached.
+      assert(cycle1.length() == AuthorizerQueueLength),
+      assert(cycle2.length() == AuthorizerQueueLength),
+      // Cycle 1: 7 full passes then the first 3.
+      assert(cycle1.slice(0, 77) == repeatList(q, 7)),
+      assert(cycle1.slice(77, 80) == takeFirst(3, q)),
+      // Cycle 2 picks up at the 4th authorizer and runs to the 11th...
+      assert(cycle2.slice(0, 8) == q.slice(3, 11)),
+      // ...then repeats the set from the top.
+      assert(cycle2.slice(8, 19) == q),
+      // Rotating on by 80 is rotating on by 80 % 11 = 3.
+      assert(q1 == rotateList(q, 3)),
+      // Three cycles laid end to end are the endless sequence, unbroken.
+      assert(cycle1.concat(cycle2).concat(cycle3) ==
+        takeFirst(240, repeatList(q, 23))),
+      init
+    }
+  }
+
+  /// A second short assignment for a core that already has one stored replaces
+  /// it wholesale (queue, due time and rotation reset; last write wins).
+  run newAssignmentReplacesPendingTest = {
+    val core = 5
+    val q1 = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
+    val q2 = range(0, 11).foldl(List(), (acc, i) => acc.append({ authBytes: 10 + i }))
+    val baseAcc: AccumulateOutcome = {
+      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List()
+    }
+    val after1 = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      AssignCore({ core: core, queue: q1, newAssigner: None, jamSlot: 100 }))
+    val after2 = applyUpwardMessage(
+      after1, CoretimeParaId, FixedCodeLen, 5, 5,
+      AssignCore({ core: core, queue: q2, newAssigner: None, jamSlot: 150 }))
+    all {
+      assert(after1.state.pendingAssigns.get(core).queue == q1),
+      assert(after1.state.pendingAssignCores.get(core) == 100),
+      assert(after2.state.pendingAssigns.get(core).queue == q2),
+      assert(after2.state.pendingAssigns.get(core).queue == q2),
+      assert(after2.state.pendingAssignCores.get(core) == 150),
+      init
+    }
+  }
+
+  /// `new_assigner = Some(s)` installs the exact 80-hash queue and hands the
+  /// core over in the same call; nothing is kept for re-presentation, since the
+  /// service is no longer the assigner. `None` keeps this service as assigner.
+  run assignerHandoffTest = {
+    val core = 0
+    val assigner = MkServiceId(7)
+    val h80 = range(0, AuthorizerQueueLength).foldl(List(), (acc, i) =>
+      acc.append({ authBytes: i }))
+    val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
+    val baseAcc: AccumulateOutcome = {
+      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List()
+    }
+    // Handoff with the required full queue, due inline.
+    val out = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      AssignCore({ core: core, queue: h80, newAssigner: Some(assigner), jamSlot: 0 }))
+    // Keep-assigner short queue is stored and rotated as usual.
+    val stored = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
+      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 }))
+    all {
+      assert(out.jamAssigns ==
+        List({ core: core, assigner: assigner, queue: h80 })),
+      // The handoff is one-shot: nothing left to re-present.
       assert(not(out.state.pendingAssigns.keys().contains(core))),
       assert(not(out.state.pendingAssignCores.keys().contains(core))),
+      // A short keep-assigner queue still rotates, `None` resolving to this service.
+      assert(stored.jamAssigns ==
+        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three) })),
+      assert(stored.state.pendingAssigns.get(core).assigner == None),
+      assert(stored.state.pendingAssigns.get(core).queue == advanceAssignQueue(three)),
       init
     }
   }
@@ -2049,6 +2053,31 @@ module tests {
     }
   }
 
+  /// §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
+  /// Both an empty and an over-long queue abort Refine the same way.
+  run assignQueueLengthRangeTest = {
+    val ct = CoretimeParaId
+    val h: AuthorizerHash = { authBytes: 3 }
+    pure def msg(q: List[AuthorizerHash], a: Option[ServiceId]): UpwardMessage =
+      AssignCore({ core: 0, queue: q, newAssigner: a, jamSlot: 100 })
+    all {
+      // Both ends of the range are rejected with the same error.
+      assert(refineWithMsgs(initialState, ct, List(msg(fullQ(h).append(h), None)))
+        == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
+      assert(refineWithMsgs(initialState, ct, List(msg(List(), None)))
+        == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
+      // At the maximum and at one, both refine fine.
+      assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(fullQ(h), None))))),
+      assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(List(h), None))))),
+      // A hand-off demands an exact 80-hash queue: short is rejected...
+      assert(refineWithMsgs(initialState, ct, List(msg(List(h), Some(MkServiceId(7)))))
+        == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
+      // ...and 80 passes.
+      assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(fullQ(h), Some(MkServiceId(7))))))),
+      init
+    }
+  }
+
   /// True iff a work result carries a successful digest.
   pure def isOkDigest(r: WorkExecResult): bool =
     match r { | WorkOk(d) => match d { | Ok(_) => true | Err(_) => false } | WorkErr => false }
@@ -2173,7 +2202,7 @@ module tests {
       1 -> { transfers: oneTransfer, nextSlot: Some(3) },
       2 -> { transfers: oneTransfer, nextSlot: Some(3) },
       3 -> { transfers: oneTransfer, nextSlot: None }),
-    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3 })
+    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3, count: 3 })
   }
 
   pure val linkedChainState: ParachainServiceState = {
@@ -2182,7 +2211,7 @@ module tests {
       1 -> { transfers: oneTransfer, nextSlot: Some(2) },
       2 -> { transfers: oneTransfer, nextSlot: Some(3) },
       3 -> { transfers: oneTransfer, nextSlot: None }),
-    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3 })
+    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3, count: 3 })
   }
 
   run chainMustNotSkipBucketTest =

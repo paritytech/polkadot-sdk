@@ -344,10 +344,14 @@ module invariants {
     }
 
 
-  /// Each pending assign's queue must fit within JAM's queue length.
+  /// A cached assign holds a non-empty queue within JAM's queue length.
+  /// Non-emptiness is what makes `assignQueueFor`'s division well-defined; an
+  /// empty queue is a no-op and is never cached (§4.3).
   val pending_authorizer_queue_bounded: bool =
-    svc.pendingAssigns.keys().forall(c =>
-      svc.pendingAssigns.get(c).queue.length() <= AuthorizerQueueLength)
+    svc.pendingAssigns.keys().forall(c => {
+      val queueLen = svc.pendingAssigns.get(c).queue.length()
+      queueLen > 0 and queueLen <= AuthorizerQueueLength
+    })
 
   /// The dirty-core index tracks exactly the cores with a pending assign
   /// payload. Since gating reads only the index, a divergence would either
@@ -355,11 +359,11 @@ module invariants {
   val pending_authorizer_cores_consistent: bool =
     svc.pendingAssignCores.keys() == svc.pendingAssigns.keys()
 
-  /// Every pending assign is scheduled strictly in the future: a due entry
-  /// (`jam_slot <= now`) is never left cached — always-accumulate flushes due
-  /// entries at block start, and an `assign_core` whose `jam_slot` is already
-  /// due is applied inline during replay. So a cached entry always has
-  /// `jam_slot > now`.
+  /// Every cached assign is scheduled strictly in the future: a due entry is
+  /// never left cached — always-accumulate fires due entries at block start
+  /// (dropping them, or re-scheduling a rotating queue 80 blocks out), and an
+  /// `assign_core` whose `jamSlot` is already due is applied inline during
+  /// replay.
   val pending_authorizer_apply_at_future: bool =
     svc.pendingAssignCores.keys().forall(c =>
       svc.pendingAssignCores.get(c) > now)

@@ -182,9 +182,10 @@ struct ParachainServiceState {
     pending_assigns: Map<CoreIndex, PendingAssign>,
 
     /// Dirty-core index: each core with a pending assign, paired with the
-    /// `jam_slot` at which it becomes due. Lets the always-accumulate path find
-    /// and gate due entries without reading the much larger payloads above
-    /// (see §5.1).
+    /// timeslot at which it is due — `jam_slot` first, then every 80 blocks for
+    /// a queue that must keep rotating. Sole home of the due time, so the
+    /// always-accumulate path can find and gate due entries without reading the
+    /// much larger payloads above (see §5.1).
     pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), CoreCount>,
 
     /// Cross-parachain preimage registry. Holds every preimage the service
@@ -262,6 +263,8 @@ enum RefineLog {
     /// The work item payload failed to decode into a `ParachainCandidate`.
     /// See §4.1 step 3.
     MalformedPayload,
+    /// See §4.3.
+    InvalidAuthorizerQueue,
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
     /// Paper's 48 KiB. See §4.1.
     RefineOutputTooLarge,
@@ -338,9 +341,13 @@ struct PreimageEntry {
     referencers: BoundedBTreeSet<ParaId>,
 }
 
-/// A scheduled JAM `assign` for one core. See §7.1.
+/// A scheduled JAM `assign` for one core, where `AUTH_QUEUE_SIZE = 80` is the
+/// number of slots `assign` consumes. See §7.1.
 struct PendingAssign {
-    queue: BoundedVec<AuthorizerHash, 80>,
+    /// The authorizer set, up to `AUTH_QUEUE_SIZE` hashes. Stored already
+    /// rotated to where the next cycle starts, so its own order carries the
+    /// schedule and no separate cursor is needed. See §7.1.
+    queue: BoundedVec<AuthorizerHash, AUTH_QUEUE_SIZE>,
     assigner: Option<ServiceId>,
 }
 
@@ -529,8 +536,11 @@ enum UpwardMessage {
     /// From `assign_core`: schedule a core's `assign` (queue + assigner). See §7.1.
     AssignCore {
         core: CoreIndex,
+        /// As emitted by the PVF, so any length is representable; Refine is
+        /// what holds it to 1..`AUTH_QUEUE_SIZE`. See §4.3.
         queue: Vec<AuthorizerHash>,
         new_assigner: Option<ServiceId>,
+        /// Timeslot at which the queue should be applied.
         jam_slot: Timeslot,
     },
     /// From `set_validator_keys`. See §5.3.
@@ -671,7 +681,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
 | `kv_remove(para_id: ParaId, key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent: no-op if the key is absent. |
 | `transfer_out(source: Option<ServiceId>, dest: ServiceId, amount: Balance, id: u64, source_supervisor_balance: bool, dest_supervisor_balance: bool, deferred: Option<(Memo, u64)>)` | `()` | Transfer balance between JAM services (Asset Hub only). `source = None` means this service; the two `*_supervisor_balance` flags choose which balance is debited on `source` and credited on `dest` (`true` = the supervisor balance); `deferred` selects between JAM's plain-move and deferred-transfer modes; `id` is caller-chosen and echoed back in `AccumulateLog::TransferFailed` if the transfer fails. See §5.1 step 7. |
-| `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` (Coretime chain only). Mirrors JAM's `assign`, which writes the authorizer queue and the assigner atomically. The entry is cached in service state and forwarded in the always-accumulate phase once the timeslot reaches `jam_slot`; if `jam_slot` is already due (`jam_slot <= now`) when the call is processed, it is applied inline right away. An empty `queue` cancels any entry cached for the core (no JAM call). `new_assigner = None` keeps this service as the core's assigner and `Some(s)` hands the core to `s`. |
+| `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` for `jam_slot` (Coretime chain only); queue and assigner are written together, as JAM's `assign` does. See §5.1 for when it fires and §7.1 for how a short queue fills the 80 slots. A queue outside 1 to `AUTH_QUEUE_SIZE` hashes, empty included, aborts Refine as `Err(RefineLog::InvalidAuthorizerQueue)`. Re-scheduling a core replaces its entry, so the last call wins. `new_assigner = None` keeps this service as the assigner; `Some(s)` hands the core to `s` and requires an exactly `AUTH_QUEUE_SIZE`-hash queue, since the service can no longer re-present a short one after giving the core away. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Aborts Refine as `Err(RefineLog::SetValidatorKeysTooManyKeys)` if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
 | `consume_transfers_up_to(slot: Timeslot)` | `()` | Drop every queued transfer bucket up to and including `slot`, marking those transfers consumed (Asset Hub only). `slot` is clamped to the candidate's lookup-anchor. See §5.1. |
 | `parachain_service_upgrade(code_hash: Hash, len: u32, min_acc_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_acc_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call unless the new code's preimage is available for lookup. See §5.4. |
@@ -706,20 +716,19 @@ relay chain's `enact_candidate` does today; availability, approvals, and dispute
 by JAM natively (see §2). The work runs in three phases, in order: all always-accumulate
 work first (due authorizer-queue flushes, then incoming-transfer processing) and then
 per-work-package work. Because always-accumulate runs *before* the work packages, a queue
-a work package schedules this block is normally not flushed in the same block: it is applied
-by a later block's always-accumulate once its `jam_slot` arrives. The exception is a queue
-whose `jam_slot` is already due (`jam_slot <= now`) when the scheduling message is processed,
-since always-accumulate has already run, it is applied inline right away and any scheduled queue
-update for the core is removed.
+a work package schedules this block is normally not applied in the same block: it fires in
+a later block's always-accumulate once its `jam_slot` arrives. The exception is a queue
+whose `jam_slot` is already due (`jam_slot <= now`) when the scheduling message is
+processed; since always-accumulate has already run, it is applied inline right away.
 
 #### Apply due assigns (before work packages)
 
-Iterate `pending_assign_cores` and, for each `(core, jam_slot)` pair, check whether
-the entry is due: `now >= jam_slot`, read directly from the pair without touching
-`pending_assigns`. If due, drain the payload from `pending_assigns`, remove the pair
-from `pending_assign_cores`, and call JAM `assign(core, queue, assigner)` to install
-it, where `assigner` is the payload's `assigner` if set and this service's own id
-otherwise.
+Iterate `pending_assign_cores` and, for each `(core, due_at)` pair, check whether
+the entry is due: `now >= due_at`, read directly from the pair without touching
+`pending_assigns`. If due, emit JAM `assign(core, queue, assigner)`, where `queue` is
+the cached queue filled to 80 slots (§7.1) and `assigner` is the cached `assigner` if
+set and this service's own id otherwise. The entry is then either dropped from both
+maps or re-armed 80 blocks out with its rotation advanced, per §7.1.
 
 #### Incoming transfer processing
 
@@ -1285,15 +1294,15 @@ its worst case of 17 B, the fixed part is:
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 item
   34 + 1 (key) + 2 + 1023 × 336                            octets    343 765
 pending_assigns: Map<CoreIndex, PendingAssign>  — 341 items
-  341 × (34 + 5 (key) + 2 + 80 × 32 + 5 (Option<ServiceId>))  octets    888 646
+  341 × (34 + 5 (key) + 2 + 79 × 32 + 5 (Option<ServiceId>))  octets    877 734
 pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 item
   34 + 1 (key) + 2 + 341 × (4 + 4)                         octets      2 765
 incoming_transfer_chain: Option<IncomingTransferChain>  — 1 item
   34 + 1 (key) + 1 + 4 + 4 + 4 (count)                     octets         48
-                                                  octets subtotal   1 235 224
+                                                  octets subtotal   1 224 312
                                                     344 items × 10      3 440
                                                                     ---------
-                                                                    1 238 664
+                                                                    1 227 752
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
@@ -1313,14 +1322,14 @@ incoming_transfers: Map<Timeslot, IncomingTransfers>  — worst case N items
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 238 664 + 204 × N
+asset_hub_global_items = 1 227 752 + 204 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation: each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 238 664 + 204 000 = 1 442 664`, or
-**≈ 1.38 MiB**, on top of the generic per-para baseline.
+(§5.1). At `N = 1000` the reservation is `1 227 752 + 204 000 = 1 431 752`, or
+**≈ 1.37 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
 
@@ -1576,6 +1585,22 @@ coretime on a core assigned to the parachain and submit whatever they like for i
 no reader, and writing one would hand the buyer a free way to evict genuine entries from
 the capacity-bounded `parachain_log` (§3.1). The PVF should simply panic (§4.2).
 
+#### Filling the 80-slot queue
+
+JAM's `assign` consumes exactly 80 authorizer hashes, one per slot. The Coretime chain
+supplies the authorizer set as a queue of length X ≤ 80, and the service fills the 80
+slots with the next 80 entries of that set repeated endlessly:
+
+- X = 80, or X < 80 with `80 % X == 0`: the 80 slots tile the set a whole number of
+  times, so the installed queue keeps cycling correctly on its own and is written once. A
+  handoff to another assigner likewise has to be self-sufficient, so `assign_core` with a
+  `Some` assigner demands an exact 80-hash queue (§4.3).
+- X < 80 with `80 % X != 0`: 80 slots do not land on a set boundary, so each cycle must
+  resume where the last one stopped. The service keeps the queue and rewrites it every
+  80 blocks, shifting its start forward by `80 % X` each time. For X = 11 the first
+  cycle is 7 full passes (77) plus authorizers 1 to 3; the next starts at the 4th, runs
+  to the 11th, then repeats. The stored order is the schedule, so there is no separate cursor.
+
 #### Collator Set Rotation Flow
 
 ```
@@ -1588,8 +1613,8 @@ Coretime chain
     │  (new authorizer hashes computed from same code + updated config)
     ▼
 Parachain Service (Accumulate)
-    │  assign(core, new_queue, self): `None` resolved to this service
-    │  New authorizer hashes enter the pool via queue rotation
+    │  applies at jam_slot. If the set cannot fill 80 exactly it is kept and
+    │  re-presented with a rotating partial every 80 blocks (§5.1)
     ▼
 Pool (up to 8 entries)
     │  Old authorizer hashes drain out over ~8 blocks (48s)

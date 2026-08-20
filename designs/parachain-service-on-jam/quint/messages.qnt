@@ -48,6 +48,10 @@ module messages {
   | InvalidItemCount
   // The opaque `AuthorizerConfig` blob failed to decode (§4.1 step 1).
   | MalformedAuthorizerConfig
+  // An `assign_core` queue outside 1..`AuthorizerQueueLength` hashes — and any
+  // queue other than exactly `AuthorizerQueueLength` when handing the core to a
+  // new assigner (§4.3).
+  | InvalidAuthorizerQueue
   // The encoded digest plus the work-report's authorizer trace exceeds
   // the Gray Paper's 48 KiB combined-result-blob budget (§4.1 step 7).
   | RefineOutputTooLarge
@@ -161,14 +165,14 @@ module messages {
   //   always-accumulate phase once the timeslot reaches `jamSlot`; if already
   //   due (`jamSlot <= now`) it is applied inline. The Coretime chain chooses
   //   `jamSlot` so the pool fills without overwriting the active authorizers.
-  // - `queue`: an empty list cancels any cached entry for the core (a
-  //   service-level cancel — no JAM call is made).
+  // - `queue`: 1 to `AuthorizerQueueLength` hashes; Refine rejects any other
+  //   length, empty included (§4.3).
   // - `newAssigner`: `None` leaves this service as the core's assigner (the
-  //   common queue-rotation case); `Some(s)` hands the core to `s`. JAM always
-  //   stores SOME assigner, so `None` means "unchanged", never "no assigner" —
-  //   the service passes its own id to `assign`. A handoff is one-way: once it
-  //   fires the service is no longer `assigners[core]`, so a later `assign` for
-  //   that core fails with HUH.
+  //   common queue-rotation case); `Some(s)` hands the core to `s`. A handoff is
+  //   one-way: once it fires the service is no longer `assigners[core]`, so it
+  //   cannot re-present a short queue afterwards — `Some(s)` therefore requires
+  //   an exactly-`AuthorizerQueueLength` queue (§4.3). JAM always stores SOME
+  //   assigner, so `None` means "unchanged": the service passes its own id.
   | AssignCore({
       core: CoreIndex,
       queue: List[AuthorizerHash],

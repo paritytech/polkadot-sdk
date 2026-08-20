@@ -381,12 +381,16 @@ module main {
       ConsumeTransfersUpTo(0),
       UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
       UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
-      // Queue rotation keeping this service as assigner: deferred, due, cancel.
+      // Assignments of every kind: tiles directly (1), kept and rotated (3),
+      // an empty one Refine rejects, and a hand-off — which requires an exact
+      // 80-hash queue (§4.3).
       AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
-      AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 10 }),
+      AssignCore({ core: 0, queue: List(anyAuthHash, anyAuthHash, anyAuthHash),
+                   newAssigner: None, jamSlot: 10 }),
       AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 }),
-      // Hand core 0 off to another service, installing a final queue with it.
-      AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: Some(MkServiceId(7)), jamSlot: 10 }),
+      AssignCore({ core: 0,
+                   queue: repeatList(List(anyAuthHash), AuthorizerQueueLength),
+                   newAssigner: Some(MkServiceId(7)), jamSlot: 10 }),
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
       ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA, newValidationCodeLen: FixedCodeLen }),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
