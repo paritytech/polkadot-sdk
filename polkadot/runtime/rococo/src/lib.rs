@@ -119,8 +119,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Debug, FixedU128, KeyTypeId, Perbill, Percent, Permill,
 };
 use sp_staking::SessionIndex;
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
 	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
@@ -195,12 +193,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		c: PRIMARY_PROBABILITY,
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
 /// locking the state of the pallet and preventing further updates to identities and sub-identities.
