@@ -1602,12 +1602,12 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 	let request = get_block_request(&mut sync, FromBlock::Number(8), 2, &peer_id1);
 	assert!(request.fields.contains(BlockAttributes::BODY));
 
-	// The peer cannot serve the required bodies and responds empty: it is reported as
-	// a bad peer, exactly as before the body policy existed.
+	// The peer cannot serve the required bodies and responds empty: it is disconnected
+	// with a mild penalty.
 	let empty_response = BlockResponse::<Block> { id: 0, blocks: Vec::new() };
 	assert_eq!(
 		sync.on_block_data(&peer_id1, Some(request), empty_response),
-		Err(BadPeer(peer_id1, rep::NOT_REQUESTED)),
+		Err(BadPeer(peer_id1, rep::NO_GAP_BODIES)),
 	);
 
 	// The syncing engine drops bad peers; peer removal frees the in-flight range, so

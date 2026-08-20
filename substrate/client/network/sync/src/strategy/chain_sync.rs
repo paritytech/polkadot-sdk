@@ -122,6 +122,10 @@ mod rep {
 	/// Reputation change for peers which send us non-requested block data.
 	pub const NOT_REQUESTED: Rep = Rep::new(-(1 << 29), "Not requested block data");
 
+	/// Peer could not serve any body of a gap sync request that required them.
+	/// Mild, since the peer may still be backfilling its own block history.
+	pub const NO_GAP_BODIES: Rep = Rep::new(-(1 << 26), "No gap sync bodies");
+
 	/// Reputation change for peers which send us a block with bad justifications.
 	pub const BAD_JUSTIFICATION: Rep = Rep::new(-(1 << 16), "Bad justification");
 
@@ -1344,8 +1348,10 @@ where
 					PeerSyncState::DownloadingGap(_) => {
 						peer.state = PeerSyncState::Available;
 						if blocks.is_empty() && request.fields.contains(BlockAttributes::BODY) {
-							// Conforming peers can always serve the required bodies;
-							// `validate_blocks` below drops this one, freeing the range.
+							// An empty response means the peer holds no body of the entire
+							// range (bodies are pruned oldest-first). Disconnect it to free
+							// the slot for a peer that does; the mild penalty lets it retry
+							// later.
 							warn!(
 								target: LOG_TARGET,
 								"Peer {peer_id} sent an empty response for gap block request \
@@ -1354,6 +1360,10 @@ where
 							if let Some(metrics) = &self.metrics {
 								metrics.gap_body_empty_responses.inc();
 							}
+							if let Some(gap_sync) = &mut self.gap_sync {
+								gap_sync.blocks.clear_peer_download(peer_id);
+							}
+							return Err(BadPeer(*peer_id, rep::NO_GAP_BODIES));
 						}
 						if let Some(gap_sync) = &mut self.gap_sync {
 							gap_sync.blocks.clear_peer_download(peer_id);
