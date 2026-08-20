@@ -1,7 +1,7 @@
 // Coretime-chain-only host calls for parachain lifecycle (design §6).
 //
 // All four are idempotent and the Parachain Service performs no rights-
-// checking of its own — the Coretime chain is the sole authority on which
+// checking of its own: the Coretime chain is the sole authority on which
 // ParaIds are live and who owns them. The model exposes them as separate
 // actions so we can study any ordering the Coretime chain might choose.
 module management {
@@ -19,7 +19,7 @@ module management {
     logs: List[AccumulateLog]
   }
 
-  /// §6.1 — sole creator of `ParaInfo`. On an unused ParaId, creates with
+  /// §6.1: sole creator of `ParaInfo`. On an unused ParaId, creates with
   /// the baseline footprint pre-charged. On an existing ParaId, overwrites
   /// `totalStateBalance` iff `new_total ≥ used_state_balance`.
   pure def parachainSetStateBalance(
@@ -30,7 +30,7 @@ module management {
     if (not(s.isLive(para_id))) {
       match initParaInfo(para_id, newTotal) {
         | None =>
-        // Rejected — new_total below baseline.
+        // Rejected: new_total below baseline.
         {
           state: s,
           jamSolicit: Set(),
@@ -73,7 +73,7 @@ module management {
     }
   }
 
-  /// §6.2 / §6.3 — upsert head data. No-op on a ParaId whose ParaInfo
+  /// §6.2 / §6.3: upsert head data. No-op on a ParaId whose ParaInfo
   /// doesn't exist yet (Coretime must call set_state_balance first).
   pure def parachainSetHead(
     s: ParachainServiceState,
@@ -93,11 +93,11 @@ module management {
     }
   }
 
-  /// §6.2 / §6.3 — upsert validation code (forced replacement; bypasses the
+  /// §6.2 / §6.3: upsert validation code (forced replacement; bypasses the
   /// normal upgrade lifecycle). Solicits the new code if not already
-  /// solicited, releases the old active code and any pending-upgrade code —
+  /// solicited, releases the old active code and any pending-upgrade code,
   /// each only when the parachain isn't independently soliciting it
-  /// (`pinned`; §5.2) and it differs from the new code — and clears
+  /// (`pinned`; §5.2) and it differs from the new code, and clears
   /// the pending upgrade.
   pure def parachainSetValidationCode(
     s: ParachainServiceState,
@@ -187,7 +187,7 @@ module management {
 
    /// The exact `usedStateBalance` a para may hold at clean-up: its baseline
    /// plus the footprints of its active validation code and (if any) pending
-   /// upgrade code — nothing else. Any excess means it still holds other
+   /// upgrade code: nothing else. Any excess means it still holds other
    /// solicited preimages or `keyValueStorage`, which it must release first.
   pure def cleanUpAllowedBalance(pi: ParaInfo, para_id: ParaId): int = {
     val activeFp =
@@ -202,7 +202,7 @@ module management {
     baselineFor(para_id) + activeFp + pendingFp
   }
 
-   /// §6.4 — deregister a parachain. Rejects with `TooMuchStateHeld` unless the
+   /// §6.4: deregister a parachain. Rejects with `TooMuchStateHeld` unless the
    /// para holds only its baseline and validation code(s) (it must release all
    /// other solicited preimages and `keyValueStorage` first). Otherwise forgets
    /// the validation code(s) via the two-step forget (§6.1). If any code cannot
@@ -219,7 +219,7 @@ module management {
     } else {
       val pi = s.paraInfo(para_id)
       if (pi.usedStateBalance > cleanUpAllowedBalance(pi, para_id)) {
-        // Still holds extra state — reject, no change.
+        // Still holds extra state: reject, no change.
         { state: s, jamSolicit: Set(), jamForget: Set(), logs: List(TooMuchStateHeld) }
       } else {
         // Forget the active code (if any), then the pending code, via two-step forget.
@@ -252,7 +252,7 @@ module management {
             logs: List().appendOption(afterActive.log).appendOption(afterPending.log)
           }
         } else {
-          // Fully expunged — drop all per-para state.
+          // Fully expunged: drop all per-para state.
           val stagedAfter =
             if (para_id == AssetHubParaId) List() else s1.stagedValidatorKeys
           {

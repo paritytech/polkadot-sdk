@@ -172,7 +172,7 @@ module state_balance {
         | None => s.preimageStatus
       }
     if (s.hasReferencer(h, len, para_id)) {
-      // Already a referencer — idempotent and needs no extra state balance
+      // Already a referencer: idempotent, needs no extra state balance
       // (footprint already charged). But if the request is `Unrequested` (the
       // retained para re-soliciting its own code in limbo), the service still
       // must fire JAM `solicit` to rescue it, else the para cannot look it up.
@@ -182,7 +182,7 @@ module state_balance {
       else
         { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
     } else if (not(pi.hasHeadroom(delta))) {
-      // Insufficient headroom for a genuinely new reference — no state
+      // Insufficient headroom for a genuinely new reference: no state
       // change, log it.
       {
         state: s,
@@ -197,7 +197,7 @@ module state_balance {
       // On a rescue, the existing referencers are only the retained ghost(s)
       // from the two-step forget (`Unrequested` has no live referencer). The
       // soliciting para becomes the sole LIVE referencer, so refund and drop
-      // every ghost — keeping them charged would double-count one JAM request
+      // every ghost, keeping them charged would double-count one JAM request
       // entry (§6.1). A fresh solicit / non-rescue join has no ghosts to clear.
       val ghosts =
         if (isRescue) s.preimageRegistry.get((h, len)).referencers else Set()
@@ -262,7 +262,7 @@ module state_balance {
           log: None
         }
       } else {
-        // Last referencer leaves — JAM `forget` behaviour depends on whether the
+        // Last referencer leaves: JAM `forget` behaviour depends on whether the
         // preimage was ever provided (its `query` status).
         val expunged = {
           // Drop / Expunge: JAM removes the request. Refund and drop the entry.

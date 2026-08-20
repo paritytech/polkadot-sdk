@@ -111,7 +111,7 @@ module accumulate {
         }
       if (isActive) {
         // The active code is already solicited by the service, so soliciting
-        // it costs no extra state balance — just record the parachain's own
+        // it costs no extra state balance; just record the parachain's own
         // solicit so the referencer survives the code ceasing to be active
         // (§5.2 `pinned`).
         { ...acc,
@@ -203,7 +203,7 @@ module accumulate {
         logs: acc.logs.appendOption(o.log)
       }
       | ParachainSetStateBalance(payload) =>
-      // §6.1 — only legal from Coretime chain (rights check is in §6).
+      // §6.1: only legal from Coretime chain (rights check is in §6).
       // Here we just apply the underlying primitive.
       val o = parachainSetStateBalance(acc.state, payload.paraId, payload.newTotal)
       {
@@ -356,7 +356,7 @@ module accumulate {
     logs: List[AccumulateLog]
   } = {
     // Step 1: registration check. A not-registered OR deregistering para
-    // (§6.4) is treated as if it no longer exists — silently drop, no log.
+    // (§6.4) is treated as if it no longer exists: silently drop, no log.
     if (not(s.isLive(r.paraId)) or s.paraInfo(r.paraId).isDeregistering) {
       { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
@@ -426,7 +426,7 @@ module accumulate {
     now: Timeslot
   ): PerPackageOutcome = {
     match wr.result {
-      // §3.3: gray paper `WorkExecResult::Error` — JAM substituted an
+      // §3.3: gray paper `WorkExecResult::Error`: JAM substituted an
       // error for this work-item before the service's refine ran.
       // Skip entirely: no log entry, no state change, no prune (no candidate).
       | WorkErr => {

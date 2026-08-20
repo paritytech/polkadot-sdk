@@ -13,7 +13,7 @@ module invariants {
   /// The hash `accumulate` returned is exactly the commitment over the heads
   /// that changed in the step (§5.5): `None` when none changed, the single
   /// leaf's hash when one did, the Merkle root otherwise. Also pins the steps
-  /// that return no hash — if one ever started moving a head without
+  /// that return no hash: if one ever started moving a head without
   /// committing to it, this fails.
   val head_commitment_matches_changed_heads: bool =
   lastHeadRoot == headCommitment(prevSvc, svc)
@@ -26,7 +26,7 @@ module invariants {
   })
 
   /// A ParaId appears in `preimage_registry[(h, len)].referencers` iff its
-  /// referencer set is non-empty. (The "iff" is structural — an empty
+  /// referencer set is non-empty. (The "iff" is structural: an empty
   /// referencer set should not be persisted; see `removeReferencer`.)
   val preimage_referencer_consistency: bool =
   svc.preimageRegistry.keys().forall(key =>
@@ -77,7 +77,7 @@ module invariants {
   })
 
   /// Every live parachain's pending-upgrade code (when present) is also
-  /// a referencer in `preimage_registry` — same lifecycle as any other
+  /// a referencer in `preimage_registry`, same lifecycle as any other
   /// solicited preimage (§5.2).
   val pending_code_in_registry: bool =
   svc.parachains.keys().forall(para_id => {
@@ -96,7 +96,7 @@ module invariants {
   /// upward message without a subsequent `Forget` must still be
   /// referenced in `preimage_registry`. Guarded by `isLive` because
   /// `parachainCleanUp` releases the registry slot but leaves the ghost
-  /// entry stale by design — we only care that live paras' solicits are
+  /// entry stale by design; we only care that live paras' solicits are
   /// reflected.
   val solicit_implies_registry: bool =
   solicitedSet.forall(triple => {
@@ -151,8 +151,8 @@ module invariants {
   svc.parachainLog.keys().forall(para_id => svc.isLive(para_id))
 
   /// Transition invariant (§5.2 Phase 5a). When a code upgrade is
-  /// *activated* — para `para_id`'s validation code changes to what was its
-  /// pending-upgrade ref — the old code's referencer slot for that para is
+  /// *activated*: para `para_id`'s validation code changes to what was its
+  /// pending-upgrade ref; the old code's referencer slot for that para is
   /// released, UNLESS one of:
   ///   - the parachain was independently soliciting the old code
   ///     (its `validationCode.pinned` bit), so the slot survives;
@@ -216,14 +216,14 @@ module invariants {
     })
 
   /// Every `headData` change between `prevSvc` and `svc` must be backed
-  /// by an `Ok` work result that claims that new head — either directly
+  /// by an `Ok` work result that claims that new head, either directly
   /// (the Ok's own `headData` for its `paraId`) or indirectly via a
   /// `ParachainSetHead` upward message. Holds universally, including
   /// always-accumulate blocks with no work packages. Uses only data also
   /// available to a Rust trace harness.
   val head_state_matches_outcomes: bool =
     prevSvc.parachains.keys().forall(p =>
-      // Guarded explicitly because Quint's `or` is eager — `svc.paraInfo(p)`
+      // Guarded explicitly because Quint's `or` is eager; `svc.paraInfo(p)`
       // would crash on a `ParachainCleanUp`-removed para.
       if (not(svc.parachains.keys().contains(p))) true
       else if (svc.paraInfo(p).headData == prevSvc.paraInfo(p).headData) true
@@ -252,7 +252,7 @@ module invariants {
   /// para is live and its declared parent matches that para's current head
   /// (step 3). If accepted, write its new head (step 6) then replay its
   /// `parachain_set_head` messages (step 7). A rejected candidate (stale parent)
-  /// is ignored entirely — its head update AND its upward messages — just as
+  /// is ignored entirely (its head update AND its upward messages), just as
   /// Accumulate never replays a rejected candidate's messages. This is what lets a
   /// forced `parachain_set_head` survive a same-block candidate built on a
   /// superseded head, while a candidate legitimately continuing the current head
@@ -287,7 +287,7 @@ module invariants {
   /// For every Refine Err in lastStepWorkResults targeting a registered para,
   /// a matching RefineLogEntry must exist in the flat log at timeslot now. The
   /// flat vec supports multiple entries per timeslot so ALL errors must be
-  /// present — no last-writer-wins.
+  /// present; no last-writer-wins.
   val refine_error_logged: bool =
     lastStepWorkResults.foldl(true, (acc, r) => acc and match r.result {
       | WorkErr => true
@@ -360,7 +360,7 @@ module invariants {
     svc.pendingAssignCores.keys() == svc.pendingAssigns.keys()
 
   /// Every cached assign is scheduled strictly in the future: a due entry is
-  /// never left cached — always-accumulate fires due entries at block start
+  /// never left cached; always-accumulate fires due entries at block start
   /// (dropping them, or re-scheduling a rotating queue 80 blocks out), and an
   /// `assign_core` whose `jamSlot` is already due is applied inline during
   /// replay.
@@ -397,7 +397,7 @@ module invariants {
       parachainLogSize(svc.paraLog(p)) <= ParachainLogByteCap)
 
   /// §5.1 lookup-anchor pruning: every entry left in a parachain's log has a
-  /// timeslot `>= logPrunedBelow[para]` — the lookup-anchor it was last pruned
+  /// timeslot `>= logPrunedBelow[para]`, the lookup-anchor it was last pruned
   /// against (0 if never pruned). This holds through byte-cap eviction too,
   /// which only removes entries (oldest-first) and never lowers a timeslot.
   val parachain_log_above_lookup: bool =
@@ -413,7 +413,7 @@ module invariants {
   val preimage_status_domain: bool =
     svc.preimageStatus.keys() == svc.preimageRegistry.keys()
 
-  /// An `Unrequested(_)` entry has exactly one referencer — the retained last
+  /// An `Unrequested(_)` entry has exactly one referencer: the retained last
   /// one awaiting the expunging second `forget` (§6.1).
   val unrequested_is_singleton_retention: bool =
     svc.preimageRegistry.keys().forall(key =>
@@ -422,7 +422,7 @@ module invariants {
         | _ => true
       })
 
-  /// Composite invariant — every invariant above must hold simultaneously.
+  /// Composite invariant: every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
     preimage_referencer_consistency,

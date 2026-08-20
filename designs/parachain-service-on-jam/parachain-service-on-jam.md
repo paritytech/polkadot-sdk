@@ -182,7 +182,7 @@ struct ParachainServiceState {
     pending_assigns: Map<CoreIndex, PendingAssign>,
 
     /// Dirty-core index: each core with a pending assign, paired with the
-    /// timeslot at which it is due — `jam_slot` first, then every 80 blocks for
+    /// timeslot at which it is due, `jam_slot` first, then every 80 blocks for
     /// a queue that must keep rotating. Sole home of the due time, so the
     /// always-accumulate path can find and gate due entries without reading the
     /// much larger payloads above (see §5.1).

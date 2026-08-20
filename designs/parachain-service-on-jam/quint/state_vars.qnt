@@ -4,7 +4,7 @@
 // instance. Declaring all state variables in one module gives every
 // consumer (the driver in `main.qnt`, the invariants in `invariants.qnt`,
 // and any future state-reading helpers) a single point of truth and lets
-// invariants be nullary `val: bool` definitions — directly targetable as
+// invariants be nullary `val: bool` definitions, directly targetable as
 // `--invariant=<name>` on the CLI without per-state wrapper boilerplate.
 module state_vars {
   import types.* from "./types"
@@ -31,7 +31,7 @@ module state_vars {
 
   /// Ghost state: the (ordered) refine work results from the last refine
   /// step. Empty for non-refine steps. Lets invariants check that the
-  /// state reflects what the work results declared — e.g. a para whose
+  /// state reflects what the work results declared, e.g. a para whose
   /// head changed must have a matching `Ok` result. The Rust harness has
   /// the same data from the trace, so invariants over this ghost transfer
   /// directly. Not part of the protocol.
@@ -43,8 +43,8 @@ module state_vars {
   var lastStepAssigns: List[AssignCall]
 
   /// The 32-byte value `accumulate` returned for the last step: the head
-  /// commitment of §5.5, or `None` when no head changed. Not ghost state — it
-  /// is the service's actual accumulate output — but only the most recent one
+  /// commitment of §5.5, or `None` when no head changed. Not ghost state: it
+  /// is the service's actual accumulate output, but only the most recent one
   /// is retained, which is all `head_commitment_matches_changed_heads` needs.
   var lastHeadRoot: Option[Hash]
 

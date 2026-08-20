@@ -48,7 +48,7 @@ module messages {
   | InvalidItemCount
   // The opaque `AuthorizerConfig` blob failed to decode (§4.1 step 1).
   | MalformedAuthorizerConfig
-  // An `assign_core` queue outside 1..`AuthorizerQueueLength` hashes — and any
+  // An `assign_core` queue outside 1..`AuthorizerQueueLength` hashes, and any
   // queue other than exactly `AuthorizerQueueLength` when handing the core to a
   // new assigner (§4.3).
   | InvalidAuthorizerQueue
@@ -56,7 +56,7 @@ module messages {
   // the Gray Paper's 48 KiB combined-result-blob budget (§4.1 step 7).
   | RefineOutputTooLarge
   // The PVF exited without calling `set_parent_head_hash` and/or `set_head`
-  // exactly once — both head declarations are mandatory (§4.2).
+  // exactly once: both head declarations are mandatory (§4.2).
   | MissingHeadDeclaration
 
   // --- Accumulate-side log payloads ---------------------------------------
@@ -87,7 +87,7 @@ module messages {
   | InsufficientServiceBalance
 
   type AccumulateLog =
-  // Available state balance insufficient — see the reason for the cause.
+  // Available state balance insufficient; see the reason for the cause.
   | InsufficientStateBalance(InsufficientBalanceReason)
   // parachain_set_state_balance rejected because attempted < current_used.
   | StateBalanceUpdateRejected({
@@ -131,7 +131,7 @@ module messages {
   // --- Upward messages emitted by the PVF, replayed by Accumulate ---------
 
   type UpwardMessage =
-    // request_code_upgrade(hash, len) — start a PVF code upgrade (§5.2).
+    // request_code_upgrade(hash, len): start a PVF code upgrade (§5.2).
     | RequestCodeUpgrade({ hash: ValidationCodeHash, len: int })
   // solicit(hash, len)
   | Solicit({ hash: Hash, len: int })
@@ -139,17 +139,17 @@ module messages {
   // para may only name itself, while the Coretime chain may name any para, which
   // is how a para that can no longer produce blocks gets drained (§6.4).
   | Forget({ paraId: ParaId, hash: Hash, len: int })
-  // kv_set(key, value) — write to key_value_storage.
+  // kv_set(key, value): write to key_value_storage.
   | SetKV({ key: List[int], value: List[int] })
-  // kv_remove(para_id, key) — remove from key_value_storage. Same `paraId`
+  // kv_remove(para_id, key): remove from key_value_storage. Same `paraId`
   // delegation rule as `Forget`.
   | RemoveKV({ paraId: ParaId, key: List[int] })
   // transfer_out(source, dest, amount, id, sourceSupervisorBalance,
-  // destSupervisorBalance, deferred) — Asset Hub only.
+  // destSupervisorBalance, deferred): Asset Hub only.
   // `deferred` is `None` for a plain move and `Some((memo, gas))` for a deferred
   // transfer; the two are inseparable because JAM ignores the gas limit when no
   // memo is supplied. `source = None` means this service, matching JAM's self
-  // sentinel. The two selectors choose the balance on each side — which of
+  // sentinel. The two selectors choose the balance on each side: which of
   // source's is debited and which of dest's receives the funds; true means the
   // supervisor balance (§5.1 outgoing transfers).
   | TransferOut({
@@ -157,7 +157,7 @@ module messages {
       sourceSupervisorBalance: bool, destSupervisorBalance: bool,
       deferred: Option[(Memo, int)]
     })
-  // assign_core(core, queue, new_assigner, jam_slot) — Coretime only. Mirrors
+  // assign_core(core, queue, new_assigner, jam_slot): Coretime only. Mirrors
   // JAM's `assign`, which writes a core's authorizer queue AND its assigner
   // atomically, so one call covers both.
   //
@@ -170,7 +170,7 @@ module messages {
   // - `newAssigner`: `None` leaves this service as the core's assigner (the
   //   common queue-rotation case); `Some(s)` hands the core to `s`. A handoff is
   //   one-way: once it fires the service is no longer `assigners[core]`, so it
-  //   cannot re-present a short queue afterwards — `Some(s)` therefore requires
+  //   cannot re-present a short queue afterwards, so `Some(s)` requires
   //   an exactly-`AuthorizerQueueLength` queue (§4.3). JAM always stores SOME
   //   assigner, so `None` means "unchanged": the service passes its own id.
   | AssignCore({
@@ -179,23 +179,23 @@ module messages {
       newAssigner: Option[ServiceId],
       jamSlot: Timeslot
   })
-  // set_validator_keys(chunk, is_last) — Asset Hub only.
+  // set_validator_keys(chunk, is_last): Asset Hub only.
   | SetValidatorKeys({ keys: List[ValidatorKey], isLast: bool })
-  // consume_transfers_up_to(index) — Asset Hub only.
+  // consume_transfers_up_to(index): Asset Hub only.
   | ConsumeTransfersUpTo(int)
-  // parachain_set_head(para_id, new_head) — Coretime only.
+  // parachain_set_head(para_id, new_head): Coretime only.
   | ParachainSetHead({ paraId: ParaId, newHead: HeadData })
-  // parachain_set_validation_code(para_id, new_hash, new_len) — Coretime only.
+  // parachain_set_validation_code(para_id, new_hash, new_len): Coretime only.
   | ParachainSetValidationCode({
       paraId: ParaId,
       newValidationCodeHash: ValidationCodeHash,
       newValidationCodeLen: int
   })
-  // parachain_clean_up(para_id) — Coretime only.
+  // parachain_clean_up(para_id): Coretime only.
   | ParachainCleanUp(ParaId)
-  // parachain_set_state_balance(para_id, new_total) — Coretime only.
+  // parachain_set_state_balance(para_id, new_total): Coretime only.
   | ParachainSetStateBalance({ paraId: ParaId, newTotal: Balance })
-  // parachain_service_upgrade(code_hash, len, min_acc_gas, min_memo_gas) —
+  // parachain_service_upgrade(code_hash, len, min_acc_gas, min_memo_gas):
   // Asset Hub only (design §5.4).
   | UpgradeService({ codeHash: Hash, len: int, minAccGas: int, minMemoGas: int })
 
@@ -219,7 +219,7 @@ module messages {
   /// Gray paper `WorkExecResult`. `WorkOk` carries the service-produced
   /// `ParachainWorkDigest`; `WorkErr` is the JAM-substituted error case
   /// (gray paper `WorkExecResult::Error(WorkErrorCode)`) which Accumulate
-  /// skips entirely — no `parachain_log` entry, no state change (§3.3).
+  /// skips entirely: no `parachain_log` entry, no state change (§3.3).
   /// Constructor names are prefixed to avoid Quint's module-wide name
   /// collision with `ParachainWorkDigest::Ok` / `Err`.
   type WorkExecResult =
@@ -230,7 +230,7 @@ module messages {
   /// carries the outcome (service digest or JAM-substituted error);
   /// `authTrace` is the work-report authorizer trace (one per report
   /// in JAM, but per-item here since the model fixes one work-item per
-  /// work-report — design §3.2).
+  /// work-report, design §3.2).
   type WorkResult = {
     result: WorkExecResult,
     authTrace: AuthTrace
@@ -280,7 +280,7 @@ module messages {
   }
 
   /// Per §4.3: a host function taking a `para_id` aborts unless it names the
-  /// calling parachain — except from the Coretime chain, which may name any para
+  /// calling parachain, except from the Coretime chain, which may name any para
   /// (§6.4). `true` iff `m` names a para other than `para_id` without that right.
   pure def targetsForeignPara(m: UpwardMessage, para_id: ParaId): bool =
   para_id != CoretimeParaId and

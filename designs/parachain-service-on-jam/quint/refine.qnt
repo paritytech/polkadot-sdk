@@ -1,6 +1,6 @@
 // Refine: in-core, stateless PVF execution (design §4).
 //
-// We do NOT model PVF semantics — instead we model Refine as a non-
+// We do NOT model PVF semantics; instead we model Refine as a non-
 // deterministic producer of `ParachainWorkDigest`s subject to the
 // structural rules from §4.1–§4.3:
 //
@@ -14,13 +14,13 @@
 //   `upwardMessages` list, and any chunk must contain at most 30 keys.
 //
 // The `parent_head_hash` field is mandatory but is *not* validated against
-// service state here — that check lives in Accumulate (§5.1, step 1).
+// service state here; that check lives in Accumulate (§5.1, step 1).
 module refine {
   import types.* from "./types"
   import messages.* from "./messages"
   import state.* from "./state"
 
-  /// Per-work-package extrinsic — one parachain candidate per item (design §3.2).
+  /// Per-work-package extrinsic: one parachain candidate per item (design §3.2).
   type ParachainCandidate = {
     validationCode: ValidationCodeRef,
     // PoV is opaque; the model treats it as a nondeterministic input.
@@ -133,7 +133,7 @@ module refine {
   // `Err(InvalidCodeHash)` when the lookup fails.
   //
   // For the model, we nondeterministically pick the upward messages in
-  // the spec's top-level `step` action — see `main.qnt`.
+  // the spec's top-level `step` action; see `main.qnt`.
 
   pure def refineErr(paraId: ParaId, e: RefineLog): ParachainWorkDigest =
   Err({ paraId: paraId, error: e })
@@ -156,7 +156,7 @@ module refine {
   })
 
   /// `true` iff the code identified by `ref` has a non-empty referencer set
-  /// in the preimage registry — i.e. the `(hash, len)` tuple key exists.
+  /// in the preimage registry, i.e. the `(hash, len)` tuple key exists.
   pure def codeAvailable(s: ParachainServiceState, ref: ValidationCodeRef): bool = {
     val key = (vchAsHash(ref.hash), ref.len)
     s.preimageRegistry.keys().contains(key) and
@@ -170,7 +170,7 @@ module refine {
   ///     PVF records a reason for its failure (`RefineLog::Opaque`).
   ///   - `PvfPanic`: any other abnormal exit. Deliberately NOT caught, so the
   ///     service's whole `refine` fails with it and there is no
-  ///     `ParachainWorkDigest` at all — the work-digest result is a gray-paper
+  ///     `ParachainWorkDigest` at all; the work-digest result is a gray-paper
   ///     work error, which Accumulate skips entirely (§3.3).
   type PvfOutcome =
     | PvfOk
@@ -180,7 +180,7 @@ module refine {
   /// Per-item Refine semantics (§4.1). The PVF is modeled as an oracle whose
   /// visible effects are how it terminated (`pvf`), the `set_parent_head_hash`
   /// and `set_head` declarations (`parentHead` / `newHead`, both `None` if the
-  /// PVF never called them — §4.2), and the emitted upward `msgs`. The wrapper
+  /// PVF never called them, §4.2), and the emitted upward `msgs`. The wrapper
   /// applies the §4.1/§4.3 checks in order and otherwise forwards the
   /// declarations verbatim; the authoritative parent-head match and the head
   /// write happen in Accumulate (§5.1).
@@ -234,7 +234,7 @@ module refine {
 
   /// Per-work-package Refine entry point (§4.1).
   ///
-  /// Performs the package-level check on the authorizer config — if
+  /// Performs the package-level check on the authorizer config: if
   /// `len(authorized_paras) != len(workitems)` the Refine invocation
   /// aborts and every item is tagged with `AuthConfigMismatch` (§4.1
   /// step 1). Otherwise each item is refined independently via

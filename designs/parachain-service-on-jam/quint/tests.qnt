@@ -5,7 +5,7 @@
 //
 // Where `main.qnt` exposes `stepRefineAccumulate` as a heavily
 // nondeterministic top-level step (random para, candidate, messages,
-// pvfPanic, etc.), the tests below need DETERMINISTIC scenarios — input
+// pvfPanic, etc.), the tests below need DETERMINISTIC scenarios: input
 // → output relationships the Rust harness can replay. The shared helper
 // `applyHappyPath` constructs one well-formed work package against the
 // current state and threads it through `applyAlwaysAccumulate` + `refine`
@@ -41,12 +41,12 @@ module tests {
     match st { | Unrequested(_) => true | _ => false }
 
   /// Apply a sequence of happy-path work packages in one block via the shared
-  /// `accumulateBlock` pipeline — the SAME function the model step
-  /// (`stepRefineAccumulate`) uses — so these tests exercise the real logic
+  /// `accumulateBlock` pipeline, the SAME function the model step
+  /// (`stepRefineAccumulate`) uses, so these tests exercise the real logic
   /// rather than a parallel copy. Each package is refined (at guarantee time,
   /// against the pre-block state) and paired with lookup-anchor 0 (prune
   /// nothing). Each element is `(para, codeHash, msgs)`; `codeHash` is what the
-  /// collator says it validated against (active *or* pending — both accepted by
+  /// collator says it validated against (active *or* pending, both accepted by
   /// `accumulateOkPrefix` step 3).
   action applyHappyPaths(
     pkgs: List[(ParaId, ValidationCodeHash, List[UpwardMessage])]
@@ -250,7 +250,7 @@ module tests {
 
   // --- Multi-package accumulate ------------------------------------------
 
-  /// Two work packages in one block — one for each privileged chain.
+  /// Two work packages in one block: one for each privileged chain.
   /// Both heads advance from 0 to 1, and `lastStepWorkResults` records
   /// two results in order.
   run multipleWorkPackagesAccumulateTest = {
@@ -268,8 +268,8 @@ module tests {
       }))
   }
 
-  /// Refine a candidate for `paraId` declaring a STALE parent head — the sentinel
-  /// head the para never has (`StaleParentHead`) — as both parent and new head,
+  /// Refine a candidate for `paraId` declaring a STALE parent head: the sentinel
+  /// head the para never has (`StaleParentHead`), as both parent and new head,
   /// carrying `msgs` as its upward messages. Accumulate's parent-head check (§5.1
   /// step 3) must reject it, so neither its head write nor its replayed messages
   /// (§5.1 step 7) take effect. The new head is deliberately NOT `current + 1`:
@@ -314,7 +314,7 @@ module tests {
   // --- Parachain head commitment (§5.5) ----------------------------------
 
   /// Leaf and node hashes occupy disjoint images, so no leaf hash can ever
-  /// equal a node hash — what §5.5 gets from covering the SCALE discriminant.
+  /// equal a node hash, what §5.5 gets from covering the SCALE discriminant.
   run headCommitmentLeafNodeDisjointTest = {
     val leaves = Set(MkParaId(1), MkParaId(2), MkParaId(7)).map(p =>
       merkleHash(Leaf({ paraId: p, headHash: headHash(paraIdInt(p) * 3) })))
@@ -348,7 +348,7 @@ module tests {
   }
 
   /// An odd leaf count promotes the trailing element to the next level
-  /// unchanged rather than duplicating it — see the README note, since §5.5
+  /// unchanged rather than duplicating it; see the README note, since §5.5
   /// leaves this open.
   run headCommitmentOddLevelPromotesTest = {
     val a = headHash(1)
@@ -381,7 +381,7 @@ module tests {
   }
 
   /// Parent-head check (§5.1 step 3): a candidate declaring a stale parent head
-  /// (one the para no longer has) is rejected, leaving the head unchanged — this
+  /// (one the para no longer has) is rejected, leaving the head unchanged; this
   /// is what stops a candidate built on a superseded head from overwriting a
   /// forced `parachain_set_head`. A candidate on the CURRENT head advances it
   /// normally (first step); the stale one does not (second step).
@@ -421,7 +421,7 @@ module tests {
       }))
   }
 
-  /// §6.2: `parachain_set_head` is an upsert only for a REGISTERED para — it is a
+  /// §6.2: `parachain_set_head` is an upsert only for a REGISTERED para; it is a
   /// no-op on a `ParaId` with no `ParaInfo` (Coretime must call
   /// `parachain_set_state_balance` first). A valid Coretime candidate is accepted
   /// and carries `parachain_set_head(MkParaId(9), 42)` for an unregistered para;
@@ -511,7 +511,7 @@ module tests {
   ///    registry via `addReferencer`; `pendingUpgrade` armed).
   /// 4. A few blocks pass (each advances `now`), well below the deadline;
   ///    the pending upgrade must persist across them.
-  /// 5. Para 3 validates with `codeB` (dual-code window) — activation
+  /// 5. Para 3 validates with `codeB` (dual-code window): activation
   ///    flips `validationCode.ref.hash` to `codeB` and clears
   ///    `pendingUpgrade`. The old `codeA` referencer is released.
   run codeUpgradeLifecycleTest = {
@@ -605,7 +605,7 @@ module tests {
   }
 
   /// A forced `parachain_set_validation_code` releases BOTH the old active
-  /// (hA, 100) and the old pending (hB, 200) using their OWN stored lens —
+  /// (hA, 100) and the old pending (hB, 200) using their OWN stored lens,
   /// not a wrong cross-code len.
   run codeUpgradeReleasesCorrectLenTest = {
     val para = CoretimeParaId
@@ -667,7 +667,7 @@ module tests {
     val nowT = 10
     val c = parachainCleanUp(s4, para, nowT)
     all {
-      // Two log entries, one ForgetAgainAt per code, with DISTINCT deadlines —
+      // Two log entries, one ForgetAgainAt per code, with DISTINCT deadlines,
       // the pick-one bug would have kept only one of these.
       assert(c.logs.length() == 2),
       assert(c.logs.select(e =>
@@ -682,10 +682,10 @@ module tests {
 
   /// A parachain at its state-balance cap has its next `Solicit` rejected:
   /// - Coretime registers para 6 with `totalStateBalance = BaselineFootprint
-  ///   + preimageFootprint(FixedCodeLen)` — headroom for exactly the
+  ///   + preimageFootprint(FixedCodeLen)`, headroom for exactly the
   ///   validation-code preimage and nothing else.
   /// - Coretime sets para 6's active code, consuming that headroom.
-  /// - Para 6 emits a `Solicit` upward message for a distinct preimage —
+  /// - Para 6 emits a `Solicit` upward message for a distinct preimage,
   ///   `addReferencer` finds no headroom, appends
   ///   `InsufficientStateBalance(FromSolicit(...))` to the parachain log, and
   ///   leaves the registry and `usedStateBalance` unchanged.
@@ -709,7 +709,7 @@ module tests {
         svc.paraInfo(para).usedStateBalance == cap,
         svc.paraInfo(para).totalStateBalance == cap
       }))
-      // Para tries to solicit a new preimage — must be rejected.
+      // Para tries to solicit a new preimage: must be rejected.
       .then(applyHappyPath(para, paraCode, List(
         Solicit({ hash: soliciteeHash, len: soliciteeLen })
       )))
@@ -770,7 +770,7 @@ module tests {
           deferred: None }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
       // The reverse self-move spends the supervisor balance, so its outcome
-      // depends on self-supervision the model abstracts away — no failure here.
+      // depends on self-supervision the model abstracts away; no failure here.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
         List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
           id: 80, sourceSupervisorBalance: true, destSupervisorBalance: false,
@@ -858,7 +858,7 @@ module tests {
   }
 
   /// Clean-up is rejected with `TooMuchStateHeld` while the para still holds
-  /// state beyond its baseline and validation code — here an extra solicited
+  /// state beyond its baseline and validation code; here an extra solicited
   /// preimage (§6.4).
   run cleanUpTooMuchStateHeldTest = {
     val para = MkParaId(6)
@@ -867,7 +867,7 @@ module tests {
     val bal = BaselineFootprint + preimageFootprint(FixedCodeLen) + preimageFootprint(512)
     val s0 = parachainSetStateBalance(initialState, para, bal).state
     val s1 = parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state
-    // Solicit an extra preimage — now the para holds more than baseline + code.
+    // Solicit an extra preimage: now the para holds more than baseline + code.
     val s2 = s1.addReferencer(para, extra, 512).state
     val c = parachainCleanUp(s2, para, 0)
     all {
@@ -885,7 +885,7 @@ module tests {
   run forgetUnprovidedDropsInOneStepTest = {
     val para = CoretimeParaId
     val h: Hash = { hashBytes: 0x7A }
-    // Solicit only — the preimage is never provided, so status is `Unprovided`.
+    // Solicit only: the preimage is never provided, so status is `Unprovided`.
     val d1 = initialState.addReferencer(para, h, 512)
     val d2 = d1.state.removeReferencer(para, h, 512, 0)
     all {
@@ -935,7 +935,7 @@ module tests {
   /// Rescue: a `solicit` on an `Unrequested` preimage rescues the still-held
   /// blob back to available (JAM `Unrequested → Rerequested`), keeping the
   /// ORIGINAL unrequest slot for the next forget's gate. A DIFFERENT para (p2)
-  /// soliciting p1's limbo entry triggers it — and frees the retained ghost p1:
+  /// soliciting p1's limbo entry triggers it, and frees the retained ghost p1:
   /// p1 had already forgotten, so its retention was only the two-step stand-in.
   /// Once p2 is the live referencer covering the single JAM entry, keeping p1
   /// charged would double-count it, so p1 is refunded and dropped (§6.1).
@@ -947,7 +947,7 @@ module tests {
     val d1 = initialState.addReferencer(p1, h, 512)
     val provided = markProvided(d1.state, h, 512)
     val d2 = provided.removeReferencer(p1, h, 512, 5)
-    // p2 solicits the same (h, 512) while it is Unrequested(5) — rescue.
+    // p2 solicits the same (h, 512) while it is Unrequested(5): rescue.
     val d3 = d2.state.addReferencer(p2, h, 512)
     all {
       assert(d2.state.preimageStatus.get((h, 512)) == Unrequested(5)),
@@ -965,7 +965,7 @@ module tests {
   }
 
   /// NotYetUnrequest (Oracle Q6): a rescued preimage forgotten again WITHIN the
-  /// original turnaround is a no-op retry — the gate keys off the original
+  /// original turnaround is a no-op retry; the gate keys off the original
   /// unrequest slot, NOT `now`. Proves collapsing `Rerequested` into `Provided`
   /// would be unfaithful (it would wrongly succeed with a shifted deadline).
   run forgetRerequestedNotYetTest = {
@@ -1000,7 +1000,7 @@ module tests {
   }
 
   /// Retained self-rescue: the SAME para that forgot its own code (leaving it
-  /// `Unrequested` with itself retained) re-solicits it — the idempotent
+  /// `Unrequested` with itself retained) re-solicits it; the idempotent
   /// early-return must NOT short-circuit; JAM `solicit` still fires to rescue.
   run forgetRetainedSelfRescueTest = {
     val h: Hash = { hashBytes: 0x8C }
@@ -1024,7 +1024,7 @@ module tests {
   /// Ghost accumulation regression: repeated forget → rescue cycles by
   /// alternating paras must NOT pile up ghosts. Each rescue frees the prior
   /// ghost, so the referencer set stays size 1 and the footprint is charged
-  /// exactly once — never `N × footprint` across N cycles (§6.1).
+  /// exactly once, never `N × footprint` across N cycles (§6.1).
   run forgetRescueNoGhostAccumulationTest = {
     val h: Hash = { hashBytes: 0x8D }
     val p1 = CoretimeParaId
@@ -1042,7 +1042,7 @@ module tests {
     // p1 rescues again (frees p2) -> Rerequested, referencers = {p1}.
     val d5 = d4.state.addReferencer(p1, h, 512)
     all {
-      // After every cycle the set is a singleton — no ghost pile-up.
+      // After every cycle the set is a singleton; no ghost pile-up.
       assert(d3.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
       assert(d4.state.preimageStatus.get((h, 512)) == Unrequested(t2)),
       assert(d4.state.preimageRegistry.get((h, 512)).referencers == Set(p2)),
@@ -1103,7 +1103,7 @@ module tests {
 
   /// Reaping AT/AFTER the deadline clears the pending upgrade and releases the
   /// (unpinned) pending code's referencer. The preimage was never provided
-  /// (`Unprovided`), so the single JAM `forget` DROPS it in one step — no
+  /// (`Unprovided`), so the single JAM `forget` DROPS it in one step, no
   /// limbo, no retained referencer (§6.1, JAM `ForgetImplication::Drop`).
   run reapAfterDeadlineTest = {
     val para = CoretimeParaId
@@ -1300,7 +1300,7 @@ module tests {
   }
 
   /// A queue that tiles the 80 slots but is scheduled ahead is cached, fires at
-  /// its `jam_slot`, and is then gone from both maps — nothing re-presents it.
+  /// its `jam_slot`, and is then gone from both maps; nothing re-presents it.
   run tilingQueueFiresOnceAtJamSlotTest = {
     val core = 4
     val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
@@ -1524,7 +1524,7 @@ module tests {
   /// A Refine invocation emitting more than `MaxUpwardMessages` (1024) upward
   /// messages is rejected with `TooManyUpwardMessages`. Exactly 1024 is accepted.
   /// Uses `Solicit` (unrestricted, 37 B each) so 1025 stay under the 48 KiB
-  /// result-blob budget — the count cap, not the byte budget, must be the reason.
+  /// result-blob budget: the count cap, not the byte budget, must be the reason.
   run tooManyUpwardMessagesTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
@@ -1559,7 +1559,7 @@ module tests {
     }
     val pi0 = initialState.paraInfo(para)
     // 1. Solicit at the code's OWN len: matches the active code, so it only
-    //    sets `pinned` — no new entry, no charge.
+    //    sets `pinned`: no new entry, no charge.
     val pinned = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0,
       Solicit({ hash: h, len: FixedCodeLen }))
     val piP = pinned.state.paraInfo(para)
@@ -1653,7 +1653,7 @@ module tests {
   }
 
   /// A delegated forget naming the target's ACTIVE validation code only clears its
-  /// `pinned` bit — Coretime can never strip a running PVF, nor refund the code.
+  /// `pinned` bit: Coretime can never strip a running PVF, nor refund the code.
   run coretimeForgetActiveCodeOnlyUnpinsTest = {
     val target = AssetHubParaId
     val activeRef: ValidationCodeRef = { hash: { vchBytes: 2 }, len: FixedCodeLen }
@@ -2085,7 +2085,7 @@ module tests {
   /// §4.2: a PVF has exactly two ways to fail, and they differ in what is
   /// recorded. `report_error(data)` aborts it and is logged as
   /// `RefineLog::Opaque(data)`; any other abnormal exit is not caught, so the
-  /// whole `refine` fails and yields a work error with NO digest — which
+  /// whole `refine` fails and yields a work error with NO digest, which
   /// Accumulate then skips entirely, leaving the para's log untouched.
   run pvfFailureModesTest = {
     val para = CoretimeParaId
@@ -2119,14 +2119,14 @@ module tests {
   run refineRejectsForeignParaIdTest = {
     val h: Hash = { hashBytes: 7777 }
     all {
-      // Asset Hub reaching for Coretime's state — Refine rejects, for both calls.
+      // Asset Hub reaching for Coretime's state: Refine rejects, for both calls.
       assert(refineWithMsgs(initialState, AssetHubParaId,
         List(Forget({ paraId: CoretimeParaId, hash: h, len: 1024 })))
         == WorkOk(refineErr(AssetHubParaId, RestrictedHostFunction))),
       assert(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: CoretimeParaId, key: List(0) })))
         == WorkOk(refineErr(AssetHubParaId, RestrictedHostFunction))),
-      // Asset Hub releasing its own state — refines fine.
+      // Asset Hub releasing its own state: refines fine.
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
         List(Forget({ paraId: AssetHubParaId, hash: h, len: 1024 }))))),
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,

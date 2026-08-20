@@ -3,7 +3,7 @@
 // Phase 1 Request: PVF emits `RequestCodeUpgrade(new_hash)`.
 // Phase 2 Solicit + pendingUpgrade tracking (this module).
 // Phase 3 Preimage submitted out-of-band by anyone.
-// Phase 4 Dual-code window — Refine accepts either active or pending hash.
+// Phase 4 Dual-code window: Refine accepts either active or pending hash.
 // Phase 5 Activation on first block validated with `new_hash`, OR rejection
 // if the deadline passes (lazy reap on next accumulate; see §5.1
 // step 2).
@@ -16,7 +16,7 @@ module code_upgrades {
   /// Release a code's referencer slot for `para_id`, UNLESS the parachain is
   /// independently soliciting it (`pinned`). The service itself solicits
   /// active/pending code on the parachain's behalf, so the referencer is held
-  /// for two possible reasons — "it is the active/pending code" and "the
+  /// for two possible reasons: "it is the active/pending code" and "the
   /// parachain solicited it" (`pinned`). When the first reason ends
   /// (activation, reap, supersede), the slot is dropped only if the second
   /// reason is also absent. See §5.2.
@@ -37,13 +37,13 @@ module code_upgrades {
   ///
   /// Invoked from the Parachain Service's `accumulate` step when replaying
   /// a `RequestCodeUpgrade` upward message produced by the PVF during the
-  /// preceding Refine — i.e. this runs on-chain, with full access to
+  /// preceding Refine, i.e. this runs on-chain, with full access to
   /// service storage, NOT inside Refine itself.
   ///
   /// The service solicits the new code only if it isn't already solicited; if
   /// the parachain had solicited it itself, no extra state balance is charged
   /// and the pending code's `pinned` bit is set so the slot survives a later
-  /// supersede/reap. Overwriting a different in-flight upgrade is allowed —
+  /// supersede/reap. Overwriting a different in-flight upgrade is allowed:
   /// the superseded code is released unless the parachain solicited it.
   /// Requesting the already-active code is a no-op.
   pure def requestCodeUpgrade(
@@ -64,10 +64,10 @@ module code_upgrades {
       }
     val activeHash = pi.validationCode.optionMap(vc => vc.ref.hash)
     if (activeHash == Some(newHash)) {
-      // Can't "upgrade" to the code already running — no-op.
+      // Can't "upgrade" to the code already running: no-op.
       { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
     } else if (isSamePending) {
-      // Re-request of the same pending code — refresh the deadline only,
+      // Re-request of the same pending code: refresh the deadline only,
       // preserving the pending code's pinned bit.
       val keep =
         match pi.pendingUpgrade {

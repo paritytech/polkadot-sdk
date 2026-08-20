@@ -1,7 +1,7 @@
 // Foundational types and protocol constants for the Parachain Service.
 //
 // Cryptographic primitives (hashes, keys, signatures) are modeled as opaque
-// integers — we only care about equality, not their byte layout. Where the
+// integers; we only care about equality, not their byte layout. Where the
 // gray paper or design doc imposes a size constraint that matters for
 // state-balance accounting, the constant is named below.
 module types {
@@ -58,7 +58,7 @@ module types {
 
   pure def vchAsHash(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
 
-  /// The wrapped integer, for the places the spec orders by `para_id` — the
+  /// The wrapped integer, for the places the spec orders by `para_id`, the
   /// head-commitment leaves (§5.5). The sentinel is never constructed.
   pure def paraIdInt(p: ParaId): int =
   match p {
@@ -74,7 +74,7 @@ module types {
   pure val CoreCount: int = 341
   /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount).
   /// Quint's `.to` is inclusive, so the upper bound is `CoreCount` not
-  /// `CoreCount + 1` — this `2.to(CoreCount)` matches the gray paper's
+  /// `CoreCount + 1`; this `2.to(CoreCount)` matches the gray paper's
   /// half-open `N_{2 .. C_corecount+1}`.
   pure val ValCount: Set[int] =
   2.to(CoreCount).map(c => 3 * c)
@@ -92,13 +92,13 @@ module types {
   pure val MaxStagedValidatorKeysFootprint: int =
   CoreCount * 3 * ValidatorKeySize // 1023 * 336 = 343 728 B
 
-  /// §5.2 — pending-upgrade deadline relative to current timeslot (24 h at 6 s).
+  /// §5.2: pending-upgrade deadline relative to current timeslot (24 h at 6 s).
   pure val UpgradeTimeoutTimeslots: int = 24 * 3600 / 6
 
   /// Per-para log byte budget (exact encoded size of all entries must stay ≤ this).
   pure val ParachainLogByteCap: int = 64 * 1024
 
-  /// Max age (in timeslots) of a work-package's lookup-anchor — gray paper
+  /// Max age (in timeslots) of a work-package's lookup-anchor; gray paper
   /// `L` (~24h). The lookup-anchor may sit this far before the accumulating
   /// block; distinct from the recent-history *anchor* window (8 blocks).
   pure val MaxLookupAge: int = 24 * 3600 / 6
@@ -128,7 +128,7 @@ module types {
   /// `ServiceId 4 + Amount (Compact<u128> worst case 17) + Memo 128`.
   pure val IncomingTransferValueOctets: int = 4 + 17 + 128
 
-  /// Octets of one worst-case `incoming_transfers` bucket — a bucket holding a
+  /// Octets of one worst-case `incoming_transfers` bucket: a bucket holding a
   /// single transfer (maximal fragmentation, §6.1): JAM's per-entry overhead (34),
   /// the key (1 B tag + 4 B `Timeslot`), the `Vec` length prefix (1), the transfer
   /// itself, and `Some(next_slot)` (5).
@@ -185,12 +185,12 @@ module types {
 
   // --- Abstract hash function ---------------------------------------------
   //
-  // We model `hash(head_data)` as an injective function — we only need
+  // We model `hash(head_data)` as an injective function; we only need
   // equality semantics for the parent-head check (§5.1, step 1).
 
   pure def headHash(h: HeadData): Hash = { hashBytes: h }
 
-  /// Abstract hash of a byte list — models blake2-256 for KV key hashing.
+  /// Abstract hash of a byte list, modelling blake2-256 for KV key hashing.
   /// Injective within the model's small key space.
   pure def listHash(key: List[int]): Hash = { hashBytes: key.foldl(0, (acc, b) => acc * 257 + b) }
 }

@@ -26,7 +26,7 @@ module main {
 
   /// Initial state with the two privileged chains pre-registered, so that
   /// every state mutation in the model flows through `stepRefineAccumulate`
-  /// — Coretime and Asset Hub act as ordinary parachains whose PVFs emit
+  /// Coretime and Asset Hub act as ordinary parachains whose PVFs emit
   /// privileged upward messages (Coretime: `ParachainSet*`, Asset Hub:
   /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `ConsumeTransfersUpTo`).
   /// Per-para balance budget at init: baseline + headroom for the active
@@ -76,7 +76,7 @@ module main {
   /// Placeholder hash for a candidate built for a para that has no active
   /// validation code yet (`validationCode == None`). It matches no real code,
   /// so Accumulate's authoritative code check rejects the candidate as
-  /// `InvalidCodeHash` — modelling that a codeless para can validate nothing.
+  /// `InvalidCodeHash`, modelling that a codeless para can validate nothing.
   pure val NoCodeHash: ValidationCodeHash = { vchBytes: 999999 }
 
   /// The happy-path candidate carrying a para's active validation code.
@@ -88,7 +88,7 @@ module main {
   /// Construct one nondet work package's inputs against a service state `s`.
   /// Used twice in `stepRefineAccumulate` to model 1 or 2 work packages per
   /// block, from the same or different paras, with mixed valid/invalid outcomes.
-  /// `curHead` is the head the collator builds on — the caller forwards the
+  /// `curHead` is the head the collator builds on; the caller forwards the
   /// para's latest head this block (tracked across packages), so a second
   /// package for the same para chains off the first's new head. The result is
   /// parent `headHash(curHead)`, new head `curHead + 1`, which chains correctly
@@ -141,7 +141,7 @@ module main {
     nondet blockGap = oneOf(Set(1, 2))
     val blockNow = now + blockGap
 
-    // §5.1 lookup-anchor: each candidate carries a lookup-anchor — a past block
+    // §5.1 lookup-anchor: each candidate carries a lookup-anchor, a past block
     // (slot `<= now`) no older than `MaxLookupAge` (~24h) before this block
     // (`>= blockNow - MaxLookupAge`; gray paper `t_l >= H_t - L`). The service's
     // Refine reads it from `work_package_context()` and emits it in the work
@@ -149,14 +149,14 @@ module main {
     // `lookupAnchor <= now < blockNow`, entries appended this block survive.
     val lookLo = if (blockNow > MaxLookupAge) blockNow - MaxLookupAge else 0
     // Apalache cannot encode a variable-bound integer range (`lookLo.to(now)`),
-    // so we sample three representative anchors in `[lookLo, now]` — the floor,
-    // the midpoint, and the tip — which exercise full, partial, and no old-log
+    // so we sample three representative anchors in `[lookLo, now]`, the floor,
+    // the midpoint, and the tip, which exercise full, partial, and no old-log
     // pruning. (`quint run` samples these three instead of every value in the
     // range; the log-pruning invariants only depend on the pruning depth.)
     nondet lookupAnchor1 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
     nondet lookupAnchor2 = oneOf(Set(lookLo, (lookLo + now) / 2, now))
 
-    // First work package — refined at guarantee time against the pre-block
+    // First work package: refined at guarantee time against the pre-block
     // state (it must not see this block's always-accumulate effects).
     nondet wp1Para = oneOf(svc.parachains.keys())
     nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
@@ -171,7 +171,7 @@ module main {
     nondet wp1ItemCount = oneOf(Set(0, 1, 2))
     nondet wp1AuthMalformed = oneOf(Set(false, true))
     nondet wp1AuthTrace = oneOf(Set(0, 1, 2))
-    // Gray paper `WorkExecResult::Error` — JAM substituted an error for this
+    // Gray paper `WorkExecResult::Error`: JAM substituted an error for this
     // work-item before the service's refine ran. Accumulate sees the no-op
     // case (§3.3).
     nondet wp1IsJamSkip = oneOf(Set(false, true))
@@ -184,7 +184,7 @@ module main {
     // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
-    // registered) has no head; we use 0 — such a candidate is dropped at
+    // registered) has no head; we use 0, so such a candidate is dropped at
     // Accumulate (§5.1 step 1) regardless.
     val wp1Head = if (svc.isLive(wp1Para)) svc.paraInfo(wp1Para).headData else 0
     val wp1 = buildPackage(
@@ -240,7 +240,7 @@ module main {
     nondet numPkgs = oneOf(Set(0, 1, 2))
 
     // Assemble the block's packages, then run the shared per-block Accumulate
-    // pipeline — the same `accumulateBlock` the deterministic tests use.
+    // pipeline, the same `accumulateBlock` the deterministic tests use.
     val packages: List[WorkResult] =
       if (numPkgs == 0) List()
       else if (numPkgs == 1) List(wp1Wr)
@@ -334,7 +334,7 @@ module main {
   }
 
   /// Menu of individual upward messages a PVF might emit during Refine.
-  /// Every parachain draws from the SAME menu — restricted host calls
+  /// Every parachain draws from the SAME menu: restricted host calls
   /// (AH-only, Coretime-only) are included for all paras so the Refine
   /// wrapper's `RestrictedHostFunction` rejection (§4.3) is exercised
   /// for each one. Bundles of multiple messages are composed nondet in
@@ -352,11 +352,11 @@ module main {
       RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
       Solicit({ hash: anyHash, len: 1024 }),
       Forget({ paraId: para_id, hash: anyHash, len: 1024 }),
-      // Solicit/forget of the para's OWN active code — exercises the
+      // Solicit/forget of the para's OWN active code, exercising the
       // `pinned` path (§5.2).
       Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
       Forget({ paraId: para_id, hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      // AH-only — Refine rejects from non-AH callers (§4.3). Both transfer
+      // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
       // modes: a deferred transfer (memo + gas) and a plain move (neither),
       // the self-moves between the service's own two balances, and a foreign
       // source (§5.1).
@@ -382,7 +382,7 @@ module main {
       UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
       UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
       // Assignments of every kind: tiles directly (1), kept and rotated (3),
-      // an empty one Refine rejects, and a hand-off — which requires an exact
+      // an empty one Refine rejects, and a hand-off, which requires an exact
       // 80-hash queue (§4.3).
       AssignCore({ core: 0, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
       AssignCore({ core: 0, queue: List(anyAuthHash, anyAuthHash, anyAuthHash),
@@ -394,7 +394,7 @@ module main {
       ParachainSetHead({ paraId: para_id, newHead: 0 }),
       ParachainSetValidationCode({ paraId: para_id, newValidationCodeHash: codeHashA, newValidationCodeLen: FixedCodeLen }),
       ParachainSetStateBalance({ paraId: para_id, newTotal: 0 }),
-      // Coretime-only targeting OTHER paras — registers new paras and
+      // Coretime-only targeting OTHER paras, registering new paras and
       // performs forced recovery / clean-up across the model's paraId space.
       ParachainSetStateBalance({ paraId: MkParaId(3), newTotal: BaselineFootprint * 2 }),
       ParachainSetStateBalance({ paraId: MkParaId(4), newTotal: BaselineFootprint * 2 }),
@@ -404,7 +404,7 @@ module main {
       ParachainSetValidationCode({ paraId: MkParaId(3), newValidationCodeHash: codeHashB, newValidationCodeLen: FixedCodeLen }),
       // `ParachainCleanUp` is Coretime-only, but the real Coretime chain
       // never cleans up the privileged chains (1 = Coretime, 2 = Asset Hub)
-      // — that would brick the control plane. We only generate clean-up of
+      // That would brick the control plane. We only generate clean-up of
       // non-privileged test paras (3, 4), never `para_id` (which is the
       // originating para, e.g. Coretime cleaning up itself).
       ParachainCleanUp(MkParaId(3)),
@@ -416,7 +416,7 @@ module main {
       Forget({ paraId: MkParaId(3), hash: anyHash, len: 1024 }),
       Forget({ paraId: MkParaId(3), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
-      // KV store operations — exercises SetKV/RemoveKV paths (§6.1).
+      // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
       // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.
       SetKV({ key: List(0), value: List(0) }),
       SetKV({ key: List(0), value: List(0, 1) }),

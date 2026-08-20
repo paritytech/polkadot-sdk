@@ -52,7 +52,7 @@ module state {
   ///     `now > since + ExpungePeriod`.
   ///     A `solicit` while `Unrequested` RESCUES the still-held blob back to
   ///     available, moving it to `Rerequested`.
-  ///   - `Rerequested(since)`: unrequested then re-solicited — available again.
+  ///   - `Rerequested(since)`: unrequested then re-solicited, available again.
   ///     `since` is the ORIGINAL `unrequested_since`, which still gates the
   ///     next `forget` (JAM `Rerequested → Unrequest` requires
   ///     `now > since + ExpungePeriod`; otherwise `NotYetUnrequest`).
@@ -99,7 +99,7 @@ module state {
     // timeslot at which it is due. Sole home of the due time, so the
     // always-accumulate path can gate without reading the payloads above.
     pendingAssignCores: CoreIndex -> Timeslot,
-    // Validator-key buffer (design §5.3) — appended chunk by chunk by
+    // Validator-key buffer (design §5.3), appended chunk by chunk by
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
     // `is_last`.
     stagedValidatorKeys: List[ValidatorKey],
@@ -360,7 +360,7 @@ module state {
   /// already under cap are no-ops.
   ///
   /// The newcomer is itself an eviction candidate at its own rank, so when it is
-  /// the only entry at or below that rank it evicts itself — exactly the
+  /// the only entry at or below that rank it evicts itself, exactly the
   /// "incoming entry is dropped instead" rule. The final guard restores the
   /// original log if no amount of permitted eviction makes room.
   pure def pushLogEntry(log: ParachainLog, e: (Timeslot, LogEntry)): ParachainLog = {
@@ -373,7 +373,7 @@ module state {
   }
 
   /// Append a `RefineLogEntry` for a failed Refine at timeslot `now`
-  /// (design §3.3). No-op for an unregistered para — there is no
+  /// (design §3.3). No-op for an unregistered para: there is no
   /// `parachainLog[para_id]` to append to (§5.1 step 1).
   pure def appendRefineLog(
     s: ParachainServiceState,

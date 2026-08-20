@@ -7,7 +7,7 @@
 // Hashing is abstract, as everywhere else in this model. `keccak_256` of the
 // SCALE encoding is modeled as an injective integer mix, with the variant
 // discriminant carried in the low bit so that a leaf hash can never equal a
-// node hash — the collision-freedom §5.5 relies on. Encoded sizes (37 octets
+// node hash, the collision-freedom §5.5 relies on. Encoded sizes (37 octets
 // for a leaf, 65 for a node) are not modeled: nothing bounds this tree.
 module head_commitment {
   import types.* from "./types"
@@ -39,7 +39,7 @@ module head_commitment {
 
   /// One level of tree reduction: hash adjacent pairs, promoting a trailing
   /// odd element unchanged. §5.5 fixes neither the pairing nor the odd-element
-  /// rule, so promotion is this model's reading — see the note in the README.
+  /// rule, so promotion is this model's reading; see the note in the README.
   pure def pairUp(level: List[Hash]): List[Hash] = {
     val paired = level.foldl(
       { out: List(), pending: None },
