@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787238905086,
+  "lastUpdate": 1787256709605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "11be995be95ac1e25a5b2a6dd941006e7097bffc",
-          "message": "remote-externalities: Support downloading from multiple RPC servers in parallel + major refactoring (#10779)\n\nThis is a major refactoring of `remote-externalities` to improve the\ndownload speed of the state of chain. This is mainly achieved by\ndownload keys + values from multiple RPC servers in parallel. Also the\nkey downloading is done more smartly by dividing downloaded key ranges\ndynamically, instead of having fixed number of key ranges at startup.\n\nBesides this it does a lot more refactoring + clean ups.\n\nAll in all this brings down the download time for PAH from 2h+ to 15min\nwith ~5 RPC servers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-19T21:20:29Z",
-          "tree_id": "7be942a563d8d5472a48c1744d3921a3b1524e0d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/11be995be95ac1e25a5b2a6dd941006e7097bffc"
-        },
-        "date": 1768861687178,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007118955193333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010163257573333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14445976202000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022964878853333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0076149845866666675,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aff2e5c0202695852eebe9bc6a22c5d4dcd8da2d",
+          "message": "XCM hardening (#12832)\n\nImproved XCM benchmarks\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-20T17:54:30Z",
+          "tree_id": "0d72942b3cdaa587f9f2707d2897cf647bd0c00b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aff2e5c0202695852eebe9bc6a22c5d4dcd8da2d"
+        },
+        "date": 1787256676455,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007467077040000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009757777473333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022720304640000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14530557800000007,
             "unit": "seconds"
           }
         ]
