@@ -576,9 +576,8 @@ module accumulate {
     t: { from: ServiceId, amount: Balance, memo: Memo }
   ): ParachainServiceState = {
     val count = queuedTransferCount(s)
-    // §5.1: the entry is prepaid only if the queue can still hold one more
-    // within the reservation, leaving headroom.
-    val reserved = count + 1 < MaxIncomingTransfers
+    // §5.1: inside the reservation the entry is already paid for.
+    val reserved = count < MaxIncomingTransfers
     val admitted = reserved or t.amount >= IncomingTransferEntryFootprint
     if (not(admitted)) s
     else {

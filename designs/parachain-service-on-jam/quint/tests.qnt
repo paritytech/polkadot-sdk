@@ -172,19 +172,9 @@ module tests {
   run reservedPortionThenSelfFundedTest = {
     val full = fullTransferQueue
     val at = MaxIncomingTransfers   // a fresh slot past the fixture's tail
-    // One short of the bound: pushing here would reach the reservation, so the
-    // entry must pay for itself; a zero-amount transfer is dropped.
+    // One short of the reservation: still inside it, so the entry is free and
+    // fills it exactly.
     val edge = applyIncomingTransfer(almostFullTransferQueue, MaxIncomingTransfers - 1,
-      { from: MkServiceId(0), amount: 0, memo: 0 })
-    // Two short: the queue can still push one more and stay under the
-    // reservation, so a zero-amount transfer is recorded, reaching M-1.
-    val twoShort = { ...almostFullTransferQueue,
-      incomingTransfers: almostFullTransferQueue.incomingTransfers
-        .mapRemove(MaxIncomingTransfers - 2),
-      incomingTransferChain:
-        Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 3,
-               count: MaxIncomingTransfers - 2 }) }
-    val headroom = applyIncomingTransfer(twoShort, MaxIncomingTransfers - 2,
       { from: MkServiceId(0), amount: 0, memo: 0 })
     // Below the bound: a zero-amount transfer is still recorded.
     val below = applyIncomingTransfer(initialState, 7,
@@ -196,11 +186,8 @@ module tests {
     val paid = applyIncomingTransfer(full, at,
       { from: MkServiceId(0), amount: IncomingTransferEntryFootprint, memo: 0 })
     all {
-      // At the bound the entry must pay, so the zero-amount transfer is dropped.
-      assert(queuedTransferCount(edge) == MaxIncomingTransfers - 1),
-      // Two short it is free, and the queue ends one short of the reservation,
-      // still able to push one more.
-      assert(queuedTransferCount(headroom) == MaxIncomingTransfers - 1),
+      // One short of the reservation the entry is free, filling it exactly.
+      assert(queuedTransferCount(edge) == MaxIncomingTransfers),
       // Empty queue: the new bucket is both endpoints.
       assert(below.incomingTransferChain == Some({ firstSlot: 7, lastSlot: 7, count: 1 })),
       assert(queuedTransferCount(below) == 1),
