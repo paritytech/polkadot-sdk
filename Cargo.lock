@@ -15269,6 +15269,7 @@ dependencies = [
  "hex-literal",
  "pallet-assets",
  "pallet-balances",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
