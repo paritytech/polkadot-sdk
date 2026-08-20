@@ -253,9 +253,19 @@ where
 			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 
-		// Since this is a dev node, prevent it from connecting to peers.
-		config.network.default_peers_set.in_peers = 0;
-		config.network.default_peers_set.out_peers = 0;
+		// Manual-seal blocks carry no aura seal, so the default parachain import
+		// queue rejects them and peers could never sync a dev chain. Use the
+		// permissive manual-seal queue, and keep peer slots open for such peers.
+		// The replaced queue must stay alive: its worker is already spawned as an
+		// essential task and exits (shutting the node down) if the handle drops.
+		// No registry either: it registered the import-queue metrics already.
+		std::mem::forget(import_queue);
+		let import_queue = sc_consensus_manual_seal::import_queue(
+			Box::new(client.clone()),
+			&task_manager.spawn_essential_handle(),
+			None,
+		);
+
 		let mut net_config =
 			FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
 				&config.network,
@@ -336,13 +346,16 @@ where
 			);
 		}
 
-		let proposer = sc_basic_authorship::ProposerFactory::new(
+		let mut proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			None,
 			None,
 		);
+		// The 4 MiB default also counts the recorded proof, capping dev blocks well
+		// below the runtime's BlockLength (bulletin: 9 MiB of normal extrinsics).
+		proposer.set_default_block_size_limit(12 * 1024 * 1024);
 
 		// Note: Changing slot durations are currently not supported
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)
@@ -393,7 +406,10 @@ where
 									parent_hash: None,
 									sender: None,
 								})
-								.unwrap();
+								// Sealing can lag an aggressive timer; dropping the
+								// command is safe (the next tick reissues it), while
+								// unwrap() would kill the node once the buffer fills.
+								.ok();
 						}
 					});
 
@@ -506,7 +522,11 @@ where
 		(),
 	) -> future::Ready<
 		Result<
-			(sp_timestamp::InherentDataProvider, MockValidationDataInherentDataProvider<()>),
+			(
+				sp_timestamp::InherentDataProvider,
+				MockValidationDataInherentDataProvider<()>,
+				Vec<sp_transaction_storage_proof::InherentDataProvider>,
+			),
 			Box<dyn std::error::Error + Send + Sync>,
 		>,
 	> + Send
@@ -572,7 +592,29 @@ where
 
 			let timestamp_provider = sp_timestamp::InherentDataProvider::new(timestamp.into());
 
-			futures::future::ready(Ok((timestamp_provider, mocked_parachain)))
+			// Without the storage-proof provider (wired in the collator paths but not
+			// here), authoring panics once the chain passes the retention period with
+			// stored data: the transaction-storage pallet asserts the proof inherent.
+			let storage_proof = if client
+				.runtime_api()
+				.has_api_with::<dyn TransactionStorageApi<Block>, _>(block, |v| v >= 1)
+				.unwrap_or(false)
+			{
+				let period = match client.runtime_api().retention_period(block) {
+					Ok(period) => period,
+					Err(e) => return futures::future::ready(Err(e.into())),
+				};
+				match sp_transaction_storage_proof::registration::new_data_provider(
+					&*client, &block, period,
+				) {
+					Ok(provider) => vec![provider],
+					Err(e) => return futures::future::ready(Err(e.into())),
+				}
+			} else {
+				vec![]
+			};
+
+			futures::future::ready(Ok((timestamp_provider, mocked_parachain, storage_proof)))
 		}
 	}
 }
