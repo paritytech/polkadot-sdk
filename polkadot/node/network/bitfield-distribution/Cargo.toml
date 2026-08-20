@@ -14,27 +14,27 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
-polkadot-node-network-protocol.default-features = true
+gum.default-features = true
 polkadot-node-network-protocol.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-network-protocol.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 rand = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 maplit = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 rand_chacha = { workspace = true, default-features = true }
-sp-application-crypto = { default-features = true, workspace = true }
-sp-authority-discovery = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-keystore = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
+sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
+sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }

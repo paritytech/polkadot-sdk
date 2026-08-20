@@ -33,8 +33,8 @@ sp-state-machine.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = false }
-sp-staking = { default-features = true, workspace = true }
+pallet-balances = { default-features = false, path = "../balances" }
+sp-staking = { default-features = true, path = "../../primitives/staking" }
 
 [features]
 default = ["std"]
@@ -46,7 +46,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-beefy/std",
 	"pallet-mmr/std",
 	"pallet-session/std",
@@ -62,7 +61,6 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-beefy/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
@@ -72,9 +70,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
 ]

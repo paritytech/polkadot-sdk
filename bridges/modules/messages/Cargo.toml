@@ -25,12 +25,12 @@ sp-trie = { optional = true, workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-bp-runtime = { features = ["test-helpers"], workspace = true, default-features = false }
-bp-test-utils = { workspace = true, default-features = false }
-pallet-balances = { workspace = true, default-features = false }
-pallet-bridge-grandpa = { workspace = true, default-features = false }
-sp-core = { workspace = true, default-features = false }
-sp-io = { workspace = true, default-features = false }
+bp-runtime = { features = ["test-helpers"], default-features = false, path = "../../primitives/runtime" }
+bp-test-utils = { default-features = false, path = "../../primitives/test-utils" }
+pallet-balances = { default-features = false, path = "../../../substrate/frame/balances" }
+pallet-bridge-grandpa = { default-features = false, path = "../grandpa" }
+sp-core = { default-features = false, path = "../../../substrate/primitives/core" }
+sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]
@@ -38,16 +38,11 @@ std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
-	"bp-test-utils/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-balances/std",
-	"pallet-bridge-grandpa/std",
 	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
@@ -58,15 +53,11 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-bridge-grandpa/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-bridge-grandpa/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

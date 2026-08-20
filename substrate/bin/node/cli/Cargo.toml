@@ -57,8 +57,8 @@ jsonrpsee = { features = ["server"], workspace = true }
 kitchensink-runtime.workspace = true
 log = { workspace = true, default-features = true }
 node-inspect = { optional = true, workspace = true, default-features = true }
-node-primitives.default-features = true
 node-primitives.workspace = true
+node-primitives.default-features = true
 node-rpc.workspace = true
 polkadot-sdk = { features = ["fork-tree", "frame-benchmarking-cli", "frame-remote-externalities", "frame-support-procedural-tools", "generate-bags", "mmr-gadget", "mmr-rpc", "pallet-transaction-payment-rpc", "sc-allocator", "sc-authority-discovery", "sc-basic-authorship", "sc-block-builder", "sc-chain-spec", "sc-cli", "sc-client-api", "sc-client-db", "sc-consensus", "sc-consensus-aura", "sc-consensus-babe", "sc-consensus-babe-rpc", "sc-consensus-beefy", "sc-consensus-beefy-rpc", "sc-consensus-epochs", "sc-consensus-grandpa", "sc-consensus-grandpa-rpc", "sc-consensus-manual-seal", "sc-consensus-pow", "sc-consensus-slots", "sc-executor", "sc-executor-common", "sc-executor-polkavm", "sc-executor-wasmtime", "sc-informant", "sc-keystore", "sc-mixnet", "sc-network", "sc-network-common", "sc-network-gossip", "sc-network-light", "sc-network-statement", "sc-network-sync", "sc-network-transactions", "sc-network-types", "sc-offchain", "sc-proposer-metrics", "sc-rpc", "sc-rpc-api", "sc-rpc-server", "sc-rpc-spec-v2", "sc-service", "sc-state-db", "sc-statement-store", "sc-storage-monitor", "sc-sync-state-rpc", "sc-sysinfo", "sc-telemetry", "sc-tracing", "sc-transaction-pool", "sc-transaction-pool-api", "sc-utils", "sp-blockchain", "sp-consensus", "sp-core-hashing", "sp-core-hashing-proc-macro", "sp-database", "sp-maybe-compressed-blob", "sp-panic-handler", "sp-rpc", "staging-chain-spec-builder", "staging-node-inspect", "staging-tracking-allocator", "std", "subkey", "substrate-build-script-utils", "substrate-frame-rpc-support", "substrate-frame-rpc-system", "substrate-prometheus-endpoint", "substrate-rpc-client", "substrate-state-trie-migration-rpc", "substrate-wasm-builder", "tracing-gum"], workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
@@ -74,16 +74,16 @@ pretty_assertions.workspace = true
 regex = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
 soketto = { workspace = true }
-sp-keyring = { workspace = true, default-features = false }
+sp-keyring = { default-features = false, path = "../../../primitives/keyring" }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 wat = { workspace = true }
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
-node-testing = { workspace = true }
-sc-service-test = { workspace = true }
-substrate-cli-test-utils = { workspace = true }
+node-testing = { path = "../testing" }
+sc-service-test = { path = "../../../client/service/test" }
+substrate-cli-test-utils = { path = "../../../test-utils/cli" }
 
 [build-dependencies]
 clap = { optional = true, workspace = true }
@@ -102,5 +102,4 @@ runtime-benchmarks = [
 try-runtime = [
 	"kitchensink-runtime/try-runtime",
 	"polkadot-sdk/try-runtime",
-	"substrate-cli-test-utils/try-runtime",
 ]

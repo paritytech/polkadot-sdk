@@ -15,24 +15,24 @@ workspace = true
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 
 codec = { features = ["bit-vec", "derive"], workspace = true }
-polkadot-node-metrics.default-features = true
 polkadot-node-metrics.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-metrics.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-overseer.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-overseer.workspace = true
-polkadot-parachain-primitives.default-features = true
+polkadot-overseer.default-features = true
 polkadot-parachain-primitives.workspace = true
-polkadot-primitives.default-features = true
+polkadot-parachain-primitives.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 sp-application-crypto.workspace = true
 sp-keystore.workspace = true
 
@@ -43,10 +43,10 @@ polkadot-node-core-pvf.default-features = true
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 rstest = { workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-maybe-compressed-blob = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-maybe-compressed-blob = { default-features = true, path = "../../../../substrate/primitives/maybe-compressed-blob" }

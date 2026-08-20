@@ -14,22 +14,22 @@ workspace = true
 [dependencies]
 fatality = { workspace = true }
 futures = { workspace = true }
-gum.default-features = true
 gum.workspace = true
-polkadot-node-subsystem.default-features = true
+gum.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 rand = { workspace = true }
 rstest = { workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
