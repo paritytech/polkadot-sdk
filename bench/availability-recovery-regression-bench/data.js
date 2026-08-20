@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787157219128,
+  "lastUpdate": 1787233180731,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8",
-          "message": "Forbid invisible characters (#10838)",
-          "timestamp": "2026-01-19T12:12:57Z",
-          "tree_id": "6b6ae55aca653737448068b4138d360c411b9f3d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8"
-        },
-        "date": 1768828900367,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12092639636666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.392950776866666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1325430835,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "314cd2c0d4d2ec882b732004bf611b5ba195d5d2",
+          "message": "test(zombienet): expect full core saturation in approved_peer_mixed_collators (#12939)\n\n`zombienet-polkadot-approved-peer-mixed-collators` has been failing on\nmaster since #12255 merged:\n\n```\nError: ParaId 2001: candidate count 20 not within expected range 10..16\n```\n\nThe test is not flaky and #12255 is not a regression. The `10..16` bound\nencoded the throughput loss that #12255 fixed, so the test started\nfailing once the paras reached the throughput the setup can actually\nsustain.\n\n## Why 20 is the expected number\n\nBoth paras are registered `InGenesis` (bulk-scheduled) and `num_cores`\nresolves to `2` for this network, so each para owns one core for the\nwhole run — confirmed in the run log:\n\n```\nRaw overrides info: num_cores: 2, para_to_register_in_genesis_len: 2\n```\n\nOne core backs at most one candidate per relay block, and\n`assert_para_throughput` counts over 20 relay blocks (skipping\nsession-change blocks and the initial warm-up). So the ceiling is **20\ncandidates per para**, and with a healthy backing pipeline both paras\nshould sit at it.\n\nThe new bound is `19..21`, i.e. 19 or 20, leaving one candidate of slack\nso a single slow collation under CI load does not fail the test.\n\n## What the old bound was measuring\n\nThe relaychain runs with `--experimental-collator-protocol`. Before\n#12255, the experimental validator side derived the claim-queue window\nlength in `our_window` from the allowed-ancestry path length instead of\nthe runtime `SchedulingLookahead`. `fetch_ancestors` truncates ancestry\nat a session boundary, because the relay chain cannot back candidates\nfrom a previous session. So for the first `lookahead - 1` blocks of\nevery session that estimate was too small, `our_window` returned fewer\nclaim-queue positions than were really schedulable, and\n`can_keep_advertisement` refused otherwise-valid advertisements with\n`PeerLimitReached`.\n\nNode logs from the two runs, all four validators:\n\n| | before #12255 (`dd75ae95066`) | after #12255 (`ffaca8ccf22`) |\n|---|---|---|\n| advertisements received | 156 | 148 |\n| accepted | 140 | **148** |\n| dropped | **16** | **0** |\n| rejection reason | **16x `PeerLimitReached`** | none |\n| candidates per para | **11** | **20** |\n\nThe 16 rejections are exactly 4 per validator across 4 validators — one\nper session boundary each. Both runs have identical session structure\n(10-block epoch under `fast-runtime`, session changes at relay blocks 21\nand 31, same 20-block counting window), so the two columns are directly\ncomparable.\n\nPer-block, before the fix, the zero-candidate blocks cluster right after\neach session change:\n\n```\n15, 16              tail of the first session window\n21                  session change (skipped by the harness)\n23, 24, 25, 26      the four blocks after session change 21   <- lookahead - 1 = 4\n31                  session change (skipped by the harness)\n33, 34, 35          blocks after session change 31\n```\n\nFour consecutive dead blocks after block 21, and `lookahead - 1 = 5 - 1\n= 4`. After the fix there are no gaps at all: every counted block backs\nboth paras, including the blocks immediately following both session\nchanges.\n\nWith a 10-block epoch and lookahead 5, roughly 40% of blocks fell inside\nthe affected window, which matches the observed shortfall (11 of 20).\n\n## Notes\n\n- Test-only change; `polkadot-zombienet-sdk-tests` is `publish = false`,\nso this needs the `R0-no-crate-publish-required` label rather than a\nprdoc.\n- The sibling `approved_peer_mixed_validators` test is unaffected and\nstays green.",
+          "timestamp": "2026-08-20T12:08:41Z",
+          "tree_id": "1b4771928f5de5c7ffe0c13d650853a3a827d3c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/314cd2c0d4d2ec882b732004bf611b5ba195d5d2"
+        },
+        "date": 1787233148342,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14423563893333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.878736979866662,
             "unit": "seconds"
           }
         ]
