@@ -1,0 +1,36 @@
+title: 'fix(state-sync): reject empty unverified state responses'
+doc:
+- audience: Node Operator
+  description: |-
+    # Description
+
+    Reject state responses with no entries when state proof verification is disabled.
+
+    Previously, an empty `entries` list accompanied by non-empty `proof` bytes could reach the unverified state processing path, which assumes that at least one entry exists. Malformed peer data is now returned as `ImportResult::BadResponse`, allowing `StateStrategy` to drop the peer.
+
+    https://github.com/paritytech/polkadot-sdk/issues/12945
+
+    ## Integration
+
+    No downstream integration changes are required. Node operators receive the fix by updating `sc-network-sync`.
+
+    ## Review Notes
+
+    Response validation is now mode-specific:
+
+    - unverified state sync requires non-empty `entries`;
+    - verified state sync requires non-empty `proof`.
+
+    This avoids rejecting valid proof-only responses in verified mode.
+
+    Regression tests cover both the direct `BadResponse` result and the resulting `DropPeer` action at the strategy layer.
+
+    # Checklist
+
+    * [x] My PR includes a detailed description.
+    * [x] My PR follows the labeling requirements.
+    * [x] Documentation changes are not applicable.
+    * [x] I have added tests that prove the fix is effective.
+crates:
+- name: sc-network-sync
+  bump: patch
