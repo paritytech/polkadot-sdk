@@ -774,6 +774,10 @@ pub use pallet_statement;
 #[cfg(feature = "pallet-sudo")]
 pub use pallet_sudo;
 
+/// FRAME Time-Based Scheduler pallet.
+#[cfg(feature = "pallet-time-scheduler")]
+pub use pallet_time_scheduler;
+
 /// FRAME Timestamp Module.
 #[cfg(feature = "pallet-timestamp")]
 pub use pallet_timestamp;

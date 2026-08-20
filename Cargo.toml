@@ -484,6 +484,7 @@ members = [
 	"substrate/frame/system",
 	"substrate/frame/system/benchmarking",
 	"substrate/frame/system/rpc/runtime-api",
+	"substrate/frame/time-scheduler",
 	"substrate/frame/timestamp",
 	"substrate/frame/tips",
 	"substrate/frame/transaction-payment",
@@ -1094,6 +1095,7 @@ pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", def
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }
 pallet-template = { path = "templates/solochain/pallets/template", default-features = false }
+pallet-time-scheduler = { path = "substrate/frame/time-scheduler", default-features = false }
 pallet-timestamp = { path = "substrate/frame/timestamp", default-features = false }
 pallet-tips = { path = "substrate/frame/tips", default-features = false }
 pallet-transaction-payment = { path = "substrate/frame/transaction-payment", default-features = false }

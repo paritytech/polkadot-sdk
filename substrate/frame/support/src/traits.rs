@@ -89,6 +89,7 @@ pub use hooks::{
 };
 
 pub mod schedule;
+pub mod time_schedule;
 mod storage;
 pub use storage::{
 	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
