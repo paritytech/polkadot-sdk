@@ -245,7 +245,7 @@ sp_core::wasm_export_functions! {
 			let id = sp_io::offchain::http_request_start(
 				"POST",
 				"http://localhost:12345",
-				vec![],
+				&[],
 			).ok()?;
 			sp_io::offchain::http_request_add_header(id, "X-Auth", "test").ok()?;
 			sp_io::offchain::http_request_write_body(id, &[1, 2, 3, 4], None).ok()?;

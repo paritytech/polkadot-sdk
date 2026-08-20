@@ -24,10 +24,13 @@ use scale_info::TypeInfo;
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
-		PassFatPointerAndWrite, PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
+		PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
 	},
 	runtime_interface,
 };
+
+#[cfg(rfc145)]
+use sp_runtime_interface::pass_by::PassFatPointerAndWrite;
 use Debug;
 
 #[cfg(feature = "std")]
@@ -153,6 +156,7 @@ pub trait StatementStore {
 	/// caller is expected to retry with a buffer of the returned size.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn statements(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let statements =
 			if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
@@ -172,6 +176,7 @@ pub trait StatementStore {
 
 	/// Wrapper for `statements`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn statements() -> Vec<(Hash, Statement)> {
 		// The store can be modified concurrently, so keep growing the buffer to the reported size
 		// and retrying until one call fits, then decode exactly the number of bytes that call
@@ -207,6 +212,7 @@ pub trait StatementStore {
 	/// version 2 for the buffer semantics.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn broadcasts(
 		&mut self,
 		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
@@ -230,6 +236,7 @@ pub trait StatementStore {
 
 	/// Wrapper for `broadcasts`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn broadcasts(match_all_topics: &[Topic]) -> Vec<Vec<u8>> {
 		let mut buf: Vec<u8> = Vec::new();
 		loop {
@@ -264,6 +271,7 @@ pub trait StatementStore {
 	/// version 2 for the buffer semantics.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn posted(
 		&mut self,
 		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
@@ -287,6 +295,7 @@ pub trait StatementStore {
 
 	/// Wrapper for `posted`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn posted(match_all_topics: &[Topic], dest: [u8; 32]) -> Vec<Vec<u8>> {
 		// Probe first and retry on a consistent snapshot; see `statements` for details.
 		let mut buf: Vec<u8> = Vec::new();
@@ -320,6 +329,7 @@ pub trait StatementStore {
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn posted_clear(
 		&mut self,
 		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
@@ -344,6 +354,7 @@ pub trait StatementStore {
 
 	/// Wrapper for `posted_clear`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn posted_clear(match_all_topics: &[Topic], dest: [u8; 32]) -> Vec<Vec<u8>> {
 		// Probe first and retry on a consistent snapshot; see `statements` for details.
 		let mut buf: Vec<u8> = Vec::new();

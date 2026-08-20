@@ -79,7 +79,9 @@
 
 extern crate alloc;
 
-use alloc::{vec, vec::Vec};
+#[cfg(rfc145)]
+use alloc::vec;
+use alloc::vec::Vec;
 
 use strum::{EnumCount, FromRepr};
 
@@ -117,13 +119,17 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
 use sp_runtime_interface::{
 	pass_by::{
-		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
-		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
-		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassFatPointerAndWrite, PassOptionalFatPointerAndRead, PassPointerAndRead,
-		PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
+		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassFatPointerAndReadWrite, PassFatPointerAndWrite, PassPointerAndRead,
+		PassPointerAndReadCopy, ReturnAs,
 	},
 	runtime_interface, Pointer,
+};
+
+#[cfg(rfc145)]
+use sp_runtime_interface::pass_by::{
+	ConvertAndPassAs, ConvertAndReturnAs, PassOptionalFatPointerAndRead, PassPointerAndWrite,
 };
 
 use codec::{Decode, Encode};
@@ -139,10 +145,13 @@ use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, not(rfc145)))]
+mod global_alloc;
+
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, rfc145, target_family = "wasm"))]
 mod global_alloc_wasm;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_arch = "riscv64"))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, rfc145, target_arch = "riscv64"))]
 mod global_alloc_riscv;
 
 #[cfg(not(substrate_runtime))]
@@ -652,6 +661,7 @@ pub trait Storage {
 	/// `value_out`, even if the value is longer than `value_out`.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn read(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
@@ -672,19 +682,40 @@ pub trait Storage {
 
 	/// A convenience wrapper providing exact-read interface to the `read` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn read_exact(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
 		read__raw(key.as_ref(), &mut value_out[..], value_offset, 0)
 	}
 
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	/// NOTE: unlike the RFC-145 version, the legacy host function copies partial data
+	/// into `value_out` even if the buffer is too small to hold the whole value.
+	fn read_exact(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read_version_1(key.as_ref(), value_out, value_offset)
+	}
+
 	/// A convenience wrapper providing interface for partial storage reads (e.g. for `decode_len`).
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn read_partial(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
 		read__raw(key.as_ref(), &mut value_out[..], value_offset, 1)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn read_partial(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read_version_1(key.as_ref(), value_out, value_offset)
 	}
 
 	/// A convenience wrapper implementing the deprecated `get` host function
 	/// functionality through the new interface.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut value_out = vec![0u8; 256];
 		let len = read_exact(key.as_ref(), &mut value_out[..], 0)?;
@@ -694,6 +725,14 @@ pub trait Storage {
 		}
 		value_out.truncate(len as usize);
 		Some(value_out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		get_version_1(key.as_ref()).map(|value| value.to_vec())
 	}
 
 	/// Set `key` to `value` in the storage.
@@ -806,6 +845,7 @@ pub trait Storage {
 	// implementation, this is registered as version 4 instead.
 	#[version(4)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
@@ -836,6 +876,7 @@ pub trait Storage {
 	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn clear_prefix(
 		maybe_prefix: impl AsRef<[u8]>,
 		maybe_limit: Option<u32>,
@@ -870,6 +911,23 @@ pub trait Storage {
 		result
 	}
 
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn clear_prefix(
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		_maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		use KillStorageResult::*;
+		let (maybe_cursor, i) = match clear_prefix_version_2(maybe_prefix.as_ref(), maybe_limit) {
+			AllRemoved(i) => (None, i),
+			SomeRemaining(i) => (Some(maybe_prefix.as_ref().to_vec()), i),
+		};
+		MultiRemovalResults { maybe_cursor, backend: i, unique: i, loops: i }
+	}
+
 	/// Append the encoded `value` to the storage item at `key`.
 	///
 	/// The storage item needs to implement [`EncodeAppend`](codec::EncodeAppend).
@@ -888,6 +946,10 @@ pub trait Storage {
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	fn root(&mut self) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		// A pre-RFC-145 node computes the root with the state version implied by this host
+		// function version (`V0`) rather than with the ambient one.
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(StateVersion::V0);
 		self.storage_root()
 	}
 
@@ -903,6 +965,10 @@ pub trait Storage {
 	// here is redundant.
 	#[version(2)]
 	fn root(&mut self, _version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		// A pre-RFC-145 node computes the root with the state version passed by the runtime
+		// rather than with the ambient one.
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(_version);
 		self.storage_root()
 	}
 
@@ -915,6 +981,7 @@ pub trait Storage {
 	/// to store the entire value; otherwise, it will panic.
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
 		let root = self.storage_root();
 		let encoded = codec::Encode::encode(&root);
@@ -930,7 +997,10 @@ pub trait Storage {
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
 	/// function.
 	#[wrapper]
-	fn root() -> Vec<u8> {
+	#[abi_epoch(2)]
+	fn root(_version: StateVersion) -> Vec<u8> {
+		// The version parameter is kept for source compatibility with the legacy wrapper below.
+		//
 		// By this point, all the information about the length of the hash representing the storage
 		// root has been erased. We're using a generous buffer here. Making host functions generic
 		// over the hasher type is a big refactoring and is not worth it.
@@ -960,6 +1030,7 @@ pub trait Storage {
 	/// Get the next key in storage after the given one in lexicographic order.
 	#[raw_api]
 	#[version(2)]
+	#[abi_epoch(2)]
 	fn next_key(
 		&mut self,
 		key_in: PassFatPointerAndRead<&[u8]>,
@@ -982,6 +1053,7 @@ pub trait Storage {
 	/// If there is no next key, `key_out` is cleared and `false` is returned. The caller can reuse
 	/// the buffer across calls to avoid repeated allocations.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn next_key(key_in: impl AsRef<[u8]>, key_out: &mut Vec<u8>) -> bool {
 		let key_in = key_in.as_ref();
 		let len = next_key__raw(key_in, key_out.as_mut_slice()) as usize;
@@ -996,6 +1068,23 @@ pub trait Storage {
 		key_out.resize(len, 0);
 		next_key__raw(key_in, &mut key_out[..]);
 		true
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn next_key(key_in: impl AsRef<[u8]>, key_out: &mut Vec<u8>) -> bool {
+		match next_key_version_1(key_in.as_ref()) {
+			Some(next) => {
+				*key_out = next;
+				true
+			},
+			None => {
+				key_out.clear();
+				false
+			},
+		}
 	}
 
 	/// Start a new nested transaction.
@@ -1093,6 +1182,7 @@ pub trait DefaultChildStorage {
 	/// `value_out`, even if the value is longer than `value_out`.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn read(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1117,6 +1207,7 @@ pub trait DefaultChildStorage {
 
 	/// A convenience wrapper providing exact-read interface to the `read` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn read_exact(
 		storage_key: impl AsRef<[u8]>,
 		key: impl AsRef<[u8]>,
@@ -1126,8 +1217,24 @@ pub trait DefaultChildStorage {
 		read__raw(storage_key.as_ref(), key.as_ref(), &mut value_out[..], value_offset, 0)
 	}
 
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	/// NOTE: unlike the RFC-145 version, the legacy host function copies partial data
+	/// into `value_out` even if the buffer is too small to hold the whole value.
+	fn read_exact(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read_version_1(storage_key.as_ref(), key.as_ref(), value_out, value_offset)
+	}
+
 	/// A convenience wrapper providing interface for partial storage reads (e.g. for `decode_len`).
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn read_partial(
 		storage_key: impl AsRef<[u8]>,
 		key: impl AsRef<[u8]>,
@@ -1137,9 +1244,23 @@ pub trait DefaultChildStorage {
 		read__raw(storage_key.as_ref(), key.as_ref(), &mut value_out[..], value_offset, 1)
 	}
 
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn read_partial(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read_version_1(storage_key.as_ref(), key.as_ref(), value_out, value_offset)
+	}
+
 	/// A convenience wrapper implementing the deprecated `get` host function
 	/// functionality through the new interface.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut value_out = vec![0u8; 256];
 		let len = read_exact(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
@@ -1149,6 +1270,14 @@ pub trait DefaultChildStorage {
 		}
 		value_out.truncate(len as usize);
 		Some(value_out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		get_version_1(storage_key.as_ref(), key.as_ref())
 	}
 
 	/// Set a child storage value.
@@ -1233,6 +1362,7 @@ pub trait DefaultChildStorage {
 	// implementation, this is registered as version 5 instead.
 	#[version(5)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1263,6 +1393,7 @@ pub trait DefaultChildStorage {
 	/// A convenience wrapper providing a developer-friendly interface for the `storage_kill` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn storage_kill(
 		storage_key: impl AsRef<[u8]>,
 		maybe_limit: Option<u32>,
@@ -1296,6 +1427,24 @@ pub trait DefaultChildStorage {
 		}
 
 		result
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn storage_kill(
+		storage_key: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		_maybe_cursor: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		use KillStorageResult::*;
+		let (maybe_cursor, backend) =
+			match storage_kill_version_3(storage_key.as_ref(), maybe_limit) {
+				AllRemoved(db) => (None, db),
+				SomeRemaining(db) => (Some(storage_key.as_ref().to_vec()), db),
+			};
+		MultiRemovalResults { maybe_cursor, backend, unique: backend, loops: backend }
 	}
 
 	/// Check a child storage key.
@@ -1363,6 +1512,7 @@ pub trait DefaultChildStorage {
 	// implementation, this is registered as version 4 instead.
 	#[version(4)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn clear_prefix(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1395,6 +1545,7 @@ pub trait DefaultChildStorage {
 	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn clear_prefix(
 		storage_key: impl AsRef<[u8]>,
 		maybe_prefix: impl AsRef<[u8]>,
@@ -1431,6 +1582,28 @@ pub trait DefaultChildStorage {
 		result
 	}
 
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn clear_prefix(
+		storage_key: impl AsRef<[u8]>,
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		_maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		use KillStorageResult::*;
+		let (maybe_cursor, backend) = match clear_prefix_version_2(
+			storage_key.as_ref(),
+			maybe_prefix.as_ref(),
+			maybe_limit,
+		) {
+			AllRemoved(db) => (None, db),
+			SomeRemaining(db) => (Some(maybe_prefix.as_ref().to_vec()), db),
+		};
+		MultiRemovalResults { maybe_cursor, backend, unique: backend, loops: backend }
+	}
+
 	/// Default child root calculation.
 	///
 	/// "Commit" all existing operations and compute the resulting child storage root.
@@ -1441,6 +1614,8 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(StateVersion::V0);
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage_root(&child_info)
 	}
@@ -1457,6 +1632,8 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		_version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(_version);
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage_root(&child_info)
 	}
@@ -1471,6 +1648,7 @@ pub trait DefaultChildStorage {
 	/// to store the entire value; otherwise, it will panic.
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1491,10 +1669,12 @@ pub trait DefaultChildStorage {
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
 	/// function.
 	#[wrapper]
-	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
-		// By this point, all the information about the length of the hash representing the storage
-		// root has been erased. We're using a generous buffer here. Making host functions generic
-		// over the hasher type is a big refactoring and is not worth it.
+	#[abi_epoch(2)]
+	fn root(storage_key: impl AsRef<[u8]>, _version: StateVersion) -> Vec<u8> {
+		// The state version parameter is kept for source compatibility with the legacy wrapper
+		// below. By this point, all the information about the length of the hash representing the
+		// storage root has been erased. We're using a generous buffer here. Making host functions
+		// generic over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__raw(storage_key.as_ref(), &mut root_out[..]);
 		codec::Decode::decode(&mut &root_out[..])
@@ -1518,6 +1698,7 @@ pub trait DefaultChildStorage {
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn next_key(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1542,6 +1723,7 @@ pub trait DefaultChildStorage {
 	/// If there is no next key, `key_out` is cleared and `false` is returned. The caller can reuse
 	/// the buffer across calls to avoid repeated allocations.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn next_key(
 		storage_key: impl AsRef<[u8]>,
 		key_in: impl AsRef<[u8]>,
@@ -1561,6 +1743,27 @@ pub trait DefaultChildStorage {
 		key_out.resize(len, 0);
 		next_key__raw(storage_key, key_in, &mut key_out[..]);
 		true
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn next_key(
+		storage_key: impl AsRef<[u8]>,
+		key_in: impl AsRef<[u8]>,
+		key_out: &mut Vec<u8>,
+	) -> bool {
+		match next_key_version_1(storage_key.as_ref(), key_in.as_ref()) {
+			Some(next) => {
+				*key_out = next;
+				true
+			},
+			None => {
+				key_out.clear();
+				false
+			},
+		}
 	}
 }
 
@@ -1589,6 +1792,7 @@ pub trait Trie {
 	/// A trie root formed from the iterated items.
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn blake2_256_root(
 		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
@@ -1604,6 +1808,7 @@ pub trait Trie {
 	/// A convenience wrapper providing a developer-friendly interface for the `blake2_256_root`
 	/// host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn blake2_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
 		blake2_256_root__raw(data, state_version, &mut root);
@@ -1631,6 +1836,7 @@ pub trait Trie {
 	/// A trie root formed from the enumerated items.
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn blake2_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
@@ -1646,6 +1852,7 @@ pub trait Trie {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `blake2_256_ordered_root` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
 		blake2_256_ordered_root__raw(data, state_version, &mut root);
@@ -1674,6 +1881,7 @@ pub trait Trie {
 	/// A trie root formed from the iterated items.
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn keccak_256_root(
 		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
@@ -1689,6 +1897,7 @@ pub trait Trie {
 	/// A convenience wrapper providing a developer-friendly interface for the `keccak_256_root`
 	/// host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn keccak_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
 		keccak_256_root__raw(data, state_version, &mut root);
@@ -1717,6 +1926,7 @@ pub trait Trie {
 	/// A trie root formed from the enumerated items.
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn keccak_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
@@ -1732,6 +1942,7 @@ pub trait Trie {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `keccak_256_ordered_root` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn keccak_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
 		keccak_256_ordered_root__raw(data, state_version, &mut root);
@@ -1906,6 +2117,7 @@ pub trait Misc {
 	/// Calling into the runtime may be incredible expensive and should be approached with care.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn runtime_version(
 		&mut self,
 		wasm: PassFatPointerAndRead<&[u8]>,
@@ -1940,6 +2152,7 @@ pub trait Misc {
 	/// A convenience wrapper providing a developer-friendly interface for the `runtime_version`
 	/// host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut version = vec![0u8; 1024];
 		let len = runtime_version__raw(code.as_ref(), &mut version[..])?;
@@ -1958,6 +2171,7 @@ pub trait Misc {
 	/// otherwise, the cursor is retained and can be requested again with a larger buffer.
 	// ERRATA: The RFC requires passing a raw pointer without a length, which is not safe.
 	// Currently, we accept a fat pointer.
+	#[abi_epoch(2)]
 	fn last_cursor(
 		&mut self,
 		out: PassFatPointerAndWrite<&mut [u8]>,
@@ -2033,7 +2247,7 @@ impl Default for PublicKeysCacheExt {
 	}
 }
 
-#[cfg(not(substrate_runtime))]
+#[cfg(all(not(substrate_runtime), rfc145))]
 macro_rules! ensure_public_keys_cache_ext_registered {
 	($self:expr) => {
 		match $self.register_extension(PublicKeysCacheExt::default()) {
@@ -2063,6 +2277,7 @@ pub trait Crypto {
 	// directly requested by the RFC
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn ed25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2102,6 +2317,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `ed25519_public_keys` host function
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn ed25519_public_keys(id: KeyTypeId) -> Vec<ed25519::Public> {
 		let key_size = core::mem::size_of::<ed25519::Public>();
 		let num_keys = ed25519_public_keys__raw(id, &mut []) as usize / key_size;
@@ -2139,6 +2355,7 @@ pub trait Crypto {
 	// it calls for a pointer-size. Applies to all the *_generate functions.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn ed25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2158,6 +2375,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_generate`
 	/// host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn ed25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
 		let mut public = ed25519::Public::default();
 		ed25519_generate__raw(id, seed, &mut public);
@@ -2188,6 +2406,7 @@ pub trait Crypto {
 	// ERRATA: The RFC erroneously declares `out` to be `i64`. Applies to all *_sign_* functions.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn ed25519_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2209,6 +2428,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_sign` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn ed25519_sign(
 		id: KeyTypeId,
 		pub_key: &ed25519::Public,
@@ -2370,6 +2590,7 @@ pub trait Crypto {
 	// directly requested by the RFC
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn sr25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2409,6 +2630,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `sr25519_public_keys` host function
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
 		let key_size = core::mem::size_of::<sr25519::Public>();
 		let num_keys = sr25519_public_keys__raw(id, &mut []) as usize / key_size;
@@ -2444,6 +2666,7 @@ pub trait Crypto {
 	/// Stores the public key in the provided output buffer.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn sr25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2463,6 +2686,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_generate`
 	/// host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn sr25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
 		let mut public = sr25519::Public::default();
 		sr25519_generate__raw(id, seed, &mut public);
@@ -2492,6 +2716,7 @@ pub trait Crypto {
 	/// Returns the signature.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn sr25519_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2513,6 +2738,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_sign` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn sr25519_sign(
 		id: KeyTypeId,
 		pub_key: &sr25519::Public,
@@ -2552,6 +2778,7 @@ pub trait Crypto {
 	// directly requested by the RFC
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn ecdsa_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2591,6 +2818,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `ecdsa_public_keys` host function
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn ecdsa_public_keys(id: KeyTypeId) -> Vec<ecdsa::Public> {
 		let key_size = core::mem::size_of::<ecdsa::Public>();
 		let num_keys = ecdsa_public_keys__raw(id, &mut []) as usize / key_size;
@@ -2626,6 +2854,7 @@ pub trait Crypto {
 	/// Stores the public key in the provided output buffer.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn ecdsa_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2645,6 +2874,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_generate` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn ecdsa_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa::Public {
 		let mut public = ecdsa::Public::default();
 		ecdsa_generate__raw(id, seed, &mut public);
@@ -2674,6 +2904,7 @@ pub trait Crypto {
 	/// Returns the signature.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn ecdsa_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2695,6 +2926,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_sign` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn ecdsa_sign(
 		id: KeyTypeId,
 		pub_key: &ecdsa::Public,
@@ -2731,6 +2963,7 @@ pub trait Crypto {
 	/// Returns the signature.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn ecdsa_sign_prehashed(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2752,6 +2985,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `ecdsa_sign_prehashed` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn ecdsa_sign_prehashed(
 		id: KeyTypeId,
 		pub_key: &ecdsa::Public,
@@ -2889,6 +3123,7 @@ pub trait Crypto {
 	/// (doesn't include the 0x04 prefix).
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn secp256k1_ecdsa_recover(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -2915,6 +3150,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `secp256k1_ecdsa_recover` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn secp256k1_ecdsa_recover(
 		signature: &[u8; 65],
 		message: &[u8; 32],
@@ -2978,6 +3214,7 @@ pub trait Crypto {
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
 	#[version(3)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn secp256k1_ecdsa_recover_compressed(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -3004,6 +3241,7 @@ pub trait Crypto {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `secp256k1_ecdsa_recover_compressed` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn secp256k1_ecdsa_recover_compressed(
 		signature: &[u8; 65],
 		message: &[u8; 32],
@@ -3118,6 +3356,7 @@ pub trait Hashing {
 	/// Conduct a 256-bit Keccak hash.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn keccak_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::keccak_256(data));
 	}
@@ -3125,6 +3364,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `keccak_256` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn keccak_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
 		keccak_256__raw(data, &mut out);
@@ -3139,6 +3379,7 @@ pub trait Hashing {
 	/// Conduct a 512-bit Keccak hash.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Hash512, 64>) {
 		out.0.copy_from_slice(&sp_crypto_hashing::keccak_512(data));
 	}
@@ -3146,6 +3387,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `keccak_512` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn keccak_512(data: &[u8]) -> [u8; 64] {
 		let mut out = Hash512::default();
 		keccak_512__raw(data, &mut out);
@@ -3160,6 +3402,7 @@ pub trait Hashing {
 	/// Conduct a 256-bit Sha2 hash.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn sha2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::sha2_256(data));
 	}
@@ -3167,6 +3410,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `sha2_256` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn sha2_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
 		sha2_256__raw(data, &mut out);
@@ -3181,6 +3425,7 @@ pub trait Hashing {
 	/// Conduct a 128-bit Blake2 hash.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn blake2_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		out.copy_from_slice(&sp_crypto_hashing::blake2_128(data));
 	}
@@ -3188,6 +3433,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `blake2_128` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn blake2_128(data: &[u8]) -> [u8; 16] {
 		let mut out = [0u8; 16];
 		blake2_128__raw(data, &mut out);
@@ -3202,6 +3448,7 @@ pub trait Hashing {
 	/// Conduct a 256-bit Blake2 hash.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn blake2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
 	}
@@ -3209,6 +3456,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `blake2_256` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn blake2_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
 		blake2_256__raw(data, &mut out);
@@ -3223,6 +3471,7 @@ pub trait Hashing {
 	/// Conduct four XX hashes to give a 256-bit result.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn twox_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::twox_256(data));
 	}
@@ -3230,6 +3479,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `twox_256` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn twox_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
 		twox_256__raw(data, &mut out);
@@ -3244,6 +3494,7 @@ pub trait Hashing {
 	/// Conduct two XX hashes to give a 128-bit result.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn twox_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		out.copy_from_slice(&sp_crypto_hashing::twox_128(data));
 	}
@@ -3251,6 +3502,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `twox_128` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn twox_128(data: &[u8]) -> [u8; 16] {
 		let mut out = [0u8; 16];
 		twox_128__raw(data, &mut out);
@@ -3265,6 +3517,7 @@ pub trait Hashing {
 	/// Conduct two XX hashes to give a 64-bit result.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn twox_64(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 8], 8>) {
 		out.copy_from_slice(&sp_crypto_hashing::twox_64(data));
 	}
@@ -3272,6 +3525,7 @@ pub trait Hashing {
 	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `twox_64` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn twox_64(data: &[u8]) -> [u8; 8] {
 		let mut out = [0u8; 8];
 		twox_64__raw(data, &mut out);
@@ -3355,6 +3609,7 @@ pub trait Offchain {
 	///
 	/// The transaction will end up in the pool.
 	#[version(2)]
+	#[abi_epoch(2)]
 	fn submit_transaction(
 		&mut self,
 		data: PassFatPointerAndRead<Vec<u8>>,
@@ -3376,6 +3631,8 @@ pub trait Offchain {
 	}
 
 	/// Returns the peer ID of the local node.
+	#[raw_api]
+	#[abi_epoch(2)]
 	fn network_peer_id(
 		&mut self,
 		out: PassPointerAndWrite<&mut NetworkPeerId, 38>,
@@ -3399,6 +3656,28 @@ pub trait Offchain {
 			return Err(());
 		}
 
+		out.0.copy_from_slice(&peer_id);
+		Ok(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `network_peer_id` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn network_peer_id(out: &mut NetworkPeerId) -> Result<(), ()> {
+		network_peer_id__raw(out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating `network_state` host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn network_peer_id(out: &mut NetworkPeerId) -> Result<(), ()> {
+		let state = network_state_version_1()?;
+		let peer_id: Vec<u8> = codec::Decode::decode(&mut &state.peer_id.0[..]).map_err(|_| ())?;
+		if peer_id.len() != out.0.len() {
+			return Err(());
+		}
 		out.0.copy_from_slice(&peer_id);
 		Ok(())
 	}
@@ -3433,6 +3712,7 @@ pub trait Offchain {
 	/// Obviously fine in the off-chain worker context.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn random_seed(&mut self, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(
 			&self
@@ -3445,6 +3725,7 @@ pub trait Offchain {
 	/// A convenience wrapper providing a developer-friendly interface for the `random_seed` host
 	/// function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn random_seed() -> [u8; 32] {
 		let mut seed = [0u8; 32];
 		random_seed__raw(&mut seed);
@@ -3534,6 +3815,7 @@ pub trait Offchain {
 	/// If the value does not exist in the storage `None` will be returned.
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
+	#[abi_epoch(2)]
 	fn local_storage_read(
 		&mut self,
 		kind: PassAs<StorageKind, u32>,
@@ -3560,6 +3842,7 @@ pub trait Offchain {
 	/// A convenience wrapper implementing the deprecated `get` host function
 	/// functionality through the new interface.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn local_storage_get(kind: StorageKind, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut value_out = vec![0u8; 256];
 		let len = local_storage_read(kind, key.as_ref(), &mut value_out[..], 0)?;
@@ -3569,6 +3852,14 @@ pub trait Offchain {
 		}
 		value_out.truncate(len as usize);
 		Some(value_out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn local_storage_get(kind: StorageKind, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		local_storage_get_version_1(kind, key.as_ref())
 	}
 
 	/// Initiates a http request given HTTP verb and the URL.
@@ -3591,6 +3882,8 @@ pub trait Offchain {
 	/// Meta is a future-reserved field containing additional, parity-scale-codec encoded
 	/// parameters. Returns the id of newly started request.
 	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
 	fn http_request_start(
 		&mut self,
 		method: PassFatPointerAndRead<&str>,
@@ -3602,6 +3895,22 @@ pub trait Offchain {
 			.expect("http_request_start can be called only in the offchain worker context")
 			.http_request_start(method, uri, &[])
 			.into()
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `http_request_start` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn http_request_start(method: &str, uri: &str, meta: &[u8]) -> Result<HttpRequestId, ()> {
+		http_request_start__raw(method, uri, meta.to_vec())
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn http_request_start(method: &str, uri: &str, meta: &[u8]) -> Result<HttpRequestId, ()> {
+		http_request_start_version_1(method, uri, meta)
 	}
 
 	/// Append header to the request.
@@ -3618,6 +3927,7 @@ pub trait Offchain {
 
 	/// Append header to the request.
 	#[version(2)]
+	#[abi_epoch(2)]
 	fn http_request_add_header(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -3653,6 +3963,7 @@ pub trait Offchain {
 	///
 	/// Returns an error in case deadline is reached or the chunk couldn't be written.
 	#[version(2)]
+	#[abi_epoch(2)]
 	fn http_request_write_body(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -3695,6 +4006,7 @@ pub trait Offchain {
 	/// Passing `None` as deadline blocks forever.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn http_response_wait(
 		&mut self,
 		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
@@ -3719,6 +4031,7 @@ pub trait Offchain {
 	/// A convenience wrapper providing a developer-friendly interface for the `http_response_wait`
 	/// host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn http_response_wait(
 		ids: &[HttpRequestId],
 		deadline: Option<Timestamp>,
@@ -3752,6 +4065,7 @@ pub trait Offchain {
 	/// unchanged.
 	///
 	/// Returns `None` if the index is out of bounds.
+	#[abi_epoch(2)]
 	fn http_response_header_name(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -3776,6 +4090,7 @@ pub trait Offchain {
 	/// unchanged.
 	///
 	/// Returns `None` if the index is out of bounds.
+	#[abi_epoch(2)]
 	fn http_response_header_value(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -3796,6 +4111,7 @@ pub trait Offchain {
 	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
 	/// `http_response_headers` host function.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn http_response_headers(&mut self, request_id: HttpRequestId) -> Vec<(Vec<u8>, Vec<u8>)> {
 		let mut name_buf = vec![0u8; 256];
 		let mut value_buf = vec![0u8; 256];
@@ -3822,6 +4138,14 @@ pub trait Offchain {
 			head_idx += 1;
 		}
 		headers
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn http_response_headers(request_id: HttpRequestId) -> Vec<(Vec<u8>, Vec<u8>)> {
+		http_response_headers_version_1(request_id)
 	}
 
 	/// Read a chunk of body response to given buffer.
@@ -3853,6 +4177,7 @@ pub trait Offchain {
 	/// NOTE: this implies that response headers must be read before draining the body.
 	/// Passing `None` as a deadline blocks forever.
 	#[version(2)]
+	#[abi_epoch(2)]
 	fn http_response_read_body(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -4103,6 +4428,11 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 }
 
 /// Input data handling functions
+// NOTE: This interface is deliberately compiled in regardless of `rfc145`: tooling
+// that executes freshly built runtimes (e.g. the metadata hash extraction in
+// `substrate-wasm-builder`) must be able to run RFC-145 runtimes even when the tooling itself
+// is not built with `--cfg rfc145`. Nodes only register it as part of
+// [`SubstrateHostFunctions`] when built with RFC-145 support.
 #[runtime_interface(wasm_only)]
 pub trait Input {
 	/// Read input data into the provided buffer.
@@ -4118,6 +4448,13 @@ pub trait Input {
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
+
+/// Host functions that only exist when built with RFC-145 support (`--cfg rfc145`).
+#[cfg(all(not(substrate_runtime), rfc145))]
+type Rfc145HostFunctions = (input::HostFunctions,);
+
+#[cfg(all(not(substrate_runtime), not(rfc145)))]
+type Rfc145HostFunctions = ();
 
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
@@ -4138,7 +4475,7 @@ pub type SubstrateHostFunctions = (
 	crate::trie::HostFunctions,
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
-	input::HostFunctions,
+	Rfc145HostFunctions,
 );
 
 #[cfg(test)]
@@ -4189,10 +4526,13 @@ mod tests {
 
 		t.execute_with(|| {
 			// `read_exact` with a buffer that is too small does NOT write data into the buffer
-			// (RFC-145).
+			// (RFC-145). The legacy implementation copies partial data.
 			let mut v = [0u8; 4];
 			assert_eq!(storage::read_exact(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			#[cfg(rfc145)]
 			assert_eq!(v, [0u8, 0, 0, 0]);
+			#[cfg(not(rfc145))]
+			assert_eq!(v, [11u8, 0, 0, 0]);
 
 			// `read_partial` with a buffer that is too small DOES write partial data.
 			let mut v = [0u8; 4];

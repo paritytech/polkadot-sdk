@@ -85,7 +85,7 @@ macro_rules! wasm_export_functions {
 	) => {
 		#[no_mangle]
 		#[allow(unreachable_code)]
-		#[cfg(not(feature = "std"))]
+		#[cfg(all(not(feature = "std"), rfc145))]
 		pub fn $name(input_len: usize) -> u64 {
 			let mut input_buf = ::alloc::vec![0u8; input_len];
 			if input_len > 0 {
@@ -103,6 +103,14 @@ macro_rules! wasm_export_functions {
 
 			$crate::to_substrate_wasm_fn_return_value(&())
 		}
+
+		#[cfg(all(not(feature = "std"), not(rfc145)))]
+		$crate::wasm_export_functions_v1! {
+			@IMPL
+			fn $name (
+				$( $arg_name: $arg_ty ),*
+			) { $( $fn_impl )* }
+		}
 	};
 	(@IMPL
 		fn $name:ident (
@@ -111,7 +119,7 @@ macro_rules! wasm_export_functions {
 	) => {
 		#[no_mangle]
 		#[allow(unreachable_code)]
-		#[cfg(not(feature = "std"))]
+		#[cfg(all(not(feature = "std"), rfc145))]
 		pub fn $name(input_len: usize) -> u64 {
 			let mut input_buf = ::alloc::vec![0u8; input_len];
 			if input_len > 0 {
@@ -128,6 +136,14 @@ macro_rules! wasm_export_functions {
 			};
 
 			$crate::to_substrate_wasm_fn_return_value(&output)
+		}
+
+		#[cfg(all(not(feature = "std"), not(rfc145)))]
+		$crate::wasm_export_functions_v1! {
+			@IMPL
+			fn $name (
+				$( $arg_name: $arg_ty ),*
+			) $( -> $ret_ty )? { $( $fn_impl )* }
 		}
 	};
 }

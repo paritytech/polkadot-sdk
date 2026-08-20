@@ -22,13 +22,20 @@ use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, trai
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_io::{hashing::blake2_256, RIIntOption};
+use sp_io::hashing::blake2_256;
+#[cfg(rfc145)]
+use sp_io::RIIntOption;
 use sp_runtime::{
 	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
 };
 use sp_runtime_interface::pass_by::{
-	AllocateAndReturnByCodec, AllocateAndReturnPointer, ConvertAndReturnAs,
-	PassFatPointerAndDecode, PassFatPointerAndRead, PassFatPointerAndWrite, PassPointerAndWrite,
+	AllocateAndReturnByCodec, AllocateAndReturnPointer, PassFatPointerAndDecode,
+	PassFatPointerAndRead,
+};
+// Marshalling strategies only used by the RFC-145 versions of the host functions.
+#[cfg(rfc145)]
+use sp_runtime_interface::pass_by::{
+	ConvertAndReturnAs, PassFatPointerAndWrite, PassPointerAndWrite,
 };
 use sp_storage::TrackedStorageKey;
 
@@ -285,6 +292,7 @@ pub trait Benchmarking {
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn current_time(out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		let time = std::time::SystemTime::now()
 			.duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -296,6 +304,7 @@ pub trait Benchmarking {
 
 	/// Wrapper for `current_time`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn current_time() -> [u8; 16] {
 		let mut out = [0u8; 16];
 		current_time__raw(&mut out);
@@ -320,6 +329,7 @@ pub trait Benchmarking {
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn read_write_count(&self, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		let (a, b, c, d) = self.read_write_count();
 		out[0..4].copy_from_slice(&a.to_le_bytes());
@@ -330,6 +340,7 @@ pub trait Benchmarking {
 
 	/// Wrapper for `read_write_count`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn read_write_count() -> (u32, u32, u32, u32) {
 		let mut out = [0u8; 16];
 		read_write_count__raw(&mut out);
@@ -354,6 +365,7 @@ pub trait Benchmarking {
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn get_whitelist(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let whitelist = self.get_whitelist();
 		let encoded = codec::Encode::encode(&whitelist);
@@ -364,6 +376,7 @@ pub trait Benchmarking {
 
 	/// Wrapper for `get_whitelist`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn get_whitelist() -> Vec<TrackedStorageKey> {
 		let mut buf = alloc::vec![0u8; 1024 * 1024];
 		let len = get_whitelist__raw(&mut buf) as usize;
@@ -418,6 +431,7 @@ pub trait Benchmarking {
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn get_read_and_written_keys(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		let keys = self.get_read_and_written_keys();
 		let encoded = codec::Encode::encode(&keys);
@@ -428,6 +442,7 @@ pub trait Benchmarking {
 
 	/// Wrapper for `get_read_and_written_keys`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn get_read_and_written_keys() -> Vec<(Vec<u8>, u32, u32, bool)> {
 		let mut buf = alloc::vec![0u8; 4 * 1024 * 1024];
 		let len = get_read_and_written_keys__raw(&mut buf) as usize;
@@ -448,12 +463,14 @@ pub trait Benchmarking {
 	/// Same as version 1 but avoids host-side allocation.
 	#[version(2)]
 	#[raw_api]
+	#[abi_epoch(2)]
 	fn proof_size(&self) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
 		self.proof_size()
 	}
 
 	/// Wrapper for `proof_size`.
 	#[wrapper]
+	#[abi_epoch(2)]
 	fn proof_size() -> Option<u32> {
 		proof_size__raw()
 	}
