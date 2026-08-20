@@ -2022,6 +2022,29 @@ where
 		.collect()
 	}
 
+	/// Block attributes for gap requests, plus the body cutoff: bodies are required for
+	/// gap blocks above the cutoff and stripped from ranges entirely at or below it.
+	/// Recomputed every scheduling pass so the cutoff follows finality.
+	fn gap_request_attributes(
+		&self,
+		finalized_number: NumberFor<B>,
+	) -> (BlockAttributes, Option<NumberFor<B>>) {
+		let attrs = self.mode.required_block_attributes();
+		match self.gap_sync_body_policy {
+			GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
+			GapSyncBodyPolicy::All => (attrs, None),
+			GapSyncBodyPolicy::DownloadFinalized(window) => {
+				// The gap is created by importing a finalized block right above it,
+				// so `gap.target + 1` is a lower bound for the finalized number even
+				// while the client's finality info still lags right after warp sync.
+				let anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
+					std::cmp::max(finalized_number, gap.target + One::one())
+				});
+				(attrs, Some(anchor.saturating_sub(window.into())))
+			},
+		}
+	}
+
 	/// Get block requests scheduled by sync to be sent out.
 	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		if self.allowed_requests.is_empty() || self.state_sync.is_some() {
@@ -2035,24 +2058,7 @@ where
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
 		let finalized_number = self.client.info().finalized_number;
-		// Bodies are required for gap blocks above the cutoff and stripped from ranges
-		// entirely at or below it; recomputed every pass so the cutoff follows finality.
-		let (gap_attrs, gap_body_cutoff) = {
-			let attrs = mode.required_block_attributes();
-			match self.gap_sync_body_policy {
-				GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
-				GapSyncBodyPolicy::All => (attrs, None),
-				GapSyncBodyPolicy::DownloadFinalized(window) => {
-					// The gap is created by importing a finalized block right above it,
-					// so `gap.target + 1` is a lower bound for the finalized number even
-					// while the client's finality info still lags right after warp sync.
-					let anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
-						std::cmp::max(finalized_number, gap.target + One::one())
-					});
-					(attrs, Some(anchor.saturating_sub(window.into())))
-				},
-			}
-		};
+		let (gap_attrs, gap_body_cutoff) = self.gap_request_attributes(finalized_number);
 		if let (Some(metrics), Some(cutoff), Some(gap)) =
 			(self.metrics.as_ref(), gap_body_cutoff, self.gap_sync.as_ref())
 		{
