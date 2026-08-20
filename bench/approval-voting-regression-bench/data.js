@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787157307159,
+  "lastUpdate": 1787233263967,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "202ea0217f44fa1e94e52c77bb42dfc7322926b0",
-          "message": "Fix flaky test `zombienet-polkadot-elastic-scaling-slot-based-3cores` (#10826)\n\nWe had 4 failures in the last 90 runs of\n`zombienet-polkadot-elastic-scaling-slot-based-3cores` test where the\nassetion fails by `1` (34 blocks)\n\n\n\nhttps://paritytech.github.io/zombienet-jobs-monitor/web/?search=based-3cores&mergeQueueOnly=true\n<img width=\"1011\" height=\"183\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/07123449-29a0-4f69-bc2d-9c3bc4b865ae\"\n/>\n\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21035251168/job/60482637320\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20923519106/job/60116752831\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20432629082/job/58707838790\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/20264366293/job/58185559463\n\nAnd since we already have some margin we can adjust to remove this\nflakyness.\n\nping @alindima",
-          "timestamp": "2026-01-19T08:38:05Z",
-          "tree_id": "e46a3578aebcd6daaeff3dbb004faa33cd9a0a01",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/202ea0217f44fa1e94e52c77bb42dfc7322926b0"
-        },
-        "date": 1768816168223,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.920000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6649693333699997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.667879574860057,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001906948,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6338553709700014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020162879999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7641210650000497,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.53545503735309,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020162879999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001906948,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6588958741600015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.632891070050001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005276097719999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3078707635900058,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.6321178702100005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1527017+eskimor@users.noreply.github.com",
+            "name": "eskimor",
+            "username": "eskimor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "314cd2c0d4d2ec882b732004bf611b5ba195d5d2",
+          "message": "test(zombienet): expect full core saturation in approved_peer_mixed_collators (#12939)\n\n`zombienet-polkadot-approved-peer-mixed-collators` has been failing on\nmaster since #12255 merged:\n\n```\nError: ParaId 2001: candidate count 20 not within expected range 10..16\n```\n\nThe test is not flaky and #12255 is not a regression. The `10..16` bound\nencoded the throughput loss that #12255 fixed, so the test started\nfailing once the paras reached the throughput the setup can actually\nsustain.\n\n## Why 20 is the expected number\n\nBoth paras are registered `InGenesis` (bulk-scheduled) and `num_cores`\nresolves to `2` for this network, so each para owns one core for the\nwhole run — confirmed in the run log:\n\n```\nRaw overrides info: num_cores: 2, para_to_register_in_genesis_len: 2\n```\n\nOne core backs at most one candidate per relay block, and\n`assert_para_throughput` counts over 20 relay blocks (skipping\nsession-change blocks and the initial warm-up). So the ceiling is **20\ncandidates per para**, and with a healthy backing pipeline both paras\nshould sit at it.\n\nThe new bound is `19..21`, i.e. 19 or 20, leaving one candidate of slack\nso a single slow collation under CI load does not fail the test.\n\n## What the old bound was measuring\n\nThe relaychain runs with `--experimental-collator-protocol`. Before\n#12255, the experimental validator side derived the claim-queue window\nlength in `our_window` from the allowed-ancestry path length instead of\nthe runtime `SchedulingLookahead`. `fetch_ancestors` truncates ancestry\nat a session boundary, because the relay chain cannot back candidates\nfrom a previous session. So for the first `lookahead - 1` blocks of\nevery session that estimate was too small, `our_window` returned fewer\nclaim-queue positions than were really schedulable, and\n`can_keep_advertisement` refused otherwise-valid advertisements with\n`PeerLimitReached`.\n\nNode logs from the two runs, all four validators:\n\n| | before #12255 (`dd75ae95066`) | after #12255 (`ffaca8ccf22`) |\n|---|---|---|\n| advertisements received | 156 | 148 |\n| accepted | 140 | **148** |\n| dropped | **16** | **0** |\n| rejection reason | **16x `PeerLimitReached`** | none |\n| candidates per para | **11** | **20** |\n\nThe 16 rejections are exactly 4 per validator across 4 validators — one\nper session boundary each. Both runs have identical session structure\n(10-block epoch under `fast-runtime`, session changes at relay blocks 21\nand 31, same 20-block counting window), so the two columns are directly\ncomparable.\n\nPer-block, before the fix, the zero-candidate blocks cluster right after\neach session change:\n\n```\n15, 16              tail of the first session window\n21                  session change (skipped by the harness)\n23, 24, 25, 26      the four blocks after session change 21   <- lookahead - 1 = 4\n31                  session change (skipped by the harness)\n33, 34, 35          blocks after session change 31\n```\n\nFour consecutive dead blocks after block 21, and `lookahead - 1 = 5 - 1\n= 4`. After the fix there are no gaps at all: every counted block backs\nboth paras, including the blocks immediately following both session\nchanges.\n\nWith a 10-block epoch and lookahead 5, roughly 40% of blocks fell inside\nthe affected window, which matches the observed shortfall (11 of 20).\n\n## Notes\n\n- Test-only change; `polkadot-zombienet-sdk-tests` is `publish = false`,\nso this needs the `R0-no-crate-publish-required` label rather than a\nprdoc.\n- The sibling `approved_peer_mixed_validators` test is unaffected and\nstays green.",
+          "timestamp": "2026-08-20T12:08:41Z",
+          "tree_id": "1b4771928f5de5c7ffe0c13d650853a3a827d3c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/314cd2c0d4d2ec882b732004bf611b5ba195d5d2"
+        },
+        "date": 1787233231488,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.75,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6361539591299996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020897649999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002351994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.60206024109,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002351994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005642411740000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.636140249579938,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6448306822200003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.612268443799998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3510394695699817,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020897649999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7841450420299576,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.317371380343169,
             "unit": "seconds"
           }
         ]
