@@ -51,39 +51,18 @@ pub fn env_or_default(var: &str, default: &str) -> String {
 	std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
-/// Enables the given `node_features` bits at runtime. See [`set_node_features`] for the timing
-/// caveat.
+/// Enables the given `node_features` bits at runtime via a single sudo extrinsic.
+///
+/// All bit indices in `feature_bits` are set to `true` in one batched `set_node_feature` call.
+/// The change takes effect after the next session change.
 pub async fn enable_node_features(
 	client: &OnlineClient<PolkadotConfig>,
 	feature_bits: &[u8],
 ) -> Result<(), anyhow::Error> {
-	set_node_features(client, feature_bits, true).await
-}
-
-/// Disables the given `node_features` bits at runtime. See [`set_node_features`] for the timing
-/// caveat.
-pub async fn disable_node_features(
-	client: &OnlineClient<PolkadotConfig>,
-	feature_bits: &[u8],
-) -> Result<(), anyhow::Error> {
-	set_node_features(client, feature_bits, false).await
-}
-
-/// Sets the given `node_features` bits to `enabled` via a single sudo batched `set_node_feature`
-/// extrinsic.
-async fn set_node_features(
-	client: &OnlineClient<PolkadotConfig>,
-	feature_bits: &[u8],
-	enabled: bool,
-) -> Result<(), anyhow::Error> {
 	let calls: Vec<Value> = feature_bits
 		.iter()
 		.map(|&bit| {
-			if enabled {
-				value! { Configuration(set_node_feature { index: bit, value: true }) }
-			} else {
-				value! { Configuration(set_node_feature { index: bit, value: false }) }
-			}
+			value! { Configuration(set_node_feature { index: bit, value: true }) }
 		})
 		.collect();
 
@@ -211,6 +190,9 @@ pub async fn assert_validator_backed_candidates(
 /// Waits for the first session change (so that genesis configuration like `node_features` is
 /// active), then checks that the number of candidates matching `expected_version` falls within
 /// `expected_range` after `max_blocks` relay chain blocks for each para ID.
+///
+/// `min_session_index`, when set, ignores candidates whose relay parent is in an earlier session,
+/// so stragglers from before a version switch are neither counted nor validated.
 pub async fn assert_candidates_version(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	expected_version: CandidateDescriptorVersion,

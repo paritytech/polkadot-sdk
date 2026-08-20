@@ -1,28 +1,21 @@
-title: Handle relay v3→v2 scheduling rollback for v3-capable parachains
+title: Read the collator's scheduling parameters at the parent it builds on
 
 doc:
   - audience: Runtime Dev
     description: |
-      A v3-capable parachain falls back to v2 candidates when the relay chain disables the
-      `CandidateReceiptV3` node feature, instead of stalling. "V3 active" is now derived from the
-      para's `V3_SCHEDULING_ENABLED` const and the relay feature, read from the committed state
-      proof via a new decode-only `RelayHostConfigurationPrefix`. The `CoreInfo` digest's
-      `claim_queue_offset` bound adds `relay_parent_offset` only on the v2 fallback.
+      The slot-based collator reads `scheduling_v3_enabled`, `relay_parent_offset`,
+      `max_claim_queue_offset` and the Aura authorities at the parent it builds on rather than at
+      the para best head, and resolves them against `:pending_code`, so they come from the runtime
+      that executes the block. This keeps candidate shape correct across a para runtime upgrade
+      that flips V3 scheduling off again.
 
-      The slot-based collator reads the scheduling values at the parent it builds on rather than at
-      the best head, so they come from the runtime that executes the block.
+      `cumulus-pallet-parachain-system` only gains named constants for the claim queue lookahead
+      and regression coverage for the `CoreInfo` `claim_queue_offset` bound; its behaviour is
+      unchanged.
 crates:
   - name: cumulus-client-consensus-common
     bump: patch
   - name: cumulus-pallet-parachain-system
-    bump: minor
+    bump: patch
   - name: cumulus-client-consensus-aura
     bump: patch
-  - name: polkadot-primitives
-    bump: minor
-  - name: cumulus-primitives-core
-    bump: minor
-  - name: cumulus-test-relay-sproof-builder
-    bump: major
-  - name: polkadot-runtime-parachains
-    bump: none

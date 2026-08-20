@@ -248,9 +248,7 @@ pub mod well_known_keys {
 
 	/// The currently active host configuration.
 	///
-	/// The storage entry holds an encoded `HostConfiguration<BlockNumber>`. Parachains decode a
-	/// positional prefix of it: `AbridgedHostConfiguration` for the fields they persist, or the
-	/// extended prefix defined on the cumulus side to also reach `node_features`.
+	/// The storage entry should be accessed as an `AbridgedHostConfiguration` encoded value.
 	pub const ACTIVE_CONFIG: &[u8] =
 		&hex!["06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385"];
 
@@ -946,13 +944,7 @@ impl From<ValidityError> for u8 {
 
 /// Abridged version of `HostConfiguration` (from the `Configuration` parachains host runtime
 /// module) meant to be used by a parachain or PDK such as cumulus.
-///
-/// These fields MUST stay a positional prefix of the relay `HostConfiguration<BlockNumber>` (same
-/// order and types): parachains SCALE-decode this struct from the `ACTIVE_CONFIG` blob on every
-/// block. Reordering or changing any field up to and including `node_features` breaks decoding for
-/// un-upgraded parachains (halting them until a runtime upgrade). Guarded by the
-/// `verify_externally_accessible` test in the configuration pallet.
-#[derive(Clone, Encode, Decode, Debug, Default, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct AbridgedHostConfiguration {
 	/// The maximum validation code size, in bytes.

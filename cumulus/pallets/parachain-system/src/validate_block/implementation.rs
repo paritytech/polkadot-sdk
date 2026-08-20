@@ -51,48 +51,6 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 // Recorder instance to be used during this validate_block call.
 environmental::environmental!(recorder: trait ProofSizeProvider);
 
-/// Read the relay `CandidateReceiptV3` feature from the first block's `set_validation_data`
-/// inherent, anchored to the trusted `relay_parent_storage_root` param. Reading from committed
-/// relay state (not a node-local source) keeps the decision deterministic across validators.
-///
-/// Sound for the whole bundle: `validate_validation_data` runs for every block in the execution
-/// loop and asserts that the block's `relay_parent_storage_root` equals the bundle-level one passed
-/// here, so all blocks share one relay parent and therefore one state proof — the feature bit read
-/// from the first block's proof is the same bit for all of them.
-///
-/// Panics if the mandatory `set_validation_data` inherent is missing or the proof is invalid.
-fn read_relay_v3_feature_enabled<B: BlockT, PSC: crate::Config>(
-	block_data: &ParachainBlockData<B::LazyBlock>,
-	relay_parent_storage_root: RHash,
-) -> bool
-where
-	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
-{
-	let first_block = block_data.blocks().first().expect("Parachain block data has no blocks");
-
-	// `set_validation_data` is a mandatory inherent, so it sits at the very front of the extrinsic
-	// list; this scan hits it within the first few items and returns immediately.
-	for xt in first_block.extrinsics() {
-		let Ok(xt) = xt else { continue };
-		if let Some(crate::Call::set_validation_data { data, .. }) = xt.call().is_sub_type() {
-			return crate::relay_state_snapshot::RelayChainStateProof::new(
-				// `ACTIVE_CONFIG` is a global key, so the para id is unused for this read. We must
-				// NOT read `SelfParaId` from storage here: no externalities are set up yet at this
-				// point in `validate_block`, so a storage read would trap.
-				cumulus_primitives_core::ParaId::from(0u32),
-				relay_parent_storage_root,
-				data.relay_chain_state.clone(),
-			)
-			.expect("Invalid relay chain state proof")
-			.read_relay_v3_feature_enabled()
-			.expect("Invalid host configuration in relay chain state proof");
-		}
-	}
-
-	panic!("Missing `set_validation_data` inherent in the first parachain block");
-}
-
 /// Validate the given parachain block.
 ///
 /// This function is doing roughly the following:
@@ -179,22 +137,11 @@ where
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
-	// V3 is *dynamically* active only when the para const `V3_SCHEDULING_ENABLED` is on AND the
-	// relay `CandidateReceiptV3` feature is on (read from the committed state proof). This MUST
-	// stay identical to the `v3_dynamically_active` predicate in `set_validation_data` (see
-	// `lib.rs`): disagreement between the two means this PVF rejects blocks their author
-	// considered valid, so the two sites have to be edited together. The const is checked first so
-	// that `&&` short-circuits and a non-V3 runtime never scans the extrinsics or decodes the
-	// config prefix.
-	let v3_dynamically_active = PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED &&
-		read_relay_v3_feature_enabled::<B, PSC>(&block_data, relay_parent_storage_root);
-
 	// V3 scheduling validation (chain-shape only). Signature verification of
 	// `signed_scheduling_info` happens here at the call site so the verifier wiring
 	// stays out of the pure shape check.
 	let validated_scheduling = scheduling::validate_v3_scheduling(
 		PSC::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
-		v3_dynamically_active,
 		&extension.0,
 		block_data.scheduling_proof(),
 		PSC::RelayParentOffset::get(),

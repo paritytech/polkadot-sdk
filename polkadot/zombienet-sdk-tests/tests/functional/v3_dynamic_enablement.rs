@@ -5,21 +5,15 @@
 //! runtime on the para. The relay side is toggled with a `set_node_feature` extrinsic; the para
 //! side via a runtime upgrade to the v3 test runtime.
 //!
-//! Para 2902 walks up into V3 and then back out, once per rollback direction. The first three steps
-//! are the same for both cases:
+//! Para 2902 walks up into V3 and then back out:
 //!
-//!   off/off → V2, on/off → V2, on/on → V3
+//!   off/off → V2, on/off → V2, on/on → V3, on/off → V2
 //!
-//! and then the case parameter picks which side gives up V3:
-//!
-//! * `relay_rollback` — final step off/on → V2. The node feature is disabled while the para keeps
-//!   the v3 runtime, i.e. the V2 fallback with the v3 const still on.
-//! * `para_rollback` — final step on/off → V2. The para is upgraded to a V3-disabled runtime while
-//!   the feature stays on, so the collator is still in V3 mode when the code swaps.
+//! The final step is the para rollback: 2902 is upgraded to a V3-disabled runtime while the feature
+//! stays on, so the collator is still in V3 mode when the code swaps.
 
 use crate::utils::{
-	assert_candidates_version, assert_validator_backed_candidates, disable_node_features,
-	enable_node_features,
+	assert_candidates_version, assert_validator_backed_candidates, enable_node_features,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -44,22 +38,11 @@ const V3_CANDIDATES: Range<u32> = 4..11;
 /// they are applied in. Mirrors `polkadot_runtime_parachains::shared::SESSION_DELAY`.
 const SESSION_DELAY: u32 = 2;
 
-/// Which side gives up V3 in the final step, see the module docs.
-#[derive(Copy, Clone, Debug)]
-enum Rollback {
-	/// Disable the `CandidateReceiptV3` node feature, para keeps the v3 runtime.
-	Relay,
-	/// Upgrade the para to a V3-disabled runtime, node feature stays on.
-	Para,
-}
-
 #[rstest]
-#[case::relay_rollback(Rollback::Relay, 0)]
-#[case::para_rollback(Rollback::Para, 0)]
-#[case::para_rollback_rpo_2(Rollback::Para, 2)]
+#[case::para_rollback(0)]
+#[case::para_rollback_rpo_2(2)]
 #[tokio::test(flavor = "multi_thread")]
 async fn v3_dynamic_enablement_test(
-	#[case] rollback: Rollback,
 	// Para 2902's `relay_parent_offset`, held constant across the whole walk-up and rollback.
 	//
 	// At offset 0 the inherent's relay-parent-descendant check is inert
@@ -101,8 +84,8 @@ async fn v3_dynamic_enablement_test(
 		other => return Err(anyhow!("no runtime flavours wired up for offset {other}")),
 	};
 	// One session of walk-back, matching what `scheduling_v3.rs` pairs offset 2 with. Any more and
-	// the scheduling parent leaves prospective-parachains' scope at that offset, dropping
-	// candidates as `SchedulingParentNotInScope`.
+	// the scheduling parent leaves prospective-parachains' scope at offset 2, dropping candidates
+	// as `SchedulingParentNotInScope`. Offset 0 never walks back, so the value is irrelevant there.
 	let max_relay_parent_session_age = 1;
 
 	let scheduling_lookahead = 5;
@@ -256,6 +239,8 @@ async fn v3_dynamic_enablement_test(
 
 	// on/off → on/on: upgrade para 2902 to the v3 runtime. Both sides on → V3.
 	// v3 shares its spec_version with V2, so use set_code_without_checks.
+	// Not session anchored: `assert_candidates_version` waits for a session change before it
+	// validates anything, which is well past the V2 collations in flight at the code swap.
 	log::info!("state on/on (relay on, para on) → V3");
 	let upgrade_call = dynamic(
 		"Sudo",
@@ -284,86 +269,57 @@ async fn v3_dynamic_enablement_test(
 	)
 	.await?;
 
-	// on/on → the rollback under test. Both directions land every para on V2 and must keep them
-	// producing at the same rate; the difference is the state the collator is in when the switch
-	// happens, so each case exercises a different transition.
-	match rollback {
-		// Relay side: disable the node feature while 2902 keeps the v3 runtime, so it falls back to
-		// V2 with the v3 const still on. Session gated, so anchor to the enactment session to skip
-		// the V3 tail.
-		Rollback::Relay => {
-			log::info!("state off/on (relay off, para on) → V2 (fallback)");
-			disable_node_features(&relay_client, &[4]).await?;
-			let enactment_session = current_session_index(&relay_client).await? + SESSION_DELAY;
-			assert_candidates_version(
-				&relay_client,
-				CandidateDescriptorVersion::V2,
-				HashMap::from([
-					(para_2900, SINGLE_CORE_CANDIDATES),
-					(para_2901, ELASTIC_CANDIDATES),
-					(para_2902, para_2902_candidates()),
-				]),
-				10,
-				Some(enactment_session),
-			)
+	// on/on → on/off: upgrade 2902 to a V3-disabled runtime while the node feature stays on, so the
+	// collator is still in V3 mode at the moment of the swap — the V3→V2 shape switch, not just a
+	// change of claim queue depth. Not session gated (the new runtime applies at the next para
+	// block), but anchor one session ahead anyway so V3 collations that were in flight when the
+	// code was swapped are not counted as a version violation.
+	log::info!("state on/off (relay on, para rolled back off v3) → V2");
+	if relay_parent_offset == 0 {
+		// `spec_version_incremented` bumps the version, so the checked call works.
+		submit_sudo_runtime_upgrade(&para_client_v3, v3_disabled_wasm, &dev::alice()).await?;
+	} else {
+		// The offset-2 rollback target shares a spec_version with `v3_rpo_2`, so
+		// `System::set_code` would reject it for not increasing the version.
+		let rollback_call = dynamic(
+			"Sudo",
+			"sudo_unchecked_weight",
+			vec![
+				value! { System(set_code_without_checks { code: Value::from_bytes(v3_disabled_wasm) }) },
+				value! { { ref_time: 1u64, proof_size: 1u64 } },
+			],
+		);
+		para_client_v3
+			.tx()
+			.sign_and_submit_then_watch_default(&rollback_call, &dev::alice())
+			.await?
+			.wait_for_finalized_success()
 			.await?;
-		},
-		// Para side: upgrade 2902 to a V3-disabled runtime while the node feature stays on, so the
-		// collator is still in V3 mode at the moment of the swap — the V3→V2 shape switch, not just
-		// a change of claim queue depth. Not session gated (the new runtime applies at the next
-		// para block), but anchor one session ahead anyway so V3 collations that were in flight
-		// when the code was swapped are not counted as a version violation.
-		Rollback::Para => {
-			log::info!("state on/off (relay on, para rolled back off v3) → V2");
-			if relay_parent_offset == 0 {
-				// `spec_version_incremented` bumps the version, so the checked call works.
-				submit_sudo_runtime_upgrade(&para_client_v3, v3_disabled_wasm, &dev::alice())
-					.await?;
-			} else {
-				// The offset-2 rollback target shares a spec_version with `v3_rpo_2`, so
-				// `System::set_code` would reject it for not increasing the version.
-				let rollback_call = dynamic(
-					"Sudo",
-					"sudo_unchecked_weight",
-					vec![
-						value! { System(set_code_without_checks { code: Value::from_bytes(v3_disabled_wasm) }) },
-						value! { { ref_time: 1u64, proof_size: 1u64 } },
-					],
-				);
-				para_client_v3
-					.tx()
-					.sign_and_submit_then_watch_default(&rollback_call, &dev::alice())
-					.await?
-					.wait_for_finalized_success()
-					.await?;
-			}
-			wait_for_runtime_upgrade(&para_client_v3).await?;
-			// Only offset 0 rolls back to a blob the network has never seen
-			// (`spec_version_incremented`, needed for the version-checked `set_code`), so only
-			// there does a fourth prepare happen. Offset 2 rolls back to 2902's genesis code,
-			// already prepared, so the concluded-prepares metric never advances.
-			if relay_parent_offset == 0 {
-				wait_for_pvf_prepare(&network, 4).await?;
-			}
-			// One session is enough here, unlike the relay arm's `SESSION_DELAY`: this is not a
-			// session-gated config change, and `wait_for_runtime_upgrade` above has already seen
-			// the code-swap block finalized, so every relay parent from the next session on is
-			// past it.
-			let post_rollback_session = current_session_index(&relay_client).await? + 1;
-			assert_candidates_version(
-				&relay_client,
-				CandidateDescriptorVersion::V2,
-				HashMap::from([
-					(para_2900, SINGLE_CORE_CANDIDATES),
-					(para_2901, ELASTIC_CANDIDATES),
-					(para_2902, para_2902_candidates()),
-				]),
-				10,
-				Some(post_rollback_session),
-			)
-			.await?;
-		},
 	}
+	wait_for_runtime_upgrade(&para_client_v3).await?;
+	// Only offset 0 rolls back to a blob the network has never seen (`spec_version_incremented`,
+	// needed for the version-checked `set_code`), so only there does a fourth prepare happen.
+	// Offset 2 rolls back to 2902's genesis code, already prepared, so the concluded-prepares
+	// metric never advances.
+	if relay_parent_offset == 0 {
+		wait_for_pvf_prepare(&network, 4).await?;
+	}
+	// One session is enough here: this is not a session-gated config change, and
+	// `wait_for_runtime_upgrade` above has already seen the code-swap block finalized, so every
+	// relay parent from the next session on is past it.
+	let post_rollback_session = current_session_index(&relay_client).await? + 1;
+	assert_candidates_version(
+		&relay_client,
+		CandidateDescriptorVersion::V2,
+		HashMap::from([
+			(para_2900, SINGLE_CORE_CANDIDATES),
+			(para_2901, ELASTIC_CANDIDATES),
+			(para_2902, para_2902_candidates()),
+		]),
+		10,
+		Some(post_rollback_session),
+	)
+	.await?;
 
 	assert_validator_backed_candidates(relay_node, 30).await?;
 	for i in 4..=9 {
@@ -381,7 +337,7 @@ async fn v3_dynamic_enablement_test(
 	)
 	.await?;
 
-	log::info!("V3 dynamic enablement test ({rollback:?} rollback) finished successfully");
+	log::info!("V3 dynamic enablement test finished successfully");
 
 	Ok(())
 }

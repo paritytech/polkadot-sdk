@@ -512,15 +512,6 @@ fn non_root_cannot_set_config() {
 fn verify_externally_accessible() {
 	// This test verifies that the value can be accessed through the well known keys and the
 	// host configuration decodes into the abridged version.
-	//
-	// A FAILURE here means the positional field layout of `HostConfiguration` has diverged from
-	// `AbridgedHostConfiguration`, which every parachain decodes out of the `ACTIVE_CONFIG` blob —
-	// so it needs a coordinated parachain runtime migration and must not be shipped casually.
-	//
-	// Note this only covers the abridged prefix. The longer prefix that reaches `node_features` is
-	// guarded on the cumulus side, by `verify_relay_host_configuration_prefix` in
-	// `cumulus-pallet-parachain-system`, so a reordering between `async_backing_params` and
-	// `node_features` fails there and not here.
 
 	use polkadot_primitives::{well_known_keys, AbridgedHostConfiguration};
 
