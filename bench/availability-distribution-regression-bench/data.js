@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787233222643,
+  "lastUpdate": 1787238905086,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8",
-          "message": "Forbid invisible characters (#10838)",
-          "timestamp": "2026-01-19T12:12:57Z",
-          "tree_id": "6b6ae55aca653737448068b4138d360c411b9f3d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8"
-        },
-        "date": 1768828934459,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14447056776000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023050117073333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009817774406666648,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007476108486666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022788332113333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7ca06d79c03f826414d11a78e277547795ddcc59",
+          "message": "Update trie-db to 0.32.0 (#12935)\n\nUpdated trie-db to v0.32.0. Fixes #12565 .\n\nAlso make root checks mandatory in the API. This provides some safety\nagainst misuse, because the check is necessary to prevent overly long\nproof decoding.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-20T13:29:20Z",
+          "tree_id": "872ea5e27f5650a8dfc443c3a051b102fd2d8510",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ca06d79c03f826414d11a78e277547795ddcc59"
+        },
+        "date": 1787238873248,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00970351678,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022705145686666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1455230308933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076149845866666675,
             "unit": "seconds"
           }
         ]
