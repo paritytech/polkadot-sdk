@@ -1,16 +1,4 @@
 The following crates were updated to the corresponding versions:
 
-<details>
-<summary>Crates list</summary>
-
-- cumulus-pallet-xcmp-queue@0.25.1
-- collectives-westend-runtime@25.0.1
-- coretime-rococo-runtime@0.21.1
-- coretime-westend-runtime@0.21.1
-- people-rococo-runtime@0.21.1
-- asset-hub-rococo-runtime@0.34.1
-- asset-hub-westend-runtime@0.46.1
-- bridge-hub-rococo-runtime@0.29.1
-- bridge-hub-westend-runtime@0.26.1
-
-</details>
+- sc-consensus-beefy@34.0.1
+- sc-consensus-grandpa@0.40.1
