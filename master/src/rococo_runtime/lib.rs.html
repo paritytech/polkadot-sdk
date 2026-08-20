@@ -2719,192 +2719,197 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2569 id=2569 data-nosnippet>2569</a>					)
 <a href=#2570 id=2570 data-nosnippet>2570</a>				}
 <a href=#2571 id=2571 data-nosnippet>2571</a>
-<a href=#2572 id=2572 data-nosnippet>2572</a>				<span class="kw">fn </span>get_asset() -&gt; Asset {
-<a href=#2573 id=2573 data-nosnippet>2573</a>					Asset {
-<a href=#2574 id=2574 data-nosnippet>2574</a>						id: AssetId(Location::here()),
-<a href=#2575 id=2575 data-nosnippet>2575</a>						fun: Fungible(ExistentialDeposit::get()),
-<a href=#2576 id=2576 data-nosnippet>2576</a>					}
-<a href=#2577 id=2577 data-nosnippet>2577</a>				}
-<a href=#2578 id=2578 data-nosnippet>2578</a>			}
-<a href=#2579 id=2579 data-nosnippet>2579</a>			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
-<a href=#2580 id=2580 data-nosnippet>2580</a>				<span class="kw">type </span>XcmConfig = XcmConfig;
-<a href=#2581 id=2581 data-nosnippet>2581</a>				<span class="kw">type </span>AccountIdConverter = LocationConverter;
-<a href=#2582 id=2582 data-nosnippet>2582</a>				<span class="kw">type </span>DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
-<a href=#2583 id=2583 data-nosnippet>2583</a>					XcmConfig,
-<a href=#2584 id=2584 data-nosnippet>2584</a>					ExistentialDepositAsset,
-<a href=#2585 id=2585 data-nosnippet>2585</a>					xcm_config::PriceForChildParachainDelivery,
-<a href=#2586 id=2586 data-nosnippet>2586</a>					AssetHubParaId,
-<a href=#2587 id=2587 data-nosnippet>2587</a>					Dmp,
-<a href=#2588 id=2588 data-nosnippet>2588</a>				&gt;;
-<a href=#2589 id=2589 data-nosnippet>2589</a>				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
-<a href=#2590 id=2590 data-nosnippet>2590</a>					<span class="prelude-val">Ok</span>(AssetHub::get())
-<a href=#2591 id=2591 data-nosnippet>2591</a>				}
-<a href=#2592 id=2592 data-nosnippet>2592</a>				<span class="kw">fn </span>worst_case_holding(_depositable_count: u32) -&gt; xcm_executor::AssetsInHolding {
-<a href=#2593 id=2593 data-nosnippet>2593</a>					<span class="kw">use </span>pallet_xcm_benchmarks::MockCredit;
-<a href=#2594 id=2594 data-nosnippet>2594</a>					<span class="comment">// Rococo only knows about ROC
-<a href=#2595 id=2595 data-nosnippet>2595</a>					</span><span class="kw">let </span><span class="kw-2">mut </span>holding = xcm_executor::AssetsInHolding::new();
-<a href=#2596 id=2596 data-nosnippet>2596</a>					holding.fungible.insert(
-<a href=#2597 id=2597 data-nosnippet>2597</a>						AssetId(TokenLocation::get()),
-<a href=#2598 id=2598 data-nosnippet>2598</a>						alloc::boxed::Box::new(MockCredit(<span class="number">1_000_000 </span>* UNITS)),
-<a href=#2599 id=2599 data-nosnippet>2599</a>					);
-<a href=#2600 id=2600 data-nosnippet>2600</a>					holding
-<a href=#2601 id=2601 data-nosnippet>2601</a>				}
-<a href=#2602 id=2602 data-nosnippet>2602</a>			}
-<a href=#2603 id=2603 data-nosnippet>2603</a>
-<a href=#2604 id=2604 data-nosnippet>2604</a>			<span class="macro">parameter_types!</span> {
-<a href=#2605 id=2605 data-nosnippet>2605</a>				<span class="kw">pub </span>TrustedTeleporter: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">Some</span>((
-<a href=#2606 id=2606 data-nosnippet>2606</a>					AssetHub::get(),
-<a href=#2607 id=2607 data-nosnippet>2607</a>					Asset { fun: Fungible(<span class="number">1 </span>* UNITS), id: AssetId(TokenLocation::get()) },
-<a href=#2608 id=2608 data-nosnippet>2608</a>				));
-<a href=#2609 id=2609 data-nosnippet>2609</a>				<span class="kw">pub </span>TrustedReserve: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">None</span>;
-<a href=#2610 id=2610 data-nosnippet>2610</a>			}
-<a href=#2611 id=2611 data-nosnippet>2611</a>
-<a href=#2612 id=2612 data-nosnippet>2612</a>			<span class="kw">impl </span>pallet_xcm_benchmarks::fungible::Config <span class="kw">for </span>Runtime {
-<a href=#2613 id=2613 data-nosnippet>2613</a>				<span class="kw">type </span>TransactAsset = Balances;
-<a href=#2614 id=2614 data-nosnippet>2614</a>
-<a href=#2615 id=2615 data-nosnippet>2615</a>				<span class="kw">type </span>CheckedAccount = LocalCheckAccount;
-<a href=#2616 id=2616 data-nosnippet>2616</a>				<span class="kw">type </span>TrustedTeleporter = TrustedTeleporter;
-<a href=#2617 id=2617 data-nosnippet>2617</a>				<span class="kw">type </span>TrustedReserve = TrustedReserve;
-<a href=#2618 id=2618 data-nosnippet>2618</a>
-<a href=#2619 id=2619 data-nosnippet>2619</a>				<span class="kw">fn </span>get_asset() -&gt; Asset {
-<a href=#2620 id=2620 data-nosnippet>2620</a>					Asset {
-<a href=#2621 id=2621 data-nosnippet>2621</a>						id: AssetId(TokenLocation::get()),
-<a href=#2622 id=2622 data-nosnippet>2622</a>						fun: Fungible(<span class="number">1 </span>* UNITS),
-<a href=#2623 id=2623 data-nosnippet>2623</a>					}
-<a href=#2624 id=2624 data-nosnippet>2624</a>				}
-<a href=#2625 id=2625 data-nosnippet>2625</a>			}
-<a href=#2626 id=2626 data-nosnippet>2626</a>
-<a href=#2627 id=2627 data-nosnippet>2627</a>			<span class="kw">impl </span>pallet_xcm_benchmarks::generic::Config <span class="kw">for </span>Runtime {
-<a href=#2628 id=2628 data-nosnippet>2628</a>				<span class="kw">type </span>TransactAsset = Balances;
-<a href=#2629 id=2629 data-nosnippet>2629</a>				<span class="kw">type </span>RuntimeCall = RuntimeCall;
-<a href=#2630 id=2630 data-nosnippet>2630</a>
-<a href=#2631 id=2631 data-nosnippet>2631</a>				<span class="kw">fn </span>worst_case_response() -&gt; (u64, Response) {
-<a href=#2632 id=2632 data-nosnippet>2632</a>					(<span class="number">0u64</span>, Response::Version(Default::default()))
-<a href=#2633 id=2633 data-nosnippet>2633</a>				}
-<a href=#2634 id=2634 data-nosnippet>2634</a>
-<a href=#2635 id=2635 data-nosnippet>2635</a>				<span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(Assets, Assets), BenchmarkError&gt; {
-<a href=#2636 id=2636 data-nosnippet>2636</a>					<span class="comment">// Rococo doesn't support asset exchanges
-<a href=#2637 id=2637 data-nosnippet>2637</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
+<a href=#2572 id=2572 data-nosnippet>2572</a>				<span class="comment">// `get_assets` stays at its default: the `AssetTransactor` only handles the
+<a href=#2573 id=2573 data-nosnippet>2573</a>				// native token, so a multi-asset worst case is not constructible here.
+<a href=#2574 id=2574 data-nosnippet>2574</a>				</span><span class="kw">fn </span>get_asset() -&gt; Asset {
+<a href=#2575 id=2575 data-nosnippet>2575</a>					Asset {
+<a href=#2576 id=2576 data-nosnippet>2576</a>						id: AssetId(Location::here()),
+<a href=#2577 id=2577 data-nosnippet>2577</a>						fun: Fungible(ExistentialDeposit::get()),
+<a href=#2578 id=2578 data-nosnippet>2578</a>					}
+<a href=#2579 id=2579 data-nosnippet>2579</a>				}
+<a href=#2580 id=2580 data-nosnippet>2580</a>				<span class="kw">fn </span>batch_call(calls: Vec&lt;RuntimeCall&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;RuntimeCall&gt; {
+<a href=#2581 id=2581 data-nosnippet>2581</a>					<span class="prelude-val">Some</span>(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+<a href=#2582 id=2582 data-nosnippet>2582</a>				}
+<a href=#2583 id=2583 data-nosnippet>2583</a>			}
+<a href=#2584 id=2584 data-nosnippet>2584</a>			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
+<a href=#2585 id=2585 data-nosnippet>2585</a>				<span class="kw">type </span>XcmConfig = XcmConfig;
+<a href=#2586 id=2586 data-nosnippet>2586</a>				<span class="kw">type </span>AccountIdConverter = LocationConverter;
+<a href=#2587 id=2587 data-nosnippet>2587</a>				<span class="kw">type </span>DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper&lt;
+<a href=#2588 id=2588 data-nosnippet>2588</a>					XcmConfig,
+<a href=#2589 id=2589 data-nosnippet>2589</a>					ExistentialDepositAsset,
+<a href=#2590 id=2590 data-nosnippet>2590</a>					xcm_config::PriceForChildParachainDelivery,
+<a href=#2591 id=2591 data-nosnippet>2591</a>					AssetHubParaId,
+<a href=#2592 id=2592 data-nosnippet>2592</a>					Dmp,
+<a href=#2593 id=2593 data-nosnippet>2593</a>				&gt;;
+<a href=#2594 id=2594 data-nosnippet>2594</a>				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
+<a href=#2595 id=2595 data-nosnippet>2595</a>					<span class="prelude-val">Ok</span>(AssetHub::get())
+<a href=#2596 id=2596 data-nosnippet>2596</a>				}
+<a href=#2597 id=2597 data-nosnippet>2597</a>				<span class="kw">fn </span>worst_case_holding(_depositable_count: u32) -&gt; xcm_executor::AssetsInHolding {
+<a href=#2598 id=2598 data-nosnippet>2598</a>					<span class="kw">use </span>pallet_xcm_benchmarks::MockCredit;
+<a href=#2599 id=2599 data-nosnippet>2599</a>					<span class="comment">// Rococo only knows about ROC
+<a href=#2600 id=2600 data-nosnippet>2600</a>					</span><span class="kw">let </span><span class="kw-2">mut </span>holding = xcm_executor::AssetsInHolding::new();
+<a href=#2601 id=2601 data-nosnippet>2601</a>					holding.fungible.insert(
+<a href=#2602 id=2602 data-nosnippet>2602</a>						AssetId(TokenLocation::get()),
+<a href=#2603 id=2603 data-nosnippet>2603</a>						alloc::boxed::Box::new(MockCredit(<span class="number">1_000_000 </span>* UNITS)),
+<a href=#2604 id=2604 data-nosnippet>2604</a>					);
+<a href=#2605 id=2605 data-nosnippet>2605</a>					holding
+<a href=#2606 id=2606 data-nosnippet>2606</a>				}
+<a href=#2607 id=2607 data-nosnippet>2607</a>			}
+<a href=#2608 id=2608 data-nosnippet>2608</a>
+<a href=#2609 id=2609 data-nosnippet>2609</a>			<span class="macro">parameter_types!</span> {
+<a href=#2610 id=2610 data-nosnippet>2610</a>				<span class="kw">pub </span>TrustedTeleporter: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">Some</span>((
+<a href=#2611 id=2611 data-nosnippet>2611</a>					AssetHub::get(),
+<a href=#2612 id=2612 data-nosnippet>2612</a>					Asset { fun: Fungible(<span class="number">1 </span>* UNITS), id: AssetId(TokenLocation::get()) },
+<a href=#2613 id=2613 data-nosnippet>2613</a>				));
+<a href=#2614 id=2614 data-nosnippet>2614</a>				<span class="kw">pub </span>TrustedReserve: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">None</span>;
+<a href=#2615 id=2615 data-nosnippet>2615</a>			}
+<a href=#2616 id=2616 data-nosnippet>2616</a>
+<a href=#2617 id=2617 data-nosnippet>2617</a>			<span class="kw">impl </span>pallet_xcm_benchmarks::fungible::Config <span class="kw">for </span>Runtime {
+<a href=#2618 id=2618 data-nosnippet>2618</a>				<span class="kw">type </span>TransactAsset = Balances;
+<a href=#2619 id=2619 data-nosnippet>2619</a>
+<a href=#2620 id=2620 data-nosnippet>2620</a>				<span class="kw">type </span>CheckedAccount = LocalCheckAccount;
+<a href=#2621 id=2621 data-nosnippet>2621</a>				<span class="kw">type </span>TrustedTeleporter = TrustedTeleporter;
+<a href=#2622 id=2622 data-nosnippet>2622</a>				<span class="kw">type </span>TrustedReserve = TrustedReserve;
+<a href=#2623 id=2623 data-nosnippet>2623</a>
+<a href=#2624 id=2624 data-nosnippet>2624</a>				<span class="kw">fn </span>get_asset() -&gt; Asset {
+<a href=#2625 id=2625 data-nosnippet>2625</a>					Asset {
+<a href=#2626 id=2626 data-nosnippet>2626</a>						id: AssetId(TokenLocation::get()),
+<a href=#2627 id=2627 data-nosnippet>2627</a>						fun: Fungible(<span class="number">1 </span>* UNITS),
+<a href=#2628 id=2628 data-nosnippet>2628</a>					}
+<a href=#2629 id=2629 data-nosnippet>2629</a>				}
+<a href=#2630 id=2630 data-nosnippet>2630</a>			}
+<a href=#2631 id=2631 data-nosnippet>2631</a>
+<a href=#2632 id=2632 data-nosnippet>2632</a>			<span class="kw">impl </span>pallet_xcm_benchmarks::generic::Config <span class="kw">for </span>Runtime {
+<a href=#2633 id=2633 data-nosnippet>2633</a>				<span class="kw">type </span>TransactAsset = Balances;
+<a href=#2634 id=2634 data-nosnippet>2634</a>				<span class="kw">type </span>RuntimeCall = RuntimeCall;
+<a href=#2635 id=2635 data-nosnippet>2635</a>
+<a href=#2636 id=2636 data-nosnippet>2636</a>				<span class="kw">fn </span>worst_case_response() -&gt; (u64, Response) {
+<a href=#2637 id=2637 data-nosnippet>2637</a>					(<span class="number">0u64</span>, Response::Version(Default::default()))
 <a href=#2638 id=2638 data-nosnippet>2638</a>				}
 <a href=#2639 id=2639 data-nosnippet>2639</a>
-<a href=#2640 id=2640 data-nosnippet>2640</a>				<span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Junction), BenchmarkError&gt; {
-<a href=#2641 id=2641 data-nosnippet>2641</a>					<span class="comment">// The XCM executor of Rococo doesn't have a configured `UniversalAliases`
+<a href=#2640 id=2640 data-nosnippet>2640</a>				<span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(Assets, Assets), BenchmarkError&gt; {
+<a href=#2641 id=2641 data-nosnippet>2641</a>					<span class="comment">// Rococo doesn't support asset exchanges
 <a href=#2642 id=2642 data-nosnippet>2642</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
 <a href=#2643 id=2643 data-nosnippet>2643</a>				}
 <a href=#2644 id=2644 data-nosnippet>2644</a>
-<a href=#2645 id=2645 data-nosnippet>2645</a>				<span class="kw">fn </span>transact_origin_and_runtime_call() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, RuntimeCall), BenchmarkError&gt; {
-<a href=#2646 id=2646 data-nosnippet>2646</a>					<span class="prelude-val">Ok</span>((AssetHub::get(), frame_system::Call::remark_with_event { remark: <span class="macro">vec!</span>[] }.into()))
-<a href=#2647 id=2647 data-nosnippet>2647</a>				}
-<a href=#2648 id=2648 data-nosnippet>2648</a>
-<a href=#2649 id=2649 data-nosnippet>2649</a>				<span class="kw">fn </span>subscribe_origin() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
-<a href=#2650 id=2650 data-nosnippet>2650</a>					<span class="prelude-val">Ok</span>(AssetHub::get())
-<a href=#2651 id=2651 data-nosnippet>2651</a>				}
-<a href=#2652 id=2652 data-nosnippet>2652</a>
-<a href=#2653 id=2653 data-nosnippet>2653</a>				<span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Assets), BenchmarkError&gt; {
-<a href=#2654 id=2654 data-nosnippet>2654</a>					<span class="kw">let </span>origin = AssetHub::get();
-<a href=#2655 id=2655 data-nosnippet>2655</a>					<span class="kw">let </span>assets: Assets = (AssetId(TokenLocation::get()), <span class="number">1_000 </span>* UNITS).into();
-<a href=#2656 id=2656 data-nosnippet>2656</a>					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
-<a href=#2657 id=2657 data-nosnippet>2657</a>					<span class="prelude-val">Ok</span>((origin, ticket, assets))
-<a href=#2658 id=2658 data-nosnippet>2658</a>				}
-<a href=#2659 id=2659 data-nosnippet>2659</a>
-<a href=#2660 id=2660 data-nosnippet>2660</a>				<span class="kw">fn </span>worst_case_for_trader() -&gt; <span class="prelude-ty">Result</span>&lt;(Asset, WeightLimit), BenchmarkError&gt; {
-<a href=#2661 id=2661 data-nosnippet>2661</a>					<span class="prelude-val">Ok</span>((Asset {
-<a href=#2662 id=2662 data-nosnippet>2662</a>						id: AssetId(TokenLocation::get()),
-<a href=#2663 id=2663 data-nosnippet>2663</a>						fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
-<a href=#2664 id=2664 data-nosnippet>2664</a>					}, WeightLimit::Limited(Weight::from_parts(<span class="number">5000</span>, <span class="number">5000</span>))))
-<a href=#2665 id=2665 data-nosnippet>2665</a>				}
-<a href=#2666 id=2666 data-nosnippet>2666</a>
-<a href=#2667 id=2667 data-nosnippet>2667</a>				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt; {
-<a href=#2668 id=2668 data-nosnippet>2668</a>					<span class="comment">// Rococo doesn't support asset locking
-<a href=#2669 id=2669 data-nosnippet>2669</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
+<a href=#2645 id=2645 data-nosnippet>2645</a>				<span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Junction), BenchmarkError&gt; {
+<a href=#2646 id=2646 data-nosnippet>2646</a>					<span class="comment">// The XCM executor of Rococo doesn't have a configured `UniversalAliases`
+<a href=#2647 id=2647 data-nosnippet>2647</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
+<a href=#2648 id=2648 data-nosnippet>2648</a>				}
+<a href=#2649 id=2649 data-nosnippet>2649</a>
+<a href=#2650 id=2650 data-nosnippet>2650</a>				<span class="kw">fn </span>transact_origin_and_runtime_call() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, RuntimeCall), BenchmarkError&gt; {
+<a href=#2651 id=2651 data-nosnippet>2651</a>					<span class="prelude-val">Ok</span>((AssetHub::get(), frame_system::Call::remark_with_event { remark: <span class="macro">vec!</span>[] }.into()))
+<a href=#2652 id=2652 data-nosnippet>2652</a>				}
+<a href=#2653 id=2653 data-nosnippet>2653</a>
+<a href=#2654 id=2654 data-nosnippet>2654</a>				<span class="kw">fn </span>subscribe_origin() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
+<a href=#2655 id=2655 data-nosnippet>2655</a>					<span class="prelude-val">Ok</span>(AssetHub::get())
+<a href=#2656 id=2656 data-nosnippet>2656</a>				}
+<a href=#2657 id=2657 data-nosnippet>2657</a>
+<a href=#2658 id=2658 data-nosnippet>2658</a>				<span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Assets), BenchmarkError&gt; {
+<a href=#2659 id=2659 data-nosnippet>2659</a>					<span class="kw">let </span>origin = AssetHub::get();
+<a href=#2660 id=2660 data-nosnippet>2660</a>					<span class="kw">let </span>assets: Assets = (AssetId(TokenLocation::get()), <span class="number">1_000 </span>* UNITS).into();
+<a href=#2661 id=2661 data-nosnippet>2661</a>					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
+<a href=#2662 id=2662 data-nosnippet>2662</a>					<span class="prelude-val">Ok</span>((origin, ticket, assets))
+<a href=#2663 id=2663 data-nosnippet>2663</a>				}
+<a href=#2664 id=2664 data-nosnippet>2664</a>
+<a href=#2665 id=2665 data-nosnippet>2665</a>				<span class="kw">fn </span>worst_case_for_trader() -&gt; <span class="prelude-ty">Result</span>&lt;(Asset, WeightLimit), BenchmarkError&gt; {
+<a href=#2666 id=2666 data-nosnippet>2666</a>					<span class="prelude-val">Ok</span>((Asset {
+<a href=#2667 id=2667 data-nosnippet>2667</a>						id: AssetId(TokenLocation::get()),
+<a href=#2668 id=2668 data-nosnippet>2668</a>						fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
+<a href=#2669 id=2669 data-nosnippet>2669</a>					}, WeightLimit::Limited(Weight::from_parts(<span class="number">5000</span>, <span class="number">5000</span>))))
 <a href=#2670 id=2670 data-nosnippet>2670</a>				}
 <a href=#2671 id=2671 data-nosnippet>2671</a>
-<a href=#2672 id=2672 data-nosnippet>2672</a>				<span class="kw">fn </span>export_message_origin_and_destination(
-<a href=#2673 id=2673 data-nosnippet>2673</a>				) -&gt; <span class="prelude-ty">Result</span>&lt;(Location, NetworkId, InteriorLocation), BenchmarkError&gt; {
-<a href=#2674 id=2674 data-nosnippet>2674</a>					<span class="comment">// Rococo doesn't support exporting messages
-<a href=#2675 id=2675 data-nosnippet>2675</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
-<a href=#2676 id=2676 data-nosnippet>2676</a>				}
-<a href=#2677 id=2677 data-nosnippet>2677</a>
-<a href=#2678 id=2678 data-nosnippet>2678</a>				<span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location), BenchmarkError&gt; {
-<a href=#2679 id=2679 data-nosnippet>2679</a>					<span class="comment">// The XCM executor of Rococo doesn't have a configured `Aliasers`
+<a href=#2672 id=2672 data-nosnippet>2672</a>				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt; {
+<a href=#2673 id=2673 data-nosnippet>2673</a>					<span class="comment">// Rococo doesn't support asset locking
+<a href=#2674 id=2674 data-nosnippet>2674</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
+<a href=#2675 id=2675 data-nosnippet>2675</a>				}
+<a href=#2676 id=2676 data-nosnippet>2676</a>
+<a href=#2677 id=2677 data-nosnippet>2677</a>				<span class="kw">fn </span>export_message_origin_and_destination(
+<a href=#2678 id=2678 data-nosnippet>2678</a>				) -&gt; <span class="prelude-ty">Result</span>&lt;(Location, NetworkId, InteriorLocation), BenchmarkError&gt; {
+<a href=#2679 id=2679 data-nosnippet>2679</a>					<span class="comment">// Rococo doesn't support exporting messages
 <a href=#2680 id=2680 data-nosnippet>2680</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
 <a href=#2681 id=2681 data-nosnippet>2681</a>				}
-<a href=#2682 id=2682 data-nosnippet>2682</a>			}
-<a href=#2683 id=2683 data-nosnippet>2683</a>
-<a href=#2684 id=2684 data-nosnippet>2684</a>			<span class="kw">let </span><span class="kw-2">mut </span>whitelist: Vec&lt;TrackedStorageKey&gt; = AllPalletsWithSystem::whitelisted_storage_keys();
-<a href=#2685 id=2685 data-nosnippet>2685</a>			<span class="kw">let </span>treasury_key = frame_system::Account::&lt;Runtime&gt;::hashed_key_for(Treasury::account_id());
-<a href=#2686 id=2686 data-nosnippet>2686</a>			whitelist.push(treasury_key.to_vec().into());
-<a href=#2687 id=2687 data-nosnippet>2687</a>
-<a href=#2688 id=2688 data-nosnippet>2688</a>			<span class="kw">let </span><span class="kw-2">mut </span>batches = Vec::&lt;BenchmarkBatch&gt;::new();
-<a href=#2689 id=2689 data-nosnippet>2689</a>			<span class="kw">let </span>params = (<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>whitelist);
-<a href=#2690 id=2690 data-nosnippet>2690</a>
-<a href=#2691 id=2691 data-nosnippet>2691</a>			<span class="macro">add_benchmarks!</span>(params, batches);
+<a href=#2682 id=2682 data-nosnippet>2682</a>
+<a href=#2683 id=2683 data-nosnippet>2683</a>				<span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location), BenchmarkError&gt; {
+<a href=#2684 id=2684 data-nosnippet>2684</a>					<span class="comment">// The XCM executor of Rococo doesn't have a configured `Aliasers`
+<a href=#2685 id=2685 data-nosnippet>2685</a>					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
+<a href=#2686 id=2686 data-nosnippet>2686</a>				}
+<a href=#2687 id=2687 data-nosnippet>2687</a>			}
+<a href=#2688 id=2688 data-nosnippet>2688</a>
+<a href=#2689 id=2689 data-nosnippet>2689</a>			<span class="kw">let </span><span class="kw-2">mut </span>whitelist: Vec&lt;TrackedStorageKey&gt; = AllPalletsWithSystem::whitelisted_storage_keys();
+<a href=#2690 id=2690 data-nosnippet>2690</a>			<span class="kw">let </span>treasury_key = frame_system::Account::&lt;Runtime&gt;::hashed_key_for(Treasury::account_id());
+<a href=#2691 id=2691 data-nosnippet>2691</a>			whitelist.push(treasury_key.to_vec().into());
 <a href=#2692 id=2692 data-nosnippet>2692</a>
-<a href=#2693 id=2693 data-nosnippet>2693</a>			<span class="prelude-val">Ok</span>(batches)
-<a href=#2694 id=2694 data-nosnippet>2694</a>		}
-<a href=#2695 id=2695 data-nosnippet>2695</a>	}
-<a href=#2696 id=2696 data-nosnippet>2696</a>
-<a href=#2697 id=2697 data-nosnippet>2697</a>	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#2698 id=2698 data-nosnippet>2698</a>		<span class="kw">fn </span>build_state(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
-<a href=#2699 id=2699 data-nosnippet>2699</a>			build_state::&lt;RuntimeGenesisConfig&gt;(config)
-<a href=#2700 id=2700 data-nosnippet>2700</a>		}
+<a href=#2693 id=2693 data-nosnippet>2693</a>			<span class="kw">let </span><span class="kw-2">mut </span>batches = Vec::&lt;BenchmarkBatch&gt;::new();
+<a href=#2694 id=2694 data-nosnippet>2694</a>			<span class="kw">let </span>params = (<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>whitelist);
+<a href=#2695 id=2695 data-nosnippet>2695</a>
+<a href=#2696 id=2696 data-nosnippet>2696</a>			<span class="macro">add_benchmarks!</span>(params, batches);
+<a href=#2697 id=2697 data-nosnippet>2697</a>
+<a href=#2698 id=2698 data-nosnippet>2698</a>			<span class="prelude-val">Ok</span>(batches)
+<a href=#2699 id=2699 data-nosnippet>2699</a>		}
+<a href=#2700 id=2700 data-nosnippet>2700</a>	}
 <a href=#2701 id=2701 data-nosnippet>2701</a>
-<a href=#2702 id=2702 data-nosnippet>2702</a>		<span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-<a href=#2703 id=2703 data-nosnippet>2703</a>			get_preset::&lt;RuntimeGenesisConfig&gt;(id, <span class="kw-2">&amp;</span>genesis_config_presets::get_preset)
-<a href=#2704 id=2704 data-nosnippet>2704</a>		}
-<a href=#2705 id=2705 data-nosnippet>2705</a>
-<a href=#2706 id=2706 data-nosnippet>2706</a>		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
-<a href=#2707 id=2707 data-nosnippet>2707</a>			genesis_config_presets::preset_names()
-<a href=#2708 id=2708 data-nosnippet>2708</a>		}
-<a href=#2709 id=2709 data-nosnippet>2709</a>	}
+<a href=#2702 id=2702 data-nosnippet>2702</a>	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#2703 id=2703 data-nosnippet>2703</a>		<span class="kw">fn </span>build_state(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+<a href=#2704 id=2704 data-nosnippet>2704</a>			build_state::&lt;RuntimeGenesisConfig&gt;(config)
+<a href=#2705 id=2705 data-nosnippet>2705</a>		}
+<a href=#2706 id=2706 data-nosnippet>2706</a>
+<a href=#2707 id=2707 data-nosnippet>2707</a>		<span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#2708 id=2708 data-nosnippet>2708</a>			get_preset::&lt;RuntimeGenesisConfig&gt;(id, <span class="kw-2">&amp;</span>genesis_config_presets::get_preset)
+<a href=#2709 id=2709 data-nosnippet>2709</a>		}
 <a href=#2710 id=2710 data-nosnippet>2710</a>
-<a href=#2711 id=2711 data-nosnippet>2711</a>	<span class="kw">impl </span>xcm_runtime_apis::trusted_query::TrustedQueryApi&lt;Block&gt; <span class="kw">for </span>Runtime {
-<a href=#2712 id=2712 data-nosnippet>2712</a>		<span class="kw">fn </span>is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -&gt; <span class="prelude-ty">Result</span>&lt;bool, xcm_runtime_apis::trusted_query::Error&gt; {
-<a href=#2713 id=2713 data-nosnippet>2713</a>			XcmPallet::is_trusted_reserve(asset, location)
-<a href=#2714 id=2714 data-nosnippet>2714</a>		}
-<a href=#2715 id=2715 data-nosnippet>2715</a>		<span class="kw">fn </span>is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -&gt; <span class="prelude-ty">Result</span>&lt;bool, xcm_runtime_apis::trusted_query::Error&gt; {
-<a href=#2716 id=2716 data-nosnippet>2716</a>			XcmPallet::is_trusted_teleporter(asset, location)
-<a href=#2717 id=2717 data-nosnippet>2717</a>		}
-<a href=#2718 id=2718 data-nosnippet>2718</a>	}
-<a href=#2719 id=2719 data-nosnippet>2719</a>}
-<a href=#2720 id=2720 data-nosnippet>2720</a>
-<a href=#2721 id=2721 data-nosnippet>2721</a><span class="attr">#[cfg(all(test, feature = <span class="string">"try-runtime"</span>))]
-<a href=#2722 id=2722 data-nosnippet>2722</a></span><span class="kw">mod </span>remote_tests {
-<a href=#2723 id=2723 data-nosnippet>2723</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#2724 id=2724 data-nosnippet>2724</a>	<span class="kw">use </span>frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
-<a href=#2725 id=2725 data-nosnippet>2725</a>	<span class="kw">use </span>remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
-<a href=#2726 id=2726 data-nosnippet>2726</a>	<span class="kw">use </span>std::env::var;
-<a href=#2727 id=2727 data-nosnippet>2727</a>
-<a href=#2728 id=2728 data-nosnippet>2728</a>	<span class="attr">#[tokio::test]
-<a href=#2729 id=2729 data-nosnippet>2729</a>	</span><span class="kw">async fn </span>run_migrations() {
-<a href=#2730 id=2730 data-nosnippet>2730</a>		<span class="kw">if </span>var(<span class="string">"RUN_MIGRATION_TESTS"</span>).is_err() {
-<a href=#2731 id=2731 data-nosnippet>2731</a>			<span class="kw">return</span>;
-<a href=#2732 id=2732 data-nosnippet>2732</a>		}
-<a href=#2733 id=2733 data-nosnippet>2733</a>
-<a href=#2734 id=2734 data-nosnippet>2734</a>		sp_tracing::try_init_simple();
-<a href=#2735 id=2735 data-nosnippet>2735</a>		<span class="kw">let </span>transport = var(<span class="string">"WS"</span>).unwrap_or(<span class="string">"wss://rococo-rpc.polkadot.io:443"</span>.to_string());
-<a href=#2736 id=2736 data-nosnippet>2736</a>		<span class="kw">let </span>maybe_state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt; = var(<span class="string">"SNAP"</span>).map(|s| s.into()).ok();
-<a href=#2737 id=2737 data-nosnippet>2737</a>
-<a href=#2738 id=2738 data-nosnippet>2738</a>		<span class="kw">let </span>transport_uris = <span class="macro">vec!</span>[transport];
-<a href=#2739 id=2739 data-nosnippet>2739</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::default()
-<a href=#2740 id=2740 data-nosnippet>2740</a>			.mode(<span class="kw">if let </span><span class="prelude-val">Some</span>(state_snapshot) = maybe_state_snapshot {
-<a href=#2741 id=2741 data-nosnippet>2741</a>				Mode::OfflineOrElseOnline(
-<a href=#2742 id=2742 data-nosnippet>2742</a>					OfflineConfig { state_snapshot: state_snapshot.clone() },
-<a href=#2743 id=2743 data-nosnippet>2743</a>					OnlineConfig {
-<a href=#2744 id=2744 data-nosnippet>2744</a>						transport_uris,
-<a href=#2745 id=2745 data-nosnippet>2745</a>						state_snapshot: <span class="prelude-val">Some</span>(state_snapshot),
-<a href=#2746 id=2746 data-nosnippet>2746</a>						..Default::default()
-<a href=#2747 id=2747 data-nosnippet>2747</a>					},
-<a href=#2748 id=2748 data-nosnippet>2748</a>				)
-<a href=#2749 id=2749 data-nosnippet>2749</a>			} <span class="kw">else </span>{
-<a href=#2750 id=2750 data-nosnippet>2750</a>				Mode::Online(OnlineConfig { transport_uris, ..Default::default() })
-<a href=#2751 id=2751 data-nosnippet>2751</a>			})
-<a href=#2752 id=2752 data-nosnippet>2752</a>			.build()
-<a href=#2753 id=2753 data-nosnippet>2753</a>			.<span class="kw">await
-<a href=#2754 id=2754 data-nosnippet>2754</a>			</span>.unwrap();
-<a href=#2755 id=2755 data-nosnippet>2755</a>		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
-<a href=#2756 id=2756 data-nosnippet>2756</a>	}
-<a href=#2757 id=2757 data-nosnippet>2757</a>}
+<a href=#2711 id=2711 data-nosnippet>2711</a>		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
+<a href=#2712 id=2712 data-nosnippet>2712</a>			genesis_config_presets::preset_names()
+<a href=#2713 id=2713 data-nosnippet>2713</a>		}
+<a href=#2714 id=2714 data-nosnippet>2714</a>	}
+<a href=#2715 id=2715 data-nosnippet>2715</a>
+<a href=#2716 id=2716 data-nosnippet>2716</a>	<span class="kw">impl </span>xcm_runtime_apis::trusted_query::TrustedQueryApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+<a href=#2717 id=2717 data-nosnippet>2717</a>		<span class="kw">fn </span>is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -&gt; <span class="prelude-ty">Result</span>&lt;bool, xcm_runtime_apis::trusted_query::Error&gt; {
+<a href=#2718 id=2718 data-nosnippet>2718</a>			XcmPallet::is_trusted_reserve(asset, location)
+<a href=#2719 id=2719 data-nosnippet>2719</a>		}
+<a href=#2720 id=2720 data-nosnippet>2720</a>		<span class="kw">fn </span>is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -&gt; <span class="prelude-ty">Result</span>&lt;bool, xcm_runtime_apis::trusted_query::Error&gt; {
+<a href=#2721 id=2721 data-nosnippet>2721</a>			XcmPallet::is_trusted_teleporter(asset, location)
+<a href=#2722 id=2722 data-nosnippet>2722</a>		}
+<a href=#2723 id=2723 data-nosnippet>2723</a>	}
+<a href=#2724 id=2724 data-nosnippet>2724</a>}
+<a href=#2725 id=2725 data-nosnippet>2725</a>
+<a href=#2726 id=2726 data-nosnippet>2726</a><span class="attr">#[cfg(all(test, feature = <span class="string">"try-runtime"</span>))]
+<a href=#2727 id=2727 data-nosnippet>2727</a></span><span class="kw">mod </span>remote_tests {
+<a href=#2728 id=2728 data-nosnippet>2728</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#2729 id=2729 data-nosnippet>2729</a>	<span class="kw">use </span>frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
+<a href=#2730 id=2730 data-nosnippet>2730</a>	<span class="kw">use </span>remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
+<a href=#2731 id=2731 data-nosnippet>2731</a>	<span class="kw">use </span>std::env::var;
+<a href=#2732 id=2732 data-nosnippet>2732</a>
+<a href=#2733 id=2733 data-nosnippet>2733</a>	<span class="attr">#[tokio::test]
+<a href=#2734 id=2734 data-nosnippet>2734</a>	</span><span class="kw">async fn </span>run_migrations() {
+<a href=#2735 id=2735 data-nosnippet>2735</a>		<span class="kw">if </span>var(<span class="string">"RUN_MIGRATION_TESTS"</span>).is_err() {
+<a href=#2736 id=2736 data-nosnippet>2736</a>			<span class="kw">return</span>;
+<a href=#2737 id=2737 data-nosnippet>2737</a>		}
+<a href=#2738 id=2738 data-nosnippet>2738</a>
+<a href=#2739 id=2739 data-nosnippet>2739</a>		sp_tracing::try_init_simple();
+<a href=#2740 id=2740 data-nosnippet>2740</a>		<span class="kw">let </span>transport = var(<span class="string">"WS"</span>).unwrap_or(<span class="string">"wss://rococo-rpc.polkadot.io:443"</span>.to_string());
+<a href=#2741 id=2741 data-nosnippet>2741</a>		<span class="kw">let </span>maybe_state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt; = var(<span class="string">"SNAP"</span>).map(|s| s.into()).ok();
+<a href=#2742 id=2742 data-nosnippet>2742</a>
+<a href=#2743 id=2743 data-nosnippet>2743</a>		<span class="kw">let </span>transport_uris = <span class="macro">vec!</span>[transport];
+<a href=#2744 id=2744 data-nosnippet>2744</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::default()
+<a href=#2745 id=2745 data-nosnippet>2745</a>			.mode(<span class="kw">if let </span><span class="prelude-val">Some</span>(state_snapshot) = maybe_state_snapshot {
+<a href=#2746 id=2746 data-nosnippet>2746</a>				Mode::OfflineOrElseOnline(
+<a href=#2747 id=2747 data-nosnippet>2747</a>					OfflineConfig { state_snapshot: state_snapshot.clone() },
+<a href=#2748 id=2748 data-nosnippet>2748</a>					OnlineConfig {
+<a href=#2749 id=2749 data-nosnippet>2749</a>						transport_uris,
+<a href=#2750 id=2750 data-nosnippet>2750</a>						state_snapshot: <span class="prelude-val">Some</span>(state_snapshot),
+<a href=#2751 id=2751 data-nosnippet>2751</a>						..Default::default()
+<a href=#2752 id=2752 data-nosnippet>2752</a>					},
+<a href=#2753 id=2753 data-nosnippet>2753</a>				)
+<a href=#2754 id=2754 data-nosnippet>2754</a>			} <span class="kw">else </span>{
+<a href=#2755 id=2755 data-nosnippet>2755</a>				Mode::Online(OnlineConfig { transport_uris, ..Default::default() })
+<a href=#2756 id=2756 data-nosnippet>2756</a>			})
+<a href=#2757 id=2757 data-nosnippet>2757</a>			.build()
+<a href=#2758 id=2758 data-nosnippet>2758</a>			.<span class="kw">await
+<a href=#2759 id=2759 data-nosnippet>2759</a>			</span>.unwrap();
+<a href=#2760 id=2760 data-nosnippet>2760</a>		ext.execute_with(|| Runtime::on_runtime_upgrade(UpgradeCheckSelect::PreAndPost));
+<a href=#2761 id=2761 data-nosnippet>2761</a>	}
+<a href=#2762 id=2762 data-nosnippet>2762</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

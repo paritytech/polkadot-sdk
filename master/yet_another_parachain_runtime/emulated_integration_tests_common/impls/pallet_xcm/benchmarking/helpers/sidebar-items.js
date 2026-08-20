@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["native_teleport_as_asset_transfer"]};
+window.SIDEBAR_ITEMS = {"fn":["native_teleport_as_asset_transfer","worst_case_decodable_blob","worst_case_weighable_message"]};

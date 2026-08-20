@@ -241,28 +241,33 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#91 id=91 data-nosnippet>91</a>		</span><span class="kw">fn </span>export_message_origin_and_destination(
 <a href=#92 id=92 data-nosnippet>92</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(Location, NetworkId, InteriorLocation), BenchmarkError&gt;;
 <a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a>		<span class="doccomment">/// A `(Location, Location)` that is one of the `Aliasers` configured by the XCM
+<a href=#94 id=94 data-nosnippet>94</a>		<span class="doccomment">/// A `(Location, Location)` that is matched by one of the `Aliasers` configured by the XCM
 <a href=#95 id=95 data-nosnippet>95</a>		/// executor.
 <a href=#96 id=96 data-nosnippet>96</a>		///
-<a href=#97 id=97 data-nosnippet>97</a>		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
-<a href=#98 id=98 data-nosnippet>98</a>		</span><span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location), BenchmarkError&gt;;
-<a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a>		<span class="doccomment">/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
+<a href=#97 id=97 data-nosnippet>97</a>		/// Should be the *most expensive* such pair, since `Aliasers` is tried in order and stops
+<a href=#98 id=98 data-nosnippet>98</a>		/// at the first match: a pair matched by the first, storage-free filter measures none of
+<a href=#99 id=99 data-nosnippet>99</a>		/// the work a later one does. Chains whose last aliaser consults an on-chain
+<a href=#100 id=100 data-nosnippet>100</a>		/// authorization list must also set that list up at its maximum size.
 <a href=#101 id=101 data-nosnippet>101</a>		///
-<a href=#102 id=102 data-nosnippet>102</a>		/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
-<a href=#103 id=103 data-nosnippet>103</a>		</span><span class="kw">fn </span>valid_pallet() -&gt; frame_support::traits::PalletInfoData {
-<a href=#104 id=104 data-nosnippet>104</a>			frame_support::traits::PalletInfoData {
-<a href=#105 id=105 data-nosnippet>105</a>				index: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::index(),
-<a href=#106 id=106 data-nosnippet>106</a>				name: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::name(),
-<a href=#107 id=107 data-nosnippet>107</a>				module_name: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::module_name(),
-<a href=#108 id=108 data-nosnippet>108</a>				crate_version: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::crate_version(),
-<a href=#109 id=109 data-nosnippet>109</a>			}
-<a href=#110 id=110 data-nosnippet>110</a>		}
-<a href=#111 id=111 data-nosnippet>111</a>	}
-<a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a>	<span class="attr">#[pallet::pallet]
-<a href=#114 id=114 data-nosnippet>114</a>	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
-<a href=#115 id=115 data-nosnippet>115</a>}
+<a href=#102 id=102 data-nosnippet>102</a>		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
+<a href=#103 id=103 data-nosnippet>103</a>		</span><span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location), BenchmarkError&gt;;
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a>		<span class="doccomment">/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
+<a href=#106 id=106 data-nosnippet>106</a>		///
+<a href=#107 id=107 data-nosnippet>107</a>		/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
+<a href=#108 id=108 data-nosnippet>108</a>		</span><span class="kw">fn </span>valid_pallet() -&gt; frame_support::traits::PalletInfoData {
+<a href=#109 id=109 data-nosnippet>109</a>			frame_support::traits::PalletInfoData {
+<a href=#110 id=110 data-nosnippet>110</a>				index: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::index(),
+<a href=#111 id=111 data-nosnippet>111</a>				name: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::name(),
+<a href=#112 id=112 data-nosnippet>112</a>				module_name: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::module_name(),
+<a href=#113 id=113 data-nosnippet>113</a>				crate_version: &lt;frame_system::Pallet&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::crate_version(),
+<a href=#114 id=114 data-nosnippet>114</a>			}
+<a href=#115 id=115 data-nosnippet>115</a>		}
+<a href=#116 id=116 data-nosnippet>116</a>	}
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a>	<span class="attr">#[pallet::pallet]
+<a href=#119 id=119 data-nosnippet>119</a>	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
+<a href=#120 id=120 data-nosnippet>120</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

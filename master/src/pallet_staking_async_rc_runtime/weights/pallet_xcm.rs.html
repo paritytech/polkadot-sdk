@@ -512,32 +512,42 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#362 id=362 data-nosnippet>362</a>	/// Proof: `XcmPallet::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 <a href=#363 id=363 data-nosnippet>363</a>	/// Storage: `XcmPallet::AssetTraps` (r:1 w:1)
 <a href=#364 id=364 data-nosnippet>364</a>	/// Proof: `XcmPallet::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
-<a href=#365 id=365 data-nosnippet>365</a>	</span><span class="kw">fn </span>claim_assets() -&gt; Weight {
-<a href=#366 id=366 data-nosnippet>366</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#367 id=367 data-nosnippet>367</a>		//  Measured:  `23`
-<a href=#368 id=368 data-nosnippet>368</a>		//  Estimated: `3488`
-<a href=#369 id=369 data-nosnippet>369</a>		// Minimum execution time: 40_784_000 picoseconds.
-<a href=#370 id=370 data-nosnippet>370</a>		</span>Weight::from_parts(<span class="number">42_298_000</span>, <span class="number">0</span>)
-<a href=#371 id=371 data-nosnippet>371</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3488</span>))
-<a href=#372 id=372 data-nosnippet>372</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
-<a href=#373 id=373 data-nosnippet>373</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
-<a href=#374 id=374 data-nosnippet>374</a>	}
-<a href=#375 id=375 data-nosnippet>375</a>	<span class="kw">fn </span>add_authorized_alias() -&gt; Weight {
-<a href=#376 id=376 data-nosnippet>376</a>		Weight::from_parts(<span class="number">100_000</span>, <span class="number">0</span>)
-<a href=#377 id=377 data-nosnippet>377</a>	}
-<a href=#378 id=378 data-nosnippet>378</a>	<span class="kw">fn </span>remove_authorized_alias() -&gt; Weight {
-<a href=#379 id=379 data-nosnippet>379</a>		Weight::from_parts(<span class="number">100_000</span>, <span class="number">0</span>)
-<a href=#380 id=380 data-nosnippet>380</a>	}
-<a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a>	<span class="kw">fn </span>weigh_message() -&gt; Weight {
-<a href=#383 id=383 data-nosnippet>383</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#384 id=384 data-nosnippet>384</a>		//  Measured:  `0`
-<a href=#385 id=385 data-nosnippet>385</a>		//  Estimated: `0`
-<a href=#386 id=386 data-nosnippet>386</a>		// Minimum execution time: 7_785_000 picoseconds.
-<a href=#387 id=387 data-nosnippet>387</a>		</span>Weight::from_parts(<span class="number">8_077_000</span>, <span class="number">0</span>)
-<a href=#388 id=388 data-nosnippet>388</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>))
-<a href=#389 id=389 data-nosnippet>389</a>	}
-<a href=#390 id=390 data-nosnippet>390</a>}
+<a href=#365 id=365 data-nosnippet>365</a>	/// Flat in `n`: the `AssetTransactor` only handles the native token, so a claim can never
+<a href=#366 id=366 data-nosnippet>366</a>	/// deposit more than one distinct asset.
+<a href=#367 id=367 data-nosnippet>367</a>	</span><span class="kw">fn </span>claim_assets(_n: u32) -&gt; Weight {
+<a href=#368 id=368 data-nosnippet>368</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#369 id=369 data-nosnippet>369</a>		//  Measured:  `23`
+<a href=#370 id=370 data-nosnippet>370</a>		//  Estimated: `3488`
+<a href=#371 id=371 data-nosnippet>371</a>		// Minimum execution time: 40_784_000 picoseconds.
+<a href=#372 id=372 data-nosnippet>372</a>		</span>Weight::from_parts(<span class="number">42_298_000</span>, <span class="number">0</span>)
+<a href=#373 id=373 data-nosnippet>373</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3488</span>))
+<a href=#374 id=374 data-nosnippet>374</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
+<a href=#375 id=375 data-nosnippet>375</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
+<a href=#376 id=376 data-nosnippet>376</a>	}
+<a href=#377 id=377 data-nosnippet>377</a>	<span class="kw">fn </span>add_authorized_alias() -&gt; Weight {
+<a href=#378 id=378 data-nosnippet>378</a>		Weight::from_parts(<span class="number">100_000</span>, <span class="number">0</span>)
+<a href=#379 id=379 data-nosnippet>379</a>	}
+<a href=#380 id=380 data-nosnippet>380</a>	<span class="kw">fn </span>remove_authorized_alias() -&gt; Weight {
+<a href=#381 id=381 data-nosnippet>381</a>		Weight::from_parts(<span class="number">100_000</span>, <span class="number">0</span>)
+<a href=#382 id=382 data-nosnippet>382</a>	}
+<a href=#383 id=383 data-nosnippet>383</a>
+<a href=#384 id=384 data-nosnippet>384</a>	<span class="doccomment">/// The range of component `n` is `[0, 131072]`.
+<a href=#385 id=385 data-nosnippet>385</a>	</span><span class="kw">fn </span>weigh_message(n: u32) -&gt; Weight {
+<a href=#386 id=386 data-nosnippet>386</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#387 id=387 data-nosnippet>387</a>		//  Measured:  `0`
+<a href=#388 id=388 data-nosnippet>388</a>		//  Estimated: `0`
+<a href=#389 id=389 data-nosnippet>389</a>		// Minimum execution time: 7_785_000 picoseconds.
+<a href=#390 id=390 data-nosnippet>390</a>		</span>Weight::from_parts(<span class="number">8_077_000</span>, <span class="number">0</span>)
+<a href=#391 id=391 data-nosnippet>391</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>))
+<a href=#392 id=392 data-nosnippet>392</a>			<span class="comment">// INTERIM placeholder slope; replace with `/cmd bench` output before merging.
+<a href=#393 id=393 data-nosnippet>393</a>			</span>.saturating_add(Weight::from_parts(<span class="number">100_000</span>, <span class="number">0</span>).saturating_mul(n.into()))
+<a href=#394 id=394 data-nosnippet>394</a>	}
+<a href=#395 id=395 data-nosnippet>395</a>	<span class="doccomment">/// The range of component `n` is `[0, 131072]`.
+<a href=#396 id=396 data-nosnippet>396</a>	</span><span class="kw">fn </span>decode_xcm(n: u32) -&gt; Weight {
+<a href=#397 id=397 data-nosnippet>397</a>		<span class="comment">// INTERIM: decoding is a subset of weighing, so this over-estimates.
+<a href=#398 id=398 data-nosnippet>398</a>		</span><span class="self">Self</span>::weigh_message(n)
+<a href=#399 id=399 data-nosnippet>399</a>	}
+<a href=#400 id=400 data-nosnippet>400</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

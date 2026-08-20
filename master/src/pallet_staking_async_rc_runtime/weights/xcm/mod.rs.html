@@ -373,8 +373,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#223 id=223 data-nosnippet>223</a>		}
 <a href=#224 id=224 data-nosnippet>224</a>		weight
 <a href=#225 id=225 data-nosnippet>225</a>	}
-<a href=#226 id=226 data-nosnippet>226</a>	<span class="kw">fn </span>claim_asset(_assets: <span class="kw-2">&amp;</span>Assets, _ticket: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
-<a href=#227 id=227 data-nosnippet>227</a>		XcmGeneric::&lt;Runtime&gt;::claim_asset()
+<a href=#226 id=226 data-nosnippet>226</a>	<span class="kw">fn </span>claim_asset(assets: <span class="kw-2">&amp;</span>Assets, _ticket: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
+<a href=#227 id=227 data-nosnippet>227</a>		assets.weigh_assets(XcmGeneric::&lt;Runtime&gt;::claim_asset())
 <a href=#228 id=228 data-nosnippet>228</a>	}
 <a href=#229 id=229 data-nosnippet>229</a>	<span class="kw">fn </span>trap(_code: <span class="kw-2">&amp;</span>u64) -&gt; Weight {
 <a href=#230 id=230 data-nosnippet>230</a>		XcmGeneric::&lt;Runtime&gt;::trap()

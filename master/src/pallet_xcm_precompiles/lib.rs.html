@@ -241,99 +241,110 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#91 id=91 data-nosnippet>91</a>				<span class="prelude-val">Err</span>(Error::Error(pallet_revive::Error::&lt;<span class="self">Self</span>::T&gt;::StateChangeDenied.into()))
 <a href=#92 id=92 data-nosnippet>92</a>			},
 <a href=#93 id=93 data-nosnippet>93</a>			IXcmCalls::send(IXcm::sendCall { destination, message }) =&gt; {
-<a href=#94 id=94 data-nosnippet>94</a>				<span class="kw">let _ </span>= env.charge(&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::send())<span class="question-mark">?</span>;
-<a href=#95 id=95 data-nosnippet>95</a>
-<a href=#96 id=96 data-nosnippet>96</a>				<span class="kw">let </span>final_destination = VersionedLocation::decode_all(<span class="kw-2">&amp;mut &amp;</span>destination[..])
-<a href=#97 id=97 data-nosnippet>97</a>					.map_err(|error| {
-<a href=#98 id=98 data-nosnippet>98</a>						revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM send failed: Invalid destination format"</span>)
-<a href=#99 id=99 data-nosnippet>99</a>					})<span class="question-mark">?</span>;
-<a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>final_destination)<span class="question-mark">?</span>;
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a>				<span class="kw">let </span>final_message =
-<a href=#104 id=104 data-nosnippet>104</a>					VersionedXcm::&lt;()&gt;::decode_all_with_mem_and_depth_limit(<span class="kw-2">&amp;mut &amp;</span>message[..])
-<a href=#105 id=105 data-nosnippet>105</a>						.map_err(|error| {
-<a href=#106 id=106 data-nosnippet>106</a>							revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM send failed: Invalid message format"</span>)
-<a href=#107 id=107 data-nosnippet>107</a>						})<span class="question-mark">?</span>;
+<a href=#94 id=94 data-nosnippet>94</a>				<span class="comment">// Charged before decoding; see `WeightInfo::decode_xcm`.
+<a href=#95 id=95 data-nosnippet>95</a>				</span>env.charge(
+<a href=#96 id=96 data-nosnippet>96</a>					&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::decode_xcm(
+<a href=#97 id=97 data-nosnippet>97</a>						message.len().saturating_add(destination.len()) <span class="kw">as </span>u32,
+<a href=#98 id=98 data-nosnippet>98</a>					)
+<a href=#99 id=99 data-nosnippet>99</a>					.saturating_add(&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::send()),
+<a href=#100 id=100 data-nosnippet>100</a>				)<span class="question-mark">?</span>;
+<a href=#101 id=101 data-nosnippet>101</a>
+<a href=#102 id=102 data-nosnippet>102</a>				<span class="kw">let </span>final_destination = VersionedLocation::decode_all(<span class="kw-2">&amp;mut &amp;</span>destination[..])
+<a href=#103 id=103 data-nosnippet>103</a>					.map_err(|error| {
+<a href=#104 id=104 data-nosnippet>104</a>						revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM send failed: Invalid destination format"</span>)
+<a href=#105 id=105 data-nosnippet>105</a>					})<span class="question-mark">?</span>;
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>final_destination)<span class="question-mark">?</span>;
 <a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>final_message)<span class="question-mark">?</span>;
-<a href=#110 id=110 data-nosnippet>110</a>
-<a href=#111 id=111 data-nosnippet>111</a>				pallet_xcm::Pallet::&lt;Runtime&gt;::send(
-<a href=#112 id=112 data-nosnippet>112</a>					frame_origin,
-<a href=#113 id=113 data-nosnippet>113</a>					final_destination.into(),
-<a href=#114 id=114 data-nosnippet>114</a>					final_message.into(),
-<a href=#115 id=115 data-nosnippet>115</a>				)
-<a href=#116 id=116 data-nosnippet>116</a>				.map(|<span class="kw">_</span>| Vec::new())
-<a href=#117 id=117 data-nosnippet>117</a>				.map_err(|error| {
-<a href=#118 id=118 data-nosnippet>118</a>					revert(
-<a href=#119 id=119 data-nosnippet>119</a>						<span class="kw-2">&amp;</span>error,
-<a href=#120 id=120 data-nosnippet>120</a>						<span class="string">"XCM send failed: destination or message format may be incompatible"</span>,
-<a href=#121 id=121 data-nosnippet>121</a>					)
-<a href=#122 id=122 data-nosnippet>122</a>				})
-<a href=#123 id=123 data-nosnippet>123</a>			},
-<a href=#124 id=124 data-nosnippet>124</a>			IXcmCalls::execute(IXcm::executeCall { message, weight }) =&gt; {
-<a href=#125 id=125 data-nosnippet>125</a>				<span class="kw">let </span>max_weight = Weight::from_parts(weight.refTime, weight.proofSize);
-<a href=#126 id=126 data-nosnippet>126</a>				<span class="kw">let </span>weight_to_charge =
-<a href=#127 id=127 data-nosnippet>127</a>					max_weight.saturating_add(&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::execute());
-<a href=#128 id=128 data-nosnippet>128</a>				<span class="kw">let </span>charged_amount = env.charge(weight_to_charge)<span class="question-mark">?</span>;
-<a href=#129 id=129 data-nosnippet>129</a>
-<a href=#130 id=130 data-nosnippet>130</a>				<span class="kw">let </span>final_message = VersionedXcm::decode_all_with_mem_and_depth_limit(
-<a href=#131 id=131 data-nosnippet>131</a>					<span class="kw-2">&amp;mut &amp;</span>message[..],
-<a href=#132 id=132 data-nosnippet>132</a>				)
-<a href=#133 id=133 data-nosnippet>133</a>				.map_err(|error| revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM execute failed: Invalid message format"</span>))<span class="question-mark">?</span>;
+<a href=#109 id=109 data-nosnippet>109</a>				<span class="kw">let </span>final_message =
+<a href=#110 id=110 data-nosnippet>110</a>					VersionedXcm::&lt;()&gt;::decode_all_with_mem_and_depth_limit(<span class="kw-2">&amp;mut &amp;</span>message[..])
+<a href=#111 id=111 data-nosnippet>111</a>						.map_err(|error| {
+<a href=#112 id=112 data-nosnippet>112</a>							revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM send failed: Invalid message format"</span>)
+<a href=#113 id=113 data-nosnippet>113</a>						})<span class="question-mark">?</span>;
+<a href=#114 id=114 data-nosnippet>114</a>
+<a href=#115 id=115 data-nosnippet>115</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>final_message)<span class="question-mark">?</span>;
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>				pallet_xcm::Pallet::&lt;Runtime&gt;::send(
+<a href=#118 id=118 data-nosnippet>118</a>					frame_origin,
+<a href=#119 id=119 data-nosnippet>119</a>					final_destination.into(),
+<a href=#120 id=120 data-nosnippet>120</a>					final_message.into(),
+<a href=#121 id=121 data-nosnippet>121</a>				)
+<a href=#122 id=122 data-nosnippet>122</a>				.map(|<span class="kw">_</span>| Vec::new())
+<a href=#123 id=123 data-nosnippet>123</a>				.map_err(|error| {
+<a href=#124 id=124 data-nosnippet>124</a>					revert(
+<a href=#125 id=125 data-nosnippet>125</a>						<span class="kw-2">&amp;</span>error,
+<a href=#126 id=126 data-nosnippet>126</a>						<span class="string">"XCM send failed: destination or message format may be incompatible"</span>,
+<a href=#127 id=127 data-nosnippet>127</a>					)
+<a href=#128 id=128 data-nosnippet>128</a>				})
+<a href=#129 id=129 data-nosnippet>129</a>			},
+<a href=#130 id=130 data-nosnippet>130</a>			IXcmCalls::execute(IXcm::executeCall { message, weight }) =&gt; {
+<a href=#131 id=131 data-nosnippet>131</a>				<span class="comment">// Executing weighs the blob too, via `prepare`. Kept separate from the execution
+<a href=#132 id=132 data-nosnippet>132</a>				// charge below, which gets refunded and would otherwise give this back.
+<a href=#133 id=133 data-nosnippet>133</a>				</span>env.charge(&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::weigh_message(message.len() <span class="kw">as </span>u32))<span class="question-mark">?</span>;
 <a href=#134 id=134 data-nosnippet>134</a>
-<a href=#135 id=135 data-nosnippet>135</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>final_message)<span class="question-mark">?</span>;
-<a href=#136 id=136 data-nosnippet>136</a>
-<a href=#137 id=137 data-nosnippet>137</a>				<span class="kw">let </span>result = pallet_xcm::Pallet::&lt;Runtime&gt;::execute(
-<a href=#138 id=138 data-nosnippet>138</a>					frame_origin,
-<a href=#139 id=139 data-nosnippet>139</a>					final_message.into(),
-<a href=#140 id=140 data-nosnippet>140</a>					max_weight,
-<a href=#141 id=141 data-nosnippet>141</a>				);
-<a href=#142 id=142 data-nosnippet>142</a>
-<a href=#143 id=143 data-nosnippet>143</a>				<span class="kw">let </span>pre = DispatchInfo {
-<a href=#144 id=144 data-nosnippet>144</a>					call_weight: weight_to_charge,
-<a href=#145 id=145 data-nosnippet>145</a>					extension_weight: Weight::zero(),
-<a href=#146 id=146 data-nosnippet>146</a>					..Default::default()
-<a href=#147 id=147 data-nosnippet>147</a>				};
-<a href=#148 id=148 data-nosnippet>148</a>
-<a href=#149 id=149 data-nosnippet>149</a>				<span class="comment">// Adjust gas using actual weight or fallback to initially charged weight
-<a href=#150 id=150 data-nosnippet>150</a>				</span><span class="kw">let </span>actual_weight = frame_support::dispatch::extract_actual_weight(<span class="kw-2">&amp;</span>result, <span class="kw-2">&amp;</span>pre);
-<a href=#151 id=151 data-nosnippet>151</a>				env.adjust_gas(charged_amount, actual_weight);
+<a href=#135 id=135 data-nosnippet>135</a>				<span class="kw">let </span>max_weight = Weight::from_parts(weight.refTime, weight.proofSize);
+<a href=#136 id=136 data-nosnippet>136</a>				<span class="kw">let </span>weight_to_charge =
+<a href=#137 id=137 data-nosnippet>137</a>					max_weight.saturating_add(&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::execute());
+<a href=#138 id=138 data-nosnippet>138</a>				<span class="kw">let </span>charged_amount = env.charge(weight_to_charge)<span class="question-mark">?</span>;
+<a href=#139 id=139 data-nosnippet>139</a>
+<a href=#140 id=140 data-nosnippet>140</a>				<span class="kw">let </span>final_message = VersionedXcm::decode_all_with_mem_and_depth_limit(
+<a href=#141 id=141 data-nosnippet>141</a>					<span class="kw-2">&amp;mut &amp;</span>message[..],
+<a href=#142 id=142 data-nosnippet>142</a>				)
+<a href=#143 id=143 data-nosnippet>143</a>				.map_err(|error| revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM execute failed: Invalid message format"</span>))<span class="question-mark">?</span>;
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>final_message)<span class="question-mark">?</span>;
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a>				<span class="kw">let </span>result = pallet_xcm::Pallet::&lt;Runtime&gt;::execute(
+<a href=#148 id=148 data-nosnippet>148</a>					frame_origin,
+<a href=#149 id=149 data-nosnippet>149</a>					final_message.into(),
+<a href=#150 id=150 data-nosnippet>150</a>					max_weight,
+<a href=#151 id=151 data-nosnippet>151</a>				);
 <a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a>				result.map(|<span class="kw">_</span>| Vec::new()).map_err(|error| {
-<a href=#154 id=154 data-nosnippet>154</a>					revert(
-<a href=#155 id=155 data-nosnippet>155</a>							<span class="kw-2">&amp;</span>error,
-<a href=#156 id=156 data-nosnippet>156</a>							<span class="string">"XCM execute failed: message may be invalid or execution constraints not satisfied"
-<a href=#157 id=157 data-nosnippet>157</a>						</span>)
-<a href=#158 id=158 data-nosnippet>158</a>				})
-<a href=#159 id=159 data-nosnippet>159</a>			},
-<a href=#160 id=160 data-nosnippet>160</a>			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) =&gt; {
-<a href=#161 id=161 data-nosnippet>161</a>				<span class="kw">let _ </span>= env.charge(&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::weigh_message())<span class="question-mark">?</span>;
+<a href=#153 id=153 data-nosnippet>153</a>				<span class="kw">let </span>pre = DispatchInfo {
+<a href=#154 id=154 data-nosnippet>154</a>					call_weight: weight_to_charge,
+<a href=#155 id=155 data-nosnippet>155</a>					extension_weight: Weight::zero(),
+<a href=#156 id=156 data-nosnippet>156</a>					..Default::default()
+<a href=#157 id=157 data-nosnippet>157</a>				};
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>				<span class="comment">// Adjust gas using actual weight or fallback to initially charged weight
+<a href=#160 id=160 data-nosnippet>160</a>				</span><span class="kw">let </span>actual_weight = frame_support::dispatch::extract_actual_weight(<span class="kw-2">&amp;</span>result, <span class="kw-2">&amp;</span>pre);
+<a href=#161 id=161 data-nosnippet>161</a>				env.adjust_gas(charged_amount, actual_weight);
 <a href=#162 id=162 data-nosnippet>162</a>
-<a href=#163 id=163 data-nosnippet>163</a>				<span class="kw">let </span>converted_message = VersionedXcm::decode_all_with_mem_and_depth_limit(
-<a href=#164 id=164 data-nosnippet>164</a>					<span class="kw-2">&amp;mut &amp;</span>message[..],
-<a href=#165 id=165 data-nosnippet>165</a>				)
-<a href=#166 id=166 data-nosnippet>166</a>				.map_err(|error| revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM weightMessage: Invalid message format"</span>))<span class="question-mark">?</span>;
-<a href=#167 id=167 data-nosnippet>167</a>
-<a href=#168 id=168 data-nosnippet>168</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>converted_message)<span class="question-mark">?</span>;
-<a href=#169 id=169 data-nosnippet>169</a>
-<a href=#170 id=170 data-nosnippet>170</a>				<span class="kw">let </span><span class="kw-2">mut </span>final_message = converted_message.try_into().map_err(|error| {
-<a href=#171 id=171 data-nosnippet>171</a>					revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM weightMessage: Conversion to Xcm failed"</span>)
-<a href=#172 id=172 data-nosnippet>172</a>				})<span class="question-mark">?</span>;
+<a href=#163 id=163 data-nosnippet>163</a>				result.map(|<span class="kw">_</span>| Vec::new()).map_err(|error| {
+<a href=#164 id=164 data-nosnippet>164</a>					revert(
+<a href=#165 id=165 data-nosnippet>165</a>							<span class="kw-2">&amp;</span>error,
+<a href=#166 id=166 data-nosnippet>166</a>							<span class="string">"XCM execute failed: message may be invalid or execution constraints not satisfied"
+<a href=#167 id=167 data-nosnippet>167</a>						</span>)
+<a href=#168 id=168 data-nosnippet>168</a>				})
+<a href=#169 id=169 data-nosnippet>169</a>			},
+<a href=#170 id=170 data-nosnippet>170</a>			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) =&gt; {
+<a href=#171 id=171 data-nosnippet>171</a>				<span class="comment">// Charged before decoding; see `WeightInfo::weigh_message`.
+<a href=#172 id=172 data-nosnippet>172</a>				</span>env.charge(&lt;Runtime <span class="kw">as </span>Config&gt;::WeightInfo::weigh_message(message.len() <span class="kw">as </span>u32))<span class="question-mark">?</span>;
 <a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a>				<span class="kw">let </span>weight = &lt;&lt;Runtime&gt;::Weigher&gt;::weight(<span class="kw-2">&amp;mut </span>final_message, Weight::MAX)
-<a href=#175 id=175 data-nosnippet>175</a>					.map_err(|error| {
-<a href=#176 id=176 data-nosnippet>176</a>						revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM weightMessage: Failed to calculate weight"</span>)
-<a href=#177 id=177 data-nosnippet>177</a>					})<span class="question-mark">?</span>;
+<a href=#174 id=174 data-nosnippet>174</a>				<span class="kw">let </span>converted_message = VersionedXcm::decode_all_with_mem_and_depth_limit(
+<a href=#175 id=175 data-nosnippet>175</a>					<span class="kw-2">&amp;mut &amp;</span>message[..],
+<a href=#176 id=176 data-nosnippet>176</a>				)
+<a href=#177 id=177 data-nosnippet>177</a>				.map_err(|error| revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM weightMessage: Invalid message format"</span>))<span class="question-mark">?</span>;
 <a href=#178 id=178 data-nosnippet>178</a>
-<a href=#179 id=179 data-nosnippet>179</a>				<span class="kw">let </span>final_weight =
-<a href=#180 id=180 data-nosnippet>180</a>					IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() };
-<a href=#181 id=181 data-nosnippet>181</a>
-<a href=#182 id=182 data-nosnippet>182</a>				<span class="prelude-val">Ok</span>(final_weight.abi_encode())
-<a href=#183 id=183 data-nosnippet>183</a>			},
-<a href=#184 id=184 data-nosnippet>184</a>		}
-<a href=#185 id=185 data-nosnippet>185</a>	}
-<a href=#186 id=186 data-nosnippet>186</a>}
+<a href=#179 id=179 data-nosnippet>179</a>				ensure_xcm_version(<span class="kw-2">&amp;</span>converted_message)<span class="question-mark">?</span>;
+<a href=#180 id=180 data-nosnippet>180</a>
+<a href=#181 id=181 data-nosnippet>181</a>				<span class="kw">let </span><span class="kw-2">mut </span>final_message = converted_message.try_into().map_err(|error| {
+<a href=#182 id=182 data-nosnippet>182</a>					revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM weightMessage: Conversion to Xcm failed"</span>)
+<a href=#183 id=183 data-nosnippet>183</a>				})<span class="question-mark">?</span>;
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>				<span class="kw">let </span>weight = &lt;&lt;Runtime&gt;::Weigher&gt;::weight(<span class="kw-2">&amp;mut </span>final_message, Weight::MAX)
+<a href=#186 id=186 data-nosnippet>186</a>					.map_err(|error| {
+<a href=#187 id=187 data-nosnippet>187</a>						revert(<span class="kw-2">&amp;</span>error, <span class="string">"XCM weightMessage: Failed to calculate weight"</span>)
+<a href=#188 id=188 data-nosnippet>188</a>					})<span class="question-mark">?</span>;
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a>				<span class="kw">let </span>final_weight =
+<a href=#191 id=191 data-nosnippet>191</a>					IXcm::Weight { proofSize: weight.proof_size(), refTime: weight.ref_time() };
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a>				<span class="prelude-val">Ok</span>(final_weight.abi_encode())
+<a href=#194 id=194 data-nosnippet>194</a>			},
+<a href=#195 id=195 data-nosnippet>195</a>		}
+<a href=#196 id=196 data-nosnippet>196</a>	}
+<a href=#197 id=197 data-nosnippet>197</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

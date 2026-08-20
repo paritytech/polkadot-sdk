@@ -373,8 +373,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#223 id=223 data-nosnippet>223</a>		}
 <a href=#224 id=224 data-nosnippet>224</a>		weight
 <a href=#225 id=225 data-nosnippet>225</a>	}
-<a href=#226 id=226 data-nosnippet>226</a>	<span class="kw">fn </span>claim_asset(_assets: <span class="kw-2">&amp;</span>Assets, _ticket: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
-<a href=#227 id=227 data-nosnippet>227</a>		XcmGeneric::&lt;Runtime&gt;::claim_asset()
+<a href=#226 id=226 data-nosnippet>226</a>	<span class="kw">fn </span>claim_asset(assets: <span class="kw-2">&amp;</span>Assets, _ticket: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
+<a href=#227 id=227 data-nosnippet>227</a>		assets.weigh_assets(XcmGeneric::&lt;Runtime&gt;::claim_asset())
 <a href=#228 id=228 data-nosnippet>228</a>	}
 <a href=#229 id=229 data-nosnippet>229</a>	<span class="kw">fn </span>trap(_code: <span class="kw-2">&amp;</span>u64) -&gt; Weight {
 <a href=#230 id=230 data-nosnippet>230</a>		XcmGeneric::&lt;Runtime&gt;::trap()
@@ -455,6 +455,28 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#305 id=305 data-nosnippet>305</a>		XcmGeneric::&lt;Runtime&gt;::execute_with_origin()
 <a href=#306 id=306 data-nosnippet>306</a>	}
 <a href=#307 id=307 data-nosnippet>307</a>}
+<a href=#308 id=308 data-nosnippet>308</a>
+<a href=#309 id=309 data-nosnippet>309</a><span class="attr">#[cfg(test)]
+<a href=#310 id=310 data-nosnippet>310</a></span><span class="kw">mod </span>tests {
+<a href=#311 id=311 data-nosnippet>311</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a>	<span class="doccomment">/// Claiming more assets must cost more: the instruction does per-asset work, so a flat
+<a href=#314 id=314 data-nosnippet>314</a>	/// weight here is a way to build overweight blocks.
+<a href=#315 id=315 data-nosnippet>315</a>	</span><span class="attr">#[test]
+<a href=#316 id=316 data-nosnippet>316</a>	</span><span class="kw">fn </span>claim_asset_weight_scales_with_number_of_assets() {
+<a href=#317 id=317 data-nosnippet>317</a>		<span class="kw">let </span>ticket = Location::here();
+<a href=#318 id=318 data-nosnippet>318</a>		<span class="kw">let </span>one_asset: Assets = (Location::parent(), <span class="number">100u128</span>).into();
+<a href=#319 id=319 data-nosnippet>319</a>		<span class="kw">let </span>two_assets: Assets = Vec::from([
+<a href=#320 id=320 data-nosnippet>320</a>			(Location::parent(), <span class="number">100u128</span>).into(),
+<a href=#321 id=321 data-nosnippet>321</a>			(Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)]), <span class="number">100u128</span>).into(),
+<a href=#322 id=322 data-nosnippet>322</a>		])
+<a href=#323 id=323 data-nosnippet>323</a>		.into();
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>		<span class="kw">let </span>weight_one = AssetHubWestendXcmWeight::&lt;()&gt;::claim_asset(<span class="kw-2">&amp;</span>one_asset, <span class="kw-2">&amp;</span>ticket);
+<a href=#326 id=326 data-nosnippet>326</a>		<span class="kw">let </span>weight_two = AssetHubWestendXcmWeight::&lt;()&gt;::claim_asset(<span class="kw-2">&amp;</span>two_assets, <span class="kw-2">&amp;</span>ticket);
+<a href=#327 id=327 data-nosnippet>327</a>		<span class="macro">assert!</span>(weight_two.ref_time() &gt; weight_one.ref_time());
+<a href=#328 id=328 data-nosnippet>328</a>	}
+<a href=#329 id=329 data-nosnippet>329</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
