@@ -259,7 +259,7 @@ fn wire_kind_from_collation_protocol(
 ) -> WireMsgKind {
 	use polkadot_node_network_protocol::{
 		v1::CollationProtocol as V1, v2::CollationProtocol as V2,
-		v3_collation::CollationProtocol as V3, v4_collation::CollationProtocol as V4,
+		v3_collation::CollationProtocol as V3,
 	};
 	match proto {
 		CollationProtocols::V1(V1::CollatorProtocol(msg)) => match msg {
@@ -321,7 +321,7 @@ fn wire_kind_from_collation_protocol(
 				WireMsgKind::CollationSeconded { relay_parent: *rp }
 			},
 		},
-		CollationProtocols::V4(V4::CollatorProtocol(msg)) => match msg {
+		CollationProtocols::V4(msg) => match msg {
 			protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
 				scheduling_parent,
 				para_id: _,

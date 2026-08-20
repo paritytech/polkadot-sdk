@@ -1788,8 +1788,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			.unwrap(),
 		};
 
-		let msg =
-			v4_collation::CollationProtocol::CollatorProtocol(advertise_segment_message.clone());
+		let msg = advertise_segment_message.clone();
 		network_handle
 			.peer_message(
 				peer,

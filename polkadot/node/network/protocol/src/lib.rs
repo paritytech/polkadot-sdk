@@ -501,7 +501,7 @@ impl_versioned_collation_try_from!(
 	v1::CollationProtocol::CollatorProtocol(x) => x,
 	v2::CollationProtocol::CollatorProtocol(x) => x,
 	v3_collation::CollationProtocol::CollatorProtocol(x) => x,
-	v4_collation::CollationProtocol::CollatorProtocol(x) => x
+	x => x
 );
 
 /// v1 notification protocol types.
@@ -690,13 +690,10 @@ pub mod v4_collation {
 	}
 
 	/// All network messages on the collation peer-set.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
-	pub enum CollationProtocol {
-		/// Collator protocol messages
-		#[codec(index = 0)]
-		#[from]
-		CollatorProtocol(CollatorProtocolMessage),
-	}
+	///
+	/// V4 has a single message, so this is the message enum itself rather than a
+	/// wrapper: the extra SCALE tag byte would carry no information.
+	pub type CollationProtocol = CollatorProtocolMessage;
 }
 
 /// v3 network protocol types.

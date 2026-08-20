@@ -987,14 +987,12 @@ async fn advertise_segment<Context>(
 
 	let message = match peer_version {
 		CollationVersion::V4 => {
-			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(
-				protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
-					scheduling_parent,
-					candidates_descriptor_version,
-					candidates: core_segment.clone(),
-					para_id,
-				},
-			))
+			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+				scheduling_parent,
+				candidates_descriptor_version,
+				candidates: core_segment.clone(),
+				para_id,
+			})
 		},
 		CollationVersion::V3 => {
 			// Send V3 protocol message with the actual descriptor version
