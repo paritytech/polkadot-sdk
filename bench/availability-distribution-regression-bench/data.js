@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787256709605,
+  "lastUpdate": 1787267447074,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49699333+dependabot[bot]@users.noreply.github.com",
-            "name": "dependabot[bot]",
-            "username": "dependabot[bot]"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "588b087cd20a45f150d3d51b9bf4bfef2312e5ee",
-          "message": "Bump the ci_dependencies group with 2 updates (#10835)\n\nBumps the ci_dependencies group with 2 updates:\n[actions/setup-node](https://github.com/actions/setup-node) and\n[actions/cache](https://github.com/actions/cache).\n\nUpdates `actions/setup-node` from 6.1.0 to 6.2.0\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/actions/setup-node/releases\">actions/setup-node's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v6.2.0</h2>\n<h2>What's Changed</h2>\n<h3>Documentation</h3>\n<ul>\n<li>Documentation update related to absence of Lockfile by <a\nhref=\"https://github.com/mahabaleshwars\"><code>@​mahabaleshwars</code></a>\nin <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1454\">actions/setup-node#1454</a></li>\n<li>Correct mirror option typos by <a\nhref=\"https://github.com/MikeMcC399\"><code>@​MikeMcC399</code></a> in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1442\">actions/setup-node#1442</a></li>\n<li>Readme update on checkout version v6 by <a\nhref=\"https://github.com/deining\"><code>@​deining</code></a> in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1446\">actions/setup-node#1446</a></li>\n<li>Readme typo fixes <a\nhref=\"https://github.com/munyari\"><code>@​munyari</code></a> in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1226\">actions/setup-node#1226</a></li>\n<li>Advanced document update on checkout version v6 by <a\nhref=\"https://github.com/aparnajyothi-y\"><code>@​aparnajyothi-y</code></a>\nin <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1468\">actions/setup-node#1468</a></li>\n</ul>\n<h3>Dependency updates:</h3>\n<ul>\n<li>Upgrade <code>@​actions/cache</code> to v5.0.1 by <a\nhref=\"https://github.com/salmanmkc\"><code>@​salmanmkc</code></a> in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1449\">actions/setup-node#1449</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a\nhref=\"https://github.com/mahabaleshwars\"><code>@​mahabaleshwars</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1454\">actions/setup-node#1454</a></li>\n<li><a\nhref=\"https://github.com/MikeMcC399\"><code>@​MikeMcC399</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1442\">actions/setup-node#1442</a></li>\n<li><a href=\"https://github.com/deining\"><code>@​deining</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1446\">actions/setup-node#1446</a></li>\n<li><a href=\"https://github.com/munyari\"><code>@​munyari</code></a> made\ntheir first contribution in <a\nhref=\"https://redirect.github.com/actions/setup-node/pull/1226\">actions/setup-node#1226</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/actions/setup-node/compare/v6...v6.2.0\">https://github.com/actions/setup-node/compare/v6...v6.2.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/actions/setup-node/commit/6044e13b5dc448c55e2357c09f80417699197238\"><code>6044e13</code></a>\nDocs: bump actions/checkout from v5 to v6 (<a\nhref=\"https://redirect.github.com/actions/setup-node/issues/1468\">#1468</a>)</li>\n<li><a\nhref=\"https://github.com/actions/setup-node/commit/8e494633d082d609d1e9ff931be32f8a44f1f657\"><code>8e49463</code></a>\nFix README typo (<a\nhref=\"https://redirect.github.com/actions/setup-node/issues/1226\">#1226</a>)</li>\n<li><a\nhref=\"https://github.com/actions/setup-node/commit/621ac41091d4227ef8fda5009c1ced96d8d36f7e\"><code>621ac41</code></a>\nREADME.md: bump to latest released checkout version v6 (<a\nhref=\"https://redirect.github.com/actions/setup-node/issues/1446\">#1446</a>)</li>\n<li><a\nhref=\"https://github.com/actions/setup-node/commit/2951748f4c016b747952f8ca7e75fc64f2f62b53\"><code>2951748</code></a>\nBump <code>@​actions/cache</code> to v5.0.1 (<a\nhref=\"https://redirect.github.com/actions/setup-node/issues/1449\">#1449</a>)</li>\n<li><a\nhref=\"https://github.com/actions/setup-node/commit/21ddc7bc1fef4bd313efce0335fdcbf81827182c\"><code>21ddc7b</code></a>\nCorrect mirror option typos (<a\nhref=\"https://redirect.github.com/actions/setup-node/issues/1442\">#1442</a>)</li>\n<li><a\nhref=\"https://github.com/actions/setup-node/commit/65d868f8d4d85d7d4abb7de0875cde3fcc8798f5\"><code>65d868f</code></a>\nUpdate Documentation for Lockfile (<a\nhref=\"https://redirect.github.com/actions/setup-node/issues/1454\">#1454</a>)</li>\n<li>See full diff in <a\nhref=\"https://github.com/actions/setup-node/compare/395ad3262231945c25e8478fd5baf05154b1d79f...6044e13b5dc448c55e2357c09f80417699197238\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\nUpdates `actions/cache` from 5.0.1 to 5.0.2\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/actions/cache/releases\">actions/cache's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v.5.0.2</h2>\n<h1>v5.0.2</h1>\n<h2>What's Changed</h2>\n<p>When creating cache entries, 429s returned from the cache service\nwill not be retried.</p>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/actions/cache/blob/main/RELEASES.md\">actions/cache's\nchangelog</a>.</em></p>\n<blockquote>\n<h1>Releases</h1>\n<h2>Changelog</h2>\n<h3>5.0.2</h3>\n<ul>\n<li>Bump <code>@actions/cache</code> to v5.0.3 <a\nhref=\"https://redirect.github.com/actions/cache/pull/1692\">#1692</a></li>\n</ul>\n<h3>5.0.1</h3>\n<ul>\n<li>Update <code>@azure/storage-blob</code> to <code>^12.29.1</code> via\n<code>@actions/cache@5.0.1</code> <a\nhref=\"https://redirect.github.com/actions/cache/pull/1685\">#1685</a></li>\n</ul>\n<h3>5.0.0</h3>\n<blockquote>\n<p>[!IMPORTANT]\n<code>actions/cache@v5</code> runs on the Node.js 24 runtime and\nrequires a minimum Actions Runner version of <code>2.327.1</code>.\nIf you are using self-hosted runners, ensure they are updated before\nupgrading.</p>\n</blockquote>\n<h3>4.3.0</h3>\n<ul>\n<li>Bump <code>@actions/cache</code> to <a\nhref=\"https://redirect.github.com/actions/toolkit/pull/2132\">v4.1.0</a></li>\n</ul>\n<h3>4.2.4</h3>\n<ul>\n<li>Bump <code>@actions/cache</code> to v4.0.5</li>\n</ul>\n<h3>4.2.3</h3>\n<ul>\n<li>Bump <code>@actions/cache</code> to v4.0.3 (obfuscates SAS token in\ndebug logs for cache entries)</li>\n</ul>\n<h3>4.2.2</h3>\n<ul>\n<li>Bump <code>@actions/cache</code> to v4.0.2</li>\n</ul>\n<h3>4.2.1</h3>\n<ul>\n<li>Bump <code>@actions/cache</code> to v4.0.1</li>\n</ul>\n<h3>4.2.0</h3>\n<p>TLDR; The cache backend service has been rewritten from the ground up\nfor improved performance and reliability. <a\nhref=\"https://github.com/actions/cache\">actions/cache</a> now integrates\nwith the new cache service (v2) APIs.</p>\n<p>The new service will gradually roll out as of <strong>February 1st,\n2025</strong>. The legacy service will also be sunset on the same date.\nChanges in these release are <strong>fully backward\ncompatible</strong>.</p>\n<p><strong>We are deprecating some versions of this action</strong>. We\nrecommend upgrading to version <code>v4</code> or <code>v3</code> as\nsoon as possible before <strong>February 1st, 2025.</strong> (Upgrade\ninstructions below).</p>\n<p>If you are using pinned SHAs, please use the SHAs of versions\n<code>v4.2.0</code> or <code>v3.4.0</code></p>\n<p>If you do not upgrade, all workflow runs using any of the deprecated\n<a href=\"https://github.com/actions/cache\">actions/cache</a> will\nfail.</p>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/actions/cache/commit/8b402f58fbc84540c8b491a91e594a4576fec3d7\"><code>8b402f5</code></a>\nMerge pull request <a\nhref=\"https://redirect.github.com/actions/cache/issues/1692\">#1692</a>\nfrom GhadimiR/main</li>\n<li><a\nhref=\"https://github.com/actions/cache/commit/304ab5a0701ee61908ccb4b5822347949a2e2002\"><code>304ab5a</code></a>\nlicense for httpclient</li>\n<li><a\nhref=\"https://github.com/actions/cache/commit/609fc19e67cd310e97eb36af42355843ffcb35be\"><code>609fc19</code></a>\nUpdate licensed record for cache</li>\n<li><a\nhref=\"https://github.com/actions/cache/commit/b22231e43df11a67538c05e88835f1fa097599c5\"><code>b22231e</code></a>\nBuild</li>\n<li><a\nhref=\"https://github.com/actions/cache/commit/93150cdfb36a9d84d4e8628c8870bec84aedcf8a\"><code>93150cd</code></a>\nAdd PR link to releases</li>\n<li><a\nhref=\"https://github.com/actions/cache/commit/9b8ca9f07e012351dafbf1c878e8fe2ee9a01c84\"><code>9b8ca9f</code></a>\nBump actions/cache to 5.0.3</li>\n<li>See full diff in <a\nhref=\"https://github.com/actions/cache/compare/9255dc7a253b0ccc959486e2bca901246202afeb...8b402f58fbc84540c8b491a91e594a4576fec3d7\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot merge` will merge this PR after your CI passes on it\n- `@dependabot squash and merge` will squash and merge this PR after\nyour CI passes on it\n- `@dependabot cancel merge` will cancel a previously requested merge\nand block automerging\n- `@dependabot reopen` will reopen this PR if it is closed\n- `@dependabot close` will close this PR and stop Dependabot recreating\nit. You can achieve the same result by closing it manually\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore <dependency name> major version` will close this\ngroup update PR and stop Dependabot creating any more for the specific\ndependency's major version (unless you unignore this specific\ndependency's major version or upgrade to it yourself)\n- `@dependabot ignore <dependency name> minor version` will close this\ngroup update PR and stop Dependabot creating any more for the specific\ndependency's minor version (unless you unignore this specific\ndependency's minor version or upgrade to it yourself)\n- `@dependabot ignore <dependency name>` will close this group update PR\nand stop Dependabot creating any more for the specific dependency\n(unless you unignore this specific dependency or upgrade to it yourself)\n- `@dependabot unignore <dependency name>` will remove all of the ignore\nconditions of the specified dependency\n- `@dependabot unignore <dependency name> <ignore condition>` will\nremove the ignore condition of the specified dependency and ignore\nconditions\n\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-20T09:15:38Z",
-          "tree_id": "e773f27007896d212f3b522396b43f13f49aec6b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/588b087cd20a45f150d3d51b9bf4bfef2312e5ee"
-        },
-        "date": 1768904561578,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02313032092,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14577468890000012,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009784084246666653,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007013318233333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14530557800000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "85409988+Thiago316316@users.noreply.github.com",
+            "name": "Thiago Soares",
+            "username": "Thiago316316"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "98ceb0bd740c1508146f7c2917da7c9d3b5c54b3",
+          "message": "statement-store: reject submissions from a depleted allowance (#12883)\n\n# Description\n\n`Store::submit` accepted any allowance found in chain state, including\none that is depleted —\n`max_count == 0` or `max_size == 0`. A depleted allowance permits no\nstatements at all, but the\nper-account constraint check never enforced that for an account's\n*first* statement, so such an\naccount could store one statement it was not entitled to.\n\nThis rejects a depleted allowance up front, alongside the existing\nrejection for an account with\nno allowance at all.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12776\n\n## Integration\n\nNo API change: no public type, trait or signature is touched, and\n`RejectionReason` keeps exactly\nthe variants it had.\n\nThe observable change is that `submit` now returns\n`SubmitResult::Rejected(RejectionReason::NoAllowance)`\nfor an account whose on-chain allowance is present but depleted on\neither axis, where it previously\nreturned `SubmitResult::New` for that account's first statement.\n\nDownstream projects need to act only if a runtime grants zero-valued\nallowances, e.g.\n\n```diff\n- increase_allowance_by(&who, StatementAllowance { max_count: 0, max_size: 1_000 });\n+ increase_allowance_by(&who, StatementAllowance { max_count: 10, max_size: 1_000 });\n```\n\n`increase_allowance_by` writes such a value through unchanged\n(`get_or_default` + `saturating_add`),\nso `{ max_count: 0, max_size: N }` is reachable and was, until now,\npartially honoured. Accounts\nmeant to store statements need both axes non-zero. Nothing needs to\nchange for a runtime that never\ngrants a zero-valued allowance, since `decrease_allowance_by` already\ndeletes the storage key once\nan allowance becomes depleted, which the store has always read as\n`NoAllowance`.\n\nOne log line changed text, for anyone matching on it:\n\n```diff\n- \"Account {} has no statement allowance set\"\n+ \"Account {} has no usable statement allowance\"\n```\n\n## Review Notes\n\nThe gap is in `plan_insert`. The only place `max_count` is evaluated is\nthe satisfaction predicate\ninside the loop that walks the account's existing statements:\n\n```rust\n// Check if we can evict enough lower priority statements to satisfy constraints\nfor (entry, details) in record.by_priority.iter() {\n    if (record.data_size - would_free_size + statement_len <= max_size) &&\n        record.by_priority.len() + 1 - evicted_hashes.len() <= max_count\n    {\n        break; // Satisfied\n    }\n    ...\n}\n```\n\nFor an account with no statements yet, `record.by_priority` is empty,\nthe loop body never runs, and\n`max_count` is never read. The submission then passes the global store\nlimits and is admitted. The\npreceding `statement_len > max_size` gate does not catch it either,\nbeing about the single\nstatement's size rather than the account's quota.\n\n`max_count == 0` is the only value that escapes this way. After the loop\nhas evicted all `n`\nexisting entries the predicate reads `n + 1 - n <= max_count`, i.e. `1\n<= max_count`, which holds\nfor every `max_count >= 1`. So the empty-record case and the\nevicted-everything case are the same\nhole seen from two sides.\n\nThe impact was bounded: the account settles at one stored statement\nrather than zero, since the\ncheck does run from the second submission onward, and\n`enforce_account_allowance` evicts the\nstatement on its next pass because it reads the finalized allowance and\nsees\n`remaining_count (1) > max_count (0)`.\n\n<details>\n<summary>Why reject in <code>submit</code> rather than fix the\nloop</summary>\n\nHoisting the count check out of the loop in `plan_insert` also works,\nbut it needs a rejection\nreason for the zero-count case, and the natural candidate `AccountFull`\ncarries a `min_expiry`\nfield describing the existing statement that blocked admission — there\nis no such statement here.\nA new `RejectionReason` variant would be a breaking change to a public,\nserde-tagged enum that is\nsurfaced over RPC.\n\nRejecting in `submit` instead reuses `StatementAllowance::is_depleted`,\nwhich already exists and\nalready encodes this exact rule (`decrease_allowance_by` uses it to\ndelete a depleted allowance\nfrom storage), and matches the documented intent on\n`StatementAllowance`: \"An account with no\nallowance (or a depleted one) cannot store statements.\" `plan_insert` is\nthen never reached with a\nzero `max_count`.\n\n</details>\n\nThe change itself:\n\n```diff\n  let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {\n- Ok(Some(allowance)) => allowance,\n- Ok(None) => {\n+ Ok(Some(allowance)) if !allowance.is_depleted() => allowance,\n+ Ok(Some(_)) | Ok(None) => {\n```\n\nTests cover both depletion axes, since `is_depleted` covers both. Two\naccounts were added to the\ntest client's allowance stub, holding an allowance that is depleted on\none axis while still present\nin state — the state that `decrease_allowance_by` never produces but\n`increase_allowance_by` can:\n\n- account 50, `{ max_count: 0, max_size: 1000 }`, submitting a 100-byte\nstatement. The size is\ndeliberately non-zero to show the `statement_len > max_size` gate is not\nwhat is being tested.\n- account 51, `{ max_count: 5, max_size: 0 }`, submitting a zero-length\nstatement, which is the\n  case that slips past that gate because `0 > 0` is false.\n\nBoth assert the full `Rejected(NoAllowance)` result plus\n`statement_count() == 0` and\n`total_size() == 0`, so a fix that rejected but still moved the counters\nwould not pass. Both fail\non master and pass with this change; the full `sc-statement-store` suite\nis green at 85 tests.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-20T21:44:26Z",
+          "tree_id": "eecdaf2375f45b47621270328f3b7cceea18c50d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/98ceb0bd740c1508146f7c2917da7c9d3b5c54b3"
+        },
+        "date": 1787267414662,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00759654906,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14758379449333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023090583293333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009742401193333344,
             "unit": "seconds"
           }
         ]
