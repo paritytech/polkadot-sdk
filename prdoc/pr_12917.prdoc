@@ -12,6 +12,10 @@ doc:
     field; pass `None` to keep the previous pruning-derived behavior. APIs that took
     `archive_blocks: bool` now take a policy provider; use
     `default_gap_sync_body_policy(blocks_pruning)` for the old behavior.
+
+    The syncing engine is now spawned as an essential task: a node whose syncing engine
+    fails (e.g. due to a misconfigured body policy) shuts down instead of continuing
+    without sync. `DefaultSyncingEngineConfig` gains a `spawn_essential_handle` field.
 crates:
 - name: sc-network-sync
   bump: major

@@ -1120,7 +1120,9 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	build_network_advanced(BuildNetworkAdvancedParams {
 		role: config.role,
@@ -1386,6 +1388,8 @@ where
 	pub num_peers_hint: usize,
 	/// A handle for spawning tasks.
 	pub spawn_handle: &'a SpawnTaskHandle,
+	/// A handle for spawning essential tasks. Used for the syncing engine itself.
+	pub spawn_essential_handle: &'a SpawnEssentialTaskHandle,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
@@ -1424,6 +1428,7 @@ where
 		import_queue_service,
 		num_peers_hint,
 		spawn_handle,
+		spawn_essential_handle,
 		metrics_registry,
 		metrics,
 		gap_sync_body_policy,
@@ -1465,7 +1470,9 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	Ok((sync_service, block_announce_config))
 }
