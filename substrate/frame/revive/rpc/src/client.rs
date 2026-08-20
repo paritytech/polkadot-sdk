@@ -46,7 +46,7 @@ use std::{
 use storage_api::StorageApi;
 use subxt::{
 	OnlineClient,
-	backend::{StreamOf, StreamOfResults},
+	backend::{LegacyBackend, StreamOf, StreamOfResults},
 	client::OnlineClientAtBlock,
 	config::{HashFor, RpcConfigFor},
 	rpcs::{
@@ -63,7 +63,7 @@ use subxt::{
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
 use version_aware_runtime_api::{
-	CallRecordedOutput, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
+	CallRecordedOutput, TraceEntry, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
 };
 
 /// The substrate block number type.
@@ -152,8 +152,8 @@ pub enum ClientError {
 	ContractNotFound,
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
-	/// The transaction exists but a recorder-less replay could not produce its trace.
-	#[error("Trace unavailable: replay without proof recorder may have dropped it")]
+	/// The transaction exists but the node could not produce its trace.
+	#[error("trace unavailable: the node could not produce a trace for this transaction")]
 	TraceUnavailable,
 	/// The transaction fee could not be found
 	#[error("transactionFeePaid event not found")]
@@ -453,7 +453,12 @@ pub async fn connect(
 	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
-	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
+	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
+	// to the CombinedBackend, which routes block streams and header fetches through
+	// the chainHead protocol; its follow restarts and pinning limits stall receipt
+	// indexing under load (blocks become unresolvable once unpinned).
+	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
+	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
 	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
 	Ok((api, rpc_client, rpc))
 }
@@ -618,9 +623,22 @@ impl Client {
 				},
 			};
 
-			let block = block.at().await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to resolve streamed block: {err:?}");
-			})?;
+			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
+			// erroring out here would kill the essential subscription task and with it the
+			// whole server. Skip instead: a skipped finalized block doesn't advance
+			// `last_finalized_seen`, so the gap filler backfills it.
+			let block = match block.at().await {
+				Ok(block) => block,
+				Err(err) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
+						block.number(),
+						block.hash(),
+					);
+					continue;
+				},
+			};
 
 			// Acquire lock to ensure only one subscription can perform write operations at a time
 			let _guard = self.subscription_lock.lock().await;
@@ -1121,7 +1139,7 @@ impl Client {
 			return Ok(vec![]);
 		}
 
-		let CallRecordedOutput { value: traces, degraded } = self
+		let CallRecordedOutput { value: trace_entries, degraded } = self
 			.runtime_api(parent_hash)
 			.await?
 			.trace_block(block, config, block_hash)
@@ -1134,12 +1152,18 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let mut entries = traces
+		let mut entries = trace_entries
 			.into_iter()
-			.filter_map(|(index, trace)| {
+			.filter_map(|(index, entry)| {
 				let index = index as usize;
 				let tx_hash = hashes.remove(&index)?;
-				Some((index, TransactionTrace { tx_hash, outcome: TraceOutcome::Trace(trace) }))
+				let outcome = match entry {
+					TraceEntry::Traced(trace) => TraceOutcome::Trace(trace),
+					TraceEntry::NotTraced => {
+						TraceOutcome::Error(ClientError::TraceUnavailable.to_string())
+					},
+				};
+				Some((index, TransactionTrace { tx_hash, outcome }))
 			})
 			.collect::<Vec<_>>();
 
@@ -1169,15 +1193,16 @@ impl Client {
 
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
-		let CallRecordedOutput { value: trace, degraded } = self
+		let CallRecordedOutput { value: entry, degraded } = self
 			.runtime_api(parent_hash)
 			.await?
 			.trace_tx(block, transaction_index, config, block_hash)
 			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_tx"))?
 			.await?;
 
-		match trace {
-			Some(trace) => Ok(trace),
+		match entry {
+			Some(TraceEntry::Traced(trace)) => Ok(trace),
+			Some(TraceEntry::NotTraced) => Err(ClientError::TraceUnavailable),
 			None if degraded => Err(ClientError::TraceUnavailable),
 			None => Err(ClientError::EthExtrinsicNotFound),
 		}
