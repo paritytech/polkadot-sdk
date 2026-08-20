@@ -89,6 +89,7 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
+	"pallet-coretime-market?/std",
 	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
@@ -296,6 +297,7 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
+	"pallet-coretime-market?/runtime-benchmarks",
 	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
@@ -447,6 +449,7 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
+	"pallet-coretime-market?/try-runtime",
 	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
@@ -666,6 +669,7 @@ runtime-full = [
 	"pallet-contracts-uapi",
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
+	"pallet-coretime-market",
 	"pallet-dap",
 	"pallet-delegated-staking",
 	"pallet-democracy",
@@ -1477,6 +1481,11 @@ path = "../substrate/frame/conviction-voting"
 default-features = false
 optional = true
 path = "../substrate/frame/core-fellowship"
+
+[dependencies.pallet-coretime-market]
+default-features = false
+optional = true
+path = "../substrate/frame/coretime-market"
 
 [dependencies.pallet-dap]
 default-features = false

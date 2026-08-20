@@ -1,0 +1,23 @@
+title: Add RFC-17 coretime market pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds pallet-coretime-market, an RFC-17 implementation of the Market trait
+      introduced in paritytech/polkadot-sdk#11563.
+
+      The pallet implements a clearing-price descending Dutch auction with three phases
+      per sale cycle: Market (bidding), Renewal (existing tenants exercise renewal rights),
+      and Settlement (regions issued, awaiting next rotation).
+
+      Key design points: uniform clearing price for all winners, binding bids (raise only),
+      exponential reserve price adjustment, tenant displacement protection, and auction wins
+      reducing renewal quota per RFC-17.
+
+crates:
+  - name: pallet-coretime-market
+    bump: patch
+  - name: fp-coretime
+    bump: minor
+  - name: polkadot-sdk
+    bump: minor

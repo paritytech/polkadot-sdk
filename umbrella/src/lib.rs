@@ -468,6 +468,10 @@ pub use pallet_conviction_voting;
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
 
+/// RFC-17 market mechanism for Polkadot Coretime sales.
+#[cfg(feature = "pallet-coretime-market")]
+pub use pallet_coretime_market;
+
 /// FRAME pallet for Dynamic Allocation Pool (DAP).
 #[cfg(feature = "pallet-dap")]
 pub use pallet_dap;

@@ -171,6 +171,7 @@ pub trait TimesliceProvider {
 }
 
 /// Information about the sale.
+#[derive(Debug, PartialEq)]
 pub struct MarketSaleInfo<RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: RelayBlockNumber,
@@ -189,12 +190,14 @@ pub struct MarketSaleInfo<RelayBlockNumber> {
 }
 
 /// Outcome of [`Market::start_sales`].
+#[derive(Debug, PartialEq)]
 pub struct SalesStarted<RelayBlockNumber> {
 	/// The first active sale.
 	pub sale: MarketSaleInfo<RelayBlockNumber>,
 }
 
 /// Possible outcomes of [`Market::place_order`].
+#[derive(Debug, PartialEq)]
 pub enum OrderResult<Balance, BidId> {
 	/// A bid was placed.
 	BidPlaced {
@@ -215,6 +218,7 @@ pub enum OrderResult<Balance, BidId> {
 }
 
 /// Possible outcomes of [`Market::place_renewal_order`].
+#[derive(Debug, PartialEq)]
 pub enum RenewalOrderResult<Balance, BidId> {
 	/// A renewal bid was placed.
 	BidPlaced {
@@ -235,6 +239,7 @@ pub enum RenewalOrderResult<Balance, BidId> {
 }
 
 /// Outcome of [`Market::adjust_bid`].
+#[derive(Debug, PartialEq)]
 pub enum AdjustBidResult<Balance> {
 	/// Indicates that additional balance must be locked.
 	Lock {

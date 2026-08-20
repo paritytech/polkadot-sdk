@@ -2528,6 +2528,56 @@ impl pallet_broker::Config for Runtime {
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
+/// Stub providers for pallet-coretime-market.
+pub struct CoretimeMarketProviders;
+impl fp_coretime::market::CoreRangeProvider for CoretimeMarketProviders {
+	fn core_range() -> Option<fp_coretime::market::SoldCoresRange> {
+		Some(fp_coretime::market::SoldCoresRange { from: 0, to: 10 })
+	}
+}
+impl fp_coretime::market::TimesliceProvider for CoretimeMarketProviders {
+	fn next_timeslice_to_commit() -> Option<fp_coretime::Timeslice> {
+		None
+	}
+	fn latest_timeslice_ready_to_commit() -> Option<fp_coretime::Timeslice> {
+		cfg!(feature = "runtime-benchmarks").then_some(0)
+	}
+}
+impl pallet_coretime_market::RenewalRightsProvider<AccountId> for CoretimeMarketProviders {
+	fn renewal_rights_count(who: &AccountId, when: fp_coretime::Timeslice) -> u32 {
+		#[cfg(feature = "runtime-benchmarks")]
+		{
+			use codec::Encode;
+			let key = (b"coretime-market/bench-rights", who, when).encode();
+			return sp_io::storage::get(&key)
+				.and_then(|v| u32::decode(&mut &v[..]).ok())
+				.unwrap_or(0);
+		}
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		{
+			let _ = (who, when);
+			0
+		}
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &AccountId, when: fp_coretime::Timeslice, count: u32) {
+		use codec::Encode;
+		let key = (b"coretime-market/bench-rights", who, when).encode();
+		sp_io::storage::set(&key, &count.encode());
+	}
+}
+
+impl pallet_coretime_market::Config for Runtime {
+	type Balance = Balance;
+	type RelayBlockNumber = BlockNumber;
+	type WeightInfo = ();
+	type CoreRangeProvider = CoretimeMarketProviders;
+	type TimesliceProvider = CoretimeMarketProviders;
+	type RenewalRights = CoretimeMarketProviders;
+	type MaxBids = ConstU32<100>;
+	type Randomness = RandomnessCollectiveFlip;
+}
+
 parameter_types! {
 	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
 	pub const MixnetNumRequestsToCurrentBlocks: BlockNumber = 3;
@@ -2975,6 +3025,9 @@ mod runtime {
 
 	#[runtime::pallet_index(94)]
 	pub type Dap = pallet_dap::Pallet<Runtime>;
+
+	#[runtime::pallet_index(95)]
+	pub type CoretimeMarket = pallet_coretime_market::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3293,6 +3346,7 @@ mod benches {
 		[pallet_beefy_mmr, MmrLeaf]
 		[pallet_bounties, Bounties]
 		[pallet_broker, Broker]
+		[pallet_coretime_market, CoretimeMarket]
 		[pallet_child_bounties, ChildBounties]
 		[pallet_collective, Council]
 		[pallet_conviction_voting, ConvictionVoting]
