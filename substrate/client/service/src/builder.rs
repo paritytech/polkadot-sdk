@@ -1513,10 +1513,10 @@ where
 /// [`BuildNetworkParams::gap_sync_body_policy`].
 pub fn default_gap_sync_body_policy(blocks_pruning: BlocksPruning) -> GapSyncBodyPolicyProvider {
 	Arc::new(move || {
-		Ok(match blocks_pruning {
-			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => GapSyncBodyPolicy::All,
-			BlocksPruning::Some(_) => GapSyncBodyPolicy::HeadersOnly,
-		})
+		Ok(blocks_pruning
+			.is_archive()
+			.then_some(GapSyncBodyPolicy::All)
+			.unwrap_or(GapSyncBodyPolicy::HeadersOnly))
 	})
 }
 
