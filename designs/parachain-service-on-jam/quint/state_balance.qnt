@@ -29,12 +29,12 @@ module state_balance {
   /// pre-provisioned rather than charged to `usedStateBalance` as they grow.
   pure val AssetHubGlobalItemsFootprint: int = {
     val stagedKeys = VecEntryOverhead + MaxStagedValidatorKeys * ValidatorKeySize
-    // One storage entry per core: 34 + 5 (tag + CoreIndex key) + 2 (compact len)
-    // + the authorizer queue + 5 (Option<ServiceId>).
+    // One storage entry per core: 34 + 3 (tag + u16 CoreIndex key) + 2 (compact
+    // len) + the authorizer queue + 5 (Option<ServiceId>).
     val pendingAssigns =
-      CoreCount * (34 + 5 + 2 + AuthorizerQueueLength * 32 + 5)
-    // (CoreIndex 4 + Timeslot 4) per core.
-    val pendingAssignCores = VecEntryOverhead + CoreCount * 8
+      CoreCount * (34 + 3 + 2 + AuthorizerQueueLength * 32 + 5)
+    // (u16 CoreIndex 2 + Timeslot 4) per core.
+    val pendingAssignCores = VecEntryOverhead + CoreCount * 6
     // Head/tail pointer: 34 + 1 (key) + 1 (Option tag) + first_slot 4 + last_slot 4
     // + count 4.
     val transferChain = 34 + 1 + 1 + 4 + 4 + 4

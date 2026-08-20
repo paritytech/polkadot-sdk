@@ -1287,22 +1287,23 @@ general-storage entry (§6.1), so a `Map` costs one entry per key it holds while
 
 Of these only `incoming_transfers` grows with the transfer bound. Taking
 `CoreCount = 341`, `AuthorizerHash = 32 B`, `ServiceId = 4 B`, `Memo = 128 B`,
-`CoreIndex = 4 B`, authorizer-queue length = 80, and `Amount = Compact<u128>` sized at
+`CoreIndex = 2 B`, authorizer-queue length = 80, and
+`Amount = Compact<u128>` sized at
 its worst case of 17 B, the fixed part is:
 
 ```
-staged_validator_keys: BoundedVec<ValidatorKey, 1023>  — 1 item
+staged_validator_keys: BoundedVec<ValidatorKey, 1023>  · 1 item
   34 + 1 (key) + 2 + 1023 × 336                            octets    343 765
-pending_assigns: Map<CoreIndex, PendingAssign>  — 341 items
-  341 × (34 + 5 (key) + 2 + 79 × 32 + 5 (Option<ServiceId>))  octets    877 734
-pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  — 1 item
-  34 + 1 (key) + 2 + 341 × (4 + 4)                         octets      2 765
-incoming_transfer_chain: Option<IncomingTransferChain>  — 1 item
+pending_assigns: Map<CoreIndex, PendingAssign>  · 341 items
+  341 × (34 + 3 (key) + 2 + 79 × 32 + 5 (Option<ServiceId>))  octets    877 052
+pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  · 1 item
+  34 + 1 (key) + 2 + 341 × (2 + 4)                         octets      2 083
+incoming_transfer_chain: Option<IncomingTransferChain>  · 1 item
   34 + 1 (key) + 1 + 4 + 4 + 4 (count)                     octets         48
-                                                  octets subtotal   1 224 312
+                                                  octets subtotal   1 222 948
                                                     344 items × 10      3 440
                                                                     ---------
-                                                                    1 227 752
+                                                                    1 226 388
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
@@ -1322,14 +1323,14 @@ incoming_transfers: Map<Timeslot, IncomingTransfers>  — worst case N items
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 227 752 + 204 × N
+asset_hub_global_items = 1 226 388 + 204 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation: each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 227 752 + 204 000 = 1 431 752`, or
-**≈ 1.37 MiB**, on top of the generic per-para baseline.
+(§5.1). At `N = 1000` the reservation is `1 226 388 + 204 000 = 1 430 388`, or
+**≈ 1.36 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
 
