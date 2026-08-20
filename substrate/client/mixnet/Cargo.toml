@@ -26,24 +26,24 @@ futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 mixnet = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-network.workspace = true
+sc-client-api.workspace = true
 sc-network.default-features = true
-sc-network-types.workspace = true
+sc-network.workspace = true
 sc-network-types.default-features = true
-sc-transaction-pool-api.workspace = true
+sc-network-types.workspace = true
 sc-transaction-pool-api.default-features = true
-sp-api.workspace = true
+sc-transaction-pool-api.workspace = true
 sp-api.default-features = true
-sp-consensus.workspace = true
+sp-api.workspace = true
 sp-consensus.default-features = true
-sp-core.workspace = true
+sp-consensus.workspace = true
 sp-core.default-features = true
-sp-keystore.workspace = true
+sp-core.workspace = true
 sp-keystore.default-features = true
-sp-mixnet.workspace = true
+sp-keystore.workspace = true
 sp-mixnet.default-features = true
-sp-runtime.workspace = true
+sp-mixnet.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 thiserror = { workspace = true }

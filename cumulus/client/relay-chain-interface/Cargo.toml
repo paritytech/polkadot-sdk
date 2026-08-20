@@ -12,20 +12,20 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-cumulus-primitives-core.workspace = true
 cumulus-primitives-core.default-features = true
-polkadot-overseer.workspace = true
+cumulus-primitives-core.workspace = true
 polkadot-overseer.default-features = true
-sc-client-api.workspace = true
+polkadot-overseer.workspace = true
 sc-client-api.default-features = true
-sc-network.workspace = true
+sc-client-api.workspace = true
 sc-network.default-features = true
-sp-api.workspace = true
+sc-network.workspace = true
 sp-api.default-features = true
-sp-blockchain.workspace = true
+sp-api.workspace = true
 sp-blockchain.default-features = true
-sp-state-machine.workspace = true
+sp-blockchain.workspace = true
 sp-state-machine.default-features = true
+sp-state-machine.workspace = true
 sp-version.workspace = true
 
 async-trait = { workspace = true }

@@ -16,8 +16,8 @@ maintenance = { status = "deprecated" }
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-crypto-hashing.workspace = true
 sp-crypto-hashing.default-features = true
+sp-crypto-hashing.workspace = true
 
 [features]
 default = ["std"]

@@ -13,8 +13,8 @@ workspace = true
 
 [build-dependencies]
 rustversion = { workspace = true }
-substrate-wasm-builder.workspace = true
 substrate-wasm-builder.default-features = true
+substrate-wasm-builder.workspace = true
 
 [features]
 default = ["std"]

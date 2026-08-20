@@ -11,18 +11,18 @@ publish = false
 workspace = true
 
 [dependencies]
-cumulus-pallet-parachain-system.workspace = true
 cumulus-pallet-parachain-system.default-features = true
+cumulus-pallet-parachain-system.workspace = true
 emulated-integration-tests-common.workspace = true
 frame-support.workspace = true
-pallet-broker.workspace = true
 pallet-broker.default-features = true
+pallet-broker.workspace = true
 pallet-message-queue.workspace = true
-polkadot-runtime-parachains.workspace = true
 polkadot-runtime-parachains.default-features = true
+polkadot-runtime-parachains.workspace = true
 sp-runtime.workspace = true
-westend-runtime-constants.workspace = true
 westend-runtime-constants.default-features = true
+westend-runtime-constants.workspace = true
 westend-system-emulated-network.workspace = true
 xcm.workspace = true
 xcm-executor.workspace = true

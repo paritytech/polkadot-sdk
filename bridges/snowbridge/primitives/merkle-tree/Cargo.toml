@@ -24,8 +24,8 @@ sp-runtime.workspace = true
 array-bytes = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
-sp-crypto-hashing = { default-features = true, path = "../../../../substrate/primitives/crypto/hashing" }
-sp-tracing = { default-features = true, path = "../../../../substrate/primitives/tracing" }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

@@ -24,8 +24,8 @@ polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 assert_cmd = { workspace = true }
 
 [build-dependencies]
-substrate-build-script-utils.workspace = true
 substrate-build-script-utils.default-features = true
+substrate-build-script-utils.workspace = true
 
 [features]
 default = []
