@@ -375,6 +375,28 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `PolkadotXcm::ShouldRecordXcm` (r:1 w:0)
+	/// Proof: `PolkadotXcm::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `PolkadotXcm::AssetTraps` (r:1 w:1)
+	/// Proof: `PolkadotXcm::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Broker::Regions` (r:20 w:20)
+	/// Proof: `Broker::Regions` (`max_values`: None, `max_size`: Some(86), added: 2561, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 20]`.
+	fn claim_assets_by_size(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `54 + n * (43 ±0)`
+		//  Estimated: `3518 + n * (2561 ±0)`
+		// Minimum execution time: 27_752_000 picoseconds.
+		Weight::from_parts(20_289_580, 0)
+			.saturating_add(Weight::from_parts(0, 3518))
+			// Standard Error: 3_107
+			.saturating_add(Weight::from_parts(8_386_644, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2561).saturating_mul(n.into()))
+	}
 	/// Storage: `PolkadotXcm::AuthorizedAliases` (r:1 w:1)
 	/// Proof: `PolkadotXcm::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
@@ -410,5 +432,27 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 8_024_000 picoseconds.
 		Weight::from_parts(8_296_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+	}
+	/// The range of component `n` is `[0, 8192]`.
+	fn weigh_message_by_size(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_123_000 picoseconds.
+		Weight::from_parts(1_524_653, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 19
+			.saturating_add(Weight::from_parts(72_265, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 131072]`.
+	fn decode_xcm(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 354_000 picoseconds.
+		Weight::from_parts(824_412, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(2_426, 0).saturating_mul(n.into()))
 	}
 }

@@ -2009,6 +2009,41 @@ impl_runtime_apis! {
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
+
+				fn get_assets(n: u32) -> XcmAssets {
+					use frame_support::{assert_ok, traits::tokens::fungible::{Inspect, Mutate}};
+					let account: AccountId = frame_benchmarking::whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let amount = 1_000_000u128;
+					// Worst case: `n` distinct `ForeignAssets`. Keyed by a full `Location`, they
+					// book more proof size per deposit than trust-backed assets, and match later
+					// in `AssetTransactors`.
+					let assets: Vec<Asset> = (0..n)
+						.map(|i| {
+							// Another chain's assets pallet, so the id is genuinely foreign.
+							let asset_location = Location::new(
+								1,
+								[Parachain(3000), PalletInstance(53), GeneralIndex((1984 + i).into())],
+							);
+							assert_ok!(ForeignAssets::force_create(
+								RuntimeOrigin::root(),
+								asset_location.clone().into(),
+								account.clone().into(),
+								true,
+								1u128,
+							));
+							Asset { id: AssetId(asset_location), fun: Fungible(amount) }
+						})
+						.collect();
+					assets.into()
+				}
+
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{

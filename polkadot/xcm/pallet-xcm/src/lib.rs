@@ -109,6 +109,39 @@ pub trait WeightInfo {
 	fn remove_authorized_alias() -> Weight;
 
 	fn weigh_message() -> Weight;
+
+	/// Weight of decoding and weighing an XCM message of `n` bytes.
+	///
+	/// Scales with size rather than with `MAX_INSTRUCTIONS_TO_DECODE`: a `Transact` carrying a
+	/// local call has that call decoded eagerly and weighed via `get_dispatch_info`, so a batch
+	/// call makes both costs scale with the number of nested calls.
+	///
+	/// Callers that also charge a flat small-message weight (e.g. [`Self::execute`]) pay this
+	/// base constant twice; that over-charge is deliberate.
+	///
+	/// Defaults to the flat [`Self::weigh_message`] cost. Chains that want the charge to scale
+	/// with message size should override it (see the `weigh_message_by_size` benchmark).
+	fn weigh_message_by_size(n: u32) -> Weight {
+		let _ = n;
+		Self::weigh_message()
+	}
+	/// Weight of decoding, but not weighing, an XCM message of `n` bytes.
+	///
+	/// Cheaper than [`Self::weigh_message_by_size`] because `Transact` payloads stay opaque.
+	///
+	/// Defaults to the flat [`Self::weigh_message`] cost.
+	fn decode_xcm(n: u32) -> Weight {
+		let _ = n;
+		Self::weigh_message()
+	}
+	/// Weight of claiming `n` assets.
+	///
+	/// Defaults to the flat [`Self::claim_assets`] cost. Chains that can deposit several
+	/// distinct asset kinds should override it (see the `claim_assets` benchmark).
+	fn claim_assets_by_size(n: u32) -> Weight {
+		let _ = n;
+		Self::claim_assets()
+	}
 }
 
 /// fallback implementation
@@ -204,6 +237,21 @@ impl WeightInfo for TestWeightInfo {
 
 	fn weigh_message() -> Weight {
 		Weight::from_parts(100_000, 0)
+	}
+
+	fn weigh_message_by_size(n: u32) -> Weight {
+		Weight::from_parts(100_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+	}
+
+	fn decode_xcm(n: u32) -> Weight {
+		Weight::from_parts(100_000, 0)
+			.saturating_add(Weight::from_parts(20_000, 0).saturating_mul(n.into()))
+	}
+
+	fn claim_assets_by_size(n: u32) -> Weight {
+		Weight::from_parts(100_000_000, 0)
+			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
 	}
 }
 
@@ -1523,7 +1571,10 @@ pub mod pallet {
 		/// - `assets`: The exact assets that were trapped. Use the version to specify what version
 		/// was the latest when they were trapped.
 		/// - `beneficiary`: The location/account where the claimed assets will be deposited.
+		///
+		/// The weight of this call is linear in the number of assets claimed.
 		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::claim_assets_by_size(assets.len() as u32))]
 		pub fn claim_assets(
 			origin: OriginFor<T>,
 			assets: Box<VersionedAssets>,
