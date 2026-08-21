@@ -51,3 +51,5 @@ crates:
 - name: asset-hub-westend-runtime
   bump: major
   validate: false
+- name: sc-consensus-beefy-rpc
+  bump: patch
