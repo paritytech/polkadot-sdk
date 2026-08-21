@@ -23,7 +23,9 @@ use crate::{
 	access_list::{
 		AccessEntry, AccessList, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, StateAccess, StorageOp,
 	},
-	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
+	call_builder::{
+		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit, whitelist_code,
+	},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
@@ -194,26 +196,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	fn whitelist_code<T: Config>(code_hash: H256) {
-		for key in [
-			CodeInfoOf::<T>::hashed_key_for(&code_hash),
-			PristineCode::<T>::hashed_key_for(&code_hash),
-		] {
-			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
-		}
-	}
-
-	fn whitelist_contract_and_code<T: Config>(contract: &Contract<T>, code_hash: H256) {
-		for key in [
-			frame_system::Account::<T>::hashed_key_for(&contract.account_id),
-			OriginalAccount::<T>::hashed_key_for(&contract.address),
-			AccountInfoOf::<T>::hashed_key_for(&contract.address),
-		] {
-			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
-		}
-		whitelist_code::<T>(code_hash);
-	}
-
 	/// Shared setup of the hot call benches: deploys `$module` as the callee,
 	/// makes it hot (access list warmed, keys whitelisted), and binds
 	/// `$do_call` to a zero-value call (or, with the `delegate` prefix, a
@@ -253,7 +235,7 @@ mod benchmarks {
 			let callee = callee_contract.account_id.clone();
 			let code_hash = callee_contract.info()?.code_hash;
 
-			whitelist_contract_and_code::<T>(&callee_contract, code_hash);
+			callee_contract.whitelist_for_call()?;
 
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
@@ -270,7 +252,7 @@ mod benchmarks {
 
 			let (mut ext, _) = setup.ext();
 			// The measured hot call transfers no value, so the account entry stays untouched.
-			ext.prewarm_call(StateAccess::call(callee_contract.address, $delegate, false), code_hash);
+			ext.warm_call_target(StateAccess::call(callee_contract.address, $delegate, false), code_hash);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 		};
@@ -570,7 +552,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		whitelist_code::<T>(instance.info()?.code_hash);
+		instance.whitelist_code()?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -607,7 +589,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		whitelist_code::<T>(instance.info()?.code_hash);
+		instance.whitelist_code()?;
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
@@ -2515,7 +2497,7 @@ mod benchmarks {
 		let Contract { account_id: callee, address: callee_addr, .. } = callee_contract.clone();
 
 		// The code read is priced by `code_load`, not this benchmark.
-		whitelist_code::<T>(callee_contract.info().unwrap().code_hash);
+		callee_contract.whitelist_code().unwrap();
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -2647,7 +2629,7 @@ mod benchmarks {
 		let Contract { account_id: address, .. } = callee_contract.clone();
 
 		// The code read is priced by `code_load`, not this benchmark.
-		whitelist_code::<T>(callee_contract.info().unwrap().code_hash);
+		callee_contract.whitelist_code()?;
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;

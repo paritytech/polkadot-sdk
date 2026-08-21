@@ -150,7 +150,7 @@ impl Warmth {
 	}
 
 	/// Whether the access billed cold: the entry was not tracked.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	#[cfg(test)]
 	pub(crate) fn is_cold(&self) -> bool {
 		matches!(self, Self::Cold { .. })
 	}
@@ -200,6 +200,16 @@ impl CodeLoadWarmth {
 	}
 }
 
+/// A group of state reads that warm and price together. Each access kind
+/// declares the entries it reads and the shape its warmth comes back in.
+pub trait Access {
+	type Warmth;
+
+	/// Maps `warmth_of` over each state item this access reads, with the
+	/// operation it performs on that item.
+	fn expand(self, warmth_of: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Self::Warmth;
+}
+
 /// A state-accessing operation, one variant per opcode.
 #[derive(Clone, Copy, Debug)]
 pub enum StateAccess {
@@ -216,22 +226,53 @@ impl StateAccess {
 			Self::Call { target, transfers_value }
 		}
 	}
+}
 
-	/// Maps `warmth_of` over each state item this operation reads and
-	/// collects the results into a [`StateWarmth`].
-	fn expand(self, mut warmth_of: impl FnMut(AccessEntry) -> Warmth) -> StateWarmth {
+impl Access for StateAccess {
+	type Warmth = StateWarmth;
+
+	fn expand(self, mut warmth_of: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> StateWarmth {
 		match self {
 			Self::Call { target, transfers_value } => StateWarmth::Call {
 				// Only a value transfer reads the target's account, so a plain call
 				// must not warm it: warm means the read's proof is already paid.
 				account: transfers_value
-					.then(|| warmth_of(AccessEntry::Account { address: target })),
-				original_account: warmth_of(AccessEntry::OriginalAccount { address: target }),
-				account_info: warmth_of(AccessEntry::AccountInfo { address: target }),
+					.then(|| warmth_of(AccessEntry::Account { address: target }, StorageOp::Read)),
+				original_account: warmth_of(
+					AccessEntry::OriginalAccount { address: target },
+					StorageOp::Read,
+				),
+				account_info: warmth_of(
+					AccessEntry::AccountInfo { address: target },
+					StorageOp::Read,
+				),
 			},
 			Self::DelegateCall { target } => StateWarmth::DelegateCall {
-				account_info: warmth_of(AccessEntry::AccountInfo { address: target }),
+				account_info: warmth_of(
+					AccessEntry::AccountInfo { address: target },
+					StorageOp::Read,
+				),
 			},
+		}
+	}
+}
+
+/// A code load: reads the metadata and the blob of `hash`. `code_info_op` is
+/// [`StorageOp::Write`] when the load also bumps the code's refcount.
+#[derive(Clone, Copy, Debug)]
+pub struct CodeLoad {
+	pub hash: H256,
+	pub code_info_op: StorageOp,
+}
+
+impl Access for CodeLoad {
+	type Warmth = CodeLoadWarmth;
+
+	fn expand(self, mut warmth_of: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
+		CodeLoadWarmth {
+			info: warmth_of(AccessEntry::CodeInfo { hash: self.hash }, self.code_info_op),
+			// Loads only read the blob; uploads and removals never come through here.
+			blob: warmth_of(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
 		}
 	}
 }
@@ -259,12 +300,11 @@ pub struct AccessListMetrics {
 }
 
 /// One entry per distinct state item accessed in the current transaction.
-/// Every entry stands for exactly one state read.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum AccessEntry {
-	/// Account state (`System::Account`) of `address`, read on value transfers.
+	/// Account state (`System::Account`) of `address`.
 	Account { address: H160 },
-	/// Address mapping (`OriginalAccount`) of `address`, read by every call.
+	/// Address mapping (`OriginalAccount`) of `address`.
 	OriginalAccount { address: H160 },
 	/// A contract storage slot. Field order is `slot, address` so comparison
 	/// decides on `slot` first, the most-discriminating field in the typical
@@ -365,7 +405,7 @@ impl AccessList {
 		}
 	}
 
-	/// Non-mutating sibling of [`touch`](Self::touch).
+	/// Non-mutating sibling of [`Self::touch`].
 	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
 		match self.accessed.get(entry) {
 			Some(paid) => Warmth::Hot(*paid),
@@ -417,31 +457,23 @@ impl AccessList {
 		Warmth::Cold { revertible: self.in_nested_frame() }
 	}
 
-	/// Warms every state item the operation reads, returning its warmth.
-	pub fn warm_operation(&mut self, state_access: StateAccess) -> StateWarmth {
-		state_access.expand(|entry| self.touch(entry, StorageOp::Read))
+	/// Warms every entry the access reads, returning their warmth.
+	pub fn warm<A: Access>(&mut self, access: A) -> A::Warmth {
+		access.expand(|entry, op| self.touch(entry, op))
 	}
 
-	/// Non-mutating sibling of [`warm_operation`](Self::warm_operation).
-	pub fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth {
-		state_access.expand(|entry| self.peek(&entry))
-	}
-
-	/// Warms the two entries a code load reads, returning their warmth.
-	pub fn warm_code(&mut self, hash: H256, code_info_op: StorageOp) -> CodeLoadWarmth {
-		CodeLoadWarmth {
-			info: self.touch(AccessEntry::CodeInfo { hash }, code_info_op),
-			// Loads only read the blob; uploads and removals never come through here.
-			blob: self.touch(AccessEntry::CodeBlob { hash }, StorageOp::Read),
-		}
-	}
-
-	/// Non-mutating sibling of [`warm_code`](Self::warm_code).
-	pub fn code_warmth(&self, hash: H256) -> CodeLoadWarmth {
-		CodeLoadWarmth {
-			info: self.peek(&AccessEntry::CodeInfo { hash }),
-			blob: self.peek(&AccessEntry::CodeBlob { hash }),
-		}
+	/// Non-mutating sibling of [`Self::warm`]. Cold entries count down the free
+	/// slots in touch order, so a multi-entry peek prices the cap edge exactly.
+	pub fn warmth_of<A: Access>(&self, access: A) -> A::Warmth {
+		let mut free_slots = MAX_ACCESS_LIST_ENTRIES.saturating_sub(self.accessed.len());
+		access.expand(|entry, _op| match self.peek(&entry) {
+			Warmth::Cold { .. } => {
+				let revertible = self.in_nested_frame() && free_slots > 0;
+				free_slots = free_slots.saturating_sub(1);
+				Warmth::Cold { revertible }
+			},
+			hot => hot,
+		})
 	}
 
 	/// Per-transaction metrics snapshot.
@@ -520,19 +552,19 @@ mod tests {
 	}
 
 	/// Touch read-paid entries with distinct addresses until the map is full.
-	fn fill_to_cap(al: &mut AccessList) {
-		for i in 0..MAX_ACCESS_LIST_ENTRIES {
+	fn fill(al: &mut AccessList, entries: usize) {
+		for i in 0..entries {
 			let address = H160::from_low_u64_be(i as u64);
 			let entry = AccessEntry::Storage { address, slot: Slot::Fix([0; 32]) };
 			assert!(al.touch(entry, StorageOp::Read).is_cold(), "fill entries must be new");
 		}
-		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES, "map filled to the cap");
+		assert_eq!(al.metrics().size, entries, "map filled to the requested size");
 	}
 
 	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
-		fill_to_cap(&mut al);
+		fill(&mut al, MAX_ACCESS_LIST_ENTRIES);
 
 		let new_entry = AccessEntry::Storage {
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
@@ -573,73 +605,33 @@ mod tests {
 	}
 
 	#[test]
-	fn call_peek_and_touch_diverge_at_cap_boundary() {
+	fn call_peek_matches_touch_at_cap_boundary() {
 		let mut al = AccessList::new();
-		// Fill to one below the cap.
-		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(
-				AccessEntry::Storage {
-					address: H160::from_low_u64_be(i as u64),
-					slot: Slot::Fix([0; 32]),
-				},
-				StorageOp::Read,
-			);
-		}
-		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES - 1);
+		fill(&mut al, MAX_ACCESS_LIST_ENTRIES - 1);
 
 		let target = H160::from_low_u64_be(0xdead_beef);
 		// Nested frame, so a journaled cold touch would be revertible.
 		al.enter_frame();
 
-		// The set is below the cap, so peek prices all three call entries
-		// revertible cold: it cannot see that the first touch fills the cap.
+		// One slot is free and the call touches three entries: the peek counts
+		// the fills down, so only the first is priced revertible.
+		let expected = StateWarmth::Call {
+			account: Some(Warmth::cold_revertible()),
+			original_account: Warmth::cold_non_revertible(),
+			account_info: Warmth::cold_non_revertible(),
+		};
 		assert_eq!(
-			al.operation_warmth(StateAccess::Call { target, transfers_value: true }),
-			StateWarmth::Call {
-				account: Some(Warmth::cold_revertible()),
-				original_account: Warmth::cold_revertible(),
-				account_info: Warmth::cold_revertible(),
-			},
-			"peek sees the not-full set for every entry",
+			al.warmth_of(StateAccess::Call { target, transfers_value: true }),
+			expected,
+			"peek prices the cap edge like touch records it",
 		);
-
-		// The first touch fills the cap, so the two entries after it land past it.
 		assert_eq!(
-			al.warm_operation(StateAccess::Call { target, transfers_value: true }),
-			StateWarmth::Call {
-				account: Some(Warmth::cold_revertible()),
-				original_account: Warmth::cold_non_revertible(),
-				account_info: Warmth::cold_non_revertible(),
-			},
+			al.warm(StateAccess::Call { target, transfers_value: true }),
+			expected,
 			"touch journals only the first entry before the cap fills",
 		);
 
 		al.commit_frame();
-	}
-
-	#[test]
-	fn peek_does_not_mutate() {
-		let mut al = AccessList::new();
-		let entry = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([1; 32]) };
-
-		assert!(!al.peek(&entry).is_hot(), "untouched entry: cold");
-		assert!(!al.peek(&entry).is_hot(), "repeated query: still cold");
-		assert_eq!(
-			al.metrics(),
-			AccessListMetrics { size: 0, cold: 0, hot: 0 },
-			"peek must not bump counters",
-		);
-
-		al.touch(entry.clone(), StorageOp::Read);
-
-		let read_paid = Warmth::Hot(Paid::Read);
-		assert_eq!(al.peek(&entry), read_paid, "peek reports the paid level");
-		assert_eq!(al.peek(&entry), read_paid, "peek must not upgrade");
-		assert_eq!(
-			al.metrics(),
-			AccessListMetrics { size: 1, cold: 1, hot: 0 },
-			"peek must not bump the hot counter",
-		);
 	}
 
 	#[test]
@@ -673,7 +665,9 @@ mod tests {
 	#[test]
 	fn peek_agrees_with_touch() {
 		fn agree(al: &mut AccessList, entry: AccessEntry, op: StorageOp, expected: Warmth) {
+			let before = al.metrics();
 			assert_eq!(al.peek(&entry), expected, "peek must report like touch");
+			assert_eq!(al.metrics(), before, "peek must not mutate the list");
 			assert_eq!(al.touch(entry, op), expected, "touch must report like peek");
 		}
 
@@ -691,7 +685,7 @@ mod tests {
 		agree(&mut al, entry(2), StorageOp::Write, Warmth::Cold { revertible: true });
 		al.rollback_frame();
 
-		fill_to_cap(&mut al);
+		fill(&mut al, MAX_ACCESS_LIST_ENTRIES);
 
 		al.enter_frame();
 		// Peek's own past-cap arm must agree with touch too.

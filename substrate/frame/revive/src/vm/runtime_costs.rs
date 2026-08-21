@@ -251,8 +251,7 @@ impl RuntimeCosts {
 	}
 
 	/// What a hot write pays on top of the cold read that warmed the slot:
-	/// re-hashing its trie path when the block's storage root is computed. Owed once per written
-	/// key, by whoever's read already paid for the walk.
+	/// re-hashing its trie path when the block's storage root is computed.
 	pub(crate) fn deferred_write_cost<T: Config>() -> Weight {
 		let db = T::DbWeight::get();
 		db.writes(1).saturating_sub(db.reads(1))
@@ -297,7 +296,6 @@ pub(crate) fn weight_by_warmth<T: Config>(
 		} else {
 			cold()
 		};
-	// Add each touched item's access-list overhead on top of the operation cost.
 	item_warmths.iter().fold(operation_weight, |weight, warmth| {
 		weight.saturating_add(RuntimeCosts::access_list_overhead::<T>(*warmth))
 	})
@@ -510,42 +508,6 @@ mod tests {
 		}
 	}
 
-	/// A zero-value call reads two state items, between a delegate call's one
-	/// and a transferring call's three, and any cold item still prices it cold.
-	#[test]
-	fn zero_value_call_base_prices_two_items() {
-		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
-		let plain_hot = |account| {
-			weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
-				account,
-				original_account: Warmth::Hot(Paid::Read),
-				account_info: Warmth::Hot(Paid::Read),
-			}))
-		};
-		let delegate_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::DelegateCall {
-			account_info: Warmth::Hot(Paid::Read),
-		}));
-
-		assert!(
-			plain_hot(None).ref_time() < plain_hot(Some(Warmth::Hot(Paid::Read))).ref_time(),
-			"a zero-value call prices fewer items than a transferring one",
-		);
-		assert!(
-			plain_hot(None).ref_time() > delegate_hot.ref_time(),
-			"but more than a delegate call's single item",
-		);
-
-		let mixed = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
-			account: None,
-			original_account: Warmth::Hot(Paid::Read),
-			account_info: Warmth::cold_non_revertible(),
-		}));
-		assert!(
-			mixed.proof_size() > 0,
-			"one cold item prices the zero-value call fully cold: {mixed:?}",
-		);
-	}
-
 	#[test]
 	fn call_base_cold_hot_pricing() {
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
@@ -605,6 +567,30 @@ mod tests {
 		);
 		assert_eq!(delegate_hot.proof_size(), 0, "hot delegate call: {delegate_hot:?}");
 		assert!(delegate_cold.proof_size() > 0, "cold delegate call: {delegate_cold:?}");
+
+		let zero_value_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+			account: None,
+			original_account: Warmth::Hot(Paid::Read),
+			account_info: Warmth::Hot(Paid::Read),
+		}));
+		assert!(
+			zero_value_hot.ref_time() < all_hot.ref_time(),
+			"a zero-value call prices fewer items than a transferring one",
+		);
+		assert!(
+			zero_value_hot.ref_time() > delegate_hot.ref_time(),
+			"but more than a delegate call's single item",
+		);
+		let zero_value_mixed = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+			account: None,
+			original_account: Warmth::Hot(Paid::Read),
+			account_info: Warmth::cold_non_revertible(),
+		}));
+		assert_eq!(
+			zero_value_mixed.proof_size(),
+			all_cold.proof_size(),
+			"one cold item prices the zero-value call fully cold: {zero_value_mixed:?}",
+		);
 	}
 
 	#[test]

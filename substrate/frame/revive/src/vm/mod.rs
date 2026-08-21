@@ -449,47 +449,31 @@ mod tests {
 		tests::Test,
 	};
 
-	/// Instantiating from an existing hash bumps the code's refcount, a write
-	/// the instantiate benches whitelist, so the load charges it here.
+	/// The refcount bump owes the block-end re-hash exactly once: the first
+	/// write-op load pays it, and a repeat finding the key write-paid does not.
 	#[test]
-	fn instantiate_code_load_charges_the_refcount_write() {
-		let weight_of = |code_info_op| {
-			Token::<Test>::weight(&CodeLoadToken {
-				code_len: 1024,
-				code_type: BytecodeType::Pvm,
-				warmth: CodeLoadWarmth::cold_non_revertible(),
-				code_info_op,
-			})
-		};
-
-		assert_eq!(
-			weight_of(StorageOp::Write).saturating_sub(weight_of(StorageOp::Read)),
-			RuntimeCosts::deferred_write_cost::<Test>(),
-			"the instantiate load must add exactly the refcount write",
-		);
-	}
-
-	/// The refcount bump's block-end work is one re-hash per key, so a second
-	/// instantiate of the same code in one transaction must not pay it again.
-	#[test]
-	fn a_repeat_refcount_bump_pays_the_write_once() {
-		let load = |info| {
+	fn the_refcount_write_is_charged_exactly_when_owed() {
+		let load = |info, code_info_op| {
 			Token::<Test>::weight(&CodeLoadToken {
 				code_len: 1024,
 				code_type: BytecodeType::Pvm,
 				warmth: CodeLoadWarmth { info, blob: Warmth::Hot(Paid::Read) },
-				code_info_op: StorageOp::Write,
+				code_info_op,
 			})
 		};
-
-		let after_read = load(Warmth::Hot(Paid::Read));
-		let after_write = load(Warmth::Hot(Paid::Write));
+		let deferred = RuntimeCosts::deferred_write_cost::<Test>();
+		let cold = Warmth::cold_non_revertible();
 
 		assert_eq!(
-			after_read.saturating_sub(after_write),
-			RuntimeCosts::deferred_write_cost::<Test>(),
-			"only the bump that finds the key read-paid owes the re-hash: \
-			 read={after_read:?} write={after_write:?}",
+			load(cold, StorageOp::Write).saturating_sub(load(cold, StorageOp::Read)),
+			deferred,
+			"the instantiate load must add exactly the refcount write",
+		);
+		assert_eq!(
+			load(Warmth::Hot(Paid::Read), StorageOp::Write)
+				.saturating_sub(load(Warmth::Hot(Paid::Write), StorageOp::Write)),
+			deferred,
+			"only the bump that finds the key read-paid owes the re-hash",
 		);
 	}
 

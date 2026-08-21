@@ -20,8 +20,8 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
 	access_list::{
-		AccessEntry, AccessList, CodeLoadWarmth, StateAccess, StateWarmth, StorageAccessKind,
-		StorageOp,
+		AccessEntry, AccessList, CodeLoad, CodeLoadWarmth, StateAccess, StateWarmth,
+		StorageAccessKind, StorageOp,
 	},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -1079,16 +1079,17 @@ where
 		Ok(Some((stack, executable)))
 	}
 
-	/// Loads code, warming its access-list entries only after the load succeeds.
+	/// Loads code, warming the metadata and blob entries only if the load succeeds.
 	fn load_code<S: State>(
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
 		code_hash: H256,
 		code_info_op: StorageOp,
 	) -> Result<E, DispatchError> {
-		let code_warmth = access_list.code_warmth(code_hash);
-		let executable = E::from_storage(code_hash, meter, code_warmth, code_info_op)?;
-		access_list.warm_code(code_hash, code_info_op);
+		let code_load = CodeLoad { hash: code_hash, code_info_op };
+		let executable =
+			E::from_storage(code_hash, meter, access_list.warmth_of(code_load), code_info_op)?;
+		access_list.warm(code_load);
 		Ok(executable)
 	}
 
@@ -1118,7 +1119,7 @@ where
 				match &delegated_call {
 					None => {
 						if precompile.is_none() {
-							access_list.warm_operation(StateAccess::Call {
+							access_list.warm(StateAccess::Call {
 								target: address,
 								transfers_value: !value_transferred.is_zero(),
 							});
@@ -1128,9 +1129,8 @@ where
 						let delegate_precompile =
 							<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes());
 						if delegate_precompile.is_none() {
-							access_list.warm_operation(StateAccess::DelegateCall {
-								target: delegated.callee,
-							});
+							access_list
+								.warm(StateAccess::DelegateCall { target: delegated.callee });
 						}
 					},
 				}
@@ -1973,18 +1973,20 @@ where
 		self.block_number = block_number;
 	}
 
-	/// Warms the access-list entries the call reads, plus the code.
+	/// Warms everything a call to the target reads: its account entries and its code.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn prewarm_call(&mut self, state_access: StateAccess, code_hash: H256) {
-		self.access_list.warm_operation(state_access);
+	pub(crate) fn warm_call_target(&mut self, state_access: StateAccess, code_hash: H256) {
+		self.access_list.warm(state_access);
 		// The measured hot call loads code, it never bumps a refcount.
-		self.access_list.warm_code(code_hash, StorageOp::Read);
+		self.access_list
+			.warm(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
 	}
 
 	/// Returns the access-list metrics.
 	#[cfg(test)]
 	pub(crate) fn code_load_warmth(&self, code_hash: H256) -> CodeLoadWarmth {
-		self.access_list.code_warmth(code_hash)
+		self.access_list
+			.warmth_of(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read })
 	}
 
 	#[cfg(test)]
@@ -2735,7 +2737,7 @@ where
 	}
 
 	fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth {
-		self.access_list.operation_warmth(state_access)
+		self.access_list.warmth_of(state_access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

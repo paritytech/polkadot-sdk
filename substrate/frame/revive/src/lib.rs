@@ -1886,8 +1886,8 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				Code::Existing(code_hash) => {
-					// The code load of an instantiation is always billed cold.
-					// Instantiating bumps the loaded code's refcount.
+					// The code load of an instantiation is always billed cold and it bumps the
+					// loaded code's refcount.
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,

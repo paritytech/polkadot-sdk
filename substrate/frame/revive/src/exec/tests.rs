@@ -3284,31 +3284,9 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 			StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
 			"a cold touch in a nested frame is revertible",
 		);
-		exec_success()
-	});
 
-	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
-			"a cold touch in the root frame is not revertible",
-		);
-		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, child_code_hash);
-		place_contract(&CHARLIE, root_code_hash);
-		run_root_call(CHARLIE_ADDR, vec![]);
-	});
-}
-
-#[test]
-fn cold_hot_past_cap_touch_is_not_revertible() {
-	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
-		// Fill the remaining access list capacity with distinct slots. Each
-		// slot is below the cap when touched, so it journals and is revertible.
+		// Fill the rest of the cap: the frames' own account and code entries
+		// count against it too, hence starting from the current size.
 		let already_tracked = ctx.ext.access_list_metrics().size;
 		for i in 0..(MAX_ACCESS_LIST_ENTRIES - already_tracked) as u32 {
 			let mut slot = [0u8; 32];
@@ -3318,16 +3296,20 @@ fn cold_hot_past_cap_touch_is_not_revertible() {
 				StorageAccessKind::Persistent(Warmth::Cold { revertible: true })
 			);
 		}
-		// A further distinct slot is past the cap: cold but not revertible.
 		assert_matches!(
 			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32]), StorageOp::Read),
 			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
-			"past-cap touch is cold but not revertible",
+			"past the cap even a nested frame's touch is not revertible",
 		);
 		exec_success()
 	});
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(
+			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
+			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			"a cold touch in the root frame is not revertible",
+		);
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		exec_success()
 	});
@@ -3475,7 +3457,11 @@ fn cold_hot_call_target_warms_across_calls() {
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		let after = ctx.ext.access_list_metrics();
-		assert_eq!(after.hot - mid.hot, 4, "second call: mapping + contract info + code hot");
+		assert_eq!(
+			after.hot - mid.hot,
+			4,
+			"second call: mapping + contract info + code metadata + blob"
+		);
 		assert_eq!(after.cold, mid.cold, "second call adds no cold touches");
 		exec_success()
 	});
@@ -3609,7 +3595,7 @@ fn cold_hot_delegate_call_leaves_target_account_cold() {
 		assert_eq!(
 			ctx.ext.access_list_metrics().cold - after_delegate.cold,
 			1,
-			"zero-value plain call adds only the mapping a delegate never reads",
+			"only the address mapping is new; the delegate call warmed everything else",
 		);
 		exec_success()
 	});
@@ -3730,7 +3716,6 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 			"an uncalled target starts cold",
 		);
 
-		// DJANGO has no code yet: the call warms account + contract info only.
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
@@ -3746,8 +3731,7 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 		let after_plain = ctx.ext.access_list_metrics();
 		assert_eq!(after_plain.cold - before.cold, 2, "mapping + contract info; no code entry");
 
-		// Place code, then call again: account and contract info stay hot (read by
-		// the first call), while the newly added code loads cold.
+		// Place code, then call again
 		place_contract(&DJANGO, django_code_hash);
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		let after_coded = ctx.ext.access_list_metrics();
@@ -3801,6 +3785,14 @@ fn cold_hot_value_transfer_warms_the_account() {
 fn cold_hot_code_paid_level_matches_the_operation() {
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
+		let own_hash =
+			MockLoader::code_hashes().into_iter().find(|hash| *hash != dummy_ch).unwrap();
+		assert_eq!(
+			ctx.ext.code_load_warmth(own_hash),
+			CodeLoadWarmth { info: Warmth::Hot(Paid::Read), blob: Warmth::Hot(Paid::Read) },
+			"a call loads code without touching the refcount",
+		);
+
 		let value =
 			Pallet::<Test>::convert_native_to_evm(<Test as Config>::Currency::minimum_balance());
 		ctx.ext
@@ -3828,24 +3820,6 @@ fn cold_hot_code_paid_level_matches_the_operation() {
 			set_balance(&BOB, <Test as Config>::Currency::minimum_balance() * 100);
 			run_root_call(BOB_ADDR, vec![]);
 		});
-}
-
-#[test]
-fn cold_hot_call_code_load_is_read_paid() {
-	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let own_hash = MockLoader::code_hashes()[0];
-		assert_eq!(
-			ctx.ext.code_load_warmth(own_hash),
-			CodeLoadWarmth { info: Warmth::Hot(Paid::Read), blob: Warmth::Hot(Paid::Read) },
-			"a call loads code without touching the refcount",
-		);
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, root_code_hash);
-		run_root_call(BOB_ADDR, vec![]);
-	});
 }
 
 #[test]

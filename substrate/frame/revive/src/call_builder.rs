@@ -26,8 +26,10 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use crate::{
-	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob,
+	ContractInfo, Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts,
+	PristineCode, Weight,
+	access_list::{Access, AccessEntry, CodeLoad, StateAccess, StorageOp, Warmth},
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
@@ -228,6 +230,48 @@ pub fn caller_funding<T: Config>() -> BalanceOf<T> {
 	BalanceOf::<T>::max_value() / 10_000u32.into()
 }
 
+/// Whitelists the storage key behind one access-list entry.
+#[cfg(feature = "runtime-benchmarks")]
+fn whitelist_entry<T: Config>(entry: &AccessEntry) {
+	use frame_benchmarking::benchmarking::add_to_whitelist;
+	match entry {
+		AccessEntry::Account { address } => add_to_whitelist(
+			frame_system::Account::<T>::hashed_key_for(&T::AddressMapper::to_account_id(address))
+				.into(),
+		),
+		AccessEntry::OriginalAccount { address } => {
+			add_to_whitelist(crate::OriginalAccount::<T>::hashed_key_for(address).into())
+		},
+		AccessEntry::AccountInfo { address } => {
+			add_to_whitelist(AccountInfoOf::<T>::hashed_key_for(address).into())
+		},
+		AccessEntry::CodeInfo { hash } => {
+			add_to_whitelist(CodeInfoOf::<T>::hashed_key_for(hash).into())
+		},
+		AccessEntry::CodeBlob { hash } => {
+			add_to_whitelist(PristineCode::<T>::hashed_key_for(hash).into())
+		},
+		// Child-trie slots have no fixed key here; benches whitelist them ad hoc.
+		AccessEntry::Storage { .. } => {},
+	}
+}
+
+/// Whitelists every entry the access reads. Deriving the set from
+/// [`Access::expand`] keeps it from drifting from what warming touches.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn whitelist_access<T: Config>(access: impl Access) {
+	access.expand(|entry, _op| {
+		whitelist_entry::<T>(&entry);
+		Warmth::cold_non_revertible()
+	});
+}
+
+/// Whitelist the storage entries for the supplied code in a benchmark.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn whitelist_code<T: Config>(code_hash: H256) {
+	whitelist_access::<T>(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
+}
+
 /// An instantiated and deployed contract.
 #[derive(Clone)]
 pub struct Contract<T: Config> {
@@ -372,6 +416,21 @@ where
 	/// Get the `ContractInfo` of this contract or an error if it no longer exists.
 	pub fn info(&self) -> Result<ContractInfo<T>, &'static str> {
 		Self::address_info(&self.account_id)
+	}
+
+	/// Whitelist this contract's code keys; `code_load` prices those reads.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn whitelist_code(&self) -> Result<(), &'static str> {
+		whitelist_code::<T>(self.info()?.code_hash);
+		Ok(())
+	}
+
+	/// Whitelist all storage entries read when calling this contract in a benchmark.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn whitelist_for_call(&self) -> Result<(), &'static str> {
+		whitelist_access::<T>(StateAccess::Call { target: self.address, transfers_value: true });
+		whitelist_code::<T>(self.info()?.code_hash);
+		Ok(())
 	}
 
 	/// Set the balance of the contract to the supplied amount.

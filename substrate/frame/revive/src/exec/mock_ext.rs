@@ -19,6 +19,7 @@
 use crate::{
 	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
 	ReentrancyProtection,
+	access_list::{StateAccess, StateWarmth, StorageAccessKind, StorageOp},
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -264,19 +265,16 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		&mut self,
 		_transient: bool,
 		_key: &Key,
-		_op: crate::access_list::StorageOp,
-	) -> crate::access_list::StorageAccessKind {
+		_op: StorageOp,
+	) -> StorageAccessKind {
 		panic!("MockExt::touch_storage_access")
 	}
 
-	fn peek_storage_access(&self, _transient: bool, _key: &Key) -> crate::StorageAccessKind {
+	fn peek_storage_access(&self, _transient: bool, _key: &Key) -> StorageAccessKind {
 		panic!("MockExt::peek_storage_access")
 	}
 
-	fn operation_warmth(
-		&self,
-		_call_access: crate::access_list::StateAccess,
-	) -> crate::access_list::StateWarmth {
+	fn operation_warmth(&self, _call_access: StateAccess) -> StateWarmth {
 		panic!("MockExt::operation_warmth")
 	}
 
