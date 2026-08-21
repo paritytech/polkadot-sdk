@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787302358873,
+  "lastUpdate": 1787336337169,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -116747,6 +116747,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2747704744,
             "range": "± 20512746",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "Enoch",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3b49ccb1f0ddcca2f24acd23091a03db9d8f104",
+          "message": "Remove non permanent migrations on westend (#12647)\n\nRemove one-shot migrations that already executed on the live Westend\nsystem chains (all on spec 1024001), plus their now-unused support code.\n\nEach one was verified against live chain state before removal: storage\nversions are at their post-migration values and the unversioned\none-shots left their expected effects. A verification script is in [this\ngist](https://gist.github.com/runcomet/1fac906cf1197519a92a3c60aefed23e).\nThe two bridge data fixes (`FixMessagesV1Migration`,\n`MigrationForXcmV5`) have no on-chain marker but shipped in #5649 /\n#4826, long before the deployed runtime.\n\nKept `ClaimTrappedBalance` (PAH reference, no-op on WAH), the\nstaking-async migrations (`Staking` is still at v17 on-chain) and\n`PsmInitialConfig` (used by `remote-ext-tests-psm`).\n\nPart of #11771.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-21T16:52:25Z",
+          "tree_id": "70155201922b1ba3c7562754041fa1e9e726ac83",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3b49ccb1f0ddcca2f24acd23091a03db9d8f104"
+        },
+        "date": 1787336303703,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19323957,
+            "range": "± 168907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19496160,
+            "range": "± 113387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20879503,
+            "range": "± 86270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25406695,
+            "range": "± 112526",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56962733,
+            "range": "± 676739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 341507965,
+            "range": "± 3587927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2452419079,
+            "range": "± 34689205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16650541,
+            "range": "± 184828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16562951,
+            "range": "± 161359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17195816,
+            "range": "± 175701",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21427257,
+            "range": "± 80790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59082956,
+            "range": "± 503694",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 343330933,
+            "range": "± 3585919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2628571496,
+            "range": "± 37019281",
             "unit": "ns/iter"
           }
         ]
