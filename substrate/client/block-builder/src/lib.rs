@@ -28,7 +28,6 @@
 
 use codec::Encode;
 
-use sp_additional_data::{AdditionalDataExt, RecordingAdditionalDataProvider};
 use sp_api::{
 	ApiExt, ApiRef, CallApiAt, Core, ProofRecorder, ProvideRuntimeApi, StorageChanges,
 	TransactionOutcome,
@@ -105,7 +104,6 @@ where
 			parent_block: self.parent_block,
 			parent_number,
 			extra_extensions: Extensions::new(),
-			recording_additional_data: None,
 		})
 	}
 
@@ -124,7 +122,6 @@ where
 			parent_block: self.parent_block,
 			parent_number,
 			extra_extensions: Extensions::new(),
-			recording_additional_data: None,
 		}
 	}
 }
@@ -140,7 +137,6 @@ pub struct BlockBuilderBuilderStage2<'a, B: BlockT, C> {
 	parent_block: B::Hash,
 	parent_number: NumberFor<B>,
 	extra_extensions: Extensions,
-	recording_additional_data: Option<RecordingAdditionalDataProvider>,
 }
 
 impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
@@ -171,22 +167,6 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 		self
 	}
 
-	/// Enable collection of per-block additional data during block building.
-	///
-	/// Registers an [`AdditionalDataExt`] in the runtime environment so that the runtime can call
-	/// `sp_additional_data::additional_data::push` / `finalize`. After the block is built,
-	/// [`BuiltBlock::additional_data`] will contain the encoded blob produced by those calls, or
-	/// `None` when the runtime never pushed any items.
-	///
-	/// Runtimes that never call the `additional_data` host functions are completely unaffected
-	/// (the extension is registered but `take_data` simply returns `None`).
-	pub fn enable_additional_data_recording(mut self) -> Self {
-		let provider = RecordingAdditionalDataProvider::new();
-		self.extra_extensions.register(AdditionalDataExt(Box::new(provider.clone())));
-		self.recording_additional_data = Some(provider);
-		self
-	}
-
 	/// Create the instance of the [`BlockBuilder`].
 	pub fn build(self) -> Result<BlockBuilder<'a, B, C>, Error>
 	where
@@ -200,7 +180,6 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 			self.proof_recorder,
 			self.inherent_digests,
 			self.extra_extensions,
-			self.recording_additional_data,
 		)
 	}
 }
@@ -214,10 +193,6 @@ pub struct BuiltBlock<Block: BlockT> {
 	pub block: Block,
 	/// The changes that need to be applied to the backend to get the state of the build block.
 	pub storage_changes: StorageChanges<Block>,
-	/// Opaque per-block additional data blob collected during block building, or `None` when
-	/// [`BlockBuilderBuilderStage2::enable_additional_data_recording`] was not called or no items
-	/// were pushed via the `additional_data` host functions.
-	pub additional_data: Option<Vec<u8>>,
 }
 
 impl<Block: BlockT> BuiltBlock<Block> {
@@ -238,7 +213,6 @@ pub struct BlockBuilder<'a, Block: BlockT, C: ProvideRuntimeApi<Block> + 'a> {
 	/// The estimated size of the block header.
 	estimated_header_size: usize,
 	extrinsic_inclusion_mode: ExtrinsicInclusionMode,
-	recording_additional_data: Option<RecordingAdditionalDataProvider>,
 }
 
 impl<'a, Block, C> BlockBuilder<'a, Block, C>
@@ -259,7 +233,6 @@ where
 		proof_recorder: Option<ProofRecorder<Block>>,
 		inherent_digests: Digest,
 		extra_extensions: Extensions,
-		recording_additional_data: Option<RecordingAdditionalDataProvider>,
 	) -> Result<Self, Error> {
 		let header = <<Block as BlockT>::Header as HeaderT>::new(
 			parent_number + One::one(),
@@ -307,7 +280,6 @@ where
 			estimated_header_size,
 			call_api_at,
 			extrinsic_inclusion_mode,
-			recording_additional_data,
 		})
 	}
 
@@ -369,12 +341,9 @@ where
 			.into_storage_changes(&state, self.parent_hash)
 			.map_err(sp_blockchain::Error::StorageChanges)?;
 
-		let additional_data = self.recording_additional_data.as_ref().and_then(|p| p.take_data());
-
 		Ok(BuiltBlock {
 			block: <Block as BlockT>::new(header, self.extrinsics),
 			storage_changes,
-			additional_data,
 		})
 	}
 
@@ -506,50 +475,5 @@ mod tests {
 		assert!(proof_without_panic > proof_with_panic);
 		assert!(proof_without_panic > proof_empty_block);
 		assert_eq!(proof_empty_block, proof_with_panic);
-	}
-
-	#[test]
-	fn additional_data_is_none_without_recording() {
-		let builder = substrate_test_runtime_client::TestClientBuilder::new();
-		let client = builder.build();
-		let genesis_hash = client.info().best_hash;
-
-		let built = BlockBuilderBuilder::new(&client)
-			.on_parent_block(genesis_hash)
-			.with_parent_block_number(0)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap();
-
-		assert!(built.additional_data.is_none());
-	}
-
-	#[test]
-	fn additional_data_recorded_when_runtime_pushes() {
-		use substrate_test_runtime_client::runtime::substrate_test_pallet;
-
-		let builder = substrate_test_runtime_client::TestClientBuilder::new();
-		let client = builder.build();
-		let genesis_hash = client.info().best_hash;
-
-		let mut block_builder = BlockBuilderBuilder::new(&client)
-			.on_parent_block(genesis_hash)
-			.with_parent_block_number(0)
-			.enable_additional_data_recording()
-			.build()
-			.unwrap();
-
-		block_builder
-			.push(
-				ExtrinsicBuilder::new(substrate_test_pallet::pallet::Call::push_additional_data {})
-					.build(),
-			)
-			.unwrap();
-
-		let built = block_builder.build().unwrap();
-
-		let expected = sp_additional_data::encode_items(&[b"additional-data-test".to_vec()]);
-		assert_eq!(built.additional_data, Some(expected));
 	}
 }

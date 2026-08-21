@@ -18,7 +18,7 @@
 
 use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
-use codec::Encode;
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
@@ -39,7 +39,7 @@ use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
+use sp_trie::{HashDBT, ProofSizeProvider, StorageProof, EMPTY_PREFIX};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
@@ -51,34 +51,62 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 // Recorder instance to be used during this validate_block call.
 environmental::environmental!(recorder: trait ProofSizeProvider);
 
-trait AdditionalDataReplay {
-	fn push(&self, item: Vec<u8>);
+/// Validation-side counterpart of the additional-data host functions: serves
+/// [`sp_additional_data::additional_data::read_relay_chain_state`] from the carried relay-state
+/// proof (verified against the trusted `relay_parent_storage_root`) and answers
+/// [`sp_additional_data::additional_data::finalize`] with the hash of the map reassembled from
+/// exactly what was requested — so `frame_executive`'s digest-equality rejects any candidate whose
+/// carried additional data differs from what its execution actually read.
+trait AdditionalDataVerify {
+	/// Returns the SCALE-encoding of `Option<Vec<u8>>` for `key`, verified against the trusted
+	/// root (proven `None` for an absent key).
+	fn read(&self, key: Vec<u8>) -> Vec<u8>;
+	/// Hash of the additional-data map reassembled from what was requested this block.
 	fn finalize(&self) -> Option<[u8; 32]>;
+	/// Estimated encoded size of the recorded relay-read proof — summed into `storage_proof_size`.
+	fn proof_size(&self) -> usize;
 }
 
-struct ReplayProvider(Vec<u8>);
+struct VerifyProvider {
+	reader: crate::relay_state_snapshot::TrieRelayStateReader,
+}
 
-impl AdditionalDataReplay for ReplayProvider {
-	fn push(&self, _item: Vec<u8>) {}
+impl AdditionalDataVerify for VerifyProvider {
+	fn read(&self, key: Vec<u8>) -> Vec<u8> {
+		// `read_raw` returns `Ok(None)` for a *proven* absent key, but `Err` when the carried proof
+		// is missing nodes on the key's path. Collapsing `Err` to `None` would let a collator make
+		// a *present* relay value read as absent simply by omitting its proof nodes (the read is
+		// consistently suppressed on build and validate, so re-execution does not catch it). Reject
+		// such a candidate instead.
+		let value: Option<Vec<u8>> = self
+			.reader
+			.read_raw(&key)
+			.expect("relay-state read from an incomplete proof; candidate omitted required nodes");
+		value.encode()
+	}
 
 	fn finalize(&self) -> Option<[u8; 32]> {
-		Some(sp_additional_data::hash_blob(&self.0))
+		self.reader.requested_hash()
+	}
+
+	fn proof_size(&self) -> usize {
+		self.reader.proof_size()
 	}
 }
 
-mod _additional_data_replay_env {
-	use super::AdditionalDataReplay;
-	environmental::environmental!(env: trait AdditionalDataReplay);
-	pub(super) fn using<R, F: FnOnce() -> R>(t: &mut dyn AdditionalDataReplay, f: F) -> R {
+mod _additional_data_env {
+	use super::AdditionalDataVerify;
+	environmental::environmental!(env: trait AdditionalDataVerify);
+	pub(super) fn using<R, F: FnOnce() -> R>(t: &mut dyn AdditionalDataVerify, f: F) -> R {
 		env::using(t, f)
 	}
-	pub(super) fn with<R, F: for<'a> FnOnce(&'a mut (dyn AdditionalDataReplay + 'a)) -> R>(
+	pub(super) fn with<R, F: for<'a> FnOnce(&'a mut (dyn AdditionalDataVerify + 'a)) -> R>(
 		f: F,
 	) -> Option<R> {
 		env::with(f)
 	}
 }
-use _additional_data_replay_env as additional_data_replay;
+use _additional_data_env as additional_data;
 
 /// Validate the given parachain block.
 ///
@@ -160,8 +188,8 @@ where
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
-		sp_additional_data::additional_data::host_push
-			.replace_implementation(host_additional_data_push),
+		sp_additional_data::additional_data::host_read_relay_chain_state
+			.replace_implementation(host_read_relay_chain_state),
 		sp_additional_data::additional_data::host_finalize
 			.replace_implementation(host_additional_data_finalize),
 		#[cfg(feature = "transaction-index")]
@@ -200,8 +228,19 @@ where
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
 
-	let additional_data_per_block: Vec<Option<Vec<u8>>> = block_data.additional_data().to_vec();
+	let additional_data_per_block: Vec<Option<sp_additional_data::AdditionalData>> =
+		block_data.additional_data().to_vec();
 	let (blocks, proof) = block_data.into_inner();
+
+	// Additional data is either absent entirely (V0/V1/V2) or carries exactly one entry per block
+	// (V3). Any other length would smuggle items belonging to no block — committed by no header
+	// digest, so otherwise unchecked. Per block, `additional_data_per_block.get(i)` pairs each entry
+	// with its block; a header-digest/data mismatch is caught below against that block's digest.
+	assert!(
+		additional_data_per_block.is_empty() ||
+			additional_data_per_block.len() == blocks.len(),
+		"additional data vector length does not match the number of blocks"
+	);
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
 
@@ -298,9 +337,9 @@ where
 			.logs()
 			.iter()
 			.find_map(|item| item.as_additional_data().copied());
-		let blob_opt: Option<Vec<u8>> =
+		let map_opt: Option<sp_additional_data::AdditionalData> =
 			additional_data_per_block.get(block_index).and_then(|opt| opt.clone());
-		match (blob_opt.is_some(), expected_hash.is_some()) {
+		match (map_opt.is_some(), expected_hash.is_some()) {
 			(true, false) => {
 				panic!("additional data present but header digest missing AdditionalData item")
 			},
@@ -310,14 +349,13 @@ where
 			_ => {},
 		}
 
-		// Fail fast on a blob/hash mismatch before executing the block. This check is a pure
-		// function of the blob and the header digest (independent of execution), and asserting it
-		// up front guarantees the tampered-data case is rejected by this explicit, named assertion
-		// rather than implicitly by `frame_executive`'s digest-item equality inside
-		// `execute_verified_block` (which would panic with a less specific message).
-		if let Some(ref blob) = blob_opt {
+		// Integrity: the carried map must hash to the header's committed digest. Checked up front so
+		// a tampered map is rejected by this explicit, named assertion rather than implicitly later
+		// by `frame_executive`'s digest-item equality (which would panic with a less specific
+		// message).
+		if let Some(ref map) = map_opt {
 			assert_eq!(
-				sp_additional_data::hash_blob(blob),
+				sp_additional_data::hash(map),
 				expected_hash.expect("checked above that both are Some; qed"),
 				"additional data hash does not match header digest"
 			);
@@ -332,23 +370,31 @@ where
 			},
 		);
 
-		if let Some(ref blob) = blob_opt {
-			let mut replay_provider = ReplayProvider(blob.clone());
-			additional_data_replay::using(&mut replay_provider, || {
-				run_with_externalities_and_recorder::<B, _, _>(
-					&execute_backend,
-					// Here is the only place where we want to use the recorder.
-					// We want to ensure that we not accidentally read something from the proof,
-					// that was not yet read and thus, alter the proof size. Otherwise, we end
-					// up with mismatches in later blocks.
-					&mut execute_recorder,
-					&mut overlay,
-					|| {
-						E::execute_verified_block(block);
-					},
-				);
-			});
-		} else {
+		// Build the verifying provider from the relay-state proof carried in the additional-data
+		// blob. The blob is the SCALE-encoding of `(root, proof)`; the carried root is *ignored* —
+		// reads are verified against the trusted `relay_parent_storage_root` from the validation
+		// params, so a candidate that recorded reads against a different root fails here. If the
+		// blob is `None` (the block read no relay state), no provider is set and
+		// `read_relay_chain_state`/`finalize` fall back to their empty/`None` results.
+		//
+		// A malformed blob, or a proof that does not verify against the trusted
+		// `relay_parent_storage_root`, means the candidate recorded its relay reads against a
+		// different root (a lying collator, or wrong validation params) — reject it loudly.
+		let mut verify_provider: Option<VerifyProvider> = map_opt.as_ref().map(|map| {
+			let proof_bytes = map
+				.get(sp_additional_data::RELAY_PROOF_KEY)
+				.expect("additional data map (present) must contain the relay-proof entry");
+			let (_carried_root, proof) = <(RHash, StorageProof)>::decode(&mut &proof_bytes[..])
+				.expect("relay-proof entry must decode as (root, proof)");
+			let reader = crate::relay_state_snapshot::TrieRelayStateReader::new(
+				relay_parent_storage_root,
+				proof,
+			)
+			.expect("additional data proof must verify against relay_parent_storage_root");
+			VerifyProvider { reader }
+		});
+
+		let execute = || {
 			run_with_externalities_and_recorder::<B, _, _>(
 				&execute_backend,
 				// Here is the only place where we want to use the recorder.
@@ -361,6 +407,12 @@ where
 					E::execute_verified_block(block);
 				},
 			);
+		};
+		// Serve `read_relay_chain_state`/`finalize` from the verified proof for the duration of
+		// execution.
+		match verify_provider.as_mut() {
+			Some(vp) => additional_data::using(vp, execute),
+			None => execute(),
 		}
 
 		let code_upgrade_detected =
@@ -636,7 +688,13 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_storage_proof_size() -> u64 {
-	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
+	let para =
+		recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed");
+	// The relay-read proof rides in the PoV outside the block body; count it here too so the
+	// runtime's proof-size accounting (weight-reclaim) budgets for the full PoV. Symmetric with the
+	// build side, which adds `AdditionalDataExt`'s size to `storage_proof_size`.
+	let relay = additional_data::with(|p| p.proof_size()).unwrap_or(0);
+	(para + relay) as _
 }
 
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
@@ -741,12 +799,14 @@ fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
 fn host_offchain_index_clear(_key: &[u8]) {}
 
-fn host_additional_data_push(item: Vec<u8>) {
-	additional_data_replay::with(|p| p.push(item));
+fn host_read_relay_chain_state(key: Vec<u8>) -> Vec<u8> {
+	// Served by the verifying provider set up around block execution; if none is set (a block with
+	// no relay reads), returns the empty encoding.
+	additional_data::with(|p| p.read(key)).unwrap_or_default()
 }
 
 fn host_additional_data_finalize() -> Option<[u8; 32]> {
-	additional_data_replay::with(|p| p.finalize()).flatten()
+	additional_data::with(|p| p.finalize()).flatten()
 }
 
 /// Parachain validation does not require maintaining a transaction index,

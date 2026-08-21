@@ -23,7 +23,7 @@ use std::collections::{HashMap, HashSet};
 use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain::{
-		self, ApprovedPeerId, Block as RelayBlock, Hash as PHash, Header as RelayHeader,
+		self, ApprovedPeerId, Hash as PHash, Header as RelayHeader,
 		HrmpChannelId,
 	},
 	ParaId, PersistedValidationData, RelayProofRequest, RelayStorageKey,
@@ -39,6 +39,7 @@ const LOG_TARGET: &str = "parachain-inherent";
 
 /// Builds the list of static relay chain storage keys that are always needed for parachain
 /// validation.
+#[allow(dead_code)] // retained for a future RPC-collator prefetch path (see `create_at`)
 async fn get_static_relay_storage_keys(
 	relay_chain_interface: &impl RelayChainInterface,
 	para_id: ParaId,
@@ -142,8 +143,11 @@ async fn get_static_relay_storage_keys(
 	Some(relevant_keys)
 }
 
-/// Collect the relevant relay chain state in form of a proof for putting it into the validation
-/// data inherent.
+/// Collect the relevant relay chain state in form of a proof.
+///
+/// No longer used to fill the inherent (relay state is read via the `read_relay_chain_state` host
+/// function now); retained for a future RPC-collator prefetch path.
+#[allow(dead_code)]
 async fn collect_relay_storage_proof(
 	relay_chain_interface: &impl RelayChainInterface,
 	para_id: ParaId,
@@ -236,7 +240,7 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
-		relay_proof_request: RelayProofRequest,
+		_relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Option<ParachainInherentData> {
 		let collator_peer_id = ApprovedPeerId::try_from(collator_peer_id.to_bytes())
@@ -249,21 +253,10 @@ impl ParachainInherentDataProvider {
 			})
 			.ok();
 
-		// Only include next epoch authorities when the descendants include an epoch digest.
-		// Skip the first entry because this is the relay parent itself.
-		let include_next_authorities = relay_parent_descendants
-			.iter()
-			.skip(1)
-			.any(sc_consensus_babe::contains_epoch_change::<RelayBlock>);
-		let relay_chain_state = collect_relay_storage_proof(
-			relay_chain_interface,
-			para_id,
-			relay_parent,
-			!relay_parent_descendants.is_empty(),
-			include_next_authorities,
-			relay_proof_request,
-		)
-		.await?;
+		// The relay-chain state is now read dynamically via the `read_relay_chain_state` host
+		// function (recorded into the block's additional data and verified in `validate_block`), so
+		// the inherent no longer carries a fixed relay-state proof.
+		let relay_chain_state = StorageProof::empty();
 
 		let downward_messages = relay_chain_interface
 			.retrieve_dmq_contents(para_id, relay_parent)

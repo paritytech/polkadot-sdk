@@ -155,7 +155,7 @@ pub mod generic {
 		/// Justifications if requested.
 		pub justifications: Option<Justifications>,
 		/// Additional data if requested (proto field 10).
-		pub additional_data: Option<Vec<u8>>,
+		pub additional_data: Option<sp_additional_data::AdditionalData>,
 	}
 
 	/// Request block data from a peer.

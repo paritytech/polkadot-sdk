@@ -53,11 +53,13 @@ pub trait ServiceInterface<Block: BlockT> {
 	/// that the underlying block has been fully imported into the underlying client,
 	/// as implementations will fetch underlying runtime API data.
 	///
-	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
-	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`], or
+	/// [`ParachainBlockData::V3`] when additional data is carried) and `None` for legacy candidates
+	/// (produces [`ParachainBlockData::V1`]).
 	///
-	/// `additional_data` is a per-block vec of optional blobs; a non-empty `Some` entry triggers
-	/// [`ParachainBlockData::V3`] (requires `scheduling_proof.is_some()`).
+	/// `additional_data` is a per-block vec of optional maps; a non-empty `Some` entry produces
+	/// [`ParachainBlockData::V3`]. It can only ride in a V3 candidate (a V3 extension of V2), so it
+	/// is carried only when `scheduling_proof` is `Some`; otherwise it is dropped.
 	///
 	/// This also returns the unencoded parachain block data, in case that is desired.
 	fn build_collation(
@@ -66,7 +68,7 @@ pub trait ServiceInterface<Block: BlockT> {
 		block_hash: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<Vec<u8>>>,
+		additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Build a multi-block collation.
@@ -74,18 +76,20 @@ pub trait ServiceInterface<Block: BlockT> {
 	/// Does the same as [`Self::build_collation`], but includes multiple blocks into one collation.
 	/// The given `parent_header` should be the header from the parent of the first block.
 	///
-	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
-	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
+	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`], or
+	/// [`ParachainBlockData::V3`] when additional data is carried) and `None` for legacy candidates
+	/// (produces [`ParachainBlockData::V1`]).
 	///
-	/// `additional_data` is a per-block vec of optional blobs; a non-empty `Some` entry triggers
-	/// [`ParachainBlockData::V3`] (requires `scheduling_proof.is_some()`).
+	/// `additional_data` is a per-block vec of optional maps; a non-empty `Some` entry produces
+	/// [`ParachainBlockData::V3`]. It can only ride in a V3 candidate (a V3 extension of V2), so it
+	/// is carried only when `scheduling_proof` is `Some`; otherwise it is dropped.
 	fn build_multi_block_collation(
 		&self,
 		parent_header: &Block::Header,
 		blocks: Vec<Block>,
 		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<Vec<u8>>>,
+		additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
 	/// Inform networking systems that the block should be announced after a signal has
@@ -255,7 +259,7 @@ where
 		blocks: Vec<Block>,
 		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<Vec<u8>>>,
+		additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		let compact_proof =
 			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
@@ -322,12 +326,17 @@ where
 		// Sort by recipient as required by the relay chain rules.
 		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
-		let block_data = ParachainBlockData::<Block>::new_with_additional_data(
-			blocks,
-			compact_proof,
-			scheduling_proof,
-			additional_data,
-		);
+		let block_data = match scheduling_proof {
+			Some(scheduling_proof) => ParachainBlockData::<Block>::new_with_additional_data(
+				blocks,
+				compact_proof,
+				scheduling_proof,
+				additional_data,
+			),
+			// No scheduling proof (V3 scheduling disabled) → legacy V1 candidate. Additional data
+			// can only ride in a V3 candidate (a V3 extension of V2), so it is not carried here.
+			None => ParachainBlockData::new(blocks, compact_proof, None),
+		};
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
 			block_data: BlockData(if api_version >= 3 {
@@ -416,7 +425,7 @@ where
 		_: Block::Hash,
 		candidate: ParachainCandidate<Block>,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<Vec<u8>>>,
+		additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		CollatorService::build_multi_block_collation(
 			self,
@@ -445,7 +454,7 @@ where
 		blocks: Vec<Block>,
 		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<Vec<u8>>>,
+		additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		CollatorService::build_multi_block_collation(
 			self,
@@ -520,8 +529,12 @@ mod tests {
 		let mut sproof = RelayStateSproofBuilder::default();
 		sproof.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
 		sproof.included_para_head = Some(HeadData(genesis_header.encode()));
-		let BlockBuilderAndSupportData { block_builder, proof_recorder, .. } =
-			client.init_block_builder_builder().with_relay_sproof_builder(sproof).build();
+		let BlockBuilderAndSupportData {
+			block_builder,
+			proof_recorder,
+			additional_data_recorder,
+			..
+		} = client.init_block_builder_builder().with_relay_sproof_builder(sproof).build();
 		let built = block_builder.build().expect("block built");
 		let block = built.block.clone();
 		let proof = proof_recorder.drain_storage_proof();
@@ -530,6 +543,9 @@ mod tests {
 		params.body = Some(block.extrinsics.clone());
 		params.state_action = StateAction::Execute;
 		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		// The runtime read relay state while building, so the header carries an `AdditionalData`
+		// digest; the executing import path requires the matching recorded map.
+		params.additional_data = additional_data_recorder();
 		(&*client).import_block(params).await.expect("block imported");
 
 		(block, proof)
@@ -551,7 +567,8 @@ mod tests {
 		let genesis_header = client.header(genesis_hash).unwrap().unwrap();
 		let (block, proof) = build_and_import_block(&client).await;
 
-		let blob = vec![7u8, 8, 9];
+		let blob: sp_additional_data::AdditionalData =
+			[("test".to_string(), vec![7u8, 8, 9])].into();
 		let result = make_service(client).build_multi_block_collation(
 			&genesis_header,
 			vec![block],

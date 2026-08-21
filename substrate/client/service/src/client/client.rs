@@ -60,7 +60,7 @@ use sp_blockchain::{
 use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_additional_data::{AdditionalDataExt, ReplayAdditionalDataProvider};
+use sp_additional_data::{AdditionalDataExt, VerifyingAdditionalDataProvider};
 use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
@@ -859,9 +859,11 @@ where
 					runtime_api.register_extension(ProofSizeExt::new(recorder));
 				}
 
-				// Guard: verify digest ↔ additional_data consistency and register the
-				// replay provider so the runtime's `additional_data::push`/`finalize`
-				// host-functions don't panic on a missing extension.
+				// Guard: verify digest ↔ additional_data consistency and register the verifying
+				// provider so the runtime's `read_relay_chain_state`/`finalize` host functions are
+				// answered on this generic re-execution path (reads served from the carried proof).
+				// This is what lets a full node that synced a relay-read block import it: without
+				// the extension the read host function panics.
 				let additional_data_digest_count = import_block
 					.header
 					.digest()
@@ -878,9 +880,19 @@ where
 									.into(),
 							)));
 						}
-						runtime_api.register_extension(AdditionalDataExt(Box::new(
-							ReplayAdditionalDataProvider::new(blob.clone()),
-						)));
+						// The generic import path has no `ValidationParams`, so it trusts the root
+						// carried in the map
+						// (relay finality; the PVF is the authoritative validator). The relay
+						// state proof uses the relay hasher, `BlakeTwo256`.
+						let provider = VerifyingAdditionalDataProvider::<
+							sp_runtime::traits::BlakeTwo256,
+						>::from_map(blob.clone())
+						.ok_or_else(|| {
+							Error::Consensus(ConsensusError::ClientImport(
+								"additional_data map could not be built into a relay-read provider".into(),
+							))
+						})?;
+						runtime_api.register_extension(AdditionalDataExt(Box::new(provider)));
 					},
 					None => {
 						if additional_data_digest_count > 0 {
@@ -2043,7 +2055,7 @@ where
 		self.backend.blockchain().block_indexed_body(hash)
 	}
 
-	fn block_additional_data(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn block_additional_data(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<sp_additional_data::AdditionalData>> {
 		self.backend.blockchain().block_additional_data(hash)
 	}
 
@@ -2184,7 +2196,7 @@ mod tests {
 			extrinsics_root: Default::default(),
 			digest: Default::default(),
 		};
-		let extra = vec![1u8, 2, 3];
+		let extra: sp_additional_data::AdditionalData = [("test".to_string(), vec![1u8, 2, 3])].into();
 		let mut params = BlockImportParams::new(BlockOrigin::Own, header);
 		params.state_action = StateAction::Skip;
 		params.additional_data = Some(extra.clone());
@@ -2192,47 +2204,6 @@ mod tests {
 		block_on(BlockImport::import_block(&client, params)).unwrap();
 		let hash = client.info().best_hash;
 		assert_eq!(client.block_additional_data(hash).unwrap(), Some(extra));
-	}
-
-	#[test]
-	fn additional_data_extension_registered_on_executing_import() {
-		use sc_block_builder::BlockBuilderBuilder;
-		use sp_runtime::traits::Block as BlockTrait;
-		use substrate_test_runtime_client::runtime::{substrate_test_pallet, ExtrinsicBuilder};
-
-		let client = TestClientBuilder::new().build();
-		let genesis_hash = client.info().best_hash;
-
-		let mut block_builder = BlockBuilderBuilder::new(&client)
-			.on_parent_block(genesis_hash)
-			.with_parent_block_number(0)
-			.enable_additional_data_recording()
-			.build()
-			.unwrap();
-
-		block_builder
-			.push(
-				ExtrinsicBuilder::new(substrate_test_pallet::pallet::Call::push_additional_data {})
-					.build(),
-			)
-			.unwrap();
-
-		let built = block_builder.build().unwrap();
-		let blob = built.additional_data.clone().expect("additional data recorded");
-		let (header, extrinsics) = built.block.deconstruct();
-
-		let mut params = BlockImportParams::new(BlockOrigin::Own, header);
-		params.body = Some(extrinsics);
-		params.additional_data = Some(blob);
-		params.state_action = StateAction::Execute;
-		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
-
-		let result = block_on(BlockImport::import_block(&client, params));
-		assert!(
-			result.is_ok(),
-			"executing import with additional data should succeed: {:?}",
-			result
-		);
 	}
 
 	#[test]
@@ -2284,7 +2255,7 @@ mod tests {
 
 		let mut params = BlockImportParams::new(BlockOrigin::Own, header);
 		params.body = Some(vec![]);
-		params.additional_data = Some(vec![0u8, 1, 2, 3]);
+		params.additional_data = Some([("test".to_string(), vec![0u8, 1, 2, 3])].into());
 		params.state_action = StateAction::Execute;
 		params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 

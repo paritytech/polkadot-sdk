@@ -276,7 +276,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 	/// Set additional data for the block being imported.
 	///
 	/// Default implementation is a no-op so existing out-of-tree implementors are not broken.
-	fn set_additional_data(&mut self, _data: Option<Vec<u8>>) -> sp_blockchain::Result<()> {
+	fn set_additional_data(&mut self, _data: Option<sp_additional_data::AdditionalData>) -> sp_blockchain::Result<()> {
 		Ok(())
 	}
 }

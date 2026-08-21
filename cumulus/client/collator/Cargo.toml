@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+sp-additional-data = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 parking_lot = { workspace = true, default-features = true }

@@ -111,7 +111,11 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let cumulus_test_client::BlockBuilderAndSupportData { mut block_builder, .. } = client
+	let cumulus_test_client::BlockBuilderAndSupportData {
+		mut block_builder,
+		additional_data_recorder,
+		..
+	} = client
 		.init_block_builder_builder()
 		.with_validation_data(validation_data)
 		.with_relay_sproof_builder(sproof_builder.clone())
@@ -121,7 +125,8 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		block_builder.push(extrinsic).unwrap();
 	}
 
-	let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
+	let parachain_block = block_builder
+		.build_parachain_block(*parent_header.state_root(), additional_data_recorder);
 
 	let proof_size_in_kb = parachain_block.proof().encoded_size() as f64 / 1024f64;
 	let runtime = utils::get_wasm_module();

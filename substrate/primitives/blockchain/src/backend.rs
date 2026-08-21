@@ -262,7 +262,7 @@ pub trait Backend<Block: BlockT>:
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
 
 	/// Get additional data stored for this block, if any.
-	fn block_additional_data(&self, _hash: Block::Hash) -> Result<Option<Vec<u8>>> {
+	fn block_additional_data(&self, _hash: Block::Hash) -> Result<Option<sp_additional_data::AdditionalData>> {
 		Ok(None)
 	}
 

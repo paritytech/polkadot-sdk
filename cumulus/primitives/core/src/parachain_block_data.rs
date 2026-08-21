@@ -89,10 +89,11 @@ pub enum ParachainBlockData<Block> {
 		blocks: Vec<Block>,
 		proof: CompactProof,
 		scheduling_proof: SchedulingProof,
-		/// One slot per block in `blocks`. `Some(blob)` is the canonical blob (a SCALE-encoded
-		/// `Vec<Vec<u8>>`, treated as an opaque byte blob here). `None` means no digest for that
-		/// block.
-		additional_data: Vec<Option<Vec<u8>>>,
+		/// One slot per block in `blocks`. `Some(map)` is that block's [`sp_additional_data::AdditionalData`]
+		/// map (whose
+		/// blake2 hash the block header commits via `DigestItem::AdditionalData`); `None` means the
+		/// block carries no additional data.
+		additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	},
 }
 
@@ -152,7 +153,7 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 					let blocks = Vec::<Block>::decode(input)?;
 					let proof = CompactProof::decode(input)?;
 					let scheduling_proof = crate::SchedulingProof::decode(input)?;
-					let additional_data = Vec::<Option<Vec<u8>>>::decode(input)?;
+					let additional_data = Vec::<Option<sp_additional_data::AdditionalData>>::decode(input)?;
 
 					Ok(Self::V3 { blocks, proof, scheduling_proof, additional_data })
 				},
@@ -181,18 +182,21 @@ impl<Block> ParachainBlockData<Block> {
 		}
 	}
 
-	/// Creates a new instance of `Self`, selecting [`Self::V3`] when `additional_data` contains
-	/// any `Some` entry and `scheduling_proof` is provided; otherwise falls back to V1/V2.
+	/// Creates a new instance of `Self` carrying additional data: [`Self::V3`] when `additional_data`
+	/// contains any `Some` entry, otherwise [`Self::V2`]. Both carry the mandatory `scheduling_proof`
+	/// — additional data is a V3 extension of V2, so it only exists alongside a scheduling proof
+	/// (i.e. when the relay chain's `CandidateReceiptV3` / V3 scheduling is enabled). Callers that do
+	/// not have a scheduling proof must use [`Self::new`] instead (and cannot carry additional data).
 	pub fn new_with_additional_data(
 		blocks: Vec<Block>,
 		proof: CompactProof,
-		scheduling_proof: Option<SchedulingProof>,
-		additional_data: Vec<Option<Vec<u8>>>,
+		scheduling_proof: SchedulingProof,
+		additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	) -> Self {
-		match (additional_data.iter().any(|d| d.is_some()), scheduling_proof) {
-			(true, Some(sp)) => Self::V3 { blocks, proof, scheduling_proof: sp, additional_data },
-			(_, Some(sp)) => Self::V2 { blocks, proof, scheduling_proof: sp },
-			(_, None) => Self::V1 { blocks, proof },
+		if additional_data.iter().any(|d| d.is_some()) {
+			Self::V3 { blocks, proof, scheduling_proof, additional_data }
+		} else {
+			Self::V2 { blocks, proof, scheduling_proof }
 		}
 	}
 
@@ -223,6 +227,24 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V1 { blocks, .. } => blocks,
 			Self::V2 { blocks, .. } => blocks,
 			Self::V3 { blocks, .. } => blocks,
+		}
+	}
+
+	/// Consume `self` into its blocks, each paired with its additional-data entry (if any).
+	///
+	/// For V0/V1/V2 there is no additional data, so every entry is `None`. For V3 each block is
+	/// paired with its corresponding `additional_data` slot (a missing/short vector pads with
+	/// `None`). Keeps each block's additional data attached to it — used by pov-recovery, where
+	/// recovered blocks may be deferred (waiting for their parent) and re-executed on import.
+	pub fn into_blocks_and_additional_data(
+		self,
+	) -> Vec<(Block, Option<sp_additional_data::AdditionalData>)> {
+		match self {
+			Self::V3 { blocks, additional_data, .. } => {
+				let mut additional_data = additional_data.into_iter();
+				blocks.into_iter().map(|b| (b, additional_data.next().flatten())).collect()
+			},
+			other => other.into_blocks().into_iter().map(|b| (b, None)).collect(),
 		}
 	}
 
@@ -257,7 +279,7 @@ impl<Block> ParachainBlockData<Block> {
 	}
 
 	/// Returns the per-block additional data if this is a V3 POV; empty slice otherwise.
-	pub fn additional_data(&self) -> &[Option<Vec<u8>>] {
+	pub fn additional_data(&self) -> &[Option<sp_additional_data::AdditionalData>] {
 		match self {
 			Self::V3 { additional_data, .. } => additional_data,
 			_ => &[],
@@ -506,7 +528,9 @@ mod tests {
 			vec![TestExtrinsic::new_bare(MockCallU64(20))],
 		);
 
-		let additional_data = vec![Some(vec![1u8, 2, 3]), None];
+		let entry: sp_additional_data::AdditionalData =
+			[("test".to_string(), vec![1u8, 2, 3])].into();
+		let additional_data = vec![Some(entry.clone()), None];
 
 		let v3 = ParachainBlockData::<TestBlock>::V3 {
 			blocks: vec![block1, block2],
@@ -524,7 +548,7 @@ mod tests {
 		assert_eq!(v3.additional_data(), decoded.additional_data());
 
 		assert_eq!(decoded.additional_data().len(), 2);
-		assert_eq!(decoded.additional_data()[0], Some(vec![1u8, 2, 3]));
+		assert_eq!(decoded.additional_data()[0], Some(entry.clone()));
 		assert_eq!(decoded.additional_data()[1], None);
 
 		// V0/V1/V2 return empty slice for additional_data
@@ -559,15 +583,16 @@ mod tests {
 		let block = TestBlock::new(Header::new_from_number(10), vec![]);
 		let proof = CompactProof { encoded_nodes: vec![vec![1u8; 10]] };
 
+		let entry: sp_additional_data::AdditionalData = [("test".to_string(), vec![42u8])].into();
 		let v3 = ParachainBlockData::<TestBlock>::V3 {
 			blocks: vec![block],
 			proof: proof.clone(),
 			scheduling_proof,
-			additional_data: vec![Some(vec![42u8])],
+			additional_data: vec![Some(entry.clone())],
 		};
 
 		// Read additional_data BEFORE into_inner (which consumes self)
-		assert_eq!(v3.additional_data()[0], Some(vec![42u8]));
+		assert_eq!(v3.additional_data()[0], Some(entry.clone()));
 		assert_eq!(v3.additional_data().len(), 1);
 
 		let (blocks, returned_proof) = v3.into_inner();

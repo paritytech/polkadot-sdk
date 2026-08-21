@@ -21,7 +21,8 @@ use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDEN
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
-use sp_additional_data::{AdditionalDataExt, RecordingAdditionalDataProvider};
+use cumulus_client_consensus_common::RecordingAdditionalDataProvider;
+use sp_additional_data::{AdditionalDataExt, AdditionalDataGetter};
 use sp_api::{ApiExt, ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_externalities::Extensions;
@@ -33,6 +34,12 @@ pub struct BlockBuilderAndSupportData<'a> {
 	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
 	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
 	pub proof_recorder: ProofRecorder<Block>,
+	/// Getter for the additional-data map recorded for this block-building attempt.
+	///
+	/// After the block is built, calling it returns the exact map that was hashed into the header's
+	/// `AdditionalData` digest (the recorded relay-read proof), which can then be placed into
+	/// `ParachainBlockData::V3.additional_data`. Shares the registered recorder's proof.
+	pub additional_data_recorder: AdditionalDataGetter,
 }
 
 /// Builder for creating a block builder with customizable parameters.
@@ -181,9 +188,28 @@ fn init_block_builder(
 	let proof_recorder =
 		ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.unwrap_or_default());
 
+	// Consume the sproof up-front so the relay state is available both to the relay-read
+	// recording provider (below) and to the parachain inherent (further down).
+	let (relay_parent_storage_root, relay_chain_state) =
+		relay_sproof_builder.into_state_root_and_proof();
+
+	// Build a trie backend over the sproof relay state so `relay_chain_read` can dynamically
+	// read + record a minimal proof during block building. The proof-check backend contains
+	// exactly the sproof's proven keys, and reads against it record a sub-proof that
+	// re-verifies against `relay_parent_storage_root`.
+	let relay_backend = sp_state_machine::create_proof_check_backend::<
+		sp_runtime::traits::HashingFor<polkadot_primitives::Block>,
+	>(relay_parent_storage_root, relay_chain_state.clone())
+	.expect("Relay sproof produces a valid proof-check backend; qed");
+
+	// The recorder records the relay reads into a minimal proof; we keep a backend-free getter to
+	// extract the recorded map after the block is built.
+	let additional_data_provider = RecordingAdditionalDataProvider::over_backend(relay_backend);
+	let additional_data_recorder = additional_data_provider.getter();
+
 	let mut extra_extensions = Extensions::default();
 	extra_extensions.register(ProofSizeExt::new(proof_recorder.clone()));
-	extra_extensions.register(AdditionalDataExt(Box::new(RecordingAdditionalDataProvider::new())));
+	extra_extensions.register(AdditionalDataExt(Box::new(additional_data_provider)));
 
 	let mut block_builder = sc_block_builder::BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
@@ -200,9 +226,6 @@ fn init_block_builder(
 	inherent_data
 		.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 		.expect("Put timestamp failed");
-
-	let (relay_parent_storage_root, relay_chain_state) =
-		relay_sproof_builder.into_state_root_and_proof();
 
 	let mut validation_data = validation_data.unwrap_or_default();
 	validation_data.relay_parent_storage_root = relay_parent_storage_root;
@@ -231,6 +254,7 @@ fn init_block_builder(
 		block_builder,
 		persisted_validation_data: validation_data,
 		proof_recorder,
+		additional_data_recorder,
 	}
 }
 
@@ -245,11 +269,24 @@ impl BuildBlockBuilder for Client {
 pub trait BuildParachainBlockData {
 	/// Directly build the [`ParachainBlockData`] from the block that comes out of the block
 	/// builder.
-	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block>;
+	///
+	/// `additional_data_recorder` is the handle returned in
+	/// [`BlockBuilderAndSupportData::additional_data_recorder`]; after the block is built it yields
+	/// the relay-read proof blob to carry in `ParachainBlockData::V3.additional_data` (every block
+	/// reads relay state in `set_validation_data`, so this is normally `Some`).
+	fn build_parachain_block(
+		self,
+		parent_state_root: Hash,
+		additional_data_recorder: AdditionalDataGetter,
+	) -> ParachainBlockData<Block>;
 }
 
 impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client> {
-	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block> {
+	fn build_parachain_block(
+		self,
+		parent_state_root: Hash,
+		additional_data_recorder: AdditionalDataGetter,
+	) -> ParachainBlockData<Block> {
 		let proof_recorder = self
 			.proof_recorder()
 			.expect("Proof recorder is always set for the test block builder; qed");
@@ -260,6 +297,17 @@ impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, C
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 
-		ParachainBlockData::new(vec![built_block.block], storage_proof, None)
+		// The runtime read relay state during `set_validation_data`; recover the recorded proof
+		// and carry it in the `ParachainBlockData` (V3) so validation/import can serve the reads.
+		let additional_data = additional_data_recorder();
+
+		ParachainBlockData::new_with_additional_data(
+			vec![built_block.block],
+			storage_proof,
+			// Test collation: additional data now requires a scheduling proof; a default one is
+			// inert here since V3 scheduling is not enabled in these tests.
+			Default::default(),
+			vec![additional_data],
+		)
 	}
 }

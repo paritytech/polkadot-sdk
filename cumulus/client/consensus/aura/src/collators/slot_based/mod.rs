@@ -303,5 +303,5 @@ struct CollatorMessage<Block: BlockT> {
 	///
 	/// One slot per block in `blocks`. `Some(blob)` when data was pushed via the
 	/// additional-data host function for that block; `None` when nothing was pushed.
-	pub additional_data: Vec<Option<Vec<u8>>>,
+	pub additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 }

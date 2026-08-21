@@ -10,6 +10,7 @@ mod full_node_warp_sync;
 mod migrate_solo;
 mod parachain_runtime_upgrade_slot_duration_18s;
 mod pov_recovery;
+mod relay_chain_read;
 mod rpc_collator_build_blocks;
 mod runtime_upgrade;
 mod statement_store;

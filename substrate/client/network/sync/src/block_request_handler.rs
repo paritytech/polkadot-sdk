@@ -431,7 +431,7 @@ where
 			};
 
 			let additional_data = if get_additional_data {
-				self.client.block_additional_data(hash)?.unwrap_or_default()
+				self.client.block_additional_data(hash)?.map(|m| m.encode()).unwrap_or_default()
 			} else {
 				Vec::new()
 			};
@@ -586,7 +586,9 @@ impl FullBlockDownloader {
 					additional_data: if request.fields.contains(BlockAttributes::ADDITIONAL_DATA) &&
 						!block_data.additional_data.is_empty()
 					{
-						Some(block_data.additional_data)
+						Some(<sp_additional_data::AdditionalData as codec::Decode>::decode(
+							&mut &block_data.additional_data[..],
+						)?)
 					} else {
 						None
 					},
@@ -656,11 +658,11 @@ mod tests {
 
 	struct MockClient {
 		header_map: std::collections::HashMap<Hash, Header>,
-		additional_data_map: std::collections::HashMap<Hash, Vec<u8>>,
+		additional_data_map: std::collections::HashMap<Hash, sp_additional_data::AdditionalData>,
 	}
 
 	impl MockClient {
-		fn with_block(header: Header, data: Option<Vec<u8>>) -> Self {
+		fn with_block(header: Header, data: Option<sp_additional_data::AdditionalData>) -> Self {
 			let hash = header.hash();
 			let mut header_map = std::collections::HashMap::new();
 			header_map.insert(hash, header);
@@ -743,7 +745,7 @@ mod tests {
 			false
 		}
 
-		fn block_additional_data(&self, hash: Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		fn block_additional_data(&self, hash: Hash) -> sp_blockchain::Result<Option<sp_additional_data::AdditionalData>> {
 			Ok(self.additional_data_map.get(&hash).cloned())
 		}
 	}
@@ -797,7 +799,8 @@ mod tests {
 
 	#[test]
 	fn additional_data_fetched_when_requested() {
-		let expected = vec![1u8, 2, 3];
+		let expected: sp_additional_data::AdditionalData =
+			[("test".to_string(), vec![1u8, 2, 3])].into();
 		let header = make_test_header();
 		let hash = header.hash();
 		let handler = make_handler(MockClient::with_block(header, Some(expected.clone())));
@@ -813,14 +816,16 @@ mod tests {
 			.unwrap();
 
 		assert_eq!(response.blocks.len(), 1);
-		assert_eq!(response.blocks[0].additional_data, expected);
+		// The wire carries the SCALE-encoded map.
+		assert_eq!(response.blocks[0].additional_data, expected.encode());
 	}
 
 	#[test]
 	fn additional_data_absent_when_not_requested() {
 		let header = make_test_header();
 		let hash = header.hash();
-		let handler = make_handler(MockClient::with_block(header, Some(vec![1u8, 2, 3])));
+		let handler =
+			make_handler(MockClient::with_block(header, Some([("test".to_string(), vec![1u8, 2, 3])].into())));
 
 		let response = handler
 			.get_block_response(

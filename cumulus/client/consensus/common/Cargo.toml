@@ -25,11 +25,13 @@ sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sp-additional-data = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }

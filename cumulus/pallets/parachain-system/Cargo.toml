@@ -100,6 +100,7 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
+	"sp-additional-data/std",
 	"sp-api/std",
 	"sp-consensus-babe/std",
 	"sp-core/std",

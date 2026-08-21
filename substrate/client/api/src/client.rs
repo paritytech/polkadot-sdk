@@ -174,7 +174,7 @@ pub trait BlockBackend<Block: BlockT> {
 	/// Get additional data stored for this block, if any.
 	///
 	/// Default returns `None`; backends that store additional data override this.
-	fn block_additional_data(&self, _hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn block_additional_data(&self, _hash: Block::Hash) -> sp_blockchain::Result<Option<sp_additional_data::AdditionalData>> {
 		Ok(None)
 	}
 }

@@ -108,6 +108,29 @@ pub struct SchedulingProof {
 	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
 }
 
+impl Default for SchedulingProof {
+	/// An empty scheduling proof (no ancestry, no signed scheduling info).
+	///
+	/// Used to carry `additional_data` in a [`ParachainBlockData::V3`] when the collator has no
+	/// real scheduling proof to attach (e.g. the lookahead collator, or any chain where V3
+	/// scheduling is inactive). Such an empty proof is not consensus-validated unless
+	/// [`VerifySchedulingSignature::V3_SCHEDULING_ENABLED`] is set, so it is inert on chains that do
+	/// not run V3 scheduling.
+	fn default() -> Self {
+		Self {
+			header_chain: Vec::new(),
+			internal_scheduling_parent_header: RelayChainHeader {
+				parent_hash: Default::default(),
+				number: Default::default(),
+				state_root: Default::default(),
+				extrinsics_root: Default::default(),
+				digest: Default::default(),
+			},
+			signed_scheduling_info: None,
+		}
+	}
+}
+
 impl SchedulingProof {
 	/// Derive the scheduling parent hash.
 	///

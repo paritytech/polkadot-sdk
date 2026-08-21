@@ -31,9 +31,10 @@ use crate::{
 };
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
+use sp_additional_data::AdditionalDataExt;
 use cumulus_client_consensus_common::{
 	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
-	ParachainBlockImportMarker, ParentSearchParams,
+	ParachainBlockImportMarker, ParentSearchParams, RecordingAdditionalDataProvider,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
@@ -50,7 +51,6 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_additional_data::{AdditionalDataExt, RecordingAdditionalDataProvider};
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
@@ -747,7 +747,7 @@ where
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
-	let mut per_block_additional_data: Vec<Option<Vec<u8>>> = Vec::new();
+	let mut per_block_additional_data: Vec<Option<sp_additional_data::AdditionalData>> = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
 
 	let mut parent_hash = pov_parent_hash;
@@ -824,8 +824,18 @@ where
 		let mut extra_extensions = Extensions::default();
 		extra_extensions.register(ProofSizeExt::new(proof_size_recorder.clone()));
 
-		let additional_data_recorder = RecordingAdditionalDataProvider::new();
-		extra_extensions.register(AdditionalDataExt(Box::new(additional_data_recorder.clone())));
+		// Wrap the relay-state prover (if this relay interface supports it) into the additional-data
+		// recorder and register it as `AdditionalDataExt`, so `set_validation_data` (and any runtime
+		// code) can serve `read_relay_chain_state` from the live relay state at this relay parent,
+		// recording a minimal proof into the block's additional data. Keep a getter to extract that
+		// map after the block is built.
+		let additional_data_handle =
+			relay_client.relay_state_prover(relay_parent_hash).await.ok().map(|prover| {
+				let recorder = RecordingAdditionalDataProvider::new(prover);
+				let getter = recorder.getter();
+				extra_extensions.register(AdditionalDataExt(Box::new(recorder)));
+				getter
+			});
 
 		let block_production_start = Instant::now();
 		// The time we have left to spent for the block.
@@ -868,6 +878,7 @@ where
 				max_pov_size: allowed_pov_size,
 				storage_proof_recorder: storage_proof_recorder.into(),
 				extra_extensions,
+				additional_data_handle,
 			})
 			.await
 		else {
@@ -906,7 +917,7 @@ where
 			});
 		}
 
-		import_block.additional_data = additional_data_recorder.take_data();
+		// `build_block` already set `import_block.additional_data` from the same recorded value.
 
 		if let Err(error) = collator.import_block(import_block).await {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");
@@ -916,7 +927,7 @@ where
 		// Announce the newly built block to our peers.
 		collator.collator_service().announce_block(parent_hash, None);
 
-		per_block_additional_data.push(additional_data_recorder.take_data());
+		per_block_additional_data.push(built_block.additional_data.clone());
 		blocks.push(built_block.block);
 		proofs.push(Arc::unwrap_or_clone(proof));
 

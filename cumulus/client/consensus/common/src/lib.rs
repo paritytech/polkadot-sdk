@@ -30,6 +30,7 @@ use sp_timestamp::Timestamp;
 
 use std::{sync::Arc, time::Duration};
 
+mod additional_data;
 mod finality;
 mod level_monitor;
 mod parachain_consensus;
@@ -37,6 +38,7 @@ mod parent_search;
 #[cfg(test)]
 mod tests;
 
+pub use additional_data::RecordingAdditionalDataProvider;
 pub use finality::old_finalized_hash;
 pub use parent_search::*;
 

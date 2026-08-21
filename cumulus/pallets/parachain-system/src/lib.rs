@@ -541,6 +541,24 @@ pub mod pallet {
 			}
 
 			HrmpOutboundMessages::<T>::put(outbound_messages);
+
+			// Commit the relay-chain reads made anywhere in THIS block by depositing their hash into
+			// the header. Done at block end (not in the `set_validation_data` inherent) so the digest
+			// covers every read, not just those in the inherent. The reads are recorded into a
+			// minimal proof carried in the block's additional data; `validate_block`/import re-serve
+			// them and re-derive the same hash, so any divergence (a lying collator) is rejected.
+			// This is the sole `AdditionalData` digest a block carries.
+			//
+			// INVARIANT: no relay read may happen AFTER this point — i.e. not in any pallet's
+			// `on_finalize` that runs after parachain-system's. Such a read would land in the carried
+			// proof but not in this digest, and `validate_block` would then reject the block. Today
+			// all relay reads happen in `set_validation_data` (an early inherent), so this holds; a
+			// generic future use of the additional-data channel must respect it.
+			if let Some(hash) = sp_additional_data::additional_data::finalize() {
+				frame_system::Pallet::<T>::deposit_log(sp_runtime::generic::DigestItem::AdditionalData(
+					hash,
+				));
+			}
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -696,7 +714,10 @@ pub mod pallet {
 			// This invariant should be upheld by the `ProvideInherent` implementation.
 			let BasicParachainInherentData {
 				validation_data: vfp,
-				relay_chain_state,
+				// The relay-chain state is now read dynamically via the `read_relay_chain_state`
+				// host function (recorded into the block's additional data and verified in
+				// `validate_block`), so the fixed proof that used to be carried here is ignored.
+				relay_chain_state: _,
 				relay_parent_descendants,
 				collator_peer_id,
 			} = data;
@@ -707,12 +728,11 @@ pub mod pallet {
 				LastRelayChainBlockNumber::<T>::get(),
 			);
 
-			let relay_state_proof = RelayChainStateProof::new(
-				T::SelfParaId::get(),
-				vfp.relay_parent_storage_root,
-				relay_chain_state.clone(),
-			)
-			.expect("Invalid relay chain state proof");
+			// Reads are served by the `read_relay_chain_state` host function: on block building from
+			// the live relay state (recording a minimal proof into the block's additional data), on
+			// validation/import from that recorded proof (verified against
+			// `relay_parent_storage_root`).
+			let relay_state_proof = RelayChainStateProof::new(T::SelfParaId::get());
 
 			// Relay parent offset validation:
 			// When V3 scheduling is disabled: validate relay_parent_descendants (old mechanism)
@@ -805,7 +825,6 @@ pub mod pallet {
 				.expect("Invalid messaging state in relay chain state proof");
 
 			<ValidationData<T>>::put(&vfp);
-			<RelayStateProof<T>>::put(relay_chain_state);
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
@@ -829,6 +848,10 @@ pub mod pallet {
 				inbound_messages_data.horizontal_messages,
 				vfp.relay_parent_number,
 			));
+
+			// NOTE: the relay-chain reads made here are recorded into a minimal proof; their hash is
+			// committed to the header in `on_finalize` (block end), not here — see the
+			// `AdditionalData` digest deposit there.
 
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
 				total_weight,
@@ -974,15 +997,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type UpgradeGoAhead<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeGoAhead>, ValueQuery>;
-
-	/// The state proof for the last relay parent block.
-	///
-	/// This field is meant to be updated each block with the validation data inherent. Therefore,
-	/// before processing of the inherent, e.g. in `on_initialize` this data may be stale.
-	///
-	/// This data is also absent from the genesis.
-	#[pallet::storage]
-	pub type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.

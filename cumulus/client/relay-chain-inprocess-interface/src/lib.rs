@@ -34,7 +34,8 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult,
+	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult, RelayStateProver,
+	TrieBackendProver,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_primitives::{vstaging::RelayParentInfo, CandidateEvent, NodeFeatures};
@@ -253,6 +254,18 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 		sp_state_machine::prove_child_read(state_backend, child_info, child_keys)
 			.map_err(RelayChainError::StateMachineError)
+	}
+
+	async fn relay_state_prover(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>> {
+		// The in-process backend can read+prove relay state synchronously, so we hand back a
+		// prover over the live state; cumulus wraps it into the additional-data recorder that
+		// records a minimal storage proof of whatever keys the parachain runtime reads dynamically
+		// during block execution via `read_relay_chain_state`.
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
+		Ok(Box::new(TrieBackendProver::new(state_backend)))
 	}
 
 	/// Wait for a given relay chain block in an async way.
@@ -515,7 +528,6 @@ pub fn build_inprocess_relay_chain(
 mod tests {
 	use super::*;
 
-	use polkadot_primitives::Block as PBlock;
 	use polkadot_test_client::{
 		construct_transfer_extrinsic, BlockBuilderExt, Client, ClientBlockImportExt,
 		DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder,

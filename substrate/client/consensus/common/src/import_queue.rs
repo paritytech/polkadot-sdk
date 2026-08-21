@@ -95,7 +95,7 @@ pub struct IncomingBlock<B: BlockT> {
 	/// Do not compute new state, but rather set it to the given set.
 	pub state: Option<ImportedState<B>>,
 	/// Opaque SCALE-encoded additional data attached to this block.
-	pub additional_data: Option<Vec<u8>>,
+	pub additional_data: Option<sp_additional_data::AdditionalData>,
 }
 
 /// Verify a justification of a block
@@ -338,7 +338,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	// They have been verified within warp sync proof verification.
 	if matches!(block_origin, BlockOrigin::WarpSync) {
 		// Check point A: verify additional_data before bypassing the verifier.
-		verify_additional_data_non_executing::<B>(&header, block.additional_data.as_deref())?;
+		verify_additional_data_non_executing::<B>(&header, block.additional_data.as_ref())?;
 		let mut import_block = BlockImportParams::new(block_origin, header);
 		import_block.additional_data = block.additional_data;
 		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
@@ -389,7 +389,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		// Check point B: verify additional_data before skipping execution.
 		verify_additional_data_non_executing::<B>(
 			&import_block.header,
-			import_block.additional_data.as_deref(),
+			import_block.additional_data.as_ref(),
 		)?;
 		import_block.state_action = StateAction::Skip;
 	} else if block.allow_missing_state {
@@ -471,7 +471,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 /// - Digest present, `additional_data` absent → rejected (commitment without data).
 fn verify_additional_data_non_executing<B: BlockT>(
 	header: &B::Header,
-	additional_data: Option<&[u8]>,
+	additional_data: Option<&sp_additional_data::AdditionalData>,
 ) -> Result<(), BlockImportError> {
 	let digest_hash: Option<[u8; 32]> = header.digest().logs().iter().find_map(|log| {
 		if let DigestItem::AdditionalData(h) = log {
@@ -482,7 +482,7 @@ fn verify_additional_data_non_executing<B: BlockT>(
 	});
 	match (additional_data, digest_hash) {
 		(Some(blob), Some(expected)) => {
-			let actual = sp_additional_data::hash_blob(blob);
+			let actual = sp_additional_data::hash(blob);
 			if actual != expected {
 				return Err(BlockImportError::Other(ConsensusError::ClientImport(
 					"additional data hash mismatch on non-executing import path".into(),
@@ -532,7 +532,7 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_additional_data::{encode_items, hash_blob};
+	use sp_additional_data::{hash, AdditionalData};
 	use sp_runtime::generic::{Digest, DigestItem};
 	use sp_test_primitives::{Block as TestBlock, Header as TestHeader};
 
@@ -590,8 +590,8 @@ mod tests {
 		}
 	}
 
-	fn make_blob() -> Vec<u8> {
-		encode_items(&[vec![1u8, 2, 3]])
+	fn make_blob() -> AdditionalData {
+		AdditionalData::from([("test".to_string(), vec![1u8, 2, 3])])
 	}
 
 	fn header_with_digest_item(item: DigestItem) -> TestHeader {
@@ -616,7 +616,7 @@ mod tests {
 
 	fn incoming_warp(
 		header: TestHeader,
-		additional_data: Option<Vec<u8>>,
+		additional_data: Option<sp_additional_data::AdditionalData>,
 	) -> IncomingBlock<TestBlock> {
 		IncomingBlock {
 			hash: sp_runtime::traits::Header::hash(&header),
@@ -635,7 +635,7 @@ mod tests {
 
 	fn incoming_skip(
 		header: TestHeader,
-		additional_data: Option<Vec<u8>>,
+		additional_data: Option<sp_additional_data::AdditionalData>,
 	) -> IncomingBlock<TestBlock> {
 		IncomingBlock {
 			hash: sp_runtime::traits::Header::hash(&header),
@@ -658,7 +658,7 @@ mod tests {
 	fn warp_correct_match_accepted() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash_blob(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
 			let block = incoming_warp(header, Some(blob));
 			let r = verify_single_block_metered(
 				&PanicImport,
@@ -676,9 +676,9 @@ mod tests {
 	fn warp_tampered_data_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash_blob(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
 			let mut tampered = blob.clone();
-			tampered.push(0xff);
+			tampered.insert("tampered".to_string(), vec![0xff]);
 			let block = incoming_warp(header, Some(tampered));
 			let r = verify_single_block_metered(
 				&PanicImport,
@@ -697,7 +697,7 @@ mod tests {
 	fn warp_digest_present_data_absent_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash_blob(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
 			let block = incoming_warp(header, None);
 			let r = verify_single_block_metered(
 				&PanicImport,
@@ -736,7 +736,7 @@ mod tests {
 	fn skip_exec_correct_match_accepted() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash_blob(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
 			let block = incoming_skip(header, Some(blob));
 			let r = verify_single_block_metered(
 				&OkCheckImport,
@@ -754,9 +754,9 @@ mod tests {
 	fn skip_exec_tampered_data_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash_blob(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
 			let mut tampered = blob.clone();
-			tampered.push(0xff);
+			tampered.insert("tampered".to_string(), vec![0xff]);
 			let block = incoming_skip(header, Some(tampered));
 			let r = verify_single_block_metered(
 				&OkCheckImport,
@@ -775,7 +775,7 @@ mod tests {
 	fn skip_exec_digest_present_data_absent_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash_blob(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
 			let block = incoming_skip(header, None);
 			let r = verify_single_block_metered(
 				&OkCheckImport,
