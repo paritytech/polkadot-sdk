@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The control-plane parachain: `pallet-registrar-para` plus enough XCM to talk to the relay."><title>pallet_registrar_test::para - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_registrar_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module para</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_registrar_test/index.html">pallet_<wbr>registrar_<wbr>test</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module para</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate pallet_<wbr>registrar_<wbr>test</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_registrar_test</a></div><h1>Module <span>para</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_registrar_test/para.rs.html#18-222">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The control-plane parachain: <code>pallet-registrar-para</code> plus enough XCM to talk to the relay.</p>
+<p>Structured after <code>polkadot/xcm/xcm-simulator/example/src/parachain</code>, trimmed to what the
+registrar needs and with <code>ParentAsSuperuser</code> added to the origin converter so the relay
+chain’s <code>Superuser</code> reports land as <code>Root</code> here.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BaseXcmWeight.html" title="struct pallet_registrar_test::para::BaseXcmWeight">Base<wbr>XcmWeight</a></dt><dt><a class="struct" href="struct.DataDepositPerByte.html" title="struct pallet_registrar_test::para::DataDepositPerByte">Data<wbr>Deposit<wbr>PerByte</a></dt><dt><a class="struct" href="struct.MaxAssetsIntoHolding.html" title="struct pallet_registrar_test::para::MaxAssetsIntoHolding">MaxAssets<wbr>Into<wbr>Holding</a></dt><dt><a class="struct" href="struct.MaxInstructions.html" title="struct pallet_registrar_test::para::MaxInstructions">MaxInstructions</a></dt><dt><a class="struct" href="struct.PalletInfo.html" title="struct pallet_registrar_test::para::PalletInfo">Pallet<wbr>Info</a></dt><dd>Provides an implementation of <code>PalletInfo</code> to provide information
+about the pallet setup in the runtime.</dd><dt><a class="struct" href="struct.ParaDeposit.html" title="struct pallet_registrar_test::para::ParaDeposit">Para<wbr>Deposit</a></dt><dt><a class="struct" href="struct.RegistrationHoldReason.html" title="struct pallet_registrar_test::para::RegistrationHoldReason">Registration<wbr>Hold<wbr>Reason</a></dt><dt><a class="struct" href="struct.RelayLocation.html" title="struct pallet_registrar_test::para::RelayLocation">Relay<wbr>Location</a></dt><dt><a class="struct" href="struct.RelayNetwork.html" title="struct pallet_registrar_test::para::RelayNetwork">Relay<wbr>Network</a></dt><dt><a class="struct" href="struct.ReservationHoldReason.html" title="struct pallet_registrar_test::para::ReservationHoldReason">Reservation<wbr>Hold<wbr>Reason</a></dt><dt><a class="struct" href="struct.Runtime.html" title="struct pallet_registrar_test::para::Runtime">Runtime</a></dt><dt><a class="struct" href="struct.RuntimeGenesisConfig.html" title="struct pallet_registrar_test::para::RuntimeGenesisConfig">Runtime<wbr>Genesis<wbr>Config</a></dt><dt><a class="struct" href="struct.RuntimeOrigin.html" title="struct pallet_registrar_test::para::RuntimeOrigin">Runtime<wbr>Origin</a></dt><dd>The runtime origin type representing the origin of a call.</dd><dt><a class="struct" href="struct.UniversalLocation.html" title="struct pallet_registrar_test::para::UniversalLocation">Universal<wbr>Location</a></dt><dt><a class="struct" href="struct.XcmConfig.html" title="struct pallet_registrar_test::para::XcmConfig">XcmConfig</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.OriginCaller.html" title="enum pallet_registrar_test::para::OriginCaller">Origin<wbr>Caller</a></dt><dt><a class="enum" href="enum.RuntimeCall.html" title="enum pallet_registrar_test::para::RuntimeCall">Runtime<wbr>Call</a></dt><dd>The aggregated runtime call type.</dd><dt><a class="enum" href="enum.RuntimeError.html" title="enum pallet_registrar_test::para::RuntimeError">Runtime<wbr>Error</a></dt><dt><a class="enum" href="enum.RuntimeEvent.html" title="enum pallet_registrar_test::para::RuntimeEvent">Runtime<wbr>Event</a></dt><dt><a class="enum" href="enum.RuntimeFreezeReason.html" title="enum pallet_registrar_test::para::RuntimeFreezeReason">Runtime<wbr>Freeze<wbr>Reason</a></dt><dd>A reason for placing a freeze on funds.</dd><dt><a class="enum" href="enum.RuntimeHoldReason.html" title="enum pallet_registrar_test::para::RuntimeHoldReason">Runtime<wbr>Hold<wbr>Reason</a></dt><dd>A reason for placing a hold on funds.</dd><dt><a class="enum" href="enum.RuntimeLockId.html" title="enum pallet_registrar_test::para::RuntimeLockId">Runtime<wbr>Lock<wbr>Id</a></dt><dd>An identifier for each lock placed on funds.</dd><dt><a class="enum" href="enum.RuntimeSlashReason.html" title="enum pallet_registrar_test::para::RuntimeSlashReason">Runtime<wbr>Slash<wbr>Reason</a></dt><dd>A reason for slashing funds.</dd><dt><a class="enum" href="enum.RuntimeTask.html" title="enum pallet_registrar_test::para::RuntimeTask">Runtime<wbr>Task</a></dt><dd>An aggregation of all <code>Task</code> enums across all pallets included in the current runtime.</dd><dt><a class="enum" href="enum.RuntimeViewFunction.html" title="enum pallet_registrar_test::para::RuntimeViewFunction">Runtime<wbr>View<wbr>Function</a></dt><dd>Runtime query type.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.FIRST_PARA_ID.html" title="constant pallet_registrar_test::para::FIRST_PARA_ID">FIRST_<wbr>PARA_<wbr>ID</a></dt><dd>The first para id <code>pallet-registrar-para::reserve</code> hands out here.</dd><dt><a class="constant" href="constant.PARA_DEPOSIT.html" title="constant pallet_registrar_test::para::PARA_DEPOSIT">PARA_<wbr>DEPOSIT</a></dt><dt><a class="constant" href="constant.PENDING_DEADLINE.html" title="constant pallet_registrar_test::para::PENDING_DEADLINE">PENDING_<wbr>DEADLINE</a></dt><dd>How long a manager waits for the relay chain before giving up on a registration.</dd><dt><a class="constant" href="constant.PER_BYTE.html" title="constant pallet_registrar_test::para::PER_BYTE">PER_<wbr>BYTE</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AccountId.html" title="type pallet_registrar_test::para::AccountId">Account<wbr>Id</a></dt><dt><a class="type" href="type.AllPalletsWithSystem.html" title="type pallet_registrar_test::para::AllPalletsWithSystem">AllPallets<wbr>With<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.</dd><dt><a class="type" href="type.AllPalletsWithoutSystem.html" title="type pallet_registrar_test::para::AllPalletsWithoutSystem">AllPallets<wbr>Without<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.
+Excludes the System pallet.</dd><dt><a class="type" href="type.Balance.html" title="type pallet_registrar_test::para::Balance">Balance</a></dt><dt><a class="type" href="type.Balances.html" title="type pallet_registrar_test::para::Balances">Balances</a></dt><dt><a class="type" href="type.BalancesConfig.html" title="type pallet_registrar_test::para::BalancesConfig">Balances<wbr>Config</a></dt><dt><a class="type" href="type.LocalAssetTransactor.html" title="type pallet_registrar_test::para::LocalAssetTransactor">Local<wbr>Asset<wbr>Transactor</a></dt><dt><a class="type" href="type.LocalOriginToLocation.html" title="type pallet_registrar_test::para::LocalOriginToLocation">Local<wbr>Origin<wbr>ToLocation</a></dt><dt><a class="type" href="type.LocationConverter.html" title="type pallet_registrar_test::para::LocationConverter">Location<wbr>Converter</a></dt><dt><a class="type" href="type.MsgQueue.html" title="type pallet_registrar_test::para::MsgQueue">MsgQueue</a></dt><dt><a class="type" href="type.OriginConverter.html" title="type pallet_registrar_test::para::OriginConverter">Origin<wbr>Converter</a></dt><dd>Note <code>ParentAsSuperuser</code>: it is what turns the relay chain’s <code>OriginKind::Superuser</code> report
+into <code>Root</code> here, which is what <code>pallet-registrar-para</code>’s <code>RelayOrigin</code> accepts.</dd><dt><a class="type" href="type.PolkadotXcm.html" title="type pallet_registrar_test::para::PolkadotXcm">Polkadot<wbr>Xcm</a></dt><dt><a class="type" href="type.PolkadotXcmConfig.html" title="type pallet_registrar_test::para::PolkadotXcmConfig">Polkadot<wbr>XcmConfig</a></dt><dt><a class="type" href="type.Registrar.html" title="type pallet_registrar_test::para::Registrar">Registrar</a></dt><dt><a class="type" href="type.System.html" title="type pallet_registrar_test::para::System">System</a></dt><dt><a class="type" href="type.SystemConfig.html" title="type pallet_registrar_test::para::SystemConfig">System<wbr>Config</a></dt><dt><a class="type" href="type.Weigher.html" title="type pallet_registrar_test::para::Weigher">Weigher</a></dt><dt><a class="type" href="type.XcmRouter.html" title="type pallet_registrar_test::para::XcmRouter">XcmRouter</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

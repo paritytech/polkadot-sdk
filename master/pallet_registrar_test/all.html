@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_registrar_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">All</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_registrar_test/index.html">pallet_<wbr>registrar_<wbr>test</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>List of all items</h1><rustdoc-toolbar></rustdoc-toolbar></div><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.MockNet.html">MockNet</a></li><li><a href="struct.ParachainXcmRouter.html">ParachainXcmRouter</a></li><li><a href="struct.RegistrarPara.html">RegistrarPara</a></li><li><a href="struct.Relay.html">Relay</a></li><li><a href="struct.RelayChainXcmRouter.html">RelayChainXcmRouter</a></li><li><a href="para/struct.BaseXcmWeight.html">para::BaseXcmWeight</a></li><li><a href="para/struct.DataDepositPerByte.html">para::DataDepositPerByte</a></li><li><a href="para/struct.MaxAssetsIntoHolding.html">para::MaxAssetsIntoHolding</a></li><li><a href="para/struct.MaxInstructions.html">para::MaxInstructions</a></li><li><a href="para/struct.PalletInfo.html">para::PalletInfo</a></li><li><a href="para/struct.ParaDeposit.html">para::ParaDeposit</a></li><li><a href="para/struct.RegistrationHoldReason.html">para::RegistrationHoldReason</a></li><li><a href="para/struct.RelayLocation.html">para::RelayLocation</a></li><li><a href="para/struct.RelayNetwork.html">para::RelayNetwork</a></li><li><a href="para/struct.ReservationHoldReason.html">para::ReservationHoldReason</a></li><li><a href="para/struct.Runtime.html">para::Runtime</a></li><li><a href="para/struct.RuntimeGenesisConfig.html">para::RuntimeGenesisConfig</a></li><li><a href="para/struct.RuntimeOrigin.html">para::RuntimeOrigin</a></li><li><a href="para/struct.UniversalLocation.html">para::UniversalLocation</a></li><li><a href="para/struct.XcmConfig.html">para::XcmConfig</a></li><li><a href="relay/struct.BaseXcmWeight.html">relay::BaseXcmWeight</a></li><li><a href="relay/struct.LocalDataDepositPerByte.html">relay::LocalDataDepositPerByte</a></li><li><a href="relay/struct.LocalParaDeposit.html">relay::LocalParaDeposit</a></li><li><a href="relay/struct.MaxAssetsIntoHolding.html">relay::MaxAssetsIntoHolding</a></li><li><a href="relay/struct.MaxInstructions.html">relay::MaxInstructions</a></li><li><a href="relay/struct.MessageProcessor.html">relay::MessageProcessor</a></li><li><a href="relay/struct.MessageQueueHeapSize.html">relay::MessageQueueHeapSize</a></li><li><a href="relay/struct.MessageQueueMaxStale.html">relay::MessageQueueMaxStale</a></li><li><a href="relay/struct.MessageQueueServiceWeight.html">relay::MessageQueueServiceWeight</a></li><li><a href="relay/struct.MockSwap.html">relay::MockSwap</a></li><li><a href="relay/struct.PalletInfo.html">relay::PalletInfo</a></li><li><a href="relay/struct.ParasUnsignedPriority.html">relay::ParasUnsignedPriority</a></li><li><a href="relay/struct.RegistrarUnsignedPriority.html">relay::RegistrarUnsignedPriority</a></li><li><a href="relay/struct.RelayNetwork.html">relay::RelayNetwork</a></li><li><a href="relay/struct.Runtime.html">relay::Runtime</a></li><li><a href="relay/struct.RuntimeGenesisConfig.html">relay::RuntimeGenesisConfig</a></li><li><a href="relay/struct.RuntimeOrigin.html">relay::RuntimeOrigin</a></li><li><a href="relay/struct.SwapData.html">relay::SwapData</a></li><li><a href="relay/struct.TestNextSessionRotation.html">relay::TestNextSessionRotation</a></li><li><a href="relay/struct.TokenLocation.html">relay::TokenLocation</a></li><li><a href="relay/struct.UniversalLocation.html">relay::UniversalLocation</a></li><li><a href="relay/struct.XcmConfig.html">relay::XcmConfig</a></li><li><a href="senders/struct.EnsureRegistrarPara.html">senders::EnsureRegistrarPara</a></li><li><a href="senders/struct.ParaSendToRelay.html">senders::ParaSendToRelay</a></li><li><a href="senders/struct.RegistrarParaId.html">senders::RegistrarParaId</a></li><li><a href="senders/struct.RelaySendToPara.html">senders::RelaySendToPara</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="para/enum.OriginCaller.html">para::OriginCaller</a></li><li><a href="para/enum.RuntimeCall.html">para::RuntimeCall</a></li><li><a href="para/enum.RuntimeError.html">para::RuntimeError</a></li><li><a href="para/enum.RuntimeEvent.html">para::RuntimeEvent</a></li><li><a href="para/enum.RuntimeFreezeReason.html">para::RuntimeFreezeReason</a></li><li><a href="para/enum.RuntimeHoldReason.html">para::RuntimeHoldReason</a></li><li><a href="para/enum.RuntimeLockId.html">para::RuntimeLockId</a></li><li><a href="para/enum.RuntimeSlashReason.html">para::RuntimeSlashReason</a></li><li><a href="para/enum.RuntimeTask.html">para::RuntimeTask</a></li><li><a href="para/enum.RuntimeViewFunction.html">para::RuntimeViewFunction</a></li><li><a href="relay/enum.OriginCaller.html">relay::OriginCaller</a></li><li><a href="relay/enum.RuntimeCall.html">relay::RuntimeCall</a></li><li><a href="relay/enum.RuntimeError.html">relay::RuntimeError</a></li><li><a href="relay/enum.RuntimeEvent.html">relay::RuntimeEvent</a></li><li><a href="relay/enum.RuntimeFreezeReason.html">relay::RuntimeFreezeReason</a></li><li><a href="relay/enum.RuntimeHoldReason.html">relay::RuntimeHoldReason</a></li><li><a href="relay/enum.RuntimeLockId.html">relay::RuntimeLockId</a></li><li><a href="relay/enum.RuntimeSlashReason.html">relay::RuntimeSlashReason</a></li><li><a href="relay/enum.RuntimeTask.html">relay::RuntimeTask</a></li><li><a href="relay/enum.RuntimeViewFunction.html">relay::RuntimeViewFunction</a></li><li><a href="senders/enum.ParaRuntimePallets.html">senders::ParaRuntimePallets</a></li><li><a href="senders/enum.RegistrarParaCalls.html">senders::RegistrarParaCalls</a></li><li><a href="senders/enum.RegistrarRelayCalls.html">senders::RegistrarRelayCalls</a></li><li><a href="senders/enum.RelayRuntimePallets.html">senders::RelayRuntimePallets</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="fn.para_ext.html">para_ext</a></li><li><a href="relay/fn.conclude_pvf_checking.html">relay::conclude_pvf_checking</a></li><li><a href="relay/fn.run_to_block.html">relay::run_to_block</a></li><li><a href="relay/fn.run_to_session.html">relay::run_to_session</a></li><li><a href="fn.relay_ext.html">relay_ext</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="para/type.AccountId.html">para::AccountId</a></li><li><a href="para/type.AllPalletsWithSystem.html">para::AllPalletsWithSystem</a></li><li><a href="para/type.AllPalletsWithoutSystem.html">para::AllPalletsWithoutSystem</a></li><li><a href="para/type.Balance.html">para::Balance</a></li><li><a href="para/type.Balances.html">para::Balances</a></li><li><a href="para/type.BalancesConfig.html">para::BalancesConfig</a></li><li><a href="para/type.LocalAssetTransactor.html">para::LocalAssetTransactor</a></li><li><a href="para/type.LocalOriginToLocation.html">para::LocalOriginToLocation</a></li><li><a href="para/type.LocationConverter.html">para::LocationConverter</a></li><li><a href="para/type.MsgQueue.html">para::MsgQueue</a></li><li><a href="para/type.OriginConverter.html">para::OriginConverter</a></li><li><a href="para/type.PolkadotXcm.html">para::PolkadotXcm</a></li><li><a href="para/type.PolkadotXcmConfig.html">para::PolkadotXcmConfig</a></li><li><a href="para/type.Registrar.html">para::Registrar</a></li><li><a href="para/type.System.html">para::System</a></li><li><a href="para/type.SystemConfig.html">para::SystemConfig</a></li><li><a href="para/type.Weigher.html">para::Weigher</a></li><li><a href="para/type.XcmRouter.html">para::XcmRouter</a></li><li><a href="relay/type.AccountId.html">relay::AccountId</a></li><li><a href="relay/type.AllPalletsWithSystem.html">relay::AllPalletsWithSystem</a></li><li><a href="relay/type.AllPalletsWithoutSystem.html">relay::AllPalletsWithoutSystem</a></li><li><a href="relay/type.Balance.html">relay::Balance</a></li><li><a href="relay/type.Balances.html">relay::Balances</a></li><li><a href="relay/type.BalancesConfig.html">relay::BalancesConfig</a></li><li><a href="relay/type.BlockNumber.html">relay::BlockNumber</a></li><li><a href="relay/type.Configuration.html">relay::Configuration</a></li><li><a href="relay/type.ConfigurationConfig.html">relay::ConfigurationConfig</a></li><li><a href="relay/type.LocalAssetTransactor.html">relay::LocalAssetTransactor</a></li><li><a href="relay/type.LocalOriginToLocation.html">relay::LocalOriginToLocation</a></li><li><a href="relay/type.LocationConverter.html">relay::LocationConverter</a></li><li><a href="relay/type.MessageQueue.html">relay::MessageQueue</a></li><li><a href="relay/type.OriginConverter.html">relay::OriginConverter</a></li><li><a href="relay/type.Parachains.html">relay::Parachains</a></li><li><a href="relay/type.ParachainsConfig.html">relay::ParachainsConfig</a></li><li><a href="relay/type.ParasOrigin.html">relay::ParasOrigin</a></li><li><a href="relay/type.ParasRegistrar.html">relay::ParasRegistrar</a></li><li><a href="relay/type.ParasRegistrarConfig.html">relay::ParasRegistrarConfig</a></li><li><a href="relay/type.ParasShared.html">relay::ParasShared</a></li><li><a href="relay/type.Registrar.html">relay::Registrar</a></li><li><a href="relay/type.System.html">relay::System</a></li><li><a href="relay/type.SystemConfig.html">relay::SystemConfig</a></li><li><a href="relay/type.Weigher.html">relay::Weigher</a></li><li><a href="relay/type.XcmPallet.html">relay::XcmPallet</a></li><li><a href="relay/type.XcmPalletConfig.html">relay::XcmPalletConfig</a></li><li><a href="relay/type.XcmRouter.html">relay::XcmRouter</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.ALICE.html">ALICE</a></li><li><a href="constant.BOB.html">BOB</a></li><li><a href="constant.EXT_REGISTRARPARA.html">EXT_REGISTRARPARA</a></li><li><a href="constant.EXT_RELAY.html">EXT_RELAY</a></li><li><a href="constant.INITIAL_BALANCE.html">INITIAL_BALANCE</a></li><li><a href="constant.MAX_CODE_SIZE.html">MAX_CODE_SIZE</a></li><li><a href="constant.MAX_HEAD_SIZE.html">MAX_HEAD_SIZE</a></li><li><a href="constant.MIN_CODE_SIZE.html">MIN_CODE_SIZE</a></li><li><a href="constant.VALIDATORS.html">VALIDATORS</a></li><li><a href="para/constant.FIRST_PARA_ID.html">para::FIRST_PARA_ID</a></li><li><a href="para/constant.PARA_DEPOSIT.html">para::PARA_DEPOSIT</a></li><li><a href="para/constant.PENDING_DEADLINE.html">para::PENDING_DEADLINE</a></li><li><a href="para/constant.PER_BYTE.html">para::PER_BYTE</a></li><li><a href="relay/constant.BLOCKS_PER_SESSION.html">relay::BLOCKS_PER_SESSION</a></li><li><a href="relay/constant.MAX_PENDING.html">relay::MAX_PENDING</a></li><li><a href="relay/constant.SWAP_DATA.html">relay::SWAP_DATA</a></li><li><a href="senders/constant.PARA_ID.html">senders::PARA_ID</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

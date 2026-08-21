@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {};
+window.SIDEBAR_ITEMS = {"fn":["apply_authorized_code","authorize_code","cancel_authorization"]};
