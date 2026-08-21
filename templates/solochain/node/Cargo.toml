@@ -59,6 +59,7 @@ substrate-frame-rpc-system = { workspace = true, default-features = true }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking-cli = { workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, optional = true }
 
 # Local Dependencies
 solochain-template-runtime = { workspace = true }
@@ -72,6 +73,7 @@ std = ["solochain-template-runtime/std"]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
