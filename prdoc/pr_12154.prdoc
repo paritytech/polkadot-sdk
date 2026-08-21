@@ -4,7 +4,7 @@ doc:
   - audience: Runtime Dev
     description: |
       Adds `do_try_state` to `pallet-psm`, wired to the `try_state` hook under the
-      `try-runtime` feature. Sixteen checks cover the multi-instance storage layout:
+      `try-runtime` feature. Seventeen checks cover the multi-instance storage layout:
       decimal snapshots against live metadata, reserve coverage of tracked debt,
       internal issuance against instance debt, orphaned rows without a parent PSM,
       and debt tracked for non-approved pairs.
