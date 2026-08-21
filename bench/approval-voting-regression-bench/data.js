@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787302618003,
+  "lastUpdate": 1787336471132,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71",
-          "message": "Cleanup HRMP channels that were force removed from RC state (#10324)\n\nReported here https://hackmd.io/@JjziWrpMQ2OeBtz99n7JXg/ByqF7Av0ge.\nChange:\n- Cleanup old LastHrmpMqcHeads entries when the corresponding channel\nwas remove from RC state\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-01-20T12:11:14Z",
-          "tree_id": "a5f0fc71a0a6e94f6e64b29cc6ce9a75c6b950e4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71"
-        },
-        "date": 1768915144640,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63624.22000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.597697527350003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5923965948399976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005092243229999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6330790976999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024003780000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.643237603689999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020598990000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024003780000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7764181797700379,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.6734740168328095,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.520975851290036,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020598990000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.273054604709999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000022285030000000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "Enoch",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3b49ccb1f0ddcca2f24acd23091a03db9d8f104",
+          "message": "Remove non permanent migrations on westend (#12647)\n\nRemove one-shot migrations that already executed on the live Westend\nsystem chains (all on spec 1024001), plus their now-unused support code.\n\nEach one was verified against live chain state before removal: storage\nversions are at their post-migration values and the unversioned\none-shots left their expected effects. A verification script is in [this\ngist](https://gist.github.com/runcomet/1fac906cf1197519a92a3c60aefed23e).\nThe two bridge data fixes (`FixMessagesV1Migration`,\n`MigrationForXcmV5`) have no on-chain marker but shipped in #5649 /\n#4826, long before the deployed runtime.\n\nKept `ClaimTrappedBalance` (PAH reference, no-op on WAH), the\nstaking-async migrations (`Staking` is still at v17 on-chain) and\n`PsmInitialConfig` (used by `remote-ext-tests-psm`).\n\nPart of #11771.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-21T16:52:25Z",
+          "tree_id": "70155201922b1ba3c7562754041fa1e9e726ac83",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3b49ccb1f0ddcca2f24acd23091a03db9d8f104"
+        },
+        "date": 1787336438549,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63563.29,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.936652947079963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8487978342599696,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019863069999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3717723390699943,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005497307089999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.654839625652769,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7032302412200004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002025702,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019863069999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002025702,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6547148977799995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6526680679299997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.699972259730001,
             "unit": "seconds"
           }
         ]
