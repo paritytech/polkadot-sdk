@@ -398,8 +398,7 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `PolkadotXcm::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `PolkadotXcm::AssetTraps` (r:1 w:1)
 	/// Proof: `PolkadotXcm::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `n` is `[1, 20]`.
-	fn claim_assets(n: u32) -> Weight {
+	fn claim_assets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `160`
 		//  Estimated: `3625`
@@ -408,13 +407,6 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 3625))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(
-				// INTERIM placeholder slope; replace with `/cmd bench` output before merging.
-				Weight::from_parts(47_000_000, 4273)
-					.saturating_add(T::DbWeight::get().reads(3))
-					.saturating_add(T::DbWeight::get().writes(3))
-					.saturating_mul(n.into()),
-			)
 	}
 	fn add_authorized_alias() -> Weight {
 		Weight::from_parts(100_000, 0)
@@ -423,20 +415,12 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(100_000, 0)
 	}
 
-	/// The range of component `n` is `[0, 131072]`.
-	fn weigh_message(n: u32) -> Weight {
+	fn weigh_message() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 7_785_000 picoseconds.
 		Weight::from_parts(8_077_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// INTERIM placeholder slope; replace with `/cmd bench` output before merging.
-			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
-	}
-	/// The range of component `n` is `[0, 131072]`.
-	fn decode_xcm(n: u32) -> Weight {
-		// INTERIM: decoding is a subset of weighing, so this over-estimates.
-		Self::weigh_message(n)
 	}
 }

@@ -104,9 +104,11 @@ pub trait WeightInfo {
 	fn migrate_and_notify_old_targets() -> Weight;
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
-	fn claim_assets(n: u32) -> Weight;
+	fn claim_assets() -> Weight;
 	fn add_authorized_alias() -> Weight;
 	fn remove_authorized_alias() -> Weight;
+
+	fn weigh_message() -> Weight;
 
 	/// Weight of decoding and weighing an XCM message of `n` bytes.
 	///
@@ -116,11 +118,30 @@ pub trait WeightInfo {
 	///
 	/// Callers that also charge a flat small-message weight (e.g. [`Self::execute`]) pay this
 	/// base constant twice; that over-charge is deliberate.
-	fn weigh_message(n: u32) -> Weight;
+	///
+	/// Defaults to the flat [`Self::weigh_message`] cost. Chains that want the charge to scale
+	/// with message size should override it (see the `weigh_message_by_size` benchmark).
+	fn weigh_message_by_size(n: u32) -> Weight {
+		let _ = n;
+		Self::weigh_message()
+	}
 	/// Weight of decoding, but not weighing, an XCM message of `n` bytes.
 	///
-	/// Cheaper than [`Self::weigh_message`] because `Transact` payloads stay opaque.
-	fn decode_xcm(n: u32) -> Weight;
+	/// Cheaper than [`Self::weigh_message_by_size`] because `Transact` payloads stay opaque.
+	///
+	/// Defaults to the flat [`Self::weigh_message`] cost.
+	fn decode_xcm(n: u32) -> Weight {
+		let _ = n;
+		Self::weigh_message()
+	}
+	/// Weight of claiming `n` assets.
+	///
+	/// Defaults to the flat [`Self::claim_assets`] cost. Chains that can deposit several
+	/// distinct asset kinds should override it (see the `claim_assets` benchmark).
+	fn claim_assets_by_size(n: u32) -> Weight {
+		let _ = n;
+		Self::claim_assets()
+	}
 }
 
 /// fallback implementation
@@ -202,9 +223,8 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000_000, 0)
 	}
 
-	fn claim_assets(n: u32) -> Weight {
+	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
-			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
 	}
 
 	fn add_authorized_alias() -> Weight {
@@ -215,7 +235,11 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000, 0)
 	}
 
-	fn weigh_message(n: u32) -> Weight {
+	fn weigh_message() -> Weight {
+		Weight::from_parts(100_000, 0)
+	}
+
+	fn weigh_message_by_size(n: u32) -> Weight {
 		Weight::from_parts(100_000, 0)
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
 	}
@@ -223,6 +247,11 @@ impl WeightInfo for TestWeightInfo {
 	fn decode_xcm(n: u32) -> Weight {
 		Weight::from_parts(100_000, 0)
 			.saturating_add(Weight::from_parts(20_000, 0).saturating_mul(n.into()))
+	}
+
+	fn claim_assets_by_size(n: u32) -> Weight {
+		Weight::from_parts(100_000_000, 0)
+			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
 	}
 }
 
@@ -1545,7 +1574,7 @@ pub mod pallet {
 		///
 		/// The weight of this call is linear in the number of assets claimed.
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::claim_assets(assets.len() as u32))]
+		#[pallet::weight(T::WeightInfo::claim_assets_by_size(assets.len() as u32))]
 		pub fn claim_assets(
 			origin: OriginFor<T>,
 			assets: Box<VersionedAssets>,

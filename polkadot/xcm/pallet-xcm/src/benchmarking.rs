@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use codec::DecodeWithMemLimit;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
@@ -658,7 +659,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn claim_assets(n: Linear<1, { MAX_ITEMS_IN_ASSETS as u32 }>) -> Result<(), BenchmarkError> {
+	fn claim_assets_by_size(
+		n: Linear<1, { MAX_ITEMS_IN_ASSETS as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let claim_origin = RawOrigin::Signed(whitelisted_caller());
 		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
@@ -689,7 +692,7 @@ mod benchmarks {
 		let versioned_assets = VersionedAssets::from(assets);
 
 		#[extrinsic_call]
-		_(
+		claim_assets(
 			claim_origin,
 			Box::new(versioned_assets),
 			Box::new(VersionedLocation::from(claim_location)),
@@ -821,6 +824,20 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn weigh_message() -> Result<(), BenchmarkError> {
+		let msg = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE.into()]);
+		let versioned_msg = VersionedXcm::from(msg);
+
+		#[block]
+		{
+			crate::Pallet::<T>::query_xcm_weight(versioned_msg)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		}
+
+		Ok(())
+	}
+
 	/// Decoding and weighing a caller-supplied message of `n` bytes.
 	///
 	/// The decode is measured, and goes through the precompile's entry point, because the
@@ -828,15 +845,14 @@ mod benchmarks {
 	///
 	/// `n` stops at [`MAX_WEIGHABLE_BLOB_BYTES`] rather than [`MAX_XCM_BLOB_BYTES`].
 	#[benchmark]
-	fn weigh_message(n: Linear<0, MAX_WEIGHABLE_BLOB_BYTES>) -> Result<(), BenchmarkError> {
+	fn weigh_message_by_size(n: Linear<0, MAX_WEIGHABLE_BLOB_BYTES>) -> Result<(), BenchmarkError> {
 		let bytes = helpers::worst_case_weighable_message::<T>(n);
 
 		#[block]
 		{
-			let decoded =
-				VersionedXcm::<<T as crate::Config>::RuntimeCall>::
-					decode_all_with_mem_and_depth_limit(&mut &bytes[..])
-					.expect("blob was just built by `worst_case_weighable_message`; qed");
+			let decoded = VersionedXcm::<<T as crate::Config>::RuntimeCall>::
+				decode_with_mem_limit(&mut &bytes[..], usize::MAX)
+				.expect("blob was just built by `worst_case_weighable_message`; qed");
 			let mut message: Xcm<<T as crate::Config>::RuntimeCall> =
 				decoded.try_into().expect("blob was built at the latest version; qed");
 			// A message this large may legitimately exceed limits; finding that out is the cost
@@ -854,7 +870,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut &bytes[..]);
+			let _ = VersionedXcm::<()>::decode_with_mem_limit(&mut &bytes[..], usize::MAX);
 		}
 
 		Ok(())
@@ -882,8 +898,9 @@ mod tests {
 				bytes.len() >= target_bytes as usize,
 				"undershooting the target would under-charge",
 			);
-			VersionedXcm::<<Test as crate::Config>::RuntimeCall>::decode_all_with_mem_and_depth_limit(
+			VersionedXcm::<<Test as crate::Config>::RuntimeCall>::decode_with_mem_limit(
 				&mut &bytes[..],
+				usize::MAX,
 			)
 			.expect("worst case must decode, otherwise the benchmark measures nothing");
 		}
@@ -893,7 +910,7 @@ mod tests {
 pub mod helpers {
 	use super::*;
 
-	/// The worst case for `WeightInfo::weigh_message`: a `Transact` carrying
+	/// The worst case for `WeightInfo::weigh_message_by_size`: a `Transact` carrying
 	/// `batch_call([pallet_xcm.execute(Xcm([])); N])`, encoded, of at least `target_bytes` bytes.
 	///
 	/// A `Transact` payload resolving to a local call is decoded eagerly, and weighing it recurses
