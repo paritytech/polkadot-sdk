@@ -13,11 +13,11 @@ module state_balance {
 
   // --- Per-parachain footprint primitives --------------------------------
 
-   /// Per-para baseline footprint, in BALANCE UNITS: 4 262 (ParaInfo entry)
+   /// Per-para baseline footprint, in BALANCE UNITS: 4 246 (ParaInfo entry)
    /// + 65 585 (log reserve). Each is one storage item, so each carries
-   /// `C_itemdeposit = 10` on top of its octets (4 252 / 65 575). Derivation in
-   /// §6.1. Balances are `Compact<u128>` sized at their 17 B worst case here.
-   pure val BaselineFootprint: int = 69847
+   /// `C_itemdeposit = 10` on top of its octets (4 236 / 65 575). Derivation in
+   /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.
+   pure val BaselineFootprint: int = 69831
 
   /// Octet overhead of one `BoundedVec` general-storage entry: JAM's 34 B, a
   /// 1 B map-tag key, and a 2 B compact length prefix (§6.1).

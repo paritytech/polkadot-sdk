@@ -87,7 +87,7 @@ module refine {
         + compactLen(p.value.length()) + p.value.length()
     // paraId 4 + Vec<u8> key (compact len prefix + bytes).
     | RemoveKV(p) => 4 + compactLen(p.key.length()) + p.key.length()
-    // dest 4 + two balance selectors 2 + amount Compact<u128> + id Compact<u64>
+    // dest 4 + two balance selectors 2 + amount Compact<u64> + id Compact<u64>
     // + Option<ServiceId> source (1 tag + 4 when Some)
     // + Option<(Memo, gas)> (1 tag + 128 memo + 8 gas when Some).
     | TransferOut(p) =>
@@ -107,7 +107,7 @@ module refine {
     // paraId 4 + hash 32 + Compact<u32> len.
     | ParachainSetValidationCode(p) => 36 + compactLen(p.newValidationCodeLen)
     | ParachainCleanUp(_) => 4
-    // paraId 4 + newTotal Compact<u128>.
+    // paraId 4 + newTotal Compact<u64>.
     | ParachainSetStateBalance(p) => 4 + compactLen(p.newTotal)
     // codeHash 32 + Compact<u32> len + minAccGas 8 + minMemoGas 8.
     | UpgradeService(p) => 48 + compactLen(p.len)

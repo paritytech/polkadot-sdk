@@ -125,8 +125,8 @@ module types {
   pure val MaxIncomingTransfers: int = 1000
 
   /// Value octets of one `incoming_transfers` entry:
-  /// `ServiceId 4 + Amount (Compact<u128> worst case 17) + Memo 128`.
-  pure val IncomingTransferValueOctets: int = 4 + 17 + 128
+  /// `ServiceId 4 + Amount (Compact<u64> worst case 9) + Memo 128`.
+  pure val IncomingTransferValueOctets: int = 4 + 9 + 128
 
   /// Octets of one worst-case `incoming_transfers` bucket: a bucket holding a
   /// single transfer (maximal fragmentation, §6.1): JAM's per-entry overhead (34),

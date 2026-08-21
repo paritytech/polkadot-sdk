@@ -1231,8 +1231,8 @@ many referencers.
 `(ParaId, ParaInfo)` entry plus the `(ParaId, parachain_log[para_id])` entry, with
 every bounded field SCALE-encoded at its maximum so the value is static across the
 parachain's lifetime. Each is one general-storage entry. Taking `ParaId = u32` (4 B),
-`Hash = 32 B`, `Timeslot = u32` (4 B), and `Balance = Compact<u128>` sized at its
-worst case of 17 B:
+`Hash = 32 B`, `Timeslot = u32` (4 B), and `Balance = u64`, so
+that `Compact<Balance>` is sized at its worst case of 9 B:
 
 `(ParaId, ParaInfo)` entry:
 
@@ -1243,13 +1243,13 @@ ParaId (key)                                                       =       4
 head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098
 validation_code: Option<ValidationCode> = 1 + 32 + 4 + 1           =      38
 pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42
-total_state_balance: Compact<Balance>                              =      17
-used_state_balance: Compact<Balance>                               =      17
+total_state_balance: Compact<Balance>                              =       9
+used_state_balance: Compact<Balance>                               =       9
 is_deregistering: bool                                             =       1
-                                                          octets       4 252
+                                                          octets       4 236
                                                           1 item          10
                                                                      -------
-                                                                       4 262
+                                                                       4 246
 ```
 
 `(ParaId, parachain_log[para_id])` entry, value + key bounded by a flat 64 KiB cap,
@@ -1271,7 +1271,7 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
                                                                       65 585
 ```
 
-**`baseline_footprint = 4 262 + 65 585 = 69 847`** balance units per parachain.
+**`baseline_footprint = 4 246 + 65 585 = 69 831`** balance units per parachain.
 
 #### Asset Hub baseline footprint
 
@@ -1282,9 +1282,8 @@ general-storage entry (§6.1), so a `Map` costs one entry per key it holds while
 
 Of these only `incoming_transfers` grows with the transfer bound. Taking
 `CoreCount = 341`, `AuthorizerHash = 32 B`, `ServiceId = 4 B`, `Memo = 128 B`,
-`CoreIndex = 2 B`, authorizer-queue length = 80, and
-`Amount = Compact<u128>` sized at
-its worst case of 17 B, the fixed part is:
+`CoreIndex = 2 B`, authorizer-queue length = 80, and `Amount = u64`, so that
+`Compact<Amount>` is sized at its worst case of 9 B, the fixed part is:
 
 ```
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>  · 1 item
@@ -1309,22 +1308,22 @@ can never exceed the transfer count.
 
 ```
 incoming_transfers: Map<Timeslot, IncomingTransfers>  — worst case N items
-  N × (34 + 5 (key) + 1 + 149 (transfer) + 5 (next_slot))       194 × N
+  N × (34 + 5 (key) + 1 + 141 (transfer) + 5 (next_slot))       186 × N
   N storage items × 10                                           10 × N
                                                               ---------
-                                                              204 × N
+                                                              196 × N
 ```
 
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 226 388 + 204 × N
+asset_hub_global_items = 1 226 388 + 196 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation: each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 226 388 + 204 000 = 1 430 388`, or
+(§5.1). At `N = 1000` the reservation is `1 226 388 + 196 000 = 1 422 388`, or
 **≈ 1.36 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint

@@ -249,16 +249,21 @@ module state {
   if (s.parachainLog.keys().contains(para_id)) s.parachainLog.get(para_id)
   else List()
 
-  /// Byte width of a SCALE compact-encoded length `n`: 1 B for n < 64,
-  /// 2 B for n < 2^14, 4 B for n < 2^30, else 5+ B.
+  /// Byte width of a SCALE compact-encoded integer `n`: 1 B for n < 64, 2 B for
+  /// n < 2^14, 4 B for n < 2^30, then big-integer mode — a 1 B header plus `n`'s
+  /// minimal byte length, so 5 B below 2^32 up to 9 B at the `u64` ceiling.
   pure def compactLen(n: int): int =
   if (n < 64) 1
   else if (n < 16384) 2
   else if (n < 1073741824) 4
-  else 5
+  else if (n < 4294967296) 5
+  else if (n < 1099511627776) 6
+  else if (n < 281474976710656) 7
+  else if (n < 72057594037927936) 8
+  else 9
 
   /// Exact SCALE size of one AccumulateLog event: 1 B discriminant + body.
-  /// Hash/ValidationCodeHash = 32 B, u32 = 4 B; balances are `Compact<u128>`,
+  /// Hash/ValidationCodeHash = 32 B, u32 = 4 B; balances are `Compact<u64>`,
   /// charged at their actual `compactLen`. The InsufficientStateBalance body is
   /// its reason's 1 B discriminant plus a 32 B hash (FromSolicit's preimage
   /// hash, FromSetKV's key hash). `StagedValidatorKeysOverflow` is nullary.
