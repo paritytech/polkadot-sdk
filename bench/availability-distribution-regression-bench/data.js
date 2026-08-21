@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787267447074,
+  "lastUpdate": 1787302574006,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71",
-          "message": "Cleanup HRMP channels that were force removed from RC state (#10324)\n\nReported here https://hackmd.io/@JjziWrpMQ2OeBtz99n7JXg/ByqF7Av0ge.\nChange:\n- Cleanup old LastHrmpMqcHeads entries when the corresponding channel\nwas remove from RC state\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-01-20T12:11:14Z",
-          "tree_id": "a5f0fc71a0a6e94f6e64b29cc6ce9a75c6b950e4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71"
-        },
-        "date": 1768915110951,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023093191559999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009510517626666656,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1433594544733334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006979678266666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009742401193333344,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "96f90ea55845da4daa1f1f52948cea539945bfad",
+          "message": "Registrar: reserve and register (#12800)\n\nCloses #12810 \nFills in the two registrar pallets (`pallet-registrar-para`,\n`pallet-registrar-relay`) and the shared wire types so a system\nparachain can hand out para ids, hold the deposits, and drive\nregistration on the relay chain over XCM. Deposits only ever live on the\nparachain; the relay chain takes nothing.\n\nThe problem this works around: validation code is far too large to\ntravel in an XCM `Transact`. So registration is split in two, and only\nthe code *hash* and *length* cross the bridge.\n\n## Flow\n\n1. `registrar-para::reserve` — allocates the next free para id, holds\n`ParaDeposit`. Caller becomes the manager.\n2. `registrar-para::register(para_id, genesis_head, code_len,\ncode_hash)` — holds `DataDepositPerByte` for the head data plus the\n*declared* code length, and sends `MessageToRelay::V1(Register { .. })`.\n3. `registrar-relay::receive` — validates against the relay's live\nconfiguration, parks the request in `PendingRegistrations` with an\nexpiry. A request it will not act on is rejected and reported, not\nfailed, so the parachain never sits on a stuck deposit.\n4. `registrar-relay::register_code(para_id, validation_code)` — the blob\nitself, uploaded straight to the relay chain. Unsigned and `Pays::No`,\nauthorized via `#[pallet::authorize]`: the pending entry already pins\ndown the exact bytes that will be accepted and the manager has already\npaid for them, so anybody may push it. Matching blob → `paras_registrar`\nonboarding → report back.\n5. `registrar-para::receive` — applies the verdict: keep the deposit\nheld, or release it.\n\nIf the code never turns up, `on_initialize` on the relay side expires\nthe entry and reports the failure. `cancel_registration` on the para\nside is the backstop for a report that gets lost entirely; its deadline\nis deliberately much longer than the relay's expiry.\n\n## Pieces\n\n- **`registrar-primitives`** — the versioned wire types\n(`MessageToRelay`/`MessageToPara`, both `V1`-tagged by\n`#[codec(index)]`). No FRAME, no XCM, no network-specific deps, so one\nversion of the format serves Westend, Kusama and Polkadot and neither\npallet has to depend on the other.\n- **`pallet-registrar-para`** — reserve/register/cancel/receive,\n`Reserved → Pending → Registered` state machine, two hold reasons\n(`ParaIdReservation`, `Registration`), local mirrors of the relay's size\nlimits so obviously doomed requests fail early and cheaply.\n- **`pallet-registrar-relay`** — the two-phase receive/`register_code`\npair, pending expiry sweep, and reporting. `SendToPara`/`SendToRelay`\nkeep XCM out of both pallets: what a message means is the pallet's\nbusiness, how it travels is the runtime's.\n- **`paras_registrar`** — new `do_register_without_deposit` plus a\n`RegisterPara` impl bridging the relay pallet to it. Head data and code\nare still validated against the live configuration and the para still\ngoes through the usual onboarding and PVF pre-check; only the deposit is\nskipped (overridden to zero, which `Currency::reserve` short-circuits,\nso `manager` need not exist on the relay chain).\n\n---------\n\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-08-21T07:23:35Z",
+          "tree_id": "f102be3a51efa580382f620bb25e7dc969397498",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/96f90ea55845da4daa1f1f52948cea539945bfad"
+        },
+        "date": 1787302539370,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022949245293333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00981152327333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007610464239999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1458873444933334,
             "unit": "seconds"
           }
         ]
