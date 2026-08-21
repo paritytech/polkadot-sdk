@@ -130,9 +130,9 @@ where
 			IXcmCalls::execute(IXcm::executeCall { message, weight }) => {
 				// Executing weighs the blob too, via `prepare`. Kept separate from the execution
 				// charge below, which gets refunded and would otherwise give this back.
-				env.charge(
-					<Runtime as Config>::WeightInfo::weigh_message_by_size(message.len() as u32),
-				)?;
+				env.charge(<Runtime as Config>::WeightInfo::weigh_message_by_size(
+					message.len() as u32
+				))?;
 
 				let max_weight = Weight::from_parts(weight.refTime, weight.proofSize);
 				let weight_to_charge =
@@ -172,9 +172,9 @@ where
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
 				// Charged before decoding; see `WeightInfo::weigh_message_by_size`.
-				env.charge(
-					<Runtime as Config>::WeightInfo::weigh_message_by_size(message.len() as u32),
-				)?;
+				env.charge(<Runtime as Config>::WeightInfo::weigh_message_by_size(
+					message.len() as u32
+				))?;
 
 				let converted_message = VersionedXcm::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,

@@ -874,9 +874,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			let decoded = VersionedXcm::<<T as crate::Config>::RuntimeCall>::
-				decode_with_mem_limit(&mut &bytes[..], usize::MAX)
-				.expect("blob was just built by `worst_case_weighable_message`; qed");
+			let decoded = VersionedXcm::<<T as crate::Config>::RuntimeCall>::decode_with_mem_limit(
+				&mut &bytes[..],
+				usize::MAX,
+			)
+			.expect("blob was just built by `worst_case_weighable_message`; qed");
 			let mut message: Xcm<<T as crate::Config>::RuntimeCall> =
 				decoded.try_into().expect("blob was built at the latest version; qed");
 			// A message this large may legitimately exceed limits; finding that out is the cost
