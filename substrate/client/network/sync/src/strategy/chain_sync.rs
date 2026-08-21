@@ -335,7 +335,7 @@ pub enum GapSyncBodyPolicy {
 	///
 	/// While the node is major syncing, local finality can lag the network beyond the
 	/// safety margin, so gap ranges above the cutoff are deferred until it has caught up.
-	DownloadFinalized(u32),
+	BodiesWithinWindow(u32),
 }
 
 /// Resolves the [`GapSyncBodyPolicy`] lazily, when a `ChainSync` instance is created.
@@ -1355,7 +1355,7 @@ where
 							// range (bodies are pruned oldest-first). Disconnect it to free
 							// the slot for a peer that does; the mild penalty lets it retry
 							// later.
-							warn!(
+							debug!(
 								target: LOG_TARGET,
 								"Peer {peer_id} sent an empty response for gap block request \
 								 {request:?} that required bodies; disconnecting it",
@@ -2036,7 +2036,7 @@ where
 		match self.gap_sync_body_policy {
 			GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
 			GapSyncBodyPolicy::All => (attrs, None),
-			GapSyncBodyPolicy::DownloadFinalized(window) => {
+			GapSyncBodyPolicy::BodiesWithinWindow(window) => {
 				// The gap is created by importing a finalized block right above it,
 				// so `gap.target + 1` is a lower bound for the finalized number even
 				// while the client's finality info still lags right after warp sync.
@@ -2491,16 +2491,14 @@ fn peer_gap_block_request<B: BlockT>(
 	max_blocks_per_request: u32,
 	metrics: Option<&Metrics>,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
-	let mut max_number = std::cmp::min(peer.best_number, target);
-	if is_major_syncing {
-		if let Some(cutoff) = body_cutoff {
-			max_number = std::cmp::min(max_number, cutoff);
-		}
+	let mut scheduling_bound = std::cmp::min(peer.best_number, target);
+	if let Some(cutoff) = body_cutoff.filter(|_| is_major_syncing) {
+		scheduling_bound = std::cmp::min(scheduling_bound, cutoff);
 	}
 	let range = blocks.needed_blocks(
 		*id,
 		max_blocks_per_request,
-		max_number,
+		scheduling_bound,
 		common_number,
 		1,
 		MAX_DOWNLOAD_AHEAD,

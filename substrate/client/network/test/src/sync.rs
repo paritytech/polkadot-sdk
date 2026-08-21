@@ -1210,7 +1210,7 @@ async fn warp_sync_gap_sync_downloads_required_bodies_within_window() {
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
 		blocks_pruning: Some(256),
-		gap_sync_body_policy: Some(GapSyncBodyPolicy::DownloadFinalized(72)),
+		gap_sync_body_policy: Some(GapSyncBodyPolicy::BodiesWithinWindow(72)),
 		..Default::default()
 	});
 

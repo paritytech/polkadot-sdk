@@ -3,7 +3,7 @@ doc:
 - audience: Node Dev
   description: |-
     Gap sync now supports a `GapSyncBodyPolicy`: besides the previous all-or-nothing
-    behavior, `DownloadFinalized(window)` requires bodies only for blocks within `window`
+    behavior, `BodiesWithinWindow(window)` requires bodies only for blocks within `window`
     below the finalized block. The omni-node uses this on storage chains to backfill the
     bodies of the transaction storage retention period after warp sync, and requires
     `--blocks-pruning >= retention` there.

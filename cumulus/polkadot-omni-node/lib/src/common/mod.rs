@@ -206,7 +206,7 @@ fn resolve_gap_sync_body_policy(
 	match (storage_chain_retention, blocks_pruning) {
 		// Archive nodes backfill the whole gap with bodies; no safety cutoff is necessary.
 		(_, BlocksPruning::KeepAll | BlocksPruning::KeepFinalized) => Ok(GapSyncBodyPolicy::All),
-		// Pruned nodes off a storage chain backfill headers and justifications only.
+		// Pruned nodes not running a storage chain backfill headers and justifications only.
 		(None, BlocksPruning::Some(_)) => Ok(GapSyncBodyPolicy::HeadersOnly),
 		(Some(retention_period), BlocksPruning::Some(window)) => {
 			if safety_margin >= retention_period {
@@ -223,7 +223,7 @@ fn resolve_gap_sync_body_policy(
 					 chain; increase `--blocks-pruning`",
 				));
 			}
-			Ok(GapSyncBodyPolicy::DownloadFinalized(retention_period - safety_margin))
+			Ok(GapSyncBodyPolicy::BodiesWithinWindow(retention_period - safety_margin))
 		},
 	}
 }
@@ -250,7 +250,7 @@ mod tests {
 	fn storage_chain_enables_required_within_with_pre_shrunk_window() {
 		assert_eq!(
 			resolve_gap_sync_body_policy(Some(100_800), BlocksPruning::Some(200_000), 128),
-			Ok(GapSyncBodyPolicy::DownloadFinalized(100_800 - 128)),
+			Ok(GapSyncBodyPolicy::BodiesWithinWindow(100_800 - 128)),
 		);
 	}
 
@@ -279,7 +279,7 @@ mod tests {
 		assert!(resolve_gap_sync_body_policy(Some(1000), BlocksPruning::Some(999), 128).is_err());
 		assert_eq!(
 			resolve_gap_sync_body_policy(Some(1000), BlocksPruning::Some(1000), 128),
-			Ok(GapSyncBodyPolicy::DownloadFinalized(872)),
+			Ok(GapSyncBodyPolicy::BodiesWithinWindow(872)),
 		);
 	}
 }
