@@ -108,6 +108,15 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
+///
+/// Returns the account id the `seal_call` family expects in guest memory: `address` is never
+/// mapped, so it resolves to its fallback account whose first 20 encoded bytes are `address`.
+fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId, BenchmarkError> {
+	AccountInfo::<T>::set_delegation(&address, target).map_err(|_| "set_delegation failed")?;
+	Ok(T::AddressMapper::to_fallback_account_id(&address))
+}
+
 #[benchmarks(
 	where
 		T: Config,
@@ -2552,9 +2561,23 @@ mod benchmarks {
 	// d: with or without dust value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, address: callee_addr, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+	fn seal_call(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<0, { limits::code::BLOB_BYTES }>,
+	) -> Result<(), BenchmarkError> {
+		// A delegated callee is the worst case for the EIP-7702 chained-delegation guard in
+		// `PrecompileExt::call`: it costs two `AccountInfoOf` reads (the callee's, then its
+		// target's) and still runs the target's code. A callee delegating to another *delegated*
+		// account does the same two reads but reverts before frame setup, so it is cheaper.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let callee_addr = H160([0x42; 20]);
+		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+		// Keep the origin's budget the same as with a contract callee. A contract already exists
+		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
+		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
+		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
+		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -2580,6 +2603,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+		let before = Pallet::<T>::evm_balance(&callee_addr);
 
 		let result;
 		#[block]
@@ -2598,9 +2622,11 @@ mod benchmarks {
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		assert_eq!(
 			Pallet::<T>::evm_balance(&callee_addr),
-			evm_value,
-			"{callee_addr:?} balance should hold {evm_value:?}"
+			before + evm_value,
+			"{callee_addr:?} balance should have grown by {evm_value:?}"
 		);
+
+		Ok(())
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
@@ -2667,8 +2693,10 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let Contract { account_id: address, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		// Delegated code source: worst case for the chained-delegation guard in
+		// `Ext::delegate_call`. See `seal_call`.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
