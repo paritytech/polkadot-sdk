@@ -8,24 +8,26 @@ module types {
 
   // --- Opaque cryptographic / identifier types -----------------------------
   //
-  // The three hash families (`Hash`, `ValidationCodeHash`, `AuthorizerHash`)
-  // and the two identifier families (`ParaId`, `ServiceId`) are nominally
-  // distinct: each is wrapped so the typechecker rejects accidental
-  // cross-type comparisons. Hashes use record wrappers with distinct field
-  // names; IDs use 1-constructor variants. All other domain integers stay
-  // as `int` because nothing in the spec is at risk of confusing them.
+  // The hash families and the two identifier families (`ParaId`, `ServiceId`)
+  // are nominally distinct: each is wrapped so the typechecker rejects
+  // accidental cross-type comparisons. Hashes use record wrappers with
+  // distinct field names; IDs use 1-constructor variants. All other domain
+  // integers stay as `int` because nothing in the spec is at risk of
+  // confusing them.
 
-  /// Which preimage space a digest lives in. Distinct domains must not share
-  /// digests: an ITF trace has to record the domain so a replay harness can
-  /// rebuild the real bytes. Cross-domain equality is not statically
-  /// prevented — the spec simply never compares hashes from different
-  /// domains, and new code must keep that discipline.
-  pure val DomainPreimage: int = 0
-  pure val DomainHead: int = 1
-  pure val DomainKvKey: int = 2
-  pure val DomainMerkle: int = 3
-
-  type Hash = { domain: int, hashBytes: int }
+  /// One hash type per hashing domain. Distinct domains must not share
+  /// digests, so each domain gets its own wrapper rather than a runtime domain
+  /// tag: comparing a head hash against a preimage hash is a type error the
+  /// typechecker catches, not a discipline new code has to remember. An ITF
+  /// trace still names the domain, since the field name is the domain.
+  ///
+  /// `Hash` keys `preimage_registry` (§6.1), `HeadHash` is `hash(head_data)`
+  /// (§5.1), `KvKeyHash` is the `blake2_256` key hash a rejected `kv_set` logs
+  /// (§6.1), and `MerkleHash` is a head-commitment tree element (§5.5).
+  type Hash = { hashBytes: int }
+  type HeadHash = { headBytes: int }
+  type KvKeyHash = { kvKeyBytes: int }
+  type MerkleHash = { merkleBytes: int }
   type ValidationCodeHash = { vchBytes: int }
   type AuthorizerHash = { authBytes: int }
 
@@ -66,7 +68,7 @@ module types {
   // validation-code hash needs an explicit conversion to the registry's key
   // type whenever it's stored or looked up.
 
-  pure def vchAsHash(vch: ValidationCodeHash): Hash = { domain: DomainPreimage, hashBytes: vch.vchBytes }
+  pure def vchAsHash(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
 
   /// The wrapped integer, for the places the spec orders by `para_id`, the
   /// head-commitment leaves (§5.5). The sentinel is never constructed.
@@ -198,10 +200,10 @@ module types {
   // We model `hash(head_data)` as an injective function; we only need
   // equality semantics for the parent-head check (§5.1, step 1).
 
-  pure def headHash(h: HeadData): Hash = { domain: DomainHead, hashBytes: h }
+  pure def headHash(h: HeadData): HeadHash = { headBytes: h }
 
   /// Abstract hash of a byte list, modelling blake2-256 for KV key hashing.
   /// Injective within the model's small key space.
-  pure def listHash(key: List[int]): Hash =
-    { domain: DomainKvKey, hashBytes: key.foldl(0, (acc, b) => acc * 257 + b) }
+  pure def listHash(key: List[int]): KvKeyHash =
+    { kvKeyBytes: key.foldl(0, (acc, b) => acc * 257 + b) }
 }

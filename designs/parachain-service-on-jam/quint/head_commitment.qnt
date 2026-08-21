@@ -13,19 +13,20 @@ module head_commitment {
   import types.* from "./types"
   import state.* from "./state"
 
-  /// A node of the commitment tree. `Node` holds its two children's hashes;
-  /// the design writes it as the tuple variant `Node(Hash, Hash)`.
+  /// A node of the commitment tree. A leaf commits to a parachain's `HeadHash`;
+  /// a node holds its two children's `MerkleHash`es, which the design writes as
+  /// the tuple variant `Node(Hash, Hash)`.
   type MerkleTree =
-  | Leaf({ paraId: ParaId, headHash: Hash })
-  | Node({ left: Hash, right: Hash })
+  | Leaf({ paraId: ParaId, headHash: HeadHash })
+  | Node({ left: MerkleHash, right: MerkleHash })
 
   /// Abstract `keccak_256` of a tree element's SCALE encoding. Doubling the
   /// body and adding the discriminant keeps the leaf and node images disjoint,
   /// so a leaf hash can never collide with a node hash (§5.5).
-  pure def merkleHash(t: MerkleTree): Hash =
+  pure def merkleHash(t: MerkleTree): MerkleHash =
   match t {
-    | Leaf(l) => { domain: DomainMerkle, hashBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.hashBytes) }
-    | Node(c) => { domain: DomainMerkle, hashBytes: 2 * (c.left.hashBytes * 257 + c.right.hashBytes) + 1 }
+    | Leaf(l) => { merkleBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.headBytes) }
+    | Node(c) => { merkleBytes: 2 * (c.left.merkleBytes * 257 + c.right.merkleBytes) + 1 }
   }
 
   /// Set of para ids as a list ordered by ascending `para_id`, so every
@@ -40,7 +41,7 @@ module head_commitment {
   /// One level of tree reduction: hash adjacent pairs, promoting a trailing
   /// odd element unchanged. §5.5 fixes neither the pairing nor the odd-element
   /// rule, so promotion is this model's reading; see the note in the README.
-  pure def pairUp(level: List[Hash]): List[Hash] = {
+  pure def pairUp(level: List[MerkleHash]): List[MerkleHash] = {
     val paired = level.foldl(
       { out: List(), pending: None },
       (acc, h) =>
@@ -62,7 +63,7 @@ module head_commitment {
 
   /// Root of the binary Merkle tree over `leaves`. No leaves means no hash is
   /// returned at all; a single leaf is its own root (§5.5).
-  pure def merkleRoot(leaves: List[Hash]): Option[Hash] =
+  pure def merkleRoot(leaves: List[MerkleHash]): Option[MerkleHash] =
   if (leaves.length() == 0) None
   else {
     val collapsed = 1.to(MaxMerkleLevels).fold(leaves, (level, _) =>
@@ -89,7 +90,7 @@ module head_commitment {
   pure def headCommitment(
     prev: ParachainServiceState,
     post: ParachainServiceState
-  ): Option[Hash] =
+  ): Option[MerkleHash] =
   merkleRoot(
     sortedParaIds(changedHeads(prev, post)).foldl(List(), (acc, p) =>
       acc.append(merkleHash(Leaf({

@@ -58,7 +58,7 @@ module messages {
   // already an `UpwardMessage` label.
   type InsufficientBalanceReason =
   | FromSolicit({ hash: Hash, len: int })
-  | FromSetKV({ keyHash: Hash })
+  | FromSetKV({ keyHash: KvKeyHash })
 
   /// Why a JAM `transfer` replaying a `TransferOut` failed.
   /// See §5.1 outgoing transfers.
@@ -197,7 +197,7 @@ module messages {
   type ParachainWorkDigestOk = {
     paraId: ParaId,
     validationCode: ValidationCodeRef,
-    parentHeadHash: Hash,
+    parentHeadHash: HeadHash,
     headData: HeadData,
     upwardMessages: List[UpwardMessage],
     lookupAnchor: Timeslot

@@ -141,7 +141,7 @@ module refine {
   pure def refineOk(
     paraId: ParaId,
     ref: ValidationCodeRef,
-    parentHead: Hash,
+    parentHead: HeadHash,
     newHead: HeadData,
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot
@@ -195,7 +195,7 @@ module refine {
     para_id: ParaId,
     candidate: ParachainCandidate,
     pvf: PvfOutcome,
-    parentHead: Option[Hash],
+    parentHead: Option[HeadHash],
     newHead: Option[HeadData],
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot
@@ -250,7 +250,7 @@ module refine {
     // so the service cannot source a `para_id` from it (§4.1 step 1).
     authParasPrefixMissing: bool,
     pvf: PvfOutcome,
-    parentHead: Option[Hash],
+    parentHead: Option[HeadHash],
     newHead: Option[HeadData],
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot

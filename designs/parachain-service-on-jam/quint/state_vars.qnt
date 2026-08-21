@@ -46,7 +46,7 @@ module state_vars {
   /// commitment of §5.5, or `None` when no head changed. Not ghost state: it
   /// is the service's actual accumulate output, but only the most recent one
   /// is retained, which is all `head_commitment_matches_changed_heads` needs.
-  var lastHeadRoot: Option[Hash]
+  var lastHeadRoot: Option[MerkleHash]
 
   /// Ghost state: per-para lookup-anchor timeslot the `parachain_log` was
   /// last pruned against (§5.1). After a candidate for `p` is accumulated,

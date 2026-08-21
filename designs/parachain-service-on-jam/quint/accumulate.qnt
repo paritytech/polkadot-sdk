@@ -75,7 +75,7 @@ module accumulate {
     results: List[WorkResult],
     // The 32-byte value `accumulate` returns: the head commitment (§5.5).
     // `None` when no head changed and the service returns no hash.
-    headRoot: Option[Hash]
+    headRoot: Option[MerkleHash]
   }
 
   // ---- Replay a single upward message -----------------------------------
