@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787267531041,
+  "lastUpdate": 1787302662156,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "64dc02179ba69303191bfeb8df2b00583fc77658",
-          "message": "benchmarking: fix timing leak from bulk setup operations (#10802)\n\nFixes timing leaks in benchmarks with large setup operations (e.g.,\nclearing 27k staking entries). After bulk deletions are committed, the\nfirst new allocation can trigger memory allocator overhead that leaks\ninto benchmark timing.\n\nThe fix adds a memory allocator warmup step in `commit_db()` that\nperforms a dummy write/clear cycle to absorb this overhead before timing\nstarts.\n\nFix https://github.com/paritytech/polkadot-sdk/issues/10798.\n\nAnother related issue:\nhttps://github.com/paritytech/polkadot-sdk/issues/10813 (rework of\nstaking benchmarks to avoid massive bulk deletion if not needed. An\nexample showing the validity of the approach\n[here](https://github.com/paritytech/polkadot-sdk/pull/10822#issuecomment-3757632561)\nwhere we just remove a clear_validators_and_nominators() from one\nbenchmark and that's enough to go down from ms to microsec)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-19T09:48:15Z",
-          "tree_id": "af9dd3cdcb7f0bc1d7a24f1eed101a0bda7106f3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/64dc02179ba69303191bfeb8df2b00583fc77658"
-        },
-        "date": 1768820523444,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.05199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0685321591239999,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03861977412999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08410467848999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "96f90ea55845da4daa1f1f52948cea539945bfad",
+          "message": "Registrar: reserve and register (#12800)\n\nCloses #12810 \nFills in the two registrar pallets (`pallet-registrar-para`,\n`pallet-registrar-relay`) and the shared wire types so a system\nparachain can hand out para ids, hold the deposits, and drive\nregistration on the relay chain over XCM. Deposits only ever live on the\nparachain; the relay chain takes nothing.\n\nThe problem this works around: validation code is far too large to\ntravel in an XCM `Transact`. So registration is split in two, and only\nthe code *hash* and *length* cross the bridge.\n\n## Flow\n\n1. `registrar-para::reserve` — allocates the next free para id, holds\n`ParaDeposit`. Caller becomes the manager.\n2. `registrar-para::register(para_id, genesis_head, code_len,\ncode_hash)` — holds `DataDepositPerByte` for the head data plus the\n*declared* code length, and sends `MessageToRelay::V1(Register { .. })`.\n3. `registrar-relay::receive` — validates against the relay's live\nconfiguration, parks the request in `PendingRegistrations` with an\nexpiry. A request it will not act on is rejected and reported, not\nfailed, so the parachain never sits on a stuck deposit.\n4. `registrar-relay::register_code(para_id, validation_code)` — the blob\nitself, uploaded straight to the relay chain. Unsigned and `Pays::No`,\nauthorized via `#[pallet::authorize]`: the pending entry already pins\ndown the exact bytes that will be accepted and the manager has already\npaid for them, so anybody may push it. Matching blob → `paras_registrar`\nonboarding → report back.\n5. `registrar-para::receive` — applies the verdict: keep the deposit\nheld, or release it.\n\nIf the code never turns up, `on_initialize` on the relay side expires\nthe entry and reports the failure. `cancel_registration` on the para\nside is the backstop for a report that gets lost entirely; its deadline\nis deliberately much longer than the relay's expiry.\n\n## Pieces\n\n- **`registrar-primitives`** — the versioned wire types\n(`MessageToRelay`/`MessageToPara`, both `V1`-tagged by\n`#[codec(index)]`). No FRAME, no XCM, no network-specific deps, so one\nversion of the format serves Westend, Kusama and Polkadot and neither\npallet has to depend on the other.\n- **`pallet-registrar-para`** — reserve/register/cancel/receive,\n`Reserved → Pending → Registered` state machine, two hold reasons\n(`ParaIdReservation`, `Registration`), local mirrors of the relay's size\nlimits so obviously doomed requests fail early and cheaply.\n- **`pallet-registrar-relay`** — the two-phase receive/`register_code`\npair, pending expiry sweep, and reporting. `SendToPara`/`SendToRelay`\nkeep XCM out of both pallets: what a message means is the pallet's\nbusiness, how it travels is the runtime's.\n- **`paras_registrar`** — new `do_register_without_deposit` plus a\n`RegisterPara` impl bridging the relay pallet to it. Head data and code\nare still validated against the live configuration and the para still\ngoes through the usual onboarding and PVF pre-check; only the deposit is\nskipped (overridden to zero, which `Currency::reserve` short-circuits,\nso `manager` need not exist on the relay chain).\n\n---------\n\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-08-21T07:23:35Z",
+          "tree_id": "f102be3a51efa580382f620bb25e7dc969397498",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/96f90ea55845da4daa1f1f52948cea539945bfad"
+        },
+        "date": 1787302627087,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08800000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08407214523999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04003454630000001,
             "unit": "seconds"
           }
         ]
