@@ -93,8 +93,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Debug, FixedU128, MultiSignature, MultiSigner, Perbill, Permill,
 };
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, snowbridge::EthereumNetwork, time::*,
@@ -172,12 +170,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 16,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -831,18 +823,37 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::OldIdentityJudgement |
 			ProxyType::OldAuction |
 			ProxyType::OldParaRegistration => false,
+			// NOTE: This is a deny-list, so it fails open: a pallet added to the runtime is
+			// reachable by a `NonTransfer` proxy unless it is listed here. Every call family that
+			// can move the delegator's funds or assets must therefore be denied explicitly.
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
 					RuntimeCall::Assets { .. } |
+					// The other `pallet-assets` instances transfer value just like `Assets` does.
+					RuntimeCall::ForeignAssets { .. } |
+					RuntimeCall::PoolAssets { .. } |
 					RuntimeCall::NftFractionalization { .. } |
 					RuntimeCall::Nfts { .. } |
 					RuntimeCall::Uniques { .. } |
 					RuntimeCall::Scheduler(..) |
 					RuntimeCall::Treasury(..) |
+					// Swaps and liquidity provision move the caller's assets.
+					RuntimeCall::AssetConversion(..) |
+					// Minting and redeeming swap the caller's stablecoins.
+					RuntimeCall::Psm(..) |
+					// `transfer_assets`, `teleport_assets` and friends move assets to another
+					// chain, and `send`/`execute` can express the same thing as raw XCM.
+					RuntimeCall::PolkadotXcm(..) |
+					// Contract calls and instantiations carry a `value` to transfer.
+					RuntimeCall::Revive(..) |
 					// We allow calling `vest` and merging vesting schedules, but obviously not
 					// vested transfers.
 					RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. }) |
+					// Transferring an index repatriates its reserved deposit to the new owner.
+					// Claiming, freeing and freezing an index are still allowed.
+					RuntimeCall::Indices(pallet_indices::Call::transfer { .. }) |
+					RuntimeCall::Indices(pallet_indices::Call::force_transfer { .. }) |
 					RuntimeCall::ConvictionVoting(..) |
 					RuntimeCall::Referenda(..) |
 					RuntimeCall::Whitelist(..)
@@ -2877,6 +2888,39 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						fun: Fungible(amount),
 					}
 				}
+
+				fn get_assets(n: u32) -> XcmAssets {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account: AccountId = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let amount = 1_000_000u128;
+					// Worst case: `n` distinct `ForeignAssets`. Keyed by a full `Location`, they
+					// book ~600 more bytes of proof per map than trust-backed assets, and match
+					// later in `AssetTransactors`.
+					let assets: Vec<Asset> = (0..n).map(|i| {
+						// Another chain's assets pallet, so the id is genuinely foreign.
+						let asset_location = Location::new(
+							1,
+							[Parachain(3000), PalletInstance(53), GeneralIndex((1984 + i).into())],
+						);
+						assert_ok!(ForeignAssets::force_create(
+							RuntimeOrigin::root(),
+							asset_location.clone().into(),
+							account.clone().into(),
+							true,
+							1u128,
+						));
+						Asset { id: AssetId(asset_location), fun: Fungible(amount) }
+					}).collect();
+					assets.into()
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{
@@ -3133,12 +3177,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					// Any location can alias to an internal location.
-					// Here parachain 1001 aliases to an internal account.
-					Ok((
-						Location::new(1, [Parachain(1001)]),
-						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
-					))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 			}
 
