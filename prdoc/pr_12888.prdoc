@@ -6,9 +6,7 @@ doc:
     Bumps the arkworks crates (`ark-ec`, `ark-ff`, `ark-std` and the curve crates) from 0.5 to 0.6,
     the `arkworks-extensions` crates from 0.5.2 to 0.6.0, `ark-scale` from 0.0.13 to 0.0.14 and
     `ark-vrf` from 0.5.0 to 0.5.3. No source changes were required. The `sp-crypto-ec-utils` bump
-    is major since the crate re-exports arkworks types in its public API. The `sp-core` bump
-    is minor since `bandersnatch::ring_vrf` re-exports the `ark-vrf` `RingProver` and
-    `RingVerifier` types, behind the experimental `bandersnatch-experimental` feature.
+    is major since the crate re-exports arkworks types in its public API.
 
 crates:
 - name: sp-crypto-ec-utils
