@@ -15,7 +15,17 @@ module types {
   // names; IDs use 1-constructor variants. All other domain integers stay
   // as `int` because nothing in the spec is at risk of confusing them.
 
-  type Hash = { hashBytes: int }
+  /// Which preimage space a digest lives in. Distinct domains must not share
+  /// digests: an ITF trace has to record the domain so a replay harness can
+  /// rebuild the real bytes. Cross-domain equality is not statically
+  /// prevented — the spec simply never compares hashes from different
+  /// domains, and new code must keep that discipline.
+  pure val DomainPreimage: int = 0
+  pure val DomainHead: int = 1
+  pure val DomainKvKey: int = 2
+  pure val DomainMerkle: int = 3
+
+  type Hash = { domain: int, hashBytes: int }
   type ValidationCodeHash = { vchBytes: int }
   type AuthorizerHash = { authBytes: int }
 
@@ -56,7 +66,7 @@ module types {
   // validation-code hash needs an explicit conversion to the registry's key
   // type whenever it's stored or looked up.
 
-  pure def vchAsHash(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
+  pure def vchAsHash(vch: ValidationCodeHash): Hash = { domain: DomainPreimage, hashBytes: vch.vchBytes }
 
   /// The wrapped integer, for the places the spec orders by `para_id`, the
   /// head-commitment leaves (§5.5). The sentinel is never constructed.
@@ -188,9 +198,10 @@ module types {
   // We model `hash(head_data)` as an injective function; we only need
   // equality semantics for the parent-head check (§5.1, step 1).
 
-  pure def headHash(h: HeadData): Hash = { hashBytes: h }
+  pure def headHash(h: HeadData): Hash = { domain: DomainHead, hashBytes: h }
 
   /// Abstract hash of a byte list, modelling blake2-256 for KV key hashing.
   /// Injective within the model's small key space.
-  pure def listHash(key: List[int]): Hash = { hashBytes: key.foldl(0, (acc, b) => acc * 257 + b) }
+  pure def listHash(key: List[int]): Hash =
+    { domain: DomainKvKey, hashBytes: key.foldl(0, (acc, b) => acc * 257 + b) }
 }

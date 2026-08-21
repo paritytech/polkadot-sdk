@@ -128,7 +128,7 @@ module state {
     pendingAssigns: Map(),
     pendingAssignCores: Map(),
     stagedValidatorKeys: List(),
-    serviceCodeHash: { hashBytes: 0 },
+    serviceCodeHash: { domain: DomainPreimage, hashBytes: 0 },
     keyValueStorage: Map(),
     preimageStatus: Map()
   }

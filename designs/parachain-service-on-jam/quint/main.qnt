@@ -342,8 +342,8 @@ module main {
   pure def arbitraryMessages(
     para_id: ParaId, activeCode: ValidationCodeHash
   ): Set[UpwardMessage] = {
-    val anyHash: Hash = { hashBytes: 42 }
-    val unsolicitedHash: Hash = { hashBytes: 99999 }
+    val anyHash: Hash = { domain: DomainPreimage, hashBytes: 42 }
+    val unsolicitedHash: Hash = { domain: DomainPreimage, hashBytes: 99999 }
     val codeHashA: ValidationCodeHash = { vchBytes: 101 }
     val codeHashB: ValidationCodeHash = { vchBytes: 102 }
     val anyAuthHash: AuthorizerHash = { authBytes: 0 }
