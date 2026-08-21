@@ -35,6 +35,12 @@ crates:
   bump: minor
 - name: staging-xcm
   bump: minor
+- name: staging-xcm-builder
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
 - name: pallet-xcm-precompiles
   bump: patch
 - name: pallet-xcm-benchmarks
