@@ -17,7 +17,7 @@
 
 //! Integration tests for application crypto
 
-#[cfg(all(test, feature = "bls-experimental"))]
+#[cfg(test)]
 mod bls381;
 #[cfg(test)]
 mod ecdsa;
@@ -26,5 +26,5 @@ mod ed25519;
 #[cfg(test)]
 mod sr25519;
 
-#[cfg(all(test, feature = "bls-experimental"))]
+#[cfg(test)]
 mod ecdsa_bls381;

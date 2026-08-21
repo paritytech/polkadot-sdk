@@ -22,9 +22,12 @@ use alloc::vec::Vec;
 
 pub use sp_core::bls::{
 	bls381::{BlsEngine as Bls381Engine, *},
-	Pair as BLS_Pair, ProofOfPossession as BLSPoP,
+	Pair as BLS_Pair, KeyProofs as BLSKeyProofs,
 };
-use sp_core::{crypto::CryptoType, proof_of_possession::ProofOfPossessionVerifier};
+use sp_core::{
+	crypto::{CryptoType, UncheckedFrom},
+	key_proofs::{statement_of_ownership, KeyProofVerifier},
+};
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BLS381);
@@ -33,12 +36,12 @@ mod app {
 #[cfg(feature = "full_crypto")]
 pub use app::Pair as AppPair;
 pub use app::{
-	ProofOfPossession as AppProofOfPossession, Public as AppPublic, Signature as AppSignature,
+	KeyProofs as AppKeyProofs, Public as AppPublic, Signature as AppSignature,
 };
 
 impl RuntimePublic for Public {
 	type Signature = Signature;
-	type ProofOfPossession = ProofOfPossession;
+	type KeyProofs = KeyProofs;
 
 	/// Dummy implementation. Returns an empty vector.
 	fn all(_key_type: KeyTypeId) -> Vec<Self> {
@@ -59,23 +62,32 @@ impl RuntimePublic for Public {
 		false
 	}
 
-	fn generate_proof_of_possession(
+	fn generate_key_proofs(
 		&mut self,
 		key_type: KeyTypeId,
 		owner: &[u8],
-	) -> Option<Self::ProofOfPossession> {
-		sp_io::crypto::bls381_generate_proof_of_possession(key_type, self, owner)
+	) -> Option<Self::KeyProofs> {
+		let proof_of_ownership =
+			sp_io::crypto::bls381_sign(key_type, self, &statement_of_ownership(owner))?;
+		let proof_of_possession =
+			sp_io::crypto::bls381_generate_proof_of_possession(key_type, self)?;
+		let mut combined = [0u8; KEY_PROOFS_SERIALIZED_SIZE];
+		combined[..SIGNATURE_SERIALIZED_SIZE]
+			.copy_from_slice(proof_of_ownership.as_ref());
+		combined[SIGNATURE_SERIALIZED_SIZE..]
+			.copy_from_slice(proof_of_possession.as_ref());
+		Some(BLSKeyProofs::unchecked_from(combined).into())
 	}
 
-	fn verify_proof_of_possession(
+	fn verify_key_proofs(
 		&self,
 		owner: &[u8],
-		proof_of_possession: &Self::ProofOfPossession,
+		key_proofs: &Self::KeyProofs,
 	) -> bool {
 		let pub_key = AppPublic::from(*self);
-		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(
+		<AppPublic as CryptoType>::Pair::verify_key_proofs(
 			owner,
-			&proof_of_possession,
+			&key_proofs,
 			&pub_key,
 		)
 	}

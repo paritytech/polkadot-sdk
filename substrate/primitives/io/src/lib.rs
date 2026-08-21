@@ -111,7 +111,6 @@ use sp_core::{
 	LogLevelFilter, OpaquePeerId, RuntimeInterfaceLogLevel, H256,
 };
 
-#[cfg(feature = "bls-experimental")]
 use sp_core::{bls381, ecdsa_bls381};
 
 #[cfg(not(substrate_runtime))]
@@ -3267,36 +3266,133 @@ pub trait Crypto {
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
-	/// Returns the public key.
-	#[cfg(feature = "bls-experimental")]
+	/// Stores the public key in the provided output buffer.
+	#[wrapped]
 	fn bls381_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
-	) -> AllocateAndReturnPointer<bls381::Public, 144> {
+		out: PassPointerAndWrite<&mut bls381::Public, 144>,
+	) {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_new(id, seed)
-			.expect("`bls381_generate` failed")
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.bls381_generate_new(id, seed)
+				.expect("`bls381_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `bls381_generate`
+	/// host function.
+	#[wrapper]
+	fn bls381_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> bls381::Public {
+		let mut public = bls381::Public::default();
+		bls381_generate__wrapped(id, seed, &mut public);
+		public
 	}
 
 	/// Generate a 'bls12-381' Proof Of Possession for the corresponding public key.
 	///
-	/// Returns the Proof Of Possession as an option of the ['bls381::Signature'] type
-	/// or 'None' if an error occurs.
-	#[cfg(feature = "bls-experimental")]
+	/// Stores the Proof Of Possession in the provided output buffer.
+	/// Returns 0 on success, -1 on error.
+	#[wrapped]
 	fn bls381_generate_proof_of_possession(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		pub_key: PassPointerAndRead<&bls381::Public, 144>,
-		owner: PassFatPointerAndRead<&[u8]>,
-	) -> AllocateAndReturnByCodec<Option<bls381::ProofOfPossession>> {
+		out: PassPointerAndWrite<&mut bls381::Signature, 112>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.bls381_generate_proof_of_possession(id, pub_key, owner)
+			.bls381_generate_proof_of_possession(id, pub_key)
 			.ok()
 			.flatten()
+			.map(|pop| {
+				out.0.copy_from_slice(&pop);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `bls381_generate_proof_of_possession` host function.
+	#[wrapper]
+	fn bls381_generate_proof_of_possession(
+		id: KeyTypeId,
+		pub_key: &bls381::Public,
+	) -> Option<bls381::Signature> {
+		let mut pop = bls381::Signature::default();
+		bls381_generate_proof_of_possession__wrapped(id, pub_key, &mut pop).ok()?;
+		Some(pop)
+	}
+
+	/// Stores all `bls12-381` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[wrapped]
+	fn bls381_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		out: PassFatPointerAndWrite<&mut [bls381::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_public_keys(id);
+		if out.len() >= keys.len() {
+			out[..keys.len()].copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<bls381::Public>()) as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `bls381_public_keys` host function.
+	#[wrapper]
+	fn bls381_public_keys(id: KeyTypeId) -> Vec<bls381::Public> {
+		let num_bytes = bls381_public_keys__wrapped(id, &mut []) as usize;
+		let num_keys = num_bytes / core::mem::size_of::<bls381::Public>();
+		let mut keys = vec![bls381::Public::default(); num_keys];
+		bls381_public_keys__wrapped(id, &mut keys);
+		keys
+	}
+
+	/// Sign the given `msg` with the `bls12-381` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Stores the signature in the provided output buffer.
+	/// Returns 0 on success, -1 on error.
+	// ERRATA: The RFC erroneously declares `out` to be `i64`. Applies to all *_sign_* functions.
+	#[wrapped]
+	fn bls381_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&bls381::Public, 144>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		out: PassPointerAndWrite<&mut bls381::Signature, 112>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `bls381_sign` host
+	/// function.
+	#[wrapper]
+	fn bls381_sign(
+		id: KeyTypeId,
+		pub_key: &bls381::Public,
+		message: &[u8],
+	) -> Option<bls381::Signature> {
+		let mut signature = bls381::Signature::default();
+		bls381_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Generate combination `ecdsa & bls12-381` key for the given key type using an optional `seed`
@@ -3304,18 +3400,61 @@ pub trait Crypto {
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
-	/// Returns the public key.
-	#[cfg(feature = "bls-experimental")]
+	/// Stores the public key in the provided output buffer.
+	#[wrapped]
 	fn ecdsa_bls381_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
 		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
-	) -> AllocateAndReturnPointer<ecdsa_bls381::Public, { 144 + 33 }> {
+		out: PassPointerAndWrite<&mut ecdsa_bls381::Public, 177>,
+	) {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
-		self.extension::<KeystoreExt>()
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ecdsa_bls381_generate_new(id, seed)
+				.expect("`ecdsa_bls381_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `ecdsa_bls381_generate` host function.
+	#[wrapper]
+	fn ecdsa_bls381_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa_bls381::Public {
+		let mut public = ecdsa_bls381::Public::default();
+		ecdsa_bls381_generate__wrapped(id, seed, &mut public);
+		public
+	}
+
+	/// Stores all `ecdsa & bls12-381` public keys for the given key id from the keystore into the
+	/// output buffer, if it is large enough. Returns the number of bytes occupied by the keys,
+	/// regardless of whether the buffer was written or not.
+	#[wrapped]
+	fn ecdsa_bls381_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		out: PassFatPointerAndWrite<&mut [ecdsa_bls381::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls381_generate_new(id, seed)
-			.expect("`ecdsa_bls381_generate` failed")
+			.ecdsa_bls381_public_keys(id);
+		if out.len() >= keys.len() {
+			out[..keys.len()].copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<ecdsa_bls381::Public>()) as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `ecdsa_bls381_public_keys` host function.
+	#[wrapper]
+	fn ecdsa_bls381_public_keys(id: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
+		let num_bytes = ecdsa_bls381_public_keys__wrapped(id, &mut []) as usize;
+		let num_keys = num_bytes / core::mem::size_of::<ecdsa_bls381::Public>();
+		let mut keys = vec![ecdsa_bls381::Public::default(); num_keys];
+		ecdsa_bls381_public_keys__wrapped(id, &mut keys);
+		keys
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional

@@ -48,11 +48,6 @@ full_crypto = [
 	"sp-io/disable_panic_handler",
 ]
 
-# This feature adds BLS crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bls-experimental = ["sp-core/bls-experimental", "sp-io/bls-experimental"]
-
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.

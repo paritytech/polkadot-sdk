@@ -21,13 +21,12 @@ use crate::{Error, Keystore, KeystorePtr};
 
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
 use sp_core::{
-	bls381, ecdsa_bls381, proof_of_possession::ProofOfPossessionGenerator, KeccakHasher,
-};
-use sp_core::{
+	bls381,
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
-	ecdsa, ed25519, sr25519,
+	ecdsa, ecdsa_bls381, ed25519,
+	key_proofs::KeyProofGenerator,
+	sr25519, KeccakHasher,
 };
 
 use parking_lot::RwLock;
@@ -128,17 +127,16 @@ impl MemoryKeystore {
 		Ok(pre_output)
 	}
 
-	#[cfg(feature = "bls-experimental")]
-	fn generate_proof_of_possession<T: Pair + ProofOfPossessionGenerator>(
+	fn generate_key_proofs<T: Pair + KeyProofGenerator>(
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
 		owner: &[u8],
-	) -> Result<Option<T::ProofOfPossession>, Error> {
-		let proof_of_possession = self
+	) -> Result<Option<T::KeyProofs>, Error> {
+		let key_proofs = self
 			.pair::<T>(key_type, public)
-			.map(|mut pair| pair.generate_proof_of_possession(owner));
-		Ok(proof_of_possession)
+			.map(|mut pair| pair.generate_key_proofs(owner));
+		Ok(key_proofs)
 	}
 }
 
@@ -292,12 +290,10 @@ impl Keystore for MemoryKeystore {
 		self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<bls381::Public> {
 		self.public_keys::<bls381::Pair>(key_type)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -306,7 +302,6 @@ impl Keystore for MemoryKeystore {
 		self.generate_new::<bls381::Pair>(key_type, seed)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -316,22 +311,20 @@ impl Keystore for MemoryKeystore {
 		self.sign::<bls381::Pair>(key_type, public, msg)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_proof_of_possession(
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-		owner: &[u8],
-	) -> Result<Option<bls381::ProofOfPossession>, Error> {
-		self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
+	) -> Result<Option<bls381::Signature>, Error> {
+		Ok(self
+			.pair::<bls381::Pair>(key_type, public)
+			.map(|mut pair| bls381::Pair::generate_proof_of_possession(&mut pair)))
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
 		self.public_keys::<ecdsa_bls381::Pair>(key_type)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
@@ -357,7 +350,6 @@ impl Keystore for MemoryKeystore {
 		Ok(pubkey)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
@@ -367,7 +359,6 @@ impl Keystore for MemoryKeystore {
 		self.sign::<ecdsa_bls381::Pair>(key_type, public, msg)
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign_with_keccak256(
 		&self,
 		key_type: KeyTypeId,
@@ -528,7 +519,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_sign_with_keccak_works() {
 		use sp_core::testing::ECDSA_BLS377;
 
@@ -560,7 +550,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_none_works() {
 		use sp_core::testing::ECDSA_BLS381;
 
@@ -588,7 +577,6 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_generate_with_seed_works() {
 		use sp_core::testing::ECDSA_BLS381;
 
