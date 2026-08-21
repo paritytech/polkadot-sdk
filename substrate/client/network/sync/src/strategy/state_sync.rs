@@ -217,7 +217,9 @@ where
 		// the parent cursor stays valid.
 		// Empty parent trie content only happens when all the response content
 		// is part of a single child trie.
-		if self.metadata.last_key.len() == 2 && response.entries[0].entries.is_empty() {
+		let first_entry_is_empty =
+			response.entries.first().is_some_and(|entry| entry.entries.is_empty());
+		if self.metadata.last_key.len() == 2 && first_entry_is_empty {
 			// Do not remove the parent trie position.
 			self.metadata.last_key.pop();
 		} else {
