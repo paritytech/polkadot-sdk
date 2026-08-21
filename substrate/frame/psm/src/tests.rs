@@ -3965,7 +3965,7 @@ mod admin {
 /// One test per `do_try_state` check, numbered to match the check numbers in
 /// `do_try_state` itself. Each test corrupts exactly one piece of storage.
 ///
-/// Advisory checks (9, 10, 15, 16) log instead of failing, so their tests
+/// Advisory checks (10, 11, 16, 17) log instead of failing, so their tests
 /// assert the warning state still returns `Ok`.
 mod try_state {
 	use super::*;
@@ -4060,6 +4060,22 @@ mod try_state {
 
 	// Check 5
 	#[test]
+	fn detects_zero_min_swap_amount() {
+		new_test_ext().execute_with(|| {
+			crate::Psm::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				if let Some(info) = maybe.as_mut() {
+					info.min_swap_amount = 0;
+				}
+			});
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("PSM instance has a zero min_swap_amount")
+			);
+		});
+	}
+
+	// Check 6
+	#[test]
 	fn detects_issuance_below_psm_debt() {
 		new_test_ext().execute_with(|| {
 			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
@@ -4087,7 +4103,7 @@ mod try_state {
 		});
 	}
 
-	// Check 6
+	// Check 7
 	#[test]
 	fn detects_external_decimal_mismatch() {
 		new_test_ext().execute_with(|| {
@@ -4102,7 +4118,7 @@ mod try_state {
 		});
 	}
 
-	// Check 7
+	// Check 8
 	#[test]
 	fn detects_reserve_deficit() {
 		new_test_ext().execute_with(|| {
@@ -4133,7 +4149,7 @@ mod try_state {
 		});
 	}
 
-	// Check 9 (advisory)
+	// Check 10 (advisory)
 	#[test]
 	fn warns_on_debt_exceeds_asset_ceiling() {
 		new_test_ext().execute_with(|| {
@@ -4149,13 +4165,13 @@ mod try_state {
 			assert!(
 				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID) >
 					psm_max_asset_debt(USDC_ASSET_ID),
-				"debt must exceed the ceiling for this test to exercise check 9",
+				"debt must exceed the ceiling for this test to exercise check 10",
 			);
 			assert_ok!(dts());
 		});
 	}
 
-	// Check 10 (advisory)
+	// Check 11 (advisory)
 	#[test]
 	fn warns_on_zero_ceiling_zero_debt_nonzero_reserve() {
 		new_test_ext().execute_with(|| {
@@ -4166,7 +4182,7 @@ mod try_state {
 		});
 	}
 
-	// Check 11
+	// Check 12
 	#[test]
 	fn detects_external_count_mismatch() {
 		new_test_ext().execute_with(|| {
@@ -4181,7 +4197,7 @@ mod try_state {
 		});
 	}
 
-	// Check 12
+	// Check 13
 	#[test]
 	fn detects_asset_count_exceeds_bound() {
 		new_test_ext().execute_with(|| {
@@ -4203,7 +4219,7 @@ mod try_state {
 		});
 	}
 
-	// Check 13
+	// Check 14
 	#[test]
 	fn detects_orphan_debt_for_non_approved_pair() {
 		new_test_ext().execute_with(|| {
@@ -4218,7 +4234,7 @@ mod try_state {
 		});
 	}
 
-	// Check 13: a zero-valued row is not a violation.
+	// Check 14: a zero-valued row is not a violation.
 	#[test]
 	fn zero_orphan_debt_does_not_error() {
 		new_test_ext().execute_with(|| {
@@ -4227,7 +4243,7 @@ mod try_state {
 		});
 	}
 
-	// Check 14
+	// Check 15
 	#[test]
 	fn detects_orphan_external_assets_row() {
 		new_test_ext().execute_with(|| {
@@ -4243,7 +4259,7 @@ mod try_state {
 		});
 	}
 
-	// Check 15 (advisory)
+	// Check 16 (advisory)
 	#[test]
 	fn warns_on_orphan_fee_entries() {
 		new_test_ext().execute_with(|| {
@@ -4266,7 +4282,7 @@ mod try_state {
 		});
 	}
 
-	// Check 16 (advisory)
+	// Check 17 (advisory)
 	#[test]
 	fn warns_on_total_debt_exceeds_ceiling() {
 		new_test_ext().execute_with(|| {
@@ -4281,7 +4297,7 @@ mod try_state {
 			set_max_debt(1);
 			assert!(
 				Psm::total_psm_debt(&INTERNAL_ASSET_ID) > psm_max_debt(),
-				"debt must exceed the ceiling for this test to exercise check 16",
+				"debt must exceed the ceiling for this test to exercise check 17",
 			);
 			assert_ok!(dts());
 		});

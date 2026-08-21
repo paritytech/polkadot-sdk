@@ -63,7 +63,7 @@
 //!
 //! ### Storage Invariants
 //!
-//! Under the `try-runtime` feature the pallet checks sixteen storage invariants each
+//! Under the `try-runtime` feature the pallet checks seventeen storage invariants each
 //! block via `do_try_state`: decimal snapshots still match live metadata,
 //! every reserve covers its tracked debt, internal issuance covers instance debt, no
 //! row outlives its parent PSM, and no debt is tracked for a non-approved pair.
@@ -1689,11 +1689,11 @@ pub mod pallet {
 		/// Verify the pallet's storage invariants.
 		///
 		/// Runs under the `try-runtime` feature and in tests. Checks are grouped:
-		/// per-instance checks (1-5, 11-12) run in the `Psm` iteration, per-external
-		/// checks (6-10) in the nested `ExternalAssets` iteration, and global checks
-		/// (13-16) afterwards over the whole storage map.
+		/// per-instance checks (1-6, 12-13) run in the `Psm` iteration, per-external
+		/// checks (7-11) in the nested `ExternalAssets` iteration, and global checks
+		/// (14-17) afterwards over the whole storage map.
 		///
-		/// Checks 9, 10, 15 and 16 are advisory: governance can legitimately create
+		/// Checks 10, 11, 16 and 17 are advisory: governance can legitimately create
 		/// those states, so they log a warning instead of returning an error.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
@@ -1724,7 +1724,12 @@ pub mod pallet {
 					"PSM fee destination account does not exist"
 				);
 
-				// Check 5: total internal issuance covers this instance's debt.
+				// Check 5: the instance's minimum swap amount is non-zero. `create_psm`
+				// rejects zero, but a migration or a hand-built genesis could bypass
+				// that; a zero minimum would let dust swaps through.
+				ensure!(!info.min_swap_amount.is_zero(), "PSM instance has a zero min_swap_amount");
+
+				// Check 6: total internal issuance covers this instance's debt.
 				// PSM mints internal on every mint and burns it on every redeem, so
 				// issuance below the debt ledger means internal was destroyed outside
 				// the PSM or the ledger is corrupt.
@@ -1742,13 +1747,13 @@ pub mod pallet {
 					let debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
 					let reserve = Self::get_reserve(&internal_asset, &external_asset);
 
-					// Check 6: live external decimals match the registration snapshot.
+					// Check 7: live external decimals match the registration snapshot.
 					ensure!(
 						T::Fungibles::decimals(external_asset.clone()) == external.decimals,
 						"External asset live decimals differ from the registration snapshot"
 					);
 
-					// Check 7: the reserve covers tracked debt, compared in external units.
+					// Check 8: the reserve covers tracked debt, compared in external units.
 					let debt_as_external =
 						Self::internal_to_external(debt, external.decimals, info.internal_decimals)
 							.map_err(|_| "Failed to convert tracked debt to external units")?;
@@ -1757,12 +1762,12 @@ pub mod pallet {
 						"PSM reserve is less than tracked debt for an asset"
 					);
 
-					// Check 8: summing approved debt must not overflow.
+					// Check 9: summing approved debt must not overflow.
 					approved_debt = approved_debt
 						.checked_add(&debt)
 						.ok_or("PSM debt overflow when summing approved externals")?;
 
-					// Check 9 (advisory): per-asset debt over its ceiling. Governance
+					// Check 10 (advisory): per-asset debt over its ceiling. Governance
 					// may lower a weight or max_debt below current debt.
 					if external.status.allows_minting() {
 						let ceiling = Self::max_asset_debt(&internal_asset, &external_asset, &info);
@@ -1775,7 +1780,7 @@ pub mod pallet {
 						}
 					}
 
-					// Check 10 (advisory): zero ceiling weight and zero debt, but a
+					// Check 11 (advisory): zero ceiling weight and zero debt, but a
 					// non-zero reserve. Suggests a donation or a bug.
 					if AssetCeilingWeight::<T>::get(&internal_asset, &external_asset).is_zero() &&
 						debt.is_zero() && !reserve.is_zero()
@@ -1788,20 +1793,20 @@ pub mod pallet {
 					}
 				}
 
-				// Check 11: the cached external_count matches the approved externals.
+				// Check 12: the cached external_count matches the approved externals.
 				ensure!(
 					info.external_count == counted,
 					"PsmInfo.external_count does not match the approved externals"
 				);
 
-				// Check 12: the approved-external count is within the configured bound.
+				// Check 13: the approved-external count is within the configured bound.
 				ensure!(
 					counted <= T::MaxExternals::get(),
 					"ExternalAssets count exceeds MaxExternals for a PSM"
 				);
 			}
 
-			// Check 13: no non-zero PsmDebt row for a pair that is not approved.
+			// Check 14: no non-zero PsmDebt row for a pair that is not approved.
 			// This is the real orphan-debt guard: `total_psm_debt` folds over every
 			// PsmDebt row, so it cannot be reconciled against a fold of the same
 			// rows. Comparing the two would be a tautology.
@@ -1814,7 +1819,7 @@ pub mod pallet {
 				}
 			}
 
-			// Check 14: no per-instance row survives without its parent PSM.
+			// Check 15: no per-instance row survives without its parent PSM.
 			for (internal_asset, _, _) in ExternalAssets::<T>::iter() {
 				ensure!(
 					Psm::<T>::contains_key(&internal_asset),
@@ -1834,7 +1839,7 @@ pub mod pallet {
 				);
 			}
 
-			// Check 15 (advisory): fee or ceiling rows for a non-approved pair.
+			// Check 16 (advisory): fee or ceiling rows for a non-approved pair.
 			// Governance may configure a fee before approving the external.
 			for (internal_asset, external_asset, _) in MintingFee::<T>::iter() {
 				if !ExternalAssets::<T>::contains_key(&internal_asset, &external_asset) {
@@ -1864,7 +1869,7 @@ pub mod pallet {
 				}
 			}
 
-			// Check 16 (advisory): instance debt over its ceiling. Governance may
+			// Check 17 (advisory): instance debt over its ceiling. Governance may
 			// lower max_debt below the current debt.
 			for (internal_asset, info) in Psm::<T>::iter() {
 				let total = Self::total_psm_debt(&internal_asset);
