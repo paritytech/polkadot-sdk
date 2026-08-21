@@ -332,6 +332,9 @@ pub enum GapSyncBodyPolicy {
 	/// Require bodies for blocks within the given window below the finalized block.
 	/// The window is expected to be pre-shrunk by the node with a safety margin, so
 	/// that peers whose finality runs ahead of ours still retain every requested body.
+	///
+	/// While the node is major syncing, local finality can lag the network beyond the
+	/// safety margin, so gap ranges above the cutoff are deferred until it has caught up.
 	DownloadFinalized(u32),
 }
 
@@ -2165,6 +2168,7 @@ where
 						&mut sync.blocks,
 						gap_attrs,
 						gap_body_cutoff,
+						is_major_syncing,
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
@@ -2471,21 +2475,32 @@ fn peer_block_request<B: BlockT>(
 /// Bodies are stripped from the request if the whole range is at or below
 /// `body_cutoff`. A range straddling the cutoff requests bodies for all its blocks
 /// rather than being split.
+///
+/// While the node is major syncing, the cutoff is a stale lower bound of the true one
+/// (peers may have pruned bodies right above it), so scheduling is clamped to the
+/// header-only region at or below it until the node has caught up.
 fn peer_gap_block_request<B: BlockT>(
 	id: &PeerId,
 	peer: &PeerSync<B>,
 	blocks: &mut BlockCollection<B>,
 	attrs: BlockAttributes,
 	body_cutoff: Option<NumberFor<B>>,
+	is_major_syncing: bool,
 	target: NumberFor<B>,
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
 	metrics: Option<&Metrics>,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
+	let mut max_number = std::cmp::min(peer.best_number, target);
+	if is_major_syncing {
+		if let Some(cutoff) = body_cutoff {
+			max_number = std::cmp::min(max_number, cutoff);
+		}
+	}
 	let range = blocks.needed_blocks(
 		*id,
 		max_blocks_per_request,
-		std::cmp::min(peer.best_number, target),
+		max_number,
 		common_number,
 		1,
 		MAX_DOWNLOAD_AHEAD,

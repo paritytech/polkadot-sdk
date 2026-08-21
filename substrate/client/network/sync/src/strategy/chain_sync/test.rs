@@ -1568,6 +1568,79 @@ fn gap_sync_body_cutoff_moves_with_advancing_finality() {
 }
 
 #[test]
+fn gap_sync_pauses_above_body_cutoff_while_major_syncing() {
+	sp_tracing::try_init_simple();
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	client.finalize_block(blocks[9].hash(), None).unwrap();
+
+	// Blocks #1..=#10 exist, #10 is finalized and the gap covers #1..=#9, so with
+	// `DownloadFinalized(3)` the body cutoff is #7. `max_blocks_per_request` is 2.
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		2,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::DownloadFinalized(3),
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	sync.gap_sync = Some(GapSync {
+		best_queued_number: 6,
+		target: 9,
+		blocks: BlockCollection::new(),
+		stats: GapSyncStats::new(),
+	});
+
+	// A peer far ahead of our best block #10 puts the node into major sync.
+	let peer_ahead = PeerId::random();
+	sync.add_peer(peer_ahead, blocks[9].hash(), 100);
+	let peer_gap = PeerId::random();
+	sync.add_peer(peer_gap, blocks[9].hash(), 10);
+	assert!(sync.status().state.is_major_syncing());
+
+	// While major syncing, gap scheduling is clamped to the stale cutoff: instead of
+	// range #7..=#8 with bodies, only #7 is requested, header-only.
+	let requests = sync.block_requests();
+	let request = requests
+		.iter()
+		.find_map(|(id, request)| (*id == peer_gap).then(|| request.clone()))
+		.expect("the gap peer should receive a gap request");
+	assert_eq!(request.from, FromBlock::Number(7));
+	assert_eq!(request.max, Some(1));
+	assert!(!request.fields.contains(BlockAttributes::BODY));
+
+	// Deliver #7 header-only. The remaining gap blocks #8..=#9 are all above the
+	// cutoff, so no further gap requests go out.
+	let response = BlockResponse::<Block> {
+		id: 0,
+		blocks: vec![BlockData::<Block> {
+			hash: blocks[6].hash(),
+			header: Some(blocks[6].header().clone()),
+			body: None,
+			indexed_body: None,
+			receipt: None,
+			message_queue: None,
+			justification: None,
+			justifications: None,
+		}],
+	};
+	sync.on_block_data(&peer_gap, Some(request), response).unwrap();
+	assert!(sync.block_requests().iter().all(|(id, _)| *id != peer_gap));
+
+	// Once major sync ends, the remaining range #8..=#9 is scheduled with bodies again.
+	sync.remove_peer(&peer_ahead);
+	assert!(!sync.status().state.is_major_syncing());
+	let request = get_block_request(&mut sync, FromBlock::Number(9), 2, &peer_gap);
+	assert!(request.fields.contains(BlockAttributes::BODY));
+}
+
+#[test]
 fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 	sp_tracing::try_init_simple();
 
