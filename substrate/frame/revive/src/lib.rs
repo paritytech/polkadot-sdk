@@ -2032,8 +2032,14 @@ impl<T: Config> Pallet<T> {
 		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()]
 			.map(|gas_limit| (gas_limit, dry_run_at(gas_limit)));
 		let (gas_limit, first_dry_run_result) = match dry_run_results {
-			[(gas_limit1, Ok(dry_run_result1)), (gas_limit2, Ok(dry_run_result2))] => {
+			[(gas_limit1, Ok(dry_run_result1)), (gas_limit2, Ok(mut dry_run_result2))] => {
 				if dry_run_result2.eth_gas >= gas_limit2 {
+					// The first dry run executed against the cold module cache, exactly like the
+					// actual transaction will; the second already hit the cache warmed by the
+					// first. Seed the search with the cold measurement so it cannot converge on
+					// a gas value that only suffices for a warm cache.
+					dry_run_result2.eth_gas =
+						dry_run_result2.eth_gas.max(dry_run_result1.eth_gas);
 					(gas_limit1, dry_run_result1)
 				} else {
 					(gas_limit2, dry_run_result2)
