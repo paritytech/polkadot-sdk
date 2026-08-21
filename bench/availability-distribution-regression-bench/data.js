@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787302574006,
+  "lastUpdate": 1787336429834,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e30ff0d796751838f18d61101c27636b930e4190",
-          "message": "Make HRMP advancement rule more restrictive (#9086)\n\nRelated to: https://github.com/paritytech/polkadot-sdk/issues/9021\nFollowup for https://github.com/paritytech/polkadot-sdk/pull/8860\n\nLooked some more into this and from what I understand the HRMP max\nmessage size can't be changed dynamically. In order to change it we\nwould need to close the channel and than open it again which would lead\nto clearing all the pending messages. So it's safe to use the current\nhrmp max message size in the advancement rule check.",
-          "timestamp": "2026-01-20T13:32:47Z",
-          "tree_id": "d2d7a3c4ff732df560862607ec0fca1a0e976ec0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30ff0d796751838f18d61101c27636b930e4190"
-        },
-        "date": 1768919932268,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14368752530666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009836624539999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023026002966666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007069766326666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1458873444933334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "Enoch",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3b49ccb1f0ddcca2f24acd23091a03db9d8f104",
+          "message": "Remove non permanent migrations on westend (#12647)\n\nRemove one-shot migrations that already executed on the live Westend\nsystem chains (all on spec 1024001), plus their now-unused support code.\n\nEach one was verified against live chain state before removal: storage\nversions are at their post-migration values and the unversioned\none-shots left their expected effects. A verification script is in [this\ngist](https://gist.github.com/runcomet/1fac906cf1197519a92a3c60aefed23e).\nThe two bridge data fixes (`FixMessagesV1Migration`,\n`MigrationForXcmV5`) have no on-chain marker but shipped in #5649 /\n#4826, long before the deployed runtime.\n\nKept `ClaimTrappedBalance` (PAH reference, no-op on WAH), the\nstaking-async migrations (`Staking` is still at v17 on-chain) and\n`PsmInitialConfig` (used by `remote-ext-tests-psm`).\n\nPart of #11771.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-21T16:52:25Z",
+          "tree_id": "70155201922b1ba3c7562754041fa1e9e726ac83",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3b49ccb1f0ddcca2f24acd23091a03db9d8f104"
+        },
+        "date": 1787336397039,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007801566526666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022882310393333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14664979925333343,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010108137633333321,
             "unit": "seconds"
           }
         ]
