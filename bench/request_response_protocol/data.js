@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787266598545,
+  "lastUpdate": 1787302358873,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -116639,6 +116639,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2679154227,
             "range": "± 17476906",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "96f90ea55845da4daa1f1f52948cea539945bfad",
+          "message": "Registrar: reserve and register (#12800)\n\nCloses #12810 \nFills in the two registrar pallets (`pallet-registrar-para`,\n`pallet-registrar-relay`) and the shared wire types so a system\nparachain can hand out para ids, hold the deposits, and drive\nregistration on the relay chain over XCM. Deposits only ever live on the\nparachain; the relay chain takes nothing.\n\nThe problem this works around: validation code is far too large to\ntravel in an XCM `Transact`. So registration is split in two, and only\nthe code *hash* and *length* cross the bridge.\n\n## Flow\n\n1. `registrar-para::reserve` — allocates the next free para id, holds\n`ParaDeposit`. Caller becomes the manager.\n2. `registrar-para::register(para_id, genesis_head, code_len,\ncode_hash)` — holds `DataDepositPerByte` for the head data plus the\n*declared* code length, and sends `MessageToRelay::V1(Register { .. })`.\n3. `registrar-relay::receive` — validates against the relay's live\nconfiguration, parks the request in `PendingRegistrations` with an\nexpiry. A request it will not act on is rejected and reported, not\nfailed, so the parachain never sits on a stuck deposit.\n4. `registrar-relay::register_code(para_id, validation_code)` — the blob\nitself, uploaded straight to the relay chain. Unsigned and `Pays::No`,\nauthorized via `#[pallet::authorize]`: the pending entry already pins\ndown the exact bytes that will be accepted and the manager has already\npaid for them, so anybody may push it. Matching blob → `paras_registrar`\nonboarding → report back.\n5. `registrar-para::receive` — applies the verdict: keep the deposit\nheld, or release it.\n\nIf the code never turns up, `on_initialize` on the relay side expires\nthe entry and reports the failure. `cancel_registration` on the para\nside is the backstop for a report that gets lost entirely; its deadline\nis deliberately much longer than the relay's expiry.\n\n## Pieces\n\n- **`registrar-primitives`** — the versioned wire types\n(`MessageToRelay`/`MessageToPara`, both `V1`-tagged by\n`#[codec(index)]`). No FRAME, no XCM, no network-specific deps, so one\nversion of the format serves Westend, Kusama and Polkadot and neither\npallet has to depend on the other.\n- **`pallet-registrar-para`** — reserve/register/cancel/receive,\n`Reserved → Pending → Registered` state machine, two hold reasons\n(`ParaIdReservation`, `Registration`), local mirrors of the relay's size\nlimits so obviously doomed requests fail early and cheaply.\n- **`pallet-registrar-relay`** — the two-phase receive/`register_code`\npair, pending expiry sweep, and reporting. `SendToPara`/`SendToRelay`\nkeep XCM out of both pallets: what a message means is the pallet's\nbusiness, how it travels is the runtime's.\n- **`paras_registrar`** — new `do_register_without_deposit` plus a\n`RegisterPara` impl bridging the relay pallet to it. Head data and code\nare still validated against the live configuration and the para still\ngoes through the usual onboarding and PVF pre-check; only the deposit is\nskipped (overridden to zero, which `Currency::reserve` short-circuits,\nso `manager` need not exist on the relay chain).\n\n---------\n\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2026-08-21T07:23:35Z",
+          "tree_id": "f102be3a51efa580382f620bb25e7dc969397498",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/96f90ea55845da4daa1f1f52948cea539945bfad"
+        },
+        "date": 1787302326089,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20575166,
+            "range": "± 482649",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20774184,
+            "range": "± 197126",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21774115,
+            "range": "± 310242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26598433,
+            "range": "± 156356",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61271147,
+            "range": "± 944218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 374111958,
+            "range": "± 4940800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2797213829,
+            "range": "± 62360917",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17402733,
+            "range": "± 193716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17608398,
+            "range": "± 83515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18230910,
+            "range": "± 222487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22347291,
+            "range": "± 152913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63750550,
+            "range": "± 944619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 383318556,
+            "range": "± 5084532",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2747704744,
+            "range": "± 20512746",
             "unit": "ns/iter"
           }
         ]
