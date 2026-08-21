@@ -659,6 +659,30 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn claim_assets() -> Result<(), BenchmarkError> {
+		let claim_origin = RawOrigin::Signed(whitelisted_caller());
+		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let asset: Asset = T::get_asset();
+		let context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
+		// Trap assets for claiming later
+		let holdings =
+			<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(&asset, &context)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		crate::Pallet::<T>::drop_assets(&claim_location, holdings, &context);
+		let versioned_assets = VersionedAssets::from(Assets::from(asset));
+
+		#[extrinsic_call]
+		_(
+			claim_origin,
+			Box::new(versioned_assets),
+			Box::new(VersionedLocation::from(claim_location)),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn claim_assets_by_size(
 		n: Linear<1, { MAX_ITEMS_IN_ASSETS as u32 }>,
 	) -> Result<(), BenchmarkError> {

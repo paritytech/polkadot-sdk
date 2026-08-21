@@ -9,15 +9,21 @@ doc:
 
     What this needs from you:
 
-    - Regenerate your `pallet_xcm` weights. `WeightInfo::claim_assets` now takes the asset
-      count `n: u32`, `WeightInfo::weigh_message` takes the message length `n: u32`, and
-      `decode_xcm(n)` is new.
+    - This is an additive change to `pallet-xcm`'s `WeightInfo` trait: the existing
+      `claim_assets()` and `weigh_message()` methods are unchanged, and the size-aware
+      variants are new methods with default implementations, so existing runtime weight
+      files keep compiling unchanged.
+    - To get the hardened, size-aware weights, override the new methods and regenerate:
+      `WeightInfo::claim_assets_by_size` takes the asset count `n: u32`,
+      `WeightInfo::weigh_message_by_size` takes the message length `n: u32`, and
+      `decode_xcm(n)` is new. `claim_assets_by_size`, `weigh_message_by_size` and
+      `decode_xcm` all default to the flat cost of their no-arg counterpart.
     - Override `pallet_xcm::benchmarking::Config::get_assets` if your `AssetTransactor`
       deposits several distinct asset kinds. The default measures a flat per-asset slope,
       which is only sound for single-asset-kind transactors such as relay chains.
     - Override `pallet_xcm::benchmarking::Config::batch_call` if you have a batching
       pallet (`utility.batch` for all in-tree runtimes). Left at its `None` default, the
-      `weigh_message` worst case degrades and the precompile under-charges.
+      `weigh_message_by_size` worst case degrades and the precompile under-charges.
     - Work out your own `alias_origin` worst case if your `Aliasers` differ from the setup
       `parachains_common::benchmarking` assumes; its docs spell that setup out.
     - Raise gas limits on contracts forwarding large XCMs through the precompile. The new
@@ -26,7 +32,7 @@ doc:
     `VersionedAssets` gained `len()` and `is_empty()`.
 crates:
 - name: pallet-xcm
-  bump: major
+  bump: minor
 - name: staging-xcm
   bump: minor
 - name: pallet-xcm-precompiles
