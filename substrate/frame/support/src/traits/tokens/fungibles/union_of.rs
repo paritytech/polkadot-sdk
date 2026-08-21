@@ -170,41 +170,6 @@ impl<
 }
 
 impl<
-		Left: fungibles::Inspect<AccountId> + fungibles::roles::Inspect<AccountId>,
-		Right: fungibles::Inspect<AccountId, Balance = Left::Balance>
-			+ fungibles::roles::Inspect<AccountId>,
-		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
-		AssetKind: AssetId,
-		AccountId,
-	> fungibles::roles::Inspect<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
-{
-	fn owner(asset: Self::AssetId) -> Option<AccountId> {
-		match Criterion::convert(asset) {
-			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::owner(a),
-			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::owner(a),
-		}
-	}
-	fn issuer(asset: Self::AssetId) -> Option<AccountId> {
-		match Criterion::convert(asset) {
-			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::issuer(a),
-			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::issuer(a),
-		}
-	}
-	fn admin(asset: Self::AssetId) -> Option<AccountId> {
-		match Criterion::convert(asset) {
-			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::admin(a),
-			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::admin(a),
-		}
-	}
-	fn freezer(asset: Self::AssetId) -> Option<AccountId> {
-		match Criterion::convert(asset) {
-			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::freezer(a),
-			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::freezer(a),
-		}
-	}
-}
-
-impl<
 		Left: fungibles::Inspect<AccountId>
 			+ fungibles::metadata::Inspect<AccountId>
 			+ fungibles::metadata::Mutate<AccountId>,

@@ -48,8 +48,6 @@ crates:
 - name: pallet-psm
   bump: major
   validate: false
-- name: frame-support
-  bump: minor
 - name: asset-hub-westend-runtime
   bump: major
   validate: false

@@ -26,6 +26,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod bridge_to_ethereum_config;
 mod genesis_config_presets;
+mod psm;
 mod weights;
 pub mod xcm_config;
 
@@ -1561,6 +1562,18 @@ parameter_types! {
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 }
 
+type PsmAssets = psm::UnionOf<
+	Assets,
+	ForeignAssets,
+	LocalFromLeft<
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, xcm::v5::Location>,
+		AssetIdForTrustBackedAssets,
+		xcm::v5::Location,
+	>,
+	xcm::v5::Location,
+	AccountId,
+>;
+
 type PsmCreateOrigin = EitherOf<
 	pallet_psm::EnsureAssetOwner<Runtime>,
 	EnsureRootWithSuccess<AccountId, NoPsmDepositor>,
@@ -1601,7 +1614,7 @@ impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkH
 }
 
 impl pallet_psm::Config for Runtime {
-	type Fungibles = LocalAndForeignAssets;
+	type Fungibles = PsmAssets;
 	type Consideration = HoldConsideration<
 		AccountId,
 		Balances,
