@@ -22,7 +22,7 @@ use frame_support::traits::tokens::{
 };
 use sp_runtime::{
 	traits::Convert,
-	DispatchError, Either,
+	DispatchError, DispatchResult, Either,
 	Either::{Left, Right},
 };
 
@@ -112,6 +112,32 @@ where
 		<Inner<Left, Right, Criterion, AssetKind, AccountId> as fungibles::metadata::Inspect<
 			AccountId,
 		>>::decimals(asset)
+	}
+}
+
+impl<Left, Right, Criterion, AssetKind, AccountId> fungibles::metadata::Mutate<AccountId>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+where
+	Left: fungibles::Inspect<AccountId>
+		+ fungibles::metadata::Inspect<AccountId>
+		+ fungibles::metadata::Mutate<AccountId>,
+	Right: fungibles::Inspect<AccountId, Balance = Left::Balance>
+		+ fungibles::metadata::Inspect<AccountId>
+		+ fungibles::metadata::Mutate<AccountId>,
+	Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
+	AssetKind: AssetId,
+{
+	fn set(
+		asset: Self::AssetId,
+		from: &AccountId,
+		name: Vec<u8>,
+		symbol: Vec<u8>,
+		decimals: u8,
+	) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(asset) => Left::set(asset, from, name, symbol, decimals),
+			Right(asset) => Right::set(asset, from, name, symbol, decimals),
+		}
 	}
 }
 
@@ -278,6 +304,27 @@ where
 		match Criterion::convert(asset) {
 			Left(asset) => Left::set_balance(asset, who, amount),
 			Right(asset) => Right::set_balance(asset, who, amount),
+		}
+	}
+}
+
+impl<Left, Right, Criterion, AssetKind, AccountId> fungibles::Create<AccountId>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+where
+	Left: fungibles::Inspect<AccountId> + fungibles::Create<AccountId>,
+	Right: fungibles::Inspect<AccountId, Balance = Left::Balance> + fungibles::Create<AccountId>,
+	Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
+	AssetKind: AssetId,
+{
+	fn create(
+		asset: Self::AssetId,
+		admin: AccountId,
+		is_sufficient: bool,
+		min_balance: Self::Balance,
+	) -> DispatchResult {
+		match Criterion::convert(asset) {
+			Left(asset) => Left::create(asset, admin, is_sufficient, min_balance),
+			Right(asset) => Right::create(asset, admin, is_sufficient, min_balance),
 		}
 	}
 }
