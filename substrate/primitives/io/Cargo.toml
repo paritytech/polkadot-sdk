@@ -52,7 +52,11 @@ ed25519-dalek = { workspace = true }
 docify = { workspace = true }
 
 [target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
+hash-db = { workspace = true }
+hash256-std-hasher = { workspace = true }
 polkavm-derive = { workspace = true }
+libsecp256k1 = { workspace = true, default-features = false, features = ["static-context"] }
+sp-trie = { workspace = true, default-features = false }
 
 [build-dependencies]
 rustversion = { workspace = true }

@@ -25179,6 +25179,8 @@ dependencies = [
  "bytes",
  "docify",
  "ed25519-dalek",
+ "hash-db",
+ "hash256-std-hasher",
  "libsecp256k1",
  "log",
  "parity-scale-codec",
