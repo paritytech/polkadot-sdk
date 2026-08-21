@@ -13,3 +13,5 @@ crates:
   bump: major
 - name: sp-core
   bump: minor
+- name: sp-keystore
+  bump: patch
