@@ -620,38 +620,6 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#470 id=470 data-nosnippet>470</a>		);
 <a href=#471 id=471 data-nosnippet>471</a>	}
 <a href=#472 id=472 data-nosnippet>472</a>}
-<a href=#473 id=473 data-nosnippet>473</a>
-<a href=#474 id=474 data-nosnippet>474</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>migrations {
-<a href=#475 id=475 data-nosnippet>475</a>	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-<a href=#476 id=476 data-nosnippet>476</a>	<span class="kw">use </span>snowbridge_core::TokenId;
-<a href=#477 id=477 data-nosnippet>477</a>
-<a href=#478 id=478 data-nosnippet>478</a>	<span class="attr">#[frame_support::storage_alias]
-<a href=#479 id=479 data-nosnippet>479</a>	</span><span class="kw">pub type </span>OldNativeToForeignId&lt;T: snowbridge_pallet_system::Config&gt; = StorageMap&lt;
-<a href=#480 id=480 data-nosnippet>480</a>		snowbridge_pallet_system::Pallet&lt;T&gt;,
-<a href=#481 id=481 data-nosnippet>481</a>		Blake2_128Concat,
-<a href=#482 id=482 data-nosnippet>482</a>		xcm::v4::Location,
-<a href=#483 id=483 data-nosnippet>483</a>		TokenId,
-<a href=#484 id=484 data-nosnippet>484</a>		OptionQuery,
-<a href=#485 id=485 data-nosnippet>485</a>	&gt;;
-<a href=#486 id=486 data-nosnippet>486</a>
-<a href=#487 id=487 data-nosnippet>487</a>	<span class="doccomment">/// One shot migration for NetworkId::Westend to NetworkId::ByGenesis(WESTEND_GENESIS_HASH)
-<a href=#488 id=488 data-nosnippet>488</a>	</span><span class="kw">pub struct </span>MigrationForXcmV5&lt;T: snowbridge_pallet_system::Config&gt;(core::marker::PhantomData&lt;T&gt;);
-<a href=#489 id=489 data-nosnippet>489</a>	<span class="kw">impl</span>&lt;T: snowbridge_pallet_system::Config&gt; frame_support::traits::OnRuntimeUpgrade
-<a href=#490 id=490 data-nosnippet>490</a>		<span class="kw">for </span>MigrationForXcmV5&lt;T&gt;
-<a href=#491 id=491 data-nosnippet>491</a>	{
-<a href=#492 id=492 data-nosnippet>492</a>		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-<a href=#493 id=493 data-nosnippet>493</a>			<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
-<a href=#494 id=494 data-nosnippet>494</a>
-<a href=#495 id=495 data-nosnippet>495</a>			<span class="kw">let </span>translate_westend = |pre: xcm::v4::Location| -&gt; <span class="prelude-ty">Option</span>&lt;xcm::v5::Location&gt; {
-<a href=#496 id=496 data-nosnippet>496</a>				weight.saturating_accrue(T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>));
-<a href=#497 id=497 data-nosnippet>497</a>				<span class="prelude-val">Some</span>(xcm::v5::Location::try_from(pre).expect(<span class="string">"valid location"</span>))
-<a href=#498 id=498 data-nosnippet>498</a>			};
-<a href=#499 id=499 data-nosnippet>499</a>			snowbridge_pallet_system::ForeignToNativeId::&lt;T&gt;::translate_values(translate_westend);
-<a href=#500 id=500 data-nosnippet>500</a>
-<a href=#501 id=501 data-nosnippet>501</a>			weight
-<a href=#502 id=502 data-nosnippet>502</a>		}
-<a href=#503 id=503 data-nosnippet>503</a>	}
-<a href=#504 id=504 data-nosnippet>504</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
