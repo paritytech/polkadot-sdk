@@ -610,7 +610,7 @@ pub trait Executable<T: Config>: Sized {
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
 		warmth: CodeLoadWarmth,
-		charge_refcount_write: bool,
+		code_info_op: StorageOp,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1084,11 +1084,11 @@ where
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
 		code_hash: H256,
-		charge_refcount_write: bool,
+		code_info_op: StorageOp,
 	) -> Result<E, DispatchError> {
 		let code_warmth = access_list.code_warmth(code_hash);
-		let executable = E::from_storage(code_hash, meter, code_warmth, charge_refcount_write)?;
-		access_list.warm_code(code_hash);
+		let executable = E::from_storage(code_hash, meter, code_warmth, code_info_op)?;
+		access_list.warm_code(code_hash, code_info_op);
 		Ok(executable)
 	}
 
@@ -1111,7 +1111,7 @@ where
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
-				let charge_refcount_write = false;
+				let code_info_op = StorageOp::Read;
 
 				// Precompiles don't use cold/hot pricing, so they're not warmed.
 				// Even a plain account reads its AccountInfo, so it's safe to warm here.
@@ -1177,12 +1177,8 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable = Self::load_code(
-							access_list,
-							meter,
-							info.code_hash,
-							charge_refcount_write,
-						)?;
+						let executable =
+							Self::load_code(access_list, meter, info.code_hash, code_info_op)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1197,7 +1193,7 @@ where
 							.expect("When not a precompile the contract was loaded above; qed")
 							.code_hash;
 						let executable =
-							Self::load_code(access_list, meter, code_hash, charge_refcount_write)?;
+							Self::load_code(access_list, meter, code_hash, code_info_op)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				};
@@ -1981,10 +1977,16 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn prewarm_call(&mut self, state_access: StateAccess, code_hash: H256) {
 		self.access_list.warm_operation(state_access);
-		self.access_list.warm_code(code_hash);
+		// The measured hot call loads code, it never bumps a refcount.
+		self.access_list.warm_code(code_hash, StorageOp::Read);
 	}
 
 	/// Returns the access-list metrics.
+	#[cfg(test)]
+	pub(crate) fn code_load_warmth(&self, code_hash: H256) -> CodeLoadWarmth {
+		self.access_list.code_warmth(code_hash)
+	}
+
 	#[cfg(test)]
 	pub(crate) fn access_list_metrics(&self) -> crate::access_list::AccessListMetrics {
 		self.access_list.metrics()
@@ -2194,12 +2196,12 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					let charge_refcount_write = true;
+					// Instantiating bumps the loaded code's refcount.
 					let executable = Self::load_code(
 						&mut self.access_list,
 						&mut top_frame_mut!(self).frame_meter,
 						*hash,
-						charge_refcount_write,
+						StorageOp::Write,
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

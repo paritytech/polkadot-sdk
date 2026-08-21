@@ -510,6 +510,42 @@ mod tests {
 		}
 	}
 
+	/// A zero-value call reads two state items, between a delegate call's one
+	/// and a transferring call's three, and any cold item still prices it cold.
+	#[test]
+	fn zero_value_call_base_prices_two_items() {
+		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+		let plain_hot = |account| {
+			weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+				account,
+				original_account: Warmth::Hot(Paid::Read),
+				account_info: Warmth::Hot(Paid::Read),
+			}))
+		};
+		let delegate_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::DelegateCall {
+			account_info: Warmth::Hot(Paid::Read),
+		}));
+
+		assert!(
+			plain_hot(None).ref_time() < plain_hot(Some(Warmth::Hot(Paid::Read))).ref_time(),
+			"a zero-value call prices fewer items than a transferring one",
+		);
+		assert!(
+			plain_hot(None).ref_time() > delegate_hot.ref_time(),
+			"but more than a delegate call's single item",
+		);
+
+		let mixed = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+			account: None,
+			original_account: Warmth::Hot(Paid::Read),
+			account_info: Warmth::cold_non_revertible(),
+		}));
+		assert!(
+			mixed.proof_size() > 0,
+			"one cold item prices the zero-value call fully cold: {mixed:?}",
+		);
+	}
+
 	#[test]
 	fn call_base_cold_hot_pricing() {
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);

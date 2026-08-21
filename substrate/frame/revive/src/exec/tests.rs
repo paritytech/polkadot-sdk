@@ -146,7 +146,7 @@ impl Executable<Test> for MockExecutable {
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
 		_warmth: CodeLoadWarmth,
-		_charge_refcount_write: bool,
+		_code_info_op: StorageOp,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -209,7 +209,12 @@ fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
 ) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_non_revertible(), false)
+	MockExecutable::from_storage(
+		code_hash,
+		meter,
+		CodeLoadWarmth::cold_non_revertible(),
+		StorageOp::Read,
+	)
 }
 
 #[test]
@@ -3709,8 +3714,8 @@ fn cold_hot_first_frame_warms_entry_target() {
 
 #[test]
 fn cold_hot_plain_account_warms_then_code_loads_cold() {
-	// A zero-value plain-account call warms contract info only, not code. After
-	// code is added, a repeat call reads contract info hot, code cold.
+	// A zero-value plain-account call warms the mapping and contract info, not
+	// code. After code is added, a repeat call reads them hot, code cold.
 	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
@@ -3754,6 +3759,92 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_value_transfer_warms_the_account() {
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let value =
+			Pallet::<Test>::convert_native_to_evm(<Test as Config>::Currency::minimum_balance());
+		ctx.ext
+			.call(
+				&CallResources::NoLimits,
+				&DJANGO_ADDR,
+				value,
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
+			.unwrap();
+		assert_eq!(
+			ctx.ext
+				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+			StateWarmth::Call {
+				account: Some(Warmth::Hot(Paid::Read)),
+				original_account: Warmth::Hot(Paid::Read),
+				account_info: Warmth::Hot(Paid::Read),
+			},
+			"a value transfer reads the account, so it must warm it, read-paid",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&CHARLIE, root_code_hash);
+		set_balance(&CHARLIE, <Test as Config>::Currency::minimum_balance() * 100);
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_code_paid_level_matches_the_operation() {
+	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
+	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
+		let value =
+			Pallet::<Test>::convert_native_to_evm(<Test as Config>::Currency::minimum_balance());
+		ctx.ext
+			.instantiate(
+				&CallResources::NoLimits,
+				Code::Existing(dummy_ch),
+				value,
+				vec![],
+				Some(&[0; 32]),
+			)
+			.unwrap();
+		assert_eq!(
+			ctx.ext.code_load_warmth(dummy_ch),
+			CodeLoadWarmth { info: Warmth::Hot(Paid::Write), blob: Warmth::Hot(Paid::Read) },
+			"instantiating bumps the refcount: metadata write-paid, blob only read",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.build()
+		.execute_with(|| {
+			place_contract(&BOB, root_code_hash);
+			set_balance(&BOB, <Test as Config>::Currency::minimum_balance() * 100);
+			run_root_call(BOB_ADDR, vec![]);
+		});
+}
+
+#[test]
+fn cold_hot_call_code_load_is_read_paid() {
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		let own_hash = MockLoader::code_hashes()[0];
+		assert_eq!(
+			ctx.ext.code_load_warmth(own_hash),
+			CodeLoadWarmth { info: Warmth::Hot(Paid::Read), blob: Warmth::Hot(Paid::Read) },
+			"a call loads code without touching the refcount",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, root_code_hash);
+		run_root_call(BOB_ADDR, vec![]);
 	});
 }
 

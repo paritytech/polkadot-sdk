@@ -1887,12 +1887,12 @@ impl<T: Config> Pallet<T> {
 				},
 				Code::Existing(code_hash) => {
 					// The code load of an instantiation is always billed cold.
-					let charge_refcount_write = true;
+					// Instantiating bumps the loaded code's refcount.
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,
 						access_list::CodeLoadWarmth::cold_non_revertible(),
-						charge_refcount_write,
+						access_list::StorageOp::Write,
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

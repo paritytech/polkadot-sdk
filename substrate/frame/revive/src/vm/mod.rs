@@ -27,7 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::CodeLoadWarmth,
+	access_list::{CodeLoadWarmth, StorageOp, Warmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -126,21 +126,16 @@ struct CodeLoadToken {
 	code_len: u32,
 	code_type: BytecodeType,
 	warmth: CodeLoadWarmth,
-	charge_refcount_write: bool,
+	code_info_op: StorageOp,
 }
 
 impl CodeLoadToken {
 	fn from_code_info<T: Config>(
 		code_info: &CodeInfo<T>,
 		warmth: CodeLoadWarmth,
-		charge_refcount_write: bool,
+		code_info_op: StorageOp,
 	) -> Self {
-		Self {
-			code_len: code_info.code_len,
-			code_type: code_info.code_type,
-			warmth,
-			charge_refcount_write,
-		}
+		Self { code_len: code_info.code_len, code_type: code_info.code_type, warmth, code_info_op }
 	}
 }
 
@@ -176,10 +171,12 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			),
 			BytecodeType::Evm => load_weight,
 		};
-		if self.charge_refcount_write {
-			// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
-			// whitelist. Its trie walk is already paid by this load's read, so add
-			// only the missing part of a write: the block-end re-hash of its path.
+		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
+		// whitelist. Its trie walk is already paid by this load's read, so add only
+		// the missing part of a write.
+		let already_paid =
+			matches!(self.warmth.info, Warmth::Hot(paid) if paid.covers(self.code_info_op));
+		if self.code_info_op == StorageOp::Write && !already_paid {
 			weight.saturating_add(RuntimeCosts::deferred_write_cost::<T>())
 		} else {
 			weight
@@ -193,7 +190,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 		code_len,
 		code_type: BytecodeType::Pvm,
 		warmth: CodeLoadWarmth::cold_non_revertible(),
-		charge_refcount_write: false,
+		code_info_op: StorageOp::Read,
 	})
 }
 
@@ -369,13 +366,13 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
 		warmth: CodeLoadWarmth,
-		charge_refcount_write: bool,
+		code_info_op: StorageOp,
 	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		meter.charge_weight_token(CodeLoadToken::from_code_info(
 			&code_info,
 			warmth,
-			charge_refcount_write,
+			code_info_op,
 		))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
@@ -456,19 +453,43 @@ mod tests {
 	/// the instantiate benches whitelist, so the load charges it here.
 	#[test]
 	fn instantiate_code_load_charges_the_refcount_write() {
-		let weight_of = |charge_refcount_write| {
+		let weight_of = |code_info_op| {
 			Token::<Test>::weight(&CodeLoadToken {
 				code_len: 1024,
 				code_type: BytecodeType::Pvm,
 				warmth: CodeLoadWarmth::cold_non_revertible(),
-				charge_refcount_write,
+				code_info_op,
 			})
 		};
 
 		assert_eq!(
-			weight_of(true).saturating_sub(weight_of(false)),
+			weight_of(StorageOp::Write).saturating_sub(weight_of(StorageOp::Read)),
 			RuntimeCosts::deferred_write_cost::<Test>(),
 			"the instantiate load must add exactly the refcount write",
+		);
+	}
+
+	/// The refcount bump's block-end work is one re-hash per key, so a second
+	/// instantiate of the same code in one transaction must not pay it again.
+	#[test]
+	fn a_repeat_refcount_bump_pays_the_write_once() {
+		let load = |info| {
+			Token::<Test>::weight(&CodeLoadToken {
+				code_len: 1024,
+				code_type: BytecodeType::Pvm,
+				warmth: CodeLoadWarmth { info, blob: Warmth::Hot(Paid::Read) },
+				code_info_op: StorageOp::Write,
+			})
+		};
+
+		let after_read = load(Warmth::Hot(Paid::Read));
+		let after_write = load(Warmth::Hot(Paid::Write));
+
+		assert_eq!(
+			after_read.saturating_sub(after_write),
+			RuntimeCosts::deferred_write_cost::<Test>(),
+			"only the bump that finds the key read-paid owes the re-hash: \
+			 read={after_read:?} write={after_write:?}",
 		);
 	}
 
@@ -480,7 +501,7 @@ mod tests {
 				code_len,
 				code_type,
 				warmth,
-				charge_refcount_write: false,
+				code_info_op: StorageOp::Read,
 			})
 		};
 

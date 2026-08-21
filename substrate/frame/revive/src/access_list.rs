@@ -428,9 +428,10 @@ impl AccessList {
 	}
 
 	/// Warms the two entries a code load reads, returning their warmth.
-	pub fn warm_code(&mut self, hash: H256) -> CodeLoadWarmth {
+	pub fn warm_code(&mut self, hash: H256, code_info_op: StorageOp) -> CodeLoadWarmth {
 		CodeLoadWarmth {
-			info: self.touch(AccessEntry::CodeInfo { hash }, StorageOp::Read),
+			info: self.touch(AccessEntry::CodeInfo { hash }, code_info_op),
+			// Loads only read the blob; uploads and removals never come through here.
 			blob: self.touch(AccessEntry::CodeBlob { hash }, StorageOp::Read),
 		}
 	}
@@ -590,8 +591,8 @@ mod tests {
 		// Nested frame, so a journaled cold touch would be revertible.
 		al.enter_frame();
 
-		// The set is below the cap, so peek prices both call entries revertible
-		// cold: it cannot see that touching the first entry fills the cap.
+		// The set is below the cap, so peek prices all three call entries
+		// revertible cold: it cannot see that the first touch fills the cap.
 		assert_eq!(
 			al.operation_warmth(StateAccess::Call { target, transfers_value: true }),
 			StateWarmth::Call {
@@ -599,10 +600,10 @@ mod tests {
 				original_account: Warmth::cold_revertible(),
 				account_info: Warmth::cold_revertible(),
 			},
-			"peek sees the not-full set for both entries",
+			"peek sees the not-full set for every entry",
 		);
 
-		// The first touch fills the cap, so ContractInfo lands past it: non-revertible.
+		// The first touch fills the cap, so the two entries after it land past it.
 		assert_eq!(
 			al.warm_operation(StateAccess::Call { target, transfers_value: true }),
 			StateWarmth::Call {
