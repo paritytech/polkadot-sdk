@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787302705666,
+  "lastUpdate": 1787336555644,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8",
-          "message": "Forbid invisible characters (#10838)",
-          "timestamp": "2026-01-19T12:12:57Z",
-          "tree_id": "6b6ae55aca653737448068b4138d360c411b9f3d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/22b70a54f9353c7d5f5aa0e5bf7e212b940e9ee8"
-        },
-        "date": 1768829034818,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002655723010000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00922321278999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006625218959999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009736940599999983,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "Enoch",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3b49ccb1f0ddcca2f24acd23091a03db9d8f104",
+          "message": "Remove non permanent migrations on westend (#12647)\n\nRemove one-shot migrations that already executed on the live Westend\nsystem chains (all on spec 1024001), plus their now-unused support code.\n\nEach one was verified against live chain state before removal: storage\nversions are at their post-migration values and the unversioned\none-shots left their expected effects. A verification script is in [this\ngist](https://gist.github.com/runcomet/1fac906cf1197519a92a3c60aefed23e).\nThe two bridge data fixes (`FixMessagesV1Migration`,\n`MigrationForXcmV5`) have no on-chain marker but shipped in #5649 /\n#4826, long before the deployed runtime.\n\nKept `ClaimTrappedBalance` (PAH reference, no-op on WAH), the\nstaking-async migrations (`Staking` is still at v17 on-chain) and\n`PsmInitialConfig` (used by `remote-ext-tests-psm`).\n\nPart of #11771.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-21T16:52:25Z",
+          "tree_id": "70155201922b1ba3c7562754041fa1e9e726ac83",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3b49ccb1f0ddcca2f24acd23091a03db9d8f104"
+        },
+        "date": 1787336522627,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026317072800000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009871462709999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009745151159999998,
             "unit": "seconds"
           }
         ]
