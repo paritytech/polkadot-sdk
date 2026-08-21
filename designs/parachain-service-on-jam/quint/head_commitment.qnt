@@ -24,8 +24,8 @@ module head_commitment {
   /// so a leaf hash can never collide with a node hash (§5.5).
   pure def merkleHash(t: MerkleTree): Hash =
   match t {
-    | Leaf(l) => { hashBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.hashBytes) }
-    | Node(c) => { hashBytes: 2 * (c.left.hashBytes * 257 + c.right.hashBytes) + 1 }
+    | Leaf(l) => { domain: DomainMerkle, hashBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.hashBytes) }
+    | Node(c) => { domain: DomainMerkle, hashBytes: 2 * (c.left.hashBytes * 257 + c.right.hashBytes) + 1 }
   }
 
   /// Set of para ids as a list ordered by ascending `para_id`, so every

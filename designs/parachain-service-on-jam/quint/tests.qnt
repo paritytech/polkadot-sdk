@@ -557,7 +557,7 @@ module tests {
   /// soliciting one does not affect the other, and forgetting one
   /// leaves the other intact.
   run differentLensAreDistinctEntriesTest = {
-    val h: Hash = { hashBytes: 42 }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 42 }
     val p1 = CoretimeParaId
     val p2 = AssetHubParaId
     // Seed state: p1 registered with enough headroom.
@@ -679,7 +679,7 @@ module tests {
   run solicitRejectedAtBalanceCapTest = {
     val para = MkParaId(6)
     val paraCode: ValidationCodeHash = { vchBytes: 0x66 }
-    val soliciteeHash: Hash = { hashBytes: 0xDD }
+    val soliciteeHash: Hash = { domain: DomainPreimage, hashBytes: 0xDD }
     val soliciteeLen = 500
     val cap = BaselineFootprint + preimageFootprint(FixedCodeLen)
     init
@@ -850,7 +850,7 @@ module tests {
   run cleanUpTooMuchStateHeldTest = {
     val para = MkParaId(6)
     val code: ValidationCodeHash = { vchBytes: 0x66 }
-    val extra: Hash = { hashBytes: 0x99 }
+    val extra: Hash = { domain: DomainPreimage, hashBytes: 0x99 }
     val bal = BaselineFootprint + preimageFootprint(FixedCodeLen) + preimageFootprint(512)
     val s0 = parachainSetStateBalance(initialState, para, bal).state
     val s1 = parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state
@@ -871,8 +871,8 @@ module tests {
   /// no limbo, no retained referencer, refund now (JAM `ForgetImplication::Drop`).
   run forgetUnprovidedDropsInOneStepTest = {
     val para = CoretimeParaId
-    val h: Hash = { hashBytes: 0x7A }
-    // Solicit only: the preimage is never provided, so status is `Unprovided`.
+    val h: Hash = { domain: DomainPreimage, hashBytes: 0x7A }
+    // Solicit only — the preimage is never provided, so status is `Unprovided`.
     val d1 = initialState.addReferencer(para, h, 512)
     val d2 = d1.state.removeReferencer(para, h, 512, 0)
     all {
@@ -893,7 +893,7 @@ module tests {
   /// `now == due + 1` it expunges.
   run forgetExpungeBoundaryTest = {
     val para = CoretimeParaId
-    val h: Hash = { hashBytes: 0x7B }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 0x7B }
     // Solicit, provide, then first forget at now = 0 -> Unrequested(0),
     // due = 0 + ExpungePeriod.
     val d1 = initialState.addReferencer(para, h, 512)
@@ -927,7 +927,7 @@ module tests {
   /// Once p2 is the live referencer covering the single JAM entry, keeping p1
   /// charged would double-count it, so p1 is refunded and dropped (§6.1).
   run forgetRescueRerequestedTest = {
-    val h: Hash = { hashBytes: 0x8A }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 0x8A }
     val p1 = CoretimeParaId
     val p2 = AssetHubParaId
     // p1 solicits, the blob is provided, p1 forgets (last ref) at now = 5.
@@ -956,7 +956,7 @@ module tests {
   /// unrequest slot, NOT `now`. Proves collapsing `Rerequested` into `Provided`
   /// would be unfaithful (it would wrongly succeed with a shifted deadline).
   run forgetRerequestedNotYetTest = {
-    val h: Hash = { hashBytes: 0x8B }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 0x8B }
     val p1 = CoretimeParaId
     val p2 = AssetHubParaId
     // p1 solicit + provide + forget at now = 10 -> Unrequested(10).
@@ -990,7 +990,7 @@ module tests {
   /// `Unrequested` with itself retained) re-solicits it; the idempotent
   /// early-return must NOT short-circuit; JAM `solicit` still fires to rescue.
   run forgetRetainedSelfRescueTest = {
-    val h: Hash = { hashBytes: 0x8C }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 0x8C }
     val para = CoretimeParaId
     val d1 = initialState.addReferencer(para, h, 512)
     val provided = markProvided(d1.state, h, 512)
@@ -1013,7 +1013,7 @@ module tests {
   /// ghost, so the referencer set stays size 1 and the footprint is charged
   /// exactly once, never `N × footprint` across N cycles (§6.1).
   run forgetRescueNoGhostAccumulationTest = {
-    val h: Hash = { hashBytes: 0x8D }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 0x8D }
     val p1 = CoretimeParaId
     val p2 = AssetHubParaId
     // p1 solicit + provide + forget at now=5 -> Unrequested(5), p1 ghost.
@@ -1517,7 +1517,7 @@ module tests {
       authorizedParas: List(CoretimeParaId),
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
-    val msg = Solicit({ hash: { hashBytes: 7 }, len: 1024 })
+    val msg = Solicit({ hash: { domain: DomainPreimage, hashBytes: 7 }, len: 1024 })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
     val overOut = refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), over, 0)[0]
@@ -1601,7 +1601,7 @@ module tests {
   /// refunds its footprint. Never provided → expunged in one step.
   run coretimeForgetDrainsPreimageTest = {
     val target = AssetHubParaId
-    val h: Hash = { hashBytes: 4242 }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 4242 }
     val len = 1024
     val before = initialState.paraInfo(target).usedStateBalance
     val held = initialState.addReferencer(target, h, len).state
@@ -1620,7 +1620,7 @@ module tests {
   /// past that deadline expunges it and refunds.
   run coretimeForgetTwoStepTest = {
     val target = AssetHubParaId
-    val h: Hash = { hashBytes: 4243 }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 4243 }
     val len = 2048
     val before = initialState.paraInfo(target).usedStateBalance
     val held = markProvided(initialState.addReferencer(target, h, len).state, h, len)
@@ -1794,7 +1794,7 @@ module tests {
   /// `Unprovided` hash would leave the service with no code to run.
   run serviceUpgradeRequiresAvailableCodeTest = {
     val ah = AssetHubParaId
-    val newCode: Hash = { hashBytes: 31337 }
+    val newCode: Hash = { domain: DomainPreimage, hashBytes: 31337 }
     val len = FixedCodeLen
     val msg = UpgradeService({ codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0 })
     // Solicited only: the request exists but the blob was never supplied.
@@ -2132,7 +2132,7 @@ module tests {
   /// `RestrictedHostFunction`, so the message never reaches Accumulate at all.
   /// Naming itself, or being the Coretime chain, refines fine.
   run refineRejectsForeignParaIdTest = {
-    val h: Hash = { hashBytes: 7777 }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 7777 }
     all {
       // Asset Hub reaching for Coretime's state: Refine rejects, for both calls.
       assert(refineWithMsgs(initialState, AssetHubParaId,
@@ -2157,7 +2157,7 @@ module tests {
   /// the target does not hold.
   run delegatedReleaseNoOpTest = {
     val ghost = MkParaId(9)
-    val h: Hash = { hashBytes: 5555 }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 5555 }
     all {
       assert(replay(initialState, CoretimeParaId, 0,
         Forget({ paraId: ghost, hash: h, len: 1024 })).state == initialState),
@@ -2174,7 +2174,7 @@ module tests {
   /// drain itself. Coretime drains it, after which `parachain_clean_up` succeeds.
   run delegatedReleaseUnblocksCleanUpTest = {
     val target = AssetHubParaId
-    val h: Hash = { hashBytes: 6161 }
+    val h: Hash = { domain: DomainPreimage, hashBytes: 6161 }
     val len = 1024
     val key = List(3)
     val withPreimage = initialState.addReferencer(target, h, len).state
