@@ -86,7 +86,6 @@ pub use sc_client_db::PruningFilter;
 use crate::config::RpcConfiguration;
 use prometheus_endpoint::Registry;
 pub use sc_consensus::ImportQueue;
-pub use sc_executor::NativeExecutionDispatch;
 pub use sc_network_sync::WarpSyncConfig;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
