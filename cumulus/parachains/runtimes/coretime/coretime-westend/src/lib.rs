@@ -75,8 +75,6 @@ use sp_runtime::{
 	Percent,
 };
 use sp_session::OpaqueGeneratedSessionKeys;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
@@ -162,12 +160,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -1125,6 +1117,32 @@ impl_runtime_apis! {
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
+
+				fn get_assets(n: u32) -> Assets {
+					// Worst case: `n` distinct regions, each costing a `Regions` read and write.
+					// `issue` leaves them owner-less, as `mint_into` requires at claim time.
+					let regions: Vec<Asset> = (0..n)
+						.map(|i| {
+							let region_id = pallet_broker::Pallet::<Runtime>::issue(
+								i as pallet_broker::CoreIndex,
+								0,
+								pallet_broker::CoreMask::complete(),
+								42,
+								None,
+								None,
+							);
+							Asset {
+								fun: NonFungible(Index(region_id.into())),
+								id: AssetId(xcm_config::BrokerPalletLocation::get()),
+							}
+						})
+						.collect();
+					regions.into()
+				}
+
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			parameter_types! {
@@ -1233,9 +1251,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					let origin = Location::new(1, [Parachain(1000)]);
-					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
-					Ok((origin, target))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 			}
 

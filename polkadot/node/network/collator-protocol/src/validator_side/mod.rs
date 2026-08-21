@@ -136,7 +136,7 @@ use futures::{
 #[cfg(test)]
 use futures_timer::Delay;
 use std::{
-	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
 	sync::Arc,
 	time::{Duration, Instant},
@@ -145,7 +145,9 @@ use tokio_util::sync::CancellationToken;
 
 use sp_keystore::KeystorePtr;
 
-use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafSchedulingInfo};
+use crate::{
+	extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafClaimQueues, LeafSchedulingInfo,
+};
 use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
@@ -169,7 +171,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_claim_queue, request_session_index_for_child,
+	request_session_index_for_child,
 };
 use polkadot_primitives::{
 	CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId, CoreIndex, Hash,
@@ -347,8 +349,7 @@ impl PeerData {
 		on_scheduling_parent: Hash,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
-		per_scheduling_parent: &PerSchedulingParent,
-		leaf_claim_queues: &HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+		leaf_claim_queues: &HashMap<Hash, LeafClaimQueues>,
 		clock: &dyn Clock,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
@@ -373,13 +374,12 @@ impl PeerData {
 
 					let candidates = state.advertisements.entry(on_scheduling_parent).or_default();
 
-					// Spam protection: limit based on scheduling_lookahead (= claim queue length)
-					// Get lookahead from any leaf's claim queue length for our core
+					// Spam protection: limit the stored advertisements per scheduling parent to the
+					// scheduling lookahead.
 					let max_ads = leaf_claim_queues
 						.values()
 						.next()
-						.and_then(|cq| cq.get(&per_scheduling_parent.current_core))
-						.map(|v| v.len())
+						.map(|l| l.scheduling_lookahead)
 						.unwrap_or(0);
 
 					if candidates.len() > max_ads {
@@ -621,7 +621,9 @@ struct State {
 	/// **Usage:**
 	/// - `is_slot_available()`: validates advertisements using offset-based position checks
 	/// - `unfulfilled_claim_queue_entries()`: determines fetch priority based on CQ order
-	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	///
+	/// Per-core claim queues and the runtime scheduling lookahead.
+	leaf_claim_queues: HashMap<Hash, LeafClaimQueues>,
 
 	/// Per active leaf scheduling info for V3 scheduling parent validation.
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
@@ -1173,10 +1175,9 @@ async fn process_incoming_peer_message<Context>(
 
 			// Check if para appears in any of our assigned cores' claim queues
 			let para_is_assigned = state.assigned_cores.keys().any(|core| {
-				state
-					.leaf_claim_queues
-					.values()
-					.any(|cq| cq.get(core).map_or(false, |paras| paras.contains(&para_id)))
+				state.leaf_claim_queues.values().any(|lcq| {
+					lcq.claim_queues.get(core).map_or(false, |paras| paras.contains(&para_id))
+				})
 			});
 
 			if para_is_assigned {
@@ -1600,9 +1601,7 @@ fn is_slot_available(
 		let leaf = path.last().ok_or(AdvertisementError::SchedulingParentUnknown)?;
 
 		// Get the claim queue for our core at the leaf
-		let Some(leaf_cq) =
-			state.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&current_core))
-		else {
+		let Some(leaf_claim_queues) = state.leaf_claim_queues.get(leaf) else {
 			gum::warn!(
 				target: LOG_TARGET,
 				?scheduling_parent,
@@ -1612,13 +1611,30 @@ fn is_slot_available(
 			);
 			continue;
 		};
+		let Some(leaf_cq) = leaf_claim_queues.claim_queues.get(&current_core) else {
+			gum::warn!(
+				target: LOG_TARGET,
+				?scheduling_parent,
+				?leaf,
+				?current_core,
+				"Leaf claim queue not found for our core, skipping path",
+			);
+			continue;
+		};
 
-		// Position allocation using bitfield:
-		// The claim queue length represents scheduling_lookahead
-		let lookahead = leaf_cq.len();
+		let lookahead = leaf_claim_queues.scheduling_lookahead;
 
-		// Mark positions occupied by other paras (not available for our para)
-		let mut occupied = leaf_cq.iter().map(|p| p != &para_id).collect::<bitvec::vec::BitVec>();
+		// Mark positions occupied by other paras (not available for our para). Pad up to the
+		// scheduling lookahead so every `occupied[pos]` below (pos < ancestor_valid_len ≤
+		// lookahead) is in bounds without a per-ancestor guard. Padded positions are beyond the
+		// runtime CQ — unscheduled, so assigned to no para — hence marked occupied: our para must
+		// not be able to allocate into a slot that does not exist.
+		let mut occupied = leaf_cq
+			.iter()
+			.map(|p| p != &para_id)
+			.chain(std::iter::repeat(true))
+			.take(lookahead)
+			.collect::<bitvec::vec::BitVec>();
 
 		// Allocate positions for each ancestor along the path.
 		//
@@ -1717,7 +1733,8 @@ where
 	// Ensure peer has declared as a collator
 	peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
 
-	let per_scheduling_parent = state
+	// Validate the scheduling parent is known (the value itself is no longer needed here).
+	state
 		.per_scheduling_parent
 		.get(&scheduling_parent)
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
@@ -1729,7 +1746,6 @@ where
 			scheduling_parent,
 			candidate_hash,
 			&state.implicit_view,
-			&per_scheduling_parent,
 			&state.leaf_claim_queues,
 			&*state.clock,
 		)
@@ -1803,7 +1819,8 @@ where
 	}
 
 	// Fail fast if the scheduling parent is completely unknown.
-	let per_scheduling_parent = state
+	// Validate the scheduling parent is known (the value itself is no longer needed here).
+	state
 		.per_scheduling_parent
 		.get(&scheduling_parent)
 		.ok_or(AdvertisementError::SchedulingParentUnknown)?;
@@ -1830,7 +1847,6 @@ where
 			scheduling_parent,
 			Some(candidate_hash),
 			&state.implicit_view,
-			&per_scheduling_parent,
 			&state.leaf_claim_queues,
 			&*state.clock,
 		)
@@ -2045,11 +2061,13 @@ where
 			.await
 			.map_err(Error::CancelledSessionIndex)??;
 
-		// Fetch claim queue for this leaf (used for both construction and validation)
-		let leaf_claim_queue = request_claim_queue(*leaf, sender)
+		// Fetch the leaf's per-core claim queues and scheduling lookahead. Both come from the
+		// runtime so the lookahead (the window length for the CQ-offset arithmetic in
+		// `is_slot_available`) is never inferred from the claim-queue or allowed-ancestry length;
+		// see [`LeafClaimQueues`].
+		let leaf_claim_queues = LeafClaimQueues::fetch(*leaf, session_index, sender)
 			.await
-			.await
-			.map_err(Error::CancelledClaimQueue)??;
+			.map_err(Error::FetchLeafClaimQueues)?;
 
 		let Some(per_scheduling_parent) = construct_per_scheduling_parent(
 			sender,
@@ -2064,7 +2082,7 @@ where
 		};
 
 		state.per_scheduling_parent.insert(*leaf, per_scheduling_parent);
-		state.leaf_claim_queues.insert(*leaf, leaf_claim_queue);
+		state.leaf_claim_queues.insert(*leaf, leaf_claim_queues);
 
 		match extract_leaf_scheduling_info(sender, *leaf).await {
 			Some(info) => {
@@ -2162,11 +2180,9 @@ where
 			let mut para_still_assigned = false;
 			for core in state.assigned_cores.keys() {
 				// Check if para appears in any active leaf's claim queue for this core
-				if state
-					.leaf_claim_queues
-					.values()
-					.any(|cq| cq.get(core).map_or(false, |paras| paras.contains(&para_id)))
-				{
+				if state.leaf_claim_queues.values().any(|lcq| {
+					lcq.claim_queues.get(core).map_or(false, |paras| paras.contains(&para_id))
+				}) {
 					para_still_assigned = true;
 					break;
 				}
@@ -3090,8 +3106,10 @@ fn unfulfilled_claim_queue_entries(
 			None => continue,
 		};
 
-		let Some(leaf_cq) =
-			state.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&current_core))
+		let Some(leaf_cq) = state
+			.leaf_claim_queues
+			.get(leaf)
+			.and_then(|lcq| lcq.claim_queues.get(&current_core))
 		else {
 			continue;
 		};
