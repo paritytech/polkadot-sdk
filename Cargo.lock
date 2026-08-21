@@ -1581,9 +1581,9 @@ dependencies = [
 
 [[package]]
 name = "ark-vrf"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fbad6a37226194a42588cdcf3c2f461c4463d1b82a1256a6ca837a7502b22dd"
+checksum = "6e1eab4d92e7a80fea37a6a5424de677f8c46809b88ed4c5e94dd4eed5cc39e8"
 dependencies = [
  "ark-bls12-381 0.6.0",
  "ark-ec 0.6.0",
@@ -1594,7 +1594,7 @@ dependencies = [
  "digest 0.10.7",
  "generic-array 0.14.7",
  "sha2 0.10.9",
- "w3f-ring-proof 0.0.9",
+ "w3f-ring-proof 0.0.10",
  "zeroize",
 ]
 
@@ -25013,7 +25013,7 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
- "ark-vrf 0.5.2",
+ "ark-vrf 0.5.3",
  "array-bytes 6.2.2",
  "bip39",
  "bitflags 1.3.2",
@@ -25064,7 +25064,7 @@ version = "41.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "571e6da2db8de83fa2a6f9fab2a86befdcd004c90cfa19c641b072d3f322a60d"
 dependencies = [
- "ark-vrf 0.5.2",
+ "ark-vrf 0.5.3",
  "array-bytes 6.2.2",
  "bip39",
  "bitflags 1.3.2",
@@ -29320,9 +29320,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-plonk-common"
-version = "0.0.9"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b981cddf68489fa16b0a3b86f9e6a42af76fc1fcdc7f5b34670ec7ec78b7cd23"
+checksum = "e24647403dfe8eeb4ef57358e41c29c1ae253c4a123ef9e04d3029fabca38bc2"
 dependencies = [
  "ark-ec 0.6.0",
  "ark-ff 0.6.0",
@@ -29331,6 +29331,7 @@ dependencies = [
  "ark-std 0.6.0",
  "getrandom_or_panic",
  "rand_core 0.6.4",
+ "subtle 2.6.1",
  "w3f-pcs 0.0.7",
 ]
 
@@ -29353,9 +29354,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-ring-proof"
-version = "0.0.9"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9639c62bf37da078063e0abf7bc8ee27ed12d6655c0bf4899e2d80d726029b0e"
+checksum = "b86bf57d9f25c1020c372f1a64069fef9f158db85cd6ef087cee560337bed56d"
 dependencies = [
  "ark-ec 0.6.0",
  "ark-ff 0.6.0",
@@ -29364,7 +29365,7 @@ dependencies = [
  "ark-std 0.6.0",
  "ark-transcript 0.0.6",
  "w3f-pcs 0.0.7",
- "w3f-plonk-common 0.0.9",
+ "w3f-plonk-common 0.0.10",
 ]
 
 [[package]]
