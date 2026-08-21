@@ -10,3 +10,4 @@ doc:
 crates:
 - name: pallet-psm
   bump: minor
+  validate: false
