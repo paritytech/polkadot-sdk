@@ -292,6 +292,7 @@ members = [
 	"substrate/client/mixnet",
 	"substrate/client/network",
 	"substrate/client/network-gossip",
+	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
 	"substrate/client/network/statement",
@@ -433,6 +434,7 @@ members = [
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
+	"substrate/frame/registrar/integration-tests",
 	"substrate/frame/registrar/para",
 	"substrate/frame/registrar/primitives",
 	"substrate/frame/registrar/relay",
@@ -1066,6 +1068,8 @@ pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
+pallet-registrar-para = { path = "substrate/frame/registrar/para", default-features = false }
+pallet-registrar-relay = { path = "substrate/frame/registrar/relay", default-features = false }
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
@@ -1219,6 +1223,7 @@ rand_pcg = { version = "0.3.1" }
 rbtag = { version = "0.3" }
 ref-cast = { version = "1.0.23" }
 regex = { version = "1.10.2" }
+registrar-primitives = { path = "substrate/frame/registrar/primitives", default-features = false }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
@@ -1276,6 +1281,7 @@ sc-informant = { path = "substrate/client/informant", default-features = false }
 sc-keystore = { path = "substrate/client/keystore", default-features = false }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false }
 sc-network = { path = "substrate/client/network", default-features = false }
+sc-network-bitswap = { path = "substrate/client/network/bitswap", default-features = false }
 sc-network-common = { path = "substrate/client/network/common", default-features = false }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false }
 sc-network-light = { path = "substrate/client/network/light", default-features = false }
@@ -1477,8 +1483,8 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "=0.3.19" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.42.1" }
-trie-db = { version = "0.31.0", default-features = false }
+trie-bench = { version = "0.42.2" }
+trie-db = { version = "0.32.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
