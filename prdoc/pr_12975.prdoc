@@ -14,8 +14,7 @@ doc:
     Two changes affect a runtime that includes this pallet. The `EquivocationReportSystem` bound
     changed from `CreateBare<Call<T>>` to `CreateAuthorizedTransaction<Call<T>>`, and the runtime
     must put `frame_system::AuthorizeCall` in its transaction extension pipeline. The three calls
-    now need an authorized origin, so a caller that sends one as a bare transaction gets
-    `BadOrigin`.
+    now need an authorized origin.
 
 crates:
 - name: pallet-beefy

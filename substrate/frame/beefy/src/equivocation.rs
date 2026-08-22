@@ -34,7 +34,7 @@
 //! that the runtime includes `frame_system::AuthorizeCall` in its transaction
 //! extension pipeline.
 
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{self as codec, Decode, Encode};
 use frame_support::{
 	traits::{Get, KeyOwnerProofSystem},

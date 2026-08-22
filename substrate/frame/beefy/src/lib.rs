@@ -434,33 +434,6 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Call<T> {
-		pub fn to_equivocation_evidence_for(&self) -> Option<EquivocationEvidenceFor<T>> {
-			match self {
-				Call::report_double_voting_unsigned { equivocation_proof, key_owner_proof } => {
-					Some(EquivocationEvidenceFor::<T>::DoubleVotingProof(
-						*equivocation_proof.clone(),
-						key_owner_proof.clone(),
-					))
-				},
-				Call::report_fork_voting_unsigned { equivocation_proof, key_owner_proof } => {
-					Some(EquivocationEvidenceFor::<T>::ForkVotingProof(
-						*equivocation_proof.clone(),
-						key_owner_proof.clone(),
-					))
-				},
-				Call::report_future_block_voting_unsigned {
-					equivocation_proof,
-					key_owner_proof,
-				} => Some(EquivocationEvidenceFor::<T>::FutureBlockVotingProof(
-					*equivocation_proof.clone(),
-					key_owner_proof.clone(),
-				)),
-				_ => None,
-			}
-		}
-	}
-
 	impl<T: Config> From<EquivocationEvidenceFor<T>> for Call<T> {
 		fn from(evidence: EquivocationEvidenceFor<T>) -> Self {
 			match evidence {
@@ -551,7 +524,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Submits an extrinsic to report a double voting equivocation. This method will create
-	/// an unsigned extrinsic with a call to `report_double_voting_unsigned` and
+	/// an authorized transaction with a call to `report_double_voting_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
 	pub fn submit_unsigned_double_voting_report(
 		equivocation_proof: DoubleVotingProof<
@@ -569,7 +542,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Submits an extrinsic to report a fork voting equivocation. This method will create
-	/// an unsigned extrinsic with a call to `report_fork_voting_unsigned` and
+	/// an authorized transaction with a call to `report_fork_voting_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
 	pub fn submit_unsigned_fork_voting_report(
 		equivocation_proof: ForkVotingProof<
@@ -587,7 +560,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Submits an extrinsic to report a future block voting equivocation. This method will create
-	/// an unsigned extrinsic with a call to `report_future_block_voting_unsigned` and
+	/// an authorized transaction with a call to `report_future_block_voting_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain context.
 	pub fn submit_unsigned_future_block_voting_report(
 		equivocation_proof: FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>,
