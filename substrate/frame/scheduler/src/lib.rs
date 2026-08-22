@@ -447,9 +447,9 @@ pub mod pallet {
 		fn integrity_test() {
 			/// Calculate the maximum weight that a lookup of a given size can take.
 			fn lookup_weight<T: Config>(s: usize) -> Weight {
-				T::WeightInfo::service_agendas_base()
-					+ T::WeightInfo::service_agenda_base(T::MaxScheduledPerBlock::get())
-					+ T::WeightInfo::service_task(Some(s), true, true)
+				T::WeightInfo::service_agendas_base() +
+					T::WeightInfo::service_agenda_base(T::MaxScheduledPerBlock::get()) +
+					T::WeightInfo::service_task(Some(s), true, true)
 			}
 
 			let limit = sp_runtime::Perbill::from_percent(90) * T::MaximumWeight::get();
