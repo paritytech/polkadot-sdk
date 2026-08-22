@@ -50,6 +50,22 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(2))
 	}
 
+	fn authorize_report_equivocation(validator_count: u32) -> Weight {
+		// The authorize callback only checks the evidence. Reporting the offence stays in the
+		// dispatch, so this is `report_equivocation` without its offence reporting part.
+		let validator_count = validator_count.max(100) as u64;
+
+		// checking membership proof
+		Weight::from_parts(35u64 * WEIGHT_REF_TIME_PER_MICROS, 0)
+			.saturating_add(
+				Weight::from_parts(175u64 * WEIGHT_REF_TIME_PER_NANOS, 0)
+					.saturating_mul(validator_count),
+			)
+			.saturating_add(DbWeight::get().reads(5))
+			// check equivocation proof
+			.saturating_add(Weight::from_parts(95u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
+	}
+
 	fn note_stalled() -> Weight {
 		Weight::from_parts(3u64 * WEIGHT_REF_TIME_PER_MICROS, 0)
 			.saturating_add(DbWeight::get().writes(1))
