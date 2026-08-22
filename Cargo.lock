@@ -21080,7 +21080,7 @@ dependencies = [
  "sp-blockchain 42.0.0",
  "sp-consensus 0.45.0",
  "sp-core 38.1.0",
- "sp-database 10.0.1",
+ "sp-database 10.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-externalities 0.30.0",
  "sp-runtime 44.0.0",
  "sp-state-machine 0.48.0",
@@ -24727,7 +24727,7 @@ dependencies = [
  "sp-api 39.0.0",
  "sp-consensus 0.45.0",
  "sp-core 38.1.0",
- "sp-database 10.0.1",
+ "sp-database 10.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-runtime 44.0.0",
  "sp-state-machine 0.48.0",
  "thiserror 1.0.65",
@@ -25088,20 +25088,20 @@ dependencies = [
 
 [[package]]
 name = "sp-database"
-version = "10.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c702cc7679fbaf0469d40251917cd27bfc165c506a8cd96fb4a9dd3947f06d70"
+version = "10.0.2"
 dependencies = [
  "kvdb",
+ "kvdb-rocksdb",
  "parking_lot 0.12.3",
 ]
 
 [[package]]
 name = "sp-database"
 version = "10.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b7d8129ad3a40b645dc446aae80cf485c521cb8fb54ea670baca41d4e4350e2"
 dependencies = [
  "kvdb",
- "kvdb-rocksdb",
  "parking_lot 0.12.3",
 ]
 
