@@ -55,8 +55,8 @@ pub struct BlockHeader {
 	pub timestamp: U256,
 }
 
-impl From<Block> for BlockHeader {
-	fn from(block: Block) -> Self {
+impl From<BlockV1> for BlockHeader {
+	fn from(block: BlockV1) -> Self {
 		Self {
 			number: block.number,
 			hash: block.hash,

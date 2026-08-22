@@ -145,8 +145,8 @@ std = [
 	"pallet-root-testing?/std",
 	"pallet-safe-mode?/std",
 	"pallet-salary?/std",
+	"pallet-scarcity?/std",
 	"pallet-scheduler?/std",
-	"pallet-scored-pool?/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
@@ -343,6 +343,7 @@ runtime-benchmarks = [
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
 	"pallet-salary?/runtime-benchmarks",
+	"pallet-scarcity?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-session?/runtime-benchmarks",
@@ -495,8 +496,8 @@ try-runtime = [
 	"pallet-root-testing?/try-runtime",
 	"pallet-safe-mode?/try-runtime",
 	"pallet-salary?/try-runtime",
+	"pallet-scarcity?/try-runtime",
 	"pallet-scheduler?/try-runtime",
-	"pallet-scored-pool?/try-runtime",
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
@@ -723,8 +724,8 @@ runtime-full = [
 	"pallet-root-testing",
 	"pallet-safe-mode",
 	"pallet-salary",
+	"pallet-scarcity",
 	"pallet-scheduler",
-	"pallet-scored-pool",
 	"pallet-session",
 	"pallet-session-benchmarking",
 	"pallet-skip-feeless-payment",
@@ -997,6 +998,7 @@ node = [
 	"sc-keystore",
 	"sc-mixnet",
 	"sc-network",
+	"sc-network-bitswap",
 	"sc-network-common",
 	"sc-network-gossip",
 	"sc-network-light",
@@ -1766,15 +1768,15 @@ default-features = false
 optional = true
 path = "../substrate/frame/salary"
 
+[dependencies.pallet-scarcity]
+default-features = false
+optional = true
+path = "../substrate/frame/scarcity"
+
 [dependencies.pallet-scheduler]
 default-features = false
 optional = true
 path = "../substrate/frame/scheduler"
-
-[dependencies.pallet-scored-pool]
-default-features = false
-optional = true
-path = "../substrate/frame/scored-pool"
 
 [dependencies.pallet-session]
 default-features = false
@@ -2795,6 +2797,11 @@ path = "../substrate/client/mixnet"
 default-features = false
 optional = true
 path = "../substrate/client/network"
+
+[dependencies.sc-network-bitswap]
+default-features = false
+optional = true
+path = "../substrate/client/network/bitswap"
 
 [dependencies.sc-network-common]
 default-features = false

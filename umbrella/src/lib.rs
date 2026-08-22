@@ -702,13 +702,14 @@ pub use pallet_safe_mode;
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
 
+/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
+/// rest-time-prioritized transfers.
+#[cfg(feature = "pallet-scarcity")]
+pub use pallet_scarcity;
+
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
-
-/// FRAME pallet for scored pools.
-#[cfg(feature = "pallet-scored-pool")]
-pub use pallet_scored_pool;
 
 /// FRAME sessions pallet.
 #[cfg(feature = "pallet-session")]
@@ -1183,6 +1184,10 @@ pub use sc_mixnet;
 /// Substrate network protocol.
 #[cfg(feature = "sc-network")]
 pub use sc_network;
+
+/// Substrate Bitswap client/server service.
+#[cfg(feature = "sc-network-bitswap")]
+pub use sc_network_bitswap;
 
 /// Substrate network common.
 #[cfg(feature = "sc-network-common")]
