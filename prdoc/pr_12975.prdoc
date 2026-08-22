@@ -1,0 +1,26 @@
+title: 'Migrate `pallet-beefy` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]`'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-beefy` no longer uses the deprecated `ValidateUnsigned` trait and the
+    `#[pallet::validate_unsigned]` attribute. The validation of the three equivocation reporting
+    calls moved to `#[pallet::authorize]` callbacks.
+
+    The validation semantics do not change. The callbacks accept only `TransactionSource::Local` and
+    `TransactionSource::InBlock`, they check the evidence, and they build the same transaction
+    validity as before.
+
+    Two changes affect a runtime that includes this pallet. The `EquivocationReportSystem` bound
+    changed from `CreateBare<Call<T>>` to `CreateAuthorizedTransaction<Call<T>>`, and the runtime
+    must put `frame_system::AuthorizeCall` in its transaction extension pipeline. The three calls
+    now need an authorized origin, so a caller that sends one as a bare transaction gets
+    `BadOrigin`.
+
+crates:
+- name: pallet-beefy
+  bump: major
+- name: sp-consensus-beefy
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: major
