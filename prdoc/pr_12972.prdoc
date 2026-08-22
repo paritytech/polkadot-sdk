@@ -1,0 +1,18 @@
+title: 'pallet-ranked-collective: fix vote weight overflow at the maximum rank'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Linear` and `Geometric` computed `r + 1` in `Rank` (`u16`), which overflows at an excess rank
+    of `Rank::MAX`. With overflow checks the `vote` extrinsic panicked; without them the addition
+    wrapped and the member was credited 0 votes. `Geometric` also overflowed `Votes` on
+    `v * (v + 1)` for results that fit once halved.
+
+    Both converters now widen before adding: `Linear` computes in `Votes`, `Geometric` in `u64`.
+    Weights are unchanged below `Rank::MAX`.
+- audience: Runtime User
+  description: |-
+    A member at the maximum excess rank is credited the documented vote weight instead of 0. Ranks
+    reachable in existing collectives are unaffected.
+crates:
+- name: pallet-ranked-collective
+  bump: patch
