@@ -2633,7 +2633,7 @@ version = "13.0.1"
 default-features = false
 optional = true
 path = "../substrate/utils/frame/benchmarking-cli"
-version = "58.0.0"
+version = "58.0.1"
 
 [dependencies.frame-remote-externalities]
 default-features = false
@@ -2969,7 +2969,7 @@ version = "0.61.0"
 default-features = false
 optional = true
 path = "../substrate/client/api"
-version = "47.0.0"
+version = "47.0.1"
 
 [dependencies.sc-client-db]
 default-features = false
@@ -3263,7 +3263,7 @@ version = "0.3.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/blockchain"
-version = "46.0.0"
+version = "46.0.1"
 
 [dependencies.sp-consensus]
 default-features = false

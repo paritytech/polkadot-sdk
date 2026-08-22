@@ -21,4 +21,7 @@ The following crates were updated to the corresponding versions:
 - bridge-hub-rococo-runtime@0.32.1
 - bridge-hub-westend-runtime@0.29.1
 - polkadot-collator-protocol@32.1.0
+- sp-blockchain@46.0.1
+- sc-client-api@47.0.1
+- rame-benchmarking-cli@58.0.1
 - polkadot-sdk@2606.1.0

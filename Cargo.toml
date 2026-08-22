@@ -836,7 +836,7 @@ forwarded-header-value = { version = "0.1.1" }
 fraction = { version = "0.13.1" }
 frame = { path = "substrate/frame", default-features = false, package = "polkadot-sdk-frame", version = "0.18.0" }
 frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false, version = "49.0.0" }
-frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", default-features = false, version = "58.0.0" }
+frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", default-features = false, version = "58.0.1" }
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false, version = "16.1.1" }
 frame-election-provider-support = { path = "substrate/frame/election-provider-support", default-features = false, version = "48.0.0" }
 frame-executive = { path = "substrate/frame/executive", default-features = false, version = "48.0.0" }
@@ -1232,7 +1232,7 @@ sc-block-builder = { path = "substrate/client/block-builder", default-features =
 sc-chain-spec = { path = "substrate/client/chain-spec", default-features = false, version = "51.0.0" }
 sc-chain-spec-derive = { path = "substrate/client/chain-spec/derive", default-features = false, version = "12.0.0" }
 sc-cli = { path = "substrate/client/cli", default-features = false, version = "0.61.0" }
-sc-client-api = { path = "substrate/client/api", default-features = false, version = "47.0.0" }
+sc-client-api = { path = "substrate/client/api", default-features = false, version = "47.0.1" }
 sc-client-db = { path = "substrate/client/db", default-features = false, version = "0.54.1" }
 sc-consensus = { path = "substrate/client/consensus/common", default-features = false, version = "0.57.0" }
 sc-consensus-aura = { path = "substrate/client/consensus/aura", default-features = false, version = "0.58.0" }
@@ -1340,7 +1340,7 @@ sp-application-crypto = { path = "substrate/primitives/application-crypto", defa
 sp-arithmetic = { path = "substrate/primitives/arithmetic", default-features = false, version = "28.0.1" }
 sp-authority-discovery = { path = "substrate/primitives/authority-discovery", default-features = false, version = "43.0.0" }
 sp-block-builder = { path = "substrate/primitives/block-builder", default-features = false, version = "43.0.0" }
-sp-blockchain = { path = "substrate/primitives/blockchain", default-features = false, version = "46.0.0" }
+sp-blockchain = { path = "substrate/primitives/blockchain", default-features = false, version = "46.0.1" }
 sp-consensus = { path = "substrate/primitives/consensus/common", default-features = false, version = "0.49.0" }
 sp-consensus-aura = { path = "substrate/primitives/consensus/aura", default-features = false, version = "0.49.0" }
 sp-consensus-babe = { path = "substrate/primitives/consensus/babe", default-features = false, version = "0.49.0" }
