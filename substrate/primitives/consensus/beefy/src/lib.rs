@@ -552,10 +552,10 @@ sp_api::decl_runtime_apis! {
 		/// Return the current active BEEFY validator set
 		fn validator_set() -> Option<ValidatorSet<AuthorityId>>;
 
-		/// Submits an unsigned extrinsic to report a double voting equivocation. The caller
+		/// Submits an authorized transaction to report a double voting equivocation. The caller
 		/// must provide the double voting proof and a key ownership proof
 		/// (should be obtained using `generate_key_ownership_proof`). The
-		/// extrinsic will be unsigned and should only be accepted for local
+		/// transaction will not be signed and should only be accepted for local
 		/// authorship (not to be broadcast to the network). This method returns
 		/// `None` when creation of the extrinsic fails, e.g. if equivocation
 		/// reporting is disabled for the given runtime (i.e. this method is
@@ -566,10 +566,10 @@ sp_api::decl_runtime_apis! {
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
-		/// Submits an unsigned extrinsic to report a fork voting equivocation. The caller
+		/// Submits an authorized transaction to report a fork voting equivocation. The caller
 		/// must provide the fork voting proof (the ancestry proof should be obtained using
 		/// `generate_ancestry_proof`) and a key ownership proof (should be obtained using
-		/// `generate_key_ownership_proof`). The extrinsic will be unsigned and should only
+		/// `generate_key_ownership_proof`). The transaction will not be signed and should only
 		/// be accepted for local authorship (not to be broadcast to the network). This method
 		/// returns `None` when creation of the extrinsic fails, e.g. if equivocation
 		/// reporting is disabled for the given runtime (i.e. this method is
@@ -580,10 +580,10 @@ sp_api::decl_runtime_apis! {
 			key_owner_proof: OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
-		/// Submits an unsigned extrinsic to report a future block voting equivocation. The caller
+		/// Submits an authorized transaction to report a future block voting equivocation. The caller
 		/// must provide the future block voting proof and a key ownership proof
 		/// (should be obtained using `generate_key_ownership_proof`).
-		/// The extrinsic will be unsigned and should only be accepted for local
+		/// The transaction will not be signed and should only be accepted for local
 		/// authorship (not to be broadcast to the network). This method returns
 		/// `None` when creation of the extrinsic fails, e.g. if equivocation
 		/// reporting is disabled for the given runtime (i.e. this method is
