@@ -14,8 +14,7 @@ doc:
     Two changes affect a runtime that includes this pallet. The `EquivocationReportSystem` bound
     changed from `CreateBare<Call<T>>` to `CreateAuthorizedTransaction<Call<T>>`, and the runtime
     must put `frame_system::AuthorizeCall` in its transaction extension pipeline.
-    `report_equivocation_unsigned` now needs an authorized origin, so a caller that sends it as a
-    bare transaction gets `BadOrigin`.
+    `report_equivocation_unsigned` now needs an authorized origin.
 
 crates:
 - name: pallet-grandpa
