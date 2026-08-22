@@ -14,7 +14,7 @@ doc:
     Two changes affect a runtime that includes this pallet. The `Config` supertrait changed from
     `CreateBare<Call<Self>>` to `CreateAuthorizedTransaction<Call<Self>>`, and the runtime must put
     `frame_system::AuthorizeCall` in its transaction extension pipeline. `submit_tickets` now needs
-    an authorized origin, so a caller that sends it as a bare transaction gets `BadOrigin`.
+    an authorized origin.
 
     `submit_tickets_unsigned_extrinsic` keeps its name, because it is a runtime API method and the
     `_unsigned_extrinsic` suffix is shared with `BabeApi`, `GrandpaApi` and `BeefyApi`. Only its
