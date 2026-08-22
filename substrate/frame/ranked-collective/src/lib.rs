@@ -56,7 +56,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
-	traits::{Convert, StaticLookup},
+	traits::{Convert, SaturatedConversion, StaticLookup},
 	ArithmeticError::Overflow,
 	Debug, DispatchError, Perbill,
 };
@@ -236,7 +236,7 @@ impl Convert<Rank, Votes> for Unit {
 pub struct Linear;
 impl Convert<Rank, Votes> for Linear {
 	fn convert(r: Rank) -> Votes {
-		(r + 1) as Votes
+		Votes::from(r) + 1
 	}
 }
 
@@ -251,8 +251,9 @@ impl Convert<Rank, Votes> for Linear {
 pub struct Geometric;
 impl Convert<Rank, Votes> for Geometric {
 	fn convert(r: Rank) -> Votes {
-		let v = (r + 1) as Votes;
-		v * (v + 1) / 2
+		// `v * (v + 1)` exceeds `Votes` at high ranks; the halved result does not.
+		let v = u64::from(r) + 1;
+		(v * (v + 1) / 2).saturated_into()
 	}
 }
 

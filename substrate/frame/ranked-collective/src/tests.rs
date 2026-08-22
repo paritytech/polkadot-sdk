@@ -434,6 +434,29 @@ fn voting_works() {
 }
 
 #[test]
+fn vote_weight_of_max_excess_rank_works() {
+	// `65535 + 1` and `65536 * 65537 / 2`, both within `Votes`.
+	assert_eq!(Linear::convert(Rank::MAX), 65_536);
+	assert_eq!(Geometric::convert(Rank::MAX), 2_147_516_416);
+}
+
+#[test]
+fn voting_at_max_rank_works() {
+	// Not `build_and_execute`: `do_try_state` sums rank indexes in `u16` and cannot represent a
+	// member at `Rank::MAX`.
+	ExtBuilder::default().build().execute_with(|| {
+		// Class 0 has a minimum rank of 0, so the excess rank is the full `Rank::MAX`.
+		let mut polls = Polls::get();
+		polls.insert(4, Ongoing(Tally::from_parts(0, 0, 0), 0));
+		Polls::set(polls);
+
+		assert_ok!(Club::do_add_member_to_rank(1, Rank::MAX, false));
+		assert_ok!(Club::vote(RuntimeOrigin::signed(1), 4, true));
+		assert_eq!(tally(4), Tally::from_parts(1, 2_147_516_416, 0));
+	});
+}
+
+#[test]
 fn cleanup_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
