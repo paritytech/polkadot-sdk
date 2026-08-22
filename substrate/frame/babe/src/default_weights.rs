@@ -53,8 +53,8 @@ impl crate::WeightInfo for () {
 	}
 
 	fn authorize_report_equivocation(validator_count: u32) -> Weight {
-		// The authorize callback only checks the evidence. Reporting the offence stays in the
-		// dispatch, so this is `report_equivocation` without its offence reporting part.
+		// `check_evidence` checks the membership proof and whether the offence is already known.
+		// It does not verify the equivocation proof, which stays in the dispatch.
 		let validator_count = validator_count.max(100) as u64;
 
 		// checking membership proof
@@ -64,7 +64,7 @@ impl crate::WeightInfo for () {
 					.saturating_mul(validator_count),
 			)
 			.saturating_add(DbWeight::get().reads(5))
-			// check equivocation proof
-			.saturating_add(Weight::from_parts(110u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
+			// checking if the offence is already known
+			.saturating_add(DbWeight::get().reads(1))
 	}
 }
