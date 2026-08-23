@@ -129,8 +129,13 @@ struct Metrics {
 }
 
 impl Metrics {
-	fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {
+	fn register(
+		r: &Registry,
+		major_syncing: Arc<AtomicBool>,
+		num_connected: Arc<AtomicUsize>,
+	) -> Result<Self, PrometheusError> {
 		MajorSyncingGauge::register(r, major_syncing)?;
+		NumConnectedGauge::register(r, num_connected)?;
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;
@@ -178,6 +183,38 @@ impl MajorSyncingGauge {
 }
 
 impl MetricSource for MajorSyncingGauge {
+	type N = u64;
+
+	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
+		set(&[], self.0.load(Ordering::Relaxed) as u64);
+	}
+}
+
+/// The "number of connected peers" metric.
+///
+/// Moved here from `sc-network`, which had no business tracking a syncing-level number. The
+/// `substrate_sub_libp2p_` name is kept so existing dashboards and alerts keep resolving, the same
+/// way `substrate_sub_libp2p_is_major_syncing` above is kept.
+#[derive(Clone)]
+struct NumConnectedGauge(Arc<AtomicUsize>);
+
+impl NumConnectedGauge {
+	/// Registers the [`NumConnectedGauge`] metric whose value is
+	/// obtained from the given `AtomicUsize`.
+	fn register(registry: &Registry, value: Arc<AtomicUsize>) -> Result<(), PrometheusError> {
+		prometheus_endpoint::register(
+			SourcedGauge::new(
+				&Opts::new("substrate_sub_libp2p_peers_count", "Number of connected peers"),
+				NumConnectedGauge(value),
+			)?,
+			registry,
+		)?;
+
+		Ok(())
+	}
+}
+
+impl MetricSource for NumConnectedGauge {
 	type N = u64;
 
 	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
@@ -417,7 +454,7 @@ where
 				tick_timeout,
 				peer_store_handle,
 				metrics: if let Some(r) = metrics_registry {
-					match Metrics::register(r, is_major_syncing.clone()) {
+					match Metrics::register(r, is_major_syncing.clone(), num_connected.clone()) {
 						Ok(metrics) => Some(metrics),
 						Err(err) => {
 							log::error!(target: LOG_TARGET, "Failed to register metrics {err:?}");
@@ -1567,5 +1604,30 @@ mod tests {
 		assert!(connected_no_slot.is_empty());
 		assert_eq!(num_in, 8);
 		assert!(disconnects.is_empty());
+	}
+
+	/// The gauge moved here from `sc-network` must keep the name operators' dashboards resolve it
+	/// by, and must stay sourced from the engine's live peer counter rather than a snapshot.
+	#[test]
+	fn num_connected_gauge_tracks_the_shared_counter() {
+		let registry = Registry::new();
+		let num_connected = Arc::new(AtomicUsize::new(0));
+		NumConnectedGauge::register(&registry, num_connected.clone()).unwrap();
+
+		let peers_count = || {
+			registry
+				.gather()
+				.iter()
+				.find(|family| family.get_name() == "substrate_sub_libp2p_peers_count")
+				.map(|family| family.get_metric()[0].get_gauge().get_value())
+		};
+
+		assert_eq!(peers_count(), Some(0.0));
+
+		num_connected.store(3, Ordering::Relaxed);
+		assert_eq!(peers_count(), Some(3.0));
+
+		num_connected.store(0, Ordering::Relaxed);
+		assert_eq!(peers_count(), Some(0.0));
 	}
 }
