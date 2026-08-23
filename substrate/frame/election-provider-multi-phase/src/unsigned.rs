@@ -32,7 +32,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::{
-	offchain::{CreateBare, SubmitTransaction},
+	offchain::{CreateAuthorizedTransaction, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 use scale_info::TypeInfo;
@@ -193,7 +193,7 @@ fn ocw_solution_exists<T: Config>() -> bool {
 	matches!(StorageValueRef::persistent(OFFCHAIN_CACHED_CALL).get::<Call<T>>(), Ok(Some(_)))
 }
 
-impl<T: Config + CreateBare<Call<T>>> Pallet<T> {
+impl<T: Config + CreateAuthorizedTransaction<Call<T>>> Pallet<T> {
 	/// Mine a new npos solution.
 	///
 	/// The Npos Solver type, `S`, must have the same AccountId and Error type as the
@@ -262,7 +262,7 @@ impl<T: Config + CreateBare<Call<T>>> Pallet<T> {
 		Self::submit_call(call)
 	}
 
-	/// Mine a new solution, cache it, and submit it back to the chain as an unsigned transaction.
+	/// Mine a new solution, cache it, and submit it back to the chain as an authorized transaction.
 	pub fn mine_check_save_submit() -> Result<(), MinerError> {
 		log!(debug, "miner attempting to compute an unsigned solution.");
 
@@ -291,9 +291,9 @@ impl<T: Config + CreateBare<Call<T>>> Pallet<T> {
 	}
 
 	fn submit_call(call: Call<T>) -> Result<(), MinerError> {
-		log!(debug, "miner submitting a solution as an unsigned transaction");
+		log!(debug, "miner submitting a solution as an authorized transaction");
 
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|_| MinerError::PoolSubmissionFailed)
 	}
@@ -1101,34 +1101,34 @@ mod tests {
 			UnsignedPhase,
 		},
 		Event, InvalidTransaction, Phase, QueuedSolution, TransactionSource,
-		TransactionValidityError,
 	};
 	use alloc::vec;
 	use codec::Decode;
 	use frame_election_provider_support::IndexAssignment;
-	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};
+	use frame_support::{
+		assert_noop, assert_ok,
+		traits::{Authorize, OffchainWorker},
+	};
+	use frame_system::RawOrigin;
 	use sp_npos_elections::ElectionScore;
 	use sp_runtime::{
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
 		traits::{Dispatchable, Zero},
+		transaction_validity::TransactionValidityError,
 		ModuleError, PerU16,
 	};
-
-	#[allow(deprecated)]
-	use sp_runtime::traits::ValidateUnsigned;
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
 
 	#[test]
-	#[allow(deprecated)]
-	fn validate_unsigned_retracts_wrong_phase() {
+	fn authorize_retracts_wrong_phase() {
 		ExtBuilder::default().desired_targets(0).build_and_execute(|| {
 			let solution = RawSolution::<TestNposSolution> {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
 				..Default::default()
 			};
-			let call = Call::submit_unsigned {
+			let call = Call::<Runtime>::submit_unsigned {
 				raw_solution: Box::new(solution.clone()),
 				witness: witness(),
 			};
@@ -1136,15 +1136,11 @@ mod tests {
 			// initial
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
+				call.authorize(TransactionSource::InBlock).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 
@@ -1152,15 +1148,11 @@ mod tests {
 			roll_to_signed();
 			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Signed);
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
+				call.authorize(TransactionSource::InBlock).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 
@@ -1168,34 +1160,25 @@ mod tests {
 			roll_to_unsigned();
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 
-			assert!(<MultiPhase as ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call
-			)
-			.is_ok());
-			assert!(<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).is_ok());
+			assert!(call.authorize(TransactionSource::Local).unwrap().is_ok());
+			assert!(call.authorize(TransactionSource::InBlock).unwrap().is_ok());
 
 			// unsigned -- but not enabled.
 			MultiPhase::phase_transition(Phase::Unsigned((false, 25)));
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
+				call.authorize(TransactionSource::InBlock).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 		})
 	}
 
 	#[test]
-	#[allow(deprecated)]
-	fn validate_unsigned_retracts_low_score() {
+	fn authorize_retracts_low_score() {
 		ExtBuilder::default().desired_targets(0).build_and_execute(|| {
 			roll_to_unsigned();
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
@@ -1204,18 +1187,14 @@ mod tests {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
 				..Default::default()
 			};
-			let call = Call::submit_unsigned {
+			let call = Call::<Runtime>::submit_unsigned {
 				raw_solution: Box::new(solution.clone()),
 				witness: witness(),
 			};
 
 			// initial
-			assert!(<MultiPhase as ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call
-			)
-			.is_ok());
-			assert!(<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).is_ok());
+			assert!(call.authorize(TransactionSource::Local).unwrap().is_ok());
+			assert!(call.authorize(TransactionSource::InBlock).unwrap().is_ok());
 
 			// set a better score
 			let ready = ReadySolution {
@@ -1226,23 +1205,18 @@ mod tests {
 
 			// won't work anymore.
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(2))
 			));
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
+				call.authorize(TransactionSource::InBlock).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(2))
 			));
 		})
 	}
 
 	#[test]
-	#[allow(deprecated)]
-	fn validate_unsigned_retracts_incorrect_winner_count() {
+	fn authorize_retracts_incorrect_winner_count() {
 		ExtBuilder::default().desired_targets(1).build_and_execute(|| {
 			roll_to_unsigned();
 			assert!(CurrentPhase::<Runtime>::get().is_unsigned());
@@ -1251,24 +1225,21 @@ mod tests {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
 				..Default::default()
 			};
-			let call =
-				Call::submit_unsigned { raw_solution: Box::new(raw.clone()), witness: witness() };
+			let call = Call::<Runtime>::submit_unsigned {
+				raw_solution: Box::new(raw.clone()),
+				witness: witness(),
+			};
 			assert_eq!(raw.solution.unique_targets().len(), 0);
 
 			// won't work anymore.
 			assert!(matches!(
-				<MultiPhase as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
 			));
 		})
 	}
 
 	#[test]
-	#[allow(deprecated)]
 	fn priority_is_set() {
 		ExtBuilder::default()
 			.miner_tx_priority(20)
@@ -1281,18 +1252,13 @@ mod tests {
 					score: ElectionScore { minimal_stake: 5, ..Default::default() },
 					..Default::default()
 				};
-				let call = Call::submit_unsigned {
+				let call = Call::<Runtime>::submit_unsigned {
 					raw_solution: Box::new(solution.clone()),
 					witness: witness(),
 				};
 
 				assert_eq!(
-					<MultiPhase as ValidateUnsigned>::validate_unsigned(
-						TransactionSource::Local,
-						&call
-					)
-					.unwrap()
-					.priority,
+					call.authorize(TransactionSource::Local).unwrap().unwrap().0.priority,
 					25
 				);
 			})
@@ -1313,12 +1279,12 @@ mod tests {
 				score: ElectionScore { minimal_stake: 5, ..Default::default() },
 				..Default::default()
 			};
-			let call = Call::submit_unsigned {
+			let call = Call::<Runtime>::submit_unsigned {
 				raw_solution: Box::new(solution.clone()),
 				witness: witness(),
 			};
 			let runtime_call: RuntimeCall = call.into();
-			let _ = runtime_call.dispatch(RuntimeOrigin::none());
+			let _ = runtime_call.dispatch(RuntimeOrigin::from(RawOrigin::Authorized));
 		})
 	}
 
@@ -1339,12 +1305,12 @@ mod tests {
 			let mut correct_witness = witness();
 			correct_witness.voters += 1;
 			correct_witness.targets -= 1;
-			let call = Call::submit_unsigned {
+			let call = Call::<Runtime>::submit_unsigned {
 				raw_solution: Box::new(solution.clone()),
 				witness: correct_witness,
 			};
 			let runtime_call: RuntimeCall = call.into();
-			let _ = runtime_call.dispatch(RuntimeOrigin::none());
+			let _ = runtime_call.dispatch(RuntimeOrigin::from(RawOrigin::Authorized));
 		})
 	}
 
@@ -1364,7 +1330,7 @@ mod tests {
 			// ensure this solution is valid.
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(solution),
 				witness
 			));
@@ -1487,7 +1453,7 @@ mod tests {
 				let solution = RawSolution { solution: raw, score, round: Round::<Runtime>::get() };
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::from(RawOrigin::Authorized),
 					Box::new(solution),
 					witness
 				));
@@ -1572,7 +1538,7 @@ mod tests {
 				// this should work
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::from(RawOrigin::Authorized),
 					Box::new(solution),
 					witness
 				));
@@ -1605,7 +1571,7 @@ mod tests {
 				// and it is fine
 				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
 				assert_ok!(MultiPhase::submit_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::from(RawOrigin::Authorized),
 					Box::new(solution),
 					witness
 				));
@@ -1914,7 +1880,6 @@ mod tests {
 	}
 
 	#[test]
-	#[allow(deprecated)]
 	fn ocw_solution_must_have_correct_round() {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
@@ -1935,15 +1900,11 @@ mod tests {
 			let pre_dispatch_check_error =
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(7));
 			assert_eq!(
-				<MultiPhase as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call,
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				pre_dispatch_check_error,
 			);
 			assert_eq!(
-				<MultiPhase as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
+				call.authorize(TransactionSource::InBlock).unwrap().unwrap_err(),
 				pre_dispatch_check_error,
 			);
 		})

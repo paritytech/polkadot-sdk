@@ -61,7 +61,8 @@ pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
 
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
-type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+type TxExtension = frame_system::AuthorizeCall<Runtime>;
+type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, TxExtension>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {
@@ -353,12 +354,23 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		Extrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		TxExtension::new()
 	}
 }
 
