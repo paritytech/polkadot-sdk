@@ -1,0 +1,11 @@
+title: 'pallet-conviction-voting: make Tally::add and Tally::remove atomic'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Tally::add` and `Tally::remove` assigned each field as it was computed, so a `checked_add` or
+    `checked_sub` that failed part way through returned `None` with `support`, and sometimes `ayes`,
+    already modified. Both now compute all three fields before assigning any of them, leaving the
+    tally untouched when they return `None`.
+crates:
+- name: pallet-conviction-voting
+  bump: patch
