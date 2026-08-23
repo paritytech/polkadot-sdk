@@ -1089,3 +1089,60 @@ fn empty_tally_approval_is_zero() {
 		);
 	});
 }
+
+type TestTally = Tally<u64, <Test as Config>::MaxTurnout>;
+
+#[test]
+fn failed_tally_add_leaves_tally_unchanged() {
+	// `ayes` overflows once `support` has been added.
+	let mut tally = TestTally::from_parts(u64::MAX, 0, 0);
+	let before = tally.clone();
+	assert_eq!(tally.add(aye(10, 1)), None);
+	assert_eq!(tally, before);
+
+	// `nays` overflows once `support` and `ayes` have been added.
+	let mut tally = TestTally::from_parts(0, u64::MAX, 0);
+	let before = tally.clone();
+	assert_eq!(tally.add(split(10, 10)), None);
+	assert_eq!(tally, before);
+
+	let mut tally = TestTally::from_parts(0, u64::MAX, 0);
+	let before = tally.clone();
+	assert_eq!(tally.add(split_abstain(10, 10, 10)), None);
+	assert_eq!(tally, before);
+}
+
+#[test]
+fn failed_tally_remove_leaves_tally_unchanged() {
+	// `ayes` underflows once `support` has been subtracted.
+	let mut tally = TestTally::from_parts(0, 0, 100);
+	let before = tally.clone();
+	assert_eq!(tally.remove(aye(10, 1)), None);
+	assert_eq!(tally, before);
+
+	// `nays` underflows once `support` and `ayes` have been subtracted.
+	let mut tally = TestTally::from_parts(10, 0, 100);
+	let before = tally.clone();
+	assert_eq!(tally.remove(split(10, 10)), None);
+	assert_eq!(tally, before);
+
+	let mut tally = TestTally::from_parts(10, 0, 100);
+	let before = tally.clone();
+	assert_eq!(tally.remove(split_abstain(10, 10, 10)), None);
+	assert_eq!(tally, before);
+}
+
+#[test]
+fn vote_on_overflowing_tally_changes_nothing() {
+	new_test_ext().execute_with(|| {
+		let mut polls = Polls::get();
+		polls.insert(3, Ongoing(Tally::from_parts(u64::MAX, 0, 0), 0));
+		Polls::set(polls);
+
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)),
+			ArithmeticError::Overflow
+		);
+		assert_eq!(tally(3), Tally::from_parts(u64::MAX, 0, 0));
+	});
+}
