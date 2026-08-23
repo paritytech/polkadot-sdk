@@ -753,7 +753,9 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 						call @ Call::submit_unsigned { .. },
 					) => {
 						// call submit_unsigned callable in OCW pool.
-						crate::assert_ok!(call.dispatch_bypass_filter(RuntimeOrigin::none()));
+						crate::assert_ok!(call.dispatch_bypass_filter(RuntimeOrigin::from(
+							frame_system::RawOrigin::Authorized,
+						)));
 					},
 					_ => (),
 				};
