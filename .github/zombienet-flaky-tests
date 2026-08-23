@@ -6,3 +6,7 @@ zombienet-substrate-0002-validators-warp-sync:8871
 zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:8999
 zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:9980
 zombienet-polkadot-collators-basic-reputation-persistence:11491
+zombienet-polkadot-scheduling-v2-and-v3-collator-with-v3-validators:12871
+zombienet-cumulus-0014-elastic_scaling_upgrade_to_3_cores:12871
+zombienet-cumulus-0021-block_bundling_runtime_upgrade:12871
+zombienet-cumulus-0027-statement_store_recovery_after_major_sync:12871
