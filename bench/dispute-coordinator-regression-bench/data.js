@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787336555644,
+  "lastUpdate": 1787499078246,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "11be995be95ac1e25a5b2a6dd941006e7097bffc",
-          "message": "remote-externalities: Support downloading from multiple RPC servers in parallel + major refactoring (#10779)\n\nThis is a major refactoring of `remote-externalities` to improve the\ndownload speed of the state of chain. This is mainly achieved by\ndownload keys + values from multiple RPC servers in parallel. Also the\nkey downloading is done more smartly by dividing downloaded key ranges\ndynamically, instead of having fixed number of key ranges at startup.\n\nBesides this it does a lot more refactoring + clean ups.\n\nAll in all this brings down the download time for PAH from 2h+ to 15min\nwith ~5 RPC servers.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-19T21:20:29Z",
-          "tree_id": "7be942a563d8d5472a48c1744d3921a3b1524e0d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/11be995be95ac1e25a5b2a6dd941006e7097bffc"
-        },
-        "date": 1768861769630,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0028000726,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006758251710000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009369932349999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009745151159999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53d20eb4f2403e1ed1485e3a7281a81cd4b37a60",
+          "message": "[zombienet] require cumulus/polkadot workflows again and disable flaky tests (#12944)\n\nfollow up of #12871\n[comment](https://github.com/paritytech/polkadot-sdk/issues/12871#issuecomment-5285883401)\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
+          "timestamp": "2026-08-23T14:02:42Z",
+          "tree_id": "d56b6ce93fe2ab4d604c13d72b917a87a084df81",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53d20eb4f2403e1ed1485e3a7281a81cd4b37a60"
+        },
+        "date": 1787499044798,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009902574029999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011228556509999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00260928822,
             "unit": "seconds"
           }
         ]
