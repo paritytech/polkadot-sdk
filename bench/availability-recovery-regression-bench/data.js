@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787336388533,
+  "lastUpdate": 1787498910433,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "841c77b967af6ba4f2bb70e1d3fad70e5749dc61",
-          "message": "Migrate pallet-example-offchain-worker to TransactionExtension API (#10716)\n\n## Summary\n\nPart of #2415\n\nThis PR is a focused extraction from the larger PR #10150, specifically\nmigrating only `pallet-example-offchain-worker` to use the modern\n`TransactionExtension` API.\n\n## Changes\n\nThis PR migrates `pallet-example-offchain-worker` from the deprecated\n`ValidateUnsigned` trait to the `TransactionExtension` API using the\n`#[pallet::authorize]` attribute.",
-          "timestamp": "2026-01-21T07:54:49Z",
-          "tree_id": "fc6c9fa3a67ef038039a680458f7a8d27e6c4ec1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/841c77b967af6ba4f2bb70e1d3fad70e5749dc61"
-        },
-        "date": 1768986551777,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1241298645,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.156883916733333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14355520586666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53d20eb4f2403e1ed1485e3a7281a81cd4b37a60",
+          "message": "[zombienet] require cumulus/polkadot workflows again and disable flaky tests (#12944)\n\nfollow up of #12871\n[comment](https://github.com/paritytech/polkadot-sdk/issues/12871#issuecomment-5285883401)\n\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>",
+          "timestamp": "2026-08-23T14:02:42Z",
+          "tree_id": "d56b6ce93fe2ab4d604c13d72b917a87a084df81",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/53d20eb4f2403e1ed1485e3a7281a81cd4b37a60"
+        },
+        "date": 1787498876791,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.776705860500002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14536370096666665,
             "unit": "seconds"
           }
         ]
