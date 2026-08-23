@@ -149,12 +149,6 @@ impl Warmth {
 		matches!(self, Self::Hot(_))
 	}
 
-	/// Whether the access billed cold: the entry was not tracked.
-	#[cfg(test)]
-	pub(crate) fn is_cold(&self) -> bool {
-		matches!(self, Self::Cold { .. })
-	}
-
 	/// Returns this warmth with a cold touch made non-revertible.
 	pub fn to_non_revertible(self) -> Self {
 		match self {
@@ -508,7 +502,7 @@ mod tests {
 			Warmth::Cold { revertible: false },
 			"A: first touch cold"
 		);
-		assert!(!al.touch(a.clone(), StorageOp::Read).is_cold(), "A: second touch hot");
+		assert!(al.touch(a.clone(), StorageOp::Read).is_hot(), "A: second touch hot");
 
 		al.enter_frame();
 		assert_eq!(al.frame_depth(), 1);
@@ -519,16 +513,16 @@ mod tests {
 			Warmth::Cold { revertible: true },
 			"B in F1: cold"
 		);
-		assert!(!al.touch(a.clone(), StorageOp::Read).is_cold(), "A in F1: hot via parent");
+		assert!(al.touch(a.clone(), StorageOp::Read).is_hot(), "A in F1: hot via parent");
 
 		al.enter_frame();
-		assert!(al.touch(c.clone(), StorageOp::Read).is_cold(), "C in F2: cold");
+		assert!(!al.touch(c.clone(), StorageOp::Read).is_hot(), "C in F2: cold");
 
 		al.commit_frame();
 		assert_eq!(al.frame_depth(), 1);
 		assert!(al.peek(&c).is_hot(), "C: survives frame 2 commit");
 
-		assert!(al.touch(d.clone(), StorageOp::Read).is_cold(), "D in F1: cold");
+		assert!(!al.touch(d.clone(), StorageOp::Read).is_hot(), "D in F1: cold");
 		assert_eq!(al.metrics().size, 4);
 
 		al.rollback_frame();
@@ -556,7 +550,7 @@ mod tests {
 		for i in 0..entries {
 			let address = H160::from_low_u64_be(i as u64);
 			let entry = AccessEntry::Storage { address, slot: Slot::Fix([0; 32]) };
-			assert!(al.touch(entry, StorageOp::Read).is_cold(), "fill entries must be new");
+			assert!(!al.touch(entry, StorageOp::Read).is_hot(), "fill entries must be new");
 		}
 		assert_eq!(al.metrics().size, entries, "map filled to the requested size");
 	}
@@ -578,16 +572,16 @@ mod tests {
 		);
 		al.commit_frame();
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES, "map size stays at cap");
-		assert!(al.peek(&new_entry).is_cold(), "past-cap entry is not tracked");
+		assert!(!al.peek(&new_entry).is_hot(), "past-cap entry is not tracked");
 
 		assert!(
-			al.touch(new_entry, StorageOp::Read).is_cold(),
+			!al.touch(new_entry, StorageOp::Read).is_hot(),
 			"past cap re-touch: still cold (not tracked)"
 		);
 
 		let existing = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([0; 32]) };
 		assert!(
-			!al.touch(existing.clone(), StorageOp::Read).is_cold(),
+			al.touch(existing.clone(), StorageOp::Read).is_hot(),
 			"existing entry still hot at cap"
 		);
 
@@ -642,7 +636,7 @@ mod tests {
 		let read_paid = Warmth::Hot(Paid::Read);
 		let write_paid = Warmth::Hot(Paid::Write);
 
-		assert!(al.touch(entry.clone(), StorageOp::Read).is_cold(), "first read: cold");
+		assert!(!al.touch(entry.clone(), StorageOp::Read).is_hot(), "first read: cold");
 		assert_eq!(al.touch(entry.clone(), StorageOp::Read), read_paid, "read after read");
 		assert_eq!(
 			al.touch(entry.clone(), StorageOp::Write),
@@ -658,7 +652,7 @@ mod tests {
 		);
 
 		let written = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([3; 32]) };
-		assert!(al.touch(written.clone(), StorageOp::Write).is_cold(), "first write: cold");
+		assert!(!al.touch(written.clone(), StorageOp::Write).is_hot(), "first write: cold");
 		assert_eq!(al.touch(written, StorageOp::Write), write_paid, "cold write starts at Write");
 	}
 
@@ -763,6 +757,6 @@ mod tests {
 		al.touch(entry.clone(), StorageOp::Read);
 		al.touch(entry.clone(), StorageOp::Write);
 		al.rollback_frame();
-		assert!(al.peek(&entry).is_cold(), "the entry and its upgrade are both gone");
+		assert!(!al.peek(&entry).is_hot(), "the entry and its upgrade are both gone");
 	}
 }

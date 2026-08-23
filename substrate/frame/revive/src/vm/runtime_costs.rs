@@ -285,17 +285,16 @@ pub(crate) fn weight_by_warmth<T: Config>(
 	cold: impl FnOnce() -> Weight,
 	hot: impl FnOnce() -> Weight,
 ) -> Weight {
-	// An empty slice prices cold.
-	let operation_weight =
-		if !item_warmths.is_empty() && item_warmths.iter().all(|warmth| warmth.is_hot()) {
-			// One overlay lookup per item, since each stands for one state read.
-			hot().saturating_add(
-				RuntimeCosts::hot_storage_overlay_overhead::<T>()
-					.saturating_mul(item_warmths.len() as u64),
-			)
-		} else {
-			cold()
-		};
+	debug_assert!(!item_warmths.is_empty(), "an access reads at least one state item");
+	let operation_weight = if item_warmths.iter().all(|warmth| warmth.is_hot()) {
+		// One overlay lookup per item, since each stands for one state read.
+		hot().saturating_add(
+			RuntimeCosts::hot_storage_overlay_overhead::<T>()
+				.saturating_mul(item_warmths.len() as u64),
+		)
+	} else {
+		cold()
+	};
 	item_warmths.iter().fold(operation_weight, |weight, warmth| {
 		weight.saturating_add(RuntimeCosts::access_list_overhead::<T>(*warmth))
 	})

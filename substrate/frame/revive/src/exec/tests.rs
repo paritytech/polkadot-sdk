@@ -3481,14 +3481,7 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 	let recurse_ch = MockLoader::insert(Call, |ctx, _| {
 		// Recurse into self until the depth limit denies the call.
-		let r = ctx.ext.call(
-			&Default::default(),
-			&BOB_ADDR,
-			U256::zero(),
-			vec![],
-			ReentrancyProtection::AllowReentry,
-			false,
-		);
+		let r = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
 
 		ReachedBottom::mutate(|reached_bottom| {
 			if *reached_bottom {
@@ -3514,14 +3507,7 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 			);
 
 			assert_eq!(
-				ctx.ext.call(
-					&Default::default(),
-					&DJANGO_ADDR,
-					U256::zero(),
-					vec![],
-					ReentrancyProtection::AllowReentry,
-					false,
-				),
+				run_child_call(ctx.ext, &DJANGO_ADDR, vec![]),
 				Err(Error::<Test>::MaxCallDepthReached.into()),
 				"call at max depth is denied",
 			);
@@ -3581,17 +3567,7 @@ fn cold_hot_delegate_call_leaves_target_account_cold() {
 		);
 		assert_eq!(after_delegate.hot, before.hot, "delegate call adds no hot touches");
 
-		assert_matches!(
-			ctx.ext.call(
-				&Default::default(),
-				&BOB_ADDR,
-				U256::zero(),
-				vec![],
-				ReentrancyProtection::AllowReentry,
-				false,
-			),
-			Ok(_)
-		);
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		assert_eq!(
 			ctx.ext.access_list_metrics().cold - after_delegate.cold,
 			1,
@@ -3826,14 +3802,7 @@ fn cold_hot_code_paid_level_matches_the_operation() {
 fn cold_hot_failed_code_load_leaves_code_cold() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let before = ctx.ext.access_list_metrics();
-		let r = ctx.ext.call(
-			&Default::default(),
-			&DJANGO_ADDR,
-			U256::zero(),
-			vec![],
-			ReentrancyProtection::AllowReentry,
-			false,
-		);
+		let r = run_child_call(ctx.ext, &DJANGO_ADDR, vec![]);
 		assert_eq!(
 			r,
 			Err(Error::<Test>::CodeNotFound.into()),

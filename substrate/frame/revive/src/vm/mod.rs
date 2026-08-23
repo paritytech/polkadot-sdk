@@ -144,33 +144,36 @@ impl<T: Config> Token<T> for CodeLoadToken {
 		let len_weight_of =
 			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
 
-		let load_weight = runtime_costs::weight_by_warmth::<T>(
-			&[self.warmth.info, self.warmth.blob],
-			|| {
-				// Charge code_load since the call and instantiate benches whitelist the code
-				// reads. This overlaps their ref_time, so it slightly overcharges.
-				T::WeightInfo::code_load().saturating_add(match self.code_type {
-					BytecodeType::Pvm => len_weight_of(T::WeightInfo::call_with_pvm_code_per_byte),
-					BytecodeType::Evm => len_weight_of(T::WeightInfo::call_with_evm_code_per_byte),
-				})
-			},
-			|| match self.code_type {
-				BytecodeType::Pvm => len_weight_of(T::WeightInfo::call_with_pvm_code_per_byte_hot),
-				BytecodeType::Evm => len_weight_of(T::WeightInfo::call_with_evm_code_per_byte_hot),
-			},
-		);
-
-		let weight = match self.code_type {
-			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
-			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
-			// instructions here. Let's consider this as a safety margin.
-			BytecodeType::Pvm => load_weight.saturating_add(
+		// Everything that depends on the bytecode type, chosen once: the cold and
+		// hot per-byte weight functions, and the PVM-only compilation term.
+		let (per_byte, per_byte_hot, compilation) = match self.code_type {
+			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so
+			// the compilation term drops its proof. It double-charges the first
+			// BASIC_BLOCK_SIZE instructions; we keep that as a safety margin.
+			BytecodeType::Pvm => (
+				T::WeightInfo::call_with_pvm_code_per_byte as fn(u32) -> Weight,
+				T::WeightInfo::call_with_pvm_code_per_byte_hot as fn(u32) -> Weight,
 				T::WeightInfo::basic_block_compilation(1)
 					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
 					.set_proof_size(0),
 			),
-			BytecodeType::Evm => load_weight,
+			BytecodeType::Evm => (
+				T::WeightInfo::call_with_evm_code_per_byte as fn(u32) -> Weight,
+				T::WeightInfo::call_with_evm_code_per_byte_hot as fn(u32) -> Weight,
+				Weight::zero(),
+			),
 		};
+
+		let weight = runtime_costs::weight_by_warmth::<T>(
+			&[self.warmth.info, self.warmth.blob],
+			|| {
+				// Charge code_load since the call and instantiate benches whitelist the code
+				// reads. This overlaps their ref_time, so it slightly overcharges.
+				T::WeightInfo::code_load().saturating_add(len_weight_of(per_byte))
+			},
+			|| len_weight_of(per_byte_hot),
+		)
+		.saturating_add(compilation);
 		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
 		// whitelist. Its trie walk is already paid by this load's read, so add only
 		// the missing part of a write.

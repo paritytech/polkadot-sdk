@@ -1114,8 +1114,17 @@ where
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 				let code_info_op = StorageOp::Read;
 
+				// Mock handlers exist only in tests: resolve a mocked
+				// delegate before warming, so estimation warms the real target.
+				let delegated_call = delegated_call.or_else(|| {
+					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
+						mock_handler.mock_delegated_caller(address, input_data)
+					})
+				});
+
 				// Precompiles don't use cold/hot pricing, so they're not warmed.
 				// Even a plain account reads its AccountInfo, so it's safe to warm here.
+				let mut delegate_precompile = None;
 				match &delegated_call {
 					None => {
 						if precompile.is_none() {
@@ -1126,12 +1135,13 @@ where
 						}
 					},
 					Some(delegated) => {
-						let delegate_precompile =
+						let found =
 							<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes());
-						if delegate_precompile.is_none() {
+						if found.is_none() {
 							access_list
 								.warm(StateAccess::DelegateCall { target: delegated.callee });
 						}
+						delegate_precompile = Some(found);
 					},
 				}
 
@@ -1158,16 +1168,11 @@ where
 					(None, Some(_)) => CachedContract::None,
 				};
 
-				let delegated_call = delegated_call.or_else(|| {
-					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
-						mock_handler.mock_delegated_caller(address, input_data)
-					})
-				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
-					if let Some(precompile) =
-						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
-					{
+					let scanned = delegate_precompile
+						.expect("every delegate went through the scan above; qed");
+					if let Some(precompile) = scanned {
 						ExecutableOrPrecompile::Precompile {
 							instance: precompile,
 							_phantom: Default::default(),
@@ -1982,7 +1987,7 @@ where
 			.warm(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
 	}
 
-	/// Returns the access-list metrics.
+	/// Peeks the warmth of a code hash's metadata and blob entries.
 	#[cfg(test)]
 	pub(crate) fn code_load_warmth(&self, code_hash: H256) -> CodeLoadWarmth {
 		self.access_list

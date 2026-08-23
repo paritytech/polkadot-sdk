@@ -204,9 +204,11 @@ mod benchmarks {
 		($do_call:ident, $module:expr) => {
 			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len, $module, false);
 			let mut $do_call = || {
+				// Same flags as the cold `seal_call` bench, so the pair differs
+				// only in warmth.
 				runtime.bench_call(
 					memory.as_mut_slice(),
-					pack_hi_lo(0, 0),                                 // flags + callee_ptr
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0),     // flags + callee_ptr
 					u64::MAX,                                         // ref_time_limit
 					u64::MAX,                                         // proof_size_limit
 					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_ptr
