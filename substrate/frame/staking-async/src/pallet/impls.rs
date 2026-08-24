@@ -804,6 +804,9 @@ impl<T: Config> Pallet<T> {
 			let start = match VestingEpochStartBlocks::<T>::get(bonding_period) {
 				Some(s) => s,
 				None => {
+					// This applies only to eras prior to the enablement of validator vesting and
+					// where the start era was never seeded; the insert pins the block to allow
+					// all validators that claim this era to merge their vesting schedules.
 					let now = T::VestingBlockNumberProvider::current_block_number();
 					VestingEpochStartBlocks::<T>::insert(bonding_period, now);
 					now
@@ -824,12 +827,12 @@ impl<T: Config> Pallet<T> {
 			start_at,
 			duration,
 		) {
-			Ok(()) => {
+			Ok(transferred) => {
 				Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
 					era,
 					validator_stash: stash.clone(),
 					dest,
-					amount,
+					amount: transferred,
 				});
 			},
 			Err(e) => {

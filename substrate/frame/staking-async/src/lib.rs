@@ -731,7 +731,7 @@ pub trait ValidatorIncentivePayout<AccountId, Balance, BlockNumber> {
 		amount: Balance,
 		start_at: BlockNumber,
 		duration: BlockNumber,
-	) -> sp_runtime::DispatchResult;
+	) -> Result<Balance, sp_runtime::DispatchError>;
 }
 
 /// Liquid payout adapter — funds arrive immediately with no vesting lock.
@@ -751,8 +751,8 @@ where
 		amount: Balance,
 		_start_at: BlockNumber,
 		_duration: BlockNumber,
-	) -> sp_runtime::DispatchResult {
-		C::transfer(source, dest, amount, Preservation::Expendable).map(|_| ())
+	) -> Result<Balance, sp_runtime::DispatchError> {
+		C::transfer(source, dest, amount, Preservation::Expendable)
 	}
 }
 
@@ -774,7 +774,7 @@ where
 		amount: Balance,
 		start_at: BlockNumber,
 		duration: BlockNumber,
-	) -> sp_runtime::DispatchResult {
+	) -> Result<Balance, sp_runtime::DispatchError> {
 		if duration.is_zero() {
 			// Duration should never be 0. Liquid mode should use LiquidIncentivePayout instead.
 			return Err(sp_runtime::DispatchError::Other(
@@ -782,8 +782,8 @@ where
 			));
 		}
 
-		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System).or_else(
-			|e| match e {
+		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System)
+			.or_else(|e| match e {
 				VestedPayoutError::NoCapacity => V::merge_amount_into_closest_schedule(
 					source,
 					dest,
@@ -793,8 +793,8 @@ where
 					VestingKind::System,
 				),
 				VestedPayoutError::Other(e) => Err(e),
-			},
-		)
+			})
+			.map(|()| amount)
 	}
 }
 

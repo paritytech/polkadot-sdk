@@ -332,10 +332,14 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		// verification
 		use crate::PruningStep::*;
 
+		// Seed a VestingEpochStartBlocks entry for period 0 (eras 0–2 with BondingDuration=3).
+		// This lets SingleEntryCleanups verify the entry survives pruning of era 1 (mid-period).
+		crate::VestingEpochStartBlocks::<Test>::insert(0u32, 42u64);
+
 		// Process each pruning step in the exact order defined by the implementation
 		// Each step should clean its specific storage and transition to the next step
 
-		// Process each pruning step, potentially with multiple calls due to item limits
+		// Process each pruning step, potentially with multiple calls due to weight limits
 		let steps_order = [
 			ErasStakersPaged,
 			ErasStakersOverview,
@@ -444,6 +448,12 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 					assert!(
 						!crate::ErasSumValidatorIncentiveWeight::<T>::contains_key(1),
 						"ErasSumValidatorIncentiveWeight should be empty after completing SingleEntryCleanups step"
+					);
+					// Era 1 is in bonding period 0 (BondingDuration=3, eras {0,1,2}). Period 0's
+					// entry must NOT be removed yet — era 2 is the last era of that period.
+					assert!(
+						crate::VestingEpochStartBlocks::<T>::contains_key(0u32),
+						"VestingEpochStartBlocks[0] must be retained: era 1 is not the last era of period 0"
 					);
 				},
 				ValidatorSlashInEra => assert_eq!(
@@ -704,5 +714,41 @@ fn dap_era_with_zero_rewards_still_sets_guard() {
 		// THEN: guard records this era so future payouts route via DAP.
 		assert_eq!(ErasValidatorReward::<Test>::get(1), Some(0));
 		assert_eq!(DisableMintingGuard::<Test>::get(), Some(1));
+	});
+}
+
+#[test]
+fn vesting_epoch_start_blocks_pruned_lazily_at_period_boundary() {
+	// With BondingDuration=3, period 0 covers eras {0,1,2}. Pruning eras 0 or 1 must leave
+	// the entry intact; pruning era 2 (the last) must remove it.
+	use crate::PruningStep::*;
+	ExtBuilder::default().build_and_execute(|| {
+		Session::roll_until_active_era(HistoryDepth::get() + 5);
+
+		let _ = crate::VestingEpochStartBlocks::<Test>::clear(u32::MAX, None);
+		crate::VestingEpochStartBlocks::<Test>::insert(0u32, 42u64);
+
+		let origin = RuntimeOrigin::signed(99);
+
+		EraPruningState::<Test>::insert(0, SingleEntryCleanups);
+		let _ = Staking::prune_era_step(origin.clone(), 0);
+		assert!(
+			crate::VestingEpochStartBlocks::<Test>::contains_key(0u32),
+			"era 0: not last in period, must survive"
+		);
+
+		EraPruningState::<Test>::insert(1, SingleEntryCleanups);
+		let _ = Staking::prune_era_step(origin.clone(), 1);
+		assert!(
+			crate::VestingEpochStartBlocks::<Test>::contains_key(0u32),
+			"era 1: not last in period, must survive"
+		);
+
+		EraPruningState::<Test>::insert(2, SingleEntryCleanups);
+		let _ = Staking::prune_era_step(origin.clone(), 2);
+		assert!(
+			!crate::VestingEpochStartBlocks::<Test>::contains_key(0u32),
+			"era 2: last in period, must be removed"
+		);
 	});
 }

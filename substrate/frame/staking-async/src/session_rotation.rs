@@ -874,31 +874,18 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
-		// Snapshot the vesting epoch start block, keyed by bonding-period index. A new entry
-		// is written on the first era after the pallet is configured with vesting enabled
-		// (when no entries exist yet) and at every bonding-duration boundary thereafter.
-		// Entries older than HistoryDepth are pruned.
+		// Snapshot the vesting epoch start block, keyed by bonding-period index. Written once
+		// per bonding period (including mid-period on first enable). Stale entries are removed
+		// lazily via the SingleEntryCleanups pruning step.
 		let bonding_duration = T::BondingDuration::get();
 
 		if bonding_duration != 0 && T::VestingBondingPeriods::get() > 0 {
-			let now = T::VestingBlockNumberProvider::current_block_number();
 			let bonding_period = starting_era / bonding_duration;
-			let is_first_seed = VestingEpochStartBlocks::<T>::iter_keys().next().is_none();
-
-			if is_first_seed || starting_era.is_multiple_of(bonding_duration) {
-				// Set the current block as the start of the current vesting epoch.
-				VestingEpochStartBlocks::<T>::insert(bonding_period, now);
-
-				// Prune any window whose final era is already past HistoryDepth.
-				let oldest_kept = starting_era
-					.saturating_sub(T::HistoryDepth::get())
-					.checked_div(bonding_duration)
-					.unwrap_or(0);
-				VestingEpochStartBlocks::<T>::iter_keys()
-					.filter(|k| *k < oldest_kept)
-					.collect::<Vec<_>>()
-					.into_iter()
-					.for_each(|k| VestingEpochStartBlocks::<T>::remove(k));
+			if !VestingEpochStartBlocks::<T>::contains_key(bonding_period) {
+				VestingEpochStartBlocks::<T>::insert(
+					bonding_period,
+					T::VestingBlockNumberProvider::current_block_number(),
+				);
 			}
 		}
 

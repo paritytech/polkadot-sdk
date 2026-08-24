@@ -1531,10 +1531,15 @@ mod benchmarks {
 	// Benchmark pruning single-entry cleanups (seventh step)
 	#[benchmark(pov_mode = Measured)]
 	fn prune_era_single_entry_cleanups() -> Result<(), BenchmarkError> {
-		let era = setup_era_for_pruning::<T>(1);
-		EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
-
+		let bd = T::BondingDuration::get().max(1);
+		// Use an era that is the last in its bonding period.
+		let era = bd.saturating_sub(1);
+		let era_to_prune = T::HistoryDepth::get() + era + 1;
 		let caller: T::AccountId = whitelisted_caller();
+
+		crate::ActiveEra::<T>::put(crate::ActiveEraInfo { index: era_to_prune, start: Some(0) });
+		EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
+		VestingEpochStartBlocks::<T>::insert(era / bd, BlockNumberFor::<T>::zero());
 
 		let result;
 		#[block]
@@ -1543,7 +1548,6 @@ mod benchmarks {
 		}
 
 		validate_pruning_weight::<T>(&result, "SingleEntryCleanups", 1);
-
 		Ok(())
 	}
 

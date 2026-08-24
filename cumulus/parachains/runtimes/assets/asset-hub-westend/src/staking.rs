@@ -274,7 +274,8 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
-	pub const ValidatorVestingBondingPeriods: u32 = 13;
+	// Validator incentive payouts vest for 4 BondingDuration intervals (2 days).
+	pub const ValidatorVestingBondingPeriods: u32 = 4;
 }
 
 impl pallet_staking_async::Config for Runtime {

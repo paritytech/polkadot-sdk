@@ -632,9 +632,12 @@ pub mod pallet {
 	/// number of the window's first block. That block number is used as the merge key
 	/// for [`crate::VestedIncentivePayout`], so all incentive payouts for a given era
 	/// accumulate into the vesting schedule slot of *that era's* bonding window.
-	/// Old entries are pruned to keep at most `ceil(HistoryDepth / BondingDuration) + 1`
-	/// windows in storage. If a payout looks up an era whose window predates the upgrade
-	/// (no entry exists), the current block is assigned as that era's epoch start.
+	/// Old entries are removed lazily: when an era falls off the history window and its
+	/// [`EraPruningState`] reaches `SingleEntryCleanups`, the entry for that era's bonding
+	/// period is dropped only if the era is the *last* era of that period (so earlier eras in
+	/// the same period can still look up the start block during their own cleanup). If a
+	/// payout looks up an era whose window predates the upgrade (no entry exists), the current
+	/// block is assigned as that era's epoch start.
 	#[pallet::storage]
 	pub type VestingEpochStartBlocks<T: Config> =
 		StorageMap<_, Twox64Concat, u32, BlockNumberFor<T>, OptionQuery>;
@@ -1750,6 +1753,12 @@ pub mod pallet {
 					ErasValidatorIncentiveBudget::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
 					ErasSumWeightedPoints::<T>::remove(era);
+					// Remove the vesting epoch start for this bonding period once its last era is
+					// pruned (so earlier eras of the same period can still query the start block).
+					let bd = T::BondingDuration::get();
+					if bd != 0 && (era.saturating_add(1)).is_multiple_of(bd) {
+						VestingEpochStartBlocks::<T>::remove(era / bd);
+					}
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},

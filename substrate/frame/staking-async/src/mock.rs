@@ -146,7 +146,7 @@ impl ValidatorIncentivePayout<AccountId, Balance, BlockNumber> for MockIncentive
 		amount: Balance,
 		start_at: BlockNumber,
 		duration: BlockNumber,
-	) -> sp_runtime::DispatchResult {
+	) -> Result<Balance, sp_runtime::DispatchError> {
 		if duration.is_zero() {
 			LiquidIncentivePayout::<Balances>::pay(source, dest, amount, start_at, duration)
 		} else {
