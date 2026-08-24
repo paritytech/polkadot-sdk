@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787555453276,
+  "lastUpdate": 1787560812586,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "841c77b967af6ba4f2bb70e1d3fad70e5749dc61",
-          "message": "Migrate pallet-example-offchain-worker to TransactionExtension API (#10716)\n\n## Summary\n\nPart of #2415\n\nThis PR is a focused extraction from the larger PR #10150, specifically\nmigrating only `pallet-example-offchain-worker` to use the modern\n`TransactionExtension` API.\n\n## Changes\n\nThis PR migrates `pallet-example-offchain-worker` from the deprecated\n`ValidateUnsigned` trait to the `TransactionExtension` API using the\n`#[pallet::authorize]` attribute.",
-          "timestamp": "2026-01-21T07:54:49Z",
-          "tree_id": "fc6c9fa3a67ef038039a680458f7a8d27e6c4ec1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/841c77b967af6ba4f2bb70e1d3fad70e5749dc61"
-        },
-        "date": 1768986619924,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63624.25,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005083852830000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.60510381845001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6451024340699987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.266149378149996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000225529,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6570105572800014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.62885457944,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7732751574200135,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000225529,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.588008269163111,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022529510000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022529510000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.62962785926,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.542636878513025,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35fc1c82e43094a2db14058c719bfe5591d5d959",
+          "message": "Make the experimental collator proto the default for Kusama (#12880)\n\nThe binary checks if a Kusama chainspec is loaded and enables the\nexperimental collator protocol by default unless\n`experimental-collator-protocol` parameter is passed explicitly. In that\ncase its value is respected no matter what the chainspec is.\n\nThe change reworks the `experimental-collator-protocol` to accept an\noptional true/false value in the format\n`--experimental-collator-protocol=[true|false]'. In practice this means\nthere are there are a few cases:\n- no `experimental-collator-protocol` parameter is provided ->\nexperimental is enabled for Kusama and disabled for any other chainspec.\n- `experimental-collator-protocol=true` or\n`experimental-collator-protocol=false` -> experimental is explicitly\nenabled or disabled no matter what the chain spec is.\n- `--experimental-collator-protocol` is provided without any value (the\nsame as `--experimental-collator-protocol=true`) experimental is enabled\nno matter what the chain spec is.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-24T07:12:12Z",
+          "tree_id": "8861b2032ce656be909720b56c21ed69117caef7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35fc1c82e43094a2db14058c719bfe5591d5d959"
+        },
+        "date": 1787560780537,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.119999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7957490159600031,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6392831669400003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020199730000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.66027475871,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3500708388599993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021957119999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.659375643789999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00502200676,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020199730000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.409610723972932,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6860317284299997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.795807159450002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021957119999999998,
             "unit": "seconds"
           }
         ]
