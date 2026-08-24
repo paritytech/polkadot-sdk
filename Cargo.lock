@@ -2838,7 +2838,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -4977,6 +4977,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sc-consensus",
  "sc-network 0.34.0",
+ "sc-network-bitswap",
  "sc-network-sync",
  "sc-network-transactions",
  "sc-rpc",
@@ -5076,7 +5077,7 @@ dependencies = [
  "sp-version 29.0.0",
  "staging-xcm",
  "staging-xcm-builder",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-standardmap",
 ]
 
@@ -9696,12 +9697,15 @@ dependencies = [
  "node-primitives",
  "pallet-example-mbm",
  "pallet-example-tasks",
+ "pallet-registrar-para",
+ "pallet-registrar-relay",
  "pallet-transaction-storage",
  "parity-scale-codec",
  "polkadot-sdk",
  "primitive-types 0.13.1",
  "rand 0.8.5",
  "rand_pcg",
+ "registrar-primitives",
  "scale-info",
  "serde_json",
  "sp-debug-derive 14.0.0",
@@ -14041,20 +14045,62 @@ dependencies = [
 name = "pallet-registrar-para"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
+ "pallet-balances",
  "parity-scale-codec",
+ "registrar-primitives",
  "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "pallet-registrar-relay"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "parity-scale-codec",
+ "registrar-primitives",
  "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-registrar-test"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-message-queue",
+ "pallet-registrar-para",
+ "pallet-registrar-relay",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "registrar-primitives",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring",
+ "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "xcm-simulator",
 ]
 
 [[package]]
@@ -15144,6 +15190,7 @@ dependencies = [
  "hex-literal",
  "pallet-assets",
  "pallet-balances",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
@@ -17225,6 +17272,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-runtime-parachains",
+ "registrar-primitives",
  "rustc-hex",
  "scale-info",
  "serde",
@@ -17606,6 +17654,7 @@ dependencies = [
  "sc-keystore",
  "sc-mixnet",
  "sc-network 0.34.0",
+ "sc-network-bitswap",
  "sc-network-common 0.33.0",
  "sc-network-gossip",
  "sc-network-light",
@@ -19550,6 +19599,8 @@ version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -21610,15 +21661,12 @@ dependencies = [
  "litep2p 0.14.3",
  "log",
  "mockall",
- "multihash-codetable",
  "multistream-select",
  "p256",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "partial_sort",
  "pin-project",
- "prost 0.12.6",
- "prost-build 0.13.2",
  "rand 0.8.5",
  "rustls 0.23.31",
  "sc-block-builder",
@@ -21635,7 +21683,6 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
- "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint 0.17.0",
@@ -21702,6 +21749,38 @@ dependencies = [
  "void",
  "wasm-timer",
  "zeroize",
+]
+
+[[package]]
+name = "sc-network-bitswap"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "cid",
+ "futures",
+ "litep2p 0.14.3",
+ "log",
+ "proptest",
+ "rand 0.8.5",
+ "rstest",
+ "sc-block-builder",
+ "sc-client-api 28.0.0",
+ "sc-network-common 0.33.0",
+ "sc-network-sync",
+ "sc-network-types 0.10.0",
+ "slotmap",
+ "smallvec",
+ "sp-consensus 0.32.0",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-runtime 31.0.1",
+ "substrate-prometheus-endpoint 0.17.0",
+ "substrate-test-runtime",
+ "substrate-test-runtime-client",
+ "thiserror 1.0.65",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -22177,6 +22256,7 @@ dependencies = [
  "sc-informant",
  "sc-keystore",
  "sc-network 0.34.0",
+ "sc-network-bitswap",
  "sc-network-common 0.33.0",
  "sc-network-light",
  "sc-network-sync",
@@ -22303,18 +22383,13 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "cid",
- "futures",
- "futures-timer",
  "log",
  "parity-scale-codec",
- "prost 0.12.6",
- "rand 0.8.5",
  "rstest",
  "sc-client-api 28.0.0",
  "sc-client-db",
  "sc-consensus",
- "sc-network 0.34.0",
- "sc-network-sync",
+ "sc-network-bitswap",
  "sp-api 26.0.0",
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
@@ -25546,7 +25621,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -25567,7 +25642,7 @@ dependencies = [
  "sp-trie 44.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
 ]
 
 [[package]]
@@ -25723,7 +25798,7 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "trie-bench",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -25750,7 +25825,7 @@ dependencies = [
  "substrate-prometheus-endpoint 0.17.7",
  "thiserror 1.0.65",
  "tracing",
- "trie-db",
+ "trie-db 0.31.0",
  "trie-root",
 ]
 
@@ -26716,7 +26791,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -26796,7 +26871,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tracing",
- "trie-db",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -28607,16 +28682,16 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.42.1"
+version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a03bee4700c5dd6b2ceba5e4e4d5a7017704a761481824d3033d223f9660973a"
+checksum = "5bdf11c77ca165a25b7e22acff7c05b7888794acb84d21078305b41ab6b5f627"
 dependencies = [
  "criterion",
  "hash-db",
  "keccak-hasher",
  "memory-db",
  "parity-scale-codec",
- "trie-db",
+ "trie-db 0.32.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -28626,6 +28701,18 @@ name = "trie-db"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
+dependencies = [
+ "hash-db",
+ "log",
+ "rustc-hex",
+ "smallvec",
+]
+
+[[package]]
+name = "trie-db"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "559b3902fbd74c14b64ea1690792be25bd5ccd3820f8b6b6228754e00fe3c1d6"
 dependencies = [
  "hash-db",
  "log",

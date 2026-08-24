@@ -1181,6 +1181,10 @@ pub use sc_mixnet;
 #[cfg(feature = "sc-network")]
 pub use sc_network;
 
+/// Substrate Bitswap client/server service.
+#[cfg(feature = "sc-network-bitswap")]
+pub use sc_network_bitswap;
+
 /// Substrate network common.
 #[cfg(feature = "sc-network-common")]
 pub use sc_network_common;
