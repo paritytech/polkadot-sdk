@@ -113,6 +113,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::caller_is_root")
 	}
 
+	fn origin_is_root(&self) -> bool {
+		panic!("MockExt::origin_is_root")
+	}
+
 	fn account_id(&self) -> &AccountIdOf<Self::T> {
 		panic!("MockExt::account_id")
 	}

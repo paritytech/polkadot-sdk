@@ -74,7 +74,7 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
-use pallet_nfts::{DestroyWitness, PalletFeatures};
+use pallet_nfts::PalletFeatures;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
 use pallet_vesting_precompiles::Vesting as VestingPrecompile;
@@ -89,12 +89,10 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating, Verify},
+	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Debug, FixedU128, MultiSignature, MultiSigner, Perbill, Permill,
 };
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, snowbridge::EthereumNetwork, time::*,
@@ -172,12 +170,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 16,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -831,18 +823,37 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::OldIdentityJudgement |
 			ProxyType::OldAuction |
 			ProxyType::OldParaRegistration => false,
+			// NOTE: This is a deny-list, so it fails open: a pallet added to the runtime is
+			// reachable by a `NonTransfer` proxy unless it is listed here. Every call family that
+			// can move the delegator's funds or assets must therefore be denied explicitly.
 			ProxyType::NonTransfer => !matches!(
 				c,
 				RuntimeCall::Balances { .. } |
 					RuntimeCall::Assets { .. } |
+					// The other `pallet-assets` instances transfer value just like `Assets` does.
+					RuntimeCall::ForeignAssets { .. } |
+					RuntimeCall::PoolAssets { .. } |
 					RuntimeCall::NftFractionalization { .. } |
 					RuntimeCall::Nfts { .. } |
 					RuntimeCall::Uniques { .. } |
 					RuntimeCall::Scheduler(..) |
 					RuntimeCall::Treasury(..) |
+					// Swaps and liquidity provision move the caller's assets.
+					RuntimeCall::AssetConversion(..) |
+					// Minting and redeeming swap the caller's stablecoins.
+					RuntimeCall::Psm(..) |
+					// `transfer_assets`, `teleport_assets` and friends move assets to another
+					// chain, and `send`/`execute` can express the same thing as raw XCM.
+					RuntimeCall::PolkadotXcm(..) |
+					// Contract calls and instantiations carry a `value` to transfer.
+					RuntimeCall::Revive(..) |
 					// We allow calling `vest` and merging vesting schedules, but obviously not
 					// vested transfers.
 					RuntimeCall::Vesting(pallet_vesting::Call::vested_transfer { .. }) |
+					// Transferring an index repatriates its reserved deposit to the new owner.
+					// Claiming, freeing and freezing an index are still allowed.
+					RuntimeCall::Indices(pallet_indices::Call::transfer { .. }) |
+					RuntimeCall::Indices(pallet_indices::Call::force_transfer { .. }) |
 					RuntimeCall::ConvictionVoting(..) |
 					RuntimeCall::Referenda(..) |
 					RuntimeCall::Whitelist(..)
@@ -988,10 +999,14 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(ProxyType::Assets, ProxyType::AssetOwner) => true,
 			(ProxyType::Assets, ProxyType::AssetManager) => true,
 			(ProxyType::Staking, ProxyType::StakingOperator) => true,
+			// NOTE: `Governance` is deliberately *not* listed here. `NonTransfer` denies the
+			// `Treasury`, `ConvictionVoting`, `Referenda` and `Whitelist` calls that `Governance`
+			// admits, so it is not a superset of it. Claiming otherwise would let a `NonTransfer`
+			// proxy grant itself a `Governance` proxy and widen its own permissions, since
+			// `pallet_proxy` authorizes `add_proxy`/`remove_proxy` through `is_superset`.
 			(
 				ProxyType::NonTransfer,
 				ProxyType::Collator |
-				ProxyType::Governance |
 				ProxyType::Staking |
 				ProxyType::NominationPools |
 				ProxyType::StakingOperator,
@@ -1425,7 +1440,6 @@ impl pallet_vesting_precompiles::pallet::Config for Runtime {
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
-	pub FastUnstakeName: &'static str = "FastUnstake";
 	pub PsmName: &'static str = "Psm";
 	pub ParametersName: &'static str = "Parameters";
 }
@@ -1812,36 +1826,6 @@ parameter_types! {
 	);
 }
 
-/// Provides the initial `LastIssuanceTimestamp` for DAP migration.
-pub struct DapLastIssuanceTimestamp;
-impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
-	fn get() -> u64 {
-		pallet_staking_async::ActiveEra::<Runtime>::get()
-			.and_then(|era| era.start)
-			.unwrap_or(0)
-	}
-}
-
-/// Default budget: 85% staker rewards, 15% buffer, 0% validator incentive.
-pub struct DefaultDapBudget;
-impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
-	fn get() -> pallet_dap::BudgetAllocationMap {
-		use sp_runtime::Perbill;
-		use sp_staking::budget::BudgetRecipientList;
-
-		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
-		// [dap (buffer), StakerRewardRecipient, ValidatorIncentiveRecipient]
-		let percentages =
-			[Perbill::from_percent(15), Perbill::from_percent(85), Perbill::from_percent(0)];
-
-		let mut map = pallet_dap::BudgetAllocationMap::new();
-		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
-			let _ = map.try_insert(key, perbill);
-		}
-		map
-	}
-}
-
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1899,12 +1883,6 @@ pub type Migrations = (
 		ParametersName,
 		<Runtime as frame_system::Config>::DbWeight,
 	>,
-	pallet_dap::migrations::MigrateV1ToV2<
-		Runtime,
-		DapLastIssuanceTimestamp,
-		DefaultDapBudget,
-		staking::MaxEraDuration,
-	>,
 	// Only needed on WAH.
 	// Relocates funded era pots from per-era to slot-based pot addresses.
 	pallet_staking_async::migrations::MigrateEraPotsToPool<
@@ -1917,108 +1895,6 @@ pub type Migrations = (
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
 );
-
-/// Asset Hub Westend has some undecodable storage, delete it.
-/// See <https://github.com/paritytech/polkadot-sdk/issues/2241> for more info.
-///
-/// First we remove the bad Hold, then the bad NFT collection.
-pub struct DeleteUndecodableStorage;
-
-impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
-	fn on_runtime_upgrade() -> Weight {
-		use sp_core::crypto::Ss58Codec;
-
-		let mut writes = 0;
-
-		// Remove Holds for account with undecodable hold
-		// Westend doesn't have any HoldReasons implemented yet, so it's safe to just blanket remove
-		// any for this account.
-		match AccountId::from_ss58check("5GCCJthVSwNXRpbeg44gysJUx9vzjdGdfWhioeM7gCg6VyXf") {
-			Ok(a) => {
-				tracing::info!(target: "bridges::on_runtime_upgrade", "Removing holds for account with bad hold");
-				pallet_balances::Holds::<Runtime, ()>::remove(a);
-				writes.saturating_inc();
-			},
-			Err(_) => {
-				tracing::error!(target: "bridges::on_runtime_upgrade", "CleanupUndecodableStorage: Somehow failed to convert valid SS58 address into an AccountId!");
-			},
-		};
-
-		// Destroy undecodable NFT item 1
-		writes.saturating_inc();
-		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 1, |_| Ok(())) {
-			Ok(_) => {
-				tracing::info!(target: "bridges::on_runtime_upgrade", "Destroyed undecodable NFT item 1");
-			},
-			Err(e) => {
-				tracing::error!(target: "bridges::on_runtime_upgrade", error=?e, "Failed to destroy undecodable NFT item");
-				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
-			},
-		}
-
-		// Destroy undecodable NFT item 2
-		writes.saturating_inc();
-		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 2, |_| Ok(())) {
-			Ok(_) => {
-				tracing::info!(target: "bridges::on_runtime_upgrade", "Destroyed undecodable NFT item 2");
-			},
-			Err(e) => {
-				tracing::error!(target: "bridges::on_runtime_upgrade", error=?e, "Failed to destroy undecodable NFT item");
-				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
-			},
-		}
-
-		// Finally, we can destroy the collection
-		writes.saturating_inc();
-		match pallet_nfts::Pallet::<Runtime, ()>::do_destroy_collection(
-			3,
-			DestroyWitness { attributes: 0, item_metadatas: 1, item_configs: 0 },
-			None,
-		) {
-			Ok(_) => {
-				tracing::info!(target: "bridges::on_runtime_upgrade", "Destroyed undecodable NFT collection");
-			},
-			Err(e) => {
-				tracing::error!(target: "bridges::on_runtime_upgrade", error=?e, "Failed to destroy undecodable NFT collection");
-			},
-		};
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
-	}
-}
-
-/// Migration to initialize storage versions for pallets added after genesis.
-///
-/// Ideally this would be done automatically (see
-/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
-/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
-/// doing it manually.
-pub struct InitStorageVersions;
-
-impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
-	fn on_runtime_upgrade() -> Weight {
-		use frame_support::traits::{GetStorageVersion, StorageVersion};
-
-		let mut writes = 0;
-
-		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
-			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
-			writes.saturating_inc();
-		}
-
-		if ForeignAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			ForeignAssets::in_code_storage_version().put::<ForeignAssets>();
-			writes.saturating_inc();
-		}
-
-		if PoolAssets::on_chain_storage_version() == StorageVersion::new(0) {
-			PoolAssets::in_code_storage_version().put::<PoolAssets>();
-			writes.saturating_inc();
-		}
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, writes)
-	}
-}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -2875,6 +2751,39 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						fun: Fungible(amount),
 					}
 				}
+
+				fn get_assets(n: u32) -> XcmAssets {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account: AccountId = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let amount = 1_000_000u128;
+					// Worst case: `n` distinct `ForeignAssets`. Keyed by a full `Location`, they
+					// book ~600 more bytes of proof per map than trust-backed assets, and match
+					// later in `AssetTransactors`.
+					let assets: Vec<Asset> = (0..n).map(|i| {
+						// Another chain's assets pallet, so the id is genuinely foreign.
+						let asset_location = Location::new(
+							1,
+							[Parachain(3000), PalletInstance(53), GeneralIndex((1984 + i).into())],
+						);
+						assert_ok!(ForeignAssets::force_create(
+							RuntimeOrigin::root(),
+							asset_location.clone().into(),
+							account.clone().into(),
+							true,
+							1u128,
+						));
+						Asset { id: AssetId(asset_location), fun: Fungible(amount) }
+					}).collect();
+					assets.into()
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{
@@ -3131,12 +3040,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					// Any location can alias to an internal location.
-					// Here parachain 1001 aliases to an internal account.
-					Ok((
-						Location::new(1, [Parachain(1001)]),
-						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
-					))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 			}
 
