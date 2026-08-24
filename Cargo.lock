@@ -14241,6 +14241,7 @@ dependencies = [
  "sc-service",
  "serde",
  "serde_json",
+ "serde_with",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",

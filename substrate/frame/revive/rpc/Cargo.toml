@@ -20,6 +20,7 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
+alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true, default-features = true, features = [
 	"trace",
 ] }
@@ -46,6 +47,7 @@ serde = { workspace = true, default-features = true, features = [
 	"derive",
 ] }
 serde_json = { workspace = true }
+serde_with = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
@@ -64,7 +66,6 @@ tokio-stream = { workspace = true }
 
 [dev-dependencies]
 alloy-network = { workspace = true, default-features = true }
-alloy-primitives = { workspace = true, default-features = true }
 alloy-provider = { workspace = true, default-features = true, features = [
 	"debug-api",
 	"reqwest",
