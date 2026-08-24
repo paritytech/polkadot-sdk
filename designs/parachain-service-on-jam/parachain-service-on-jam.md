@@ -655,11 +655,10 @@ These forward the full JAM fetch functionality to the PVF:
 | `work_package_context()` | `RefineContext` | Access the refinement context: anchor (hash, timeslot, posterior state-root, accumulation-output-log super-peak), lookup-anchor (hash, timeslot, posterior state-root), prerequisites |
 | `auth_config()` | `Vec<u8>` | Access the authorizer config blob |
 | `auth_token()` | `Vec<u8>` | Access the authorization token blob |
-| `work_items_summary()` | `Vec<WorkItemSummary>` | Summary of all work items (service, code hash, gas limits, counts, payload length) |
+| `work_items_summary()` | `Vec<WorkItemSummary>` | Summary of all work items (service, code hash, gas limits, export/import/extrinsic counts, payload length) |
 | `work_item_summary(index: u32)` | `Option<WorkItemSummary>` | Summary of a specific work item by index |
 | `work_item_payload(index: u32)` | `Option<Vec<u8>>` | Payload of a specific work item by index |
-| `import_segments()` | `Vec<SegmentMeta>` | Import segments metadata |
-| `import_segment(index: u32)` | `Option<Vec<u8>>` | A specific import segment by index |
+| `import_segment(index: u32)` | `Option<Vec<u8>>` | A specific import segment, by its index in the work item's import manifest. Indices `0 .. import_count` enumerate the work item's segments in manifest order. |
 
 #### Side-effect host functions
 
