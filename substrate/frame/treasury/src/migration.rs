@@ -225,85 +225,62 @@ pub mod cleanup_proposals {
 	}
 }
 
-/// Converts a deprecated native-token legacy proposal into the typed fields needed for a
-/// new [`SpendStatus`] entry.
-///
-/// The runtime **must** provide this implementation because only the runtime knows:
-/// - the representation of its native asset kind (`T::AssetKind`);
-/// - how a local `AccountId` maps to `T::Beneficiary`;
-/// - whether native `BalanceOf<T,I>` maps 1:1 to `AssetBalanceOf<T,I>`.
-///
-/// # Example (simple native-token runtime)
-/// ```ignore
-/// pub struct NativeTreasuryConverter;
-/// impl pallet_treasury::migration::LegacyProposalConverter<Runtime, ()>
-///     for NativeTreasuryConverter
-/// {
-///     fn convert(
-///         proposal: pallet_treasury::migration::legacy::Proposal<AccountId, Balance>,
-///     ) -> (RuntimeAssetKind, Balance, AccountId) {
-///         (RuntimeAssetKind::Native, proposal.value, proposal.beneficiary)
-///     }
-/// }
-/// ```
-pub trait LegacyProposalConverter<T: Config<I>, I: 'static> {
-	/// Convert a legacy proposal into (asset_kind, amount, beneficiary) for a [`SpendStatus`].
-	fn convert(
-		proposal: legacy::Proposal<T::AccountId, BalanceOf<T, I>>,
-	) -> (T::AssetKind, AssetBalanceOf<T, I>, T::Beneficiary);
-}
-
 pub mod migrate_legacy_proposals {
 	use super::*;
 
-	/// Migrates all remaining legacy treasury proposals and removes the legacy storage entirely.
+	/// Pays out and removes every remaining legacy treasury proposal, then deletes the legacy
+	/// storage.
 	///
-	/// For each entry in [`legacy::Proposals`]:
-	/// - The proposer's bond is unreserved (for both approved and unapproved proposals).
-	/// - If the proposal index is listed in [`legacy::Approvals`], it is converted into a
-	///   [`SpendStatus`] entry in [`Spends`] with `status = Pending`, using the runtime-supplied
-	///   [`LegacyProposalConverter`]. This preserves the intent of approved spends without forcing
-	///   a potentially-unfunded payout at upgrade time.
-	/// - Unapproved proposals are dropped after bond refund (their spend authority was never
-	///   granted).
+	/// This does the same work [`Pallet::spend_funds`] used to do for the legacy queue, but once
+	/// at upgrade time instead of every spend period:
+	/// - Proposals listed in [`legacy::Approvals`] are paid from the pot, their bond is unreserved,
+	///   and an [`Event::Awarded`] is emitted.
+	/// - Unapproved proposals only get their bond refunded; their spend was never authorised.
 	///
-	/// After draining all proposals, [`legacy::Approvals`] and [`legacy::ProposalCount`] are
-	/// killed.
+	/// A proposal the pot cannot cover is left in place, exactly as `spend_funds` did. In that
+	/// case the legacy storage is kept so a later upgrade can finish the job, rather than
+	/// discarding an approved payout.
 	///
 	/// # Weight
-	/// Per-proposal cost is `1 read + 1 write` for the proposal map entry, plus
-	/// `UnreserveWeight` for the bond unreserve. Approved proposals additionally cost `1 write`
-	/// for the new [`Spends`] entry and `1 write` for [`SpendCount`].
+	/// Three reads and three writes per proposal, covering the proposal entry itself plus the
+	/// proposer's bond refund and the beneficiary's payout.
 	///
-	/// # Panics / defensive
-	/// If `unreserve` returns a non-zero remainder (bond was partially slashed or the account
-	/// was reaped since the proposal was created), a `defensive!` warning is emitted and the
-	/// migration continues, the stranded amount cannot be recovered automatically.
-	pub struct Migration<T, I, Converter, UnreserveWeight>(
-		PhantomData<(T, I, Converter, UnreserveWeight)>,
-	);
+	/// # Defensive
+	/// A non-zero `unreserve` remainder (bond partially slashed, or the proposer reaped since the
+	/// proposal was created) emits a `defensive!` and the migration continues; the stranded amount
+	/// cannot be recovered automatically.
+	pub struct Migration<T, I = ()>(PhantomData<(T, I)>);
 
-	impl<T, I, Converter, UnreserveWeight> OnRuntimeUpgrade
-		for Migration<T, I, Converter, UnreserveWeight>
-	where
-		T: Config<I>,
-		I: 'static,
-		Converter: LegacyProposalConverter<T, I>,
-		UnreserveWeight: Get<Weight>,
-	{
+	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for Migration<T, I> {
 		fn on_runtime_upgrade() -> Weight {
 			let approved: BTreeSet<ProposalIndex> =
 				legacy::Approvals::<T, I>::get().into_iter().collect();
 
-			let now = T::BlockNumberProvider::current_block_number();
-			let expire_at = now.saturating_add(T::PayoutPeriod::get());
+			let mut budget_remaining = Pallet::<T, I>::pot();
+			let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
+			let mut processed: u64 = 0;
+			let mut paid: u64 = 0;
+			let mut deferred = false;
 
-			let mut next_spend = SpendCount::<T, I>::get();
-			let mut proposals_processed: u64 = 0;
-			let mut spends_created: u64 = 0;
-
-			for (proposal_index, proposal) in legacy::Proposals::<T, I>::drain() {
-				proposals_processed = proposals_processed.saturating_add(1);
+			for (proposal_index, proposal) in legacy::Proposals::<T, I>::iter() {
+				if approved.contains(&proposal_index) {
+					if proposal.value > budget_remaining {
+						// The pot cannot cover this payout, so leave it for a later attempt.
+						deferred = true;
+						continue;
+					}
+					budget_remaining -= proposal.value;
+					imbalance.subsume(T::Currency::deposit_creating(
+						&proposal.beneficiary,
+						proposal.value,
+					));
+					Pallet::<T, I>::deposit_event(Event::Awarded {
+						proposal_index,
+						award: proposal.value,
+						account: proposal.beneficiary.clone(),
+					});
+					paid = paid.saturating_add(1);
+				}
 
 				let remainder = T::Currency::unreserve(&proposal.proposer, proposal.bond);
 				if !remainder.is_zero() {
@@ -313,124 +290,90 @@ pub mod migrate_legacy_proposals {
 					);
 				}
 
-				if approved.contains(&proposal_index) {
-					let (asset_kind, amount, beneficiary) = Converter::convert(proposal);
-
-					let spend_index = match next_spend.checked_add(1) {
-						Some(n) => {
-							let idx = next_spend;
-							next_spend = n;
-							idx
-						},
-						None => {
-							defensive!(
-								"SpendIndex overflow during legacy proposal migration",
-								proposal_index,
-							);
-							continue;
-						},
-					};
-
-					Spends::<T, I>::insert(
-						spend_index,
-						SpendStatus {
-							asset_kind,
-							amount,
-							beneficiary,
-							valid_from: now,
-							expire_at,
-							status: PaymentState::Pending,
-						},
-					);
-					spends_created = spends_created.saturating_add(1);
-				}
+				legacy::Proposals::<T, I>::remove(proposal_index);
+				processed = processed.saturating_add(1);
 			}
 
-			legacy::Approvals::<T, I>::kill();
-			legacy::ProposalCount::<T, I>::kill();
+			if deferred {
+				legacy::Approvals::<T, I>::mutate(|approvals| {
+					approvals.retain(|index| legacy::Proposals::<T, I>::contains_key(index))
+				});
+			} else {
+				legacy::Approvals::<T, I>::kill();
+				legacy::ProposalCount::<T, I>::kill();
+			}
 
-			if spends_created > 0 {
-				SpendCount::<T, I>::put(next_spend);
+			// Balance the freshly created funds against the treasury account, as `spend_funds`
+			// does. Skipping this would inflate total issuance by the amount paid out.
+			if let Err(problem) = T::Currency::settle(
+				&Pallet::<T, I>::account_id(),
+				imbalance,
+				WithdrawReasons::TRANSFER,
+				KeepAlive,
+			) {
+				defensive!("treasury could not settle legacy proposal payouts");
+				drop(problem);
 			}
 
 			log::info!(
 				target: LOG_TARGET,
-				"migrate_legacy_proposals: processed {} proposals, created {} spends.",
-				proposals_processed,
-				spends_created,
+				"migrate_legacy_proposals: removed {} proposals, paid out {}. Legacy storage {}.",
+				processed,
+				paid,
+				if deferred { "kept, some payouts exceed the pot" } else { "deleted" },
 			);
 
-			let reads = proposals_processed.saturating_add(3);
-			let writes = proposals_processed
-				.saturating_add(spends_created)
-				.saturating_add(if spends_created > 0 { 3 } else { 2 });
-
-			T::DbWeight::get().reads_writes(reads, writes) +
-				UnreserveWeight::get().saturating_mul(proposals_processed)
+			// Per proposal: the map entry, the proposer's bond refund and the beneficiary's
+			// payout. Fixed: the pot, `Approvals`, `ProposalCount` and the final settle.
+			let per_proposal = processed.saturating_mul(3);
+			T::DbWeight::get()
+				.reads_writes(per_proposal.saturating_add(4), per_proposal.saturating_add(4))
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			let proposals_count = legacy::Proposals::<T, I>::iter_values().count() as u32;
-			let approvals = legacy::Approvals::<T, I>::get();
-			let approvals_count = approvals.len() as u32;
-			let old_spend_count = SpendCount::<T, I>::get();
-
-			let mut valid_approvals: u32 = 0;
-			for idx in approvals.iter() {
-				if legacy::Proposals::<T, I>::contains_key(idx) {
-					valid_approvals = valid_approvals.saturating_add(1);
-				} else {
-					log::warn!(
-						target: LOG_TARGET,
-						"pre_upgrade: orphaned approval index {:?} has no matching proposal; \
-						 it will be dropped without creating a Spend.",
-						idx,
-					);
-				}
-			}
+			let approvals_count = legacy::Approvals::<T, I>::get().len() as u32;
 
 			log::info!(
 				target: LOG_TARGET,
-				"pre_upgrade migrate_legacy_proposals: proposals={}, approvals={}, \
-				 valid_approvals={}, spend_count={}",
+				"pre_upgrade migrate_legacy_proposals: proposals={}, approvals={}",
 				proposals_count,
 				approvals_count,
-				valid_approvals,
-				old_spend_count,
 			);
 
-			Ok((proposals_count, valid_approvals, old_spend_count).encode())
+			Ok((proposals_count, approvals_count).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let (old_proposals, valid_approvals, old_spend_count) =
-				<(u32, u32, SpendIndex)>::decode(&mut &state[..]).expect("Known good");
+			let (old_proposals, old_approvals) =
+				<(u32, u32)>::decode(&mut &state[..]).expect("Known good");
 
+			let remaining = legacy::Proposals::<T, I>::iter().count() as u32;
 			ensure!(
-				legacy::Proposals::<T, I>::iter().next().is_none(),
-				"post_upgrade: legacy Proposals storage is not empty after migration"
-			);
-			ensure!(
-				legacy::Approvals::<T, I>::get().is_empty(),
-				"post_upgrade: legacy Approvals storage is not empty after migration"
+				remaining <= old_proposals,
+				"post_upgrade: legacy Proposals grew during the migration"
 			);
 
-			let new_spend_count = SpendCount::<T, I>::get();
-			ensure!(
-				new_spend_count == old_spend_count.saturating_add(valid_approvals),
-				"post_upgrade: SpendCount did not advance by the expected number of valid approvals"
-			);
+			// Whatever survived must be an approved payout the pot could not cover; everything
+			// else has to be gone.
+			let approvals = legacy::Approvals::<T, I>::get();
+			for (index, _) in legacy::Proposals::<T, I>::iter() {
+				ensure!(
+					approvals.contains(&index),
+					"post_upgrade: an unapproved legacy proposal survived the migration"
+				);
+			}
 
 			log::info!(
 				target: LOG_TARGET,
-				"post_upgrade migrate_legacy_proposals: migrated {} proposals, created {} spends. \
-				 SpendCount: {} -> {}",
+				"post_upgrade migrate_legacy_proposals: {} of {} proposals removed \
+				 ({} approvals before, {} left unpaid).",
+				old_proposals.saturating_sub(remaining),
 				old_proposals,
-				valid_approvals,
-				old_spend_count,
-				new_spend_count,
+				old_approvals,
+				remaining,
 			);
 
 			Ok(())

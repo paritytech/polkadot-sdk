@@ -257,6 +257,10 @@ fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
 	proposal_index
 }
 
+fn run_migration() {
+	crate::migration::migrate_legacy_proposals::Migration::<Test, ()>::on_runtime_upgrade();
+}
+
 #[test]
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -275,19 +279,6 @@ fn minting_works() {
 }
 
 #[test]
-fn accepted_spend_proposal_ignored_outside_spend_period() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		add_proposal(100, 3);
-
-		go_to_block(1);
-		assert_eq!(Balances::free_balance(3), 0);
-		assert_eq!(Treasury::pot(), 100);
-	});
-}
-
-#[test]
 fn unused_pot_should_diminish() {
 	ExtBuilder::default().build().execute_with(|| {
 		let init_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
@@ -300,38 +291,6 @@ fn unused_pot_should_diminish() {
 	});
 }
 
-#[test]
-fn accepted_spend_proposal_enacted_on_spend_period() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		add_proposal(100, 3);
-
-		go_to_block(2);
-		assert_eq!(Balances::free_balance(3), 100);
-		assert_eq!(Treasury::pot(), 0);
-	});
-}
-
-#[test]
-fn pot_underflow_should_not_diminish() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		add_proposal(150, 3);
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
-		go_to_block(4);
-		assert_eq!(Balances::free_balance(3), 150); // Fund has been spent
-		assert_eq!(Treasury::pot(), 25); // Pot has finally changed
-	});
-}
-
 // Treasury account doesn't get deleted if amount approved to spend is all its free balance.
 // i.e. pot should not include existential deposit needed for account survival.
 #[test]
@@ -339,22 +298,17 @@ fn treasury_account_doesnt_get_deleted() {
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
-		let treasury_balance = Balances::free_balance(&Treasury::account_id());
 
-		add_proposal(treasury_balance, 3);
-		<Treasury as OnInitialize<u64>>::on_initialize(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
+		// A proposal for the whole treasury balance exceeds the pot, which excludes the ED.
+		add_proposal(Balances::free_balance(&Treasury::account_id()), 3);
+		run_migration();
+		assert_eq!(Treasury::pot(), 100);
 
-		add_proposal(treasury_balance, 3);
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
+		// The pot itself can be paid out in full without reaping the treasury account.
 		add_proposal(Treasury::pot(), 3);
-
-		go_to_block(4);
-		assert_eq!(Treasury::pot(), 0); // Pot is emptied
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still there
+		run_migration();
+		assert_eq!(Treasury::pot(), 0);
+		assert_eq!(Balances::free_balance(Treasury::account_id()), 1);
 	});
 }
 
@@ -377,9 +331,8 @@ fn inexistent_account_works() {
 		assert_eq!(Treasury::pot(), 0); // Pot is empty
 
 		add_proposal(99, 3);
-		add_proposal(1, 3);
 
-		go_to_block(2);
+		run_migration();
 
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
 		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
@@ -388,7 +341,7 @@ fn inexistent_account_works() {
 		assert_eq!(Treasury::pot(), 99); // Pot now contains funds
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 100); // Account does exist
 
-		go_to_block(4);
+		run_migration();
 
 		assert_eq!(Treasury::pot(), 0); // Pot has changed
 		assert_eq!(Balances::free_balance(3), 99); // Balance of `3` has changed
@@ -909,24 +862,15 @@ fn try_state_spends_invariant_3_works() {
 #[test]
 fn multiple_spend_periods_work() {
 	ExtBuilder::default().build().execute_with(|| {
-		// Check that accumulate works when we have Some value in Dummy already.
-		// 100 will be spent, 1024 will be the burn amount, 1 for ED
-		Balances::make_free_balance_be(&Treasury::account_id(), 100 + 1024 + 1);
-		// approve spend of total amount 100 to beneficiary `6`.
-		add_proposal(5, 6);
-		add_proposal(5, 6);
-		add_proposal(5, 6);
-		add_proposal(5, 6);
-		add_proposal(10, 6);
-		add_proposal(20, 6);
-		add_proposal(50, 6);
-		// free balance of `6` is zero, spend period has not passed.
+		// 1024 will be the burn amount, 1 for ED.
+		Balances::make_free_balance_be(&Treasury::account_id(), 1024 + 1);
+
+		// Spend period has not passed, so the pot is untouched.
 		go_to_block(1);
-		assert_eq!(Balances::free_balance(6), 0);
-		// free balance of `6` is `100`, spend period has passed.
+		assert_eq!(Treasury::pot(), 1024);
+
+		// Spend period has passed, 50% burned.
 		go_to_block(2);
-		assert_eq!(Balances::free_balance(6), 100);
-		// `100` spent, 50% burned
 		assert_eq!(Treasury::pot(), 512);
 
 		// 3 more spends periods pass at once, and an extra block.
@@ -938,55 +882,69 @@ fn multiple_spend_periods_work() {
 	});
 }
 
-struct TestLegacyProposalConverter;
-impl crate::migration::LegacyProposalConverter<Test, ()> for TestLegacyProposalConverter {
-	fn convert(proposal: crate::migration::legacy::Proposal<u128, u64>) -> (u32, u64, u128) {
-		(0, proposal.value, proposal.beneficiary)
-	}
-}
-
-pub struct ZeroWeight;
-impl frame_support::traits::Get<Weight> for ZeroWeight {
-	fn get() -> Weight {
-		Weight::zero()
-	}
-}
-
 #[test]
 fn migrate_legacy_proposals_works() {
 	ExtBuilder::default().build().execute_with(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		// An approved proposal, paid to `6`.
+		let approved = add_proposal(50, 6);
+		// An unapproved proposal by `1`, who bonded 10 for it.
 		Balances::make_free_balance_be(&1, 100);
 		Balances::reserve(&1, 10).unwrap();
-
-		let _p0 = add_proposal(50, 6);
-		let p1 = ProposalCount::<Test, ()>::get();
-		ProposalCount::<Test, ()>::put(p1 + 1);
+		let unapproved = ProposalCount::<Test, ()>::get();
+		ProposalCount::<Test, ()>::put(unapproved + 1);
 		Proposals::<Test, ()>::insert(
-			p1,
+			unapproved,
 			Proposal { proposer: 1, value: 30, beneficiary: 7, bond: 10 },
 		);
 
-		assert_eq!(Proposals::<Test, ()>::iter().count(), 2);
-		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
-		assert_eq!(SpendCount::<Test>::get(), 0);
+		let issuance = pallet_balances::TotalIssuance::<Test>::get();
 
-		// Run migration
-		crate::migration::migrate_legacy_proposals::Migration::<
-			Test,
-			(),
-			TestLegacyProposalConverter,
-			ZeroWeight,
-		>::on_runtime_upgrade();
+		run_migration();
 
+		// Both proposals are gone along with the rest of the legacy storage.
 		assert_eq!(Proposals::<Test, ()>::iter().count(), 0);
-		assert_eq!(Approvals::<Test, ()>::get().len(), 0);
-		// Bond reserved for proposer 1 should be fully unreserved
+		assert!(Approvals::<Test, ()>::get().is_empty());
+		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
+
+		// The approved proposal was paid out of the pot; the unapproved one was not.
+		assert_eq!(Balances::free_balance(6), 50);
+		assert_eq!(Balances::free_balance(7), 0);
+		assert_eq!(Treasury::pot(), 50);
+		System::assert_has_event(
+			Event::<Test, _>::Awarded { proposal_index: approved, award: 50, account: 6 }.into(),
+		);
+
+		// Bonds are refunded either way, and the payout does not create new tokens.
 		assert_eq!(Balances::reserved_balance(1), 0);
-		// SpendCount should advance by 1 (only approved proposal became a Spend)
-		assert_eq!(SpendCount::<Test>::get(), 1);
-		let spend = Spends::<Test, _>::get(0).unwrap();
-		assert_eq!(spend.amount, 50);
-		assert_eq!(spend.beneficiary, 6);
-		assert_eq!(spend.status, PaymentState::Pending);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), issuance);
+	});
+}
+
+#[test]
+fn migrate_legacy_proposals_defers_unaffordable_payouts() {
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_eq!(Treasury::pot(), 100);
+
+		add_proposal(150, 3);
+
+		run_migration();
+
+		// The pot cannot cover it, so the proposal and its approval survive untouched.
+		assert_eq!(Treasury::pot(), 100);
+		assert_eq!(Balances::free_balance(3), 0);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+
+		// Once the pot can afford it, re-running the migration finishes the job.
+		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
+		run_migration();
+
+		assert_eq!(Balances::free_balance(3), 150);
+		assert_eq!(Treasury::pot(), 50);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 0);
+		assert!(Approvals::<Test, ()>::get().is_empty());
 	});
 }

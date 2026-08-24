@@ -72,7 +72,6 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_treasury`.
 pub trait WeightInfo {
-	fn on_initialize_proposals(p: u32, ) -> Weight;
 	fn spend() -> Weight;
 	fn payout() -> Weight;
 	fn check_status() -> Weight;
@@ -82,22 +81,6 @@ pub trait WeightInfo {
 /// Weights for `pallet_treasury` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `Treasury::Deactivated` (r:1 w:1)
-	/// Proof: `Treasury::Deactivated` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	/// Storage: `Treasury::LastSpendPeriod` (r:1 w:1)
-	/// Proof: `Treasury::LastSpendPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[0, 99]`.
-	fn on_initialize_proposals(p: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `78`
-		//  Estimated: `1501`
-		// Minimum execution time: 8_211_000 picoseconds.
-		Weight::from_parts(11_324_784, 1501)
-			// Standard Error: 806
-			.saturating_add(Weight::from_parts(45_246, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
 	/// Storage: `AssetRate::ConversionRateToNative` (r:1 w:0)
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// Storage: `Treasury::SpendCount` (r:1 w:1)
@@ -156,22 +139,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: `Treasury::Deactivated` (r:1 w:1)
-	/// Proof: `Treasury::Deactivated` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	/// Storage: `Treasury::LastSpendPeriod` (r:1 w:1)
-	/// Proof: `Treasury::LastSpendPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[0, 99]`.
-	fn on_initialize_proposals(p: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `78`
-		//  Estimated: `1501`
-		// Minimum execution time: 8_211_000 picoseconds.
-		Weight::from_parts(11_324_784, 1501)
-			// Standard Error: 806
-			.saturating_add(Weight::from_parts(45_246, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
 	/// Storage: `AssetRate::ConversionRateToNative` (r:1 w:0)
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// Storage: `Treasury::SpendCount` (r:1 w:1)

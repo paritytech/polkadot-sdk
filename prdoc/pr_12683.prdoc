@@ -2,11 +2,19 @@ title: Remove deprecated treasury spend_local and remove_approval
 doc:
 - audience: Runtime Dev
   description: |-
-    Removed `spend_local` and `remove_approval` (deprecated by May 2025), plus the related
-    public getters. Kept `MaxApprovals` and `ProposalCount` / `Proposals` / `Approvals` so
-    leftover approvals still pay out via `spend_funds`, and so bounties can keep using
-    `MaxApprovals`. Updated tests/benchmarks to seed legacy proposal storage directly and
-    dropped the related weight methods from runtime weight files.
+    Removed `spend_local` and `remove_approval` (deprecated by May 2025), plus the related public
+    getters, and dropped the legacy drain loop from `spend_funds` along with its
+    `on_initialize_proposals` benchmark and weight entries.
+
+    The legacy `ProposalCount` / `Proposals` / `Approvals` storage now lives behind
+    `migration::legacy` aliases and is cleared by the new
+    `migration::migrate_legacy_proposals::Migration`. That migration pays approved proposals out of
+    the pot, refunds every proposer's bond and then deletes the legacy storage, doing in one
+    upgrade what `spend_funds` previously did once per spend period. A proposal the pot cannot
+    cover is left in place so a later upgrade can finish the job. It is wired into the Rococo,
+    Asset Hub Westend, Collectives Westend and kitchensink runtimes.
+
+    `MaxApprovals` stays because the bounties pallet bounds its own `BountyApprovals` queue with it.
 crates:
 - name: asset-hub-westend-runtime
   bump: major

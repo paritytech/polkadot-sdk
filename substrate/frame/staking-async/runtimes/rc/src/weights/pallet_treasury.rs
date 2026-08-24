@@ -51,25 +51,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_treasury`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
-	/// Storage: `System::Account` (r:1 w:0)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `Treasury::Deactivated` (r:1 w:1)
-	/// Proof: `Treasury::Deactivated` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	/// Storage: `Treasury::LastSpendPeriod` (r:1 w:1)
-	/// Proof: `Treasury::LastSpendPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[0, 99]`.
-	fn on_initialize_proposals(p: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `350 + p * (1 ±0)`
-		//  Estimated: `3593`
-		// Minimum execution time: 17_293_000 picoseconds.
-		Weight::from_parts(20_649_783, 0)
-			.saturating_add(Weight::from_parts(0, 3593))
-			// Standard Error: 1_076
-			.saturating_add(Weight::from_parts(61_157, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 	/// Storage: `AssetRate::ConversionRateToNative` (r:1 w:0)
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(1238), added: 3713, mode: `MaxEncodedLen`)
 	/// Storage: `Treasury::SpendCount` (r:1 w:1)

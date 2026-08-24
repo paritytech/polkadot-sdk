@@ -51,23 +51,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_treasury`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
-	/// Storage: `Treasury::Deactivated` (r:1 w:1)
-	/// Proof: `Treasury::Deactivated` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	/// Storage: `Treasury::LastSpendPeriod` (r:1 w:1)
-	/// Proof: `Treasury::LastSpendPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[0, 99]`.
-	fn on_initialize_proposals(p: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `236`
-		//  Estimated: `1501`
-		// Minimum execution time: 11_611_000 picoseconds.
-		Weight::from_parts(14_424_000, 0)
-			.saturating_add(Weight::from_parts(0, 1501))
-			// Standard Error: 750
-			.saturating_add(Weight::from_parts(37_523, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 	/// Storage: `AssetRate::ConversionRateToNative` (r:1 w:0)
 	/// Proof: `AssetRate::ConversionRateToNative` (`max_values`: None, `max_size`: Some(1238), added: 3713, mode: `MaxEncodedLen`)
 	/// Storage: `Treasury::SpendCount` (r:1 w:1)

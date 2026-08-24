@@ -337,7 +337,8 @@ pub mod pallet {
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// We have ended a spend period and will now allocate funds.
 		Spending { budget_remaining: BalanceOf<T, I> },
-		/// Some funds have been allocated.
+		/// Legacy: only emitted by [`migration::migrate_legacy_proposals::Migration`] when it pays
+		/// out a proposal left over from `spend_local`.
 		Awarded { proposal_index: ProposalIndex, award: BalanceOf<T, I>, account: T::AccountId },
 		/// Some of our funds have been burnt.
 		Burnt { burnt_funds: BalanceOf<T, I> },
@@ -711,7 +712,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		last_spend_period
 	}
 
-	/// Spend some money! returns number of approvals before spend.
+	/// Spend some money!
 	pub fn spend_funds(
 		spend_periods_passed: BlockNumberFor<T, I>,
 		new_last_spend_period: BlockNumberFor<T, I>,
@@ -725,43 +726,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut missed_any = false;
 		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
-		// Drain any remaining legacy `spend_local` approvals. Once the runtime has applied
-		// `migration::migrate_legacy_proposals::Migration`, this storage will be empty and
-		// this block becomes a no-op (0 reads beyond the Approvals key itself).
-		let proposals_len = migration::legacy::Approvals::<T, I>::mutate(|v: &mut _| {
-			let proposals_approvals_len = v.len() as u32;
-			v.retain(|&index| {
-				// Should always be true, but shouldn't panic if false or we're screwed.
-				if let Some(p) = migration::legacy::Proposals::<T, I>::get(index) {
-					if p.value <= budget_remaining {
-						budget_remaining -= p.value;
-						migration::legacy::Proposals::<T, I>::remove(index);
-
-						// Return their deposit.
-						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
-						debug_assert!(err_amount.is_zero());
-
-						// Provide the allocation.
-						imbalance.subsume(T::Currency::deposit_creating(&p.beneficiary, p.value));
-
-						Self::deposit_event(Event::Awarded {
-							proposal_index: index,
-							award: p.value,
-							account: p.beneficiary,
-						});
-						false
-					} else {
-						missed_any = true;
-						true
-					}
-				} else {
-					false
-				}
-			});
-			proposals_approvals_len
-		});
-
-		total_weight += T::WeightInfo::on_initialize_proposals(proposals_len);
 
 		// Call Runtime hooks to external pallet using treasury to compute spend funds.
 		T::SpendFunds::spend_funds(

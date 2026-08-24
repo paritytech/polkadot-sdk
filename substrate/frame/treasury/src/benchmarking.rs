@@ -20,17 +20,16 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as Treasury, *};
-use crate::migration::legacy::{Approvals, Proposal, ProposalCount, Proposals};
 
 use frame_benchmarking::{
 	v1::{account, BenchmarkError},
 	v2::*,
 };
 use frame_support::{
-	assert_err, assert_ok, ensure,
+	assert_err, assert_ok,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
-		EnsureOrigin, OnInitialize,
+		EnsureOrigin,
 	},
 };
 use frame_system::RawOrigin;
@@ -60,44 +59,6 @@ where
 
 const SEED: u32 = 0;
 
-// Create the pre-requisite information needed to seed a legacy treasury proposal.
-fn setup_proposal<T: Config<I>, I: 'static>(u: u32) -> (BalanceOf<T, I>, T::AccountId) {
-	let value: BalanceOf<T, I> = T::Currency::minimum_balance() * 100u32.into();
-	let beneficiary = account("beneficiary", u, SEED);
-	(value, beneficiary)
-}
-
-// Directly insert a proposal into the legacy `ProposalCount`/`Proposals`/`Approvals` storage,
-// bypassing the now-removed `spend_local` call. Returns the proposal index.
-fn add_proposal<T: Config<I>, I: 'static>(
-	value: BalanceOf<T, I>,
-	beneficiary: T::AccountId,
-) -> Result<ProposalIndex, &'static str> {
-	let proposal_index = ProposalCount::<T, I>::get();
-	Approvals::<T, I>::try_append(proposal_index).map_err(|_| "Too many approvals")?;
-	let proposal =
-		Proposal { proposer: beneficiary.clone(), value, beneficiary, bond: Default::default() };
-	Proposals::<T, I>::insert(proposal_index, proposal);
-	ProposalCount::<T, I>::put(proposal_index + 1);
-	Ok(proposal_index)
-}
-
-// Create proposals that are approved for use in `on_initialize`.
-fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'static str> {
-	for i in 0..n {
-		let (value, beneficiary) = setup_proposal::<T, I>(i);
-		add_proposal::<T, I>(value, beneficiary)?;
-	}
-	ensure!(Approvals::<T, I>::get().len() == n as usize, "Not all approved");
-	Ok(())
-}
-
-fn setup_pot_account<T: Config<I>, I: 'static>() {
-	let pot_account = Treasury::<T, I>::account_id();
-	let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
-	let _ = T::Currency::make_free_balance_be(&pot_account, value);
-}
-
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
@@ -115,21 +76,6 @@ fn create_spend_arguments<T: Config<I>, I: 'static>(
 #[instance_benchmarks]
 mod benchmarks {
 	use super::*;
-
-	#[benchmark]
-	fn on_initialize_proposals(
-		p: Linear<0, { T::MaxApprovals::get() - 1 }>,
-	) -> Result<(), BenchmarkError> {
-		setup_pot_account::<T, _>();
-		create_approved_proposals::<T, _>(p)?;
-
-		#[block]
-		{
-			Treasury::<T, _>::on_initialize(0u32.into());
-		}
-
-		Ok(())
-	}
 
 	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
 	/// a successful origin, in which case `spend` is un-callable and can use weight=0.

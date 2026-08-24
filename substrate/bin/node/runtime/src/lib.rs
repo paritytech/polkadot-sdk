@@ -3085,6 +3085,7 @@ type Migrations = (
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+	pallet_treasury::migration::migrate_legacy_proposals::Migration<Runtime>,
 );
 
 type EventRecord = frame_system::EventRecord<

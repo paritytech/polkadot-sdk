@@ -865,6 +865,11 @@ type Migrations = (
 		BlockNumberConverter,
 		AmbassadorCoreInstance,
 	>,
+	// unreleased
+	pallet_treasury::migration::migrate_legacy_proposals::Migration<
+		Runtime,
+		fellowship::FellowshipTreasuryInstance,
+	>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,

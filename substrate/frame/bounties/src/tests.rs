@@ -43,7 +43,7 @@ use sp_runtime::{
 };
 
 use super::Event as BountiesEvent;
-use pallet_treasury::migration::legacy::{Approvals, Proposal, ProposalCount, Proposals};
+use pallet_treasury::migration::legacy::{ProposalCount, Proposals};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -51,18 +51,6 @@ type Block = frame_system::mocking::MockBlock<Test>;
 fn go_to_block(n: u64) {
 	<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
 	<Treasury as OnInitialize<u64>>::on_initialize(n);
-}
-
-// Directly insert a proposal into the legacy treasury `ProposalCount`/`Proposals`/`Approvals`
-// storage, bypassing the now-removed `spend_local` call. Returns the proposal index. Kept around
-// so that spend-period tests exercising the legacy approvals queue still work.
-fn add_treasury_proposal(value: u64, beneficiary: u128) -> pallet_treasury::ProposalIndex {
-	let proposal_index = ProposalCount::<Test, ()>::get();
-	Approvals::<Test, ()>::try_append(proposal_index).expect("too many approvals");
-	let proposal = Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
-	Proposals::<Test, ()>::insert(proposal_index, proposal);
-	ProposalCount::<Test, ()>::put(proposal_index + 1);
-	proposal_index
 }
 
 frame_support::construct_runtime!(
@@ -304,19 +292,6 @@ fn minting_works() {
 }
 
 #[test]
-fn accepted_spend_proposal_ignored_outside_spend_period() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		add_treasury_proposal(100, 3);
-
-		go_to_block(1);
-		assert_eq!(Balances::free_balance(3), 0);
-		assert_eq!(Treasury::pot(), 100);
-	});
-}
-
-#[test]
 fn unused_pot_should_diminish() {
 	ExtBuilder::default().build_and_execute(|| {
 		let init_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
@@ -326,96 +301,6 @@ fn unused_pot_should_diminish() {
 		go_to_block(2);
 		assert_eq!(Treasury::pot(), 50);
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 50);
-	});
-}
-
-#[test]
-fn accepted_spend_proposal_enacted_on_spend_period() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		add_treasury_proposal(100, 3);
-
-		go_to_block(2);
-		assert_eq!(Balances::free_balance(3), 100);
-		assert_eq!(Treasury::pot(), 0);
-	});
-}
-
-#[test]
-fn pot_underflow_should_not_diminish() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		add_treasury_proposal(150, 3);
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		assert_ok!(Balances::deposit_into_existing(&Treasury::account_id(), 100));
-		go_to_block(4);
-		assert_eq!(Balances::free_balance(3), 150); // Fund has been spent
-		assert_eq!(Treasury::pot(), 25); // Pot has finally changed
-	});
-}
-
-// Treasury account doesn't get deleted if amount approved to spend is all its free balance.
-// i.e. pot should not include existential deposit needed for account survival.
-#[test]
-fn treasury_account_doesnt_get_deleted() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-		let treasury_balance = Balances::free_balance(&Treasury::account_id());
-
-		add_treasury_proposal(treasury_balance, 3);
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		add_treasury_proposal(Treasury::pot(), 3);
-
-		go_to_block(4);
-		assert_eq!(Treasury::pot(), 0); // Pot is emptied
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still there
-	});
-}
-
-// In case treasury account is not existing then it works fine.
-// This is useful for chain that will just update runtime.
-#[test]
-fn inexistent_account_works() {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(0, 100), (1, 99), (2, 1)],
-		..Default::default()
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	// Treasury genesis config is not build thus treasury account does not exist
-	let mut t: sp_io::TestExternalities = t.into();
-
-	t.execute_with(|| {
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
-		assert_eq!(Treasury::pot(), 0); // Pot is empty
-
-		add_treasury_proposal(99, 3);
-		add_treasury_proposal(1, 3);
-		go_to_block(2);
-
-		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
-		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
-
-		Balances::make_free_balance_be(&Treasury::account_id(), 100);
-		assert_eq!(Treasury::pot(), 99); // Pot now contains funds
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 100); // Account does exist
-
-		go_to_block(4);
-
-		assert_eq!(Treasury::pot(), 0); // Pot has changed
-		assert_eq!(Balances::free_balance(3), 99); // Balance of `3` has changed
 	});
 }
 

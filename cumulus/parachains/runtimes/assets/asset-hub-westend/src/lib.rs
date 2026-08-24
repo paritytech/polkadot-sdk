@@ -1851,6 +1851,8 @@ pub type Migrations = (
 	// unreleased
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	// unreleased
+	pallet_treasury::migration::migrate_legacy_proposals::Migration<Runtime>,
+	// unreleased
 	InitStorageVersions,
 	// unreleased
 	DeleteUndecodableStorage,
