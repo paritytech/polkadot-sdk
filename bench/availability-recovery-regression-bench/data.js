@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787498910433,
+  "lastUpdate": 1787555369439,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "97e54c54a9573daf4d4a5234a42a3d1f054d7f91",
-          "message": "[CI|Release] Improve post crates action (#10803)\n\nhttps://github.com/paritytech/release-engineering/issues/280\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-21T08:47:44Z",
-          "tree_id": "601aeb5b6aba51b4e1ad695e6818647d4b4f5427",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/97e54c54a9573daf4d4a5234a42a3d1f054d7f91"
-        },
-        "date": 1768990356684,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13591909289999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.552891170833332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14536370096666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a465dda53a7f04f6c11567c094550991c3aeb84",
+          "message": "Run functional and elastic_scaling zombienet-sdk tests with legacy and experimental collator protocol implementations (#12836)\n\nCurrently all zombienet-sdk tests in polkadot are executed against the\nlegacy collator protocol implementation (on the validator side). Since\nwe are about to put the new implementation in production soon I think\nit's worth running CI with both implementation for a while.\n\nThe drawback is increased CI usage which will cost extra time and money.\nThe alternative is to add a CI job which runs only when merging to\nmaster.",
+          "timestamp": "2026-08-24T05:42:15Z",
+          "tree_id": "ae51f540144f879eee128a72fc9145aec6e1754b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a465dda53a7f04f6c11567c094550991c3aeb84"
+        },
+        "date": 1787555335032,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13270818393333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.843699118000004,
             "unit": "seconds"
           }
         ]
