@@ -1,0 +1,9 @@
+title: Preserve fork-tree state on finalization ancestry errors
+doc:
+- audience: Node Dev
+  description: |-
+    Ensure `ForkTree::finalize` and `ForkTree::finalize_with_descendent_if` leave
+    the tree unchanged when the ancestry callback returns an error.
+crates:
+- name: fork-tree
+  bump: patch
