@@ -1113,7 +1113,7 @@ mod suspensions {
 	}
 
 	#[test]
-	fn suspending_in_multiple_sessions() {
+	fn suspending_in_multiple_sessions_updates_ring_positions() {
 		TestExt::new().execute_with(|| {
 			let mut meter = WeightMeter::new();
 			// A ring with multiple people
@@ -1130,6 +1130,22 @@ mod suspensions {
 			// Those people are then removed
 			assert_eq!(suspended_indices_list(RI_ZERO).into_inner(), vec![1, 2]);
 			PeoplePallet::remove_suspended_keys(RI_ZERO);
+			assert_eq!(
+				People::<Test>::get(3).unwrap().position,
+				RingPosition::Included {
+					ring_index: RI_ZERO,
+					ring_position: 1,
+					scheduled_for_removal: false,
+				}
+			);
+			assert_eq!(
+				People::<Test>::get(4).unwrap().position,
+				RingPosition::Included {
+					ring_index: RI_ZERO,
+					ring_position: 2,
+					scheduled_for_removal: false,
+				}
+			);
 
 			// Second session: some more people become suspended
 			assert_ok!(PeoplePallet::start_people_set_mutation_session());
@@ -1138,13 +1154,17 @@ mod suspensions {
 			PeoplePallet::migrate_keys(&mut meter);
 
 			// Pending suspensions are tracked correctly
-			assert_eq!(suspended_indices_list(RI_ZERO).into_inner(), vec![3, 4]);
+			assert_eq!(suspended_indices_list(RI_ZERO).into_inner(), vec![1, 2]);
 
 			// Those extra people are removed too
 			PeoplePallet::remove_suspended_keys(RI_ZERO);
 
 			// Final ring state is correct
-			assert_eq!(RingKeys::<Test>::get(RI_ZERO).len(), 6);
+			let remaining_people = RingKeys::<Test>::get(RI_ZERO)
+				.iter()
+				.map(|key| Keys::<Test>::get(key).unwrap())
+				.collect::<Vec<_>>();
+			assert_eq!(remaining_people, vec![0, 5, 6, 7, 8, 9]);
 		});
 	}
 
