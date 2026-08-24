@@ -41,6 +41,17 @@
 //! So no per-block sweep runs on the relay chain, and whoever wants the deposit back pays for the
 //! round trip. No deposit is ever taken here.
 //!
+//! ## Deregistration
+//!
+//! [`Pallet::deregister`] takes the parachain's request, checks the manager it names against the
+//! registry and that the para is unlocked, and removes the para. The attempt runs under a storage
+//! layer, because a refusal is reported back rather than failing the extrinsic and must leave no
+//! half-applied registry state behind. An id the registry never knew is confirmed as gone rather
+//! than refused: there is nothing to remove, and the parachain is waiting to release deposits.
+//!
+//! A verdict that never arrives is chased up with [`Pallet::cancel_deregistration`]. Whether the
+//! registry still knows the para decides the answer, and only the answer settles the parachain.
+//!
 //! ## Runtime requirement
 //!
 //! `apply_authorized_code` authorizes itself through [`frame_support::pallet_macros::authorize`],
@@ -119,7 +130,9 @@ pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
 		MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) => {
 			genesis_head.len() as u32
 		},
-		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => 0,
+		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) |
+		MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
+		MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) => 0,
 	}
 }
 
@@ -200,6 +213,14 @@ pub mod pallet {
 		AuthorizationCancelled { para_id: ParaId, message_id: u64 },
 		/// A cancellation arrived after the para had already been onboarded, and was refused.
 		CancellationRefused { para_id: ParaId, message_id: u64 },
+		/// A para was removed from the registry, or was confirmed as never having been in it.
+		Deregistered { para_id: ParaId, message_id: u64 },
+		/// A deregistration request was refused.
+		DeregistrationRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A chased-up deregistration never happened: the para is still registered.
+		DeregistrationCancelled { para_id: ParaId, message_id: u64 },
+		/// A chased-up deregistration had already gone through, so calling it off was refused.
+		DeregistrationCancellationRefused { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
 		///
 		/// The relay chain's own state is already correct; the parachain is now out of step and
@@ -331,6 +352,64 @@ pub mod pallet {
 				_ => Err(Error::<T>::UnexpectedMessage.into()),
 			}
 		}
+
+		/// Remove a para from the registry, at the parachain's request.
+		///
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users.
+		///
+		/// The parachain has already checked its caller is the manager; this end checks that same
+		/// manager against its own registry and that the para is unlocked, then removes the para
+		/// and schedules its relay-chain cleanup. As with [`Pallet::authorize_code`], a request
+		/// this pallet will not act on is reported back and returns `Ok`, never `Err`.
+		///
+		/// An id the registry never knew is confirmed as gone rather than refused: there is
+		/// nothing to remove, and the parachain is waiting to release deposits.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::deregister())]
+		pub fn deregister(
+			origin: OriginFor<T>,
+			message: MessageToRelay<T::AccountId>,
+		) -> DispatchResult {
+			T::ParaOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToRelay::V1(MessageToRelayV1::Deregister {
+					para_id,
+					message_id,
+					manager,
+				}) => {
+					Self::on_deregister_request(para_id, message_id, manager);
+					Ok(())
+				},
+				_ => Err(Error::<T>::UnexpectedMessage.into()),
+			}
+		}
+
+		/// Answer whether a deregistration went through, at the parachain's request.
+		///
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. Sent
+		/// when the verdict for a [`MessageToRelayV1::Deregister`] never arrived. Answered with
+		/// [`MessageToParaV1::CancelDeregistrationResponse`], which settles the parachain either
+		/// way: back to registered, or deposits released after all.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::cancel_deregistration())]
+		pub fn cancel_deregistration(
+			origin: OriginFor<T>,
+			message: MessageToRelay<T::AccountId>,
+		) -> DispatchResult {
+			T::ParaOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
+					para_id,
+					message_id,
+				}) => {
+					Self::on_cancel_deregistration_request(para_id, message_id);
+					Ok(())
+				},
+				_ => Err(Error::<T>::UnexpectedMessage.into()),
+			}
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -428,6 +507,78 @@ pub mod pallet {
 			Self::deposit_event(Event::AuthorizationCancelled { para_id, message_id });
 		}
 
+		/// Apply a deregistration request from the parachain.
+		fn on_deregister_request(para_id: ParaId, message_id: u64, manager: T::AccountId) {
+			let registered_manager = match T::Registrar::manager_of(para_id) {
+				Some(registered_manager) => registered_manager,
+				// The registry never knew this id: there is nothing to remove, and the parachain
+				// is waiting to release deposits, so confirm rather than refuse.
+				None if !T::Registrar::is_registered(para_id) => {
+					Self::report_deregistration(para_id, message_id, Ok(()));
+					return Self::deposit_event(Event::Deregistered { para_id, message_id });
+				},
+				// Known to the relay chain, but not through the registry (e.g. a system para):
+				// not the parachain's to remove.
+				None => {
+					return Self::reject_deregistration(
+						para_id,
+						message_id,
+						FailureReason::CannotDeregister,
+					)
+				},
+			};
+
+			if registered_manager != manager {
+				return Self::reject_deregistration(para_id, message_id, FailureReason::NotManager);
+			}
+			if T::Registrar::is_locked(para_id) {
+				return Self::reject_deregistration(para_id, message_id, FailureReason::Locked);
+			}
+
+			// The registry may refuse after it has already written (a para whose upward message
+			// queue is not drained fails only once its cleanup is being scheduled), and a refusal
+			// here is reported rather than unwound, so the attempt gets its own storage layer.
+			match frame_support::storage::with_storage_layer::<(), sp_runtime::DispatchError, _>(
+				|| T::Registrar::deregister(para_id),
+			) {
+				Ok(()) => {
+					Self::report_deregistration(para_id, message_id, Ok(()));
+					Self::deposit_event(Event::Deregistered { para_id, message_id });
+				},
+				Err(_) => Self::reject_deregistration(
+					para_id,
+					message_id,
+					FailureReason::CannotDeregister,
+				),
+			}
+		}
+
+		/// Turn a deregistration away and tell the parachain to put the para back.
+		fn reject_deregistration(para_id: ParaId, message_id: u64, reason: FailureReason) {
+			Self::report_deregistration(para_id, message_id, Err(reason.clone()));
+			Self::deposit_event(Event::DeregistrationRejected { para_id, message_id, reason });
+		}
+
+		/// Answer whether a deregistration went through.
+		///
+		/// Whether the registry still has the entry is the whole test, the same shape as
+		/// [`Self::on_cancel_request`]: a para still in the registry was not deregistered, so the
+		/// parachain may safely go back to registered; one that is gone was, its report was lost,
+		/// and the deposits are owed after all.
+		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
+			if T::Registrar::manager_of(para_id).is_some() {
+				Self::report_cancel_deregistration(para_id, message_id, Ok(()));
+				return Self::deposit_event(Event::DeregistrationCancelled { para_id, message_id });
+			}
+
+			Self::report_cancel_deregistration(
+				para_id,
+				message_id,
+				Err(FailureReason::NotRegistered),
+			);
+			Self::deposit_event(Event::DeregistrationCancellationRefused { para_id, message_id });
+		}
+
 		/// Check `validation_code` against the pending entry for `para_id`.
 		fn validate_pending_code(
 			para_id: ParaId,
@@ -475,6 +626,24 @@ pub mod pallet {
 				para_id,
 				message_id,
 				MessageToParaV1::CancelResponse { para_id, message_id, outcome },
+			);
+		}
+
+		/// Tell the parachain how a deregistration ended.
+		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
+			Self::report(
+				para_id,
+				message_id,
+				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome },
+			);
+		}
+
+		/// Tell the parachain what became of its chased-up deregistration.
+		fn report_cancel_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
+			Self::report(
+				para_id,
+				message_id,
+				MessageToParaV1::CancelDeregistrationResponse { para_id, message_id, outcome },
 			);
 		}
 

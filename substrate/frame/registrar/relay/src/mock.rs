@@ -76,11 +76,25 @@ parameter_types! {
 	pub static AlreadyKnown: Vec<ParaId> = Vec::new();
 	/// When true, `MockRegistrar::register` fails.
 	pub static RegisterFails: bool = false;
+	/// The registry's manager entries, as `(para, manager)`.
+	pub static Managers: Vec<(ParaId, AccountId)> = Vec::new();
+	/// Paras `MockRegistrar` claims are locked.
+	pub static LockedParas: Vec<ParaId> = Vec::new();
+	/// When true, `MockRegistrar::deregister` fails, leaving its partial write behind.
+	pub static DeregisterFails: bool = false;
+	/// Paras `MockRegistrar` has deregistered, in order.
+	pub static DeregisteredParas: Vec<ParaId> = Vec::new();
 	/// Reports handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
 }
+
+/// A raw storage key `MockRegistrar::deregister` writes before it can fail.
+///
+/// The recorders above are thread locals, which a storage layer cannot unwind. This is a real
+/// storage write, so a test can prove that the pallet rolled a failed deregistration back.
+pub const PARTIAL_WRITE_KEY: &[u8] = b":mock_partial_deregister:";
 
 /// Stands in for the relay chain's `paras_registrar`.
 pub struct MockRegistrar;
@@ -97,7 +111,19 @@ impl ParachainRegistrar for MockRegistrar {
 
 	fn is_registered(para_id: ParaId) -> bool {
 		AlreadyKnown::get().contains(&para_id) ||
-			Onboarded::get().iter().any(|(id, ..)| *id == para_id)
+			Onboarded::get().iter().any(|(id, ..)| *id == para_id) ||
+			Managers::get().iter().any(|(id, _)| *id == para_id)
+	}
+
+	fn manager_of(para_id: ParaId) -> Option<AccountId> {
+		Managers::get()
+			.iter()
+			.find(|(id, _)| *id == para_id)
+			.map(|(_, manager)| *manager)
+	}
+
+	fn is_locked(para_id: ParaId) -> bool {
+		LockedParas::get().contains(&para_id)
 	}
 
 	fn register(
@@ -111,6 +137,23 @@ impl ParachainRegistrar for MockRegistrar {
 		}
 		Onboarded::mutate(|v| v.push((para_id, manager, genesis_head, validation_code)));
 		Ok(())
+	}
+
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		frame_support::storage::unhashed::put(PARTIAL_WRITE_KEY, &para_id);
+		if DeregisterFails::get() {
+			// Left set on purpose: the real registry also fails only after having written.
+			return Err(sp_runtime::DispatchError::Other("registrar refused"));
+		}
+		frame_support::storage::unhashed::kill(PARTIAL_WRITE_KEY);
+		Managers::mutate(|managers| managers.retain(|(id, _)| *id != para_id));
+		DeregisteredParas::mutate(|deregistered| deregistered.push(para_id));
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_deregisterable(manager: Self::AccountId, para_id: ParaId) {
+		Managers::mutate(|managers| managers.push((para_id, manager)));
 	}
 }
 
@@ -158,6 +201,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Onboarded::set(Vec::new());
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
+	Managers::set(Vec::new());
+	LockedParas::set(Vec::new());
+	DeregisterFails::set(false);
+	DeregisteredParas::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 

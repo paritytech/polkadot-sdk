@@ -53,6 +53,12 @@ pub enum RegistrarRelayCalls<AccountId> {
 	/// Index of `fn cancel_authorization` in `pallet-registrar-relay`.
 	#[codec(index = 2)]
 	CancelAuthorization(MessageToRelay<AccountId>),
+	/// Index of `fn deregister` in `pallet-registrar-relay`.
+	#[codec(index = 3)]
+	Deregister(MessageToRelay<AccountId>),
+	/// Index of `fn cancel_deregistration` in `pallet-registrar-relay`.
+	#[codec(index = 4)]
+	CancelDeregistration(MessageToRelay<AccountId>),
 }
 
 /// Calls on the parachain, as the relay chain must encode them.
@@ -90,6 +96,12 @@ impl SendToRelay for ParaSendToRelay {
 			},
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => {
 				RegistrarRelayCalls::CancelAuthorization(message)
+			},
+			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) => {
+				RegistrarRelayCalls::Deregister(message)
+			},
+			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) => {
+				RegistrarRelayCalls::CancelDeregistration(message)
 			},
 		};
 		let call = RelayRuntimePallets::Registrar(relay_call).encode();

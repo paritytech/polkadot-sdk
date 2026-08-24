@@ -594,6 +594,14 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
 	}
 
+	fn manager_of(para_id: u32) -> Option<T::AccountId> {
+		Paras::<T>::get(ParaId::from(para_id)).map(|info| info.manager)
+	}
+
+	fn is_locked(para_id: u32) -> bool {
+		Paras::<T>::get(ParaId::from(para_id)).is_some_and(|info| info.is_locked())
+	}
+
 	fn register(
 		manager: T::AccountId,
 		para_id: u32,
@@ -608,6 +616,24 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			ValidationCode(validation_code),
 			false,
 		)
+	}
+
+	fn deregister(para_id: u32) -> DispatchResult {
+		// Takes the `Paras` entry too, not just the lifecycle: the registry must forget the para
+		// or a later chase-up would report it as still registered. The unreserve in there is a
+		// no-op for a remotely registered para (its stored deposit is zero) and correctly frees
+		// the relay-chain deposit of one that was registered locally the legacy way.
+		Self::do_deregister(ParaId::from(para_id))
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_deregisterable(manager: T::AccountId, para_id: u32) {
+		// A registry entry with no paras lifecycle: `manager_of` finds it, it is unlocked, and
+		// `do_deregister` succeeds because `schedule_para_cleanup` ignores an unknown para.
+		Paras::<T>::insert(
+			ParaId::from(para_id),
+			ParaInfo { manager, deposit: BalanceOf::<T>::zero(), locked: None },
+		);
 	}
 }
 

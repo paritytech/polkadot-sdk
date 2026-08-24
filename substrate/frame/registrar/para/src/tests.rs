@@ -66,6 +66,34 @@ fn request_registration(who: AccountId, para_id: u32, head_len: usize, code_len:
 	blob
 }
 
+/// Reserve, register and confirm a para for `who` (message id 0), leaving the logs clean.
+///
+/// Head and code sizes are 20 and 300, so the registration deposit is `PER_BYTE * 320`.
+fn registered_para(who: AccountId) -> u32 {
+	let para_id = reserve_for(who);
+	request_registration(who, para_id, 20, 300);
+	assert_ok!(Registrar::receive(
+		RuntimeOrigin::root(),
+		MessageToPara::V1(MessageToParaV1::RegisterResponse {
+			para_id,
+			message_id: 0,
+			outcome: Ok(()),
+		}),
+	));
+	let _ = registrar_events();
+	let _ = take_sent();
+	para_id
+}
+
+/// Put `who`'s para into `Deregistering` (message id 1), leaving the logs clean.
+fn deregistering_para(who: AccountId) -> u32 {
+	let para_id = registered_para(who);
+	assert_ok!(Registrar::deregister(RuntimeOrigin::signed(who), para_id));
+	let _ = registrar_events();
+	let _ = take_sent();
+	para_id
+}
+
 mod reserve {
 	use super::*;
 
@@ -436,6 +464,188 @@ mod receive {
 			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 0, Ok(())));
 		});
 	}
+
+	fn deregister_answer(para_id: u32, message_id: u64, outcome: Outcome) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::DeregisterResponse { para_id, message_id, outcome })
+	}
+
+	fn chase_up_answer(para_id: u32, message_id: u64, outcome: Outcome) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+			para_id,
+			message_id,
+			outcome,
+		})
+	}
+
+	#[test]
+	fn a_confirmed_deregistration_releases_both_deposits_and_frees_the_id() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 1, Ok(())),
+			));
+
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(held(ALICE), 0);
+			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
+		});
+	}
+
+	#[test]
+	fn a_refused_deregistration_flips_back_to_registered_and_keeps_the_deposits() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+			let deposit = PER_BYTE * (20 + 300);
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 1, Err(FailureReason::Locked)),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationFailed {
+					para_id,
+					message_id: 1,
+					manager: ALICE,
+					reason: FailureReason::Locked,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "deregister response for unknown para, dropping")]
+	fn a_deregister_response_for_an_unknown_para_is_defensive() {
+		new_test_ext().execute_with(|| {
+			let _ = Registrar::receive(RuntimeOrigin::root(), deregister_answer(4242, 0, Ok(())));
+		});
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "deregister response for para which is not deregistering, dropping")]
+	fn a_deregister_response_for_a_para_that_is_not_deregistering_is_defensive() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let _ =
+				Registrar::receive(RuntimeOrigin::root(), deregister_answer(para_id, 1, Ok(())));
+		});
+	}
+
+	#[test]
+	fn a_refused_chase_up_completes_the_deregistration() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+
+			// The deregistration went through and its report was lost, so the chase-up comes
+			// back refused and the deposits are owed.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				chase_up_answer(para_id, 2, Err(FailureReason::NotRegistered)),
+			));
+
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(held(ALICE), 0);
+			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
+		});
+	}
+
+	#[test]
+	fn a_chase_up_answer_that_lost_the_race_to_the_verdict_is_dropped_quietly() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+
+			// The verdict settles the deregistration first and removes the entry.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 1, Ok(())),
+			));
+			let _ = registrar_events();
+
+			// The chase-up's answer then finds no para at all. Unlike a stray deregister
+			// response this is expected, so it is not defensive.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				chase_up_answer(para_id, 2, Err(FailureReason::NotRegistered)),
+			));
+
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(held(ALICE), 0);
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_chase_up_answer_for_a_registered_para_is_dropped_quietly() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+			let deposit = PER_BYTE * (20 + 300);
+
+			// The verdict was a refusal, so the para is registered again by the time the
+			// chase-up's answer arrives.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 1, Err(FailureReason::Locked)),
+			));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				chase_up_answer(para_id, 2, Ok(())),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	#[should_panic(expected = "unexpected cancel deregistration refusal, leaving deregistering")]
+	fn an_unexpected_chase_up_refusal_is_defensive_and_leaves_state() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+			let _ = Registrar::receive(
+				RuntimeOrigin::root(),
+				chase_up_answer(para_id, 2, Err(FailureReason::AlreadyRegistered)),
+			);
+		});
+	}
+
+	#[test]
+	fn a_user_cannot_forge_a_deregister_report() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+
+			assert_noop!(
+				Registrar::receive(
+					RuntimeOrigin::signed(ALICE),
+					deregister_answer(para_id, 1, Ok(())),
+				),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Registrar::receive(
+					RuntimeOrigin::signed(ALICE),
+					chase_up_answer(para_id, 2, Ok(())),
+				),
+				DispatchError::BadOrigin
+			);
+		});
+	}
 }
 
 mod cancel_registration {
@@ -568,6 +778,371 @@ mod cancel_registration {
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_noop!(
 				Registrar::cancel_registration(RuntimeOrigin::signed(BOB), para_id),
+				Error::<Test>::NotOwner
+			);
+		});
+	}
+}
+
+mod deregister {
+	use super::*;
+
+	#[test]
+	fn a_reserved_id_is_dropped_locally_and_the_deposit_comes_back() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(held(ALICE), 0);
+			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
+			// The relay chain never heard of this id, so there is no round trip.
+			assert!(take_sent().is_empty());
+			assert_eq!(crate::NextMessageId::<Test>::get(), 0);
+		});
+	}
+
+	#[test]
+	fn a_registered_para_asks_the_relay_chain_and_releases_nothing() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let deposit = PER_BYTE * (20 + 300);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+
+			// The relay chain has been asked, and until it answers nothing is given back.
+			let expected_at = System::block_number() + PENDING_DEADLINE;
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Deregistering { cancellable_at, .. }
+					if cancellable_at == expected_at
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			// The registration took message id 0, so this is message 1.
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::Deregister {
+					para_id,
+					message_id: 1,
+					manager: ALICE,
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregisterRequested { para_id, message_id: 1, manager: ALICE }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_rolls_the_whole_call_back() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::SendFailed
+			);
+
+			// The state change and the message id went with it.
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
+		});
+	}
+
+	#[test]
+	fn rejects_an_unknown_id_a_non_manager_and_in_flight_states() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), 4242),
+				Error::<Test>::NotReserved
+			);
+
+			let para_id = reserve_for(ALICE);
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(BOB), para_id),
+				Error::<Test>::NotOwner
+			);
+
+			// A registration in flight has to be settled or cancelled first.
+			request_registration(ALICE, para_id, 20, 300);
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::RequestInFlight
+			);
+
+			// And so does a deregistration already in flight.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id,
+					message_id: 0,
+					outcome: Ok(()),
+				}),
+			));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::RequestInFlight
+			);
+		});
+	}
+
+	#[test]
+	fn the_para_itself_and_root_may_deregister() {
+		new_test_ext().execute_with(|| {
+			// Another para cannot pose as this one.
+			let para_id = reserve_for(ALICE);
+			assert_noop!(
+				Registrar::deregister(para_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
+			);
+
+			// The para itself drops its reserved id; the deposit goes back to the manager.
+			assert_ok!(Registrar::deregister(para_origin(para_id), para_id));
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(held(ALICE), 0);
+			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
+
+			// Root drives a registered para's deregistration; the request still names the
+			// manager, whose deposits stay held until the relay chain answers.
+			let para_id = registered_para(ALICE);
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id));
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Deregistering { .. }
+			));
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::Deregister {
+					para_id,
+					message_id: 1,
+					manager: ALICE,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_still_holding_an_assignment_is_refused() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			AssignedParas::set(vec![para_id]);
+
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::StillAssigned
+			);
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+
+			// The check guards scheduling, which a merely reserved id cannot be doing.
+			let reserved = reserve_for(ALICE);
+			AssignedParas::mutate(|assigned| assigned.push(reserved));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), reserved));
+		});
+	}
+}
+
+mod cancel_deregistration {
+	use super::*;
+
+	fn chase_up_request(para_id: u32, message_id: u64) -> MessageToRelay<AccountId> {
+		MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { para_id, message_id })
+	}
+
+	fn chase_up_confirmation(para_id: u32, message_id: u64) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+			para_id,
+			message_id,
+			outcome: Ok(()),
+		})
+	}
+
+	#[test]
+	fn is_refused_before_the_deadline() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+
+			run_to_block(System::block_number() + PENDING_DEADLINE - 1);
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::CannotCancelYet
+			);
+		});
+	}
+
+	#[test]
+	fn asks_the_relay_chain_and_only_the_answer_settles_it() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+			let deposit = PER_BYTE * (20 + 300);
+
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
+
+			// Only the relay chain knows whether the deregistration went through, so nothing is
+			// settled until it answers.
+			let expected_at = System::block_number() + PENDING_DEADLINE;
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Deregistering { cancellable_at, .. }
+					if cancellable_at == expected_at
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			// Register was 0 and the deregistration 1, so the chase-up carries 2.
+			assert_eq!(take_sent(), vec![chase_up_request(para_id, 2)]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CancelDeregistrationRequested {
+					para_id,
+					message_id: 2,
+					manager: ALICE,
+				}]
+			);
+
+			// The deregistration never happened on the relay chain, so the para is registered
+			// again and the deposits stay held.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				chase_up_confirmation(para_id, 2),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationCancelled { para_id, message_id: 2, manager: ALICE }]
+			);
+
+			// And the manager can simply try again.
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+		});
+	}
+
+	#[test]
+	fn cannot_be_asked_again_until_another_deadline_passes() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = take_sent();
+
+			run_to_block(System::block_number() + PENDING_DEADLINE - 1);
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::CannotCancelYet
+			);
+
+			run_to_block(System::block_number() + 1);
+			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
+			// Register was 0, the deregistration 1, the first chase-up 2, so the retry carries 3.
+			assert_eq!(take_sent(), vec![chase_up_request(para_id, 3)]);
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_rolls_the_whole_call_back() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+			let cancellable_at = System::block_number() + PENDING_DEADLINE;
+			run_to_block(cancellable_at);
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::SendFailed
+			);
+
+			// The pushed-out deadline went with it, so the manager can retry immediately.
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Deregistering { cancellable_at: at, .. }
+					if at == cancellable_at
+			));
+			SendFails::set(false);
+			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
+		});
+	}
+
+	#[test]
+	fn the_para_itself_and_root_may_chase_up() {
+		new_test_ext().execute_with(|| {
+			let para_id = deregistering_para(ALICE);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+
+			// Another para cannot pose as this one.
+			assert_noop!(
+				Registrar::cancel_deregistration(para_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
+			);
+
+			// Register was 0 and the deregistration 1, so the para's chase-up carries 2.
+			assert_ok!(Registrar::cancel_deregistration(para_origin(para_id), para_id));
+			assert_eq!(take_sent(), vec![chase_up_request(para_id, 2)]);
+
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::root(), para_id));
+			assert_eq!(take_sent(), vec![chase_up_request(para_id, 3)]);
+
+			// Events name the manager, whoever asked.
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::CancelDeregistrationRequested { para_id, message_id: 2, manager: ALICE },
+					Event::CancelDeregistrationRequested { para_id, message_id: 3, manager: ALICE },
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_a_non_manager_and_a_para_that_is_not_deregistering() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+
+			// Reserved, not deregistering.
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotDeregistering
+			);
+
+			// Pending, not deregistering.
+			request_registration(ALICE, para_id, 20, 300);
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotDeregistering
+			);
+
+			// Registered, not deregistering.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id,
+					message_id: 0,
+					outcome: Ok(()),
+				}),
+			));
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotDeregistering
+			);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::signed(BOB), para_id),
 				Error::<Test>::NotOwner
 			);
 		});

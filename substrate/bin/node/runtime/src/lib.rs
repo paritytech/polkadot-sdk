@@ -2714,7 +2714,10 @@ impl pallet_registrar_para::Config for Runtime {
 		LinearStoragePrice<ConstU128<0>, RegistrationDepositPerByte, Balance>,
 	>;
 	type SendToRelay = DiscardRegistrarMessages;
+	type AssignmentChecker = ();
 	type RelayOrigin = EnsureRoot<AccountId>;
+	// No parachain can call into this runtime, so the para-itself origin stays off.
+	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
 	type FirstPublicParaId = ConstU32<2000>;
 	type MinCodeSize = ConstU32<9>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
@@ -2725,7 +2728,13 @@ impl pallet_registrar_para::Config for Runtime {
 }
 
 /// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
+///
+/// Stateless, except that benchmarks need `manager_of` to find the para they set up, so under
+/// `runtime-benchmarks` one entry lives at a raw storage key.
 pub struct AcceptingRegistrar;
+
+#[cfg(feature = "runtime-benchmarks")]
+const REGISTRAR_BENCH_KEY: &[u8] = b":registrar_bench_deregisterable:";
 
 impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	type AccountId = AccountId;
@@ -2738,6 +2747,23 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		false
 	}
 
+	fn manager_of(para_id: registrar_primitives::ParaId) -> Option<AccountId> {
+		#[cfg(feature = "runtime-benchmarks")]
+		if let Some((id, manager)) =
+			frame_support::storage::unhashed::get::<(u32, AccountId)>(REGISTRAR_BENCH_KEY)
+		{
+			if id == para_id {
+				return Some(manager);
+			}
+		}
+		let _ = para_id;
+		None
+	}
+
+	fn is_locked(_para_id: registrar_primitives::ParaId) -> bool {
+		false
+	}
+
 	fn register(
 		_manager: AccountId,
 		_para_id: registrar_primitives::ParaId,
@@ -2745,6 +2771,17 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		_validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
 		Ok(())
+	}
+
+	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		#[cfg(feature = "runtime-benchmarks")]
+		frame_support::storage::unhashed::kill(REGISTRAR_BENCH_KEY);
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_deregisterable(manager: AccountId, para_id: registrar_primitives::ParaId) {
+		frame_support::storage::unhashed::put(REGISTRAR_BENCH_KEY, &(para_id, manager));
 	}
 }
 

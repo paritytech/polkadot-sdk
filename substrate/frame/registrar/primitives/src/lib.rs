@@ -91,6 +91,33 @@ pub enum MessageToRelayV1<AccountId> {
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 	},
+	/// Ask the relay chain to deregister `para_id`.
+	///
+	/// `manager` is who holds the deposits on the parachain; the relay chain refuses the request
+	/// unless it matches the manager in its own registry (or the registry never knew the id at
+	/// all, in which case there is nothing to remove and the request succeeds). Answered with
+	/// [`MessageToParaV1::DeregisterResponse`].
+	#[codec(index = 2)]
+	Deregister {
+		/// The para id to deregister.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+		/// The account managing this para on the parachain.
+		manager: AccountId,
+	},
+	/// Ask the relay chain whether a deregistration whose verdict never arrived went through.
+	///
+	/// Sent when the manager gives up waiting on a [`MessageToRelayV1::Deregister`] answer. The
+	/// relay chain answers with what actually happened, and only that answer settles the
+	/// parachain's state. Answered with [`MessageToParaV1::CancelDeregistrationResponse`].
+	#[codec(index = 3)]
+	CancelDeregistration {
+		/// The para id whose deregistration is being chased up.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+	},
 }
 
 /// Registrar report messages sent back to the parachain.
@@ -140,6 +167,34 @@ pub enum MessageToParaV1 {
 		/// Whether the authorization was dropped.
 		outcome: Outcome,
 	},
+	/// Report how a deregistration requested with [`MessageToRelayV1::Deregister`] ended.
+	///
+	/// `Ok(())` means the para is gone from the relay chain (or was never there), so the deposits
+	/// can be released.
+	#[codec(index = 2)]
+	DeregisterResponse {
+		/// The para id the report is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::Deregister`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the deregistration was applied on the relay chain.
+		outcome: Outcome,
+	},
+	/// Answer a [`MessageToRelayV1::CancelDeregistration`].
+	///
+	/// `Ok(())` means the para is still registered on the relay chain, so the deregistration
+	/// never happened and the parachain can go back to normal. The only refusal is
+	/// [`FailureReason::NotRegistered`]: the deregistration did go through and its report was
+	/// lost, so the deposits go back after all.
+	#[codec(index = 3)]
+	CancelDeregistrationResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::CancelDeregistration`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the deregistration was called off.
+		outcome: Outcome,
+	},
 }
 
 /// How a request ended.
@@ -167,6 +222,20 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The request's manager does not match the one in the relay chain's registry.
+	#[codec(index = 4)]
+	NotManager,
+	/// The para is locked from manager control on the relay chain.
+	#[codec(index = 5)]
+	Locked,
+	/// The registry refused to deregister the para: it is a live parachain, known to the relay
+	/// chain outside the registry, mid-upgrade, or its upward message queue is not drained.
+	#[codec(index = 6)]
+	CannotDeregister,
+	/// The answer to a [`MessageToRelayV1::CancelDeregistration`] that came too late: the para is
+	/// no longer registered, so the deregistration went through.
+	#[codec(index = 7)]
+	NotRegistered,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -187,6 +256,15 @@ pub trait ParachainRegistrar {
 	/// Whether the relay chain already knows this para id.
 	fn is_registered(para_id: ParaId) -> bool;
 
+	/// The manager of `para_id`, if the registry knows it.
+	///
+	/// `None` both for an id the registry never saw and for a para the relay chain knows outside
+	/// the registry (distinguish those with [`Self::is_registered`]).
+	fn manager_of(para_id: ParaId) -> Option<Self::AccountId>;
+
+	/// Whether `para_id` is locked from manager control.
+	fn is_locked(para_id: ParaId) -> bool;
+
 	/// Onboard `para_id` under `manager`.
 	///
 	/// No deposit is taken: the manager's funds are held on the chain running
@@ -197,4 +275,15 @@ pub trait ParachainRegistrar {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
+
+	/// Remove `para_id` from the registry and free its relay-chain state.
+	///
+	/// No deposit is released here for the same reason [`Self::register`] takes none. Not
+	/// required to be atomic on failure: the caller runs it under a storage layer.
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
+
+	/// Arrange for `para_id` to be registered under `manager`, unlocked and deregisterable, so
+	/// the deregistration path can be benchmarked.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_deregisterable(manager: Self::AccountId, para_id: ParaId);
 }

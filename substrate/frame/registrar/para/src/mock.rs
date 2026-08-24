@@ -21,7 +21,7 @@
 //! and can be told to fail, which is all this side needs to be tested on its own. The two halves
 //! meeting for real is the job of the `pallet-registrar-test` crate.
 
-use crate::{self as pallet_registrar_para, HoldReason, SendToRelay};
+use crate::{self as pallet_registrar_para, AssignmentChecker, HoldReason, SendToRelay};
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
@@ -118,6 +118,62 @@ pub fn take_sent() -> Vec<MessageToRelay<AccountId>> {
 }
 
 parameter_types! {
+	/// Para ids that still hold a coretime assignment.
+	pub static AssignedParas: Vec<u32> = Vec::new();
+}
+
+parameter_types! {
+	/// Signed accounts allowed to act as a para, as `(account, para id)`.
+	pub static ParaOriginAccounts: Vec<(AccountId, u32)> = Vec::new();
+}
+
+/// Lets the accounts listed in [`ParaOriginAccounts`] act as their para, standing in for a real
+/// XCM origin. An explicit list, not an account range, so no other account (in particular the
+/// entropy-derived ones the benchmarks use) can resolve as a para by accident.
+pub struct ParaAccounts;
+
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for ParaAccounts {
+	type Success = u32;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		let signed: Result<frame_system::RawOrigin<AccountId>, _> = o.clone().into();
+		match signed {
+			Ok(frame_system::RawOrigin::Signed(who)) => ParaOriginAccounts::get()
+				.iter()
+				.find(|(account, _)| *account == who)
+				.map(|(_, para_id)| *para_id)
+				.ok_or(o),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Err(())
+	}
+}
+
+/// The origin para `para_id` itself calls with, backed by a fresh stand-in account.
+pub fn para_origin(para_id: u32) -> RuntimeOrigin {
+	let account = 1_000_000 + para_id as AccountId;
+	ParaOriginAccounts::mutate(|paras| {
+		if !paras.contains(&(account, para_id)) {
+			paras.push((account, para_id));
+		}
+	});
+	RuntimeOrigin::signed(account)
+}
+
+/// An [`AssignmentChecker`] backed by the [`AssignedParas`] list.
+pub struct MockAssignments;
+
+impl AssignmentChecker for MockAssignments {
+	fn has_assignment(para_id: u32) -> bool {
+		AssignedParas::get().contains(&para_id)
+	}
+}
+
+parameter_types! {
 	pub const ParaDeposit: Balance = PARA_DEPOSIT;
 	pub const DataDepositPerByte: Balance = PER_BYTE;
 	pub const ReservationHoldReason: RuntimeHoldReason =
@@ -140,7 +196,9 @@ impl pallet_registrar_para::Config for Test {
 		LinearStoragePrice<ConstU128<0>, DataDepositPerByte, Balance>,
 	>;
 	type SendToRelay = RecordingSender;
+	type AssignmentChecker = MockAssignments;
 	type RelayOrigin = frame_system::EnsureRoot<AccountId>;
+	type ParachainOrigin = ParaAccounts;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
@@ -154,6 +212,8 @@ impl pallet_registrar_para::Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
+	AssignedParas::set(Vec::new());
+	ParaOriginAccounts::set(Vec::new());
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {

@@ -47,6 +47,13 @@
 //! to drop the authorization and only releases the deposit once it confirms, which is what
 //! keeps a cancellation from freeing the deposit on a para that did register after all.
 //!
+//! ## Deregistering
+//!
+//! [`Pallet::deregister`] drops a merely reserved id on the spot, deposit returned. A registered
+//! para is deregistered on the relay chain too: only its confirmation releases the deposits, a
+//! refusal puts the entry back to registered. A verdict that never arrives is chased up with
+//! [`Pallet::cancel_deregistration`], the counterpart of [`Pallet::cancel_registration`].
+//!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -56,8 +63,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
-	defensive,
-	traits::{Consideration, Footprint},
+	defensive, ensure,
+	traits::{Consideration, EnsureOrigin, Footprint},
 };
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -112,6 +119,22 @@ impl SendToRelay for () {
 	}
 }
 
+/// Whether a para id still holds a coretime assignment (a lease or a region) on this chain.
+///
+/// A para that can still be scheduled must not be deregistered out from under itself, so
+/// [`Pallet::deregister`] refuses while this says yes. Runtimes without coretime knowledge use
+/// `()`, which never blocks.
+pub trait AssignmentChecker {
+	/// Whether `para_id` still holds a lease or a region.
+	fn has_assignment(para_id: ParaId) -> bool;
+}
+
+impl AssignmentChecker for () {
+	fn has_assignment(_para_id: ParaId) -> bool {
+		false
+	}
+}
+
 /// Where a para id sits in the registration flow.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
@@ -135,6 +158,16 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	Registered {
 		/// The registration's [`Consideration`] ticket, kept while the para is registered.
 		ticket: Ticket,
+	},
+	/// The relay chain has been asked to deregister this para and has not reported back.
+	Deregistering {
+		/// The registration's [`Consideration`] ticket. Released, together with the reservation,
+		/// only when the relay chain confirms the deregistration.
+		ticket: Ticket,
+		/// The block from which the manager may chase up this deregistration.
+		///
+		/// Same mechanics as [`RegistrationState::Pending::cancellable_at`].
+		cancellable_at: BlockNumber,
 	},
 }
 
@@ -178,8 +211,18 @@ pub mod pallet {
 		/// Sends messages to the relay chain.
 		type SendToRelay: SendToRelay<AccountId = Self::AccountId>;
 
+		/// Knows whether a para id still holds a coretime assignment on this chain.
+		type AssignmentChecker: AssignmentChecker;
+
 		/// An origin that is sure to be the relay chain's registrar pallet.
 		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// An origin a parachain uses to act as itself, resolved to its para id.
+		///
+		/// Lets a para drive its own deregistration, mirroring the relay chain registrar's
+		/// root-para-or-owner rule. On a system chain this is the XCM sibling-parachain origin;
+		/// `frame_system::EnsureNever` turns the path off.
+		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
 
 		/// The lowest para id this pallet will hand out.
 		///
@@ -275,6 +318,24 @@ pub mod pallet {
 		CancelRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
 		/// The relay chain confirmed a cancellation. The registration consideration was returned.
 		RegistrationCancelled { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// A deregistration was requested and the relay chain has been asked to apply it. Both
+		/// considerations stay taken until it answers.
+		DeregisterRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// The para id is gone and both considerations were returned.
+		Deregistered { para_id: ParaId, manager: T::AccountId },
+		/// The relay chain refused a deregistration. The para is registered again and both
+		/// considerations stay taken.
+		DeregistrationFailed {
+			para_id: ParaId,
+			message_id: u64,
+			manager: T::AccountId,
+			reason: FailureReason,
+		},
+		/// A manager chased up a deregistration the relay chain never answered.
+		CancelDeregistrationRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// The relay chain called a deregistration off: the para is still registered there, and
+		/// is registered again here. Both considerations stay taken.
+		DeregistrationCancelled { para_id: ParaId, message_id: u64, manager: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -299,6 +360,12 @@ pub mod pallet {
 		SendFailed,
 		/// There are no more para ids to hand out.
 		NoFreeParaId,
+		/// A registration or deregistration is already in flight for this para id.
+		RequestInFlight,
+		/// There is no deregistration in flight for this para id.
+		NotDeregistering,
+		/// The para id still holds a lease or a region.
+		StillAssigned,
 	}
 
 	#[pallet::hooks]
@@ -467,7 +534,125 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_deregister_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
 			}
+		}
+
+		/// Deregister a para id and, eventually, get the deposits back.
+		///
+		/// Callable by the para's manager, the para itself, or root, the same set the relay
+		/// chain's own registrar accepts. Deposits always go back to the manager who paid them.
+		///
+		/// A merely reserved id is dropped here and now, with its deposit returned. A registered
+		/// para must leave the relay chain's registry too, so the entry moves to
+		/// [`RegistrationState::Deregistering`] and the relay chain's answer decides:
+		/// confirmation releases both deposits and frees the id, refusal puts the para back to
+		/// registered with the deposits still held.
+		#[pallet::call_index(4)]
+		#[pallet::weight(
+			T::WeightInfo::deregister_reserved().max(T::WeightInfo::deregister_registered())
+		)]
+		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager)?;
+			let ParaInfo { manager, reservation, state } = info;
+
+			match state {
+				RegistrationState::Reserved => {
+					reservation.drop(&manager)?;
+					Paras::<T>::remove(para_id);
+					Self::deposit_event(Event::Deregistered { para_id, manager });
+				},
+				RegistrationState::Registered { ticket } => {
+					ensure!(
+						!T::AssignmentChecker::has_assignment(para_id),
+						Error::<T>::StillAssigned
+					);
+
+					let cancellable_at = T::BlockNumberProvider::current_block_number()
+						.saturating_add(T::PendingDeadline::get());
+					Paras::<T>::insert(
+						para_id,
+						ParaInfo {
+							manager: manager.clone(),
+							reservation,
+							state: RegistrationState::Deregistering { ticket, cancellable_at },
+						},
+					);
+
+					// A transport failure returns `Err` and unwinds everything above.
+					let message_id = Self::next_message_id();
+					T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Deregister {
+						para_id,
+						message_id,
+						manager: manager.clone(),
+					}))
+					.map_err(|()| Error::<T>::SendFailed)?;
+
+					Self::deposit_event(Event::DeregisterRequested {
+						para_id,
+						message_id,
+						manager,
+					});
+				},
+				RegistrationState::Pending { .. } | RegistrationState::Deregistering { .. } => {
+					return Err(Error::<T>::RequestInFlight.into())
+				},
+			}
+
+			Ok(())
+		}
+
+		/// Chase up a deregistration the relay chain never reported on.
+		///
+		/// Callable by the same origins as [`Pallet::deregister`], from
+		/// [`Config::PendingDeadline`] blocks after the request, with the same mechanics as
+		/// [`Pallet::cancel_registration`]. Nothing is released here: only the relay chain knows
+		/// whether the deregistration went through, and its answer settles the entry either way,
+		/// back to registered or gone with the deposits returned.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::cancel_deregistration())]
+		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager)?;
+			let manager = info.manager.clone();
+			let RegistrationState::Deregistering { ticket, cancellable_at } = info.state else {
+				return Err(Error::<T>::NotDeregistering.into());
+			};
+			let now = T::BlockNumberProvider::current_block_number();
+			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
+
+			// Another deadline's grace before the manager may ask again, so a request that goes
+			// missing can be retried without the relay chain being asked once per block.
+			info.state = RegistrationState::Deregistering {
+				ticket,
+				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+			};
+			Paras::<T>::insert(para_id, info);
+
+			// A transport failure returns `Err` and unwinds the new deadline with it.
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
+				para_id,
+				message_id,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::CancelDeregistrationRequested {
+				para_id,
+				message_id,
+				manager,
+			});
+			Ok(())
 		}
 	}
 }
@@ -485,6 +670,26 @@ impl<T: Config> Pallet<T> {
 			*next = next.wrapping_add(1);
 			id
 		})
+	}
+
+	/// Ensure `origin` may manage `para_id`: the para itself, its `manager`, or root.
+	///
+	/// The same set of callers the relay chain's registrar accepts for its own deregister.
+	fn ensure_root_para_or_manager(
+		origin: frame_system::pallet_prelude::OriginFor<T>,
+		para_id: ParaId,
+		manager: &T::AccountId,
+	) -> DispatchResult {
+		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
+			ensure!(id == para_id, Error::<T>::NotOwner);
+			return Ok(());
+		}
+		if let Ok(who) = frame_system::ensure_signed(origin.clone()) {
+			ensure!(&who == manager, Error::<T>::NotOwner);
+			return Ok(());
+		}
+		frame_system::ensure_root(origin)?;
+		Ok(())
 	}
 
 	/// Apply the relay chain's verdict on a registration.
@@ -565,6 +770,124 @@ impl<T: Config> Pallet<T> {
 			// pending: the manager can ask again once the deadline comes round.
 			Err(reason) => {
 				defensive!("unexpected cancel refusal, leaving pending", (para_id, &reason));
+			},
+		}
+
+		Ok(())
+	}
+
+	/// Apply the relay chain's verdict on a deregistration.
+	///
+	/// Both unexpected cases are defensive: the deregistration request is answered exactly once,
+	/// and nothing else can settle a deregistering entry in the meantime (a chase-up's answer
+	/// always arrives after this one, the transport being ordered).
+	fn on_deregister_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let Some(info) = Paras::<T>::get(para_id) else {
+			defensive!("deregister response for unknown para, dropping", para_id);
+			return Ok(());
+		};
+		let ParaInfo { manager, reservation, state } = info;
+		let RegistrationState::Deregistering { ticket, .. } = state else {
+			defensive!(
+				"deregister response for para which is not deregistering, dropping",
+				para_id
+			);
+			return Ok(());
+		};
+
+		match outcome {
+			Ok(()) => {
+				ticket.drop(&manager)?;
+				reservation.drop(&manager)?;
+				Paras::<T>::remove(para_id);
+				Self::deposit_event(Event::Deregistered { para_id, manager });
+			},
+			Err(reason) => {
+				Paras::<T>::insert(
+					para_id,
+					ParaInfo {
+						manager: manager.clone(),
+						reservation,
+						state: RegistrationState::Registered { ticket },
+					},
+				);
+				Self::deposit_event(Event::DeregistrationFailed {
+					para_id,
+					message_id,
+					manager,
+					reason,
+				});
+			},
+		}
+
+		Ok(())
+	}
+
+	/// Apply the relay chain's answer to a deregistration chase-up.
+	///
+	/// `Ok(())` means the para is still registered on the relay chain, so the deregistration
+	/// never happened and the entry goes back to registered. The one refusal is
+	/// [`FailureReason::NotRegistered`]: the deregistration did go through and its report was
+	/// lost, so the deposits are released after all.
+	///
+	/// Unlike a deregister response, an answer for a para that is no longer deregistering is
+	/// expected rather than defensive: the verdict this chase-up asked about arrives first and
+	/// settles the entry (possibly removing it entirely), and this then has nothing left to do.
+	fn on_cancel_deregistration_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let Some(info) = Paras::<T>::get(para_id) else {
+			log::debug!(
+				target: "runtime::registrar-para",
+				"cancel deregistration answer for unknown para {para_id}, dropping",
+			);
+			return Ok(());
+		};
+		let ParaInfo { manager, reservation, state } = info;
+		let RegistrationState::Deregistering { ticket, .. } = state else {
+			log::debug!(
+				target: "runtime::registrar-para",
+				"cancel deregistration answer for para {para_id} which is not deregistering, \
+				dropping",
+			);
+			return Ok(());
+		};
+
+		match outcome {
+			Ok(()) => {
+				Paras::<T>::insert(
+					para_id,
+					ParaInfo {
+						manager: manager.clone(),
+						reservation,
+						state: RegistrationState::Registered { ticket },
+					},
+				);
+				Self::deposit_event(Event::DeregistrationCancelled {
+					para_id,
+					message_id,
+					manager,
+				});
+			},
+			Err(FailureReason::NotRegistered) => {
+				ticket.drop(&manager)?;
+				reservation.drop(&manager)?;
+				Paras::<T>::remove(para_id);
+				Self::deposit_event(Event::Deregistered { para_id, manager });
+			},
+			// Nothing else is an answer the relay chain gives to a chase-up, so leave the entry
+			// deregistering: the manager can ask again once the deadline comes round.
+			Err(reason) => {
+				defensive!(
+					"unexpected cancel deregistration refusal, leaving deregistering",
+					(para_id, &reason)
+				);
 			},
 		}
 

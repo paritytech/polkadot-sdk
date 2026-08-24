@@ -53,6 +53,27 @@ fn make_pending<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError>
 	Ok(para_id)
 }
 
+/// Reserve a para id and put it into `Registered`.
+fn make_registered<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
+	let para_id = make_pending::<T>(who)?;
+	Pallet::<T>::receive(
+		RawOrigin::Root.into(),
+		MessageToPara::V1(MessageToParaV1::RegisterResponse {
+			para_id,
+			message_id: 0,
+			outcome: Ok(()),
+		}),
+	)?;
+	Ok(para_id)
+}
+
+/// Reserve a para id and put it into `Deregistering`.
+fn make_deregistering<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
+	let para_id = make_registered::<T>(who)?;
+	Pallet::<T>::deregister(RawOrigin::Signed(who.clone()).into(), para_id)?;
+	Ok(para_id)
+}
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -113,13 +134,13 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// The worst case of the messages this call serves is a confirmed cancellation, which releases
-	/// the deposit on top of writing the new state.
+	/// The worst case of the messages this call serves is a confirmed deregistration, which
+	/// releases both deposits and removes the entry.
 	#[benchmark]
 	fn receive() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
-		let para_id = make_pending::<T>(&who)?;
-		let message = MessageToPara::V1(MessageToParaV1::CancelResponse {
+		let para_id = make_deregistering::<T>(&who)?;
+		let message = MessageToPara::V1(MessageToParaV1::DeregisterResponse {
 			para_id,
 			message_id: 0,
 			outcome: Ok(()),
@@ -128,7 +149,60 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, message);
 
-		assert_eq!(Paras::<T>::get(para_id).map(|i| i.state), Some(RegistrationState::Reserved));
+		assert!(Paras::<T>::get(para_id).is_none());
+		Ok(())
+	}
+
+	/// Deregistering a reserved id, the heavier local arm: releases the deposit and removes the
+	/// entry, no message.
+	#[benchmark]
+	fn deregister_reserved() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = reserve_for::<T>(&who)?;
+
+		#[extrinsic_call]
+		deregister(RawOrigin::Signed(who), para_id);
+
+		assert!(Paras::<T>::get(para_id).is_none());
+		Ok(())
+	}
+
+	/// Deregistering a registered para: the deposits stay held, so this is the state write plus
+	/// the message.
+	#[benchmark]
+	fn deregister_registered() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		deregister(RawOrigin::Signed(who), para_id);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Deregistering { .. })
+		));
+		Ok(())
+	}
+
+	/// Chasing up a deregistration. Nothing is released, so this is the state write plus the
+	/// message.
+	#[benchmark]
+	fn cancel_deregistration() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_deregistering::<T>(&who)?;
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number()
+				.saturating_add(T::PendingDeadline::get())
+				.saturating_add(1u32.into()),
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Deregistering { .. })
+		));
 		Ok(())
 	}
 

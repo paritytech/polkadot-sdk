@@ -96,6 +96,36 @@ fn cancel_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> Mes
 	MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id: CANCEL_ID, outcome })
 }
 
+/// The message id every test deregistration carries. See [`MSG_ID`].
+const DEREGISTER_ID: u64 = 7;
+
+/// The message id every test deregistration chase-up carries. See [`MSG_ID`].
+const CHASE_UP_ID: u64 = 8;
+
+fn deregister_msg(para_id: ParaId, manager: AccountId) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id: DEREGISTER_ID, manager })
+}
+
+fn deregister_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+		para_id,
+		message_id: DEREGISTER_ID,
+		outcome,
+	})
+}
+
+fn chase_up_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { para_id, message_id: CHASE_UP_ID })
+}
+
+fn chase_up_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+		para_id,
+		message_id: CHASE_UP_ID,
+		outcome,
+	})
+}
+
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
 ///
 /// Returns both verdicts so a test can assert the pool and the block agree.
@@ -536,12 +566,244 @@ mod cancel_authorization {
 			let (register, _) = register_msg(PARA_A, 20, 300);
 
 			assert_noop!(
-				Registrar::cancel_authorization(RuntimeOrigin::root(), register),
+				Registrar::cancel_authorization(RuntimeOrigin::root(), register.clone()),
 				Error::<Test>::UnexpectedMessage
 			);
 			assert_noop!(
 				Registrar::authorize_code(RuntimeOrigin::root(), cancel_msg(PARA_A)),
 				Error::<Test>::UnexpectedMessage
+			);
+			assert_noop!(
+				Registrar::authorize_code(RuntimeOrigin::root(), deregister_msg(PARA_A, ALICE)),
+				Error::<Test>::UnexpectedMessage
+			);
+			assert_noop!(
+				Registrar::cancel_authorization(
+					RuntimeOrigin::root(),
+					deregister_msg(PARA_A, ALICE)
+				),
+				Error::<Test>::UnexpectedMessage
+			);
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::root(), cancel_msg(PARA_A)),
+				Error::<Test>::UnexpectedMessage
+			);
+			assert_noop!(
+				Registrar::cancel_deregistration(RuntimeOrigin::root(), register),
+				Error::<Test>::UnexpectedMessage
+			);
+		});
+	}
+}
+
+mod deregister {
+	use super::*;
+
+	const BOB: AccountId = 2;
+
+	#[test]
+	fn deregisters_a_known_para_and_reports_success() {
+		new_test_ext().execute_with(|| {
+			Managers::set(vec![(PARA_A, ALICE)]);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), deregister_msg(PARA_A, ALICE)));
+
+			assert_eq!(DeregisteredParas::get(), vec![PARA_A]);
+			assert!(Managers::get().is_empty());
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn an_id_the_relay_chain_never_knew_is_confirmed_gone() {
+		new_test_ext().execute_with(|| {
+			// There is nothing to remove and the parachain is waiting to release deposits, so
+			// this is a confirmation, not a refusal.
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), deregister_msg(PARA_A, ALICE)));
+
+			assert!(DeregisteredParas::get().is_empty());
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_registered_outside_the_registry_is_refused() {
+		new_test_ext().execute_with(|| {
+			// The relay chain knows the para, but not through the registry (e.g. a system para):
+			// not the parachain's to remove.
+			AlreadyKnown::set(vec![PARA_A]);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), deregister_msg(PARA_A, ALICE)));
+
+			assert!(DeregisteredParas::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![deregister_report(PARA_A, Err(FailureReason::CannotDeregister))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationRejected {
+					para_id: PARA_A,
+					message_id: DEREGISTER_ID,
+					reason: FailureReason::CannotDeregister,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_request_from_the_wrong_manager_is_refused() {
+		new_test_ext().execute_with(|| {
+			Managers::set(vec![(PARA_A, ALICE)]);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), deregister_msg(PARA_A, BOB)));
+
+			assert!(DeregisteredParas::get().is_empty());
+			assert_eq!(Managers::get(), vec![(PARA_A, ALICE)]);
+			assert_eq!(
+				take_sent(),
+				vec![deregister_report(PARA_A, Err(FailureReason::NotManager))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationRejected {
+					para_id: PARA_A,
+					message_id: DEREGISTER_ID,
+					reason: FailureReason::NotManager,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_locked_para_is_refused() {
+		new_test_ext().execute_with(|| {
+			Managers::set(vec![(PARA_A, ALICE)]);
+			LockedParas::set(vec![PARA_A]);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), deregister_msg(PARA_A, ALICE)));
+
+			assert!(DeregisteredParas::get().is_empty());
+			assert_eq!(Managers::get(), vec![(PARA_A, ALICE)]);
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Err(FailureReason::Locked))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationRejected {
+					para_id: PARA_A,
+					message_id: DEREGISTER_ID,
+					reason: FailureReason::Locked,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_registry_failure_is_rolled_back_and_reported() {
+		new_test_ext().execute_with(|| {
+			Managers::set(vec![(PARA_A, ALICE)]);
+			DeregisterFails::set(true);
+
+			// A refusal is reported, not an extrinsic failure.
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), deregister_msg(PARA_A, ALICE)));
+
+			assert_eq!(Managers::get(), vec![(PARA_A, ALICE)]);
+			assert_eq!(
+				take_sent(),
+				vec![deregister_report(PARA_A, Err(FailureReason::CannotDeregister))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationRejected {
+					para_id: PARA_A,
+					message_id: DEREGISTER_ID,
+					reason: FailureReason::CannotDeregister,
+				}]
+			);
+			// The registry wrote before it failed; the storage layer unwound that write even
+			// though the extrinsic as a whole succeeded.
+			assert_eq!(frame_support::storage::unhashed::get::<ParaId>(PARTIAL_WRITE_KEY), None);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_deregister() {
+		new_test_ext().execute_with(|| {
+			Managers::set(vec![(PARA_A, ALICE)]);
+
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), deregister_msg(PARA_A, ALICE)),
+				DispatchError::BadOrigin
+			);
+			assert!(DeregisteredParas::get().is_empty());
+		});
+	}
+}
+
+mod cancel_deregistration {
+	use super::*;
+
+	#[test]
+	fn a_chase_up_while_the_para_is_still_registered_is_confirmed() {
+		new_test_ext().execute_with(|| {
+			// The deregistration request never arrived, so the para is still in the registry and
+			// the parachain may safely go back to registered.
+			Managers::set(vec![(PARA_A, ALICE)]);
+
+			assert_ok!(Registrar::cancel_deregistration(
+				RuntimeOrigin::root(),
+				chase_up_msg(PARA_A)
+			));
+
+			assert_eq!(Managers::get(), vec![(PARA_A, ALICE)]);
+			assert_eq!(take_sent(), vec![chase_up_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationCancelled { para_id: PARA_A, message_id: CHASE_UP_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_chase_up_after_the_deregistration_went_through_is_refused() {
+		new_test_ext().execute_with(|| {
+			// The para is gone: the deregistration happened and its report was lost, so the
+			// parachain is told to release the deposits after all.
+			assert_ok!(Registrar::cancel_deregistration(
+				RuntimeOrigin::root(),
+				chase_up_msg(PARA_A)
+			));
+
+			assert_eq!(
+				take_sent(),
+				vec![chase_up_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationCancellationRefused {
+					para_id: PARA_A,
+					message_id: CHASE_UP_ID,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_chase_up() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::cancel_deregistration(
+					RuntimeOrigin::signed(ALICE),
+					chase_up_msg(PARA_A)
+				),
+				DispatchError::BadOrigin
 			);
 		});
 	}
@@ -572,6 +834,26 @@ mod reporting {
 				vec![
 					Event::ReportFailed { para_id: PARA_A, message_id: MSG_ID },
 					Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE },
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_bounced_deregistration_report_does_not_undo_the_deregistration() {
+		new_test_ext().execute_with(|| {
+			Managers::set(vec![(PARA_A, ALICE)]);
+			SendFails::set(true);
+
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), deregister_msg(PARA_A, ALICE)));
+
+			assert_eq!(DeregisteredParas::get(), vec![PARA_A]);
+			assert!(Managers::get().is_empty());
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
+					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
 				]
 			);
 		});

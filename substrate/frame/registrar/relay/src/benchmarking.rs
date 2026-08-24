@@ -130,5 +130,42 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Deregistering a para the registry knows: the manager-match path, one registry removal and
+	/// a report.
+	#[benchmark]
+	fn deregister() -> Result<(), BenchmarkError> {
+		let manager: T::AccountId = account("manager", 0, 0);
+		T::Registrar::ensure_deregisterable(manager.clone(), PARA_ID);
+		let message = MessageToRelay::V1(MessageToRelayV1::Deregister {
+			para_id: PARA_ID,
+			message_id: 0,
+			manager,
+		});
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, message);
+
+		assert!(T::Registrar::manager_of(PARA_ID).is_none());
+		Ok(())
+	}
+
+	/// Answering a chase-up for a para the registry still knows: one registry read and a report,
+	/// the same work as the already-gone branch.
+	#[benchmark]
+	fn cancel_deregistration() -> Result<(), BenchmarkError> {
+		let manager: T::AccountId = account("manager", 0, 0);
+		T::Registrar::ensure_deregisterable(manager, PARA_ID);
+		let message = MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
+			para_id: PARA_ID,
+			message_id: 0,
+		});
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, message);
+
+		assert!(T::Registrar::manager_of(PARA_ID).is_some());
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

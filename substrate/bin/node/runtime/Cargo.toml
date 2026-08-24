@@ -79,6 +79,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
+	"registrar-primitives/runtime-benchmarks",
 ]
 try-runtime = [
 	"pallet-example-mbm/try-runtime",
