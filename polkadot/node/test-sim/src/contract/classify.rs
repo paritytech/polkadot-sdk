@@ -321,25 +321,22 @@ fn wire_kind_from_collation_protocol(
 				WireMsgKind::CollationSeconded { relay_parent: *rp }
 			},
 		},
-		CollationProtocols::V4(msg) => match msg {
-			protocol_v4::AdvertiseSegment {
-				scheduling_parent,
-				para_id: _,
-				candidates_descriptor_version: _,
-				candidates,
-			} => {
-				let tip = candidates
-					.last()
-					.expect("subsystem never emits an empty segment advertisement");
-				WireMsgKind::Advertise {
-					summary: AdvertisementSummary {
-						scheduling_parent: *scheduling_parent,
-						candidate_hash: None,
-						parent_head_hash: Some(tip.parent_head_data_hash),
-						output_head_hash: Some(tip.output_head_data_hash),
-					},
-				}
-			},
+		CollationProtocols::V4(protocol_v4::AdvertiseSegment {
+			scheduling_parent,
+			candidates,
+			..
+		}) => {
+			let tip = candidates
+				.last()
+				.expect("subsystem never emits an empty segment advertisement");
+			WireMsgKind::Advertise {
+				summary: AdvertisementSummary {
+					scheduling_parent: *scheduling_parent,
+					candidate_hash: None,
+					parent_head_hash: Some(tip.parent_head_data_hash),
+					output_head_hash: Some(tip.output_head_data_hash),
+				},
+			}
 		},
 	}
 }
