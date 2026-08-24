@@ -371,6 +371,23 @@ where
 		let block_import =
 			TimedBlockImport { inner: client.clone(), import_time: block_import_time };
 
+		// Inherent data is built before proposing starts, so no proposer or import
+		// metric covers it. With transaction storage it is dominated by the proof
+		// read: the whole indexed body of the block leaving the retention period,
+		// up to MaxBlockTransactions point reads. In production an overrun drops
+		// the slot outright, so the margin is only visible here.
+		let inherent_data_time = config
+			.prometheus_registry()
+			.map(|registry| {
+				dev_seal_histogram(
+					registry,
+					"substrate_dev_seal_inherent_data_time",
+					"Time to build the inherent data providers for a dev-seal block, \
+					 including the transaction-storage proof read",
+				)
+			})
+			.transpose()?;
+
 		let mut proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -393,8 +410,12 @@ where
 
 		let para_id =
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
-		let create_inherent_data_providers =
-			Self::create_dev_node_inherent_data_providers(client.clone(), para_id, slot_duration);
+		let create_inherent_data_providers = Self::create_dev_node_inherent_data_providers(
+			client.clone(),
+			para_id,
+			slot_duration,
+			inherent_data_time,
+		);
 
 		match mode {
 			DevSealMode::InstantSeal => {
@@ -542,6 +563,7 @@ where
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		para_id: ParaId,
 		slot_duration: sp_consensus_aura::SlotDuration,
+		inherent_data_time: Option<Histogram>,
 	) -> impl Fn(
 		Hash,
 		(),
@@ -567,6 +589,7 @@ where
 			RELAY_CHAIN_SLOT_DURATION_MILLIS;
 
 		move |block: Hash, ()| {
+			let started = Instant::now();
 			let current_para_head = client
 				.header(block)
 				.expect("Header lookup should succeed")
@@ -638,6 +661,10 @@ where
 			} else {
 				vec![]
 			};
+
+			if let Some(inherent_data_time) = &inherent_data_time {
+				inherent_data_time.observe(started.elapsed().as_secs_f64());
+			}
 
 			futures::future::ready(Ok((timestamp_provider, mocked_parachain, storage_proof)))
 		}
