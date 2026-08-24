@@ -55,12 +55,15 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
 use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
-use prometheus_endpoint::Registry;
+use prometheus_endpoint::{
+	exponential_buckets, register, Histogram, HistogramOpts, PrometheusError, Registry,
+};
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, DefaultImportQueue, LongestChain,
+	BlockCheckParams, BlockImport, BlockImportParams, DefaultImportQueue, ImportResult,
+	LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
@@ -78,7 +81,12 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
-use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
+use std::{
+	marker::PhantomData,
+	ops::Sub,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -346,11 +354,28 @@ where
 			);
 		}
 
+		// Self-authored blocks never cross the import queue, so its
+		// `substrate_block_verification_and_import_time` never fires here; this
+		// histogram stands in for it. Import also runs body pruning (the
+		// transaction-column releases), so it is a storage signal, not bookkeeping.
+		let block_import_time = config
+			.prometheus_registry()
+			.map(|registry| {
+				dev_seal_histogram(
+					registry,
+					"substrate_dev_seal_block_import_time",
+					"Time to import a self-authored dev-seal block",
+				)
+			})
+			.transpose()?;
+		let block_import =
+			TimedBlockImport { inner: client.clone(), import_time: block_import_time };
+
 		let mut proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
-			None,
+			config.prometheus_registry(),
 			None,
 		);
 		// The 4 MiB default also counts the recorded proof, capping dev blocks well
@@ -374,7 +399,7 @@ where
 		match mode {
 			DevSealMode::InstantSeal => {
 				let params = sc_consensus_manual_seal::InstantSealParams {
-					block_import: client.clone(),
+					block_import,
 					env: proposer,
 					client: client.clone(),
 					pool: transaction_pool.clone(),
@@ -414,7 +439,7 @@ where
 					});
 
 				let params = sc_consensus_manual_seal::ManualSealParams {
-					block_import: client.clone(),
+					block_import,
 					env: proposer,
 					client: client.clone(),
 					pool: transaction_pool.clone(),
@@ -616,6 +641,54 @@ where
 
 			futures::future::ready(Ok((timestamp_provider, mocked_parachain, storage_proof)))
 		}
+	}
+}
+
+fn dev_seal_histogram(
+	registry: &Registry,
+	name: &str,
+	help: &str,
+) -> Result<Histogram, PrometheusError> {
+	register(
+		Histogram::with_opts(HistogramOpts::new(name, help).buckets(
+			exponential_buckets(0.001, 2.0, 16).expect("bucket parameters are valid; qed"),
+		))?,
+		registry,
+	)
+}
+
+/// Dev-seal `BlockImport` wrapper that times self-authored block imports,
+/// which bypass the import queue and its metrics.
+struct TimedBlockImport<BI> {
+	inner: BI,
+	import_time: Option<Histogram>,
+}
+
+#[async_trait::async_trait]
+impl<Block, BI> BlockImport<Block> for TimedBlockImport<BI>
+where
+	Block: BlockT,
+	BI: BlockImport<Block> + Send + Sync,
+{
+	type Error = BI::Error;
+
+	async fn check_block(
+		&self,
+		block: BlockCheckParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		self.inner.check_block(block).await
+	}
+
+	async fn import_block(
+		&self,
+		block: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		let started = Instant::now();
+		let result = self.inner.import_block(block).await;
+		if let Some(import_time) = &self.import_time {
+			import_time.observe(started.elapsed().as_secs_f64());
+		}
+		result
 	}
 }
 
