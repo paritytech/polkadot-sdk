@@ -36,28 +36,30 @@ crates:
   - name: sc-transaction-pool
     bump: major
   - name: sc-transaction-pool-api
-    bump: patch
+    bump: minor
   - name: sc-service
     bump: major
   - name: sc-rpc
-    bump: patch
+    bump: minor
   - name: sc-rpc-spec-v2
-    bump: patch
+    bump: minor
   - name: sc-basic-authorship
-    bump: patch
+    bump: minor
   - name: sc-consensus-manual-seal
-    bump: patch
+    bump: minor
   - name: sc-mixnet
     bump: patch
   - name: sc-hop
-    bump: patch
+    bump: minor
   - name: substrate-frame-rpc-system
-    bump: patch
+    bump: minor
   - name: node-rpc
     bump: patch
   - name: polkadot-rpc
-    bump: patch
+    bump: minor
   - name: cumulus-client-service
     bump: major
   - name: polkadot-omni-node-lib
+    bump: patch
+  - name: polkadot-service
     bump: patch
