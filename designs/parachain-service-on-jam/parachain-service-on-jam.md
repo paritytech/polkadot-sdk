@@ -63,6 +63,11 @@ This document does **not** cover JAM fundamentals in depth; readers are assumed 
 the [JAM Gray Paper](https://graypaper.com) concepts (services, work packages, refine, accumulate,
 guarantors, etc.).
 
+### Conventions
+
+`hash` and the `Hash` type mean blake2b-256. The only other hash used here is `keccak_256`, for the
+head-commitment tree elements in §5.5.
+
 ---
 
 ## 2. Architecture Overview
@@ -273,7 +278,7 @@ enum InsufficientBalanceReason {
     /// A `solicit` (or code-upgrade solicit) of the preimage with `hash` and `len`.
     Solicit { hash: Hash, len: Compact<u32> },
     /// A `kv_set(key, value)` write to `key_value_storage`. Only the
-    /// blake2-256 hash of `key` is recorded so an arbitrarily large
+    /// hash of `key` is recorded so an arbitrarily large
     /// user key cannot inflate `parachain_log`.
     SetKV { key_hash: Hash },
 }
@@ -667,7 +672,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | Host function | Returns | Purpose |
 |---|---|---|
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
-| `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
+| `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent: no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
@@ -1076,6 +1081,7 @@ enum MerkleTree {
 }
 ```
 
+- A leaf's `head_hash` is `blake2b-256` of the parachain's `head_data`.
 - Every element's hash is `keccak_256` (as specified by Ethereum) of its SCALE encoding.
   The variant discriminant is therefore covered by the hash, so a leaf hash can never
   collide with a node hash. A `Leaf` encodes to 37 octets (discriminant, 4-octet

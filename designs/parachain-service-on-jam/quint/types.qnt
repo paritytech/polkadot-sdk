@@ -190,8 +190,8 @@ module types {
 
   // --- Abstract hash function ---------------------------------------------
   //
-  // We model `hash(head_data)` as an injective function; we only need
-  // equality semantics for the parent-head check (§5.1, step 1).
+  // We model `blake2b-256(head_data)` as an injective function; we only need
+  // equality semantics for the parent-head check (§5.1, step 3).
 
   pure def headHash(h: HeadData): HeadHash = { headBytes: h }
 
