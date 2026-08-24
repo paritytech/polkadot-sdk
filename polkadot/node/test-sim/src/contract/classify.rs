@@ -326,9 +326,8 @@ fn wire_kind_from_collation_protocol(
 			candidates,
 			..
 		}) => {
-			let tip = candidates
-				.last()
-				.expect("subsystem never emits an empty segment advertisement");
+			let tip =
+				candidates.last().expect("subsystem never emits an empty segment advertisement");
 			WireMsgKind::Advertise {
 				summary: AdvertisementSummary {
 					scheduling_parent: *scheduling_parent,
