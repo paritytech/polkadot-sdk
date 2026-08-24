@@ -442,7 +442,7 @@ impl Metrics {
 				CounterVec::new(
 					Opts::new(
 						"substrate_sync_statement_undelivered_total",
-						"Total statements whose send failed, so the peer never received them, by reason",
+						"Total statements whose delivery was abandoned, so the peer never received them, by reason",
 					),
 					&["reason"],
 				)?,
@@ -1050,14 +1050,17 @@ where
 		}
 	}
 
-	/// Record a send that never reached the peer.
-	///
-	/// A failed send is not retried, so the statements are lost for that peer until
-	/// its next initial sync. Counting them here is the only way that loss is
-	/// visible in monitoring.
-	fn record_send_failure(&self, reason: &str, statement_count: usize) {
+	/// Record a send attempt that never reached the peer.
+	fn record_send_failure(&self, reason: &str) {
 		self.metrics.as_ref().map(|metrics| {
 			metrics.send_failures.with_label_values(&[reason]).inc();
+		});
+	}
+
+	/// Record a failed send whose statements' delivery to the peer is abandoned.
+	fn record_abandoned_send(&self, reason: &str, statement_count: usize) {
+		self.record_send_failure(reason);
+		self.metrics.as_ref().map(|metrics| {
 			metrics
 				.undelivered_statements
 				.with_label_values(&[reason])
@@ -1591,7 +1594,7 @@ where
 		log::trace!(target: LOG_TARGET, "We have {queued} statements that the peer doesn't know about");
 
 		if overflow > 0 {
-			self.record_send_failure(send_failure::OUTBOX_FULL, overflow);
+			self.record_abandoned_send(send_failure::OUTBOX_FULL, overflow);
 		}
 		self.try_send_next_chunk(*who);
 	}
@@ -1699,7 +1702,7 @@ where
 					target: LOG_TARGET,
 					"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
 				);
-				self.record_send_failure(send_failure::NO_SINK, abandoned);
+				self.record_abandoned_send(send_failure::NO_SINK, abandoned);
 				self.propagation_outboxes.remove(&who);
 				return;
 			};
@@ -1777,7 +1780,6 @@ where
 					target: LOG_TARGET,
 					"Failed to send {statement_count} statements ({bytes_sent} bytes) to {peer}: {error}",
 				);
-				self.record_send_failure(send_failure::NETWORK, statement_count);
 				Some(send_failure::NETWORK)
 			},
 			SendOutcome::TimedOut => {
@@ -1785,10 +1787,16 @@ where
 					target: LOG_TARGET,
 					"Send of {statement_count} statements ({bytes_sent} bytes) to {peer} timed out after {SEND_TIMEOUT:?}",
 				);
-				self.record_send_failure(send_failure::TIMEOUT, statement_count);
 				Some(send_failure::TIMEOUT)
 			},
 		};
+
+		if let Some(reason) = failure {
+			match kind {
+				SendKind::Propagation => self.record_abandoned_send(reason, statement_count),
+				SendKind::InitialSync { .. } => self.record_send_failure(reason),
+			}
+		}
 
 		// A send future is not cancelled on disconnect, so its result can outlive the
 		// connection. Only the result of the chunk still occupying the slot frees it.
@@ -2120,7 +2128,7 @@ where
 				target: LOG_TARGET,
 				"Failed to get message sink for peer {peer_id}, its initial sync will retry",
 			);
-			self.record_send_failure(send_failure::NO_SINK, statement_count);
+			self.record_send_failure(send_failure::NO_SINK);
 			self.initial_sync_peer_queue.push_back(peer_id);
 			return;
 		};
@@ -3683,8 +3691,8 @@ mod tests {
 		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NETWORK]).get(), 1,);
 		assert_eq!(
 			metrics.undelivered_statements.with_label_values(&[send_failure::NETWORK]).get(),
-			hashes.len() as u64,
-			"both statements in the failed chunk are counted individually"
+			0,
+			"a retried sync chunk is not abandoned, so its statements are not undelivered"
 		);
 		assert_eq!(
 			metrics.send_failures.with_label_values(&[send_failure::TIMEOUT]).get(),
