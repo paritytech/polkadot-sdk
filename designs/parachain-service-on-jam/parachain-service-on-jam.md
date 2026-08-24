@@ -203,6 +203,11 @@ struct ParachainServiceState {
     ///
     /// See §6.1 for the per-entry formula.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
+
+    /// Per-parachain address-book root for bootnode discovery.
+    /// The value is a 32 byte hash and the address boot is a preimage keyed by this value.
+    /// See the bootnode section §8.3 for more details.
+    bootnodes: Map<ParaId, Hash>,
 }
 
 enum LogEntry {
@@ -423,6 +428,7 @@ singletons; the tag prepended to the encoded map key for map entries).
 | `0x06` | `incoming_transfers` |
 | `0x07` | `incoming_transfer_chain` |
 | `0x08` | `key_value_storage` |
+| `0x09` | `bootnodes` |
 
 ### 3.2 Work Items
 
@@ -479,6 +485,10 @@ enum ParachainWorkDigest {
         upward_messages: Vec<UpwardMessage>,
         /// The work package's lookup-anchor timeslot.
         lookup_anchor: Timeslot,
+        /// Represents the parachain's new address book root.
+        ///
+        /// `None` if unchanged. See §8.3.
+        bootnodes_root: Option<Hash>,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
@@ -670,6 +680,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
+| `set_bootnodes_root(root: Hash)` | `()` | Declare the parachain's new address book root for bootnode discovery. **Optional**: a second call in the same Refine invocation aborts it. Forwarded to Accumulate as `ParachainWorkDigest.bootnodes_root` and written to `bootnodes[para_id]` on enactment, alongside the head data (§5.1 step 6). See §8.3. |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent: no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(para_id: ParaId, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent: no-op if `para_id` is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
@@ -1683,6 +1694,110 @@ for a potential specification of XCMP.
 The exact host functions for HRMP channel management (open, accept, close) and XCMP message
 handling are not yet specified. Additional host functions will likely be needed once the
 messaging model is finalized.
+
+### 8.3 Bootnode Discovery
+
+Off-chain messaging means parachain nodes dial each other directly, so a node that wants
+para B's messages first has to find a node on para B's network.
+
+This feature is the equivalent of the Polakdot RFC-8. JAM doesn't have a DHT, but it can
+expose addresses in the state (precedent with validator's endpoint as first 18 bytes of metadata).
+
+The feature replies on:
+
+1. `bootnodes[para_id]` (§3.1) root holds a 32 byte hash of the parachain's
+current address book. The PVF declares it with `set_bootnodes_root(root)` (§4.3), and
+Accumulate writes it on enactment together with the head data (§5.1 step 6).
+
+At 44 + 32 + 5 = 81 balance units it is counted into `baseline_footprint` (§6.1), so the
+write cannot fail.
+
+The alternative would be a KV entry. However the `kv_set` is skipped on insufficient
+balance and missing the address record would be a failure for the discovery mechanism.
+
+- `parachain_set_head` doesn't touch the `bootnodes[para_id]` since recovery from a stuck
+parachain still needs the bootnodes.
+- `parachain_clean_up` must remove the value since the parachain ID could be reutilized in the future.
+
+2. The address book itself is a preimage, solicited through the normal
+`solicit(root, len)` path (§6.1, `187 + len` units) and provided via `xtpreimages`.
+
+A preimage's storage key is the plain blake2-256 of its bytes, so the value in the cell is
+also the key of the blob. The consumer needs no index, no block scan, and no cooperation from anyone.
+
+```rust
+// The domain tag lives inside the blob, so that blake2_256(AddrBlob) is
+// both the commitment and the preimage key.
+AddrBlob = b"bootnodes-addr" ++ SCALE(AddressBook)
+
+struct AddressBook {
+    /// Version 1, reserved for further bumps and spec improvements.
+    version:     u8,
+    /// The para ID of this address book.
+    para_id:     u32,
+    /// Monotonically increasing sequence number.
+    seq:         u64,
+    /// The timeslot this address book is active from.
+    activate_at: Timeslot,
+    /// The timeslot after which the address book is no longer in use.
+    not_after:   Timeslot,
+    /// The address entries (could be empty).
+    addrs:       BoundedVec<Addr, 4>,
+    /// The keys that have been revoked from the `addrs` and until the timeslot they are revoked.
+    revoked:     BoundedVec<(Ed25519Public, Timeslot), 8>,
+}
+
+struct Addr {
+    /// A bootnode into the para's network.
+    /// Should never be a block author.
+    ///
+    /// The address should never carry a `/p2p/peer_id`, instead the peer ID is derived
+    /// from `Addr::node_key`.
+    addr:      Multiaddr,
+    /// The public key that signed the signature and from which the peer ID is derived.
+    node_key:  Ed25519Public,
+    /// Monotonically increasing sequence number any time this address is modified.
+    ///
+    /// This is added to the signature such that the parachain runtime is protected
+    /// against replaying older records.
+    seq:       u32,
+    /// The timeslot until the bootnode comitts to keep the node active and after which
+    /// the address is no longer valid.
+    not_after: Timeslot,
+    /// The signature by `node_key` over:
+    /// ("address-pop-v1", jam_genesis_hash, AddressBook::para_id, Addr::addr, Addr::seq)
+    ///
+    /// The tag `address-pop-v1` binds the context of the signature as proof-of-possession.
+    /// The JAM genesis hash keeps the record signed on a testnet from verifying on mainnet.
+    sig: Ed25519Signature,
+}
+```
+
+The parachain service doesn't verify the `AddressBook` fields. The admission of a new
+address into the book is part of the Parachain runtime logic.
+
+Discovery can run on plain state reads, and bytes are accepted if and only if their
+blake2-256 matches the root.
+
+Consumer end to end flow:
+
+1. Read `bootnodes[para_id]` from JAM state.
+2. Read the preimage keyed by that root.
+3. Check the hash, decode (rejecting trailing bytes), check the signatures.
+    Holds up to 4 addresses.
+4. Dial one on the parachain's network. The crypto/noise handshake authenticates `node_key`.
+5. Fetch refreshed Address Book records over `/bootnodes/peers`.
+
+The `/bootnodes/peers` protocol similar to `/spec-msg/exchange` is genesis agnostic.
+The consumer's job is to verify that the signature of the provided addresses includes
+the JAM genesis hash of the mainnet/testnet it is operating on.
+
+The address book of the parachain must be provided to the `Coretime` before the `parachain_set_head`.
+This ensures the registration is seeded with a blob that contains the boonodes of the chain. Then the
+parachain's first `set_bootnodes_root` will overwrite the initial seed.
+
+Initially the chain operator will setup the network via an explicit `--bootnodes` CLI flag. Once the chain
+is registered new colators and nodes can join by reading the `bootnodes[para_id]`.
 
 ---
 
