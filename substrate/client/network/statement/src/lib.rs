@@ -733,8 +733,7 @@ pub struct Peer {
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
-	/// One past the newest admission covered by the peer's initial syncs. Admissions below
-	/// it are the sync cursor's job, so propagation skips them.
+	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
 }
 
@@ -1560,7 +1559,6 @@ where
 		}
 
 		let to_send = statements.iter().filter_map(|(seq, hash, stmt)| {
-			// Admissions below the sync watermark are the initial-sync cursor's job.
 			if *seq < peer.sync_watermark {
 				return None;
 			}
@@ -1870,8 +1868,7 @@ where
 	/// affinity changes (so that newly-matching statements get sent).
 	/// If the peer already has a pending initial sync, it is replaced.
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
-		// A sync raises the peer's watermark, which suppresses propagation below it, so
-		// scheduling one for a peer absent from the map has nothing to mirror it into.
+		// A peer absent from the map has no entry to mirror the sync's watermark into.
 		if !self.peers.contains_key(&peer) {
 			return;
 		}
@@ -1894,8 +1891,6 @@ where
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		if watermark > 0 {
-			// The watermark splits delivery between the two paths: this sync's cursor covers
-			// the admissions below it, propagation covers the ones at or above it.
 			if let Some(peer_data) = self.peers.get_mut(&peer) {
 				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
 			}
