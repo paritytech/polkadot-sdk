@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787498994434,
+  "lastUpdate": 1787555453276,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "92aeeb37e2bb1e1c1cd50e850e56df140d4c9374",
-          "message": "rpc-spec-v2: Fix flaky tests (#10848)\n\nI have seen `ensure_operation_limits_works` failing in CI, because of\n`LimitReached` error failing in [this\nline](https://github.com/paritytech/polkadot-sdk/blob/1fd9be7ffa24ab8f76491000ec028a859298f9eb/substrate/client/rpc-spec-v2/src/chain_head/tests.rs#L3052).\nMy friend brought about the permit being dropped after the response is\nsend. This can lead to race where we send the answer, the context is\nswitched before the permit is freed and then the test fails by calling\nthe rpc again.\n\nTLDR: We increase the allowed operations to not run into potential race\nconditions.",
-          "timestamp": "2026-01-20T20:35:21Z",
-          "tree_id": "757bc6ab73615d5491c79b3ea178ceffbfded639",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/92aeeb37e2bb1e1c1cd50e850e56df140d4c9374"
-        },
-        "date": 1768945730862,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63621.490000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3250812661599993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00556940947,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000023228290000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001970253,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.663854264400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6832842139399995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6526657801300026,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001970253,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7771928586900374,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.655879291252864,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6542895312999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000023228290000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.761937324090042,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.458874921482866,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a465dda53a7f04f6c11567c094550991c3aeb84",
+          "message": "Run functional and elastic_scaling zombienet-sdk tests with legacy and experimental collator protocol implementations (#12836)\n\nCurrently all zombienet-sdk tests in polkadot are executed against the\nlegacy collator protocol implementation (on the validator side). Since\nwe are about to put the new implementation in production soon I think\nit's worth running CI with both implementation for a while.\n\nThe drawback is increased CI usage which will cost extra time and money.\nThe alternative is to add a CI job which runs only when merging to\nmaster.",
+          "timestamp": "2026-08-24T05:42:15Z",
+          "tree_id": "ae51f540144f879eee128a72fc9145aec6e1754b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a465dda53a7f04f6c11567c094550991c3aeb84"
+        },
+        "date": 1787555420099,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.30000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000228071,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000228071,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.826852493399963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005395944060000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6340938912799987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.674935960589999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6502533481200006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.380492936570002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7873354462699618,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002022433,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.694344966509999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002022433,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.542636878513025,
             "unit": "seconds"
           }
         ]
