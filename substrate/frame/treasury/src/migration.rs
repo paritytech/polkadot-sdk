@@ -79,8 +79,8 @@ pub mod legacy {
 	>;
 }
 
-/// Called from [`Pallet::try_state`] so that try-runtime and tests can still verify the
-/// consistency of any remaining on-chain legacy state before the migration fires.
+/// Called from the pallet's try-runtime hook so that try-runtime and tests can still verify
+/// the consistency of any remaining on-chain legacy state before the migration fires.
 ///
 /// ### Invariants
 /// 1. [`legacy::ProposalCount`] >= number of entries in [`legacy::Proposals`].

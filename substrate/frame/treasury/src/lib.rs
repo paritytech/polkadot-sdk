@@ -64,10 +64,9 @@
 //! [`pallet::Config::PayoutPeriod`].
 //!
 //! A legacy queue of approvals (see [`migration::legacy::Approvals`]) may still exist from before
-//! the removal of the deprecated `spend_local` call. Any entries left in that queue continue to
-//! be drained and paid out from [`Pallet::spend_funds`] every [`pallet::Config::SpendPeriod`].
-//! Runtimes should apply [`migration::migrate_legacy_proposals::Migration`] to clear this queue
-//! and remove the legacy storage entirely. The bounties pallet keeps its own approvals queue,
+//! the removal of the deprecated `spend_local` call. Runtimes must apply
+//! [`migration::migrate_legacy_proposals::Migration`], which pays out whatever is still owed and
+//! then removes the legacy storage entirely. The bounties pallet keeps its own approvals queue,
 //! bounded by the same [`pallet::Config::MaxApprovals`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -232,7 +231,8 @@ pub mod pallet {
 		/// Runtime hooks to external pallet using treasury to compute spend funds.
 		type SpendFunds: SpendFunds<Self, I>;
 
-		/// Bounds the legacy [`Approvals`] queue and the bounties pallet's `BountyApprovals` queue.
+		/// Bounds the legacy [`migration::legacy::Approvals`] queue and the bounties pallet's
+		/// `BountyApprovals` queue.
 		#[pallet::constant]
 		type MaxApprovals: Get<u32>;
 
