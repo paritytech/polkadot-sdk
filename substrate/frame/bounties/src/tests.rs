@@ -43,6 +43,7 @@ use sp_runtime::{
 };
 
 use super::Event as BountiesEvent;
+use pallet_treasury::migration::legacy::{Approvals, Proposal, ProposalCount, Proposals};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -56,16 +57,11 @@ fn go_to_block(n: u64) {
 // storage, bypassing the now-removed `spend_local` call. Returns the proposal index. Kept around
 // so that spend-period tests exercising the legacy approvals queue still work.
 fn add_treasury_proposal(value: u64, beneficiary: u128) -> pallet_treasury::ProposalIndex {
-	let proposal_index = pallet_treasury::ProposalCount::<Test>::get();
-	pallet_treasury::Approvals::<Test>::try_append(proposal_index).expect("too many approvals");
-	let proposal = pallet_treasury::Proposal {
-		proposer: beneficiary,
-		value,
-		beneficiary,
-		bond: Default::default(),
-	};
-	pallet_treasury::Proposals::<Test>::insert(proposal_index, proposal);
-	pallet_treasury::ProposalCount::<Test>::put(proposal_index + 1);
+	let proposal_index = ProposalCount::<Test, ()>::get();
+	Approvals::<Test, ()>::try_append(proposal_index).expect("too many approvals");
+	let proposal = Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
+	Proposals::<Test, ()>::insert(proposal_index, proposal);
+	ProposalCount::<Test, ()>::put(proposal_index + 1);
 	proposal_index
 }
 
@@ -294,7 +290,7 @@ fn expect_events(e: Vec<BountiesEvent<Test>>) {
 fn genesis_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(pallet_treasury::ProposalCount::<Test>::get(), 0);
+		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 
@@ -504,7 +500,7 @@ fn close_bounty_works() {
 		assert_eq!(Balances::free_balance(0), 100 - deposit);
 
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
-		assert!(!pallet_treasury::Proposals::<Test>::contains_key(0));
+		assert!(!Proposals::<Test, ()>::contains_key(0));
 
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});

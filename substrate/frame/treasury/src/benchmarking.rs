@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as Treasury, *};
+use crate::migration::legacy::{Approvals, Proposal, ProposalCount, Proposals};
 
 use frame_benchmarking::{
 	v1::{account, BenchmarkError},

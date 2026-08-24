@@ -215,7 +215,7 @@ fn last_event() -> TipEvent<Test> {
 fn genesis_config_works() {
 	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(pallet_treasury::ProposalCount::<Test>::get(), 0);
+		assert_eq!(pallet_treasury::migration::legacy::ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 
