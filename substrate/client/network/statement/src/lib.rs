@@ -76,7 +76,7 @@ mod affinity;
 use crate::config::*;
 
 use affinity::AffinityFilter;
-use codec::{Compact, Decode, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use futures::{
 	channel::oneshot,
 	future::{pending, FusedFuture},
@@ -144,7 +144,7 @@ impl PeerProtocolVersion {
 	}
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Encode, Decode, DecodeWithMemTracking)]
 enum StatementMessage {
 	#[codec(index = 0)]
 	Statements(Vec<Statement>),
@@ -1206,9 +1206,10 @@ where
 				match peer_data.protocol_version {
 					PeerProtocolVersion::V1 => {
 						// V1 peers send raw Vec<Statement>.
-						if let Ok(statements) =
-							<Statements as Decode>::decode(&mut notification.as_ref())
-						{
+						if let Ok(statements) = Statements::decode_with_mem_limit(
+							&mut notification.as_ref(),
+							MAX_STATEMENT_DECODE_BYTES,
+						) {
 							self.on_statements(peer, statements);
 						} else {
 							log::debug!(
@@ -1220,7 +1221,10 @@ where
 					},
 					PeerProtocolVersion::V2 => {
 						// V2 peers send StatementMessage enum.
-						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
+						if let Ok(message) = StatementMessage::decode_with_mem_limit(
+							&mut notification.as_ref(),
+							MAX_STATEMENT_DECODE_BYTES,
+						) {
 							match message {
 								StatementMessage::Statements(statements) => {
 									self.on_statements(peer, statements)
