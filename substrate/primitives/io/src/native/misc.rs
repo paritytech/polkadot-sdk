@@ -19,10 +19,6 @@
 
 use crate::*;
 use alloc::{vec, vec::Vec};
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 /// Native PolkaVM/JAM implementation of `last_cursor`.
 pub fn last_cursor(_out: &mut [u8]) -> Option<u32> {
 	panic!("`misc::last_cursor` needs node-side state and has no in-blob implementation")

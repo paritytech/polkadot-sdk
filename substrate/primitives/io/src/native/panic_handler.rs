@@ -18,10 +18,6 @@
 //! Native PolkaVM/JAM implementations of the `panic_handler` interface.
 
 use crate::*;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 /// Native PolkaVM/JAM implementation of `abort_on_panic`.
 pub fn abort_on_panic(_message: &str) -> ! {
 	crate::unreachable()

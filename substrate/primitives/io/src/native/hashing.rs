@@ -18,10 +18,6 @@
 //! Native PolkaVM/JAM implementations of the `hashing` interface.
 
 use crate::*;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 /// Native PolkaVM/JAM implementation of `blake2_128__raw`.
 pub fn blake2_128__raw(data: &[u8], out: &mut [u8; 16]) {
 	out.copy_from_slice(&sp_crypto_hashing::blake2_128(data));

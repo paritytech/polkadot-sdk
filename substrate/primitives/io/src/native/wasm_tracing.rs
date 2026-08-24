@@ -18,10 +18,6 @@
 //! Native PolkaVM/JAM implementations of the `wasm_tracing` interface.
 
 use crate::*;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 /// Native PolkaVM/JAM implementation of `enabled`.
 pub fn enabled(_metadata: sp_tracing::WasmMetadata) -> bool {
 	false

@@ -18,10 +18,6 @@
 //! Native PolkaVM/JAM implementations of the `offchain_index` interface.
 
 use crate::*;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 /// Native PolkaVM/JAM implementation of `clear`.
 pub fn clear(_key: &[u8]) {
 	panic!("`offchain_index::clear` needs node-side state and has no in-blob implementation")

@@ -18,10 +18,6 @@
 //! Native PolkaVM/JAM implementations of the `transaction_index` interface.
 
 use crate::*;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 /// Native PolkaVM/JAM implementation of `index`.
 pub fn index(_extrinsic: u32, _size: u32, _context_hash: [u8; 32]) {
 	panic!("`transaction_index::index` needs node-side state and has no in-blob implementation")

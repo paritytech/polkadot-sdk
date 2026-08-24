@@ -21,19 +21,15 @@ use crate::*;
 use alloc::vec::Vec;
 use hash256_std_hasher::Hash256StdHasher;
 use hash_db::Hasher;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 use sp_core::{storage::StateVersion, H256};
 use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 /// Blake2b-256 hasher used by the trie layouts.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Blake2Hasher;
 
-impl hash_db::Hasher for Blake2Hasher {
-	type Out = sp_core::H256;
-	type StdHasher = hash256_std_hasher::Hash256StdHasher;
+impl Hasher for Blake2Hasher {
+	type Out = H256;
+	type StdHasher = Hash256StdHasher;
 	const LENGTH: usize = 32;
 
 	fn hash(x: &[u8]) -> Self::Out {
@@ -45,9 +41,9 @@ impl hash_db::Hasher for Blake2Hasher {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct KeccakHasher;
 
-impl hash_db::Hasher for KeccakHasher {
-	type Out = sp_core::H256;
-	type StdHasher = hash256_std_hasher::Hash256StdHasher;
+impl Hasher for KeccakHasher {
+	type Out = H256;
+	type StdHasher = Hash256StdHasher;
 	const LENGTH: usize = 32;
 
 	fn hash(x: &[u8]) -> Self::Out {

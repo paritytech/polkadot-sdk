@@ -18,10 +18,6 @@
 //! Native PolkaVM/JAM implementations of the `allocator` interface.
 
 use crate::*;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 use sp_runtime_interface::Pointer;
 /// Native PolkaVM/JAM implementation of `free`.
 pub fn free(_ptr: Pointer<u8>) {

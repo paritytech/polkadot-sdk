@@ -18,10 +18,6 @@
 //! Native PolkaVM/JAM implementations of the `logging` interface.
 
 use crate::*;
-#[cfg(feature = "bandersnatch-experimental")]
-use sp_core::bandersnatch;
-#[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381};
 use sp_core::{LogLevelFilter, RuntimeInterfaceLogLevel};
 /// Native PolkaVM/JAM implementation of `log`.
 pub fn log(_level: RuntimeInterfaceLogLevel, _target: &str, _message: &[u8]) {}
