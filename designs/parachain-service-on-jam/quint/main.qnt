@@ -79,12 +79,6 @@ module main {
   /// `InvalidCodeHash`, modelling that a codeless para can validate nothing.
   pure val NoCodeHash: ValidationCodeHash = { vchBytes: 999999 }
 
-  /// The happy-path candidate carrying a para's active validation code.
-  pure def activeCodeCandidate(
-    s: ParachainServiceState, paraId: ParaId
-  ): ParachainCandidate =
-    { validationCode: { hash: activeCodeHashOr(s.paraInfo(paraId), NoCodeHash), len: FixedCodeLen }, pov: 0 }
-
   /// Construct one nondet work package's inputs against a service state `s`.
   /// Used twice in `stepRefineAccumulate` to model 1 or 2 work packages per
   /// block, from the same or different paras, with mixed valid/invalid outcomes.
