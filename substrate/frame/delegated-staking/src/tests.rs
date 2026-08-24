@@ -339,6 +339,35 @@ fn allow_full_amount_to_be_delegated() {
 	});
 }
 
+#[test]
+fn zero_amount_delegation_is_rejected() {
+	ExtBuilder::default().build_and_execute(|| {
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegator: AccountId = 300;
+
+		// set intention to accept delegation.
+		fund(&agent, 1000);
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+
+		fund(&delegator, 1000);
+
+		// a zero amount delegation is rejected outright.
+		assert_noop!(
+			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(delegator).into(), agent, 0),
+			Error::<T>::InvalidDelegation
+		);
+
+		// no delegation record is persisted and no provider reference is leaked, so the
+		// account is not wrongly marked as a delegator.
+		assert!(!Delegators::<T>::contains_key(delegator));
+		assert!(!DelegatedStaking::is_delegator(&delegator));
+
+		// the agent ledger is not inflated.
+		assert_eq!(get_agent_ledger(&agent).ledger.total_delegated, 0);
+	});
+}
+
 /// Integration tests with pallet-staking.
 mod staking_integration {
 	use super::*;

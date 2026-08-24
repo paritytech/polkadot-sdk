@@ -228,7 +228,8 @@ pub mod pallet {
 		///
 		/// Possible issues are
 		/// 1) Cannot delegate to self,
-		/// 2) Cannot delegate to multiple delegates.
+		/// 2) Cannot delegate to multiple delegates,
+		/// 3) Cannot delegate a zero amount.
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
@@ -432,6 +433,10 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let delegator = ensure_signed(origin)?;
+
+			// ensure amount is non-zero. A zero amount would persist a useless zero-amount
+			// `Delegation` record and leak a provider reference for the delegator.
+			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
 
 			// ensure delegator is sane.
 			ensure!(
