@@ -69,7 +69,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, BlockNumberProvider},
+	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Debug, DispatchError, MultiAddress, MultiSignature, MultiSigner, Perbill,
 	Percent,
@@ -125,20 +125,7 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
-	pallet_broker::migration::MigrateV0ToV1<Runtime>,
-	pallet_broker::migration::MigrateV1ToV2<Runtime>,
-	pallet_broker::migration::MigrateV2ToV3<Runtime>,
-	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
 	pallet_broker::migration::MigrateV4ToV5<Runtime, BrokerFirstSaleRegion>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -640,25 +627,6 @@ impl pallet_accumulate_and_forward::Config for Runtime {
 	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
-}
-
-pub struct BrokerMigrationV4BlockConversion;
-
-impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
-	for BrokerMigrationV4BlockConversion
-{
-	fn convert_block_number_to_relay_height(input_block_number: u32) -> u32 {
-		let relay_height = pallet_broker::RCBlockNumberProviderOf::<
-			<Runtime as pallet_broker::Config>::Coretime,
-		>::current_block_number();
-		let parachain_block_number = frame_system::Pallet::<Runtime>::block_number();
-		let offset = relay_height - parachain_block_number * 2;
-		offset + input_block_number * 2
-	}
-
-	fn convert_block_length_to_relay_length(input_block_length: u32) -> u32 {
-		input_block_length * 2
-	}
 }
 
 /// `region_begin` of the first bulk Coretime sale on Westend, from the first
