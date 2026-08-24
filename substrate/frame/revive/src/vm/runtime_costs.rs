@@ -250,6 +250,12 @@ impl RuntimeCosts {
 		}
 	}
 
+	/// What journaling a `Read` to `Write` upgrade costs, on top of the touch itself.
+	pub(crate) fn access_list_upgrade_overhead<T: Config>() -> Weight {
+		T::WeightInfo::access_list_touch_hot_upgrade()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_full())
+	}
+
 	/// What a hot write pays on top of the cold read that warmed the key:
 	/// re-hashing its trie path when the block's storage root is computed.
 	pub(crate) fn deferred_write_cost<T: Config>() -> Weight {
@@ -268,7 +274,8 @@ impl RuntimeCosts {
 		match kind {
 			StorageAccessKind::Persistent(warmth) => {
 				let surcharge = match warmth {
-					Warmth::Hot(paid) if !paid.covers(op) => Self::deferred_write_cost::<T>(),
+					Warmth::Hot(paid) if !paid.covers(op) => Self::deferred_write_cost::<T>()
+						.saturating_add(Self::access_list_upgrade_overhead::<T>()),
 					_ => Weight::zero(),
 				};
 				weight_by_warmth::<T, _>([warmth], cold, hot).saturating_add(surcharge)
@@ -598,13 +605,20 @@ mod tests {
 		const LEN: u32 = 64;
 		let weight = |cost: &RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(cost);
 
-		let surcharge = RuntimeCosts::deferred_write_cost::<Test>();
+		let deferred_write = RuntimeCosts::deferred_write_cost::<Test>();
 		let db = <Test as frame_system::Config>::DbWeight::get();
 		assert!(
-			surcharge.ref_time() > 0 && surcharge.ref_time() < db.writes(1).ref_time(),
-			"the surcharge is part of a write: above zero, below all of it: {surcharge:?}",
+			deferred_write.ref_time() > 0 && deferred_write.ref_time() < db.writes(1).ref_time(),
+			"the deferred write is part of a write: above zero, below all of it: {deferred_write:?}",
 		);
-		assert_eq!(surcharge.proof_size(), 0, "the surcharge adds no proof: {surcharge:?}");
+		assert_eq!(
+			deferred_write.proof_size(),
+			0,
+			"the deferred write adds no proof: {deferred_write:?}",
+		);
+		// A first write also journals the read to write upgrade.
+		let surcharge =
+			deferred_write.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
 
 		let read_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Read));
 		let write_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Write));

@@ -140,7 +140,9 @@ impl<T: Config> Token<T> for CodeInfoLoadToken {
 		let already_paid =
 			matches!(self.warmth, Warmth::Hot(paid) if paid.covers(self.code_info_op));
 		if self.code_info_op == StorageOp::Write && !already_paid {
-			weight.saturating_add(RuntimeCosts::deferred_write_cost::<T>())
+			weight
+				.saturating_add(RuntimeCosts::deferred_write_cost::<T>())
+				.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<T>())
 		} else {
 			weight
 		}
@@ -463,7 +465,8 @@ mod tests {
 		let load = |info, code_info_op| {
 			Token::<Test>::weight(&CodeInfoLoadToken { warmth: info, code_info_op })
 		};
-		let deferred = RuntimeCosts::deferred_write_cost::<Test>();
+		let deferred = RuntimeCosts::deferred_write_cost::<Test>()
+			.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
 		let cold = Warmth::cold_non_revertible();
 
 		assert_eq!(

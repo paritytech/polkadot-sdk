@@ -2117,7 +2117,24 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
-		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
+		// Worst-case hot read: the rightmost key, and no upgrade, so this measures what
+		// every hot touch pays for the map size.
+		let entry = AccessEntry::Storage {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
+		};
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
 		let entry = AccessEntry::Storage {
 			slot: worst_case_slot(),
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
