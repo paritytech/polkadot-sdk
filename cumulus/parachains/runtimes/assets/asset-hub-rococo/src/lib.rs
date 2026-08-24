@@ -51,8 +51,6 @@ use sp_runtime::{
 use sp_session::OpaqueGeneratedSessionKeys;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
@@ -139,12 +137,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -1878,6 +1870,39 @@ impl_runtime_apis! {
 						fun: Fungible(amount),
 					}
 				}
+
+				fn get_assets(n: u32) -> XcmAssets {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account: AccountId = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let amount = 1_000_000u128;
+					// Worst case: `n` distinct `ForeignAssets`. Keyed by a full `Location`, they
+					// book ~600 more bytes of proof per map than trust-backed assets, and match
+					// later in `AssetTransactors`.
+					let assets: Vec<Asset> = (0..n).map(|i| {
+						// Another chain's assets pallet, so the id is genuinely foreign.
+						let asset_location = Location::new(
+							1,
+							[Parachain(3000), PalletInstance(53), GeneralIndex((1984 + i).into())],
+						);
+						assert_ok!(ForeignAssets::force_create(
+							RuntimeOrigin::root(),
+							asset_location.clone().into(),
+							account.clone().into(),
+							true,
+							1u128,
+						));
+						Asset { id: AssetId(asset_location), fun: Fungible(amount) }
+					}).collect();
+					assets.into()
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			impl XcmBridgeHubRouterConfig<ToWestendXcmRouterInstance> for Runtime {
@@ -2064,12 +2089,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					// Any location can alias to an internal location.
-					// Here parachain 1001 aliases to an internal account.
-					Ok((
-						Location::new(1, [Parachain(1001)]),
-						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
-					))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 			}
 

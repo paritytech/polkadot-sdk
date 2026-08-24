@@ -126,6 +126,8 @@ async fn initialize<Context>(
 			"Collator protocol initial assignments",
 		);
 
+		metrics.note_assigned_paras(scheduled_paras.len());
+
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
 			db.clone(),
@@ -156,6 +158,7 @@ async fn initialize<Context>(
 			ctx.sender(),
 			scheduled_paras.into_iter().collect(),
 			clock.clone(),
+			metrics.clone(),
 		)
 		.await
 		{
@@ -299,6 +302,11 @@ async fn run_inner<Context>(
 				persistence_timer = create_persistence_timer(&*clock, persist_interval);
 			},
 		}
+
+		// Refresh the in-memory connected peers. Done once per loop iteration, so that
+		// it covers every event source above and cannot be missed by a handler that forgets to
+		// update it.
+		state.note_in_memory_connected_peers();
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
