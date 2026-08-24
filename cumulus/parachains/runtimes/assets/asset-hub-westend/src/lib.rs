@@ -1828,37 +1828,8 @@ parameter_types! {
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	// v9420
-	pallet_nfts::migration::v1::MigrateToV1<Runtime>,
-	// unreleased
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	// unreleased
-	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	// unreleased
 	pallet_treasury::migration::migrate_legacy_proposals::Migration<Runtime>,
-	// unreleased
-	InitStorageVersions,
-	// unreleased
-	DeleteUndecodableStorage,
-	// unreleased
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
-	// unreleased
-	pallet_assets::migration::next_asset_id::SetNextAssetId<
-		ConstU32<50_000_000>,
-		Runtime,
-		TrustBackedAssetsInstance,
-	>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-	>,
-	frame_support::migrations::RemovePallet<
-		FastUnstakeName,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
 	// unreleased
 	// no-op if member has no trapped balance, so second run is safe.
 	pallet_nomination_pools::migration::unversioned::ClaimTrappedBalance<
