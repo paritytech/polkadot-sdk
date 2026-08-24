@@ -101,8 +101,28 @@ Let's assume that we want to version a runtime API function called `${function-n
     - With the same generics as the unversioned runtime API function `${function-name}` has in its arguments.
   - An enum with the following specifications:
     - Named `${function-name} VersionedInputPayload`
+    - With the following doc comment, substituting the name of the unversioned runtime API function for
+      `${function-name}`:
+
+      ```rust
+      /// The input type used when calling the `${function-name}_versioned` runtime API function. This
+      /// function replaces the unversioned `${function-name}` runtime API function.
+      ```
+
     - With a single variant named `V1` which uses tuple-fields with a single field of the type
       `${function-name} InputPayloadV1`.
+    - With the following doc comment on the `V1` variant when it maps directly to one unversioned function:
+
+      ```rust
+      /// The arguments provided when calling the `${function-name}_versioned` runtime API function.
+      ///
+      /// When this version is provided, the function behaves identically to and returns the same output
+      /// as the unversioned `${function-name}` runtime API function.
+      ```
+
+      If `V1` combines multiple unversioned functions or otherwise changes how their arguments are represented, replace
+      the simple equivalence paragraph with the exact mapping from the `V1` fields or variants to each unversioned
+      function and state which behavior and output each mapping preserves.
     - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto` with `PartialEq` being an optional
       derive if the types used for the fields can not satisfy `PartialEq`.
     - With the same generics as the unversioned runtime API function `${function-name}` has in its arguments.
@@ -122,8 +142,28 @@ Let's assume that we want to version a runtime API function called `${function-n
     -->
   - An enum with the following specifications:
     - Named `${function-name} VersionedOutputPayload`
+    - With the following doc comment, substituting the name of the unversioned runtime API function for
+      `${function-name}`:
+
+      ```rust
+      /// The output type returned when calling the `${function-name}_versioned` runtime API function.
+      /// This function replaces the unversioned `${function-name}` runtime API function.
+      ```
+
     - With a single variant named `V1` which uses tuple-fields with a single field of the type
       `${function-name} OutputPayloadV1`.
+    - With the following doc comment on the `V1` variant when it maps directly to one unversioned function:
+
+      ```rust
+      /// The output returned when calling the `${function-name}_versioned` runtime API function with `V1`
+      /// arguments.
+      ///
+      /// This output is identical to the output returned by the unversioned `${function-name}` runtime
+      /// API function.
+      ```
+
+      If `V1` combines multiple unversioned functions, replace the simple equivalence paragraph with the exact
+      unversioned output associated with each input mapping.
     - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto` with `PartialEq` being an optional
       derive if the types used for the fields can not satisfy `PartialEq`.
     - With the same generics as the unversioned runtime API function `${function-name}` has in its return type.
@@ -388,6 +428,9 @@ version being added. The value of `n` does not need to be the same for every typ
     - With the generics required by the intended inputs for the new version.
   - A new variant in `${function-name} VersionedInputPayload` with the following specifications:
     - Named `Vn+1` and uses tuple-fields with a single field of the type `${function-name} InputPayloadVn+1`.
+    - With a doc comment which describes only the difference from `Vn`. State whether the arguments changed or remained
+      unchanged and name the output version selected by an otherwise unchanged input when relevant. Do not restate what
+      the runtime API function does.
     - Added after all of the existing variants without changing them.
     - Add any generics required by the new input payload to `${function-name} VersionedInputPayload` and apply the
       appropriate generics to each of its variants.
@@ -409,6 +452,9 @@ version being added. The value of `n` does not need to be the same for every typ
     -->
   - A new variant in `${function-name} VersionedOutputPayload` with the following specifications:
     - Named `Vn+1` and uses tuple-fields with a single field of the type `${function-name} OutputPayloadVn+1`.
+    - With a doc comment which describes only the difference from `Vn`. Name every changed wire type or field, explain
+      the meaning of each change, and identify fields or portions which were removed or remained unchanged when that
+      distinction matters. Do not restate what the runtime API function does.
     - Added after all of the existing variants without changing them.
     - Add any generics required by the new output payload to `${function-name} VersionedOutputPayload` and apply the
       appropriate generics to each of its variants.
