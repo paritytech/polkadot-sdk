@@ -357,6 +357,23 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `PolkadotXcm::ShouldRecordXcm` (r:1 w:0)
+	/// Proof: `PolkadotXcm::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `PolkadotXcm::AssetTraps` (r:1 w:1)
+	/// Proof: `PolkadotXcm::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[1, 20]`.
+	fn claim_assets_by_size(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `24`
+		//  Estimated: `3489`
+		// Minimum execution time: 46_976_000 picoseconds.
+		Weight::from_parts(49_524_552, 0)
+			.saturating_add(Weight::from_parts(0, 3489))
+			// Standard Error: 667
+			.saturating_add(Weight::from_parts(2_343, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `PolkadotXcm::AuthorizedAliases` (r:1 w:1)
 	/// Proof: `PolkadotXcm::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
@@ -392,5 +409,27 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 8_173_000 picoseconds.
 		Weight::from_parts(8_364_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+	}
+	/// The range of component `n` is `[0, 8192]`.
+	fn weigh_message_by_size(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_690_000 picoseconds.
+		Weight::from_parts(6_265_846, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 50
+			.saturating_add(Weight::from_parts(187_075, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 131072]`.
+	fn decode_xcm(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 381_000 picoseconds.
+		Weight::from_parts(1_262_057, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 1
+			.saturating_add(Weight::from_parts(2_495, 0).saturating_mul(n.into()))
 	}
 }

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-psm"
-version = "0.4.0"
+version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -23,12 +23,12 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -39,6 +39,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
+	"sp-io/std",
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [

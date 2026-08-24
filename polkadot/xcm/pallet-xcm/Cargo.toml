@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm"
-version = "29.0.0"
+version = "29.1.0"
 description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
@@ -36,6 +36,7 @@ pallet-balances = { optional = true, workspace = true }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
@@ -67,6 +68,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -81,6 +83,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-utility/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
