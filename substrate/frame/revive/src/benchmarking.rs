@@ -21,8 +21,7 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CallAccess, CodeLoad, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES,
-		StorageOp,
+		AccessEntry, AccessList, CallAccess, CodeLoad, MAX_ACCESS_LIST_ENTRIES, StorageOp,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -518,7 +517,7 @@ mod benchmarks {
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let hash = Contracts::<T>::bare_upload_code(origin.clone().into(), code, storage_deposit)?
 			.code_hash;
-		// The code read during instantiation is priced by `code_load`.
+		// The code read during instantiation is priced by `code_info_load` and `code_blob_load`.
 		whitelist_access::<T>(CodeLoad { hash, code_info_op: StorageOp::Read });
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
@@ -557,7 +556,7 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
-		// The callee's code read is priced by `code_load`.
+		// The callee's code read is priced by `code_info_load` and `code_blob_load`.
 		instance.whitelist_code()?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
@@ -594,7 +593,7 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
-		// The callee's code read is priced by `code_load`.
+		// The callee's code read is priced by `code_info_load` and `code_blob_load`.
 		instance.whitelist_code()?;
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
@@ -2502,7 +2501,7 @@ mod benchmarks {
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let Contract { account_id: callee, address: callee_addr, .. } = callee_contract.clone();
 
-		// The code read is priced by `code_load`.
+		// The code read is priced by `code_info_load` and `code_blob_load`.
 		callee_contract.whitelist_code().unwrap();
 
 		let callee_bytes = callee.encode();
@@ -2634,7 +2633,7 @@ mod benchmarks {
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let Contract { account_id: address, .. } = callee_contract.clone();
 
-		// The code read is priced by `code_load`.
+		// The code read is priced by `code_info_load` and `code_blob_load`.
 		callee_contract.whitelist_code()?;
 
 		let address_bytes = address.encode();
@@ -2683,24 +2682,31 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Reads the code metadata on its own, the first of the two reads a code load makes.
 	#[benchmark(pov_mode = Measured)]
-	fn code_load() -> Result<(), BenchmarkError> {
+	fn code_info_load() -> Result<(), BenchmarkError> {
 		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let code_hash = contract.info()?.code_hash;
-		let mut meter =
-			TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
-				.map_err(|_| BenchmarkError::Stop("could not create meter"))?;
-		let blob;
+		let code_info;
 		#[block]
 		{
-			blob = ContractBlob::<T>::from_storage(
-				code_hash,
-				&mut meter,
-				CodeLoadWarmth::cold_non_revertible(),
-				StorageOp::Read,
-			);
+			code_info = <CodeInfoOf<T>>::get(code_hash);
 		}
-		assert!(blob.is_ok(), "loading the code of an existing contract must succeed");
+		assert!(code_info.is_some(), "the metadata of an existing contract must be there");
+		Ok(())
+	}
+
+	// Reads the code blob.
+	#[benchmark(pov_mode = Measured)]
+	fn code_blob_load() -> Result<(), BenchmarkError> {
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let code_hash = contract.info()?.code_hash;
+		let code;
+		#[block]
+		{
+			code = <PristineCode<T>>::get(&code_hash);
+		}
+		assert!(code.is_some(), "the code of an existing contract must be there");
 		Ok(())
 	}
 
@@ -2715,7 +2721,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
-		// The code read during instantiation is priced by `code_load`.
+		// The code read during instantiation is priced by `code_info_load` and `code_blob_load`.
 		whitelist_access::<T>(CodeLoad { hash, code_info_op: StorageOp::Read });
 		let hash_bytes = hash.encode();
 

@@ -131,8 +131,8 @@ impl<T: Config> Token<T> for CodeInfoLoadToken {
 	fn weight(&self) -> Weight {
 		let weight = runtime_costs::weight_by_warmth::<T, _>(
 			[self.warmth],
-			|| T::WeightInfo::code_load(),
-			|| Weight::zero(), //  a hot read is already in the proof.
+			|| T::WeightInfo::code_info_load(),
+			|| Weight::zero(), // a hot read is already in the proof
 		);
 		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
 		// whitelist. Its trie walk is already paid by this load's read, so add only
@@ -150,13 +150,13 @@ impl<T: Config> Token<T> for CodeInfoLoadToken {
 /// Cost of loading the code blob (`PristineCode`).
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
-struct CodeBytesLoadToken {
+struct CodeBlobLoadToken {
 	code_len: u32,
 	code_type: BytecodeType,
 	warmth: Warmth,
 }
 
-impl<T: Config> Token<T> for CodeBytesLoadToken {
+impl<T: Config> Token<T> for CodeBlobLoadToken {
 	fn weight(&self) -> Weight {
 		let len_weight_of =
 			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
@@ -181,7 +181,7 @@ impl<T: Config> Token<T> for CodeBytesLoadToken {
 
 		runtime_costs::weight_by_warmth::<T, _>(
 			[self.warmth],
-			|| len_weight_of(per_byte),
+			|| T::WeightInfo::code_blob_load().saturating_add(len_weight_of(per_byte)),
 			|| len_weight_of(per_byte_hot),
 		)
 		.saturating_add(compilation)
@@ -197,7 +197,7 @@ pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoad
 		code_info_op: StorageOp::Read,
 	});
 	let bytes =
-		Token::<Test>::weight(&CodeBytesLoadToken { code_len, code_type, warmth: warmth.blob });
+		Token::<Test>::weight(&CodeBlobLoadToken { code_len, code_type, warmth: warmth.blob });
 	base.saturating_add(bytes)
 }
 
@@ -377,7 +377,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 	) -> Result<Self, DispatchError> {
 		meter.charge_weight_token(CodeInfoLoadToken { warmth: warmth.info, code_info_op })?;
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		meter.charge_weight_token(CodeBytesLoadToken {
+		meter.charge_weight_token(CodeBlobLoadToken {
 			code_len: code_info.code_len,
 			code_type: code_info.code_type,
 			warmth: warmth.blob,
@@ -500,11 +500,13 @@ mod tests {
 			assert!(cold.proof_size() > 0, "cold proof_size {code_type:?}: {cold:?}");
 			assert_eq!(hot.proof_size(), 0, "hot proof_size {code_type:?}: {hot:?}");
 
-			let code_load_proof = <Test as Config>::WeightInfo::code_load().proof_size();
+			let both_reads_proof = <Test as Config>::WeightInfo::code_info_load()
+				.proof_size()
+				.saturating_add(<Test as Config>::WeightInfo::code_blob_load().proof_size());
 			assert!(
-				cold.proof_size() >= code_load_proof + u64::from(code_len),
-				"cold load must include the {code_load_proof}-byte code read proof plus \
-				 {code_len} per-byte proof: {cold:?}",
+				cold.proof_size() >= both_reads_proof + u64::from(code_len),
+				"cold load must include the {both_reads_proof}-byte proof of its two reads \
+				 plus {code_len} per-byte proof: {cold:?}",
 			);
 			assert!(
 				cold_revertible.ref_time() > cold.ref_time(),
@@ -512,23 +514,24 @@ mod tests {
 				 rev={cold_revertible:?} non={cold:?}",
 			);
 
-			let base = Token::<Test>::weight(&CodeInfoLoadToken {
-				warmth: Warmth::cold_non_revertible(),
-				code_info_op: StorageOp::Read,
-			});
-			let bytes = Token::<Test>::weight(&CodeBytesLoadToken {
-				code_len,
+			let hot_info_cold_blob = weight_of(
 				code_type,
-				warmth: Warmth::cold_non_revertible(),
-			});
-			assert_eq!(base.saturating_add(bytes), cold, "base + bytes sum to the cold load");
-			assert!(
-				base.proof_size() >= code_load_proof,
-				"the base carries the metadata read proof: base={base:?}",
+				CodeLoadWarmth {
+					info: Warmth::Hot(Paid::Read),
+					blob: Warmth::cold_non_revertible(),
+				},
 			);
 			assert!(
-				bytes.proof_size() >= u64::from(code_len),
-				"the bytes carry the per-byte proof: bytes={bytes:?}",
+				hot_info_cold_blob.proof_size() >= u64::from(code_len),
+				"a cold blob keeps its per-byte proof while info is hot: {hot_info_cold_blob:?}",
+			);
+
+			let twice_as_long =
+				code_load_weight(code_len * 2, code_type, CodeLoadWarmth::cold_non_revertible());
+			assert!(
+				twice_as_long.proof_size().saturating_sub(cold.proof_size()) >= u64::from(code_len),
+				"doubling the code adds at least {code_len} bytes of proof: \
+				 twice={twice_as_long:?} cold={cold:?}",
 			);
 		}
 	}

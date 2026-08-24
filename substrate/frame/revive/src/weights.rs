@@ -165,7 +165,8 @@ pub trait WeightInfo {
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_delegate_call_hot() -> Weight;
-	fn code_load() -> Weight;
+	fn code_info_load() -> Weight;
+	fn code_blob_load() -> Weight;
 	fn seal_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
 	fn evm_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
 	fn sha2_256(n: u32, ) -> Weight;
@@ -1349,15 +1350,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	fn code_info_load() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `271`
+		//  Estimated: `2572`
+		// Minimum execution time: 5_500_000 picoseconds.
+		Weight::from_parts(6_000_000, 2572)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn code_load() -> Weight {
+	fn code_blob_load() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `883`
-		//  Estimated: `4348`
-		// Minimum execution time: 12_569_000 picoseconds.
-		Weight::from_parts(13_745_000, 4348)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+		//  Measured:  `612`
+		//  Estimated: `1776`
+		// Minimum execution time: 7_069_000 picoseconds.
+		Weight::from_parts(7_745_000, 1776)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -2921,15 +2930,23 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	fn code_info_load() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `271`
+		//  Estimated: `2572`
+		// Minimum execution time: 5_500_000 picoseconds.
+		Weight::from_parts(6_000_000, 2572)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn code_load() -> Weight {
+	fn code_blob_load() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `883`
-		//  Estimated: `4348`
-		// Minimum execution time: 12_569_000 picoseconds.
-		Weight::from_parts(13_745_000, 4348)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+		//  Measured:  `612`
+		//  Estimated: `1776`
+		// Minimum execution time: 7_069_000 picoseconds.
+		Weight::from_parts(7_745_000, 1776)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

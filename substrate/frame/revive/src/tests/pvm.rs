@@ -3363,6 +3363,38 @@ fn cold_hot_repeated_call_target_stays_hot() {
 }
 
 #[test]
+fn cold_hot_depth_denied_call_warms_before_the_denial() {
+	let (code, _code_hash) = compile_module("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let metrics_after = |recursions: u32| {
+			builder::bare_call(addr).data(recursions.encode()).build_and_unwrap_result();
+			last_access_list_metrics()
+		};
+
+		let at_limit = metrics_after(limits::CALL_STACK_DEPTH);
+		let past_limit = metrics_after(limits::CALL_STACK_DEPTH + 1);
+
+		const TARGET_ENTRIES: u32 = 4;
+		assert_eq!(
+			at_limit.hot,
+			TARGET_ENTRIES * limits::CALL_STACK_DEPTH,
+			"every call up to the limit re-reads the target's four entries hot",
+		);
+
+		assert_eq!(
+			past_limit.hot,
+			at_limit.hot + 2,
+			"the denied attempt warms the target's account entries before the depth check",
+		);
+		assert_eq!(past_limit.cold, at_limit.cold, "the denied attempt adds no cold touch");
+	});
+}
+
+#[test]
 fn read_only_call_cannot_store() {
 	let (binary_caller, _code_hash_caller) = compile_module("read_only_call").unwrap();
 	let (binary_callee, _code_hash_callee) = compile_module("store_call").unwrap();

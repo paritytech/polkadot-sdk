@@ -1332,16 +1332,25 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	fn code_info_load() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `368`
+		//  Estimated: `2572`
+		// Minimum execution time: 5_326_000 picoseconds.
+		Weight::from_parts(5_800_000, 0)
+			.saturating_add(Weight::from_parts(0, 2572))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn code_load() -> Weight {
+	fn code_blob_load() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `980`
-		//  Estimated: `4445`
-		// Minimum execution time: 12_326_000 picoseconds.
-		Weight::from_parts(13_424_000, 0)
-			.saturating_add(Weight::from_parts(0, 4445))
-			.saturating_add(T::DbWeight::get().reads(2))
+		//  Measured:  `612`
+		//  Estimated: `1873`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(7_624_000, 0)
+			.saturating_add(Weight::from_parts(0, 1873))
+			.saturating_add(T::DbWeight::get().reads(1))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

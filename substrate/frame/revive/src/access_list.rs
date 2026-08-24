@@ -239,8 +239,6 @@ impl Access for CallAccess {
 	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
 		match self {
 			Self::Plain { target, transfers_value } => CallWarmth::Plain {
-				// Only a value transfer reads the target's account, so a plain call
-				// must not warm it: warm means the read's proof is already paid.
 				account: transfers_value
 					.then(|| resolve(AccessEntry::Account { address: target }, StorageOp::Read)),
 				original_account: resolve(
@@ -277,7 +275,7 @@ impl CodeLoadWarmth {
 	}
 }
 
-/// A code load: reads the metadata and the blob of `hash`.
+/// A code load reads the metadata and the blob at `hash`.
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLoad {
 	pub hash: H256,

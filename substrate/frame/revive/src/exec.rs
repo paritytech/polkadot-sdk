@@ -1125,16 +1125,6 @@ where
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 
-				let delegated_call = delegated_call.or_else(|| {
-					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
-						mock_handler.mock_delegated_caller(address, input_data)
-					})
-				});
-
-				let delegate_precompile = delegated_call.as_ref().and_then(|delegated| {
-					<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes())
-				});
-
 				// which contract info to load is unaffected by the fact if this
 				// is a delegate call or not
 				let mut contract = match (cached_info, &precompile) {
@@ -1158,9 +1148,16 @@ where
 					(None, Some(_)) => CachedContract::None,
 				};
 
+				let delegated_call = delegated_call.or_else(|| {
+					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
+						mock_handler.mock_delegated_caller(address, input_data)
+					})
+				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
-					if let Some(instance) = delegate_precompile {
+					if let Some(instance) =
+						<AllPrecompiles<T>>::get::<Self>(delegated_call.callee.as_fixed_bytes())
+					{
 						ExecutableOrPrecompile::Precompile {
 							instance,
 							_phantom: Default::default(),

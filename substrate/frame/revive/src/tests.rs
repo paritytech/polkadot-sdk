@@ -71,8 +71,8 @@ pub(crate) fn record_access_list_metrics(metrics: AccessListMetrics) {
 
 pub(crate) fn last_access_list_metrics() -> AccessListMetrics {
 	LAST_ACCESS_LIST_METRICS
-		.with(|cell| cell.get())
-		.expect("a top-level call ran on this thread")
+		.with(|cell| cell.take())
+		.expect("the call under test ran a first frame and recorded metrics")
 }
 
 pub type Address = MultiAddress<AccountId32, u32>;

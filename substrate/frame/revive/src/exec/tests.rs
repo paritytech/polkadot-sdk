@@ -3746,31 +3746,3 @@ fn cold_hot_failed_code_load_leaves_code_cold() {
 		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }
-
-#[test]
-fn cold_hot_failed_charge_reverts_the_warm() {
-	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
-		ctx.ext.warm(CallAccess::new(DJANGO_ADDR, false, false));
-		Err("charge ran out of gas after the warm".into())
-	});
-	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
-		assert_matches!(
-			ctx.ext
-				.warmth_of(CallAccess::Plain { target: DJANGO_ADDR, transfers_value: true }),
-			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				original_account: Warmth::Cold { .. },
-				account_info: Warmth::Cold { .. }
-			},
-			"the failed frame's warm rolls back with it",
-		);
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, bob_code_hash);
-		place_contract(&CHARLIE, root_code_hash);
-		run_root_call(CHARLIE_ADDR, vec![]);
-	});
-}

@@ -296,7 +296,8 @@ pub(crate) fn weight_by_warmth<T: Config, I: IntoIterator<Item = Warmth>>(
 		},
 	);
 	debug_assert!(count > 0, "an access reads at least one state item");
-	let operation_weight = if all_hot {
+	// An empty access would price hot, so charge cold if that ever happens.
+	let operation_weight = if all_hot && count > 0 {
 		// One overlay lookup per item, since each stands for one state read.
 		hot()
 			.saturating_add(RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(count))
