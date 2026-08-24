@@ -986,14 +986,12 @@ async fn advertise_segment<Context>(
 	};
 
 	let message = match peer_version {
-		CollationVersion::V4 => {
-			CollationProtocols::V4(protocol_v4::AdvertiseSegment {
-				scheduling_parent,
-				candidates_descriptor_version,
-				candidates: core_segment.clone(),
-				para_id,
-			})
-		},
+		CollationVersion::V4 => CollationProtocols::V4(protocol_v4::AdvertiseSegment {
+			scheduling_parent,
+			candidates_descriptor_version,
+			candidates: core_segment.clone(),
+			para_id,
+		}),
 		CollationVersion::V3 => {
 			// Send V3 protocol message with the actual descriptor version
 			let newest_candidate = core_segment.last().expect("Segment is not empty; qed");
