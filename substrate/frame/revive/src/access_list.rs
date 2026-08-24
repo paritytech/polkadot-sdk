@@ -320,9 +320,7 @@ pub struct AccessListMetrics {
 /// - Storage opcodes and calls touch before charging: their charge fails only on out-of-gas, which
 ///   reverts the whole frame, so the rollback removes the frame's insertions (and downgrades any
 ///   `Read` to `Write` upgrades) and never leaves an entry warm with its cold cost unpaid.
-/// - Code loads charge before touching, warming only after the load succeeds: a load can fail while
-///   the caller survives (a missing code hash is recoverable), so warming first would leave the
-///   code warm but unpaid.
+/// - Code loads touch after charging: the entry is already paid, so a revert just drops it.
 
 #[derive(Default)]
 pub struct AccessList {

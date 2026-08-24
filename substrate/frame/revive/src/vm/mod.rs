@@ -119,38 +119,55 @@ impl ExportedFunction {
 	}
 }
 
-/// Cost of code loading from storage.
+/// Cost of reading a contract's code metadata (`CodeInfoOf`).
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
-struct CodeLoadToken {
-	code_len: u32,
-	code_type: BytecodeType,
-	warmth: CodeLoadWarmth,
+struct CodeInfoLoadToken {
+	warmth: Warmth,
 	code_info_op: StorageOp,
 }
 
-impl CodeLoadToken {
-	fn from_code_info<T: Config>(
-		code_info: &CodeInfo<T>,
-		warmth: CodeLoadWarmth,
-		code_info_op: StorageOp,
-	) -> Self {
-		Self { code_len: code_info.code_len, code_type: code_info.code_type, warmth, code_info_op }
+impl<T: Config> Token<T> for CodeInfoLoadToken {
+	fn weight(&self) -> Weight {
+		let weight = runtime_costs::weight_by_warmth::<T, _>(
+			[self.warmth],
+			|| T::WeightInfo::code_load(),
+			|| Weight::zero(), //  a hot read is already in the proof.
+		);
+		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
+		// whitelist. Its trie walk is already paid by this load's read, so add only
+		// the missing part of a write.
+		let already_paid =
+			matches!(self.warmth, Warmth::Hot(paid) if paid.covers(self.code_info_op));
+		if self.code_info_op == StorageOp::Write && !already_paid {
+			weight.saturating_add(RuntimeCosts::deferred_write_cost::<T>())
+		} else {
+			weight
+		}
 	}
 }
 
-impl<T: Config> Token<T> for CodeLoadToken {
+/// Cost of loading the code blob (`PristineCode`).
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Clone, Copy)]
+struct CodeBytesLoadToken {
+	code_len: u32,
+	code_type: BytecodeType,
+	warmth: Warmth,
+}
+
+impl<T: Config> Token<T> for CodeBytesLoadToken {
 	fn weight(&self) -> Weight {
 		let len_weight_of =
 			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
 
 		let (per_byte, per_byte_hot, compilation) = match self.code_type {
-			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so
-			// the compilation term drops its proof. It double-charges the first
-			// BASIC_BLOCK_SIZE instructions; we keep that as a safety margin.
 			BytecodeType::Pvm => (
 				T::WeightInfo::call_with_pvm_code_per_byte as fn(u32) -> Weight,
 				T::WeightInfo::call_with_pvm_code_per_byte_hot as fn(u32) -> Weight,
+				// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so
+				// the compilation term drops its proof. It double-charges the first
+				// BASIC_BLOCK_SIZE instructions; we keep that as a safety margin.
 				T::WeightInfo::basic_block_compilation(1)
 					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
 					.set_proof_size(0),
@@ -162,37 +179,26 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			),
 		};
 
-		let weight = runtime_costs::weight_by_warmth::<T, _>(
-			[self.warmth.info, self.warmth.blob],
-			|| {
-				// Charge code_load since the call and instantiate benches whitelist the code
-				// reads. This overlaps code_load ref_time, so it slightly overcharges.
-				T::WeightInfo::code_load().saturating_add(len_weight_of(per_byte))
-			},
+		runtime_costs::weight_by_warmth::<T, _>(
+			[self.warmth],
+			|| len_weight_of(per_byte),
 			|| len_weight_of(per_byte_hot),
 		)
-		.saturating_add(compilation);
-		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
-		// whitelist. Its trie walk is already paid by this load's read, so add only
-		// the missing part of a write.
-		let already_paid =
-			matches!(self.warmth.info, Warmth::Hot(paid) if paid.covers(self.code_info_op));
-		if self.code_info_op == StorageOp::Write && !already_paid {
-			weight.saturating_add(RuntimeCosts::deferred_write_cost::<T>())
-		} else {
-			weight
-		}
+		.saturating_add(compilation)
 	}
 }
 
+/// The weight of a full code load: the metadata base plus the blob bytes.
 #[cfg(test)]
-pub fn code_load_weight(code_len: u32) -> Weight {
-	Token::<crate::tests::Test>::weight(&CodeLoadToken {
-		code_len,
-		code_type: BytecodeType::Pvm,
-		warmth: CodeLoadWarmth::cold_non_revertible(),
+pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoadWarmth) -> Weight {
+	use crate::tests::Test;
+	let base = Token::<Test>::weight(&CodeInfoLoadToken {
+		warmth: warmth.info,
 		code_info_op: StorageOp::Read,
-	})
+	});
+	let bytes =
+		Token::<Test>::weight(&CodeBytesLoadToken { code_len, code_type, warmth: warmth.blob });
+	base.saturating_add(bytes)
 }
 
 impl<T: Config> ContractBlob<T> {
@@ -369,12 +375,13 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		warmth: CodeLoadWarmth,
 		code_info_op: StorageOp,
 	) -> Result<Self, DispatchError> {
+		meter.charge_weight_token(CodeInfoLoadToken { warmth: warmth.info, code_info_op })?;
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		meter.charge_weight_token(CodeLoadToken::from_code_info(
-			&code_info,
-			warmth,
-			code_info_op,
-		))?;
+		meter.charge_weight_token(CodeBytesLoadToken {
+			code_len: code_info.code_len,
+			code_type: code_info.code_type,
+			warmth: warmth.blob,
+		})?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}
@@ -453,12 +460,7 @@ mod tests {
 	#[test]
 	fn the_refcount_write_is_charged_exactly_when_owed() {
 		let load = |info, code_info_op| {
-			Token::<Test>::weight(&CodeLoadToken {
-				code_len: 1024,
-				code_type: BytecodeType::Pvm,
-				warmth: CodeLoadWarmth { info, blob: Warmth::Hot(Paid::Read) },
-				code_info_op,
-			})
+			Token::<Test>::weight(&CodeInfoLoadToken { warmth: info, code_info_op })
 		};
 		let deferred = RuntimeCosts::deferred_write_cost::<Test>();
 		let cold = Warmth::cold_non_revertible();
@@ -479,14 +481,7 @@ mod tests {
 	#[test]
 	fn code_load_cold_hot_pricing() {
 		let code_len = 1024_u32;
-		let weight_of = |code_type, warmth| {
-			Token::<Test>::weight(&CodeLoadToken {
-				code_len,
-				code_type,
-				warmth,
-				code_info_op: StorageOp::Read,
-			})
-		};
+		let weight_of = |code_type, warmth| code_load_weight(code_len, code_type, warmth);
 
 		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {
 			let cold = weight_of(code_type, CodeLoadWarmth::cold_non_revertible());
@@ -517,18 +512,23 @@ mod tests {
 				 rev={cold_revertible:?} non={cold:?}",
 			);
 
-			// A mix of hot and cold items still prices cold.
-			let info_only = weight_of(
+			let base = Token::<Test>::weight(&CodeInfoLoadToken {
+				warmth: Warmth::cold_non_revertible(),
+				code_info_op: StorageOp::Read,
+			});
+			let bytes = Token::<Test>::weight(&CodeBytesLoadToken {
+				code_len,
 				code_type,
-				CodeLoadWarmth {
-					info: Warmth::Hot(Paid::Read),
-					blob: Warmth::cold_non_revertible(),
-				},
+				warmth: Warmth::cold_non_revertible(),
+			});
+			assert_eq!(base.saturating_add(bytes), cold, "base + bytes sum to the cold load");
+			assert!(
+				base.proof_size() >= code_load_proof,
+				"the base carries the metadata read proof: base={base:?}",
 			);
-			assert_eq!(
-				info_only.proof_size(),
-				cold.proof_size(),
-				"a cold blob prices cold even when info is hot: info_only={info_only:?} cold={cold:?}",
+			assert!(
+				bytes.proof_size() >= u64::from(code_len),
+				"the bytes carry the per-byte proof: bytes={bytes:?}",
 			);
 		}
 	}
