@@ -3,20 +3,22 @@ title: Add storage invariant checks to pallet-psm try_state
 doc:
   - audience: Runtime Dev
     description: |
-      Adds `do_try_state` to `pallet-psm`, wired to the `try_state` hook under the
-      `try-runtime` feature. Seventeen checks cover the multi-instance storage layout:
-      decimal snapshots against live metadata, reserve coverage of tracked debt,
-      internal issuance against instance debt, orphaned rows without a parent PSM,
-      and debt tracked for non-approved pairs.
+      This PR adds `do_try_state` to `pallet-psm`. The `try_state` hook calls it
+      with the `try-runtime` feature. Seventeen checks cover the storage layout of
+      the multi-instance PSM. They confirm that each decimals snapshot agrees with
+      the live asset metadata, that each reserve covers the debt against it, that
+      the issuance of the internal asset covers the debt of the instance, that no
+      row stays after the removal of its PSM, and that no debt exists for a pair
+      that the PSM does not approve.
 
-      Four checks are advisory and log a warning rather than returning an error,
-      since governance can legitimately produce those states: per-asset debt over
-      its ceiling, instance debt over `max_debt`, a funded reserve with zero ceiling
-      weight and zero debt, and fee or weight rows set before their external asset
-      is approved.
+      Four checks are advisory. An advisory check writes a warning to the log, and
+      it does not return an error. Governance can create these four states
+      correctly: debt above a per-asset ceiling, debt above the ceiling of an
+      instance, a reserve with a balance but with zero weight and zero debt, and a
+      fee row for an external asset that the PSM does not yet approve.
 
-      Each check has a corresponding unit test that corrupts exactly one storage
-      item and asserts the specific failure, or asserts `Ok` for advisory checks.
+      Each check has a unit test. A test changes one storage item, then it confirms
+      the specific error. A test of an advisory check confirms the result is `Ok`.
 
 crates:
   - name: pallet-psm

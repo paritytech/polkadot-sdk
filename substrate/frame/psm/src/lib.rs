@@ -63,15 +63,23 @@
 //!
 //! ### Storage Invariants
 //!
-//! Under the `try-runtime` feature the pallet checks seventeen storage invariants each
-//! block via `do_try_state`: decimal snapshots still match live metadata,
-//! every reserve covers its tracked debt, internal issuance covers instance debt, no
-//! row outlives its parent PSM, and no debt is tracked for a non-approved pair.
+//! With the `try-runtime` feature, the pallet tests seventeen storage invariants in
+//! each block. The function `do_try_state` does these tests. It confirms that:
 //!
-//! Four checks are advisory and log a warning instead of returning an error, because
-//! governance can create those states legitimately: debt above a per-asset ceiling,
-//! debt above an instance ceiling, a funded reserve with zero weight and zero debt,
-//! and fee rows configured before their external is approved.
+//! * each decimals snapshot agrees with the live asset metadata;
+//! * each reserve covers the debt that the PSM records against it;
+//! * the issuance of the internal asset covers the debt of the instance;
+//! * no storage row stays after the removal of its PSM;
+//! * no debt exists for a pair that the PSM does not approve.
+//!
+//! Four of the seventeen checks are advisory. An advisory check writes a warning to
+//! the log. It does not return an error. Governance can create these four states
+//! correctly, so an error would stop the chain after a correct parameter change:
+//!
+//! * debt above a per-asset ceiling;
+//! * debt above the ceiling of an instance;
+//! * a reserve with a balance, but with zero weight and zero debt;
+//! * a fee row for an external asset that the PSM does not yet approve.
 //!
 //! ### Fee Structure
 //!
@@ -1686,15 +1694,18 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Verify the pallet's storage invariants.
+		/// Test the storage invariants of the pallet.
 		///
-		/// Runs under the `try-runtime` feature and in tests. Checks are grouped:
-		/// per-instance checks (1-6, 12-13) run in the `Psm` iteration, per-external
-		/// checks (7-11) in the nested `ExternalAssets` iteration, and global checks
-		/// (14-17) afterwards over the whole storage map.
+		/// This function runs with the `try-runtime` feature, and in tests. The
+		/// checks occur at three levels:
 		///
-		/// Checks 10, 11, 16 and 17 are advisory: governance can legitimately create
-		/// those states, so they log a warning instead of returning an error.
+		/// * Checks 1 to 6, 12 and 13 run for each PSM instance.
+		/// * Checks 7 to 11 run for each approved external asset of an instance.
+		/// * Checks 14 to 17 run once, across all of the storage.
+		///
+		/// Checks 10, 11, 16 and 17 are advisory. They write a warning to the log,
+		/// and they do not return an error. Governance can create these states
+		/// correctly.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
@@ -1724,15 +1735,16 @@ pub mod pallet {
 					"PSM fee destination account does not exist"
 				);
 
-				// Check 5: the instance's minimum swap amount is non-zero. `create_psm`
-				// rejects zero, but a migration or a hand-built genesis could bypass
-				// that; a zero minimum would let dust swaps through.
+				// Check 5: the minimum swap amount of the instance is not zero.
+				// `create_psm` refuses a zero value. A migration or a manual genesis
+				// file can bypass that check. A zero value permits swaps of dust.
 				ensure!(!info.min_swap_amount.is_zero(), "PSM instance has a zero min_swap_amount");
 
-				// Check 6: total internal issuance covers this instance's debt.
-				// PSM mints internal on every mint and burns it on every redeem, so
-				// issuance below the debt ledger means internal was destroyed outside
-				// the PSM or the ledger is corrupt.
+				// Check 6: the issuance of the internal asset covers the debt of this
+				// instance. The PSM mints the internal asset for each mint call, and
+				// burns it for each redeem call. A lower issuance therefore has two
+				// possible causes: something burned the asset outside of the PSM, or
+				// the debt records are wrong.
 				ensure!(
 					T::Fungibles::total_issuance(internal_asset.clone()) >=
 						Self::total_psm_debt(&internal_asset),
@@ -1767,8 +1779,8 @@ pub mod pallet {
 						.checked_add(&debt)
 						.ok_or("PSM debt overflow when summing approved externals")?;
 
-					// Check 10 (advisory): per-asset debt over its ceiling. Governance
-					// may lower a weight or max_debt below current debt.
+					// Check 10 (advisory): the debt of one asset is above its ceiling.
+					// Governance can set a weight or `max_debt` below the debt.
 					if external.status.allows_minting() {
 						let ceiling = Self::max_asset_debt(&internal_asset, &external_asset, &info);
 						if debt > ceiling {
@@ -1780,8 +1792,9 @@ pub mod pallet {
 						}
 					}
 
-					// Check 11 (advisory): zero ceiling weight and zero debt, but a
-					// non-zero reserve. Suggests a donation or a bug.
+					// Check 11 (advisory): the ceiling weight and the debt are zero,
+					// but the reserve has a balance. A donation or an error can do
+					// this.
 					if AssetCeilingWeight::<T>::get(&internal_asset, &external_asset).is_zero() &&
 						debt.is_zero() && !reserve.is_zero()
 					{
@@ -1806,10 +1819,10 @@ pub mod pallet {
 				);
 			}
 
-			// Check 14: no non-zero PsmDebt row for a pair that is not approved.
-			// This is the real orphan-debt guard: `total_psm_debt` folds over every
-			// PsmDebt row, so it cannot be reconciled against a fold of the same
-			// rows. Comparing the two would be a tautology.
+			// Check 14: no `PsmDebt` row with a value exists for a pair that the PSM
+			// does not approve. This check replaces an earlier comparison between
+			// `total_psm_debt` and a sum of the same rows. That comparison always
+			// held true, because both values add the same rows.
 			for (internal_asset, external_asset, debt) in PsmDebt::<T>::iter() {
 				if !debt.is_zero() {
 					ensure!(
@@ -1839,8 +1852,9 @@ pub mod pallet {
 				);
 			}
 
-			// Check 16 (advisory): fee or ceiling rows for a non-approved pair.
-			// Governance may configure a fee before approving the external.
+			// Check 16 (advisory): a fee row or a weight row exists for a pair that
+			// the PSM does not approve. Governance can set a fee before it approves
+			// the external asset.
 			for (internal_asset, external_asset, _) in MintingFee::<T>::iter() {
 				if !ExternalAssets::<T>::contains_key(&internal_asset, &external_asset) {
 					log::warn!(
@@ -1869,8 +1883,8 @@ pub mod pallet {
 				}
 			}
 
-			// Check 17 (advisory): instance debt over its ceiling. Governance may
-			// lower max_debt below the current debt.
+			// Check 17 (advisory): the debt of an instance is above its ceiling.
+			// Governance can set `max_debt` below the debt.
 			for (internal_asset, info) in Psm::<T>::iter() {
 				let total = Self::total_psm_debt(&internal_asset);
 				if total > info.max_debt {
