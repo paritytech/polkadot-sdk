@@ -39,8 +39,7 @@ module head_commitment {
       .concat(acc.select(q => paraIdInt(q) > paraIdInt(p))))
 
   /// One level of tree reduction: hash adjacent pairs, promoting a trailing
-  /// odd element unchanged. §5.5 fixes neither the pairing nor the odd-element
-  /// rule, so promotion is this model's reading; see the note in the README.
+  /// odd element unchanged.
   pure def pairUp(level: List[MerkleHash]): List[MerkleHash] = {
     val paired = level.foldl(
       { out: List(), pending: None },

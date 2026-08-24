@@ -41,8 +41,8 @@ module state {
   }
 
   /// JAM's `query(hash, len)` request status. The service reaches every state
-  // except that it / never carries the `provided_since`/`rerequested_since`
-  // slots - only the / `unrequested_since` slot that gates the next `forget`.
+  /// except that it never carries the `provided_since`/`rerequested_since`
+  /// slots — only the `unrequested_since` slot that gates the next `forget`.
   ///   - `Unprovided`: solicited, preimage never submitted. A `forget` drops
   ///     it in one step.
   ///   - `Provided`: the preimage is available. A `forget` unrequests it (does
@@ -150,7 +150,6 @@ module state {
 
   /// Total transfers held across every bucket (§5.1 admission counts transfers,
   /// not buckets).
-  /// Total queued transfers, read from the maintained counter (§5.1).
   pure def queuedTransferCount(s: ParachainServiceState): int =
   match s.incomingTransferChain { | None => 0 | Some(c) => c.count }
 

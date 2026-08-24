@@ -100,10 +100,6 @@ module types {
   /// Max upward messages a PVF may emit in one Refine invocation (design §4.3).
   pure val MaxUpwardMessages: int = 1024
 
-  /// Worst-case staging footprint when an Asset Hub rotation is in flight.
-  pure val MaxStagedValidatorKeysFootprint: int =
-  CoreCount * 3 * ValidatorKeySize // 1023 * 336 = 343 728 B
-
   /// §5.2: pending-upgrade deadline relative to current timeslot (24 h at 6 s).
   pure val UpgradeTimeoutTimeslots: int = 24 * 3600 / 6
 
@@ -119,9 +115,6 @@ module types {
   /// (~32 h). A preimage forgotten at timeslot `y` may only be expunged by a
   /// second `forget` once `y < now - ExpungePeriod`. See §6.1.
   pure val ExpungePeriod: int = MaxLookupAge + 4800
-
-  /// §3.1: report_error opaque payload cap.
-  pure val ReportErrorPayloadCap: int = 1024
 
   /// §3.1: 80-slot authorizer queue length.
   pure val AuthorizerQueueLength: int = 80

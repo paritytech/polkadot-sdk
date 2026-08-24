@@ -335,8 +335,8 @@ module tests {
   }
 
   /// An odd leaf count promotes the trailing element to the next level
-  /// unchanged rather than duplicating it; see the README note, since §5.5
-  /// leaves this open.
+  /// unchanged rather than duplicating it; §5.5 leaves this open, see `pairUp`
+  /// in head_commitment.qnt.
   run headCommitmentOddLevelPromotesTest = {
     // A level holds tree-element hashes, not raw head hashes.
     val a = merkleHash(Leaf({ paraId: MkParaId(1), headHash: headHash(1) }))
