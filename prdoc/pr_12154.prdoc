@@ -1,11 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
 title: Add storage invariant checks to pallet-psm try_state
 
 doc:
   - audience: Runtime Dev
     description: |
-      This PR adds `do_try_state` to `pallet-psm`. The `try_state` hook calls it
-      with the `try-runtime` feature. Seventeen checks cover the storage layout of
-      the multi-instance PSM. They confirm that each decimals snapshot agrees with
+      `pallet-psm` has a `do_try_state` function with five checks. This PR
+      increases that number to seventeen. The `try_state` hook calls the function
+      with the `try-runtime` feature. The checks confirm that each decimals
+      snapshot agrees with
       the live asset metadata, that each reserve covers the debt against it, that
       the issuance of the internal asset covers the debt of the instance, that no
       row stays after the removal of its PSM, and that no debt exists for a pair
