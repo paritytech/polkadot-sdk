@@ -20,7 +20,7 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
 	access_list::{
-		Access, AccessEntry, AccessList, CodeLoad, CodeLoadWarmth, StateAccess, StorageAccessKind,
+		Access, AccessEntry, AccessList, CallAccess, CodeLoad, CodeLoadWarmth, StorageAccessKind,
 		StorageOp,
 	},
 	address::{self, AddressMapper},
@@ -1126,10 +1126,10 @@ where
 
 				match &delegated_call {
 					Some(delegated) if delegate_precompile.is_none() => {
-						access_list.warm(StateAccess::DelegateCall { target: delegated.callee });
+						access_list.warm(CallAccess::Delegate { target: delegated.callee });
 					},
 					None if precompile.is_none() => {
-						access_list.warm(StateAccess::Call {
+						access_list.warm(CallAccess::Plain {
 							target: address,
 							transfers_value: !value_transferred.is_zero(),
 						});
@@ -1965,7 +1965,7 @@ where
 
 	/// Warms everything a call to the target reads.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn warm_call_target(&mut self, state_access: StateAccess, code_hash: H256) {
+	pub(crate) fn warm_call_target(&mut self, state_access: CallAccess, code_hash: H256) {
 		self.access_list.warm(state_access);
 		// The measured hot call loads code, it never bumps a refcount.
 		self.access_list

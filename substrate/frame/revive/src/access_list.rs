@@ -106,6 +106,26 @@ impl From<&Key> for Slot {
 	}
 }
 
+/// One entry per distinct state item accessed in the current transaction.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
+pub enum AccessEntry {
+	/// Account state (`System::Account`) of `address`.
+	Account { address: H160 },
+	/// Address mapping (`OriginalAccount`) of `address`.
+	OriginalAccount { address: H160 },
+	/// A contract storage slot. Field order is `slot, address` so comparison
+	/// decides on `slot` first, the most-discriminating field in the typical
+	/// access pattern (one contract touching many slots within a transaction).
+	Storage { slot: Slot, address: H160 },
+	/// Account metadata (`AccountInfoOf`) of `address`.
+	AccountInfo { address: H160 },
+	/// Code metadata. Keyed by code hash: code is
+	/// deduplicated, so contracts sharing a blob share its metadata warmth.
+	CodeInfo { hash: H256 },
+	/// Code blob. Keyed by code hash for the same reason.
+	CodeBlob { hash: H256 },
+}
+
 /// What a transaction has already paid for an entry. Ordered: `Write` has
 /// paid for everything `Read` has.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -126,7 +146,7 @@ impl Paid {
 /// The same two variants named for the operation being performed.
 pub type StorageOp = Paid;
 
-/// Warmth of an access-list entry, as it stood **before** the access.
+/// Warmth of an access-list entry.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Warmth {
 	/// Entry is in the access list; carries the level the entry had paid.
@@ -179,6 +199,69 @@ impl StorageAccessKind {
 	}
 }
 
+/// A group of state reads that warm and price together.
+pub trait Access {
+	type Warmth;
+
+	/// Maps `resolve` over each state item this access reads, with the
+	/// operation it performs on that item.
+	fn expand(self, resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Self::Warmth;
+}
+
+/// Warmth of the entries a [`CallAccess`] reads, one variant per call kind.
+#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone, Copy, Debug)]
+pub enum CallWarmth {
+	/// A normal call reads the target's address mapping and contract metadata,
+	/// and its account state only when it transfers value (`None` otherwise).
+	Plain { account: Option<Warmth>, original_account: Warmth, account_info: Warmth },
+	/// A delegate call reads only the target's contract metadata.
+	Delegate { account_info: Warmth },
+}
+
+/// A call opcode's access, one variant per call kind.
+#[derive(Clone, Copy, Debug)]
+pub enum CallAccess {
+	Plain { target: H160, transfers_value: bool },
+	Delegate { target: H160 },
+}
+
+impl CallAccess {
+	/// Builds the call variant matching the `delegate` flag.
+	pub fn new(target: H160, delegate: bool, transfers_value: bool) -> Self {
+		if delegate { Self::Delegate { target } } else { Self::Plain { target, transfers_value } }
+	}
+}
+
+impl Access for CallAccess {
+	type Warmth = CallWarmth;
+
+	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
+		match self {
+			Self::Plain { target, transfers_value } => CallWarmth::Plain {
+				// Only a value transfer reads the target's account, so a plain call
+				// must not warm it: warm means the read's proof is already paid.
+				account: transfers_value
+					.then(|| resolve(AccessEntry::Account { address: target }, StorageOp::Read)),
+				original_account: resolve(
+					AccessEntry::OriginalAccount { address: target },
+					StorageOp::Read,
+				),
+				account_info: resolve(
+					AccessEntry::AccountInfo { address: target },
+					StorageOp::Read,
+				),
+			},
+			Self::Delegate { target } => CallWarmth::Delegate {
+				account_info: resolve(
+					AccessEntry::AccountInfo { address: target },
+					StorageOp::Read,
+				),
+			},
+		}
+	}
+}
+
 /// Warmth of the two state items a code load reads.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CodeLoadWarmth {
@@ -194,65 +277,7 @@ impl CodeLoadWarmth {
 	}
 }
 
-/// A group of state reads that warm and price together. Each access kind
-/// declares the entries it reads and the shape its warmth comes back in.
-pub trait Access {
-	type Warmth;
-
-	/// Maps `warmth_of` over each state item this access reads, with the
-	/// operation it performs on that item.
-	fn expand(self, warmth_of: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Self::Warmth;
-}
-
-/// A state-accessing operation, one variant per opcode.
-#[derive(Clone, Copy, Debug)]
-pub enum StateAccess {
-	Call { target: H160, transfers_value: bool },
-	DelegateCall { target: H160 },
-}
-
-impl StateAccess {
-	/// Builds the call variant matching the `delegate` flag.
-	pub fn call(target: H160, delegate: bool, transfers_value: bool) -> Self {
-		if delegate {
-			Self::DelegateCall { target }
-		} else {
-			Self::Call { target, transfers_value }
-		}
-	}
-}
-
-impl Access for StateAccess {
-	type Warmth = StateWarmth;
-
-	fn expand(self, mut warmth_of: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> StateWarmth {
-		match self {
-			Self::Call { target, transfers_value } => StateWarmth::Call {
-				// Only a value transfer reads the target's account, so a plain call
-				// must not warm it: warm means the read's proof is already paid.
-				account: transfers_value
-					.then(|| warmth_of(AccessEntry::Account { address: target }, StorageOp::Read)),
-				original_account: warmth_of(
-					AccessEntry::OriginalAccount { address: target },
-					StorageOp::Read,
-				),
-				account_info: warmth_of(
-					AccessEntry::AccountInfo { address: target },
-					StorageOp::Read,
-				),
-			},
-			Self::DelegateCall { target } => StateWarmth::DelegateCall {
-				account_info: warmth_of(
-					AccessEntry::AccountInfo { address: target },
-					StorageOp::Read,
-				),
-			},
-		}
-	}
-}
-
-/// A code load: reads the metadata and the blob of `hash`. `code_info_op` is
-/// [`StorageOp::Write`] when the load also bumps the code's refcount.
+/// A code load: reads the metadata and the blob of `hash`.
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLoad {
 	pub hash: H256,
@@ -262,24 +287,13 @@ pub struct CodeLoad {
 impl Access for CodeLoad {
 	type Warmth = CodeLoadWarmth;
 
-	fn expand(self, mut warmth_of: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
+	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
-			info: warmth_of(AccessEntry::CodeInfo { hash: self.hash }, self.code_info_op),
-			// Loads only read the blob; uploads and removals never come through here.
-			blob: warmth_of(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
+			info: resolve(AccessEntry::CodeInfo { hash: self.hash }, self.code_info_op),
+			// Loads only read the blob; code uploads and removals are not supported on this path.
+			blob: resolve(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
 		}
 	}
-}
-
-/// Warmth of the state items a [`StateAccess`] reads, one variant per opcode.
-#[cfg_attr(test, derive(PartialEq, Eq))]
-#[derive(Clone, Copy, Debug)]
-pub enum StateWarmth {
-	/// A normal call reads the target's address mapping and contract metadata,
-	/// and its account state only when it transfers value (`None` otherwise).
-	Call { account: Option<Warmth>, original_account: Warmth, account_info: Warmth },
-	/// A delegate call reads only the target's contract metadata.
-	DelegateCall { account_info: Warmth },
 }
 
 /// Snapshot of per-transaction access-list counters.
@@ -291,26 +305,6 @@ pub struct AccessListMetrics {
 	pub cold: u32,
 	/// Total hot touches across the transaction, including ones later rolled back.
 	pub hot: u32,
-}
-
-/// One entry per distinct state item accessed in the current transaction.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
-pub enum AccessEntry {
-	/// Account state (`System::Account`) of `address`.
-	Account { address: H160 },
-	/// Address mapping (`OriginalAccount`) of `address`.
-	OriginalAccount { address: H160 },
-	/// A contract storage slot. Field order is `slot, address` so comparison
-	/// decides on `slot` first, the most-discriminating field in the typical
-	/// access pattern (one contract touching many slots within a transaction).
-	Storage { slot: Slot, address: H160 },
-	/// Account metadata (`AccountInfoOf`) of `address`.
-	AccountInfo { address: H160 },
-	/// Code metadata. Keyed by code hash: code is
-	/// deduplicated, so contracts sharing a blob share its metadata warmth.
-	CodeInfo { hash: H256 },
-	/// Code blob. Keyed by code hash for the same reason.
-	CodeBlob { hash: H256 },
 }
 
 /// Per-transaction access list with per-frame rollback support. Layout
@@ -418,8 +412,8 @@ impl AccessList {
 		!self.checkpoints.is_empty()
 	}
 
-	/// Register the entry, returning its warmth. `op` is the operation being
-	/// performed on the slot.
+	/// Register the entry, returning the warmth it had **before** this call.
+	/// `op` is the operation being performed on the slot.
 	///
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot slots continue to bill hot.
@@ -451,7 +445,8 @@ impl AccessList {
 		Warmth::Cold { revertible: self.in_nested_frame() }
 	}
 
-	/// Warms every entry the access reads, returning their warmth.
+	/// Warms every entry the access reads, returning the warmth each had
+	/// **before** this call.
 	pub fn warm<A: Access>(&mut self, access: A) -> A::Warmth {
 		access.expand(|entry, op| self.touch(entry, op))
 	}
@@ -609,18 +604,18 @@ mod tests {
 
 		// One slot is free and the call touches three entries: the peek counts
 		// the fills down, so only the first is priced revertible.
-		let expected = StateWarmth::Call {
+		let expected = CallWarmth::Plain {
 			account: Some(Warmth::cold_revertible()),
 			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		};
 		assert_eq!(
-			al.warmth_of(StateAccess::Call { target, transfers_value: true }),
+			al.warmth_of(CallAccess::Plain { target, transfers_value: true }),
 			expected,
 			"peek prices the cap edge like touch records it",
 		);
 		assert_eq!(
-			al.warm(StateAccess::Call { target, transfers_value: true }),
+			al.warm(CallAccess::Plain { target, transfers_value: true }),
 			expected,
 			"touch journals only the first entry before the cap fills",
 		);

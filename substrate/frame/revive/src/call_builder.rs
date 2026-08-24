@@ -26,16 +26,19 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use crate::{
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob,
-	ContractInfo, Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts,
-	PristineCode, Weight,
-	access_list::{Access, AccessEntry, CodeLoad, StateAccess, StorageOp, Warmth},
+	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
 	metering::{TransactionLimits, TransactionMeter},
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
+};
+#[cfg(feature = "runtime-benchmarks")]
+use crate::{
+	AccountInfoOf,
+	access_list::{Access, AccessEntry, CodeLoad, StorageOp, Warmth},
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -266,12 +269,6 @@ pub fn whitelist_access<T: Config>(access: impl Access) {
 	});
 }
 
-/// Whitelist the storage entries for the supplied code in a benchmark.
-#[cfg(feature = "runtime-benchmarks")]
-pub fn whitelist_code<T: Config>(code_hash: H256) {
-	whitelist_access::<T>(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
-}
-
 /// An instantiated and deployed contract.
 #[derive(Clone)]
 pub struct Contract<T: Config> {
@@ -421,15 +418,10 @@ where
 	/// Whitelist this contract's code keys; `code_load` prices those reads.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn whitelist_code(&self) -> Result<(), &'static str> {
-		whitelist_code::<T>(self.info()?.code_hash);
-		Ok(())
-	}
-
-	/// Whitelist all storage entries read when calling this contract in a benchmark.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn whitelist_for_call(&self) -> Result<(), &'static str> {
-		whitelist_access::<T>(StateAccess::Call { target: self.address, transfers_value: true });
-		whitelist_code::<T>(self.info()?.code_hash);
+		whitelist_access::<T>(CodeLoad {
+			hash: self.info()?.code_hash,
+			code_info_op: StorageOp::Read,
+		});
 		Ok(())
 	}
 

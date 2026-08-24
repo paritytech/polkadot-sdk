@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{StateWarmth, StorageAccessKind, StorageOp, Warmth},
+	access_list::{CallWarmth, StorageAccessKind, StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -120,7 +120,7 @@ pub enum RuntimeCosts {
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
 	TakeStorage { len: u32, kind: StorageAccessKind },
 	/// Base weight of a call-family operation.
-	CallBase(StateWarmth),
+	CallBase(CallWarmth),
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -394,21 +394,21 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				StateWarmth::Call { account: Some(account), original_account, account_info } => {
+				CallWarmth::Plain { account: Some(account), original_account, account_info } => {
 					weight_by_warmth::<T>(
 						&[account, original_account, account_info],
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
 					)
 				},
-				StateWarmth::Call { account: None, original_account, account_info } => {
+				CallWarmth::Plain { account: None, original_account, account_info } => {
 					weight_by_warmth::<T>(
 						&[original_account, account_info],
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
 					)
 				},
-				StateWarmth::DelegateCall { account_info } => weight_by_warmth::<T>(
+				CallWarmth::Delegate { account_info } => weight_by_warmth::<T>(
 					&[account_info],
 					T::WeightInfo::seal_delegate_call,
 					T::WeightInfo::seal_delegate_call_hot,
@@ -511,17 +511,17 @@ mod tests {
 	fn call_base_cold_hot_pricing() {
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
-		let all_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::Hot(Paid::Read)),
 			original_account: Warmth::Hot(Paid::Read),
 			account_info: Warmth::Hot(Paid::Read),
 		}));
-		let all_cold = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_non_revertible()),
 			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		}));
-		let mixed = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_non_revertible()),
 			original_account: Warmth::Hot(Paid::Read),
 			account_info: Warmth::Hot(Paid::Read),
@@ -539,7 +539,7 @@ mod tests {
 			"any cold item prices the call as fully cold: mixed={mixed:?} all_cold={all_cold:?}",
 		);
 
-		let revertible = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+		let revertible = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_revertible()),
 			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
@@ -554,10 +554,10 @@ mod tests {
 			"the rollback prepayment is ref_time only: rev={revertible:?} cold={all_cold:?}",
 		);
 
-		let delegate_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::DelegateCall {
+		let delegate_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
 			account_info: Warmth::Hot(Paid::Read),
 		}));
-		let delegate_cold = weight_of(RuntimeCosts::CallBase(StateWarmth::DelegateCall {
+		let delegate_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
 			account_info: Warmth::cold_non_revertible(),
 		}));
 		assert!(
@@ -567,7 +567,7 @@ mod tests {
 		assert_eq!(delegate_hot.proof_size(), 0, "hot delegate call: {delegate_hot:?}");
 		assert!(delegate_cold.proof_size() > 0, "cold delegate call: {delegate_cold:?}");
 
-		let zero_value_hot = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+		let zero_value_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: None,
 			original_account: Warmth::Hot(Paid::Read),
 			account_info: Warmth::Hot(Paid::Read),
@@ -580,7 +580,7 @@ mod tests {
 			zero_value_hot.ref_time() > delegate_hot.ref_time(),
 			"but more than a delegate call's single item",
 		);
-		let zero_value_mixed = weight_of(RuntimeCosts::CallBase(StateWarmth::Call {
+		let zero_value_mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: None,
 			original_account: Warmth::Hot(Paid::Read),
 			account_info: Warmth::cold_non_revertible(),

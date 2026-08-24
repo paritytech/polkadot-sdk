@@ -21,10 +21,12 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, StateAccess, StorageOp,
+		AccessEntry, AccessList, CallAccess, CodeLoad, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES,
+		StorageOp,
 	},
 	call_builder::{
-		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit, whitelist_code,
+		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
+		whitelist_access,
 	},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -237,7 +239,11 @@ mod benchmarks {
 			let callee = callee_contract.account_id.clone();
 			let code_hash = callee_contract.info()?.code_hash;
 
-			callee_contract.whitelist_for_call()?;
+			whitelist_access::<T>(CallAccess::Plain {
+				target: callee_contract.address,
+				transfers_value: true,
+			});
+			whitelist_access::<T>(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
 
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
@@ -254,7 +260,7 @@ mod benchmarks {
 
 			let (mut ext, _) = setup.ext();
 			// The measured hot call transfers no value, so the account entry stays untouched.
-			ext.warm_call_target(StateAccess::call(callee_contract.address, $delegate, false), code_hash);
+			ext.warm_call_target(CallAccess::new(callee_contract.address, $delegate, false), code_hash);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 		};
@@ -515,7 +521,7 @@ mod benchmarks {
 		let hash = Contracts::<T>::bare_upload_code(origin.clone().into(), code, storage_deposit)?
 			.code_hash;
 		// The code read during instantiation is priced by `code_load`.
-		whitelist_code::<T>(hash);
+		whitelist_access::<T>(CodeLoad { hash, code_info_op: StorageOp::Read });
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
 		#[extrinsic_call]
@@ -2712,7 +2718,7 @@ mod benchmarks {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 		// The code read during instantiation is priced by `code_load`.
-		whitelist_code::<T>(hash);
+		whitelist_access::<T>(CodeLoad { hash, code_info_op: StorageOp::Read });
 		let hash_bytes = hash.encode();
 
 		let value: BalanceOf<T> = (1_000_000u32 * t).into();

@@ -21,7 +21,7 @@ pub mod env;
 
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
-	access_list::{StateAccess, StorageOp},
+	access_list::{CallAccess, StorageOp},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -281,7 +281,7 @@ enum CallType {
 impl CallType {
 	fn cost(&self, ext: &impl Ext, callee: &H160, transfers_value: bool) -> RuntimeCosts {
 		let state_access =
-			StateAccess::call(*callee, matches!(self, CallType::DelegateCall), transfers_value);
+			CallAccess::new(*callee, matches!(self, CallType::DelegateCall), transfers_value);
 		RuntimeCosts::CallBase(ext.warmth_of(state_access))
 	}
 }
