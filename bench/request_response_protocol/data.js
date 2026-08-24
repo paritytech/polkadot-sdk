@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787555262338,
+  "lastUpdate": 1787559920600,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -117071,6 +117071,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2751161046,
             "range": "± 45041224",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35fc1c82e43094a2db14058c719bfe5591d5d959",
+          "message": "Make the experimental collator proto the default for Kusama (#12880)\n\nThe binary checks if a Kusama chainspec is loaded and enables the\nexperimental collator protocol by default unless\n`experimental-collator-protocol` parameter is passed explicitly. In that\ncase its value is respected no matter what the chainspec is.\n\nThe change reworks the `experimental-collator-protocol` to accept an\noptional true/false value in the format\n`--experimental-collator-protocol=[true|false]'. In practice this means\nthere are there are a few cases:\n- no `experimental-collator-protocol` parameter is provided ->\nexperimental is enabled for Kusama and disabled for any other chainspec.\n- `experimental-collator-protocol=true` or\n`experimental-collator-protocol=false` -> experimental is explicitly\nenabled or disabled no matter what the chain spec is.\n- `--experimental-collator-protocol` is provided without any value (the\nsame as `--experimental-collator-protocol=true`) experimental is enabled\nno matter what the chain spec is.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-24T07:12:12Z",
+          "tree_id": "8861b2032ce656be909720b56c21ed69117caef7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35fc1c82e43094a2db14058c719bfe5591d5d959"
+        },
+        "date": 1787559886797,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21026071,
+            "range": "± 203227",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20893910,
+            "range": "± 195481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22587402,
+            "range": "± 169882",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27951141,
+            "range": "± 241350",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66037628,
+            "range": "± 973473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 413095501,
+            "range": "± 8231112",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2514913682,
+            "range": "± 150714913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17330501,
+            "range": "± 249122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17394802,
+            "range": "± 199602",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17611743,
+            "range": "± 162654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22658757,
+            "range": "± 333223",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66352165,
+            "range": "± 1133870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 374286808,
+            "range": "± 4708179",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2715130339,
+            "range": "± 37615216",
             "unit": "ns/iter"
           }
         ]
