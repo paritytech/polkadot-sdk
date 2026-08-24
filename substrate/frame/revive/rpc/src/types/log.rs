@@ -67,7 +67,7 @@ pub struct Log {
 	pub transaction_index: U256,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "FilterRepr", into = "FilterRepr")]
 pub struct Filter {
 	pub block_option: FilterBlockOption,
@@ -90,6 +90,12 @@ impl Filter {
 pub enum FilterBlockOption {
 	AtBlock { block_hash: BlockHash },
 	Range { from_block: BlockNumberOrTag, to_block: BlockNumberOrTag },
+}
+
+impl Default for FilterBlockOption {
+	fn default() -> Self {
+		Self::Range { from_block: BlockNumberOrTag::Latest, to_block: BlockNumberOrTag::Latest }
+	}
 }
 
 #[serde_as]

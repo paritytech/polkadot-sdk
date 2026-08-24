@@ -19,9 +19,9 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
-	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
-	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	BlockHeader, BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient,
+	FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem, SubscriptionKind,
+	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
 		Client, GapFillRequest, SubscriptionGapQueue, connect,
@@ -29,6 +29,7 @@ use crate::{
 	},
 	example::TransactionBuilder,
 	subxt_client::{self, SrcChainConfig},
+	types,
 };
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
@@ -60,7 +61,7 @@ use pallet_revive_types::runtime_api::{
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::{sync::Arc, thread};
+use std::{collections::BTreeSet, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
 	client::OnlineClientAtBlockImpl,
@@ -1410,10 +1411,10 @@ async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_address)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(types::Filter {
+		address: BTreeSet::from([contract_address]),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1461,13 +1462,15 @@ async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
 	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
-	let options = SubscriptionOptions::LogsOptions {
-		address: None,
-		topics: Some(
-			BoundedVec::try_from(vec![Some(BoundedOneOrMany::One(event_signature))])
-				.expect("Single topic filter is within bounds"),
-		),
-	};
+	let options = SubscriptionOptions::LogsOptions(types::Filter {
+		topics: BoundedVec::try_from(vec![
+			BTreeSet::from([event_signature])
+				.try_into()
+				.expect("Single topic set is within bounds"),
+		])
+		.expect("Single topic filter is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1593,10 +1596,10 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 	assert_ne!(contract_a, contract_b, "The two contracts must have different addresses");
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_a)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(types::Filter {
+		address: BTreeSet::from([contract_a]),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1661,13 +1664,10 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::Many(
-			BoundedVec::try_from(vec![contract_a, contract_b])
-				.expect("Two addresses is within bounds"),
-		)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(types::Filter {
+		address: BTreeSet::from([contract_a, contract_b]),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1786,10 +1786,10 @@ async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(Account::default().address())),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(types::Filter {
+		address: BTreeSet::from([Account::default().address()]),
+		..Default::default()
+	});
 
 	// Act
 	let result = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, Some(options)).await;
