@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787555411464,
+  "lastUpdate": 1787560774016,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "97e54c54a9573daf4d4a5234a42a3d1f054d7f91",
-          "message": "[CI|Release] Improve post crates action (#10803)\n\nhttps://github.com/paritytech/release-engineering/issues/280\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-21T08:47:44Z",
-          "tree_id": "601aeb5b6aba51b4e1ad695e6818647d4b4f5427",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/97e54c54a9573daf4d4a5234a42a3d1f054d7f91"
-        },
-        "date": 1768990385000,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007180498426666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14640747971333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009865551139999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02352352682,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.0228862148,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35fc1c82e43094a2db14058c719bfe5591d5d959",
+          "message": "Make the experimental collator proto the default for Kusama (#12880)\n\nThe binary checks if a Kusama chainspec is loaded and enables the\nexperimental collator protocol by default unless\n`experimental-collator-protocol` parameter is passed explicitly. In that\ncase its value is respected no matter what the chainspec is.\n\nThe change reworks the `experimental-collator-protocol` to accept an\noptional true/false value in the format\n`--experimental-collator-protocol=[true|false]'. In practice this means\nthere are there are a few cases:\n- no `experimental-collator-protocol` parameter is provided ->\nexperimental is enabled for Kusama and disabled for any other chainspec.\n- `experimental-collator-protocol=true` or\n`experimental-collator-protocol=false` -> experimental is explicitly\nenabled or disabled no matter what the chain spec is.\n- `--experimental-collator-protocol` is provided without any value (the\nsame as `--experimental-collator-protocol=true`) experimental is enabled\nno matter what the chain spec is.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-24T07:12:12Z",
+          "tree_id": "8861b2032ce656be909720b56c21ed69117caef7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35fc1c82e43094a2db14058c719bfe5591d5d959"
+        },
+        "date": 1787560741322,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007266175159999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022670237713333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009813699286666661,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14673028814666675,
             "unit": "seconds"
           }
         ]
