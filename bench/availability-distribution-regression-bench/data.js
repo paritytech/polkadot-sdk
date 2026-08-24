@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787498952170,
+  "lastUpdate": 1787555411464,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "841c77b967af6ba4f2bb70e1d3fad70e5749dc61",
-          "message": "Migrate pallet-example-offchain-worker to TransactionExtension API (#10716)\n\n## Summary\n\nPart of #2415\n\nThis PR is a focused extraction from the larger PR #10150, specifically\nmigrating only `pallet-example-offchain-worker` to use the modern\n`TransactionExtension` API.\n\n## Changes\n\nThis PR migrates `pallet-example-offchain-worker` from the deprecated\n`ValidateUnsigned` trait to the `TransactionExtension` API using the\n`#[pallet::authorize]` attribute.",
-          "timestamp": "2026-01-21T07:54:49Z",
-          "tree_id": "fc6c9fa3a67ef038039a680458f7a8d27e6c4ec1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/841c77b967af6ba4f2bb70e1d3fad70e5749dc61"
-        },
-        "date": 1768986585832,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009931689306666661,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00706608438,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14691670859333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023434392806666662,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.022803970186666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a465dda53a7f04f6c11567c094550991c3aeb84",
+          "message": "Run functional and elastic_scaling zombienet-sdk tests with legacy and experimental collator protocol implementations (#12836)\n\nCurrently all zombienet-sdk tests in polkadot are executed against the\nlegacy collator protocol implementation (on the validator side). Since\nwe are about to put the new implementation in production soon I think\nit's worth running CI with both implementation for a while.\n\nThe drawback is increased CI usage which will cost extra time and money.\nThe alternative is to add a CI job which runs only when merging to\nmaster.",
+          "timestamp": "2026-08-24T05:42:15Z",
+          "tree_id": "ae51f540144f879eee128a72fc9145aec6e1754b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a465dda53a7f04f6c11567c094550991c3aeb84"
+        },
+        "date": 1787555378090,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14786068733333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009915404973333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00737379422,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0228862148,
             "unit": "seconds"
           }
         ]
