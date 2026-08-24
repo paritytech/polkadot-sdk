@@ -318,29 +318,41 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#168 id=168 data-nosnippet>168</a>	</span><span class="kw">pub </span>collator_protocol_hold_off: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 <a href=#169 id=169 data-nosnippet>169</a>
 <a href=#170 id=170 data-nosnippet>170</a>	<span class="doccomment">/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
-<a href=#171 id=171 data-nosnippet>171</a>	</span><span class="attr">#[arg(long, hide = <span class="bool-val">true</span>, default_value = <span class="string">"false"</span>)]
-<a href=#172 id=172 data-nosnippet>172</a>	</span><span class="kw">pub </span>experimental_collator_protocol: bool,
-<a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a>	<span class="doccomment">/// Collator reputation persistence interval in seconds.
-<a href=#175 id=175 data-nosnippet>175</a>	/// If not specified, defaults to 600 seconds (10 minutes).
-<a href=#176 id=176 data-nosnippet>176</a>	/// This should be used only with experimental_collator_protocol
-<a href=#177 id=177 data-nosnippet>177</a>	/// and only on validators.
-<a href=#178 id=178 data-nosnippet>178</a>	</span><span class="attr">#[arg(long, requires = <span class="string">"experimental_collator_protocol"</span>, requires = <span class="string">"validator"</span>)]
-<a href=#179 id=179 data-nosnippet>179</a>	</span><span class="kw">pub </span>collator_reputation_persist_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#180 id=180 data-nosnippet>180</a>}
-<a href=#181 id=181 data-nosnippet>181</a>
-<a href=#182 id=182 data-nosnippet>182</a><span class="attr">#[allow(missing_docs)]
-<a href=#183 id=183 data-nosnippet>183</a>#[derive(Debug, Parser)]
-<a href=#184 id=184 data-nosnippet>184</a></span><span class="kw">pub struct </span>Cli {
-<a href=#185 id=185 data-nosnippet>185</a>	<span class="attr">#[command(subcommand)]
-<a href=#186 id=186 data-nosnippet>186</a>	</span><span class="kw">pub </span>subcommand: <span class="prelude-ty">Option</span>&lt;Subcommand&gt;,
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a>	<span class="attr">#[clap(flatten)]
-<a href=#189 id=189 data-nosnippet>189</a>	</span><span class="kw">pub </span>run: RunCmd,
-<a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a>	<span class="attr">#[clap(flatten)]
-<a href=#192 id=192 data-nosnippet>192</a>	</span><span class="kw">pub </span>storage_monitor: sc_storage_monitor::StorageMonitorParams,
-<a href=#193 id=193 data-nosnippet>193</a>}
+<a href=#171 id=171 data-nosnippet>171</a>	/// Defaults to enabled on Kusama and disabled everywhere else. Pass `=false` to opt out.
+<a href=#172 id=172 data-nosnippet>172</a>	</span><span class="attr">#[arg(
+<a href=#173 id=173 data-nosnippet>173</a>		long,
+<a href=#174 id=174 data-nosnippet>174</a>		hide = <span class="bool-val">true</span>,
+<a href=#175 id=175 data-nosnippet>175</a>		<span class="comment">// to support `--experimental-collator-protocol=[on|off]` and
+<a href=#176 id=176 data-nosnippet>176</a>		// just `--experimental-collator-protocol`
+<a href=#177 id=177 data-nosnippet>177</a>		</span>num_args = <span class="number">0</span>..=<span class="number">1</span>,
+<a href=#178 id=178 data-nosnippet>178</a>		<span class="comment">// otherwise the parameter becomes greedy and consumes the first value after it,
+<a href=#179 id=179 data-nosnippet>179</a>		// e.g. `--experimental-collator-protocol chain-info`
+<a href=#180 id=180 data-nosnippet>180</a>		</span>require_equals = <span class="bool-val">true</span>,
+<a href=#181 id=181 data-nosnippet>181</a>		<span class="comment">// means that `--experimental-collator-protocol` w/o explicit value equals to "on" (`true`)
+<a href=#182 id=182 data-nosnippet>182</a>		</span>default_missing_value = <span class="string">"true"
+<a href=#183 id=183 data-nosnippet>183</a>	</span>)]
+<a href=#184 id=184 data-nosnippet>184</a>	</span><span class="kw">pub </span>experimental_collator_protocol: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href=#185 id=185 data-nosnippet>185</a>
+<a href=#186 id=186 data-nosnippet>186</a>	<span class="doccomment">/// Collator reputation persistence interval in seconds.
+<a href=#187 id=187 data-nosnippet>187</a>	/// If not specified, defaults to 600 seconds (10 minutes).
+<a href=#188 id=188 data-nosnippet>188</a>	/// This should be used only with experimental_collator_protocol
+<a href=#189 id=189 data-nosnippet>189</a>	/// and only on validators.
+<a href=#190 id=190 data-nosnippet>190</a>	</span><span class="attr">#[arg(long, requires = <span class="string">"experimental_collator_protocol"</span>, requires = <span class="string">"validator"</span>)]
+<a href=#191 id=191 data-nosnippet>191</a>	</span><span class="kw">pub </span>collator_reputation_persist_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#192 id=192 data-nosnippet>192</a>}
+<a href=#193 id=193 data-nosnippet>193</a>
+<a href=#194 id=194 data-nosnippet>194</a><span class="attr">#[allow(missing_docs)]
+<a href=#195 id=195 data-nosnippet>195</a>#[derive(Debug, Parser)]
+<a href=#196 id=196 data-nosnippet>196</a></span><span class="kw">pub struct </span>Cli {
+<a href=#197 id=197 data-nosnippet>197</a>	<span class="attr">#[command(subcommand)]
+<a href=#198 id=198 data-nosnippet>198</a>	</span><span class="kw">pub </span>subcommand: <span class="prelude-ty">Option</span>&lt;Subcommand&gt;,
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a>	<span class="attr">#[clap(flatten)]
+<a href=#201 id=201 data-nosnippet>201</a>	</span><span class="kw">pub </span>run: RunCmd,
+<a href=#202 id=202 data-nosnippet>202</a>
+<a href=#203 id=203 data-nosnippet>203</a>	<span class="attr">#[clap(flatten)]
+<a href=#204 id=204 data-nosnippet>204</a>	</span><span class="kw">pub </span>storage_monitor: sc_storage_monitor::StorageMonitorParams,
+<a href=#205 id=205 data-nosnippet>205</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
