@@ -147,7 +147,6 @@ std = [
 	"pallet-salary?/std",
 	"pallet-scarcity?/std",
 	"pallet-scheduler?/std",
-	"pallet-scored-pool?/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
@@ -499,7 +498,6 @@ try-runtime = [
 	"pallet-salary?/try-runtime",
 	"pallet-scarcity?/try-runtime",
 	"pallet-scheduler?/try-runtime",
-	"pallet-scored-pool?/try-runtime",
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
@@ -728,7 +726,6 @@ runtime-full = [
 	"pallet-salary",
 	"pallet-scarcity",
 	"pallet-scheduler",
-	"pallet-scored-pool",
 	"pallet-session",
 	"pallet-session-benchmarking",
 	"pallet-skip-feeless-payment",
@@ -1001,6 +998,7 @@ node = [
 	"sc-keystore",
 	"sc-mixnet",
 	"sc-network",
+	"sc-network-bitswap",
 	"sc-network-common",
 	"sc-network-gossip",
 	"sc-network-light",
@@ -1779,11 +1777,6 @@ path = "../substrate/frame/scarcity"
 default-features = false
 optional = true
 path = "../substrate/frame/scheduler"
-
-[dependencies.pallet-scored-pool]
-default-features = false
-optional = true
-path = "../substrate/frame/scored-pool"
 
 [dependencies.pallet-session]
 default-features = false
@@ -2804,6 +2797,11 @@ path = "../substrate/client/mixnet"
 default-features = false
 optional = true
 path = "../substrate/client/network"
+
+[dependencies.sc-network-bitswap]
+default-features = false
+optional = true
+path = "../substrate/client/network/bitswap"
 
 [dependencies.sc-network-common]
 default-features = false

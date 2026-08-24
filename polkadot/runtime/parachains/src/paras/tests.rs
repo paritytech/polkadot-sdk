@@ -2403,3 +2403,27 @@ fn prune_expired_authorizations_works() {
 		assert!(AuthorizedCodeHash::<Test>::get(&para_b).is_none());
 	})
 }
+
+#[test]
+fn sorted_para_heads_enforces_min_head_len() {
+	use polkadot_primitives::HeadData;
+	new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		// (para_id, head_data length in bytes)
+		let inserts = [
+			(1000u32, 228usize),           // kept
+			(1001, MIN_PARA_HEAD_LEN),     // exactly the minimum -> kept
+			(1002, 98usize),               // kept
+			(1003, MIN_PARA_HEAD_LEN - 1), // below minimum       -> excluded
+			(1004, 0usize),                // below minimum       -> excluded
+		];
+		for (id, len) in inserts {
+			let head: HeadData = vec![0u8; len].into();
+			Heads::<Test>::insert(ParaId::from(id), head);
+		}
+
+		let kept_ids: Vec<u32> = Paras::sorted_para_heads().iter().map(|(id, _)| *id).collect();
+
+		// Only heads >= MIN_PARA_HEAD_LEN are included, sorted by para id.
+		assert_eq!(kept_ids, vec![1000, 1001, 1002]);
+	});
+}
