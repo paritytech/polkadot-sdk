@@ -2259,6 +2259,7 @@ impl StatementStore for Store {
 		&self,
 		mut cursor: u64,
 		watermark: u64,
+		scan_limit: usize,
 		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
 	) -> Result<AdmittedBatch> {
 		// A cursor past the watermark would snap back to it below, moving the caller's
@@ -2267,8 +2268,10 @@ impl StatementStore for Store {
 			cursor <= watermark,
 			"admission cursor {cursor} must not exceed the watermark {watermark}"
 		);
+		debug_assert!(scan_limit > 0, "a zero scan limit cannot advance the cursor");
 		let mut statements = Vec::new();
 		let mut aborted = false;
+		let mut scanned = 0usize;
 		let mut iter = self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
 		iter.seek(&cursor.to_be_bytes()).map_err(|e| Error::Db(e.to_string()))?;
 
@@ -2280,6 +2283,11 @@ impl StatementStore for Store {
 				cursor = watermark;
 				break;
 			}
+			if scanned == scan_limit {
+				aborted = true;
+				break;
+			}
+			scanned += 1;
 			let hash: Hash = value
 				.as_slice()
 				.try_into()
@@ -3154,10 +3162,13 @@ impl Store {
 	) -> Result<ReplayBatch> {
 		let mut statements = Vec::new();
 		let mut chunk_bytes = 0usize;
+		// Replay batches are pulled by a local subscription task, not a remote peer, so the
+		// walk is not budgeted.
 		let batch = StatementStore::admitted_statements(
 			self,
 			cursor,
 			watermark,
+			usize::MAX,
 			&mut |_, encoded, statement| {
 				if !filter.matches(statement) {
 					return FilterDecision::Skip;
@@ -3845,7 +3856,7 @@ mod tests {
 		store.remove(&statements[1].hash()).unwrap();
 
 		let batch = store
-			.admitted_statements(0, 4, &mut |hash, _encoded, _statement| {
+			.admitted_statements(0, 4, usize::MAX, &mut |hash, _encoded, _statement| {
 				if *hash == statements[0].hash() {
 					FilterDecision::Skip
 				} else if *hash == statements[3].hash() {
@@ -3862,9 +3873,42 @@ mod tests {
 
 		// Resuming from the cursor visits the aborted statement first.
 		let batch = store
-			.admitted_statements(batch.cursor, 4, &mut |_, _, _| FilterDecision::Take)
+			.admitted_statements(batch.cursor, 4, usize::MAX, &mut |_, _, _| FilterDecision::Take)
 			.unwrap();
 		assert_eq!(batch.statements, vec![(statements[3].hash(), statements[3].clone())]);
+		assert_eq!(batch.cursor, 4);
+		assert!(batch.done);
+	}
+
+	#[test]
+	fn admitted_statements_walk_stops_at_the_scan_limit() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=4).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+
+		// A filter that takes nothing must still visit no more than `scan_limit` entries.
+		let mut visited = 0;
+		let batch = store
+			.admitted_statements(0, 4, 3, &mut |_, _, _| {
+				visited += 1;
+				FilterDecision::Skip
+			})
+			.unwrap();
+		assert!(batch.statements.is_empty());
+		assert_eq!(visited, 3);
+		assert_eq!(batch.cursor, 3, "the cursor must sit after the last visited entry");
+		assert!(!batch.done);
+
+		// Resuming from the partial cursor completes the walk.
+		let batch = store
+			.admitted_statements(batch.cursor, 4, 3, &mut |_, _, _| FilterDecision::Skip)
+			.unwrap();
+		assert!(batch.statements.is_empty());
 		assert_eq!(batch.cursor, 4);
 		assert!(batch.done);
 	}

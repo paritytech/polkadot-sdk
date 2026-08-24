@@ -233,6 +233,10 @@ const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
+
+/// Maximum admission-journal entries one initial-sync fetch visits, so that a peer whose
+/// affinity matches nothing cannot make one burst walk the whole journal in the event loop.
+const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
@@ -828,20 +832,26 @@ fn fetch_admitted_chunk(
 	max_size: usize,
 ) -> sp_statement_store::Result<(AdmittedBatch, usize)> {
 	let mut accumulated_size = 0;
-	let batch = store.admitted_statements(cursor, watermark, &mut |hash, encoded, stmt| {
-		if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
-			return FilterDecision::Skip;
-		}
-		// The peer supplied this statement, do not send it back.
-		if has_received_from(recently_received_statements, pending_statements_peers, hash, who) {
-			return FilterDecision::Skip;
-		}
-		if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
-			return FilterDecision::Abort;
-		}
-		accumulated_size += encoded.len();
-		FilterDecision::Take
-	})?;
+	let batch = store.admitted_statements(
+		cursor,
+		watermark,
+		INITIAL_SYNC_SCAN_LIMIT,
+		&mut |hash, encoded, stmt| {
+			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+				return FilterDecision::Skip;
+			}
+			// The peer supplied this statement, do not send it back.
+			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
+			{
+				return FilterDecision::Skip;
+			}
+			if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
+				return FilterDecision::Abort;
+			}
+			accumulated_size += encoded.len();
+			FilterDecision::Take
+		},
+	)?;
 	Ok((batch, accumulated_size))
 }
 
@@ -2600,6 +2610,7 @@ mod tests {
 			&self,
 			mut cursor: u64,
 			watermark: u64,
+			scan_limit: usize,
 			filter: &mut dyn FnMut(
 				&sp_statement_store::Hash,
 				&[u8],
@@ -2613,7 +2624,13 @@ mod tests {
 			let statements = self.statements.lock().unwrap();
 			let mut result = Vec::new();
 			let mut aborted = false;
+			let mut scanned = 0usize;
 			while cursor < watermark {
+				if scanned == scan_limit {
+					aborted = true;
+					break;
+				}
+				scanned += 1;
 				let Some(hash) = admissions.get(cursor as usize) else { break };
 				// A journal entry whose statement left the store is a dead sequence number.
 				let Some(statement) = statements.get(hash) else {

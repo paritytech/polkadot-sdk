@@ -445,12 +445,15 @@ pub trait StatementStore: Send + Sync {
 	/// cursor sits after every visited statement except an `Abort`ed one, which the next
 	/// walk revisits first.
 	///
-	/// A call walks the whole `cursor..watermark` range unless aborted, so its cost is
-	/// bounded by the range, not by the number of taken statements.
+	/// A call visits at most `scan_limit` journal entries, passed-over ones included, so
+	/// its cost stays bounded even when the filter takes nothing. `scan_limit` must be
+	/// positive: a walk that visits no entries cannot advance the cursor. A walk stopped
+	/// by the limit returns a partial cursor to resume from, exactly like an `Abort`.
 	fn admitted_statements(
 		&self,
 		cursor: u64,
 		watermark: u64,
+		scan_limit: usize,
 		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
 	) -> Result<AdmittedBatch>;
 
