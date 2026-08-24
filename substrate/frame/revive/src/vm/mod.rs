@@ -144,8 +144,6 @@ impl<T: Config> Token<T> for CodeLoadToken {
 		let len_weight_of =
 			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
 
-		// Everything that depends on the bytecode type, chosen once: the cold and
-		// hot per-byte weight functions, and the PVM-only compilation term.
 		let (per_byte, per_byte_hot, compilation) = match self.code_type {
 			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so
 			// the compilation term drops its proof. It double-charges the first
@@ -164,11 +162,11 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			),
 		};
 
-		let weight = runtime_costs::weight_by_warmth::<T>(
-			&[self.warmth.info, self.warmth.blob],
+		let weight = runtime_costs::weight_by_warmth::<T, _>(
+			[self.warmth.info, self.warmth.blob],
 			|| {
 				// Charge code_load since the call and instantiate benches whitelist the code
-				// reads. This overlaps their ref_time, so it slightly overcharges.
+				// reads. This overlaps code_load ref_time, so it slightly overcharges.
 				T::WeightInfo::code_load().saturating_add(len_weight_of(per_byte))
 			},
 			|| len_weight_of(per_byte_hot),
@@ -452,8 +450,6 @@ mod tests {
 		tests::Test,
 	};
 
-	/// The refcount bump owes the block-end re-hash exactly once: the first
-	/// write-op load pays it, and a repeat finding the key write-paid does not.
 	#[test]
 	fn the_refcount_write_is_charged_exactly_when_owed() {
 		let load = |info, code_info_op| {

@@ -1113,7 +1113,6 @@ where
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 
-				// Resolve a mocked delegate before warming/
 				let delegated_call = delegated_call.or_else(|| {
 					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
 						mock_handler.mock_delegated_caller(address, input_data)
@@ -1636,7 +1635,7 @@ where
 			let m = self.access_list.metrics();
 			log::trace!(
 				target: LOG_TARGET,
-				"access-list metrics: size={size} cold={cold} hot={hot}",
+				"access list metrics: size={size} cold={cold} hot={hot}",
 				size = m.size, cold = m.cold, hot = m.hot,
 			);
 		} else if success {

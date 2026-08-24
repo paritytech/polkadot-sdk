@@ -250,7 +250,7 @@ impl RuntimeCosts {
 		}
 	}
 
-	/// What a hot write pays on top of the cold read that warmed the slot:
+	/// What a hot write pays on top of the cold read that warmed the key:
 	/// re-hashing its trie path when the block's storage root is computed.
 	pub(crate) fn deferred_write_cost<T: Config>() -> Weight {
 		let db = T::DbWeight::get();
@@ -271,7 +271,7 @@ impl RuntimeCosts {
 					Warmth::Hot(paid) if !paid.covers(op) => Self::deferred_write_cost::<T>(),
 					_ => Weight::zero(),
 				};
-				weight_by_warmth::<T>(&[warmth], cold, hot).saturating_add(surcharge)
+				weight_by_warmth::<T, _>([warmth], cold, hot).saturating_add(surcharge)
 			},
 			StorageAccessKind::Transient => transient(),
 		}
@@ -280,24 +280,30 @@ impl RuntimeCosts {
 
 /// Computes the weight of an operation, given the warmth of each state item it reads.
 /// Prices hot only if every item is hot.
-pub(crate) fn weight_by_warmth<T: Config>(
-	item_warmths: &[Warmth],
+pub(crate) fn weight_by_warmth<T: Config, I: IntoIterator<Item = Warmth>>(
+	items: I,
 	cold: impl FnOnce() -> Weight,
 	hot: impl FnOnce() -> Weight,
 ) -> Weight {
-	debug_assert!(!item_warmths.is_empty(), "an access reads at least one state item");
-	let operation_weight = if item_warmths.iter().all(|warmth| warmth.is_hot()) {
+	let (count, all_hot, overhead) = items.into_iter().fold(
+		(0u64, true, Weight::zero()),
+		|(count, all_hot, overhead), warmth| {
+			(
+				count + 1,
+				all_hot && warmth.is_hot(),
+				overhead.saturating_add(RuntimeCosts::access_list_overhead::<T>(warmth)),
+			)
+		},
+	);
+	debug_assert!(count > 0, "an access reads at least one state item");
+	let operation_weight = if all_hot {
 		// One overlay lookup per item, since each stands for one state read.
-		hot().saturating_add(
-			RuntimeCosts::hot_storage_overlay_overhead::<T>()
-				.saturating_mul(item_warmths.len() as u64),
-		)
+		hot()
+			.saturating_add(RuntimeCosts::hot_storage_overlay_overhead::<T>().saturating_mul(count))
 	} else {
 		cold()
 	};
-	item_warmths.iter().fold(operation_weight, |weight, warmth| {
-		weight.saturating_add(RuntimeCosts::access_list_overhead::<T>(*warmth))
-	})
+	operation_weight.saturating_add(overhead)
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -394,22 +400,16 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				CallWarmth::Plain { account: Some(account), original_account, account_info } => {
-					weight_by_warmth::<T>(
-						&[account, original_account, account_info],
+				CallWarmth::Plain { account, original_account, account_info } => {
+					let items = account.into_iter().chain([original_account, account_info]);
+					weight_by_warmth::<T, _>(
+						items,
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
 					)
 				},
-				CallWarmth::Plain { account: None, original_account, account_info } => {
-					weight_by_warmth::<T>(
-						&[original_account, account_info],
-						|| T::WeightInfo::seal_call(0, 0, 0),
-						T::WeightInfo::seal_call_hot,
-					)
-				},
-				CallWarmth::Delegate { account_info } => weight_by_warmth::<T>(
-					&[account_info],
+				CallWarmth::Delegate { account_info } => weight_by_warmth::<T, _>(
+					[account_info],
 					T::WeightInfo::seal_delegate_call,
 					T::WeightInfo::seal_delegate_call_hot,
 				),

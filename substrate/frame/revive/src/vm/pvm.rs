@@ -677,8 +677,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		memory.reset_interpreter_cache();
 
-		let call_outcome = match call_type {
-			CallType::Call { value_ptr: _ } => {
+		let call_outcome: Result<(), ExecError> = match call_type {
+			CallType::Call { .. } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an

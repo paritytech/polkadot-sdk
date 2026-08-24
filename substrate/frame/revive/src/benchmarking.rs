@@ -206,8 +206,6 @@ mod benchmarks {
 		($do_call:ident, $module:expr) => {
 			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len, $module, false);
 			let mut $do_call = || {
-				// Same flags as the cold `seal_call` bench, so the pair differs
-				// only in warmth.
 				runtime.bench_call(
 					memory.as_mut_slice(),
 					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0),     // flags + callee_ptr
@@ -2504,7 +2502,7 @@ mod benchmarks {
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let Contract { account_id: callee, address: callee_addr, .. } = callee_contract.clone();
 
-		// The code read is priced by `code_load`, not this benchmark.
+		// The code read is priced by `code_load`.
 		callee_contract.whitelist_code().unwrap();
 
 		let callee_bytes = callee.encode();
@@ -2636,7 +2634,7 @@ mod benchmarks {
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let Contract { account_id: address, .. } = callee_contract.clone();
 
-		// The code read is priced by `code_load`, not this benchmark.
+		// The code read is priced by `code_load`.
 		callee_contract.whitelist_code()?;
 
 		let address_bytes = address.encode();
