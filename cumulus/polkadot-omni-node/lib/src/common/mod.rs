@@ -149,11 +149,13 @@ pub struct NodeExtraArgs {
 	pub hop: Option<sc_hop::HopParams>,
 }
 
-/// Safety margin, in blocks, subtracted from the runtime's transaction-storage retention
-/// period when deriving the gap sync body download window.
+/// Maximum safety margin, in blocks, subtracted from the runtime's transaction-storage
+/// retention period when deriving the gap sync body download window.
 ///
 /// The margin covers the finality lead of serving peers plus request and import delays,
-/// so that peers still retain every body we require.
+/// so that peers still retain every body we require. For retention periods shorter than
+/// twice this value, the margin is scaled down to half the retention period so that a
+/// download window always remains.
 pub(crate) const GAP_SYNC_BODY_SAFETY_MARGIN: u32 = 256;
 
 /// Returns the [`GapSyncBodyPolicyProvider`] for this node.
@@ -188,7 +190,7 @@ where
 		.map_err(|error| sp_blockchain::Error::Application(error.into()))?;
 		log::info!(
 			"Resolved gap sync body policy {policy:?} (runtime retention period: \
-			 {storage_chain_retention:?}, blocks pruning: {blocks_pruning:?}, safety margin: \
+			 {storage_chain_retention:?}, blocks pruning: {blocks_pruning:?}, max safety margin: \
 			 {GAP_SYNC_BODY_SAFETY_MARGIN})",
 		);
 		Ok(policy)
@@ -209,12 +211,10 @@ fn resolve_gap_sync_body_policy(
 		// Pruned nodes not running a storage chain backfill headers and justifications only.
 		(None, BlocksPruning::Some(_)) => Ok(GapSyncBodyPolicy::HeadersOnly),
 		(Some(retention_period), BlocksPruning::Some(window)) => {
-			if safety_margin >= retention_period {
-				return Err(format!(
-					"the gap sync body safety margin ({safety_margin}) must be smaller than \
-					 the runtime's transaction storage retention period ({retention_period}), \
-					 otherwise no gap bodies would be downloaded",
-				));
+			if retention_period == 0 {
+				return Err("the runtime's transaction storage retention period is 0, so no gap \
+					 bodies could be downloaded"
+					.to_string());
 			}
 			if window < retention_period {
 				return Err(format!(
@@ -223,6 +223,9 @@ fn resolve_gap_sync_body_policy(
 					 chain; increase `--blocks-pruning`",
 				));
 			}
+			// Scale the margin down for small retention periods so a download window
+			// always remains.
+			let safety_margin = safety_margin.min(retention_period / 2);
 			Ok(GapSyncBodyPolicy::BodiesWithinWindow(retention_period - safety_margin))
 		},
 	}
@@ -265,13 +268,22 @@ mod tests {
 	}
 
 	#[test]
-	fn safety_margin_must_be_smaller_than_retention() {
-		for margin in [100, 101] {
-			assert!(
-				resolve_gap_sync_body_policy(Some(100), BlocksPruning::Some(1000), margin).is_err()
+	fn safety_margin_is_clamped_to_half_the_retention_period() {
+		for margin in [100, 101, 256] {
+			assert_eq!(
+				resolve_gap_sync_body_policy(Some(100), BlocksPruning::Some(1000), margin),
+				Ok(GapSyncBodyPolicy::BodiesWithinWindow(50)),
 			);
 		}
-		assert!(resolve_gap_sync_body_policy(Some(100), BlocksPruning::Some(1000), 99).is_ok());
+		assert_eq!(
+			resolve_gap_sync_body_policy(Some(100), BlocksPruning::Some(1000), 49),
+			Ok(GapSyncBodyPolicy::BodiesWithinWindow(51)),
+		);
+	}
+
+	#[test]
+	fn zero_retention_period_is_rejected() {
+		assert!(resolve_gap_sync_body_policy(Some(0), BlocksPruning::Some(1000), 256).is_err());
 	}
 
 	#[test]

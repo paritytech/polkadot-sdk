@@ -28,6 +28,16 @@ use zombienet_sdk::{
 
 const N_RENEW_EXERCISES: u32 = N_STORES;
 const WARP_PRUNING_BLOCKS: u32 = 500;
+/// Mirrors `GAP_SYNC_BODY_SAFETY_MARGIN` in `polkadot-omni-node-lib`: the node clamps
+/// the margin to half the runtime retention period.
+const GAP_SYNC_BODY_SAFETY_MARGIN: u32 =
+	if FIXTURE_RETENTION_PERIOD / 2 < 256 { FIXTURE_RETENTION_PERIOD / 2 } else { 256 };
+/// Number of blocks below the finalized tip for which the sync node backfills bodies
+/// during gap sync.
+const GAP_SYNC_BODY_WINDOW: u64 = (FIXTURE_RETENTION_PERIOD - GAP_SYNC_BODY_SAFETY_MARGIN) as u64;
+/// Timeout for the chain to finalize past `last_store_block + GAP_SYNC_BODY_WINDOW`
+/// before the sync node is added (~80 blocks at 6s each, plus finality lag).
+const GAP_WINDOW_ADVANCE_TIMEOUT_SECS: u64 = 900;
 const SESSION_CHANGE_TIMEOUT_SECS: u64 = 300;
 const BITSWAP_RPC_POLL_TIMEOUT_SECS: u64 = 600;
 const RENEW_BLOCK_SYNC_TIMEOUT_SECS: u64 = 600;
@@ -222,6 +232,24 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 			)
 			.await
 			.context(format!("Node did not reach block height {target_height}"))?;
+
+		// The sync node backfills gap bodies for the last `GAP_SYNC_BODY_WINDOW`
+		// finalized blocks and would serve the original stores via bitswap if they
+		// fell inside that window. Wait until finality has moved every store block
+		// below the window, so the warp-synced node provably lacks the stored data
+		// and the renewals below have to be fetched via bitswap.
+		let stores_below_window = snapshots.metadata.last_store_block + GAP_SYNC_BODY_WINDOW + 1;
+		collator
+			.wait_metric_with_timeout(
+				FINALIZED_BLOCK_METRIC,
+				|height| height >= stores_below_window as f64,
+				GAP_WINDOW_ADVANCE_TIMEOUT_SECS,
+			)
+			.await
+			.context(format!(
+				"Node did not finalize past {stores_below_window} to move the stores \
+				 out of the gap sync body window"
+			))?;
 	}
 
 	add_sync_node(&mut network).await?;
