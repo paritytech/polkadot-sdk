@@ -1,0 +1,11 @@
+title: "pallet-delegated-staking: reject zero-amount delegations"
+doc:
+  - audience: Runtime Dev
+    description: |
+      `delegate_to_agent` now rejects a zero `amount` with `InvalidDelegation`
+      instead of persisting a zero-amount `Delegation` record. Previously a
+      zero-amount call leaked a provider reference and permanently marked the
+      account as a delegator, blocking it from registering as an agent.
+crates:
+  - name: pallet-delegated-staking
+    bump: patch
