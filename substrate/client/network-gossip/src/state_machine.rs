@@ -219,11 +219,16 @@ impl<B: BlockT> ConsensusGossip<B> {
 		message: Vec<u8>,
 		sender: Option<PeerId>,
 	) {
-		if self.known_messages.get(&message_hash).is_some() {
-			return;
-		}
-
-		if self.known_messages.insert(message_hash, ()) {
+		// `LruMap::insert` also returns true on key replacement, so detect a
+		// true insert via `get_or_insert` (callback runs only for missing keys).
+		let mut is_new = false;
+		if self
+			.known_messages
+			.get_or_insert(message_hash, || {
+				is_new = true;
+			})
+			.is_some() && is_new
+		{
 			self.messages.push(MessageEntry { message_hash, topic, message, sender });
 
 			if let Some(ref metrics) = self.metrics {
@@ -567,8 +572,13 @@ mod tests {
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {
-			if $consensus.known_messages.get(&$hash).is_none() &&
-				$consensus.known_messages.insert($hash, ())
+			let mut is_new = false;
+			if $consensus
+				.known_messages
+				.get_or_insert($hash, || {
+					is_new = true;
+				})
+				.is_some() && is_new
 			{
 				$consensus.messages.push(MessageEntry {
 					message_hash: $hash,
