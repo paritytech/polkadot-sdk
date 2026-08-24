@@ -3363,6 +3363,28 @@ fn cold_hot_repeated_call_target_stays_hot() {
 }
 
 #[test]
+fn cold_hot_top_level_value_call_warms_the_account() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+		let zero_value = last_access_list_metrics();
+
+		builder::bare_call(addr).native_value(1_000).build_and_unwrap_result();
+		let with_value = last_access_list_metrics();
+
+		assert_eq!(
+			with_value.cold,
+			zero_value.cold + 1,
+			"the entry call that sends value also warms the target's account",
+		);
+	});
+}
+
+#[test]
 fn cold_hot_depth_denied_call_warms_before_the_denial() {
 	let (code, _code_hash) = compile_module("recurse").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {

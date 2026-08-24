@@ -1041,8 +1041,8 @@ where
 		origin.ensure_mapped()?;
 		// Create before the first frame is built, to capture its state accesses.
 		let mut access_list = AccessList::new();
-		// The top-level call has no interpreter to warm its target, so warm it here.
-		// Its weight was already charged at the extrinsic level.
+		// The top-level call has no interpreter to warm its target, so warm it here. The
+		// `call` extrinsic's weight covers reading it, so no charge is due.
 		if let FrameArgs::Call { dest, delegated_call: None, .. } = &args {
 			let address = T::AddressMapper::to_address(dest);
 			if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_none() {
@@ -1962,11 +1962,9 @@ where
 
 	/// Warms everything a call to the target reads.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn warm_call_target(&mut self, state_access: CallAccess, code_hash: H256) {
-		self.access_list.warm(state_access);
-		// The measured hot call loads code, it never bumps a refcount.
-		self.access_list
-			.warm(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
+	pub(crate) fn warm_call_target(&mut self, call: CallAccess, code: CodeLoad) {
+		self.access_list.warm(call);
+		self.access_list.warm(code);
 	}
 
 	#[cfg(test)]

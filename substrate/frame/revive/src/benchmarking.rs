@@ -236,11 +236,10 @@ mod benchmarks {
 			let callee = callee_contract.account_id.clone();
 			let code_hash = callee_contract.info()?.code_hash;
 
-			whitelist_access::<T>(CallAccess::Plain {
-				target: callee_contract.address,
-				transfers_value: true,
-			});
-			whitelist_access::<T>(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
+			let call_access = CallAccess::new(callee_contract.address, $delegate, false);
+			let code_load = CodeLoad { hash: code_hash, code_info_op: StorageOp::Read };
+			whitelist_access::<T>(call_access);
+			whitelist_access::<T>(code_load);
 
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
@@ -256,8 +255,7 @@ mod benchmarks {
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 			let (mut ext, _) = setup.ext();
-			// The measured hot call transfers no value, so the account entry stays untouched.
-			ext.warm_call_target(CallAccess::new(callee_contract.address, $delegate, false), code_hash);
+			ext.warm_call_target(call_access, code_load);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 		};

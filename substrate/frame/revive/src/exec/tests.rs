@@ -3643,42 +3643,6 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 }
 
 #[test]
-fn cold_hot_value_transfer_warms_the_account() {
-	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let value =
-			Pallet::<Test>::convert_native_to_evm(<Test as Config>::Currency::minimum_balance());
-		ctx.ext.warm(CallAccess::new(DJANGO_ADDR, false, true));
-		ctx.ext
-			.call(
-				&CallResources::NoLimits,
-				&DJANGO_ADDR,
-				value,
-				vec![],
-				ReentrancyProtection::AllowReentry,
-				false,
-			)
-			.unwrap();
-		assert_eq!(
-			ctx.ext
-				.warmth_of(CallAccess::Plain { target: DJANGO_ADDR, transfers_value: true }),
-			CallWarmth::Plain {
-				account: Some(Warmth::Hot(Paid::Read)),
-				original_account: Warmth::Hot(Paid::Read),
-				account_info: Warmth::Hot(Paid::Read),
-			},
-			"a value transfer reads the account, so it must warm it, read-paid",
-		);
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&CHARLIE, root_code_hash);
-		set_balance(&CHARLIE, <Test as Config>::Currency::minimum_balance() * 100);
-		run_root_call(CHARLIE_ADDR, vec![]);
-	});
-}
-
-#[test]
 fn cold_hot_code_paid_level_matches_the_operation() {
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
