@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::Filter;
 use crate::*;
 use serde::{Deserialize, Serialize};
 
@@ -107,7 +106,7 @@ impl SubscriptionParameters {
 		match (subscription_kind, subscription_options) {
 			(SubscriptionKind::Logs, None) => Some(Self::Logs(Filter::default())),
 			(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(filter)))
-				if filter.block_option.is_valid() =>
+				if filter.block_option.is_valid_for_subscription() =>
 			{
 				Some(Self::Logs(filter))
 			},

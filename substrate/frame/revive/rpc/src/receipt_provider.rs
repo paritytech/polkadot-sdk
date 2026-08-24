@@ -21,7 +21,6 @@ use crate::{
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
-use futures::future::OptionFuture;
 use pallet_revive::evm::TransactionSigned;
 use sp_core::{H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
@@ -732,52 +731,45 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let filter = filter.unwrap_or_default();
 
 		match filter.block_option {
-			FilterBlockOption::AtBlockHash(hash) => {
-				qb.push(" AND block_hash = ").push_bind(hash.as_slice().to_vec());
+			FilterBlockOption::AtBlock { block_hash } => {
+				let block_hash = H256(block_hash.0);
+				if self.get_substrate_hash(&block_hash).await.is_none() {
+					anyhow::bail!("unknown block");
+				}
+				qb.push(" AND block_hash = ").push_bind(block_hash.as_bytes().to_vec());
 			},
 			FilterBlockOption::Range { from_block, to_block } => {
-				let from_block =
-					OptionFuture::from(from_block.map(&resolve_block_number)).await.transpose()?;
-				let to_block =
-					OptionFuture::from(to_block.map(&resolve_block_number)).await.transpose()?;
+				if matches!(from_block, BlockNumberOrTag::Pending) ||
+					matches!(to_block, BlockNumberOrTag::Pending)
+				{
+					anyhow::bail!("pending logs are not supported");
+				}
+
+				let from_block = resolve_block_number(from_block).await?;
+				let to_block = resolve_block_number(to_block).await?;
 
 				// Read the latest block *after* resolving the tags.
 				let latest_block = U256::from(self.block_provider.latest_block_number().await);
 
-				match (from_block, to_block) {
-					(Some(block), _) | (_, Some(block)) if block > latest_block => {
-						anyhow::bail!("block number exceeds latest block");
-					},
-					(Some(from_block), Some(to_block)) if from_block > to_block => {
-						anyhow::bail!("invalid block range params");
-					},
-					(Some(from_block), Some(to_block)) if from_block == to_block => {
-						qb.push(" AND block_number = ").push_bind(from_block.as_u64() as i64);
-					},
-					(Some(from_block), Some(to_block)) => {
-						qb.push(" AND block_number BETWEEN ")
-							.push_bind(from_block.as_u64() as i64)
-							.push(" AND ")
-							.push_bind(to_block.as_u64() as i64);
-					},
-					(Some(from_block), None) => {
-						qb.push(" AND block_number >= ").push_bind(from_block.as_u64() as i64);
-					},
-					(None, Some(to_block)) => {
-						qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
-					},
-					(None, None) => {
-						qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
-					},
+				if from_block > to_block {
+					anyhow::bail!("invalid block range params");
 				}
+				if to_block > latest_block {
+					anyhow::bail!("block range extends into the future");
+				}
+
+				qb.push(" AND block_number BETWEEN ")
+					.push_bind(from_block.as_u64() as i64)
+					.push(" AND ")
+					.push_bind(to_block.as_u64() as i64);
 			},
 		}
 
 		if !filter.address.is_empty() {
 			qb.push(" AND address IN (");
 			let mut separated = qb.separated(", ");
-			for addr in filter.address {
-				separated.push_bind(addr.as_slice().to_vec());
+			for address in filter.address {
+				separated.push_bind(address.as_bytes().to_vec());
 			}
 			separated.push_unseparated(")");
 		}
@@ -790,12 +782,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			qb.push(format_args!(" AND topic_{i} IN ("));
 			let mut separated = qb.separated(", ");
 			for hash in topic {
-				separated.push_bind(hash.as_slice().to_vec());
+				separated.push_bind(hash.as_bytes().to_vec());
 			}
 			separated.push_unseparated(")");
 		}
 
-		qb.push(" LIMIT ").push_bind(MAX_LOG_RESULTS as i64);
+		qb.push(" ORDER BY block_number, log_index LIMIT ")
+			.push_bind(MAX_LOG_RESULTS as i64);
 
 		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.db_ctx.pool).await?;
 
@@ -954,7 +947,6 @@ mod tests {
 		ReceiptInfo,
 		test::{MockBlockInfo, MockBlockInfoProvider},
 	};
-	use alloy_primitives::{Address as AlloyAddress, B256};
 	use pallet_revive::evm::TransactionSigned;
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
@@ -1304,29 +1296,29 @@ mod tests {
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
-		// to_block filter
+		// to_block filter (a bare `to_block` in the past is `latest..to`, an invalid range)
 		let logs = provider
-			.logs(Some(Filter::new().to_block(log1.block_number.as_u64())), &resolve_block_number)
+			.logs(
+				Some(
+					Filter::new()
+						.from_block(BlockNumberOrTag::Earliest)
+						.to_block(log1.block_number.as_u64()),
+				),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// block_hash filter
 		let logs = provider
-			.logs(
-				Some(Filter::new().at_block_hash(B256::from(log1.block_hash.0))),
-				&resolve_block_number,
-			)
+			.logs(Some(Filter::new().at_block_hash(log1.block_hash)), &resolve_block_number)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// single address
 		let logs = provider
 			.logs(
-				Some(
-					Filter::new()
-						.from_block(BlockNumberOrTag::Earliest)
-						.address(AlloyAddress::from(log1.address.0)),
-				),
+				Some(Filter::new().from_block(BlockNumberOrTag::Earliest).address([log1.address])),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1335,10 +1327,11 @@ mod tests {
 		// multiple addresses
 		let logs = provider
 			.logs(
-				Some(Filter::new().from_block(BlockNumberOrTag::Earliest).address(vec![
-					AlloyAddress::from(log1.address.0),
-					AlloyAddress::from(log2.address.0),
-				])),
+				Some(
+					Filter::new()
+						.from_block(BlockNumberOrTag::Earliest)
+						.address([log1.address, log2.address]),
+				),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1350,7 +1343,7 @@ mod tests {
 				Some(
 					Filter::new()
 						.from_block(BlockNumberOrTag::Earliest)
-						.event_signature(B256::from(log1.topics[0].0)),
+						.event_signature([log1.topics[0]]),
 				),
 				&resolve_block_number,
 			)
@@ -1363,8 +1356,8 @@ mod tests {
 				Some(
 					Filter::new()
 						.from_block(BlockNumberOrTag::Earliest)
-						.event_signature(B256::from(log1.topics[0].0))
-						.topic1(B256::from(log1.topics[1].0)),
+						.event_signature([log1.topics[0]])
+						.topic1([log1.topics[1]]),
 				),
 				&resolve_block_number,
 			)
@@ -1374,10 +1367,11 @@ mod tests {
 		// multiple topic for topic_0
 		let logs = provider
 			.logs(
-				Some(Filter::new().from_block(BlockNumberOrTag::Earliest).event_signature(vec![
-					B256::from(log1.topics[0].0),
-					B256::from(log2.topics[0].0),
-				])),
+				Some(
+					Filter::new()
+						.from_block(BlockNumberOrTag::Earliest)
+						.event_signature([log1.topics[0], log2.topics[0]]),
+				),
 				&resolve_block_number,
 			)
 			.await?;
@@ -1390,26 +1384,15 @@ mod tests {
 					Filter::new()
 						.from_block(BlockNumberOrTag::Earliest)
 						.to_block(BlockNumberOrTag::Latest)
-						.address(vec![
-							AlloyAddress::from(log1.address.0),
-							AlloyAddress::from(log2.address.0),
-						])
-						.event_signature(vec![
-							B256::from(log1.topics[0].0),
-							B256::from(log2.topics[0].0),
-						]),
+						.address([log1.address, log2.address])
+						.event_signature([log1.topics[0], log2.topics[0]]),
 				),
 				&resolve_block_number,
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
-		for tag in [
-			BlockNumberOrTag::Latest,
-			BlockNumberOrTag::Finalized,
-			BlockNumberOrTag::Safe,
-			BlockNumberOrTag::Pending,
-		] {
+		for tag in [BlockNumberOrTag::Latest, BlockNumberOrTag::Finalized, BlockNumberOrTag::Safe] {
 			let logs = provider
 				.logs(Some(Filter::new().from_block(tag)), &resolve_block_number)
 				.await?;
@@ -1427,6 +1410,11 @@ mod tests {
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()], "from == to selects the single block");
+
+		let result = provider
+			.logs(Some(Filter::new().from_block(BlockNumberOrTag::Pending)), &resolve_block_number)
+			.await;
+		assert!(result.is_err(), "pending logs are unsupported");
 
 		let result = provider
 			.logs(
@@ -1573,7 +1561,7 @@ mod tests {
 		// Query logs using Ethereum block hash (should resolve to substrate hash)
 		let logs = provider
 			.logs(
-				Some(Filter::new().at_block_hash(B256::from(ethereum_hash.0))),
+				Some(Filter::new().at_block_hash(ethereum_hash)),
 				mock_resolve_block_number_with_latest(block.number.into()),
 			)
 			.await?;

@@ -17,7 +17,7 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-pub use alloy_rpc_types::{BlockId, BlockNumberOrTag, Filter, FilterBlockOption};
+pub use alloy_rpc_types::{BlockId, BlockNumberOrTag};
 use client::ClientError;
 use futures::{Stream, StreamExt, TryStreamExt};
 use jsonrpsee::{

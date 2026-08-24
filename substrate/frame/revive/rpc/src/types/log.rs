@@ -86,6 +86,64 @@ impl Filter {
 	}
 }
 
+#[cfg(test)]
+impl Filter {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn from_block(mut self, block: impl Into<BlockNumberOrTag>) -> Self {
+		let to_block = match self.block_option {
+			FilterBlockOption::Range { to_block, .. } => to_block,
+			FilterBlockOption::AtBlock { .. } => BlockNumberOrTag::Latest,
+		};
+		self.block_option = FilterBlockOption::Range { from_block: block.into(), to_block };
+		self
+	}
+
+	pub fn to_block(mut self, block: impl Into<BlockNumberOrTag>) -> Self {
+		let from_block = match self.block_option {
+			FilterBlockOption::Range { from_block, .. } => from_block,
+			FilterBlockOption::AtBlock { .. } => BlockNumberOrTag::Latest,
+		};
+		self.block_option = FilterBlockOption::Range { from_block, to_block: block.into() };
+		self
+	}
+
+	pub fn at_block_hash(mut self, block_hash: H256) -> Self {
+		self.block_option =
+			FilterBlockOption::AtBlock { block_hash: BlockHash::from(block_hash.0) };
+		self
+	}
+
+	pub fn address(mut self, addresses: impl IntoIterator<Item = H160>) -> Self {
+		self.address = addresses.into_iter().collect();
+		self
+	}
+
+	pub fn event_signature(self, topics: impl IntoIterator<Item = H256>) -> Self {
+		self.topic(0, topics)
+	}
+
+	pub fn topic1(self, topics: impl IntoIterator<Item = H256>) -> Self {
+		self.topic(1, topics)
+	}
+
+	fn topic(mut self, position: usize, topics: impl IntoIterator<Item = H256>) -> Self {
+		let mut positions = self.topics.into_inner();
+		if positions.len() <= position {
+			positions.resize(position + 1, BoundedBTreeSet::new());
+		}
+		positions[position] = topics
+			.into_iter()
+			.collect::<BTreeSet<_>>()
+			.try_into()
+			.expect("test topic alternatives are within bounds");
+		self.topics = positions.try_into().expect("test topic positions are within bounds");
+		self
+	}
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterBlockOption {
 	AtBlock { block_hash: BlockHash },
@@ -93,7 +151,7 @@ pub enum FilterBlockOption {
 }
 
 impl FilterBlockOption {
-	pub fn is_valid(&self) -> bool {
+	pub fn is_valid_for_subscription(&self) -> bool {
 		match self {
 			Self::AtBlock { .. } => true,
 			Self::Range {
