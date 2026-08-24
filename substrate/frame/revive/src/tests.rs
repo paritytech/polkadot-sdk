@@ -24,12 +24,13 @@ mod pvm;
 mod sol;
 mod stipends;
 
-use std::collections::HashMap;
+use std::{cell::Cell, collections::HashMap};
 
 use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
+	access_list::AccessListMetrics,
 	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
@@ -58,6 +59,21 @@ use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
 };
+
+thread_local! {
+	static LAST_ACCESS_LIST_METRICS: Cell<Option<AccessListMetrics>> =
+		const { Cell::new(None) };
+}
+
+pub(crate) fn record_access_list_metrics(metrics: AccessListMetrics) {
+	LAST_ACCESS_LIST_METRICS.with(|cell| cell.set(Some(metrics)));
+}
+
+pub(crate) fn last_access_list_metrics() -> AccessListMetrics {
+	LAST_ACCESS_LIST_METRICS
+		.with(|cell| cell.get())
+		.expect("a top-level call ran on this thread")
+}
 
 pub type Address = MultiAddress<AccountId32, u32>;
 pub type Block = sp_runtime::generic::Block<Header<u64, BlakeTwo256>, UncheckedExtrinsic>;

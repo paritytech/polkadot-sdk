@@ -3151,6 +3151,8 @@ fn run_root_call(contract_addr: H160, input: Vec<u8>) {
 }
 
 fn run_child_call<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), ExecError> {
+	// Mirror the interpreter: warm the zero-value plain target, then call it.
+	ext.warm(CallAccess::new(*to, false, false));
 	ext.call(
 		&CallResources::NoLimits,
 		to,
@@ -3472,86 +3474,12 @@ fn cold_hot_call_target_warms_across_calls() {
 }
 
 #[test]
-fn cold_hot_depth_denied_call_leaves_target_cold() {
-	parameter_types! {
-		static ReachedBottom: bool = false;
-	}
-	let django_code_hash = MockLoader::insert(Call, |_, _| exec_success());
-	let recurse_ch = MockLoader::insert(Call, |ctx, _| {
-		// Recurse into self until the depth limit denies the call.
-		let r = run_child_call(ctx.ext, &BOB_ADDR, vec![]);
-
-		ReachedBottom::mutate(|reached_bottom| {
-			if *reached_bottom {
-				assert_matches!(r, Ok(_));
-				return;
-			}
-			// First time at the bottom: the self-call hit the depth limit.
-			assert_eq!(r, Err(Error::<Test>::MaxCallDepthReached.into()));
-			*reached_bottom = true;
-
-			let before = ctx.ext.access_list_metrics();
-			assert_matches!(
-				ctx.ext
-					.warmth_of(CallAccess::Plain { target: DJANGO_ADDR, transfers_value: true }),
-				CallWarmth::Plain {
-					account: Some(Warmth::Cold { .. }),
-					original_account: Warmth::Cold { .. },
-					account_info: Warmth::Cold { .. }
-				},
-				"a fresh target starts cold",
-			);
-
-			assert_eq!(
-				run_child_call(ctx.ext, &DJANGO_ADDR, vec![]),
-				Err(Error::<Test>::MaxCallDepthReached.into()),
-				"call at max depth is denied",
-			);
-
-			assert_eq!(
-				ctx.ext.access_list_metrics().size,
-				before.size,
-				"the denied call warms nothing",
-			);
-			assert_matches!(
-				ctx.ext
-					.warmth_of(CallAccess::Plain { target: DJANGO_ADDR, transfers_value: true }),
-				CallWarmth::Plain {
-					account: Some(Warmth::Cold { .. }),
-					original_account: Warmth::Cold { .. },
-					account_info: Warmth::Cold { .. }
-				},
-				"the denied call leaves the target cold",
-			);
-		});
-
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		set_balance(&BOB, 1);
-		place_contract(&BOB, recurse_ch);
-		place_contract(&DJANGO, django_code_hash);
-		let origin = Origin::from_account_id(ALICE);
-		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
-		let result = MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut meter,
-			0.into(),
-			vec![],
-			&ExecConfig::new_substrate_tx(),
-		);
-		assert_matches!(result, Ok(_));
-	});
-}
-
-#[test]
 fn cold_hot_delegate_call_leaves_target_account_cold() {
 	let bob_code_hash = MockLoader::insert(Call, |_, _| exec_success());
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let before = ctx.ext.access_list_metrics();
+		ctx.ext.warm(CallAccess::new(BOB_ADDR, true, false));
 		assert_matches!(ctx.ext.delegate_call(&CallResources::NoLimits, BOB_ADDR, vec![]), Ok(_));
 		let after_delegate = ctx.ext.access_list_metrics();
 		assert_eq!(
@@ -3719,6 +3647,7 @@ fn cold_hot_value_transfer_warms_the_account() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let value =
 			Pallet::<Test>::convert_native_to_evm(<Test as Config>::Currency::minimum_balance());
+		ctx.ext.warm(CallAccess::new(DJANGO_ADDR, false, true));
 		ctx.ext
 			.call(
 				&CallResources::NoLimits,
@@ -3814,6 +3743,34 @@ fn cold_hot_failed_code_load_leaves_code_cold() {
 		// DJANGO is a contract, but its code hash is not registered, so the
 		// code load fails after the account and contract info are warmed.
 		place_contract(&DJANGO, H256([0xcd; 32]));
+		run_root_call(CHARLIE_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_failed_charge_reverts_the_warm() {
+	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+		ctx.ext.warm(CallAccess::new(DJANGO_ADDR, false, false));
+		Err("charge ran out of gas after the warm".into())
+	});
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
+		assert_matches!(
+			ctx.ext
+				.warmth_of(CallAccess::Plain { target: DJANGO_ADDR, transfers_value: true }),
+			CallWarmth::Plain {
+				account: Some(Warmth::Cold { .. }),
+				original_account: Warmth::Cold { .. },
+				account_info: Warmth::Cold { .. }
+			},
+			"the failed frame's warm rolls back with it",
+		);
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, bob_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
 		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }

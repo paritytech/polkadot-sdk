@@ -3333,6 +3333,32 @@ fn weight_consumed_is_linear_for_nested_calls() {
 }
 
 #[test]
+fn cold_hot_repeated_call_target_stays_hot() {
+	let (code, _code_hash) = compile_module("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let metrics_after = |recursions: u32| {
+			builder::bare_call(addr).data(recursions.encode()).build_and_unwrap_result();
+			last_access_list_metrics()
+		};
+
+		// A fresh access list per call, so these snapshots are independent.
+		const TARGET_ENTRIES: u32 = 4; // OriginalAccount, AccountInfo, CodeInfo and CodeBlob
+		for recursions in [0u32, 1, 5] {
+			let m = metrics_after(recursions);
+			assert_eq!(
+				m.cold, TARGET_ENTRIES,
+				"the target is warmed cold once, whatever the depth"
+			);
+			assert_eq!(m.hot, TARGET_ENTRIES * recursions, "each self-call re-reads the four hot");
+		}
+	});
+}
+
+#[test]
 fn read_only_call_cannot_store() {
 	let (binary_caller, _code_hash_caller) = compile_module("read_only_call").unwrap();
 	let (binary_callee, _code_hash_callee) = compile_module("store_call").unwrap();

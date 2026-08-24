@@ -278,6 +278,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::warmth_of")
 	}
 
+	fn warm<A: Access>(&mut self, _access: A) -> A::Warmth {
+		panic!("MockExt::warm")
+	}
+
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
 		Ok(())
 	}

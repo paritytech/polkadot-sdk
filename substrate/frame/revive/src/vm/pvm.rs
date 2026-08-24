@@ -278,14 +278,6 @@ enum CallType {
 	DelegateCall,
 }
 
-impl CallType {
-	fn cost(&self, ext: &impl Ext, callee: &H160, transfers_value: bool) -> RuntimeCosts {
-		let state_access =
-			CallAccess::new(*callee, matches!(self, CallType::DelegateCall), transfers_value);
-		RuntimeCosts::CallBase(ext.warmth_of(state_access))
-	}
-}
-
 /// This is only appropriate when writing out data of constant size that does not depend on user
 /// input. In this case the costs for this copy was already charged as part of the token at
 /// the beginning of the API entry point.
@@ -650,8 +642,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => {
-				let cost = call_type.cost(&*self.ext, &callee, !value.is_zero());
-				self.charge_gas(cost)?
+				let state_access = CallAccess::new(
+					callee,
+					matches!(&call_type, CallType::DelegateCall),
+					!value.is_zero(),
+				);
+				let warmth = self.ext.warm(state_access);
+				self.charge_gas(RuntimeCosts::CallBase(warmth))?
 			},
 		};
 

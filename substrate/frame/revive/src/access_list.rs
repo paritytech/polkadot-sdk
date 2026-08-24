@@ -317,11 +317,12 @@ pub struct AccessListMetrics {
 /// A reverting frame rolls back every entry it touched, regardless of whether
 /// the touch happened before or after its charge:
 ///
-/// - Storage opcodes touch before charging: an out-of-gas at the charge must not leave the entry
-///   warm without its cold cost ever being paid, nor a `Read` to `Write` upgrade unpaid, so the
-///   rollback removes the frame's insertions and downgrades its upgrades.
-/// - Call and code entries charge before touching: a reverting frame simply discards the warmth it
-///   added (EIP-2929 revert semantics).
+/// - Storage opcodes and calls touch before charging: their charge fails only on out-of-gas, which
+///   reverts the whole frame, so the rollback removes the frame's insertions (and downgrades any
+///   `Read` to `Write` upgrades) and never leaves an entry warm with its cold cost unpaid.
+/// - Code loads charge before touching, warming only after the load succeeds: a load can fail while
+///   the caller survives (a missing code hash is recoverable), so warming first would leave the
+///   code warm but unpaid.
 
 #[derive(Default)]
 pub struct AccessList {

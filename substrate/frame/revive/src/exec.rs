@@ -570,6 +570,10 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// warming the slot.
 	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
+	/// Warm the state items the access reads, returning the warmth they had
+	/// **before** this call.
+	fn warm<A: Access>(&mut self, access: A) -> A::Warmth;
+
 	/// Warmth of the state items the access reads.
 	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth;
 
@@ -1037,6 +1041,14 @@ where
 		origin.ensure_mapped()?;
 		// Create before the first frame is built, to capture its state accesses.
 		let mut access_list = AccessList::new();
+		// The top-level call has no interpreter to warm its target, so warm it here.
+		// Its weight was already charged at the extrinsic level.
+		if let FrameArgs::Call { dest, delegated_call: None, .. } = &args {
+			let address = T::AddressMapper::to_address(dest);
+			if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_none() {
+				access_list.warm(CallAccess::new(address, false, !value.is_zero()));
+			}
+		}
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -1122,19 +1134,6 @@ where
 				let delegate_precompile = delegated_call.as_ref().and_then(|delegated| {
 					<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes())
 				});
-
-				match &delegated_call {
-					Some(delegated) if delegate_precompile.is_none() => {
-						access_list.warm(CallAccess::Delegate { target: delegated.callee });
-					},
-					None if precompile.is_none() => {
-						access_list.warm(CallAccess::Plain {
-							target: address,
-							transfers_value: !value_transferred.is_zero(),
-						});
-					},
-					_ => {},
-				}
 
 				// which contract info to load is unaffected by the fact if this
 				// is a delegate call or not
@@ -1633,6 +1632,8 @@ where
 		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
 		if is_first_frame {
 			let m = self.access_list.metrics();
+			#[cfg(test)]
+			crate::tests::record_access_list_metrics(m);
 			log::trace!(
 				target: LOG_TARGET,
 				"access list metrics: size={size} cold={cold} hot={hot}",
@@ -2720,6 +2721,10 @@ where
 
 	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth {
 		self.access_list.warmth_of(access)
+	}
+
+	fn warm<A: Access>(&mut self, access: A) -> A::Warmth {
+		self.access_list.warm(access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

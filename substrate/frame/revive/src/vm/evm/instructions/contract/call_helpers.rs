@@ -86,7 +86,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
 			let state_access = CallAccess::new(callee, scheme.is_delegate_call(), !value.is_zero());
-			let cost = RuntimeCosts::CallBase(interpreter.ext.warmth_of(state_access));
+			let cost = RuntimeCosts::CallBase(interpreter.ext.warm(state_access));
 			interpreter.ext.charge_or_halt(cost)?;
 
 			interpreter
