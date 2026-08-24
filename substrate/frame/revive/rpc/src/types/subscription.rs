@@ -106,9 +106,12 @@ impl SubscriptionParameters {
 	) -> Option<Self> {
 		match (subscription_kind, subscription_options) {
 			(SubscriptionKind::Logs, None) => Some(Self::Logs(Filter::default())),
-			(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(filter))) => {
+			(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(filter)))
+				if filter.block_option.is_valid() =>
+			{
 				Some(Self::Logs(filter))
 			},
+			(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(_))) => None,
 			(SubscriptionKind::NewBlockHeaders, None) => Some(Self::NewBlockHeaders),
 			(SubscriptionKind::NewBlockHeaders, Some(SubscriptionOptions::LogsOptions(_))) => None,
 		}

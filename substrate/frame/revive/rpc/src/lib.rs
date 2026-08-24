@@ -32,7 +32,7 @@ use pallet_revive_types::runtime_api::{
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
-use std::pin::Pin;
+use std::{ops::ControlFlow, pin::Pin};
 use subxt::rpcs::methods::legacy::TransactionStatus;
 use thiserror::Error;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
@@ -608,8 +608,20 @@ impl EthRpcServer for EthRpcServerImpl {
 			) as _,
 			SubscriptionParameters::Logs(filter) => Box::pin(
 				BroadcastStream::new(self.client.get_log_subscription_rx())
-					.try_filter(move |log| futures::future::ready(filter.matches(log)))
-					.map_ok(SubscriptionItem::Log),
+					.map_ok(move |log| match filter.block_option.window(log.block_number) {
+						LogWindow::Closed => ControlFlow::Break(()),
+						LogWindow::NotYetOpen => ControlFlow::Continue(None),
+						LogWindow::Open => {
+							ControlFlow::Continue(filter.matches(&log).then_some(log))
+						},
+					})
+					.try_take_while(|flow| futures::future::ready(Ok(flow.is_continue())))
+					.try_filter_map(|flow| {
+						futures::future::ready(Ok(match flow {
+							ControlFlow::Continue(log) => log.map(SubscriptionItem::Log),
+							ControlFlow::Break(()) => None,
+						}))
+					}),
 			) as _,
 		};
 		let _ = tokio::spawn(Self::handle_subscription_forwarding(sink, stream));

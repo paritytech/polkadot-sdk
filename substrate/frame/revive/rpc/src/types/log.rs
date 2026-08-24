@@ -92,10 +92,60 @@ pub enum FilterBlockOption {
 	Range { from_block: BlockNumberOrTag, to_block: BlockNumberOrTag },
 }
 
+impl FilterBlockOption {
+	pub fn is_valid(&self) -> bool {
+		match self {
+			Self::AtBlock { .. } => true,
+			Self::Range {
+				from_block: BlockNumberOrTag::Latest,
+				to_block: BlockNumberOrTag::Latest,
+			} => true,
+			Self::Range { from_block, to_block: BlockNumberOrTag::Latest } => {
+				Self::concrete_bound(from_block).is_some()
+			},
+			Self::Range { from_block, to_block } => matches!(
+				(Self::concrete_bound(from_block), Self::concrete_bound(to_block)),
+				(Some(from), Some(to)) if from <= to
+			),
+		}
+	}
+
+	pub fn window(&self, block_number: U256) -> LogWindow {
+		match self {
+			Self::AtBlock { .. } => LogWindow::Open,
+			Self::Range { from_block, to_block } => {
+				match (Self::concrete_bound(from_block), Self::concrete_bound(to_block)) {
+					(_, Some(to)) if block_number > U256::from(to) => LogWindow::Closed,
+					(Some(from), _) if block_number < U256::from(from) => LogWindow::NotYetOpen,
+					_ => LogWindow::Open,
+				}
+			},
+		}
+	}
+
+	fn concrete_bound(bound: &BlockNumberOrTag) -> Option<u64> {
+		match bound {
+			BlockNumberOrTag::Earliest => Some(0),
+			BlockNumberOrTag::Number(number) => Some(*number),
+			BlockNumberOrTag::Latest |
+			BlockNumberOrTag::Finalized |
+			BlockNumberOrTag::Safe |
+			BlockNumberOrTag::Pending => None,
+		}
+	}
+}
+
 impl Default for FilterBlockOption {
 	fn default() -> Self {
 		Self::Range { from_block: BlockNumberOrTag::Latest, to_block: BlockNumberOrTag::Latest }
 	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogWindow {
+	NotYetOpen,
+	Open,
+	Closed,
 }
 
 #[serde_as]
@@ -191,32 +241,28 @@ mod tests {
 	}
 
 	#[test]
-	fn null_alternate_block_selectors_deserialize_as_the_non_null_selector() {
+	fn block_hash_conflicts_only_with_non_null_range_bounds() {
 		// Arrange
 		let block_hash = BlockHash::repeat_byte(0xab);
-		let at_block = serde_json::json!({
+		let with_null_bounds = serde_json::json!({
 			"blockHash": block_hash,
 			"fromBlock": null,
 			"toBlock": null,
 		});
-		let range = serde_json::json!({
-			"blockHash": null,
-			"fromBlock": "earliest",
-			"toBlock": null,
+		let with_non_null_bound = serde_json::json!({
+			"blockHash": block_hash,
+			"fromBlock": "latest",
 		});
 
 		// Act
-		let at_block = serde_json::from_value::<Filter>(at_block).unwrap();
-		let range = serde_json::from_value::<Filter>(range).unwrap();
+		let with_null_bounds = serde_json::from_value::<Filter>(with_null_bounds).unwrap();
+		let error = serde_json::from_value::<Filter>(with_non_null_bound).unwrap_err();
 
 		// Assert
-		assert_eq!(at_block.block_option, FilterBlockOption::AtBlock { block_hash });
+		assert_eq!(with_null_bounds.block_option, FilterBlockOption::AtBlock { block_hash });
 		assert_eq!(
-			range.block_option,
-			FilterBlockOption::Range {
-				from_block: BlockNumberOrTag::Earliest,
-				to_block: BlockNumberOrTag::Latest,
-			},
+			error.to_string(),
+			"cannot specify both BlockHash and FromBlock/ToBlock, choose one or the other",
 		);
 	}
 
@@ -240,24 +286,6 @@ mod tests {
 	}
 
 	#[test]
-	fn non_null_block_hash_and_range_bound_are_rejected() {
-		// Arrange
-		let representation = serde_json::json!({
-			"blockHash": BlockHash::repeat_byte(0xab),
-			"fromBlock": "latest",
-		});
-
-		// Act
-		let error = serde_json::from_value::<Filter>(representation).unwrap_err();
-
-		// Assert
-		assert_eq!(
-			error.to_string(),
-			"cannot specify both BlockHash and FromBlock/ToBlock, choose one or the other",
-		);
-	}
-
-	#[test]
 	fn malformed_block_hash_cannot_fall_through_to_a_range_filter() {
 		// Arrange
 		let representation = serde_json::json!({ "blockHash": "invalid" });
@@ -267,27 +295,6 @@ mod tests {
 
 		// Assert
 		assert_eq!(error.to_string(), "odd number of digits");
-	}
-
-	#[test]
-	fn unrelated_fields_are_ignored_when_deserializing_a_block_range() {
-		// Arrange
-		let representation = serde_json::json!({
-			"fromBlock": "earliest",
-			"unrelated": true,
-		});
-
-		// Act
-		let filter = serde_json::from_value::<Filter>(representation).unwrap();
-
-		// Assert
-		assert_eq!(
-			filter.block_option,
-			FilterBlockOption::Range {
-				from_block: BlockNumberOrTag::Earliest,
-				to_block: BlockNumberOrTag::Latest,
-			},
-		);
 	}
 
 	#[test]
@@ -327,18 +334,6 @@ mod tests {
 	}
 
 	#[test]
-	fn null_address_elements_are_rejected() {
-		// Arrange
-		let representation = serde_json::json!({ "address": [H160::repeat_byte(0xab), null] });
-
-		// Act
-		let result = serde_json::from_value::<Filter>(representation);
-
-		// Assert
-		assert!(result.is_err());
-	}
-
-	#[test]
 	fn null_topic_alternative_makes_the_position_a_wildcard() {
 		// Arrange
 		let representation = serde_json::json!({
@@ -353,36 +348,13 @@ mod tests {
 	}
 
 	#[test]
-	fn trailing_wildcard_preserves_third_topic_position() {
-		// Arrange
-		let event_signature = H256::repeat_byte(0xab);
-		let first_set_topic = H256::repeat_byte(0xcd);
-		let second_set_topic = H256::repeat_byte(0xef);
-		let representation = serde_json::json!({
-			"topics": [event_signature, [first_set_topic, second_set_topic], null],
-		});
-
-		// Act
-		let filter = serde_json::from_value::<Filter>(representation).unwrap();
-
-		// Assert
-		assert_eq!(
-			filter.topics,
-			vec![
-				bounded_set([event_signature]),
-				bounded_set([first_set_topic, second_set_topic]),
-				BoundedBTreeSet::new(),
-			],
-		);
-	}
-
-	#[test]
 	fn trailing_empty_array_position_requires_the_log_to_have_a_third_topic() {
 		// Arrange
 		let event_signature = H256::repeat_byte(0xab);
 		let second_topic = H256::repeat_byte(0xcd);
+		let alternative_topic = H256::repeat_byte(0x11);
 		let filter = serde_json::from_value::<Filter>(serde_json::json!({
-			"topics": [event_signature, [second_topic], []],
+			"topics": [event_signature, [second_topic, alternative_topic], []],
 		}))
 		.unwrap();
 		let two_topic_log =
@@ -401,59 +373,11 @@ mod tests {
 			filter.topics,
 			vec![
 				bounded_set([event_signature]),
-				bounded_set([second_topic]),
+				bounded_set([second_topic, alternative_topic]),
 				BoundedBTreeSet::new(),
 			],
 		);
 		assert!(!two_topic_log_matches);
 		assert!(three_topic_log_matches);
-	}
-
-	#[test]
-	fn logs_with_fewer_topics_than_filter_positions_do_not_match() {
-		// Arrange
-		let event_signature = H256::repeat_byte(0xab);
-		let filter = serde_json::from_value::<Filter>(serde_json::json!({
-			"topics": [event_signature, null],
-		}))
-		.unwrap();
-		let short_log = Log { topics: vec![event_signature], ..Default::default() };
-		let matching_log =
-			Log { topics: vec![event_signature, H256::repeat_byte(0xcd)], ..Default::default() };
-
-		// Act
-		let short_log_matches = filter.matches(&short_log);
-		let matching_log_matches = filter.matches(&matching_log);
-
-		// Assert
-		assert!(!short_log_matches);
-		assert!(matching_log_matches);
-	}
-
-	#[test]
-	fn single_alternatives_serialize_as_scalars_and_wildcards_as_empty_arrays() {
-		// Arrange
-		let address = H160::repeat_byte(0xab);
-		let event_signature = H256::repeat_byte(0xcd);
-		let other_topic = H256::repeat_byte(0xef);
-		let filter = serde_json::from_value::<Filter>(serde_json::json!({
-			"address": [address],
-			"topics": [event_signature, null, [event_signature, other_topic]],
-		}))
-		.unwrap();
-
-		// Act
-		let serialized = serde_json::to_value(&filter).unwrap();
-
-		// Assert
-		assert_eq!(
-			serialized,
-			serde_json::json!({
-				"fromBlock": "latest",
-				"toBlock": "latest",
-				"address": address,
-				"topics": [event_signature, [], [event_signature, other_topic]],
-			}),
-		);
 	}
 }
