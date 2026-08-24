@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787555495224,
+  "lastUpdate": 1787560854562,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71",
-          "message": "Cleanup HRMP channels that were force removed from RC state (#10324)\n\nReported here https://hackmd.io/@JjziWrpMQ2OeBtz99n7JXg/ByqF7Av0ge.\nChange:\n- Cleanup old LastHrmpMqcHeads entries when the corresponding channel\nwas remove from RC state\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-01-20T12:11:14Z",
-          "tree_id": "a5f0fc71a0a6e94f6e64b29cc6ce9a75c6b950e4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f4c6c0171c2ac44fbf0a768547f77e0e8c65c71"
-        },
-        "date": 1768915177846,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.04199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038265427952,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06582798994599993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.04045844704600001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35fc1c82e43094a2db14058c719bfe5591d5d959",
+          "message": "Make the experimental collator proto the default for Kusama (#12880)\n\nThe binary checks if a Kusama chainspec is loaded and enables the\nexperimental collator protocol by default unless\n`experimental-collator-protocol` parameter is passed explicitly. In that\ncase its value is respected no matter what the chainspec is.\n\nThe change reworks the `experimental-collator-protocol` to accept an\noptional true/false value in the format\n`--experimental-collator-protocol=[true|false]'. In practice this means\nthere are there are a few cases:\n- no `experimental-collator-protocol` parameter is provided ->\nexperimental is enabled for Kusama and disabled for any other chainspec.\n- `experimental-collator-protocol=true` or\n`experimental-collator-protocol=false` -> experimental is explicitly\nenabled or disabled no matter what the chain spec is.\n- `--experimental-collator-protocol` is provided without any value (the\nsame as `--experimental-collator-protocol=true`) experimental is enabled\nno matter what the chain spec is.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-24T07:12:12Z",
+          "tree_id": "8861b2032ce656be909720b56c21ed69117caef7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/35fc1c82e43094a2db14058c719bfe5591d5d959"
+        },
+        "date": 1787560822214,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.07399999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08552595873999991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039931538066,
             "unit": "seconds"
           }
         ]
