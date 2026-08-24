@@ -487,16 +487,17 @@ where
 		// we finalized a block earlier than any existing root (or possibly
 		// another fork not part of the tree). make sure to only keep roots that
 		// are part of the finalized branch
-		let mut changed = false;
-		let roots = std::mem::take(&mut self.roots);
-
-		for root in roots {
-			if root.number > number && is_descendent_of(hash, &root.hash)? {
-				self.roots.push(root);
-			} else {
-				changed = true;
-			}
-		}
+		let retain_roots = self
+			.roots
+			.iter()
+			.map(|root| Ok::<_, E>(root.number > number && is_descendent_of(hash, &root.hash)?))
+			.collect::<Result<Vec<_>, _>>()?;
+		let changed = retain_roots.iter().any(|retain| !retain);
+		self.roots = std::mem::take(&mut self.roots)
+			.into_iter()
+			.zip(retain_roots)
+			.filter_map(|(root, retain)| retain.then_some(root))
+			.collect();
 
 		self.best_finalized_number = Some(number);
 
@@ -675,6 +676,18 @@ where
 			}
 		}
 
+		let prospective_roots = position.map_or(&self.roots, |i| &self.roots[i].children);
+		let retain_roots = prospective_roots
+			.iter()
+			.map(|root| {
+				Ok::<_, E>(
+					root.number > number && is_descendent_of(hash, &root.hash)? ||
+						root.number == number && root.hash == *hash ||
+						is_descendent_of(&root.hash, hash)?,
+				)
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+
 		let node_data = position.map(|i| {
 			let node = self.roots.swap_remove(i);
 			self.roots = node.children;
@@ -687,20 +700,12 @@ where
 		// ancestors (or equal) to the finalized block (in this case the node
 		// wasn't finalized earlier presumably because the predicate didn't
 		// pass).
-		let mut changed = false;
-		let roots = std::mem::take(&mut self.roots);
-
-		for root in roots {
-			let retain = root.number > number && is_descendent_of(hash, &root.hash)? ||
-				root.number == number && root.hash == *hash ||
-				is_descendent_of(&root.hash, hash)?;
-
-			if retain {
-				self.roots.push(root);
-			} else {
-				changed = true;
-			}
-		}
+		let changed = retain_roots.iter().any(|retain| !retain);
+		self.roots = std::mem::take(&mut self.roots)
+			.into_iter()
+			.zip(retain_roots)
+			.filter_map(|(root, retain)| retain.then_some(root))
+			.collect();
 
 		self.best_finalized_number = Some(number);
 
@@ -1045,6 +1050,21 @@ mod test {
 	}
 
 	#[test]
+	fn finalize_is_atomic_on_ancestry_error() {
+		let mut tree = ForkTree::new();
+		tree.import::<_, TestError>("A", 20, 1, &|_, _| Ok(false)).unwrap();
+		let original = tree.clone();
+
+		let is_descendent_of = |base: &&str, target: &&str| match (*base, *target) {
+			("B", "A") => Err(TestError),
+			_ => Ok(false),
+		};
+
+		assert_eq!(tree.finalize(&"B", 10, &is_descendent_of), Err(Error::Client(TestError)));
+		assert_eq!(tree, original, "finalize must leave the tree unchanged on ancestry errors");
+	}
+
+	#[test]
 	fn finalize_with_ancestor_works() {
 		let (mut tree, is_descendent_of) = test_fork_tree();
 
@@ -1221,6 +1241,31 @@ mod test {
 
 		// "E" will be pruned out
 		assert_eq!(tree.roots().count(), 0);
+	}
+
+	#[test]
+	fn finalize_with_descendent_if_is_atomic_on_ancestry_error() {
+		let mut tree = ForkTree::new();
+		let build_ancestry =
+			|base: &&str, target: &&str| Ok::<_, TestError>((*base, *target) == ("A", "C"));
+		tree.import("A", 10, 1, &build_ancestry).unwrap();
+		tree.import("C", 20, 2, &build_ancestry).unwrap();
+		let original = tree.clone();
+
+		let is_descendent_of = |base: &&str, target: &&str| match (*base, *target) {
+			("A", "B") => Ok(true),
+			("B", "C") => Err(TestError),
+			_ => Ok(false),
+		};
+
+		assert_eq!(
+			tree.finalize_with_descendent_if(&"B", 15, &is_descendent_of, |_| true),
+			Err(Error::Client(TestError)),
+		);
+		assert_eq!(
+			tree, original,
+			"finalize_with_descendent_if must leave the tree unchanged on ancestry errors",
+		);
 	}
 
 	#[test]
