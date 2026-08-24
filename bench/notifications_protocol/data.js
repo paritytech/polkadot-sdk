@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787559877217,
+  "lastUpdate": 1787583098703,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -209471,6 +209471,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2393196445,
             "range": "± 36695961",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "daed4eb8756a0b8120ab800114060bab6510adb6",
+          "message": "staking-async parachain: deny ForeignAssets and PoolAssets transfers to the NonTransfer proxy (#12922)\n\n## Summary\n\n`ProxyType::NonTransfer` in the `staking-async` parachain runtime is\ndocumented as permitting only calls that do not transfer funds or\nassets, but its `!matches!`-based deny-list named only\n`RuntimeCall::Assets` (TrustBackedAssets, `Instance1`). The runtime also\nexposes `ForeignAssets` (`Instance2`) and `PoolAssets` (`Instance3`) as\nseparate `pallet_assets` call variants (see `construct_runtime!`), and\n`InstanceFilter::filter` only inspects the outer `RuntimeCall`\ndiscriminant. Their fungible transfers therefore passed the filter,\nletting a `NonTransfer` proxy holder move value out of the proxied\naccount.\n\nThis mirrors the asset-hub-westend gap fixed in #12771; here it applies\nto the `staking-async` parachain runtime.\n\n## Fix\n\nAdd `RuntimeCall::ForeignAssets { .. }` and `RuntimeCall::PoolAssets {\n.. }` to the `NonTransfer` deny-list, and add a proxy-filter test\nasserting that `NonTransfer` denies transfers on both instances.\n\n## Verification\n\n`SKIP_WASM_BUILD=1 cargo test -p pallet-staking-async-parachain-runtime\n--lib non_transfer_proxy_denies_other_asset_instances` — passes.\n\nCloses #12780\n\nFound by the Runtime Whitebox Fuzzer.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-08-24T13:38:57Z",
+          "tree_id": "e8f898a0843eea8ac9577aa493eb2c8191f697a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/daed4eb8756a0b8120ab800114060bab6510adb6"
+        },
+        "date": 1787583063389,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4536382,
+            "range": "± 33409",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 291578,
+            "range": "± 3239",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4445880,
+            "range": "± 29017",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 364140,
+            "range": "± 6886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5284217,
+            "range": "± 51323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 899979,
+            "range": "± 4579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10943104,
+            "range": "± 83990",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4966674,
+            "range": "± 66687",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45656151,
+            "range": "± 468814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40942631,
+            "range": "± 442286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 400800961,
+            "range": "± 3946947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 324262917,
+            "range": "± 2778632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2722127856,
+            "range": "± 13933415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2910375165,
+            "range": "± 59488517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3422697,
+            "range": "± 40830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1845963,
+            "range": "± 13493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3544022,
+            "range": "± 35736",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1922334,
+            "range": "± 12607",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4081871,
+            "range": "± 33942",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2294026,
+            "range": "± 12711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8444320,
+            "range": "± 127135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5427891,
+            "range": "± 58857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38632841,
+            "range": "± 333957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37850691,
+            "range": "± 631199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 334472377,
+            "range": "± 2704806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 293010817,
+            "range": "± 2671288",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2644626554,
+            "range": "± 22524051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2444512388,
+            "range": "± 71670183",
             "unit": "ns/iter"
           }
         ]
