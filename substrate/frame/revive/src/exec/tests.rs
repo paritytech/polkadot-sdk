@@ -24,7 +24,7 @@ use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
-		CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, Paid, StateAccess,
+		CodeLoad, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, Paid, StateAccess,
 		StateWarmth, StorageOp, Warmth,
 	},
 	exec::ExportedFunction::*,
@@ -3425,8 +3425,7 @@ fn cold_hot_call_target_warms_across_calls() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext
-				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Cold { .. }),
 				original_account: Warmth::Cold { .. },
@@ -3438,8 +3437,7 @@ fn cold_hot_call_target_warms_across_calls() {
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext
-				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Cold { .. }),
 				original_account: Warmth::Hot(_),
@@ -3494,10 +3492,8 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 
 			let before = ctx.ext.access_list_metrics();
 			assert_matches!(
-				ctx.ext.operation_warmth(StateAccess::Call {
-					target: DJANGO_ADDR,
-					transfers_value: true
-				}),
+				ctx.ext
+					.warmth_of(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
 				StateWarmth::Call {
 					account: Some(Warmth::Cold { .. }),
 					original_account: Warmth::Cold { .. },
@@ -3518,10 +3514,8 @@ fn cold_hot_depth_denied_call_leaves_target_cold() {
 				"the denied call warms nothing",
 			);
 			assert_matches!(
-				ctx.ext.operation_warmth(StateAccess::Call {
-					target: DJANGO_ADDR,
-					transfers_value: true
-				}),
+				ctx.ext
+					.warmth_of(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
 				StateWarmth::Call {
 					account: Some(Warmth::Cold { .. }),
 					original_account: Warmth::Cold { .. },
@@ -3598,7 +3592,7 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
 		assert_matches!(
 			ctx.ext
-				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+				.warmth_of(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Cold { .. }),
 				original_account: Warmth::Cold { .. },
@@ -3607,8 +3601,7 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 			"B's revert drops the warmth of targets B touched",
 		);
 		assert_matches!(
-			ctx.ext
-				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Cold { .. }),
 				original_account: Warmth::Hot(_),
@@ -3656,8 +3649,7 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 fn cold_hot_first_frame_warms_entry_target() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext
-				.operation_warmth(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
+			ctx.ext.warmth_of(StateAccess::Call { target: BOB_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Cold { .. }),
 				original_account: Warmth::Hot(_),
@@ -3683,7 +3675,7 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		assert_matches!(
 			ctx.ext
-				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+				.warmth_of(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Cold { .. }),
 				original_account: Warmth::Cold { .. },
@@ -3696,7 +3688,7 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
 			ctx.ext
-				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+				.warmth_of(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Cold { .. }),
 				original_account: Warmth::Hot(_),
@@ -3739,7 +3731,7 @@ fn cold_hot_value_transfer_warms_the_account() {
 			.unwrap();
 		assert_eq!(
 			ctx.ext
-				.operation_warmth(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
+				.warmth_of(StateAccess::Call { target: DJANGO_ADDR, transfers_value: true }),
 			StateWarmth::Call {
 				account: Some(Warmth::Hot(Paid::Read)),
 				original_account: Warmth::Hot(Paid::Read),
@@ -3764,7 +3756,7 @@ fn cold_hot_code_paid_level_matches_the_operation() {
 		let own_hash =
 			MockLoader::code_hashes().into_iter().find(|hash| *hash != dummy_ch).unwrap();
 		assert_eq!(
-			ctx.ext.code_load_warmth(own_hash),
+			ctx.ext.warmth_of(CodeLoad { hash: own_hash, code_info_op: StorageOp::Read }),
 			CodeLoadWarmth { info: Warmth::Hot(Paid::Read), blob: Warmth::Hot(Paid::Read) },
 			"a call loads code without touching the refcount",
 		);
@@ -3781,7 +3773,7 @@ fn cold_hot_code_paid_level_matches_the_operation() {
 			)
 			.unwrap();
 		assert_eq!(
-			ctx.ext.code_load_warmth(dummy_ch),
+			ctx.ext.warmth_of(CodeLoad { hash: dummy_ch, code_info_op: StorageOp::Read }),
 			CodeLoadWarmth { info: Warmth::Hot(Paid::Write), blob: Warmth::Hot(Paid::Read) },
 			"instantiating bumps the refcount: metadata write-paid, blob only read",
 		);

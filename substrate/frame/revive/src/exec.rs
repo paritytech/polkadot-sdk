@@ -20,8 +20,8 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
 	access_list::{
-		AccessEntry, AccessList, CodeLoad, CodeLoadWarmth, StateAccess, StateWarmth,
-		StorageAccessKind, StorageOp,
+		Access, AccessEntry, AccessList, CodeLoad, CodeLoadWarmth, StateAccess, StorageAccessKind,
+		StorageOp,
 	},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -570,8 +570,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// warming the slot.
 	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
-	/// Warmth of the state items the operation reads.
-	fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth;
+	/// Warmth of the state items the access reads.
+	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -1112,37 +1112,29 @@ where
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let address = T::AddressMapper::to_address(&dest);
 				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
-				let code_info_op = StorageOp::Read;
 
-				// Mock handlers exist only in tests: resolve a mocked
-				// delegate before warming, so estimation warms the real target.
+				// Resolve a mocked delegate before warming/
 				let delegated_call = delegated_call.or_else(|| {
 					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
 						mock_handler.mock_delegated_caller(address, input_data)
 					})
 				});
 
-				// Precompiles don't use cold/hot pricing, so they're not warmed.
-				// Even a plain account reads its AccountInfo, so it's safe to warm here.
-				let mut delegate_precompile = None;
+				let delegate_precompile = delegated_call.as_ref().and_then(|delegated| {
+					<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes())
+				});
+
 				match &delegated_call {
-					None => {
-						if precompile.is_none() {
-							access_list.warm(StateAccess::Call {
-								target: address,
-								transfers_value: !value_transferred.is_zero(),
-							});
-						}
+					Some(delegated) if delegate_precompile.is_none() => {
+						access_list.warm(StateAccess::DelegateCall { target: delegated.callee });
 					},
-					Some(delegated) => {
-						let found =
-							<AllPrecompiles<T>>::get::<Self>(delegated.callee.as_fixed_bytes());
-						if found.is_none() {
-							access_list
-								.warm(StateAccess::DelegateCall { target: delegated.callee });
-						}
-						delegate_precompile = Some(found);
+					None if precompile.is_none() => {
+						access_list.warm(StateAccess::Call {
+							target: address,
+							transfers_value: !value_transferred.is_zero(),
+						});
 					},
+					_ => {},
 				}
 
 				// which contract info to load is unaffected by the fact if this
@@ -1170,11 +1162,9 @@ where
 
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
-					let scanned = delegate_precompile
-						.expect("every delegate went through the scan above; qed");
-					if let Some(precompile) = scanned {
+					if let Some(instance) = delegate_precompile {
 						ExecutableOrPrecompile::Precompile {
-							instance: precompile,
+							instance,
 							_phantom: Default::default(),
 						}
 					} else {
@@ -1183,24 +1173,19 @@ where
 							return Ok(None);
 						};
 						let executable =
-							Self::load_code(access_list, meter, info.code_hash, code_info_op)?;
+							Self::load_code(access_list, meter, info.code_hash, StorageOp::Read)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
+				} else if let Some(instance) = precompile {
+					ExecutableOrPrecompile::Precompile { instance, _phantom: Default::default() }
 				} else {
-					if let Some(precompile) = precompile {
-						ExecutableOrPrecompile::Precompile {
-							instance: precompile,
-							_phantom: Default::default(),
-						}
-					} else {
-						let code_hash = contract
-							.as_contract()
-							.expect("When not a precompile the contract was loaded above; qed")
-							.code_hash;
-						let executable =
-							Self::load_code(access_list, meter, code_hash, code_info_op)?;
-						ExecutableOrPrecompile::Executable(executable)
-					}
+					let code_hash = contract
+						.as_contract()
+						.expect("When not a precompile the contract was loaded above; qed")
+						.code_hash;
+					let executable =
+						Self::load_code(access_list, meter, code_hash, StorageOp::Read)?;
+					ExecutableOrPrecompile::Executable(executable)
 				};
 
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
@@ -1978,20 +1963,13 @@ where
 		self.block_number = block_number;
 	}
 
-	/// Warms everything a call to the target reads: its account entries and its code.
+	/// Warms everything a call to the target reads.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn warm_call_target(&mut self, state_access: StateAccess, code_hash: H256) {
 		self.access_list.warm(state_access);
 		// The measured hot call loads code, it never bumps a refcount.
 		self.access_list
 			.warm(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read });
-	}
-
-	/// Peeks the warmth of a code hash's metadata and blob entries.
-	#[cfg(test)]
-	pub(crate) fn code_load_warmth(&self, code_hash: H256) -> CodeLoadWarmth {
-		self.access_list
-			.warmth_of(CodeLoad { hash: code_hash, code_info_op: StorageOp::Read })
 	}
 
 	#[cfg(test)]
@@ -2741,8 +2719,8 @@ where
 		)
 	}
 
-	fn operation_warmth(&self, state_access: StateAccess) -> StateWarmth {
-		self.access_list.warmth_of(state_access)
+	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth {
+		self.access_list.warmth_of(access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

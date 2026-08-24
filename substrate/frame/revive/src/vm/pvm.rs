@@ -282,7 +282,7 @@ impl CallType {
 	fn cost(&self, ext: &impl Ext, callee: &H160, transfers_value: bool) -> RuntimeCosts {
 		let state_access =
 			StateAccess::call(*callee, matches!(self, CallType::DelegateCall), transfers_value);
-		RuntimeCosts::CallBase(ext.operation_warmth(state_access))
+		RuntimeCosts::CallBase(ext.warmth_of(state_access))
 	}
 }
 
