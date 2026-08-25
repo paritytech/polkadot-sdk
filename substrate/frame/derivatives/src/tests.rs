@@ -171,6 +171,59 @@ fn auto_id_collection() {
 }
 
 #[test]
+fn mapped_create_emits_mapping_event_exactly_once() {
+	new_test_ext().execute_with(|| {
+		// `frame_system` does not record events at genesis.
+		System::set_block_number(1);
+
+		let original =
+			AssetId(Location::new(1, [Parachain(4321), PalletInstance(42), GeneralIndex(1)]));
+
+		assert_ok!(AutoIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(1),
+			original.clone()
+		));
+
+		let derivative = AutoIdDerivativeCollections::get_derivative(&original).unwrap();
+
+		let events: Vec<_> = System::events().into_iter().map(|record| record.event).collect();
+
+		let mapping_created = events
+			.iter()
+			.filter(|event| {
+				matches!(
+					event,
+					RuntimeEvent::AutoIdDerivativeCollections(
+						pallet_derivatives::Event::DerivativeMappingCreated {
+							original: o,
+							derivative_id: d,
+						},
+					) if *o == original && *d == derivative
+				)
+			})
+			.count();
+
+		let created = events
+			.iter()
+			.filter(|event| {
+				matches!(
+					event,
+					RuntimeEvent::AutoIdDerivativeCollections(
+						pallet_derivatives::Event::DerivativeCreated { original: o },
+					) if *o == original
+				)
+			})
+			.count();
+
+		// Registering the mapping emits `DerivativeMappingCreated`, and the extrinsic emits a
+		// single `DerivativeCreated`. Previously the mapped path emitted `DerivativeCreated`
+		// twice and never emitted `DerivativeMappingCreated`.
+		assert_eq!(mapping_created, 1);
+		assert_eq!(created, 1);
+	});
+}
+
+#[test]
 fn local_nfts() {
 	new_test_ext().execute_with(|| {
 		let collection_owner = 1;
