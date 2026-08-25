@@ -67,112 +67,103 @@ mod v1 {
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;
 
+	/// The lifecycle a para ends up with. Shared with `pre_upgrade` so the expectation
+	/// `post_upgrade` checks cannot drift from what the migration writes.
+	fn migrated_lifecycle(old: &v0::ParaLifecycle) -> ParaLifecycle {
+		match old {
+			v0::ParaLifecycle::Onboarding => ParaLifecycle::Onboarding,
+			v0::ParaLifecycle::Parachain => ParaLifecycle::Parachain,
+			v0::ParaLifecycle::Parathread => ParaLifecycle::Parachain,
+			// Upgrade enacted immediately, downgrade cancelled.
+			v0::ParaLifecycle::UpgradingParathread => ParaLifecycle::Parachain,
+			v0::ParaLifecycle::DowngradingParachain => ParaLifecycle::Parachain,
+			v0::ParaLifecycle::OffboardingParathread => ParaLifecycle::OffboardingParachain,
+			v0::ParaLifecycle::OffboardingParachain => ParaLifecycle::OffboardingParachain,
+		}
+	}
+
+	/// Whether the migration has to add the para to the `Parachains` list. Only the former
+	/// parathreads; everything else was already in it or is offboarding.
+	fn joins_parachains_list(old: &v0::ParaLifecycle) -> bool {
+		matches!(old, v0::ParaLifecycle::Parathread | v0::ParaLifecycle::UpgradingParathread)
+	}
+
 	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let parathread_count = v0::ParaLifecycles::<T>::iter()
-				.filter(|(_, lc)| {
-					matches!(
-						lc,
-						v0::ParaLifecycle::Parathread |
-							v0::ParaLifecycle::UpgradingParathread |
-							v0::ParaLifecycle::OffboardingParathread |
-							v0::ParaLifecycle::DowngradingParachain
-					)
-				})
-				.count() as u32;
+			// The lifecycle every para is expected to hold afterwards, checked one by one in
+			// `post_upgrade`.
+			let expected: Vec<(ParaId, ParaLifecycle)> = v0::ParaLifecycles::<T>::iter()
+				.map(|(para, old_lifecycle)| (para, migrated_lifecycle(&old_lifecycle)))
+				.collect();
+
 			log::info!(
 				target: crate::paras::LOG_TARGET,
-				"paras MigrateToV1 pre_upgrade: {} parathread lifecycle entries to migrate",
-				parathread_count,
+				"paras MigrateToV1 pre_upgrade: {} lifecycle entries to migrate",
+				expected.len(),
 			);
-			Ok(parathread_count.encode())
+
+			Ok(expected.encode())
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let mut weight = Weight::zero();
 			let mut parachains = ParachainsCache::<T>::new();
+			let mut parachains_touched = false;
 
-			// Collect all entries from the old storage.
 			let all_entries: Vec<(ParaId, v0::ParaLifecycle)> =
 				v0::ParaLifecycles::<T>::drain().collect();
 
-			// One read per entry in the drain.
-			weight = weight.saturating_add(T::DbWeight::get().reads(all_entries.len() as u64));
+			// The drain reads every entry and deletes it.
+			let mut reads = all_entries.len() as u64;
+			let mut writes = all_entries.len() as u64;
 
 			for (para, old_lifecycle) in all_entries {
-				let new_lifecycle = match old_lifecycle {
-					// Stable states: Onboarding and Parachain are unchanged.
-					v0::ParaLifecycle::Onboarding => Some(ParaLifecycle::Onboarding),
-					v0::ParaLifecycle::Parachain => Some(ParaLifecycle::Parachain),
-
-					// Parathread → Parachain: register in the parachains list.
-					v0::ParaLifecycle::Parathread => {
-						parachains.add(para);
-						Some(ParaLifecycle::Parachain)
-					},
-
-					// UpgradingParathread → Parachain: the upgrade is enacted immediately.
-					v0::ParaLifecycle::UpgradingParathread => {
-						parachains.add(para);
-						Some(ParaLifecycle::Parachain)
-					},
-
-					// DowngradingParachain → Parachain: cancel the downgrade.
-					v0::ParaLifecycle::DowngradingParachain => Some(ParaLifecycle::Parachain),
-
-					// OffboardingParathread → OffboardingParachain: keep offboarding.
-					v0::ParaLifecycle::OffboardingParathread => {
-						Some(ParaLifecycle::OffboardingParachain)
-					},
-
-					// OffboardingParachain: unchanged.
-					v0::ParaLifecycle::OffboardingParachain => {
-						Some(ParaLifecycle::OffboardingParachain)
-					},
-				};
-
-				if let Some(lc) = new_lifecycle {
-					V1ParaLifecycles::<T>::insert(&para, lc);
-					weight = weight.saturating_add(T::DbWeight::get().writes(1));
+				if joins_parachains_list(&old_lifecycle) {
+					parachains.add(para);
+					parachains_touched = true;
 				}
+
+				V1ParaLifecycles::<T>::insert(&para, migrated_lifecycle(&old_lifecycle));
+				writes = writes.saturating_add(1);
 			}
 
-			// Persist any changes to the Parachains list.
+			// `ParachainsCache` reads `Parachains` when first touched and writes it back on drop;
+			// untouched, it does neither.
+			if parachains_touched {
+				reads = reads.saturating_add(1);
+				writes = writes.saturating_add(1);
+			}
 			drop(parachains);
-			weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-			weight
+			T::DbWeight::get().reads_writes(reads, writes)
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let parathread_count_before =
-				u32::decode(&mut &state[..]).expect("Was properly encoded") as usize;
+			let expected = <Vec<(ParaId, ParaLifecycle)>>::decode(&mut &state[..])
+				.expect("Was properly encoded");
 
-			// After migration there must be no parathread lifecycle entries.
-			let remaining_parathread_entries = V1ParaLifecycles::<T>::iter()
-				.filter(|(_, lc)| {
-					!matches!(
-						lc,
-						ParaLifecycle::Onboarding |
-							ParaLifecycle::Parachain |
-							ParaLifecycle::OffboardingParachain
-					)
-				})
-				.count();
-
+			// `iter_keys` does not decode values, so entries left in the old encoding still count.
 			ensure!(
-				remaining_parathread_entries == 0,
-				"All parathread lifecycle entries must be removed after migration"
+				V1ParaLifecycles::<T>::iter_keys().count() == expected.len(),
+				"paras MigrateToV1: the number of lifecycle entries changed"
 			);
+
+			// A para that was missed either fails to decode, giving `None`, or decodes to another
+			// variant, since the variant indices changed.
+			for (para, expected_lifecycle) in expected.iter() {
+				ensure!(
+					V1ParaLifecycles::<T>::get(para).as_ref() == Some(expected_lifecycle),
+					"paras MigrateToV1: para lifecycle was not migrated as expected"
+				);
+			}
 
 			log::info!(
 				target: crate::paras::LOG_TARGET,
-				"paras MigrateToV1 post_upgrade: migrated {} parathread entries, 0 remaining",
-				parathread_count_before,
+				"paras MigrateToV1 post_upgrade: verified {} lifecycle entries",
+				expected.len(),
 			);
 
 			Ok(())
@@ -262,5 +253,98 @@ mod tests {
 				Some(ParaLifecycle::Onboarding)
 			);
 		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn migrate_to_v1_post_upgrade_verifies_every_para() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			insert_v0_lifecycles();
+
+			let state =
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::pre_upgrade()
+					.unwrap();
+			<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+
+			assert!(
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::post_upgrade(
+					state
+				)
+				.is_ok()
+			);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn migrate_to_v1_post_upgrade_catches_an_unmigrated_para() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			insert_v0_lifecycles();
+
+			let state =
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::pre_upgrade()
+					.unwrap();
+			<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+
+			// One entry back in the old encoding, as if skipped. The count is unchanged, so only
+			// the per-para check catches it.
+			v0::ParaLifecycles::<Test>::insert(
+				ParaId::from(3u32),
+				v0::ParaLifecycle::OffboardingParathread,
+			);
+
+			assert!(
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::post_upgrade(
+					state
+				)
+				.is_err()
+			);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn migrate_to_v1_post_upgrade_catches_a_dropped_para() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			insert_v0_lifecycles();
+
+			let state =
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::pre_upgrade()
+					.unwrap();
+			<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
+
+			ParaLifecycles::<Test>::remove(ParaId::from(1u32));
+
+			assert!(
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::post_upgrade(
+					state
+				)
+				.is_err()
+			);
+		});
+	}
+
+	/// One para in every old lifecycle variant.
+	#[cfg(feature = "try-runtime")]
+	fn insert_v0_lifecycles() {
+		v0::ParaLifecycles::<Test>::insert(ParaId::from(1u32), v0::ParaLifecycle::Parathread);
+		v0::ParaLifecycles::<Test>::insert(
+			ParaId::from(2u32),
+			v0::ParaLifecycle::UpgradingParathread,
+		);
+		v0::ParaLifecycles::<Test>::insert(
+			ParaId::from(3u32),
+			v0::ParaLifecycle::OffboardingParathread,
+		);
+		v0::ParaLifecycles::<Test>::insert(
+			ParaId::from(4u32),
+			v0::ParaLifecycle::DowngradingParachain,
+		);
+		v0::ParaLifecycles::<Test>::insert(ParaId::from(5u32), v0::ParaLifecycle::Parachain);
+		v0::ParaLifecycles::<Test>::insert(ParaId::from(6u32), v0::ParaLifecycle::Onboarding);
+		v0::ParaLifecycles::<Test>::insert(
+			ParaId::from(7u32),
+			v0::ParaLifecycle::OffboardingParachain,
+		);
 	}
 }

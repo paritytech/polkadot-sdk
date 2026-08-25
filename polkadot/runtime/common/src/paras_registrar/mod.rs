@@ -300,8 +300,13 @@ pub mod pallet {
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
 		///
-		/// The caller must be Root, the `para` owner, or the `para` itself. The para must be an
-		/// on-demand parachain.
+		/// The caller must be Root, the `para` owner, or the `para` itself. The para must be
+		/// settled, meaning neither onboarding nor offboarding.
+		///
+		/// This no longer refuses a leased para, having previously accepted only the `Parathread`
+		/// lifecycle that leased paras never had. Deregistering one leaves its `slots` `Leases`
+		/// behind, deposits reserved until those periods elapse. The lock a para gets on its first
+		/// head stops its manager, but not Root or the para itself.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
@@ -666,10 +671,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Deregister a Para Id, freeing all data returning any deposit.
+	///
+	/// The para must be settled or absent. With a single `Parachain` lifecycle this no longer
+	/// tells a leased para from an unleased one: see the `deregister` extrinsic.
 	fn do_deregister(id: ParaId) -> DispatchResult {
 		match paras::Pallet::<T>::lifecycle(id) {
-			// Para must be stable or absent. Now that all paras share the `Parachain` lifecycle,
-			// a para with an active lease can reach this branch; callers must ensure it is safe.
 			Some(ParaLifecycle::Parachain) | None => {},
 			_ => return Err(Error::<T>::CannotDeregister.into()),
 		}
