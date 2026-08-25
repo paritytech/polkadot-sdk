@@ -101,6 +101,8 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+	type MaxProofNodes = ConstU32<16>;
+	type MaxReceiptBytes = ConstU32<8192>;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
@@ -214,22 +216,43 @@ impl snowbridge_pallet_system::Config for Runtime {
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
-	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
+	use crate::{Runtime, RuntimeOrigin};
 	use codec::Encode;
+	use snowbridge_beacon_primitives::CompactBeaconState;
 	use snowbridge_inbound_queue_primitives::EventFixture;
+	use snowbridge_pallet_ethereum_client::{FinalizedBeaconState, LatestFinalizedBlockRoot};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
-	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+	use snowbridge_pallet_inbound_queue_fixtures::dynamic::{
+		build_dynamic_fixture, DynamicFixture,
+	};
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage() -> EventFixture {
-			let message = make_register_token_message();
-			EthereumBeaconClient::store_finalized_header(
-				message.finalized_header,
-				message.block_roots_root,
-			)
-			.unwrap();
-			message
+		fn initialize_storage(n: u32, s: u32) -> EventFixture {
+			let DynamicFixture { event_fixture, finalized_block_root } =
+				build_dynamic_fixture(n, s);
+			// Inject CompactBeaconState directly so the dynamic fixture's deterministic
+			// `finalized_block_root` matches what the verifier looks up. (Going through
+			// `store_finalized_header` would key the state by `hash_tree_root(header)`,
+			// which the dynamic builder cannot reproduce without its own ssz machinery.)
+			FinalizedBeaconState::<Runtime>::insert(
+				finalized_block_root,
+				CompactBeaconState {
+					slot: event_fixture.event.proof.execution_proof.header.slot + 1,
+					block_roots_root: event_fixture.block_roots_root,
+				},
+			);
+			LatestFinalizedBlockRoot::<Runtime>::set(finalized_block_root);
+			// Register the synthetic channel id used by the dynamic fixture so that
+			// `EthereumSystem::ChannelLookup` resolves to AssetHub during `submit`.
+			snowbridge_pallet_system::Channels::<Runtime>::insert(
+				snowbridge_pallet_inbound_queue_fixtures::dynamic::CHANNEL_ID_AS_CHANNEL_ID,
+				snowbridge_core::Channel {
+					agent_id: sp_core::H256::zero(),
+					para_id: rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
+				},
+			);
+			event_fixture
 		}
 	}
 

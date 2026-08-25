@@ -137,6 +137,8 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+	type MaxProofNodes = ConstU32<16>;
+	type MaxReceiptBytes = ConstU32<8192>;
 }
 
 pub type XcmMessageProcessor = InboundXcmMessageProcessor<
@@ -174,6 +176,8 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RewardPayment = BridgeRelayers;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
+	type MaxProofNodes = ConstU32<16>;
+	type MaxReceiptBytes = ConstU32<8192>;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
@@ -217,6 +221,8 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
+	type MaxProofNodes = ConstU32<16>;
+	type MaxReceiptBytes = ConstU32<8192>;
 }
 
 #[cfg(not(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test)))]
@@ -341,34 +347,42 @@ pub mod benchmark_helpers {
 		},
 		vec,
 		xcm_config::{RelayNetwork, XcmConfig},
-		EthereumBeaconClient, EthereumSystem, Runtime, RuntimeOrigin, System,
+		EthereumSystem, Runtime, RuntimeOrigin, System,
 	};
 	use codec::Encode;
-	use frame_support::assert_ok;
 	use hex_literal::hex;
-	use snowbridge_beacon_primitives::BeaconHeader;
+	use snowbridge_beacon_primitives::CompactBeaconState;
 	use snowbridge_inbound_queue_primitives::{
 		v2::{MessageToXcm, XcmMessageProcessor as InboundXcmMessageProcessor},
 		EventFixture,
 	};
+	use snowbridge_pallet_ethereum_client::{FinalizedBeaconState, LatestFinalizedBlockRoot};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
-	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+	use snowbridge_pallet_inbound_queue_fixtures::dynamic::{
+		build_dynamic_fixture, DynamicFixture,
+	};
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
-	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
 	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
-	use sp_core::H256;
 	use testnet_parachains_constants::westend::snowbridge::{AssetHubParaId, EthereumNetwork};
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 	use xcm_executor::XcmExecutor;
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
-		fn initialize_storage() -> EventFixture {
-			let message = make_register_token_message();
-			EthereumBeaconClient::store_finalized_header(
-				message.finalized_header,
-				message.block_roots_root,
-			)
-			.unwrap();
+		fn initialize_storage(n: u32, s: u32) -> EventFixture {
+			let DynamicFixture { event_fixture, finalized_block_root } =
+				build_dynamic_fixture(n, s);
+			// Bypass `store_finalized_header` (which would re-hash the header and key the
+			// CompactBeaconState by that hash). The dynamic fixture computes its own
+			// `block_roots_root` against a deterministic `finalized_block_root`, so we
+			// inject the matching state directly.
+			FinalizedBeaconState::<Runtime>::insert(
+				finalized_block_root,
+				CompactBeaconState {
+					slot: event_fixture.event.proof.execution_proof.header.slot + 1,
+					block_roots_root: event_fixture.block_roots_root,
+				},
+			);
+			LatestFinalizedBlockRoot::<Runtime>::set(finalized_block_root);
 			System::set_storage(
 				RuntimeOrigin::root(),
 				vec![(
@@ -377,26 +391,53 @@ pub mod benchmark_helpers {
 				)],
 			)
 			.unwrap();
-			message
+			// Register the synthetic channel id used by the dynamic fixture so that
+			// `EthereumSystem::ChannelLookup` resolves to AssetHub during `submit`.
+			snowbridge_pallet_system::Channels::<Runtime>::insert(
+				snowbridge_pallet_inbound_queue_fixtures::dynamic::CHANNEL_ID_AS_CHANNEL_ID,
+				snowbridge_core::Channel {
+					agent_id: sp_core::H256::zero(),
+					para_id: AssetHubParaId::get(),
+				},
+			);
+			event_fixture
 		}
 	}
 
 	impl<T: snowbridge_pallet_inbound_queue_v2::Config> InboundQueueBenchmarkHelperV2<T> for Runtime {
-		fn initialize_storage() -> EventFixture {
-			let message = make_register_token_message_v2();
-
-			assert_ok!(EthereumBeaconClient::store_finalized_header(
-				message.finalized_header,
-				message.block_roots_root,
-			));
-
-			message
+		fn initialize_storage(n: u32, s: u32) -> EventFixture {
+			let DynamicFixture { event_fixture, finalized_block_root } =
+				snowbridge_pallet_inbound_queue_v2_fixtures::dynamic::build_dynamic_fixture(n, s);
+			// Inject CompactBeaconState directly so the dynamic fixture's deterministic
+			// `finalized_block_root` matches what the verifier looks up.
+			FinalizedBeaconState::<Runtime>::insert(
+				finalized_block_root,
+				CompactBeaconState {
+					slot: event_fixture.event.proof.execution_proof.header.slot + 1,
+					block_roots_root: event_fixture.block_roots_root,
+				},
+			);
+			LatestFinalizedBlockRoot::<Runtime>::set(finalized_block_root);
+			event_fixture
 		}
 	}
 
 	impl<T: snowbridge_pallet_outbound_queue_v2::Config> OutboundQueueBenchmarkHelperV2<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		fn initialize_storage(n: u32, s: u32) -> EventFixture {
+			let DynamicFixture { event_fixture, finalized_block_root } =
+				snowbridge_pallet_outbound_queue_v2::dynamic_fixture::build_dynamic_fixture(n, s);
+			// Mirror the inbound v2 helper: inject the FinalizedBeaconState directly so the
+			// dynamic fixture's deterministic `finalized_block_root` matches what the
+			// verifier looks up.
+			FinalizedBeaconState::<Runtime>::insert(
+				finalized_block_root,
+				CompactBeaconState {
+					slot: event_fixture.event.proof.execution_proof.header.slot + 1,
+					block_roots_root: event_fixture.block_roots_root,
+				},
+			);
+			LatestFinalizedBlockRoot::<Runtime>::set(finalized_block_root);
+			event_fixture
 		}
 	}
 

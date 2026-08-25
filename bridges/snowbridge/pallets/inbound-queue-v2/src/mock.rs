@@ -79,7 +79,7 @@ const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage() -> EventFixture {
+	fn initialize_storage(_n: u32, _s: u32) -> EventFixture {
 		make_register_token_message()
 	}
 }
@@ -181,6 +181,8 @@ impl inbound_queue_v2::Config for Test {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = MockRewardLedger;
+	type MaxProofNodes = frame_support::traits::ConstU32<16>;
+	type MaxReceiptBytes = frame_support::traits::ConstU32<8192>;
 }
 
 pub fn setup() {
@@ -365,6 +367,8 @@ pub mod exploit {
 		type RewardKind = BridgeReward;
 		type DefaultRewardKind = SnowbridgeReward;
 		type RewardPayment = MockRewardLedger;
+		type MaxProofNodes = ConstU32<16>;
+		type MaxReceiptBytes = ConstU32<8192>;
 	}
 
 	pub fn setup() {

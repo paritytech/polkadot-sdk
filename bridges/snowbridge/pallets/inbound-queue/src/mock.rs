@@ -133,7 +133,11 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-	fn initialize_storage() -> EventFixture {
+	fn initialize_storage(_n: u32, _s: u32) -> EventFixture {
+		// The mock verifier is a no-op, so the parameters do not need to shape the fixture.
+		// Real per-runtime helpers (in `bridge_to_ethereum_config`) build a proof of size `n`
+		// with a receipt of size `s` and prime the beacon-client storage so the proof
+		// verifies end-to-end.
 		make_register_token_message()
 	}
 }
@@ -263,6 +267,8 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
+	type MaxProofNodes = ConstU32<16>;
+	type MaxReceiptBytes = ConstU32<8192>;
 }
 
 pub fn setup() {

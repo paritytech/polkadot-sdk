@@ -144,6 +144,8 @@ impl crate::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type MaxProofNodes = ConstU32<16>;
+	type MaxReceiptBytes = ConstU32<8192>;
 }
 
 fn setup() {
@@ -253,6 +255,11 @@ pub fn mock_register_token_message(sibling_para_id: u32) -> Message {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> BenchmarkHelper<T> for Test {
-	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: BeaconHeader, _: H256) {}
+	// MockVerifier is a no-op so the produced `EventFixture` does not need to verify;
+	// the benchmark just exercises the dispatch overhead. Real per-runtime helpers in
+	// `bridge_to_ethereum_config` build a fixture that round-trips through the real
+	// `EthereumBeaconClient` verifier.
+	fn initialize_storage(n: u32, s: u32) -> snowbridge_outbound_queue_primitives::EventFixture {
+		crate::dynamic_fixture::build_dynamic_fixture(n, s).event_fixture
+	}
 }

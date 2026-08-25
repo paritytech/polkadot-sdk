@@ -917,3 +917,176 @@ fn dust_removal_goes_to_accumulation_account() {
 		},
 	);
 }
+
+#[test]
+#[cfg(feature = "runtime-benchmarks")]
+fn dynamic_inbound_fixture_verifies_through_real_verifier() {
+	use bridge_hub_westend_runtime::EthereumInboundQueue;
+	use frame_support::traits::fungible::Mutate;
+	use snowbridge_inbound_queue_primitives::Verifier;
+	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
+
+	// `n` (proof node count) is capped by `MaxProofNodes` (16); the top case exercises it.
+	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (16, 8192)];
+
+	for &(n, s) in cases {
+		ExtBuilder::<Runtime>::default()
+			.with_collators(collator_session_keys().collators())
+			.with_session_keys(collator_session_keys().session_keys())
+			.with_para_id(1002.into())
+			.build()
+			.execute_with(|| {
+				let event_fixture = <Runtime as BenchmarkHelper<Runtime>>::initialize_storage(n, s);
+
+				// The synthesized proof must contain exactly `n` nodes — the value the
+				// `submit` weight is charged against.
+				assert_eq!(
+					event_fixture.event.proof.receipt_proof.len() as u32,
+					n,
+					"(n={n}, s={s}) proof node count must equal n",
+				);
+
+				// Step 1: Verifier alone
+				let verifier_result =
+					<Runtime as snowbridge_pallet_inbound_queue::Config>::Verifier::verify(
+						&event_fixture.event.event_log,
+						&event_fixture.event.proof,
+					);
+				verifier_result.unwrap_or_else(|e| {
+					panic!("(n={n}, s={s}) verifier rejected dynamic fixture: {:?}", e)
+				});
+
+				// Step 2: full submit — fund accounts so the reward transfer succeeds.
+				let caller = AccountId::from([7u8; 32]);
+				let sovereign = bridge_hub_westend_runtime::ExistentialDeposit::get();
+				let _ = Balances::mint_into(&caller, sovereign).expect("mint caller");
+				let sovereign_account =
+					snowbridge_core::sibling_sovereign_account::<Runtime>(1000u32.into());
+				let _ = Balances::mint_into(&sovereign_account, 3_000_000_000_000u128)
+					.expect("mint sovereign");
+
+				let submit_result = EthereumInboundQueue::submit(
+					RuntimeOrigin::signed(caller),
+					event_fixture.event,
+				);
+				submit_result.unwrap_or_else(|e| panic!("(n={n}, s={s}) submit failed: {:?}", e));
+			});
+	}
+}
+
+#[test]
+#[cfg(feature = "runtime-benchmarks")]
+fn dynamic_outbound_v2_fixture_verifies_through_real_verifier() {
+	use bridge_hub_westend_runtime::EthereumOutboundQueueV2;
+	use snowbridge_outbound_queue_primitives::{v2::DeliveryReceipt, Verifier};
+	use snowbridge_pallet_outbound_queue_v2::{
+		dynamic_fixture::BENCH_NONCE, BenchmarkHelper as OutboundBenchmarkHelperV2, PendingOrder,
+		PendingOrders,
+	};
+
+	// `n` (proof node count) is capped by `MaxProofNodes` (16); the top case exercises it.
+	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (16, 8192)];
+
+	for &(n, s) in cases {
+		ExtBuilder::<Runtime>::default()
+			.with_collators(collator_session_keys().collators())
+			.with_session_keys(collator_session_keys().session_keys())
+			.with_para_id(1002.into())
+			.build()
+			.execute_with(|| {
+				let event_fixture =
+					<Runtime as OutboundBenchmarkHelperV2<Runtime>>::initialize_storage(n, s);
+
+				// The synthesized proof must contain exactly `n` nodes — the value the
+				// `submit_delivery_receipt` weight is charged against.
+				assert_eq!(
+					event_fixture.event.proof.receipt_proof.len() as u32,
+					n,
+					"outbound v2 (n={n}, s={s}) proof node count must equal n",
+				);
+
+				// Step 1: Verifier alone
+				let verifier_result =
+					<Runtime as snowbridge_pallet_outbound_queue_v2::Config>::Verifier::verify(
+						&event_fixture.event.event_log,
+						&event_fixture.event.proof,
+					);
+				verifier_result.unwrap_or_else(|e| {
+					panic!("outbound v2 (n={n}, s={s}) verifier rejected dynamic fixture: {:?}", e)
+				});
+
+				// Step 2: ensure DeliveryReceipt decodes from the synthesized log.
+				let receipt = DeliveryReceipt::try_from(&event_fixture.event.event_log)
+					.unwrap_or_else(|e| {
+						panic!("outbound v2 (n={n}, s={s}) DeliveryReceipt decode failed: {:?}", e)
+					});
+				assert_eq!(receipt.nonce, BENCH_NONCE);
+
+				// Step 3: insert a matching PendingOrder so submit_delivery_receipt finds it.
+				PendingOrders::<Runtime>::insert(
+					receipt.nonce,
+					PendingOrder { nonce: receipt.nonce, fee: 0, block_number: 0 },
+				);
+
+				// Step 4: full submit_delivery_receipt
+				let caller = AccountId::from([7u8; 32]);
+				let submit_result = EthereumOutboundQueueV2::submit_delivery_receipt(
+					RuntimeOrigin::signed(caller),
+					Box::new(event_fixture.event),
+				);
+				submit_result.unwrap_or_else(|e| {
+					panic!("outbound v2 (n={n}, s={s}) submit_delivery_receipt failed: {:?}", e)
+				});
+			});
+	}
+}
+
+#[test]
+#[cfg(feature = "runtime-benchmarks")]
+fn dynamic_inbound_v2_fixture_verifies_through_real_verifier() {
+	use bridge_hub_westend_runtime::EthereumInboundQueueV2;
+	use snowbridge_inbound_queue_primitives::Verifier;
+	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as BenchmarkHelperV2;
+
+	// `n` (proof node count) is capped by `MaxProofNodes` (16); the top case exercises it.
+	let cases: &[(u32, u32)] = &[(1, 320), (4, 1024), (16, 8192)];
+
+	for &(n, s) in cases {
+		ExtBuilder::<Runtime>::default()
+			.with_collators(collator_session_keys().collators())
+			.with_session_keys(collator_session_keys().session_keys())
+			.with_para_id(1002.into())
+			.build()
+			.execute_with(|| {
+				let event_fixture =
+					<Runtime as BenchmarkHelperV2<Runtime>>::initialize_storage(n, s);
+
+				// The synthesized proof must contain exactly `n` nodes — the value the
+				// `submit` weight is charged against.
+				assert_eq!(
+					event_fixture.event.proof.receipt_proof.len() as u32,
+					n,
+					"v2 (n={n}, s={s}) proof node count must equal n",
+				);
+
+				// Step 1: Verifier alone
+				let verifier_result =
+					<Runtime as snowbridge_pallet_inbound_queue_v2::Config>::Verifier::verify(
+						&event_fixture.event.event_log,
+						&event_fixture.event.proof,
+					);
+				verifier_result.unwrap_or_else(|e| {
+					panic!("v2 (n={n}, s={s}) verifier rejected dynamic fixture: {:?}", e)
+				});
+
+				// Step 2: full submit
+				let caller = AccountId::from([7u8; 32]);
+				let submit_result = EthereumInboundQueueV2::submit(
+					RuntimeOrigin::signed(caller),
+					Box::new(event_fixture.event),
+				);
+				submit_result
+					.unwrap_or_else(|e| panic!("v2 (n={n}, s={s}) submit failed: {:?}", e));
+			});
+	}
+}

@@ -58,6 +58,9 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod dynamic_fixture;
+
 #[cfg(test)]
 mod mock;
 
@@ -84,6 +87,8 @@ use snowbridge_core::{
 	BasicOperatingMode,
 };
 use snowbridge_merkle_tree::merkle_root;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_outbound_queue_primitives::EventFixture;
 use snowbridge_outbound_queue_primitives::{
 	v2::{
 		abi::{CommandWrapper, OutboundMessageWrapper},
@@ -100,9 +105,6 @@ use sp_std::prelude::*;
 pub use types::{OnNewCommitment, PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 use xcm::prelude::NetworkId;
-
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::BeaconHeader;
 
 pub use pallet::*;
 
@@ -172,6 +174,19 @@ pub mod pallet {
 		type EthereumNetwork: Get<NetworkId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
+
+		/// Maximum number of trie nodes in a receipt proof. Used as the benchmark upper bound
+		/// for the `n` component of `WeightInfo::submit_delivery_receipt` and as the
+		/// worst-case `n` argument in delivery-cost estimation. Does NOT enforce a proof-size
+		/// limit at runtime — the verifier rejects oversized proofs through its own cost
+		/// accounting.
+		type MaxProofNodes: Get<u32>;
+
+		/// Maximum size in bytes of an Ethereum receipt referenced by a proof. Used as the
+		/// benchmark upper bound for the `s` component of
+		/// `WeightInfo::submit_delivery_receipt` and as the worst-case `s` argument in
+		/// delivery-cost estimation. Does NOT enforce a receipt-size limit at runtime.
+		type MaxReceiptBytes: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -287,7 +302,12 @@ pub mod pallet {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+		/// Build an `EventFixture` whose receipt proof has roughly `n` trie nodes and whose
+		/// receipt body is roughly `s` bytes, prime the verifier's storage so the returned
+		/// event verifies, and hand the fixture back for the benchmark to submit. The fixture
+		/// must carry an `InboundMessageDispatched` log targeting the benchmark's
+		/// `PendingOrders` entry.
+		fn initialize_storage(n: u32, s: u32) -> EventFixture;
 	}
 
 	#[pallet::call]
@@ -296,7 +316,13 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
 	{
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
+		#[pallet::weight(T::WeightInfo::submit_delivery_receipt(
+			event.proof.receipt_proof.len() as u32,
+			// The receipt is stored as the value of the leaf (last) node of the receipt-trie
+			// proof, so the leaf's encoded length is a tight upper bound for the receipt size
+			// at dispatch time, before verification has run.
+			event.proof.receipt_proof.last().map(|leaf| leaf.len() as u32).unwrap_or(0),
+		))]
 		pub fn submit_delivery_receipt(
 			origin: OriginFor<T>,
 			event: Box<EventProof>,

@@ -1,0 +1,22 @@
+title: 'snowbridge: Linear-parameterized receipt-log benchmarks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replaces the constant-time weights for snowbridge's three Ethereum-event-consuming extrinsics with `Linear<MIN, MAX>` benchmarks parameterized by the actual cost drivers: receipt-proof node count `n` and receipt envelope size `s`. Affects `pallet-inbound-queue::submit`, `pallet-inbound-queue-v2::submit`, and `pallet-outbound-queue-v2::submit_delivery_receipt`.
+    Each pallet's `BenchmarkHelper::initialize_storage` now takes `(n, s)`, the corresponding `WeightInfo` method takes `(u32, u32)`, and the dispatch reads `n` / `s` from `event.proof.receipt_proof` so callers are charged in proportion to verifier work rather than worst-case. Adds Config items `MaxProofNodes` and `MaxReceiptBytes` as the upper bounds used both for benchmark calibration and worst-case delivery-cost estimation (they do NOT enforce proof or receipt size limits at runtime — the Ethereum consensus spec naturally caps proof depth via key length and block gas limits).
+    Introduces a shared dynamic-fixture builder in `snowbridge-pallet-ethereum-client-fixtures::dynamic` (the inverse of `pallet-ethereum-client::Pallet::verify`) that synthesizes `EventFixture`s mirroring the verifier's SSZ + merkle + receipts-trie logic. Three thin per-version wrappers consume it: v1 inbound, v2 inbound (ABI-encoded `OutboundMessageAccepted`), v2 outbound (`InboundMessageDispatched` + zero-address filler log). Wires `bridge-hub-westend-runtime` to it and adds three `runtime-benchmarks`-gated diagnostic tests that drive the synthesized fixtures end-to-end through the real verifier at `(1, 320)`, `(4, 1024)`, `(16, 8192)`.
+crates:
+- name: snowbridge-pallet-inbound-queue
+  bump: major
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: major
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: major
+- name: snowbridge-pallet-ethereum-client-fixtures
+  bump: minor
+- name: snowbridge-pallet-inbound-queue-fixtures
+  bump: minor
+- name: snowbridge-pallet-inbound-queue-v2-fixtures
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: patch
