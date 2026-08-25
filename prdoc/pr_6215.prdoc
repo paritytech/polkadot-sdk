@@ -84,6 +84,35 @@ doc:
     `service_task` drops the `Lookup` entry before it knows the task completed. The `set_retry`
     benchmark had to stop targeting a named task; weights were not regenerated, since the new setup
     can only measure less. Reported by the Runtime Whitebox Fuzzer.
+- audience: Runtime Dev
+  description: |-
+    `pallet-nft-fractionalization::unify` only called `start_destroy` on the fractions asset, so the
+    asset was left in `Destroying` state: its `Asset` entry and metadata stayed in storage and the
+    metadata deposit stayed reserved, until someone happened to finish the destruction by hand
+    (`finish_destroy` is permissionless). `unify` now finishes the destruction itself, which clears
+    the metadata and releases the deposit back to the pallet's account -- the account that reserved
+    it. With an `AssetIdAllocator` that permits it, the asset ID also becomes reusable; on the Asset
+    Hubs (`AutoIncAssetId`) IDs are never reused, so there the gain is the storage and deposit
+    cleanup only.
+
+    Finishing is best effort: it cannot succeed while the asset still has asset accounts -- a
+    `touch`ed account survives a zero balance -- or approvals, no matter whose those are. In that
+    case the asset stays in `Destroying` state as before, and anyone can complete the destruction
+    with `destroy_accounts`/`destroy_approvals` + `finish_destroy`. Failing the `unify` instead
+    would let anyone lock an NFT for good, since anyone can create such an account or approval.
+
+    Two known gaps are left alone: the metadata deposit is still not refunded to the account that
+    paid it during `fractionalize`, it just accumulates in the pallet's account; and `start_destroy`
+    can still fail the `unify` outright if the asset has holds or freezes.
+
+    `unify` now does more work than the committed weights account for -- on the success path it
+    touches at least `Assets::Metadata`, `Assets::Reserves` and the pallet account's
+    `System::Account`, plus whatever the asset registry's destroy callback does -- so every
+    committed `pallet_nft_fractionalization` weight file under-declares it, in ref time and in
+    proof size. The pallet's own `weights.rs` and the Asset Hub Westend one should be regenerated
+    with `/cmd bench` before this merges; the Asset Hub Rococo and staking-async parachain ones are
+    not in the benchmark matrix and keep their stale numbers. Reported by the Runtime Whitebox
+    Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
@@ -100,4 +129,6 @@ crates:
 - name: pallet-delegated-staking
   bump: patch
 - name: pallet-scheduler
+  bump: patch
+- name: pallet-nft-fractionalization
   bump: patch
