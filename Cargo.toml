@@ -436,6 +436,7 @@ members = [
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
 	"substrate/frame/sassafras",
+	"substrate/frame/scarcity",
 	"substrate/frame/scheduler",
 	"substrate/frame/scored-pool",
 	"substrate/frame/session",
@@ -1055,6 +1056,7 @@ pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = 
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-salary = { path = "substrate/frame/salary", default-features = false }
+pallet-scarcity = { path = "substrate/frame/scarcity", default-features = false }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "substrate/frame/session", default-features = false }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }

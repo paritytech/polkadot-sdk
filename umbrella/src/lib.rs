@@ -684,6 +684,11 @@ pub use pallet_safe_mode;
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
 
+/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
+/// rest-time-prioritized transfers.
+#[cfg(feature = "pallet-scarcity")]
+pub use pallet_scarcity;
+
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
