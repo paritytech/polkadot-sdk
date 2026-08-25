@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787560734918,
+  "lastUpdate": 1787652069569,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "81a3af9830ea8b6ff64b066b73b04bb3b675add5",
-          "message": "parachain-system: Ensure left-over message budget fits into the PoV (#10863)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-21T22:20:18Z",
-          "tree_id": "4bf5bf95429f6f1ff512cf11703aa41c58195224",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/81a3af9830ea8b6ff64b066b73b04bb3b675add5"
-        },
-        "date": 1769038264866,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.233898059033338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12713404593333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13398571713333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4403fe6d0cea74ac3528ae80b5ce9b5f92cef213",
+          "message": "Remove deprecated RuntimeHelper::execute_as_governance (#12682)\n\n## Summary\n\n- Remove `RuntimeHelper::execute_as_governance` (deprecated after August\n2025).\n- Callers should use `execute_as_governance_call` instead; no remaining\nin-repo usages.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-25T08:29:23Z",
+          "tree_id": "0a91d48d99ea5ba4e7cb1a9b93c13b626e14645c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4403fe6d0cea74ac3528ae80b5ce9b5f92cef213"
+        },
+        "date": 1787652038825,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13423414353333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.8125889419,
             "unit": "seconds"
           }
         ]
