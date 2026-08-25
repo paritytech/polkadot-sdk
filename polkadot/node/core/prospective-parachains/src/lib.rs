@@ -1102,8 +1102,28 @@ async fn answer_get_known_output_heads(
 ) {
 	let mut known: HashMap<ParaId, HashSet<Hash>> =
 		para_ids.iter().map(|p| (*p, HashSet::new())).collect();
+
+	// Only report heads under leaves at the current (highest) session. Right after a session
+	// change a leaf from the superseded session can still linger in `active_leaves` before its
+	// deactivation is processed; its scheduling parents are no longer valid, so a consumer that
+	// treats a reported head as "already known" would wrongly hard-block a legitimate fetch at
+	// the session boundary. In steady state every active leaf shares one session, so this is a
+	// no-op.
+	let current_session = view
+		.active_leaves
+		.iter()
+		.filter_map(|leaf| view.per_scheduling_parent.get(leaf).map(|d| d.session_index))
+		.max();
+	let Some(current_session) = current_session else {
+		let _ = tx.send(known);
+		return;
+	};
+
 	for leaf in view.active_leaves.iter() {
 		if let Some(per_sp) = view.per_scheduling_parent.get(leaf) {
+			if per_sp.session_index != current_session {
+				continue;
+			}
 			for para_id in &para_ids {
 				if let Some(per_para) = per_sp.fragment_chains.get(para_id) {
 					let entry = known.entry(*para_id).or_default();

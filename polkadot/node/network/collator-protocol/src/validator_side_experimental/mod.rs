@@ -320,7 +320,10 @@ async fn run_inner<Context>(
 		// indeed trigger a new legitimate request.
 		// Also, it takes constant time to run because we only try launching new requests for
 		// unfulfilled claims. It's probably not worth optimising.
-		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
+		// Query prospective-parachains fresh for this pass (here, where the overseer is pumped),
+		// then hand it to the launch as plain data — no cached snapshot to go stale.
+		let pp_known = state.known_output_heads(ctx.sender()).await;
+		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender(), &pp_known).await;
 		timer = create_timer(
 			&*clock,
 			maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)),
