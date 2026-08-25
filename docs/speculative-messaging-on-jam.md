@@ -1,51 +1,93 @@
 # Speculative Messaging on JAM
 
- 
 The [Parachain Service](https://github.com/paritytech/polkadot-sdk/blob/afe236db6a21ac4ca4bef93a2e7375002a068585/designs/parachain-service-on-jam/parachain-service-on-jam.md#3-the-parachain-service) needs a robust messaging system to replace the older HRMP-style payloads, and [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md) is our primary candidate for JAM.
 
 Here is a breakdown of exactly what needs to change to make Speculative Messaging work smoothly on JAM, ensuring every Polkadot feature has a clear, explicit JAM backport.
 
-## Core Idea
+> For MVP, if a root has already been enacted, B can simply prove the enactment in core.
+> Enactment itself is the commitment that needs no sender host call, no dedicated state, no cell.
 
-> For MVP, if a root has already been enacted by B's anchor, B can simply prove it locally. 
-> The chain never needs to be involved, meaning **no on-chain settlement step is required**.
+The Parachain Service refine context carries the anchor's **accumulation-output-log super-peak**, and the 
+Accumulate output commits the heads that changed per block. Therefore, any root that was enacted
+is provable in-core from any recent anchor without any recency bound on enactment.
 
-B selects a recent JAM block to act as anchor, and includes a Merkle Proof in its PoV. 
-The PoV proof attests that A's cell holds `StreamsRootA`. Validators then verify this in-core.
+```
+anchor super-peak → belt leaf → (PS, heads_root) → Leaf { para_id, head_hash }
+  → header preimage → SPMS digest → StreamsRootA
+```
 
-If the root wasn't enacted at the anchor, it cannot be proven and must be verified on-chain instead.
-Ultimately, the system latency tiers dictate when to use this lightweight in-core proof or
-fallback to the settlement ring.
+In core validation proves the root was enacted, while on chain liveness ensure the history remains valid.
+Every consumer records `(ParaId, Generation)` per source in its digest.
+
+Since old roots prove forever in-core, we need a mechanism to catch rolled back senders (ie the `Generation` field).
+The receiver `B`'s digest records `(ParaId, Generation)` and the Accumulation phase ensures the `Generation` matches
+the latest one from the sender `A`.
+
+The roots not yet enacted enacted (higher specualtion tiers) still need the settlement ring.
+
 
 ## Changes at Accumulation Tier MVP
 
 We are releasing SpecMsg with Accumulation Tier (HRMP parity) from day 0. The changes needed:
 
-1. Digest fields: `spec_msg_provides: Option<StreamsRoot>` on the PS work digest.
+1. Sender header digest: `DigestItem::Consensus(SPMS_ENGINE_ID, enum SpmsDigest)`.
 
-The field is set via `set_provides_root` at most once per `Refine` and needs 33 bytes out of the 48 KiB report budget.
+This payload is the leaf that every enactment proof walk terminates on. To ensure we can change the
+digest layout in the future while having coexisting versions, the `SpmsDigest` is a versioned enum. 
+
+For bundled PoV the Parachain Service commits the head a parachain ended the block with. Therefore, only the
+final inner block's root is ever provable and intermediate roots can never be consumed or settled.
+
+This is the sender's consensus commitment relying only on 41 bytes in its header.
+
+```rust
+/// SCALE-encoded payload of `DigestItem::Consensus(SPMS_ENGINE_ID, ..)`: 41 bytes.
+///
+/// Identical encoding to (layout_version = V0, generation, streams_root). 
+enum SpmsDigest {
+    /// Versioned so we can have coexisting diget formats and coordonate the release schedule.
+    /// Encodes to u8.
+    V0 {
+        /// Sender `generation` same as above.
+        generation: u64,
+        /// The root of the sender's outbound message streams.
+        streams_root: H256
+    },
+}
+```
+
+2. Generations: `ParaInfo.generation: u64` plus a global `next_generation` allocator.
+
+The `ParaInfo` gains a `generation` field that starts at 1, generation 0 acts as a santinel for "unset" and
+ensures we can never pass accidentally the liveness check. 
+
+The `next_generation` is allocated globally per service, and not per-para. This ensures a rollback can't
+re-mint a value the consumer trusted in the past. The value is bumped only when `parachain_set_head`
+overwrote a live head and by a new Coretime `parachain_bump_generation` (this lets Coretime explicitly invalidate
+a para's history).
+
+Decoding optimization: The field is placed ahead of any variable-length fields of the `ParaInfo` so we can keep the
+per request read check cheap.
+
+3. Digest fields: `spec_msg_requires: BoundedVec<(ParaId, Generation), 64>` on the PS work digest
+
+The field is set via `set_requires_root` host call at most once per `Refine`. 
+At 12 bytes each, full fan-in costs is ~770 bytes of the 48 KiB report.
 This must be a digest field and not UpwardMessage, because UMP replays after the head write (so it can't gate enactment).
 
-The same `StreamsRoot` value must be byte-identical to the header digest (`DigestItem::Consensus(SPMS_ENGINE_ID, root)`).
-For bundled PoVs, the call is made once with the final inner block's root. This is valid since MMRs are append-only.
+4. `declare_budget(distinct_sources)` mandatory, once per Refine, before the first spec-msg call
+
+At MVP, the `declare_budget(distinct_sources)` declares upfront how many distinct `(ParaId, Generation)`
+sources it will touch. Then, lets the `Refine` wrapper reserve gas for proof verification before the
+work starts.
 
 
-2. A provides cell: one 32 byte value per parachain keyed at `0x09 ++ para_id`. 
+4. Settlement step 5b `spec_msg_recent_provides: Map<ParaId, BoundedVec<StreamsRoot, W>>`
 
-The cell is written only by Accumulate on enactment. Since it's 32 bytes it fits directly into a JAM trie leaf,
-so proving it is a pure Merkle path without a preimage, saving ~4KiB of proof per source per block vs a field inside
-`ParaInfo`. The cell's storage footprint is 81 balance units (vs +33 for the in-`ParaInfo` placement). The proof size
-wins over the 48 units.
+This is deferred to Tier 1b (not added until then) and represents the last `W` enacted roots per para keyed at `0x0a ++ para_id`.
 
-Note: Accumulate writes what the digest carries without verifying the MMR extensions. Consumers are protected against
-forged messages, not against a source rolling back its stream.
-
-
-3. Settlement ring: The last `W` enacted roots per para keyed at `0x0a ++ para_id`. This is reserved only and priced from
-day 0, but not written until Tier 1b.
-
-Sized at `W = 48` (derived from `3 elastic cores * (8 slot eviction window + 8 slot pipeline depth)`). This number must be
-fixed before baseline freezes.
+The settlement ring is charged at first write rather then priced from day-0 baseline. An unfunded parachain can consume sources at T0.
+However, it cannot consume them at T1b or above. 
 
 ```rust
 /// Keyed `0x0a ++ SCALE(para_id)`.
@@ -55,21 +97,25 @@ fixed before baseline freezes.
 spec_msg_recent_provides: Map<ParaId, BoundedVec<StreamsRoot, W>>
 ```
 
-The baseline footprint goes from 69,847 to 71,514 balance units. Every write and delete is balance neutral. All of this has to land before
-the first parachain registers to avoid a live migration.
+Every requires entry's source must exist at the named generation or the candidate is rejected.
+The candidate is rejected silently and the receiver `B` monitors off-chain similar to `parent-head` or 
+`check-code` failures. Otherwise, letting rejected candidates append `AccumulateLogs` would let junk
+candidates push out valuable entries.
 
-> Note: Only the PoV bundle final root reaches the cell and the ring. Intermediate roots stay in headers and can never be settled on chain.
 
-
-Deferred changes:
-- Digest field `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), N>` where `N = 64` consumed changes
-- `set_requires_root` host call to set the `spec_msg_requires`
+> Note: A forced rollback (`ParachainSetHead` from the Coretime chain) isn't applied instantly. Its an upward message,
+replayed at step 7 when the Coretime chain's own package accumulates. Packages accumulate in order within a block,
+so if B's package sits before Coretime's in that order: B's settlement checks A's generation (still current) and B enacts.
+Moments later int the same round, Coretime's replay rolls A back and bumps the generation. B consumed a history that died within the same block.
+Since this represents a tiny window of exposure relying on accumulation ordering and only reachable via Coretime intervention, at MVP
+this is accepted rather than solved (ie draining Coretime's commands before any settlement runs).
 
 ## Speculation Tiers
 
 - **T0 Accumulate / Consume enacted roots (MVP)**: Parity with HRMP
   - 1 or 2 slots from guarantee to accumulate, plus 1 or 2 for anchor lag
-  - no settlement and no requires field, verification happens with merkle proof in PoV and guest code
+  - root verification in-core via the output-log proof; the requires entry carries only
+    `(ParaId, Generation)` and settlement checks generation liveness — the rollback brake
 
 - **T1a Backed / PrefetchHint**: prefetch on backed with zero consensus change.
   - node reads guaranteed but not yet accumulated reports to warm cache
@@ -77,15 +123,14 @@ Deferred changes:
 
 - **T1b Backed / Active**
   - saves 1 or 2 slots
-  - needs a new digest field `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), N>`
-  - settlement ring gets active and settlement step consumes gas (N must be sized for gas limits)
+  - digest v1 widens the requires entry to `(ParaId, Generation, StreamsRoot)`
+  - settlement ring gets active and settlement adds a ring read per entry (sized for gas limits)
   - `A` guaranteed report can die and `B` burns its slot (ie `A` must land first or `B` burns a slot)
-  - Same block `A -> B` is possible since Accumulation happens in order and A's cell write lands before B's settlement runs.
+  - Same block `A -> B` is possible since Accumulation happens in order and A's ring push lands before B's settlement runs.
 
 - **T2 Best Block**
   - saves 2 to 4 slots
   - needs offchain announce protocol, offchain verification and header-digest read path for package boundary roots
-  - Announcing a boundary then rebundling is adversarial resulting in `RequiresUnmet` and burned slot, which needs slashing to solve
   - Recommended: high-fan-in consumption (64 sources like every tier up to here) at the lowest latency; T3 matches
     the latency but caps fan-in at 8. Needs LLv2 ACK/Slashing on JAM
   - Optional `prerequisites` for ordering: B's package declares A's hash. `J = 8` caps prerequisites plus segment
@@ -104,29 +149,34 @@ Deferred changes:
 
 ## Verification
 
-B's PoV carries per consumed source a Merkle proof of the `0x09` cell at the anchor. This is verified in guest code
-(ie `validate_block`) against the anchor's state root which the child PVM reads from `work_package_context()`.
+B's PoV carries per consumed source an `EnactmentProof`:
 
-**State key derivation**
+```rust
+struct EnactmentProof {
+    /// Path from the anchor's super-peak to the enacting block's entry in the
+    /// accumulation-output log.
+    /// 
+    /// TODO-GrayPaper: We need the exact format and hash function.
+    belt_path: Vec<u8>,
 
-The guest computes the cell's 31 byte state key itself. A mismatch results in a silent failure, therefore the construction matters:
+    /// PS's per-block accumulation output for that block.
+    heads_root: Hash,
 
-1. `h = BLAKE2b-256(0xffffffff ++ storage_key)`. The 4 byte domain prefix marks storage values
+    /// keccak path in the changed-heads tree to `Leaf { para_id, head_hash }`.
+    heads_path: Vec<Hash>,
 
-2. Bytes 0-7 of the state key interleave the service id's little-endian bytes with the hash
-(ie `[id0, h0, id1, h1, id2, h2, id3, h3]`), bytes 8-30 are `h[4..27]` taken linearly.
-The interleave covers only the first eight bytes.
+    /// Full header preimage; must hash to `head_hash`.
+    /// The SPMS digest `(generation, streams_root)` is extracted out of it.
+    header: Vec<u8>,
+}
+```
 
-Two inputs the guest must source correctly:
-- The PS service id is read from `work_items_summary()`
-- The storage key is `0x09` followed by the ParaId as a fixed 4 byte little-endian u32, not `Compact`.
+Verification occurs in the Parachain Service Refine wrapper via
+`verify_enacted_root(para_id, proof) -> Option<(StreamsRoot,Generation)>` and not in the guest code.
+Malformed proofs abort Refine with `RefineLog::InvalidEnactmentProof`.
 
-Then the message Lifts verify against the root as on Polkadot. This means that root authenticity is now enforced by
-parachain guest code rather than consensus. A buggy runtime can disable the inbound authentication with no chain evidence.
-The alternative is to introduce the requires field settlement at every tier.
-
-The settlement only replaces the recent root proof, not message verification. Since message verification is done by Lifts
-which verifies against `StreamRoot` by the guest in-core, a buggy guest that skips lift verification is equally broken.
+Then the message Lifts verify against the root as on Polkadot. Settlement (step 5b) replaces only the
+liveness check and never message verification. A guest that skips lift verification is broken either way.
 
 The anchor must be matched against the last 8 JAM blocks at guarantee time. The 6s slots needs roughly 3-4 slots out of the
 8 for state root lag, building, distribution and inclusion. This leaves approximately 4-5 slots to match against. Missing the
@@ -134,12 +184,13 @@ window means the re-anchoring swaps the proof envelope, not the block. Since MMR
 remains local. This needs to take into account AURA authorizer which makes the anchor double as the slot claim, which could 
 shrink the collator window from 8 to its own rotation run.
 
-PoV cost is about 4KiB per touched stream plus ~2KiB per source proof. A case of 128 streams and 64 sources consumes ~640KiB
-out of the ~13MiB budget.
+PoV cost is about 4KiB per touched stream plus, per source, the belt path (log2 of chain length), the heads
+path (<= log2 of core count) and A's full header preimage. For example, 128 streams and 64 sources stays well
+under 1 MiB out of the ~13MiB budget.
 
-> Unknown: The verification gas is unknown. Verification adds ~1700 blake2 calls inside Refine under a 5 * 10^9 ceiling.
-> This needs to be properly measured and the fallback is a blake2b-256 host call for the child PVM.
-
+> Unknown: The verification gas is unknown, and now needs `keccak_256` for the belt and
+> heads paths, BLAKE2b for the lifts. Needs to fit inside the Refine 5 * 10^9.
+> The fallback is hashing host calls for the child PVM, capped by a `MAX_VERIFICATION_HASHES` constant.
 
 ## Transport and Discovery
 
@@ -153,12 +204,11 @@ The actual cost is erasure-coding bandwidth across validators.
 
 **Discovery**
 
-For bootnode discovery, each parachain publishes its bootnodes under a well-known key in the existing KV store.
 The para's runtime maintains its list in the existing KV store (tag `0x08`):
 
 ```rust
-/// Full storage key: 0x08 ++ SCALE((para_id, SPEC_MSG_BOOTNODES_KEY)).
-const SPEC_MSG_BOOTNODES_KEY: &[u8] = b"spec-msg/bootnodes/v1";
+/// Full storage key: 0x08 ++ SCALE((para_id, BOOTNODES_KEY)).
+const BOOTNODES_KEY: &[u8] = b"bootnodes/v1";
 
 struct BootnodeRecord {
     /// bump = publish under .../v2
@@ -174,20 +224,21 @@ struct BootnodeRecord {
 
 Parachain A talks with Parachain B:
 
-1. B's JAM follower watches A's provides cell (`0x09++A`). When it changes to a new `StreamsRootA`, A added new outbound messages.
+1. B's JAM follower watches PS's per-block head commitments (§5.5) for A's leaf. A changed head carries a new
+`StreamsRootA` in A's header digest: A added new outbound messages.
 
-2. B finds A's network via JAM state keys. A published the bootnodes under `0x08 ++ SCALE((A, "spec-msg/bootnodes/v1"))`. 
+2. B finds A's network via JAM state keys. A published the bootnodes under `0x08 ++ SCALE((A, "bootnodes/v1"))`. 
 The record contains up to 8 multiaddresses (managed by parachain itself).
 
 3. B dials bootnodes and discovers A's archive nodes. Messages plus MMR extension proof are fetched from `/spec-msg/exchange` req-resp protocol.
 
-4. Extension is verified against `StreamsRootA` locally and a prefix of the messages is consumed in the next block. The PoV carries the anchor state proof of A's cell.
+4. Extension is verified against `StreamsRootA` locally and a prefix of the messages is consumed in the next block. The PoV carries the enactment proof for A's root.
 
 **Pruning**
 
-A sender may prune payloads below a watermark once the receiver block acknowledges it. Archives serve extension proofs from any block
-boundary within the last 25h, and payloads for every root still in the anchor window at Tier 0, or in the last `W` ring
-entries from Tier 1b (the ring is unwritten before that), or newer.
+A sender may prune payloads below a watermark once the receiver block acknowledges it.
+Archives serve extension proofs from any block boundary within the last 25h. Since any enacted root is provable regardless of age,
+the payload serving horizon is archive policy rather than a protocol window.
 
 ## Forced Recovery
 
@@ -198,46 +249,50 @@ The `parachain_set_head` rolls back enacted history:
     - B delivered before the recovery abandoned that block
     - B's supply is permanently inflated and no layer can undo it.
 
-To mitigate this the `set_head` must delete both cells, which makes recovery observable.
-The Coretime runbook must treat it as "reset all inbound channels". Consumers freeze a channel on a deleted cell
-or a non-extending root (one that does not extend the consumer's inbound frontier), discard prefetched messages
-and resume only on a fresh `open_channel`.
+To mitigate this, generations are bumped on `set_head` calls if and only if it overwrote a live head.
+Every consumer's requires entry names the generation it consumed under, and step 5b
+rejects any candidate still consuming the abandoned history.
+
+The Coretime runbook must treat a bump as "reset all inbound channels". Consumers freeze a channel
+on a generation bump or a non-extending root (one that does not extend the consumer's inbound frontier),
+discard prefetched messages and resume only on a fresh `open_channel`.
 
 The delivered messages stand and the re-delivered overlap after the restart. Before reopening, the recovering chain
 must communicate: what was delivered under the abandoned roots and compensate or it becomes an inflation source
 for the counterparties.
 
-> Note: A stream-generation marker in the leaf preimage could cover recovery (ie `(generation, StreamsRoot)`). 
-The generation id is bumped on every lifetime discontinuity (registration, set_head and re-onboarding).
-Then everything binds to `(paraID, generation)` instead of `paraId`
+> Note: abandoned enactments stay provable forever since the output log is append-only. A dead chain's last messages
+remain drainable at T0 with no state left behind.
 
 ## 4. Execution: End to End
 
 1. **A:** runtime appends outbound messages to per-destination stream MMRs
 
-   - Output: one `StreamsRoot`; the same computation feeds the header digest and `set_provides_root`
-   (guest-asserted identical).
-   
-   - PVF `export()`s payloads and node-side archives them. Wrapper emits
-   `spec_msg_provides: Some(root)` — once per bundle for the final block.
+   - Output: one `StreamsRoot`, committed as `(leaf_version, generation, root)` in A's own header digest.
+   Nothing else — no host call, no work-digest field.
+
+   - PVF `export()`s payloads and node-side archives them.
 
 2. **JAM:** report guaranteed -> available -> accumulated
-    -  step 6 writes `cell[A]` (and from Tier 1b pushes `ring[A]`).
+    - step 6 writes A's head. The output log carries it
+      under every later super-peak (and from Tier 1b, step 6 also pushes `ring[A]`).
 
-3. **B:** node reads `cell[A]` at recent blocks, fetches payloads (p2p exchange preferred for low latency, or DA)
+3. **B:** node follows A's enacted heads, fetches payloads (p2p exchange preferred for low latency, or DA)
 
-   - selects an anchor (best imported block where all consumed roots match, within its
-   authorizer's eligible set)
-   - authors a block consuming stream prefixes, reserving the proof envelope as `proof_size`
-   - in-core (and in the pre-submission self-check) the guest verifies state proofs against `anchor.state_root` and lifts against each source's
-   `StreamsRoot`. Calls into `report_error` with a structured payload on failure. Nothing further on-chain.
+   - selects an anchor (best imported block, within its authorizer's eligible set — any anchor at or after
+   each source's enacting block works)
+   - authors a block consuming stream prefixes, reserving the proof envelope as `proof_size`, and names each
+   source's `(ParaId, Generation)` via `set_requires_root`
+   - in-core the wrapper walks each enactment proof from the anchor's
+   super-peak and the guest verifies lifts against each source's `StreamsRoot`. Failures abort with `RefineLog`.
+   - on-chain, step 5b checks each named generation is still live, then B enacts.
 
 ## 5. Node Stack
 
 **Topology**, in preference order:
 
-(1) **embedded JAM follower with state**: reads the
-cell and generates proofs locally, no third-party liveness in the critical path (MVP
+(1) **embedded JAM follower with state**: follows the output log and PS head commitments,
+generates enactment proofs locally, no third-party liveness in the critical path (MVP
 production target)
 
 (2) **CE 129 `StateRequest`** against a trusted node. Plausible pending
@@ -245,17 +300,17 @@ four confirmations (ask 16): serves non-validators, 64 reads/slot/consumer load,
 anchor − 8 retained, hash-leaf preimages for `BootnodeRecord` (3) RPC / light-follower
 fallback.
 
-**`ProvidesSource`:** reads the cell at imported blocks — **best, not finalized**. Block
-stream, startup tip, sync gate, ring read at a recent hash, pending-provides hint (dormant
-until Tier 1a).
+**`ProvidesSource`:** reads A's enacted heads at imported blocks — **best, not finalized**. Block
+stream, startup tip, sync gate, ring read at a recent hash (dormant until Tier 1b),
+pending-provides hint (dormant until Tier 1a).
 
 ## 6. Trust Model
 
 | Property | Polkadot | JAM |
 |---|---|---|
 | Message authenticity | PVF | PVF — unchanged |
-| Root authenticity | relay consensus check | guest state proof per-parachain enforcement |
-| Provides commitment | UMP signal | digest field - unchanged guarantees |
+| Root authenticity | relay consensus check | wrapper output-log proof in-core and Generation liveness checked by every validator at 5b |
+| Provides commitment | UMP signal | header digest + §5.5 enactment commitment |
 | Stream monotonicity | not enforced | not enforced — self-harm, consumer-visible |
 
 Polkadot capabilities: same-block A -> B deferred to Tier 1b.
@@ -274,39 +329,53 @@ Polkadot capabilities: same-block A -> B deferred to Tier 1b.
 
 ## 10. Open Questions
 
-1. **PVM BLAKE2b throughput + metered gas ceiling** 
-  Verification adds 1.7k blake2 calls in Refine (64 trie paths + lifts). Refine can consume max 5 billion gas.
-  If in guest blake2 doesn't fit, the fallback is a blake2 host call for the child PVM.
+1. **PVM hashing throughput + metered gas ceiling**
+  Verification now spans keccak_256 (belt + heads paths) and blake2 (lifts) in Refine, under a max 5 billion
+  gas ceiling shared with the parachain's own execution. If guest hashing doesn't fit, the fallback is
+  hashing host calls for the child PVM.
 
-2. **`W`** at best-block depth, before the baseline freezes.
-  The ring must be sized for the best block pipeline (announce to enact), not the backed one. Raising W later
-  is another migration. If we increase W to 64 or `Compact(W)` grows a byte the baseline pricing breaks
+2. **`W`** at best-block depth. Tier 1b sizing input.
+
+  The ring is charged at first write, so nothing reads or prices it before Tier 1b. It must still be sized
+  for the best-block pipeline (announce to enact), not the backed one, before the ring turns on.
 
 3. **Silent ready-queue expiry**
   If B declares a prerequisite on A and A never accumulates, B's report is dropped
   after up to an epoch with zero on-chain trace. The node must detect the drop itself and rebuild-and-retry.
 
-4. **ParaId reuse**
-  Coretime doesn't guarantee ParaId uniqueness on JAM. 
-  Fix: a generation number in the stream leaf preimage, bumped on register/set_head/offboard.
+4. **ParaId reuse** Resolved via `Generation` so everything binds to `(ParaId, Generation)`.
 
 5. **Acknowledgement/slashing on JAM**
   Tier 2's security on Polkadot rests on LLv2 ACK slashing. JAM has no equivalent
 
 6. **CE 129**
-  Can a collator without a JAM node ask another node for state? Should be ok for the cell, but breaks for bootnodes.
+  Can a collator without a JAM node ask another node for state? Recent-history reads are fine, but the
+  enactment proof needs output-log peaks and bootnode records need hash-leaf preimages.
 
 7. **Pin the rest** 
   JAM DA retention period is not pinned. For message recovery we'd need a real number. Similar to key derivation.
 
 8. **Settlement gas at worst-case fan-in**
-  For Tier 1B the settlement scans up to N rings per candidate on chain. Running out of gas in Accumulate silently
-  drops later packages.
+  At MVP settlement reads one generation per source (up to 64 per candidate). Then Tier 1b adds a ring read per
+  entry. We don't have JAM gas per read byte estimates. 
+
+  This would also influence how the `Generation` field is read:
+  - reading the full `ParaInfo` (~4 KiB)
+  - partial read with `Generation` field offset inside `ParaInfo`
+  - dedicated entry written on bumps 
+  
+  Running out of gas in Accumulate silently drops later packages, so this design raises PS's required `min_item_gas`.
 
 9. **Authorizer anchor policy**: AURA uses anchor to prove it's our turn.
   The same anchor is also the block all message proofs verify against.
   The current collator cannot freely pick between the 8 recent blocks anymore (only ones in the current rotation). 
   Needs to make the slot claim independent of anchor choice.
+
+10. **Output-log citations (GP)**
+  For the EnactmentProof we need: 
+  - The super-peak in the refine context is validated against recent history at report inclusion.
+  - Accumulation output log have a proof format and hash function
+  - Newest recent history entry carries a usable super-peak or gets it one block late (decides minimum anchor age). 
 
 ## 12. Super Chains
 
@@ -336,7 +405,7 @@ Solving the work package ordering:
   Securing the link between A and B inside the core:
   - in core: We put B's header at a fixed offset. A reads and checks the `R_B` hash from the header digest. 
   - backup: Add a new digest field that carries A's claimed `(sibling, root)` and rely on Accumulate to double check it
-  against `spec_msg_provides` of B.
+  against the SPMS digest in B's new head data.
 
 - **Solution 1: Ordered pair**
   If a single core limit becomes an issue, we can separate them onto two cores but force synchronization by `prerequisites`.
