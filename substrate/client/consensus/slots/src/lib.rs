@@ -590,6 +590,14 @@ pub fn proposing_remaining_duration<Block: BlockT>(
 
 	let proposing_duration = std::cmp::min(slot_remaining, proposing_duration);
 
+	let max_proposing_duration =
+		max_block_proposal_slot_portion.map(|p| slot_info.duration.mul_f32(p.get()));
+
+	// The maximum caps every path out of this function, not just the lenient one:
+	// `block_proposal_slot_portion` may itself be larger than `max_block_proposal_slot_portion`.
+	let proposing_duration = max_proposing_duration
+		.map_or(proposing_duration, |max| std::cmp::min(proposing_duration, max));
+
 	// If parent is genesis block, we don't require any lenience factor.
 	if slot_info.chain_head.number().is_zero() {
 		return proposing_duration;
@@ -611,15 +619,10 @@ pub fn proposing_remaining_duration<Block: BlockT>(
 
 		// if we defined a maximum portion of the slot for proposal then we must make sure the
 		// lenience doesn't go over it
-		let lenient_proposing_duration =
-			if let Some(max_block_proposal_slot_portion) = max_block_proposal_slot_portion {
-				std::cmp::min(
-					lenient_proposing_duration,
-					slot_info.duration.mul_f32(max_block_proposal_slot_portion.get()),
-				)
-			} else {
-				lenient_proposing_duration
-			};
+		let lenient_proposing_duration = max_proposing_duration
+			.map_or(lenient_proposing_duration, |max| {
+				std::cmp::min(lenient_proposing_duration, max)
+			});
 
 		debug!(
 			target: log_target,
@@ -805,13 +808,17 @@ mod test {
 	const SLOT_DURATION: Duration = Duration::from_millis(6000);
 
 	fn slot(slot: u64) -> super::slots::SlotInfo<Block> {
+		slot_with_head_number(slot, 1)
+	}
+
+	fn slot_with_head_number(slot: u64, head_number: u64) -> super::slots::SlotInfo<Block> {
 		super::slots::SlotInfo {
 			slot: slot.into(),
 			duration: SLOT_DURATION,
 			create_inherent_data: Box::new(()),
 			ends_at: Instant::now() + SLOT_DURATION,
 			chain_head: Header::new(
-				1,
+				head_number,
 				Default::default(),
 				Default::default(),
 				Default::default(),
@@ -892,6 +899,78 @@ mod test {
 				"test",
 			),
 			SLOT_DURATION.mul_f32(0.9),
+		);
+	}
+
+	#[test]
+	fn proposing_remaining_duration_caps_every_path_at_max_proposal_slot_proportion() {
+		let block_portion = SlotProportion(0.5);
+		let max_portion = SlotProportion(0.25);
+		let expected = SLOT_DURATION.mul_f32(0.25);
+
+		// No slots skipped, so no lenience is applied.
+		assert_eq!(
+			proposing_remaining_duration(
+				Some(1.into()),
+				&slot(2),
+				&block_portion,
+				Some(&max_portion),
+				SlotLenienceType::Linear,
+				"test",
+			),
+			expected,
+		);
+
+		// Unknown parent slot.
+		assert_eq!(
+			proposing_remaining_duration(
+				None,
+				&slot(2),
+				&block_portion,
+				Some(&max_portion),
+				SlotLenienceType::Linear,
+				"test",
+			),
+			expected,
+		);
+
+		// Parent is the genesis block.
+		assert_eq!(
+			proposing_remaining_duration(
+				Some(1.into()),
+				&slot_with_head_number(5, 0),
+				&block_portion,
+				Some(&max_portion),
+				SlotLenienceType::Exponential,
+				"test",
+			),
+			expected,
+		);
+
+		// Lenience is applied, but the maximum still wins.
+		assert_eq!(
+			proposing_remaining_duration(
+				Some(1.into()),
+				&slot(4),
+				&block_portion,
+				Some(&max_portion),
+				SlotLenienceType::Linear,
+				"test",
+			),
+			expected,
+		);
+
+		// Without a maximum the full block proposal portion is still returned.
+		assert_eq!(
+			proposing_remaining_duration(
+				Some(1.into()),
+				&slot(2),
+				&block_portion,
+				None,
+				SlotLenienceType::Linear,
+				"test",
+			),
+			SLOT_DURATION.mul_f32(0.5),
 		);
 	}
 

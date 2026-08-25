@@ -45,6 +45,15 @@ doc:
     25 hour delay -- an unset RTC, say -- panicked in debug builds. Release builds wrapped the
     cutoff to near `u64::MAX`, dropping stagnant bookkeeping right away instead of respecting the
     delay. The subtraction now saturates. Reported by the Runtime Whitebox Fuzzer.
+- audience: Node Dev
+  description: |-
+    `sc_consensus_slots::proposing_remaining_duration` only clamped its result against
+    `max_block_proposal_slot_portion` on the path where slot lenience was applied. With a
+    `block_proposal_slot_portion` larger than the maximum, every other path -- no skipped slots,
+    unknown parent slot, genesis parent -- could return a proposing duration above the documented
+    ceiling. The clamp now applies to all paths. All in-tree node configurations leave
+    `max_block_proposal_slot_portion` unset, so no node was affected; this fixes the documented
+    contract for the public API. Reported by the Runtime Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
@@ -55,4 +64,6 @@ crates:
 - name: cumulus-primitives-timestamp
   bump: patch
 - name: polkadot-node-core-chain-selection
+  bump: patch
+- name: sc-consensus-slots
   bump: patch
