@@ -3,8 +3,9 @@ title: 'statement-store: bound inbound statement decode by memory'
 doc:
 - audience: Node Dev
   description: |-
-    The inbound statement decode is now capped by memory, so a peer can't turn a small notification
-    into a huge allocation before the rate limiter runs.
+    Inbound statement notifications are now decoded under a memory budget, so a peer can't turn a
+    small message into a large allocation before the rate limiter runs. A batch that exceeds the
+    budget is dropped and the peer disconnected; other decode failures stay a bad-message report.
 
 crates:
 - name: sc-network-statement

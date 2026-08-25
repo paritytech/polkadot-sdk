@@ -76,7 +76,7 @@ mod affinity;
 use crate::config::*;
 
 use affinity::AffinityFilter;
-use codec::{Compact, Decode, DecodeWithMemLimit, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, Encode, MaxEncodedLen, MemTrackingInput};
 use futures::{
 	channel::oneshot,
 	future::{pending, FusedFuture},
@@ -144,7 +144,7 @@ impl PeerProtocolVersion {
 	}
 }
 
-#[derive(Debug, Encode, Decode, DecodeWithMemTracking)]
+#[derive(Debug, Encode, Decode)]
 enum StatementMessage {
 	#[codec(index = 0)]
 	Statements(Vec<Statement>),
@@ -164,6 +164,28 @@ impl StatementMessage {
 		STATEMENTS_VARIANT_INDEX.encode_to(&mut out);
 		statements.encode_to(&mut out);
 		out
+	}
+}
+
+/// Outcome of decoding a notification payload under [`MAX_STATEMENT_DECODE_BYTES`].
+enum BoundedDecode<T> {
+	/// The payload decoded within the memory budget.
+	Decoded(T),
+	/// The payload's allocation exceeded the budget — an amplification attempt.
+	Oversized,
+	/// The payload could not be decoded for another reason.
+	Malformed,
+}
+
+/// Decode `T` from `bytes` under [`MAX_STATEMENT_DECODE_BYTES`], distinguishing a batch that
+/// exceeds the budget from a plain decode failure.
+fn decode_within_budget<T: Decode>(bytes: &[u8]) -> BoundedDecode<T> {
+	let mut slice = bytes;
+	let mut input = MemTrackingInput::new(&mut slice, MAX_STATEMENT_DECODE_BYTES);
+	match T::decode(&mut input) {
+		Ok(value) => BoundedDecode::Decoded(value),
+		Err(_) if input.used_mem() >= MAX_STATEMENT_DECODE_BYTES => BoundedDecode::Oversized,
+		Err(_) => BoundedDecode::Malformed,
 	}
 }
 
@@ -187,6 +209,8 @@ mod rep {
 	pub const DUPLICATE_STATEMENT: Rep = Rep::new(-(1 << 7), "Duplicate statement");
 	/// Reputation change when a peer floods us with statements.
 	pub const STATEMENT_FLOODING: Rep = Rep::new_fatal("Statement flooding");
+	/// Reputation change when a peer sends a statement batch that exceeds the decode memory limit.
+	pub const EXCESSIVE_STATEMENTS: Rep = Rep::new_fatal("Oversized statement batch");
 	/// Reputation change when a peer sends us a message we can't decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad statement message");
 }
@@ -1206,60 +1230,65 @@ where
 				match peer_data.protocol_version {
 					PeerProtocolVersion::V1 => {
 						// V1 peers send raw Vec<Statement>.
-						if let Ok(statements) = Statements::decode_with_mem_limit(
-							&mut notification.as_ref(),
-							MAX_STATEMENT_DECODE_BYTES,
-						) {
-							self.on_statements(peer, statements);
-						} else {
-							log::debug!(
-								target: LOG_TARGET,
-								"Failed to decode v1 statement list from {peer}"
-							);
-							self.network.report_peer(peer, rep::BAD_MESSAGE);
+						match decode_within_budget::<Statements>(notification.as_ref()) {
+							BoundedDecode::Decoded(statements) => {
+								self.on_statements(peer, statements)
+							},
+							BoundedDecode::Oversized => self.report_oversized_batch(peer),
+							BoundedDecode::Malformed => {
+								self.report_malformed_batch(peer, "v1 statement list")
+							},
 						}
 					},
 					PeerProtocolVersion::V2 => {
 						// V2 peers send StatementMessage enum.
-						if let Ok(message) = StatementMessage::decode_with_mem_limit(
-							&mut notification.as_ref(),
-							MAX_STATEMENT_DECODE_BYTES,
-						) {
-							match message {
-								StatementMessage::Statements(statements) => {
-									self.on_statements(peer, statements)
-								},
-								StatementMessage::ExplicitTopicAffinity(filter) => {
-									if let Some(peer_data) = self.peers.get_mut(&peer) {
-										if peer_data.rate_limiter.is_flooding(1) {
-											log::debug!(
-												target: LOG_TARGET,
-												"Rate-limiting ExplicitTopicAffinity from {peer}"
-											);
-											self.network.report_peer(peer, rep::BAD_MESSAGE);
-										} else {
-											log::debug!(
-												target: LOG_TARGET,
-												"Received topic affinity filter from {peer}"
-											);
-											// Defer both the affinity update and sync scheduling
-											// to the main loop tick.
-											peer_data.pending_topic_affinity = Some(filter);
-										}
+						match decode_within_budget::<StatementMessage>(notification.as_ref()) {
+							BoundedDecode::Decoded(StatementMessage::Statements(statements)) => {
+								self.on_statements(peer, statements)
+							},
+							BoundedDecode::Decoded(StatementMessage::ExplicitTopicAffinity(
+								filter,
+							)) => {
+								if let Some(peer_data) = self.peers.get_mut(&peer) {
+									if peer_data.rate_limiter.is_flooding(1) {
+										log::debug!(
+											target: LOG_TARGET,
+											"Rate-limiting ExplicitTopicAffinity from {peer}"
+										);
+										self.network.report_peer(peer, rep::BAD_MESSAGE);
+									} else {
+										log::debug!(
+											target: LOG_TARGET,
+											"Received topic affinity filter from {peer}"
+										);
+										// Defer both the affinity update and sync scheduling
+										// to the main loop tick.
+										peer_data.pending_topic_affinity = Some(filter);
 									}
-								},
-							}
-						} else {
-							log::debug!(
-								target: LOG_TARGET,
-								"Failed to decode v2 statement message from {peer}"
-							);
-							self.network.report_peer(peer, rep::BAD_MESSAGE);
+								}
+							},
+							BoundedDecode::Oversized => self.report_oversized_batch(peer),
+							BoundedDecode::Malformed => {
+								self.report_malformed_batch(peer, "v2 statement message")
+							},
 						}
 					},
 				}
 			},
 		}
+	}
+
+	/// Report and disconnect a peer whose statement batch exceeded the decode memory budget.
+	fn report_oversized_batch(&self, peer: PeerId) {
+		log::warn!(target: LOG_TARGET, "Peer {peer} sent an oversized statement batch. Disconnecting.");
+		self.network.report_peer(peer, rep::EXCESSIVE_STATEMENTS);
+		self.network.disconnect_peer(peer, self.protocol_name.clone());
+	}
+
+	/// Report a peer whose statement notification could not be decoded.
+	fn report_malformed_batch(&self, peer: PeerId, context: &str) {
+		log::debug!(target: LOG_TARGET, "Failed to decode {context} from {peer}");
+		self.network.report_peer(peer, rep::BAD_MESSAGE);
 	}
 
 	/// Handle a batch of statements received from a peer.
@@ -4737,6 +4766,91 @@ mod tests {
 
 		// If we got here without panic, the test passes.
 		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
+	}
+
+	// A batch of minimal (one-byte) statements whose declared count decodes past the memory
+	// budget: `Compact(count)` followed by `count` zero bytes, each a zero-field `Statement`.
+	fn oversized_statement_batch() -> Vec<u8> {
+		let count = (MAX_STATEMENT_DECODE_BYTES / core::mem::size_of::<Statement>()) as u32 + 1;
+		let mut bytes = Compact(count).encode();
+		bytes.extend(core::iter::repeat(0u8).take(count as usize));
+		bytes
+	}
+
+	#[tokio::test]
+	async fn test_v1_oversized_batch_disconnects_peer() {
+		let (mut handler, _statement_store, network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
+			})
+			.await;
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: oversized_statement_batch().into(),
+			})
+			.await;
+
+		let reports = network.get_reports();
+		assert!(
+			reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::EXCESSIVE_STATEMENTS),
+			"Expected EXCESSIVE_STATEMENTS reputation change, but got: {reports:?}"
+		);
+		assert!(
+			network.get_disconnected_peers().contains(&peer_id),
+			"Expected oversized-batch peer to be disconnected"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_v2_oversized_batch_disconnects_peer() {
+		let (mut handler, _statement_store, network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// `StatementMessage::Statements` variant byte followed by the oversized batch.
+		let mut notification = vec![STATEMENTS_VARIANT_INDEX];
+		notification.extend(oversized_statement_batch());
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: notification.into(),
+			})
+			.await;
+
+		let reports = network.get_reports();
+		assert!(
+			reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::EXCESSIVE_STATEMENTS),
+			"Expected EXCESSIVE_STATEMENTS reputation change, but got: {reports:?}"
+		);
+		assert!(
+			network.get_disconnected_peers().contains(&peer_id),
+			"Expected oversized-batch peer to be disconnected"
+		);
 	}
 
 	#[test]

@@ -27,7 +27,7 @@
 //! filter bits are identical on `wasm32` and 64-bit targets.
 
 use crate::config::MAX_STATEMENT_NOTIFICATION_SIZE;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, Encode};
 use fastbloom::{BloomFilter, DefaultHasher as BloomDefaultHasher};
 use sp_statement_store::Statement;
 use std::hash::{BuildHasher, Hasher};
@@ -98,7 +98,7 @@ impl Hasher for PortableHasher {
 }
 
 /// Wire representation of a bloom filter.
-#[derive(Encode, Decode, DecodeWithMemTracking)]
+#[derive(Encode, Decode)]
 struct EncodedBloomFilter {
 	// Seed used for hashing items in the bloom filter. Needed for the peer to reconstruct the same
 	// bloom filter.
@@ -189,8 +189,6 @@ impl Decode for AffinityFilter {
 		AffinityFilter::try_from(encoded).map_err(|e| codec::Error::from(e))
 	}
 }
-
-impl DecodeWithMemTracking for AffinityFilter {}
 
 #[cfg(test)]
 mod tests {
