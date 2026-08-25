@@ -1,0 +1,11 @@
+title: "pallet-derivatives: emit DerivativeMappingCreated when registering a mapping"
+doc:
+  - audience: Runtime Dev
+    description: |
+      `try_register_derivative` now deposits `DerivativeMappingCreated`, carrying both the
+      original and the derivative id, instead of a second `DerivativeCreated`. Previously a
+      mapped `create_derivative` emitted `DerivativeCreated` twice and never emitted
+      `DerivativeMappingCreated`, which was declared but deposited nowhere.
+crates:
+  - name: pallet-derivatives
+    bump: patch
