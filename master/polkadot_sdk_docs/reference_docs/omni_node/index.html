@@ -292,7 +292,7 @@ configured to use the Aura consensus engine:</p>
 </ul>
 <p>For block authoring, there are a number of options:</p>
 <ul>
-<li>[<code>sc_consensus_manual_seal</code>]: Useful for testing, where any node can produce a block at any
+<li><a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a>: Useful for testing, where any node can produce a block at any
 time. This is often combined with a fixed interval at which a block is produced.</li>
 <li>[<code>sc_consensus_aura</code>]/<a href="../../../pallet_aura/index.html" title="mod pallet_aura"><code>pallet_aura</code></a>: A simple round-robin block authoring mechanism.</li>
 <li>[<code>sc_consensus_babe</code>]/<a href="../../../pallet_babe/index.html" title="mod pallet_babe"><code>pallet_babe</code></a>: A more advanced block authoring mechanism, capable of
@@ -315,7 +315,7 @@ not. For the time being, <a href="https://crates.io/crates/polkadot-omni-node"><
 scaling). [<code>polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based</code>] for fixed factor
 scaling (a step</li>
 <li>Ability to run any runtime with <a href="polkadot_omni_node_lib::cli::Cli::dev_block_time"><code>--dev-block-time</code></a> flag. This uses
-[<code>sc_consensus_manual_seal</code>] under the hood, and has no restrictions on the runtime’s
+<a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a> under the hood, and has no restrictions on the runtime’s
 consensus.</li>
 </ul>
 <p><a href="https://github.com/paritytech/polkadot-sdk/issues/5565">This</a> future improvement to OmniNode
