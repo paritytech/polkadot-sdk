@@ -229,11 +229,10 @@ where
 
 /// Derive the [`BuildingPrerequisites`] for the current slot. `None` means the slot is skipped.
 ///
-/// Runs in two phases. The first derives the relay chain context from the para best block and picks
-/// the parent to build on. The second runs only when that parent executes different
-/// [`SchedulingParams`] than the best block — they straddle a V2 <-> V3 switch, or the best block's
-/// `:pending_code` disagrees with the `:code` that will execute — and re-derives the relay chain
-/// context alone, keeping the parent the first phase settled on.
+/// The relay chain context follows the [`SchedulingParams`] of the runtime that executes the block,
+/// which is only known once the parent is settled. So the first phase derives the context from the
+/// para best head in order to run the parent search, and the second re-derives it from the chosen
+/// parent whenever the two disagree, keeping the parent the first phase settled on.
 async fn derive_building_prerequisites<Block, Client, Backend, RelayClient>(
 	para_client: &Client,
 	para_backend: &Backend,
@@ -401,7 +400,7 @@ where
 		);
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
-		'slots: loop {
+		loop {
 			let _ = scheduling_info
 				.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
 				.await;
@@ -428,7 +427,7 @@ where
 			)
 			.await
 			else {
-				continue 'slots;
+				continue;
 			};
 
 			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
