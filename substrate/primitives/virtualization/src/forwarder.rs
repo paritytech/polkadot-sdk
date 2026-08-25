@@ -48,6 +48,11 @@ impl Module {
 	}
 }
 
+/// Clear the module cache so every subsequent [`Module::lookup`] misses, as in a fresh block.
+pub fn reset_module_cache() {
+	host_fn::reset_module_cache()
+}
+
 /// An idle virtualization instance.
 pub struct Instance(InstanceId);
 

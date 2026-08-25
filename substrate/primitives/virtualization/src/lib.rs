@@ -51,7 +51,7 @@ mod host_functions;
 pub mod tests;
 
 pub use crate::tests::run as run_tests;
-pub use forwarder::{Execution, Instance, Module};
+pub use forwarder::{Execution, Instance, Module, reset_module_cache};
 #[cfg(not(substrate_runtime))]
 pub use host_functions::{ExecBuffer, ExecStatus, VirtManagerBackend, VirtManagerExt};
 

@@ -419,6 +419,10 @@ impl VirtManagerBackend for VirtManager {
 		};
 		instance.write_memory(offset, src).map_err(map_memory_error)
 	}
+
+	fn reset_module_cache(&mut self) {
+		self.cache.clear();
+	}
 }
 
 #[cfg(test)]
