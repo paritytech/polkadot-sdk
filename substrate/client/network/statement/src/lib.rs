@@ -521,7 +521,8 @@ impl StatementHandlerPrototype {
 		statements_per_second: u32,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		// Still bounded via the `MAX_PENDING_STATEMENTS` check in `on_statements`.
+		let (queue_sender, queue_receiver) = async_channel::unbounded();
 
 		if num_submission_workers == 0 {
 			log::warn!(
@@ -1040,6 +1041,7 @@ where
 				},
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
+					self.shrink_pending_statements_peers();
 					self.metrics.as_ref().map(|metrics| {
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
 					});
@@ -1083,6 +1085,15 @@ where
 				self.drain_deferred_peers();
 				self.start_sync_recovery();
 			}
+		}
+	}
+
+	/// Release excess map capacity once the map is less than a quarter full.
+	fn shrink_pending_statements_peers(&mut self) {
+		const MIN_RETAINED_CAPACITY: usize = 1024;
+		let map = &mut self.pending_statements_peers;
+		if map.capacity() > MIN_RETAINED_CAPACITY && map.capacity() / 4 > map.len() {
+			map.shrink_to(MIN_RETAINED_CAPACITY);
 		}
 	}
 
