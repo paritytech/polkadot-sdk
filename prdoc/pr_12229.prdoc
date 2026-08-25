@@ -37,6 +37,8 @@ doc:
     - Code refcounts are managed on set/clear.
     - Clearing refunds `storage_base_deposit`; per-item storage deposits stay locked until the user re-delegates to a contract that lets them release the items through normal storage operations.
 
+    New error variant: `Error::CannotTerminateDelegatedAccount = 0x44` — `seal_terminate` invoked on a delegated EOA; delegated accounts cannot be torn down via the contract-termination path.
+
     ## Execution changes
 
     On a call to a delegated EOA the runtime loads the target contract's code but uses the EOA's own storage and balance. Constructors skip delegation resolution (cannot deploy via a delegated EOA). Delegation is resolved **at most once** — no chain following (if A → B → C, calling A executes B's code; B's own delegation is ignored, and if B is itself delegated the call traps on the `0xef` indicator and reverts).
