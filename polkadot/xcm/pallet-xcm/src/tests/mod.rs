@@ -409,6 +409,57 @@ fn execute_withdraw_to_deposit_works() {
 	});
 }
 
+/// Defense-in-depth: extrinsic failure leads to a full storage rollback, but even so, a
+/// partial-fail multi-asset `WithdrawAsset` must not leak a `Credit` imbalance across the
+/// transactional rollback and should preserve the `TotalIssuance == Σ balances` invariant.
+///
+/// The message withdraws the native asset (succeeds, producing a `NegativeImbalance`) and a
+/// foreign asset that `ALICE` does not hold (fails). The whole instruction must roll back,
+/// restoring `ALICE`'s balance _and_ leaving `TotalIssuance` untouched.
+#[test]
+fn partial_fail_withdraw_asset_preserves_total_issuance() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let weight = BaseXcmWeight::get() * 2;
+		let alice_location: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+
+		let total_issuance_before = Balances::total_issuance();
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+
+		// Native `Here` asset sorts first and withdraws successfully (producing a live
+		// `NegativeImbalance`); the foreign asset (which `ALICE` holds none of) is withdrawn
+		// second and fails, aborting the instruction.
+		let assets: Assets = vec![Asset::from((Here, SEND_AMOUNT)), ForeignAsset::get()].into();
+		let message = Xcm(vec![WithdrawAsset(assets)]);
+		let mut hash = fake_message_hash(&message);
+
+		// Drive the executor directly: going through extrinsic masks the issue since extrinsic
+		// fully reverts any storage changes.
+		let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			alice_location,
+			message,
+			&mut hash,
+			weight,
+			weight, // weight credit, so `TakeWeightCredit` lets the message through the barrier
+		);
+		// The multi-asset withdraw must fail because `ALICE` holds none of the foreign asset.
+		assert!(
+			matches!(outcome, Outcome::Incomplete { .. }),
+			"partial-fail withdraw must abort the instruction, got {:?}",
+			outcome
+		);
+
+		// Rollback must fully restore state: `ALICE`'s native balance is untouched
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		// and total issuance is preserved.
+		assert_eq!(
+			Balances::total_issuance(),
+			total_issuance_before,
+			"TotalIssuance must be preserved after a partial-fail WithdrawAsset rollback"
+		);
+	});
+}
+
 /// Test XCM authorized aliases.
 #[test]
 fn authorized_aliases_work() {
