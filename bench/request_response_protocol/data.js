@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787690800878,
+  "lastUpdate": 1787701697613,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -117503,6 +117503,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2908794677,
             "range": "± 102617184",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5996b688c3b3b33c228074988cdf7c3231c1cff8",
+          "message": "Remove deprecated cumulus-pallet-dmp-queue (#12681)\n\n## Summary\n\n- Remove the `cumulus-pallet-dmp-queue` crate (deprecated after November\n2024).\n- Drop workspace membership and umbrella feature/dependency wiring.\n- No in-repo runtime still depends on this pallet; DMP is handled via\n`pallet-message-queue`.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-25T20:32:50Z",
+          "tree_id": "2550914affb0c823a2d7df36c6e6935985fd237e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5996b688c3b3b33c228074988cdf7c3231c1cff8"
+        },
+        "date": 1787701663458,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20589944,
+            "range": "± 350072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20679575,
+            "range": "± 951922",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24695247,
+            "range": "± 907382",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 30628533,
+            "range": "± 696752",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 70584881,
+            "range": "± 2822381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 441851109,
+            "range": "± 14049054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3315223999,
+            "range": "± 110507153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19702771,
+            "range": "± 435051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19731101,
+            "range": "± 547854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20191911,
+            "range": "± 454081",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24665166,
+            "range": "± 751308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 70692083,
+            "range": "± 1611165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 403795730,
+            "range": "± 14557737",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2814728526,
+            "range": "± 35733260",
             "unit": "ns/iter"
           }
         ]
