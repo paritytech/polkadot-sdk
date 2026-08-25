@@ -437,9 +437,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let delegator = ensure_signed(origin)?;
 
-			// ensure amount is non-zero.
-			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
-
 			// ensure delegator is sane.
 			ensure!(
 				Delegation::<T>::can_delegate(&delegator, &agent),
@@ -588,6 +585,9 @@ impl<T: Config> Pallet<T> {
 				.ok_or(ArithmeticError::Overflow)?;
 			existing_delegation
 		} else {
+			// a new delegation of zero is rejected; a zero top-up on an existing delegation
+			// above is left as a no-op, which nomination-pools relies on.
+			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
 			Delegation::<T>::new(&agent, amount)
 		}
 		.update(&delegator);
@@ -817,6 +817,7 @@ impl<T: Config> Pallet<T> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
 			ensure!(!Self::is_agent(delegator), "delegator cannot be an agent");
+			ensure!(!delegation.amount.is_zero(), "delegation amount must be non-zero");
 
 			delegation_aggregation
 				.entry(delegation.agent.clone())

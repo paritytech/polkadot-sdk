@@ -76,6 +76,12 @@ impl<T: Config> Delegation<T> {
 				let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
 				return;
 			}
+		} else if self.amount == Zero::zero() {
+			// A new delegation of zero would persist a record that has no effect and leak a
+			// provider reference. Every write path funnels through here, so returning before
+			// the insert keeps stored delegations non-zero without affecting a zero top-up on
+			// an existing delegation, which is handled above.
+			return;
 		} else {
 			// this is a new delegation. Provide for this account.
 			frame_system::Pallet::<T>::inc_providers(key);

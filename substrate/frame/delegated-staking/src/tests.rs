@@ -340,7 +340,7 @@ fn allow_full_amount_to_be_delegated() {
 }
 
 #[test]
-fn zero_amount_delegation_is_rejected() {
+fn zero_amount_new_delegation_is_rejected() {
 	ExtBuilder::default().build_and_execute(|| {
 		let agent: AccountId = 200;
 		let reward_acc: AccountId = 201;
@@ -409,7 +409,7 @@ fn zero_amount_migration_is_rejected() {
 }
 
 #[test]
-fn zero_amount_topup_on_existing_delegation_is_rejected() {
+fn zero_amount_topup_on_existing_delegation_is_a_noop() {
 	ExtBuilder::default().build_and_execute(|| {
 		let agent: AccountId = 200;
 		let reward_acc: AccountId = 201;
@@ -428,11 +428,14 @@ fn zero_amount_topup_on_existing_delegation_is_rejected() {
 			100
 		));
 
-		// a zero amount top-up on the existing delegation is still rejected.
-		assert_noop!(
-			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(delegator).into(), agent, 0),
-			Error::<T>::InvalidDelegation
-		);
+		// a zero amount top-up on an existing delegation is a no-op rather than an error.
+		// nomination-pools depends on this: `bond_extra(BondExtra::Rewards)` bonds a claimed
+		// amount of zero when there is nothing pending, e.g. at 100% commission.
+		assert_ok!(DelegatedStaking::delegate_to_agent(
+			RawOrigin::Signed(delegator).into(),
+			agent,
+			0
+		));
 
 		// the existing delegation is left untouched.
 		assert_eq!(Delegators::<T>::get(delegator).unwrap().amount, 100);
