@@ -56,7 +56,7 @@ fn parse_log_row(row: sqlx::sqlite::SqliteRow) -> Result<Log, sqlx::Error> {
 		address: Address::from_slice(&address),
 		block_hash: H256::from_slice(&block_hash),
 		block_number: U256::from(block_number as u64),
-		data: data.map(Bytes::from),
+		data: Some(Bytes::from(data.unwrap_or_default())),
 		log_index: U256::from(log_index as u64),
 		topics,
 		transaction_hash: H256::from_slice(&transaction_hash),
@@ -745,12 +745,22 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					anyhow::bail!("pending logs are not supported");
 				}
 
-				let from_block = resolve_block_number(from_block).await?;
-				let to_block = resolve_block_number(to_block).await?;
-
-				// Read the latest block *after* resolving the tags.
+				// A single head snapshot resolves `latest` and validates the range,
+				// mirroring geth.
 				let latest_block = U256::from(self.block_provider.latest_block_number().await);
+				let from_block = match from_block {
+					BlockNumberOrTag::Latest => latest_block,
+					bound => resolve_block_number(bound).await?,
+				};
+				let to_block = match to_block {
+					BlockNumberOrTag::Latest => latest_block,
+					bound => resolve_block_number(bound).await?,
+				};
+				let earliest_block = resolve_block_number(BlockNumberOrTag::Earliest).await?;
 
+				if from_block < earliest_block {
+					anyhow::bail!("history below the earliest indexed block is not available");
+				}
 				if from_block > to_block {
 					anyhow::bail!("invalid block range params");
 				}
@@ -776,6 +786,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		for (i, topic) in filter.topics.into_iter().enumerate() {
 			if topic.is_empty() {
+				// Geth requires the log to have a topic at every filter position, even a
+				// wildcard one.
+				qb.push(format_args!(" AND topic_{i} IS NOT NULL"));
 				continue;
 			}
 
@@ -1241,6 +1254,7 @@ mod tests {
 			block_number: block2.number.into(),
 			address: H160::from([2u8; 20]),
 			topics: vec![H256::from([2u8; 32]), H256::from([3u8; 32])],
+			data: Some(vec![1u8; 32].into()),
 			transaction_hash: H256::from([1u8; 32]),
 			transaction_index: U256::from(2),
 			log_index: U256::from(1),
@@ -1376,6 +1390,14 @@ mod tests {
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		// A trailing wildcard position still requires the log to have a topic there
+		let filter = serde_json::from_value::<Filter>(serde_json::json!({
+			"fromBlock": "earliest",
+			"topics": [H256::from([1u8; 32]), null, null],
+		}))?;
+		let logs = provider.logs(Some(filter), &resolve_block_number).await?;
+		assert_eq!(logs, Vec::<Log>::new());
 
 		// Altogether
 		let logs = provider
