@@ -1774,7 +1774,7 @@ fn network_protocol_versioning_subsystem_msg() {
 		// No more messages.
 		assert_matches!(futures::poll!(virtual_overseer.recv().boxed()), Poll::Pending);
 
-		let advertise_segment_message = v4_collation::CollatorProtocolMessage::AdvertiseSegment {
+		let advertise_segment_message = v4_collation::AdvertiseSegment {
 			scheduling_parent: Hash::random(),
 			para_id: 100.into(),
 			candidates_descriptor_version: CandidateDescriptorVersion::V3,
@@ -1788,8 +1788,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			.unwrap(),
 		};
 
-		let msg =
-			v4_collation::CollationProtocol::CollatorProtocol(advertise_segment_message.clone());
+		let msg = advertise_segment_message.clone();
 		network_handle
 			.peer_message(
 				peer,

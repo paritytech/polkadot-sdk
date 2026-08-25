@@ -1102,13 +1102,12 @@ async fn process_incoming_peer_message<Context>(
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
-		protocol_v4::CollatorProtocolMessage,
+		protocol_v4::AdvertiseSegment,
 	>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
-	use protocol_v4::CollatorProtocolMessage as V4;
 	use sp_runtime::traits::AppVerify;
 
 	match msg {
@@ -1301,7 +1300,9 @@ async fn process_incoming_peer_message<Context>(
 		// Nodes that run this validator side pin their main collation protocol version to V3
 		// (see `main_collation_version` in the service builder), so V4 is never negotiated
 		// here — hence a log, not a panic, on this config-level guarantee.
-		CollationProtocols::V4(V4::AdvertiseSegment { .. }) => {
+		// `AdvertiseSegment` is the only V4 message, so this arm covers the whole
+		// version rather than one variant of it.
+		CollationProtocols::V4(_) => {
 			gum::error!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
