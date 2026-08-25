@@ -57,15 +57,15 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
+use sp_externalities::ExternalitiesExt;
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
 };
-
-#[cfg(feature = "std")]
-use sp_externalities::ExternalitiesExt;
 
 /// Encode a slice of items into the canonical additional-data blob.
 ///
@@ -87,7 +87,6 @@ pub fn hash_blob(blob: &[u8]) -> [u8; 32] {
 /// Two implementations are provided:
 /// - [`RecordingAdditionalDataProvider`] for block building.
 /// - [`ReplayAdditionalDataProvider`] for block import / validation.
-#[cfg(feature = "std")]
 pub trait AdditionalDataProvider: Send + Sync {
 	/// Append an item to the accumulator.
 	///
@@ -105,7 +104,6 @@ pub trait AdditionalDataProvider: Send + Sync {
 	fn finalize(&self) -> Option<[u8; 32]>;
 }
 
-#[cfg(feature = "std")]
 sp_externalities::decl_extension! {
 	/// Externalities extension that wraps an [`AdditionalDataProvider`].
 	///
@@ -161,7 +159,6 @@ pub trait AdditionalData {
 #[cfg(feature = "std")]
 mod std_impl {
 	use super::{encode_items, hash_blob, AdditionalDataProvider};
-	use alloc::vec::Vec;
 	use parking_lot::Mutex;
 	use std::sync::Arc;
 

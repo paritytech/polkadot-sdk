@@ -18,7 +18,15 @@
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub mod implementation;
+pub mod polkadot_implementation;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
+pub use polkadot_implementation as implementation;
+
+// riscv (PolkaVM) implementation; never compiled on wasm.
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+#[doc(hidden)]
+pub mod jam_implementation;
 
 #[cfg(any(test, not(feature = "std")))]
 #[doc(hidden)]

@@ -106,6 +106,24 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 			mod parachain_validate_block {
 				use super::*;
 
+				// JAM (PolkaVM) entry point, per the parachain-service spec §4.2: zero-argument,
+				// reads/writes via child-PVM host functions (no `input::read`); riscv-only
+				// because it references the riscv-only `jam_implementation` module.
+				#[cfg(target_arch = "riscv64")]
+				#[doc(hidden)]
+				#[cfg_attr(
+					target_arch = "riscv64",
+					#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
+				)]
+				unsafe fn jam_validate_block() -> () {
+					#crate_::validate_block::jam_implementation::jam_validate_block::<
+						<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock,
+						#block_executor,
+						#runtime,
+					>()
+				}
+
+				// The wasm entry point, unchanged (reads input via `sp_io::input::read`).
 				#[no_mangle]
 				#[cfg_attr(
 					target_arch = "riscv64",

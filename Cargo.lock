@@ -5076,6 +5076,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
+ "polkavm-derive 0.35.0",
  "rand 0.8.5",
  "rstest",
  "sc-consensus",

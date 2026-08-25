@@ -28,6 +28,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-message-queue = { workspace = true }
+polkavm-derive = { workspace = true }
 sp-additional-data = { workspace = true }
 sp-api = { workspace = true }
 sp-consensus-babe = { workspace = true }
