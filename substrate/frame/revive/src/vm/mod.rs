@@ -27,7 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{CodeLoadWarmth, StorageOp, Warmth},
+	access_list::{CodeLoadWarmth, StorageOp, TouchedKey, Warmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -131,6 +131,7 @@ impl<T: Config> Token<T> for CodeInfoLoadToken {
 	fn weight(&self) -> Weight {
 		let weight = runtime_costs::weight_by_warmth::<T, _>(
 			[self.warmth],
+			TouchedKey::Address,
 			|| T::WeightInfo::code_info_load(),
 			|| Weight::zero(), // a hot read is already in the proof
 		);
@@ -183,6 +184,7 @@ impl<T: Config> Token<T> for CodeBlobLoadToken {
 
 		runtime_costs::weight_by_warmth::<T, _>(
 			[self.warmth],
+			TouchedKey::Address,
 			|| T::WeightInfo::code_blob_load().saturating_add(len_weight_of(per_byte)),
 			|| len_weight_of(per_byte_hot),
 		)

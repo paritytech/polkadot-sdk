@@ -126,6 +126,16 @@ pub enum AccessEntry {
 	CodeBlob { hash: H256 },
 }
 
+/// The key of the touched entry. Slots are much longer than addresses, so each has its
+/// own benchmark.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum TouchedKey {
+	/// A storage slot.
+	Slot,
+	/// An address or a code hash.
+	Address,
+}
+
 /// What a transaction has already paid for an entry. Ordered: `Write` has
 /// paid for everything `Read` has.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]

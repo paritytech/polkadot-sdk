@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{CallWarmth, StorageAccessKind, StorageOp, Warmth},
+	access_list::{CallWarmth, StorageAccessKind, StorageOp, TouchedKey, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -227,26 +227,32 @@ impl RuntimeCosts {
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
-	/// Weight of one access-list touch, plus the prepaid rollback for a revertible cold insert.
-	fn access_list_overhead<T: Config>(warmth: Warmth) -> Weight {
+	/// Weight of one access-list touch, plus the prepaid rollback for a revertible cold
+	/// insert. A lookup only compares against entries of its own variant, so the key an
+	/// access carries decides how long those comparisons run and which bench prices it.
+	fn access_list_overhead<T: Config>(warmth: Warmth, key: TouchedKey) -> Weight {
 		let touch_cost =
 			|bench: fn() -> Weight, base: fn() -> Weight| bench().saturating_sub(base());
 		match warmth {
 			Warmth::Cold { revertible } => {
-				let cost = touch_cost(
-					T::WeightInfo::access_list_touch_cold_full,
-					T::WeightInfo::access_list_touch_cold_empty,
-				);
+				let full = match key {
+					TouchedKey::Slot => T::WeightInfo::access_list_touch_cold_full,
+					TouchedKey::Address => T::WeightInfo::access_list_touch_cold_account_full,
+				};
+				let cost = touch_cost(full, T::WeightInfo::access_list_touch_cold_empty);
 				if revertible {
 					cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
 				} else {
 					cost
 				}
 			},
-			Warmth::Hot(_) => touch_cost(
-				T::WeightInfo::access_list_touch_hot_full,
-				T::WeightInfo::access_list_touch_hot_single_element,
-			),
+			Warmth::Hot(_) => {
+				let full = match key {
+					TouchedKey::Slot => T::WeightInfo::access_list_touch_hot_full,
+					TouchedKey::Address => T::WeightInfo::access_list_touch_hot_account_full,
+				};
+				touch_cost(full, T::WeightInfo::access_list_touch_hot_single_element)
+			},
 		}
 	}
 
@@ -278,7 +284,8 @@ impl RuntimeCosts {
 						.saturating_add(Self::access_list_upgrade_overhead::<T>()),
 					_ => Weight::zero(),
 				};
-				weight_by_warmth::<T, _>([warmth], cold, hot).saturating_add(surcharge)
+				weight_by_warmth::<T, _>([warmth], TouchedKey::Slot, cold, hot)
+					.saturating_add(surcharge)
 			},
 			StorageAccessKind::Transient => transient(),
 		}
@@ -289,6 +296,7 @@ impl RuntimeCosts {
 /// Prices hot only if every item is hot.
 pub(crate) fn weight_by_warmth<T: Config, I: IntoIterator<Item = Warmth>>(
 	items: I,
+	key: TouchedKey,
 	cold: impl FnOnce() -> Weight,
 	hot: impl FnOnce() -> Weight,
 ) -> Weight {
@@ -298,7 +306,7 @@ pub(crate) fn weight_by_warmth<T: Config, I: IntoIterator<Item = Warmth>>(
 			(
 				count + 1,
 				all_hot && warmth.is_hot(),
-				overhead.saturating_add(RuntimeCosts::access_list_overhead::<T>(warmth)),
+				overhead.saturating_add(RuntimeCosts::access_list_overhead::<T>(warmth, key)),
 			)
 		},
 	);
@@ -412,12 +420,14 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					let items = account.into_iter().chain([original_account, account_info]);
 					weight_by_warmth::<T, _>(
 						items,
+						TouchedKey::Address,
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
 					)
 				},
 				CallWarmth::Delegate { account_info } => weight_by_warmth::<T, _>(
 					[account_info],
+					TouchedKey::Address,
 					T::WeightInfo::seal_delegate_call,
 					T::WeightInfo::seal_delegate_call_hot,
 				),

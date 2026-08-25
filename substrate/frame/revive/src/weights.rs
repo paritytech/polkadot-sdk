@@ -146,6 +146,8 @@ pub trait WeightInfo {
 	fn take_storage(n: u32, ) -> Weight;
 	fn take_storage_hot(n: u32, ) -> Weight;
 	fn access_list_touch_cold_full() -> Weight;
+	fn access_list_touch_cold_account_full() -> Weight;
+	fn access_list_touch_hot_account_full() -> Weight;
 	fn access_list_touch_hot_full() -> Weight;
 	fn access_list_touch_hot_upgrade() -> Weight;
 	fn access_list_touch_cold_empty() -> Weight;
@@ -1195,6 +1197,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 428_000 picoseconds.
 		Weight::from_parts(515_000, 0)
+	}
+	fn access_list_touch_cold_account_full() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_100_000 picoseconds.
+		Weight::from_parts(2_100_000, 0)
+	}
+	fn access_list_touch_hot_account_full() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_100_000 picoseconds.
+		Weight::from_parts(1_100_000, 0)
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:
@@ -2784,6 +2800,20 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 428_000 picoseconds.
 		Weight::from_parts(515_000, 0)
+	}
+	fn access_list_touch_cold_account_full() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_100_000 picoseconds.
+		Weight::from_parts(2_100_000, 0)
+	}
+	fn access_list_touch_hot_account_full() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_100_000 picoseconds.
+		Weight::from_parts(1_100_000, 0)
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:

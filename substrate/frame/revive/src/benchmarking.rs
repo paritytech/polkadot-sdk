@@ -22,6 +22,7 @@ use crate::{
 	Pallet as Contracts,
 	access_list::{
 		AccessEntry, AccessList, CallAccess, CodeLoad, MAX_ACCESS_LIST_ENTRIES, StorageOp,
+		TouchedKey,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -2077,84 +2078,51 @@ mod benchmarks {
 		Ok(())
 	}
 
-	fn worst_case_slot() -> crate::access_list::Slot {
-		let key = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
-			.expect("key fits STORAGE_KEY_BYTES bound; qed");
-		crate::access_list::Slot::from(&key)
-	}
-
-	fn near_full_access_list() -> crate::access_list::AccessList {
-		let mut al = AccessList::new();
-		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(
+	/// Entry number `i`, a storage slot or an account depending on `key`. Only the trailing
+	/// bytes carry `i`, so a comparison runs the whole shared prefix before it can decide.
+	fn access_entry(key: TouchedKey, i: u32) -> AccessEntry {
+		match key {
+			// One slot, at the maximum length, shared by every entry, so each comparison
+			// runs its full length before the address can decide.
+			TouchedKey::Slot => {
+				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+					.expect("key fits STORAGE_KEY_BYTES bound; qed");
 				AccessEntry::Storage {
-					slot: worst_case_slot(),
+					slot: crate::access_list::Slot::from(&slot),
 					address: H160::from_low_u64_be(i as u64),
-				},
-				StorageOp::Read,
-			);
+				}
+			},
+			TouchedKey::Address => {
+				let mut address = [0xFFu8; 20];
+				address[18] = (i >> 8) as u8;
+				address[19] = i as u8;
+				AccessEntry::AccountInfo { address: H160::from(address) }
+			},
 		}
-		al
 	}
 
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
-		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
-		let entry = AccessEntry::Storage {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(u64::MAX),
-		};
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(entry, StorageOp::Read);
+	/// Builds an access list filled with `entries` entries of the given `key` and returns it
+	/// with the last entry inserted, so touching that is hot, or cold when `entries` is zero.
+	fn access_list_with(
+		entries: u32,
+		key: TouchedKey,
+	) -> (crate::access_list::AccessList, AccessEntry) {
+		let mut al = AccessList::new();
+		for i in 0..entries {
+			al.touch(access_entry(key, i), StorageOp::Read);
 		}
-		assert!(!outcome.is_hot());
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
-		// Worst-case hot read: the rightmost key, and no upgrade, so this measures what
-		// every hot touch pays for the map size.
-		let entry = AccessEntry::Storage {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
-		};
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(entry, StorageOp::Read);
-		}
-		assert!(outcome.is_hot(), "the fill seeded this entry");
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
-		let entry = AccessEntry::Storage {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
-		};
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(entry, StorageOp::Write);
-		}
-		assert!(outcome.is_hot(), "the fill seeded this entry");
-		Ok(())
+		assert_eq!(
+			al.metrics().size as u32,
+			entries,
+			"the keys must stay distinct, or the list is smaller than it looks",
+		);
+		(al, access_entry(key, entries.saturating_sub(1)))
 	}
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::new();
-		let entry = AccessEntry::Storage {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(u64::MAX),
-		};
+		// Empty, so the entry it hands back is absent and the touch is cold.
+		let (mut al, entry) = access_list_with(0, TouchedKey::Slot);
 		let outcome;
 		#[block]
 		{
@@ -2166,12 +2134,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::new();
-		let entry = AccessEntry::Storage {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(u64::MAX),
-		};
-		al.touch(entry.clone(), StorageOp::Read);
+		// One entry, and it is the one handed back, so the touch is hot.
+		let (mut al, entry) = access_list_with(1, TouchedKey::Slot);
 		let outcome;
 		#[block]
 		{
@@ -2181,20 +2145,73 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Per-entry rollback cost, prepaid by every cold touch since a frame revert
-	// can't charge gas itself. Isolated by reverting a frame with exactly one
-	// journaled entry on top of a near-full `AccessList`.
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, TouchedKey::Slot);
+		let entry = access_entry(TouchedKey::Slot, MAX_ACCESS_LIST_ENTRIES as u32);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, TouchedKey::Slot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_account_full() -> Result<(), BenchmarkError> {
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, TouchedKey::Address);
+		let entry = access_entry(TouchedKey::Address, MAX_ACCESS_LIST_ENTRIES as u32);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_account_full() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, TouchedKey::Address);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, TouchedKey::Slot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Write);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, TouchedKey::Slot);
 		al.enter_frame();
-		al.touch(
-			AccessEntry::Storage {
-				slot: worst_case_slot(),
-				address: H160::from_low_u64_be(u64::MAX),
-			},
-			StorageOp::Read,
-		);
+		al.touch(access_entry(TouchedKey::Slot, MAX_ACCESS_LIST_ENTRIES as u32), StorageOp::Read);
 		#[block]
 		{
 			al.rollback_frame();
