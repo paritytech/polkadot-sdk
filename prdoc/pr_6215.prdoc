@@ -131,6 +131,20 @@ doc:
     dropped, so `destroy_derivative` emits no event at all for a configuration that stores no
     mapping. Fixing that needs a new event and is not done here. Reported by the Runtime Whitebox
     Fuzzer.
+- audience: Runtime Dev
+  description: |-
+    `pallet-ranked-collective`'s `Geometric` vote-weight converter overflowed at the maximum excess
+    rank: `r + 1` was computed in `Rank` (`u16`), so an excess rank of 65535 panicked in debug
+    builds and wrapped in release ones, breaking the documented guarantee that a higher rank never
+    has less voting power. Widening that addition alone would push `v * (v + 1)` past `Votes`
+    (`u32`), so the intermediate arithmetic is now done in `u64`; the result (at most 2147516416)
+    still fits in `Votes`. The neighbouring `Linear` converter had the same `r + 1` overflow and is
+    fixed too. Values below the maximum rank are unchanged, so no runtime is affected in practice
+    -- reaching that rank takes 65535 promotions.
+
+    `Tally::approval` also summed `ayes + nays` in `Votes`. Both fields accrue saturatingly, so
+    that sum could overflow on its own; it is now computed in `u64` as well. Reported by the
+    Runtime Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
@@ -151,4 +165,6 @@ crates:
 - name: pallet-nft-fractionalization
   bump: patch
 - name: pallet-derivatives
+  bump: patch
+- name: pallet-ranked-collective
   bump: patch
