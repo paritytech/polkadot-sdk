@@ -54,6 +54,36 @@ doc:
     ceiling. The clamp now applies to all paths. All in-tree node configurations leave
     `max_block_proposal_slot_portion` unset, so no node was affected; this fixes the documented
     contract for the public API. Reported by the Runtime Whitebox Fuzzer.
+- audience: Runtime Dev
+  description: |-
+    `pallet-delegated-staking` stored a zero amount `Delegation` when a new delegation was created
+    with an amount of zero: `Delegation::update` only dropped zero amount delegations that already
+    existed. The delegator was left with a useless storage entry and an extra provider reference,
+    which kept the account from being reaped and permanently blocked it from registering as an
+    agent. A zero amount delegation is now never stored, on any path that creates one, matching
+    what the method already documented, and `delegate_to_agent` returns early for a zero amount
+    instead of bonding it. Accounts that already leaked such an entry are not healed by this
+    change: they stay stuck, and `pallet_nomination_pools::migrate_delegation` keeps rejecting
+    them. Reported by the Runtime Whitebox Fuzzer.
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    `pallet_scheduler::set_retry` did not enforce its documented contract: it accepted named tasks,
+    even though the doc comment states it cannot be used for them and `Error::Named` exists for
+    exactly this case. A named task configured this way emitted `RetrySet` with `id: None`, hiding
+    the task's name from anyone following the events. `set_retry` now rejects named tasks with
+    `Error::Named`, mirroring `do_reschedule`; use `set_retry_named` for those. A `set_retry` call
+    that used to succeed on a named task now fails, so callers must switch. No storage migration is
+    needed: `Retries` is keyed on the task address alone, so existing entries -- for named tasks
+    included -- keep working, and `cancel_retry` can still remove them. One corner loses its last
+    escape hatch: a named task whose dispatch was skipped inside `service_task` -- missing
+    preimage, or the call itself overweight -- has already lost its `Lookup` entry while staying
+    named in the agenda, so `set_retry_named` returns `NotFound` for it and `set_retry` now returns
+    `Named`. With a missing preimage the task is dead anyway; an overweight call is only postponed
+    and will still run, so that one is left with no way to get a retry configuration. `cancel_named`
+    and `reschedule_named` are already unreachable in the same window: the root cause is that
+    `service_task` drops the `Lookup` entry before it knows the task completed. The `set_retry`
+    benchmark had to stop targeting a named task; weights were not regenerated, since the new setup
+    can only measure less. Reported by the Runtime Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
@@ -66,4 +96,8 @@ crates:
 - name: polkadot-node-core-chain-selection
   bump: patch
 - name: sc-consensus-slots
+  bump: patch
+- name: pallet-delegated-staking
+  bump: patch
+- name: pallet-scheduler
   bump: patch
