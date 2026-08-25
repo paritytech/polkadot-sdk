@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787652108667,
+  "lastUpdate": 1787693296800,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "81a3af9830ea8b6ff64b066b73b04bb3b675add5",
-          "message": "parachain-system: Ensure left-over message budget fits into the PoV (#10863)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-21T22:20:18Z",
-          "tree_id": "4bf5bf95429f6f1ff512cf11703aa41c58195224",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/81a3af9830ea8b6ff64b066b73b04bb3b675add5"
-        },
-        "date": 1769038298612,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0070752323399999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14420921799333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023117807540000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009633291793333318,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02293439770666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tsvetomir@parity.io",
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b277f43a772cb6d0fc71049efa764d634714000",
+          "message": "Fix a wrong comment for revamp cli parameter (#12999)",
+          "timestamp": "2026-08-25T19:14:40Z",
+          "tree_id": "464015a16536d9d17ecd264520c0f57a93e7c68d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b277f43a772cb6d0fc71049efa764d634714000"
+        },
+        "date": 1787693257900,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00768843169333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14660270387333343,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010297815339999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022847380006666668,
             "unit": "seconds"
           }
         ]
