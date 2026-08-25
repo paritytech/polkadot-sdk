@@ -113,6 +113,24 @@ doc:
     with `/cmd bench` before this merges; the Asset Hub Rococo and staking-async parachain ones are
     not in the benchmark matrix and keep their stale numbers. Reported by the Runtime Whitebox
     Fuzzer.
+- audience: Runtime Dev
+  description: |-
+    `pallet-derivatives` never emitted its `DerivativeMappingCreated` event: the
+    `DerivativesRegistry::try_register_derivative` implementation, which writes the
+    original-to-derivative mapping, deposited `DerivativeCreated` instead. As a result the
+    `create_derivative` extrinsic emitted `DerivativeCreated` twice for configurations that store a
+    mapping, and the new derivative's local ID -- carried only by `DerivativeMappingCreated` -- was
+    never reported. Registration now emits `DerivativeMappingCreated`, and `create_derivative`
+    emits `DerivativeCreated` once.
+
+    This changes the events seen by anything registering a mapping outside the extrinsic (for
+    example the `RegisterDerivative` XCM creation adapter): it now emits `DerivativeMappingCreated`
+    where it used to emit `DerivativeCreated`. No in-tree runtime configures this pallet yet.
+
+    The destroy side is left as it was: `DerivativeDestroyed` is deposited when the mapping is
+    dropped, so `destroy_derivative` emits no event at all for a configuration that stores no
+    mapping. Fixing that needs a new event and is not done here. Reported by the Runtime Whitebox
+    Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
@@ -131,4 +149,6 @@ crates:
 - name: pallet-scheduler
   bump: patch
 - name: pallet-nft-fractionalization
+  bump: patch
+- name: pallet-derivatives
   bump: patch

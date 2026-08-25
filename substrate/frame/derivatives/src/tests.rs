@@ -21,6 +21,7 @@ use frame_support::{assert_err, assert_ok, traits::tokens::asset_ops::common_str
 use mock::*;
 
 use xcm::prelude::*;
+use xcm_builder::unique_instances::NonFungibleAsset;
 use xcm_executor::XcmExecutor;
 
 #[test]
@@ -366,6 +367,137 @@ fn derivative_nfts() {
 		assert_eq!(
 			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id),
 			Some(another_nft_beneficiary),
+		);
+	});
+}
+
+/// Collects the events of the given `pallet-derivatives` instance, in emission order.
+/// Takes the instance's runtime pallet name.
+macro_rules! derivatives_events {
+	($pallet:ident) => {
+		System::events()
+			.into_iter()
+			.filter_map(|record| match record.event {
+				RuntimeEvent::$pallet(event) => Some(event),
+				_ => None,
+			})
+			.collect::<Vec<_>>()
+	};
+}
+
+#[test]
+fn create_derivative_with_a_stored_mapping_emits_each_event_once() {
+	new_test_ext().execute_with(|| {
+		let id = AssetId(Location::new(1, [Parachain(2222), PalletInstance(42), GeneralIndex(1)]));
+
+		assert_ok!(AutoIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(1),
+			id.clone()
+		));
+
+		let derivative_id = AutoIdDerivativeCollections::get_derivative(&id).unwrap();
+
+		// The registration reports the mapping, the extrinsic reports the creation.
+		assert_eq!(
+			derivatives_events!(AutoIdDerivativeCollections),
+			vec![
+				pallet_derivatives::Event::DerivativeMappingCreated {
+					original: id.clone(),
+					derivative_id,
+				},
+				pallet_derivatives::Event::DerivativeCreated { original: id },
+			],
+		);
+	});
+}
+
+#[test]
+fn create_derivative_without_a_stored_mapping_emits_only_the_creation_event() {
+	new_test_ext().execute_with(|| {
+		let id = AssetId(Location::new(1, [Parachain(1111), PalletInstance(42), GeneralIndex(1)]));
+
+		assert_ok!(PredefinedIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(1),
+			id.clone()
+		));
+
+		assert_eq!(
+			derivatives_events!(PredefinedIdDerivativeCollections),
+			vec![pallet_derivatives::Event::DerivativeCreated { original: id }],
+		);
+	});
+}
+
+#[test]
+fn try_register_derivative_emits_the_mapping_event() {
+	new_test_ext().execute_with(|| {
+		let original: NonFungibleAsset = (
+			AssetId(Location::new(1, [Parachain(2222), PalletInstance(42), GeneralIndex(1)])),
+			Index(112),
+		);
+		let derivative: NftFullId = (1, 1);
+
+		assert_ok!(DerivativeNfts::try_register_derivative(&original, &derivative));
+
+		assert_eq!(
+			derivatives_events!(DerivativeNfts),
+			vec![pallet_derivatives::Event::DerivativeMappingCreated {
+				original: original.clone(),
+				derivative_id: derivative,
+			}],
+		);
+
+		// A rejected registration emits nothing.
+		assert_err!(
+			DerivativeNfts::try_register_derivative(&original, &derivative),
+			pallet_derivatives::Error::<Test, DerivativeNftsInstance>::DerivativeAlreadyExists,
+		);
+		assert_eq!(derivatives_events!(DerivativeNfts).len(), 1);
+	});
+}
+
+#[test]
+fn destroy_derivative_only_reports_a_dropped_mapping() {
+	new_test_ext().execute_with(|| {
+		let mapped_id =
+			AssetId(Location::new(1, [Parachain(2222), PalletInstance(42), GeneralIndex(1)]));
+		let unmapped_id =
+			AssetId(Location::new(1, [Parachain(1111), PalletInstance(42), GeneralIndex(1)]));
+
+		assert_ok!(AutoIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(1),
+			mapped_id.clone()
+		));
+		assert_ok!(PredefinedIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(1),
+			unmapped_id.clone()
+		));
+
+		assert_ok!(AutoIdDerivativeCollections::destroy_derivative(
+			RuntimeOrigin::root(),
+			mapped_id.clone()
+		));
+		assert_ok!(PredefinedIdDerivativeCollections::destroy_derivative(
+			RuntimeOrigin::root(),
+			unmapped_id.clone()
+		));
+
+		// The destruction event comes from dropping the mapping, so a configuration that stores no
+		// mapping reports nothing.
+		assert_eq!(
+			derivatives_events!(AutoIdDerivativeCollections),
+			vec![
+				pallet_derivatives::Event::DerivativeMappingCreated {
+					original: mapped_id.clone(),
+					derivative_id: 0,
+				},
+				pallet_derivatives::Event::DerivativeCreated { original: mapped_id.clone() },
+				pallet_derivatives::Event::DerivativeDestroyed { original: mapped_id },
+			],
+		);
+		assert_eq!(
+			derivatives_events!(PredefinedIdDerivativeCollections),
+			vec![pallet_derivatives::Event::DerivativeCreated { original: unmapped_id }],
 		);
 	});
 }
