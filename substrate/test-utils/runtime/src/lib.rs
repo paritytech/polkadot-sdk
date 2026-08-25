@@ -27,6 +27,12 @@ pub mod extrinsic;
 pub mod genesismap;
 pub mod substrate_test_pallet;
 
+/// Compile-coverage smoke module for the riscv (PolkaVM/JAM) native `sp_io`
+/// implementations. Only compiled for `riscv32`/`riscv64` under `substrate_runtime`; see the
+/// module itself.
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+mod sp_io_native_smoke;
+
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};

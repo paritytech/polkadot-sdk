@@ -48,6 +48,7 @@ sp-session = { workspace = true }
 sp-state-machine = { workspace = true }
 sp-additional-data = { workspace = true }
 sp-statement-store = { workspace = true }
+sp-tracing = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-trie = { workspace = true }
 sp-version = { workspace = true }

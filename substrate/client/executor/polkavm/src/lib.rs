@@ -26,11 +26,22 @@ use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
 
-#[repr(transparent)]
-pub struct InstancePre(polkavm::InstancePre<(), String>);
+// This executor supports only RFC-145 V2 entry points. A V2 entry point takes a single
+// `input_len` argument (zero-extended into A0 on riscv64) and pulls its payload out of the
+// host via the `Input::read` host function, which stashes the payload in `HostState::input_data`
+// for the duration of a runtime call. There is no V1 (pointer+length) convention here.
+
+/// State made available to host functions for the duration of a runtime call.
+struct HostState {
+	/// Input payload of the current call, taken by `Input::read` on V2 entry points.
+	input_data: Option<Vec<u8>>,
+}
 
 #[repr(transparent)]
-pub struct Instance(polkavm::Instance<(), String>);
+pub struct InstancePre(polkavm::InstancePre<HostState, String>);
+
+#[repr(transparent)]
+pub struct Instance(polkavm::Instance<HostState, String>);
 
 impl WasmModule for InstancePre {
 	fn new_instance(
@@ -64,8 +75,6 @@ impl WasmInstance for Instance {
 			);
 		};
 
-		// TODO: This will leak guest memory; find a better solution.
-
 		// Make sure that the memory is cleared...
 		if let Err(err) = self.0.reset_memory() {
 			return (
@@ -77,26 +86,10 @@ impl WasmInstance for Instance {
 			);
 		}
 
-		// ... and allocate space for the input payload.
-		if let Err(err) = self.0.sbrk(raw_data_length) {
-			return (
-				Err(format!(
-					"call into the runtime method '{name}' failed: reset memory failed: {err}"
-				)
-				.into()),
-				None,
-			);
-		}
+		// Stash the input payload so the guest can pull it out via `Input::read` (RFC-145 V2).
+		let mut state = HostState { input_data: Some(raw_data.to_vec()) };
 
-		// Grab the address of where the guest's heap starts; that's where we've just allocated
-		// the memory for the input payload.
-		let data_pointer = self.0.module().memory_map().heap_base();
-
-		if let Err(err) = self.0.write_memory(data_pointer, raw_data) {
-			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {err}").into()), None);
-		}
-
-		match self.0.call_typed(&mut (), pc, (data_pointer, raw_data_length)) {
+		match self.0.call_typed(&mut state, pc, (raw_data_length,)) {
 			Ok(()) => {},
 			Err(CallError::Trap) => {
 				return (
@@ -133,7 +126,7 @@ impl WasmInstance for Instance {
 	}
 }
 
-struct Context<'r, 'a>(&'r mut polkavm::Caller<'a, ()>);
+struct Context<'r, 'a>(&'r mut polkavm::Caller<'a, HostState>);
 
 impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn read_memory_into(
@@ -181,11 +174,18 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	}
 
 	fn take_input_data(&mut self) -> sp_wasm_interface::Result<Vec<u8>> {
-		todo!("Implement 'take_input_data' for PolkaVM");
+		self.0
+			.user_data
+			.input_data
+			.take()
+			.ok_or_else(|| "Input data already taken".into())
 	}
 }
 
-fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Result<(), String> {
+fn call_host_function(
+	caller: &mut Caller<HostState>,
+	function: &dyn Function,
+) -> Result<(), String> {
 	let mut args = [Value::I64(0); Reg::ARG_REGS.len()];
 	let mut nth_reg = 0;
 	for (nth_arg, kind) in function.signature().args.iter().enumerate() {
@@ -298,10 +298,10 @@ where
 	let module =
 		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())?;
 
-	let mut linker = polkavm::Linker::new();
+	let mut linker = polkavm::Linker::<HostState, String>::new();
 
 	for function in H::host_functions() {
-		linker.define_untyped(function.name(), |mut caller: Caller<()>| {
+		linker.define_untyped(function.name(), |mut caller: Caller<HostState>| {
 			call_host_function(&mut caller, function)
 		})?;
 	}
@@ -309,7 +309,7 @@ where
 	// Temporary shim: `sbrk` was removed from the `jam_v1` instruction set (GP 0.8.0)
 	// and replaced with a `grow_heap` host call. The guest-side allocator in
 	// `sp-io` imports this symbol.
-	linker.define_untyped("grow_heap", |caller: Caller<()>| {
+	linker.define_untyped("grow_heap", |caller: Caller<HostState>| {
 		let size = caller.instance.reg(Reg::A0) as u32;
 		match caller.instance.sbrk(size) {
 			Ok(Some(ptr)) => caller.instance.set_reg(Reg::A0, ptr as u64),
