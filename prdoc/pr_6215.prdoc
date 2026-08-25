@@ -38,6 +38,13 @@ doc:
     pre-existing defect in `sp-timestamp`'s `Add` impl. The constructor has no in-tree callers,
     so no node or chain was affected; this hardens the public API. Reported by the Runtime
     Whitebox Fuzzer.
+- audience: Node Dev
+  description: |-
+    The chain selection subsystem's default `PruneOnly` stagnant check computed its prune cutoff as
+    `now - STAGNANT_PRUNE_DELAY` with plain `u64` subtraction. A system wall clock reading below the
+    25 hour delay -- an unset RTC, say -- panicked in debug builds. Release builds wrapped the
+    cutoff to near `u64::MAX`, dropping stagnant bookkeeping right away instead of respecting the
+    delay. The subtraction now saturates. Reported by the Runtime Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
@@ -46,4 +53,6 @@ crates:
 - name: pallet-conviction-voting
   bump: patch
 - name: cumulus-primitives-timestamp
+  bump: patch
+- name: polkadot-node-core-chain-selection
   bump: patch

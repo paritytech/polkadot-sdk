@@ -214,6 +214,13 @@ type VirtualOverseer =
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	test: impl FnOnce(TestBackend, MockClock, VirtualOverseer) -> T,
 ) {
+	test_harness_with_mode(StagnantCheckMode::CheckAndPrune, test)
+}
+
+fn test_harness_with_mode<T: Future<Output = VirtualOverseer>>(
+	stagnant_check_mode: StagnantCheckMode,
+	test: impl FnOnce(TestBackend, MockClock, VirtualOverseer) -> T,
+) {
 	let pool = TaskExecutor::new();
 	let (context, virtual_overseer) =
 		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool);
@@ -224,7 +231,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		context,
 		backend.clone(),
 		StagnantCheckInterval::new(TEST_STAGNANT_INTERVAL),
-		StagnantCheckMode::CheckAndPrune,
+		stagnant_check_mode,
 		Arc::new(clock.clone()),
 	);
 
@@ -1828,6 +1835,59 @@ fn detects_stagnant() {
 
 		virtual_overseer
 	})
+}
+
+#[test]
+fn prune_only_stagnant_waits_for_the_prune_delay() {
+	test_harness_with_mode(
+		StagnantCheckMode::PruneOnly,
+		|backend, clock, mut virtual_overseer| async move {
+			let finalized_number = 0;
+			let finalized_hash = Hash::repeat_byte(0);
+
+			// F <- A1
+
+			let (a1_hash, chain_a) =
+				construct_chain_on_base(vec![1], finalized_number, finalized_hash, |h| {
+					salt_header(h, b"a");
+				});
+
+			import_chains_into_empty(
+				&mut virtual_overseer,
+				&backend,
+				finalized_number,
+				finalized_hash,
+				vec![chain_a],
+			)
+			.await;
+
+			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
+
+			// The wall clock is still below `STAGNANT_PRUNE_DELAY`. Let a few checks run against
+			// it: the cutoff must saturate to 0 instead of underflowing, so nothing is pruned.
+			futures_timer::Delay::new(TEST_STAGNANT_INTERVAL * 5).await;
+
+			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
+
+			// One second short of this entry's prune point: still nothing to prune.
+			clock.advance_secs(STAGNANT_PRUNE_DELAY + STAGNANT_TIMEOUT - 1);
+			futures_timer::Delay::new(TEST_STAGNANT_INTERVAL * 5).await;
+
+			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
+
+			// Past the delay the entry is pruned as usual.
+			{
+				let (_, write_rx) = backend.await_next_write();
+				clock.advance_secs(1);
+
+				write_rx.await.unwrap();
+			}
+
+			backend.assert_stagnant_at_state(vec![]);
+
+			virtual_overseer
+		},
+	)
 }
 
 #[test]
