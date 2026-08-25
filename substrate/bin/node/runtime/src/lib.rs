@@ -2728,9 +2728,6 @@ impl pallet_registrar_para::Config for Runtime {
 }
 
 /// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
-///
-/// Stateless, except that benchmarks need `manager_of` to find the para they set up, so under
-/// `runtime-benchmarks` one entry lives at a raw storage key.
 pub struct AcceptingRegistrar;
 
 #[cfg(feature = "runtime-benchmarks")]

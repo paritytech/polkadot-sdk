@@ -618,12 +618,22 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
+	/// Deregister a Para Id, freeing all data.
 	fn deregister(para_id: u32) -> DispatchResult {
-		// Takes the `Paras` entry too, not just the lifecycle: the registry must forget the para
-		// or a later chase-up would report it as still registered. The unreserve in there is a
-		// no-op for a remotely registered para (its stored deposit is zero) and correctly frees
-		// the relay-chain deposit of one that was registered locally the legacy way.
-		Self::do_deregister(ParaId::from(para_id))
+		let id = ParaId::from(para_id);
+		match paras::Pallet::<T>::lifecycle(id) {
+			// Para must be a parathread (on-demand parachain), or not exist at all.
+			Some(ParaLifecycle::Parathread) | None => {},
+			_ => return Err(Error::<T>::NotParathread.into()),
+		}
+		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
+			.map_err(|_| Error::<T>::CannotDeregister)?;
+
+		Paras::<T>::remove(id);
+
+		PendingSwap::<T>::remove(id);
+		Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+		Ok(())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

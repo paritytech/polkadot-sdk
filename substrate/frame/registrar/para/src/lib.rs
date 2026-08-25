@@ -165,8 +165,6 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		/// only when the relay chain confirms the deregistration.
 		ticket: Ticket,
 		/// The block from which the manager may chase up this deregistration.
-		///
-		/// Same mechanics as [`RegistrationState::Pending::cancellable_at`].
 		cancellable_at: BlockNumber,
 	},
 }
@@ -218,10 +216,6 @@ pub mod pallet {
 		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// An origin a parachain uses to act as itself, resolved to its para id.
-		///
-		/// Lets a para drive its own deregistration, mirroring the relay chain registrar's
-		/// root-para-or-owner rule. On a system chain this is the XCM sibling-parachain origin;
-		/// `frame_system::EnsureNever` turns the path off.
 		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
 
 		/// The lowest para id this pallet will hand out.
@@ -673,8 +667,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its `manager`, or root.
-	///
-	/// The same set of callers the relay chain's registrar accepts for its own deregister.
 	fn ensure_root_para_or_manager(
 		origin: frame_system::pallet_prelude::OriginFor<T>,
 		para_id: ParaId,
@@ -777,10 +769,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Apply the relay chain's verdict on a deregistration.
-	///
-	/// Both unexpected cases are defensive: the deregistration request is answered exactly once,
-	/// and nothing else can settle a deregistering entry in the meantime (a chase-up's answer
-	/// always arrives after this one, the transport being ordered).
 	fn on_deregister_response(
 		para_id: ParaId,
 		message_id: u64,
@@ -833,10 +821,6 @@ impl<T: Config> Pallet<T> {
 	/// never happened and the entry goes back to registered. The one refusal is
 	/// [`FailureReason::NotRegistered`]: the deregistration did go through and its report was
 	/// lost, so the deposits are released after all.
-	///
-	/// Unlike a deregister response, an answer for a para that is no longer deregistering is
-	/// expected rather than defensive: the verdict this chase-up asked about arrives first and
-	/// settles the entry (possibly removing it entirely), and this then has nothing left to do.
 	fn on_cancel_deregistration_response(
 		para_id: ParaId,
 		message_id: u64,

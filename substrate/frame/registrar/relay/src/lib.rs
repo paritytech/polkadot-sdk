@@ -357,13 +357,10 @@ pub mod pallet {
 		///
 		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users.
 		///
-		/// The parachain has already checked its caller is the manager; this end checks that same
-		/// manager against its own registry and that the para is unlocked, then removes the para
-		/// and schedules its relay-chain cleanup. As with [`Pallet::authorize_code`], a request
-		/// this pallet will not act on is reported back and returns `Ok`, never `Err`.
-		///
-		/// An id the registry never knew is confirmed as gone rather than refused: there is
-		/// nothing to remove, and the parachain is waiting to release deposits.
+		/// Checks the manager and that the para is unlocked, then removes the para and schedules
+		/// its relay-chain cleanup. As with [`Pallet::authorize_code`], a rejected request is
+		/// reported back and returns `Ok`, never `Err`. An unknown id is confirmed as gone rather
+		/// than refused, so the parachain can release deposits.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::deregister())]
 		pub fn deregister(
@@ -511,14 +508,12 @@ pub mod pallet {
 		fn on_deregister_request(para_id: ParaId, message_id: u64, manager: T::AccountId) {
 			let registered_manager = match T::Registrar::manager_of(para_id) {
 				Some(registered_manager) => registered_manager,
-				// The registry never knew this id: there is nothing to remove, and the parachain
-				// is waiting to release deposits, so confirm rather than refuse.
+				// Unknown id: nothing to remove, confirm so the parachain can release deposits.
 				None if !T::Registrar::is_registered(para_id) => {
 					Self::report_deregistration(para_id, message_id, Ok(()));
 					return Self::deposit_event(Event::Deregistered { para_id, message_id });
 				},
-				// Known to the relay chain, but not through the registry (e.g. a system para):
-				// not the parachain's to remove.
+				// Registered outside the registry (e.g. a system para): not ours to remove.
 				None => {
 					return Self::reject_deregistration(
 						para_id,
@@ -535,9 +530,8 @@ pub mod pallet {
 				return Self::reject_deregistration(para_id, message_id, FailureReason::Locked);
 			}
 
-			// The registry may refuse after it has already written (a para whose upward message
-			// queue is not drained fails only once its cleanup is being scheduled), and a refusal
-			// here is reported rather than unwound, so the attempt gets its own storage layer.
+			// The registry may fail after writing storage, so isolate the attempt in its own
+			// storage layer and report the refusal instead of unwinding.
 			match frame_support::storage::with_storage_layer::<(), sp_runtime::DispatchError, _>(
 				|| T::Registrar::deregister(para_id),
 			) {

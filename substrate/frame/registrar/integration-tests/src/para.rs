@@ -194,8 +194,6 @@ impl pallet_registrar_para::Config for Runtime {
 	>;
 	type SendToRelay = ParaSendToRelay;
 	type AssignmentChecker = ();
-	// The simulated network has no second parachain to call in, so the para-itself origin
-	// stays off; the unit tests cover it.
 	type ParachainOrigin = frame_system::EnsureNever<u32>;
 	// The relay chain reports with `OriginKind::Superuser`, which `ParentAsSuperuser` turns into
 	// `Root`. Nothing else on this chain can produce a `Root` origin in these tests.

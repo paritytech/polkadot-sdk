@@ -125,9 +125,6 @@ fn relay_registry_entry(
 }
 
 /// Reserve, register and fully onboard a para for `who`, returning its id.
-///
-/// Leaves the relay chain in session 3 with the para a parathread, and the parachain in
-/// `Registered` holding both deposits.
 fn onboard(who: AccountId32, head_len: usize, code_len: usize) -> u32 {
 	// Validators must be active before anybody can approve the PVF.
 	Relay::execute_with(|| relay::run_to_session(1));
