@@ -17,8 +17,8 @@ use crate::utils::{
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assign_cores, current_session_index, submit_sudo_runtime_upgrade,
-	wait_for_pvf_prepare, wait_for_runtime_upgrade,
+	assert_finality_lag, assign_cores, current_session_index, wait_for_pvf_prepare,
+	wait_for_runtime_upgrade,
 };
 use polkadot_primitives::{node_features::FeatureIndex, CandidateDescriptorVersion, Id as ParaId};
 use rstest::rstest;
@@ -60,10 +60,10 @@ async fn v3_dynamic_enablement_test(
 
 	// Runtime flavours for 2902, picked so the offset never changes — only the v3 const does.
 	//
-	// offset 0: async-backing -> v3 -> spec_version_incremented (bumped version, so the rollback
-	//           can use the version-checked `System::set_code`).
-	// offset 2: relay-parent-offset-2 -> v3_rpo_2 -> relay-parent-offset-2. Those two share a
-	//           spec_version, so both swaps need `set_code_without_checks`.
+	// offset 0: async-backing -> v3 -> spec_version_incremented. The rollback target is a blob the
+	//           network has never seen, so it also exercises a PVF prepare.
+	// offset 2: relay-parent-offset-2 -> v3_rpo_2 -> relay-parent-offset-2, rolling back to the
+	//           genesis blob.
 	let (para_chain, v3_wasm, v3_disabled_wasm) = match relay_parent_offset {
 		0 => (
 			"async-backing",
@@ -275,30 +275,25 @@ async fn v3_dynamic_enablement_test(
 	// block), but anchor one session ahead anyway so V3 collations that were in flight when the
 	// code was swapped are not counted as a version violation.
 	log::info!("state on/off (relay on, para rolled back off v3) → V2");
-	if relay_parent_offset == 0 {
-		// `spec_version_incremented` bumps the version, so the checked call works.
-		submit_sudo_runtime_upgrade(&para_client_v3, v3_disabled_wasm, &dev::alice()).await?;
-	} else {
-		// The offset-2 rollback target shares a spec_version with `v3_rpo_2`, so
-		// `System::set_code` would reject it for not increasing the version.
-		let rollback_call = dynamic(
-			"Sudo",
-			"sudo_unchecked_weight",
-			vec![
-				value! { System(set_code_without_checks { code: Value::from_bytes(v3_disabled_wasm) }) },
-				value! { { ref_time: 1u64, proof_size: 1u64 } },
-			],
-		);
-		para_client_v3
-			.tx()
-			.sign_and_submit_then_watch_default(&rollback_call, &dev::alice())
-			.await?
-			.wait_for_finalized_success()
-			.await?;
-	}
+	// Unchecked for both offsets: the offset-2 rollback target shares a spec_version with
+	// `v3_rpo_2`, which `System::set_code` would reject for not increasing the version.
+	let rollback_call = dynamic(
+		"Sudo",
+		"sudo_unchecked_weight",
+		vec![
+			value! { System(set_code_without_checks { code: Value::from_bytes(v3_disabled_wasm) }) },
+			value! { { ref_time: 1u64, proof_size: 1u64 } },
+		],
+	);
+	para_client_v3
+		.tx()
+		.sign_and_submit_then_watch_default(&rollback_call, &dev::alice())
+		.await?
+		.wait_for_finalized_success()
+		.await?;
 	wait_for_runtime_upgrade(&para_client_v3).await?;
-	// Only offset 0 rolls back to a blob the network has never seen (`spec_version_incremented`,
-	// needed for the version-checked `set_code`), so only there does a fourth prepare happen.
+	// Only offset 0 rolls back to a blob the network has never seen
+	// (`spec_version_incremented`), so only there does a fourth prepare happen.
 	// Offset 2 rolls back to 2902's genesis code, already prepared, so the concluded-prepares
 	// metric never advances.
 	if relay_parent_offset == 0 {
