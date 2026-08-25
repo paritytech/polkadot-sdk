@@ -593,8 +593,8 @@ pub fn proposing_remaining_duration<Block: BlockT>(
 	let max_proposing_duration =
 		max_block_proposal_slot_portion.map(|p| slot_info.duration.mul_f32(p.get()));
 
-	// The maximum caps every path out of this function, not just the lenient one:
-	// `block_proposal_slot_portion` may itself be larger than `max_block_proposal_slot_portion`.
+	// Cap proposing duration across all paths, in case `block_proposal_slot_portion`
+	// exceeds `max_block_proposal_slot_portion`.
 	let proposing_duration = max_proposing_duration
 		.map_or(proposing_duration, |max| std::cmp::min(proposing_duration, max));
 

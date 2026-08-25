@@ -783,10 +783,10 @@ async fn handle_get_block_number(ctx_handle: &mut VirtualOverseer, test_state: &
 fn conclude_before_the_first_leaf_shuts_down() {
 	test_harness(|test_state, mut virtual_overseer| {
 		Box::pin(async move {
-			// The subsystem is still in `initialize`, waiting for its first leaf.
+			// Ask the subsystem to conclude while it is waiting for its first leaf.
 			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 
-			// It has to exit: no more messages and the channel is closed.
+			// The subsystem should shut down cleanly.
 			assert!(virtual_overseer.try_recv().await.is_none());
 
 			test_state
@@ -798,7 +798,7 @@ fn conclude_before_the_first_leaf_shuts_down() {
 fn conclude_after_leafless_signals_shuts_down() {
 	test_harness(|test_state, mut virtual_overseer| {
 		Box::pin(async move {
-			// Signals carrying no activated leaf must not end initialization ...
+			// Signals without a new leaf should not stop initialization.
 			virtual_overseer
 				.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
 					test_state.last_block,
@@ -811,8 +811,7 @@ fn conclude_after_leafless_signals_shuts_down() {
 				)))
 				.await;
 
-			// ... but `Conclude` still has to. (Had one of them ended it, the subsystem would
-			// already be gone and one of these sends would panic.)
+			// A `Conclude` signal should shut down the subsystem cleanly.
 			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 			assert!(virtual_overseer.try_recv().await.is_none());
 

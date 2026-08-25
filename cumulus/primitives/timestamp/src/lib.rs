@@ -62,10 +62,7 @@ impl InherentDataProvider {
 		// As the parachain starts building at around `relay_chain_slot + 1` we use that slot to
 		// calculate the timestamp.
 		//
-		// Neither input is validated by the constructor, so the arithmetic saturates instead of
-		// wrapping to some arbitrary in-range timestamp. Erroring out would need a new `no_std`
-		// variant in `sp_inherents::Error`. (`Slot::timestamp` does the checked multiplication,
-		// but only for a `SlotDuration`, whose `From<Duration>` truncates.)
+		// Use saturating arithmetic to avoid overflow if inputs are out of range.
 		let slot_duration_millis =
 			u64::try_from(self.relay_chain_slot_duration.as_millis()).unwrap_or(u64::MAX);
 		let next_slot = self.relay_chain_slot.saturating_add(1u64);
@@ -115,7 +112,7 @@ mod tests {
 
 	#[test]
 	fn slot_duration_above_u64_millis_does_not_truncate() {
-		// `as_millis()` is exactly `2^64` here, so the old `as u64` cast silently made it `0`.
+		// Verify that a duration larger than `u64::MAX` milliseconds saturates instead of wrapping.
 		let duration = Duration::new(18_446_744_073_709_551, 616_000_000);
 		assert_eq!(duration.as_millis(), u128::from(u64::MAX) + 1);
 		assert_eq!(timestamp_for(1, duration), u64::MAX);

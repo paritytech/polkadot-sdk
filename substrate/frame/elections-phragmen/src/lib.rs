@@ -1824,7 +1824,7 @@ mod tests {
 			assert_ok!(submit_candidacy(RuntimeOrigin::signed(2)));
 			assert_eq!(candidate_ids(), vec![1, 2]);
 
-			// the candidate list is full: no further candidacy is accepted.
+			// The candidate list is full; reject further candidacies.
 			assert_noop!(
 				submit_candidacy(RuntimeOrigin::signed(3)),
 				Error::<Test>::TooManyCandidates

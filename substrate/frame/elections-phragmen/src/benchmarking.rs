@@ -252,8 +252,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn submit_candidacy(
-		// Number of already existing candidates. The call is only accepted below the
-		// `MaxCandidates` limit, so the worst case leaves one free slot.
+		// Number of existing candidates. The call is only accepted when below `MaxCandidates`.
 		c: Linear<0, { T::MaxCandidates::get().saturating_sub(1) }>,
 	) -> Result<(), BenchmarkError> {
 		// We fix the number of members to the number of desired members and runners-up.

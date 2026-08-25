@@ -198,14 +198,13 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// A derivative is created via the `create_derivative` call.
+		/// A derivative is created.
 		DerivativeCreated { original: OriginalOf<T, I> },
 
 		/// A mapping between an original asset ID and a local derivative asset ID is created.
 		DerivativeMappingCreated { original: OriginalOf<T, I>, derivative_id: DerivativeOf<T, I> },
 
-		/// The mapping between an original and its derivative is dropped.
-		/// Not emitted by `destroy_derivative` if no mapping is stored.
+		/// A derivative is destroyed.
 		DerivativeDestroyed { original: OriginalOf<T, I> },
 	}
 

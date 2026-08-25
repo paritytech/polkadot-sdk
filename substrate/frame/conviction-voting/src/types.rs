@@ -125,7 +125,7 @@ impl<
 
 	/// Add an account's vote into the tally.
 	///
-	/// Returns `None` and leaves `self` unchanged if any of the fields would overflow.
+	/// Returns `None` and leaves `self` unchanged if any field overflows.
 	pub fn add(&mut self, vote: AccountVote<Votes>) -> Option<()> {
 		let (mut ayes, mut nays, mut support) = (self.ayes, self.nays, self.support);
 		match vote {
@@ -155,14 +155,14 @@ impl<
 				nays = nays.checked_add(&nay.votes)?;
 			},
 		}
-		// Commit only after every field succeeded.
+		// Apply changes only after all calculations succeed.
 		*self = Self::from_parts(ayes, nays, support);
 		Some(())
 	}
 
 	/// Remove an account's vote from the tally.
 	///
-	/// Returns `None` and leaves `self` unchanged if any of the fields would underflow.
+	/// Returns `None` and leaves `self` unchanged if any field underflows.
 	pub fn remove(&mut self, vote: AccountVote<Votes>) -> Option<()> {
 		let (mut ayes, mut nays, mut support) = (self.ayes, self.nays, self.support);
 		match vote {
@@ -192,7 +192,7 @@ impl<
 				nays = nays.checked_sub(&nay.votes)?;
 			},
 		}
-		// Commit only after every field succeeded.
+		// Apply changes only after all calculations succeed.
 		*self = Self::from_parts(ayes, nays, support);
 		Some(())
 	}

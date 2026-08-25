@@ -1863,19 +1863,18 @@ fn prune_only_stagnant_waits_for_the_prune_delay() {
 
 			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
 
-			// The wall clock is still below `STAGNANT_PRUNE_DELAY`. Let a few checks run against
-			// it: the cutoff must saturate to 0 instead of underflowing, so nothing is pruned.
+			// The clock has not reached STAGNANT_PRUNE_DELAY yet; ensure the cutoff saturates to 0 without pruning.
 			futures_timer::Delay::new(TEST_STAGNANT_INTERVAL * 5).await;
 
 			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
 
-			// One second short of this entry's prune point: still nothing to prune.
+			// One second before the prune threshold: entry should still not be pruned.
 			clock.advance_secs(STAGNANT_PRUNE_DELAY + STAGNANT_TIMEOUT - 1);
 			futures_timer::Delay::new(TEST_STAGNANT_INTERVAL * 5).await;
 
 			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
 
-			// Past the delay the entry is pruned as usual.
+			// Once the delay has passed, the entry is pruned.
 			{
 				let (_, write_rx) = backend.await_next_write();
 				clock.advance_secs(1);
