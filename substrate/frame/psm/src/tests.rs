@@ -4178,6 +4178,31 @@ mod try_state {
 		});
 	}
 
+	// Check 10 (advisory). The warning fires with minting enabled or disabled;
+	// the retire-an-asset procedure (disable minting, zero the weight) must
+	// not turn the warning into an error.
+	#[test]
+	fn debt_above_ceiling_warns_even_with_minting_disabled() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::zero());
+			assert!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID) >
+					psm_max_asset_debt(USDC_ASSET_ID),
+				"debt must exceed the ceiling for this test to exercise check 10",
+			);
+			assert_ok!(dts());
+		});
+	}
+
 	// Check 10 (advisory)
 	#[test]
 	fn warns_on_debt_exceeds_asset_ceiling() {
@@ -4288,26 +4313,53 @@ mod try_state {
 		});
 	}
 
-	// Check 16 (advisory)
+	// Check 16
 	#[test]
-	fn warns_on_orphan_fee_entries() {
+	fn detects_orphan_minting_fee() {
 		new_test_ext().execute_with(|| {
 			MintingFee::<Test>::insert(
 				INTERNAL_ASSET_ID,
 				UNSUPPORTED_ASSET_ID,
 				Permill::from_percent(1),
 			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("MintingFee entry exists for non-approved pair")
+			);
+		});
+	}
+
+	// Check 16
+	#[test]
+	fn detects_orphan_redemption_fee() {
+		new_test_ext().execute_with(|| {
 			RedemptionFee::<Test>::insert(
 				INTERNAL_ASSET_ID,
 				UNSUPPORTED_ASSET_ID,
 				Permill::from_percent(1),
 			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("RedemptionFee entry exists for non-approved pair")
+			);
+		});
+	}
+
+	// Check 16. A stray weight row is the worst of the three: the ceiling
+	// formula divides by the sum of the weights, so it shrinks the ceilings
+	// of the approved assets.
+	#[test]
+	fn detects_orphan_ceiling_weight() {
+		new_test_ext().execute_with(|| {
 			AssetCeilingWeight::<Test>::insert(
 				INTERNAL_ASSET_ID,
 				UNSUPPORTED_ASSET_ID,
 				Permill::from_percent(50),
 			);
-			assert_ok!(dts());
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("AssetCeilingWeight entry exists for non-approved pair")
+			);
 		});
 	}
 

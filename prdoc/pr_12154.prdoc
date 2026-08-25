@@ -15,11 +15,13 @@ doc:
       row stays after the removal of its PSM, and that no debt exists for a pair
       that the PSM does not approve.
 
-      Four checks are advisory. An advisory check writes a warning to the log, and
-      it does not return an error. Governance can create these four states
+      Three checks are advisory. An advisory check writes a warning to the log,
+      and it does not return an error. Governance can create these three states
       correctly: debt above a per-asset ceiling, debt above the ceiling of an
-      instance, a reserve with a balance but with zero weight and zero debt, and a
-      fee row for an external asset that the PSM does not yet approve.
+      instance, and a reserve with a balance but with zero weight and zero debt.
+      Fee and weight rows for a pair that the PSM does not approve are hard
+      errors, because no extrinsic can create them and a stray weight row
+      shrinks the ceilings of the approved assets.
 
       Each check has a unit test. A test changes one storage item, then it confirms
       the specific error. A test of an advisory check confirms the result is `Ok`.

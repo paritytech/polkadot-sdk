@@ -72,14 +72,13 @@
 //! * no storage row stays after the removal of its PSM;
 //! * no debt exists for a pair that the PSM does not approve.
 //!
-//! Four of the seventeen checks are advisory. An advisory check writes a warning to
-//! the log. It does not return an error. Governance can create these four states
+//! Three of the seventeen checks are advisory. An advisory check writes a warning to
+//! the log. It does not return an error. Governance can create these three states
 //! correctly, so an error would stop the chain after a correct parameter change:
 //!
 //! * debt above a per-asset ceiling;
 //! * debt above the ceiling of an instance;
-//! * a reserve with a balance, but with zero weight and zero debt;
-//! * a fee row for an external asset that the PSM does not yet approve.
+//! * a reserve with a balance, but with zero weight and zero debt.
 //!
 //! ### Fee Structure
 //!
@@ -1719,7 +1718,7 @@ pub mod pallet {
 		/// * Checks 7 to 11 run for each approved external asset of an instance.
 		/// * Checks 14 to 17 run once, across all of the storage.
 		///
-		/// Checks 10, 11, 16 and 17 are advisory. They write a warning to the log,
+		/// Checks 10, 11 and 17 are advisory. They write a warning to the log,
 		/// and they do not return an error. Governance can create these states
 		/// correctly.
 		#[cfg(any(feature = "try-runtime", test))]
@@ -1796,16 +1795,18 @@ pub mod pallet {
 						.ok_or("PSM debt overflow when summing approved externals")?;
 
 					// Check 10 (advisory): the debt of one asset is above its ceiling.
-					// Governance can set a weight or `max_debt` below the debt.
-					if external.status.allows_minting() {
-						let ceiling = Self::max_asset_debt(&internal_asset, &external_asset, &info);
-						if debt > ceiling {
-							log::warn!(
-								target: "runtime::psm",
-								"Asset {:?}/{:?} debt ({:?}) exceeds ceiling ({:?})",
-								internal_asset, external_asset, debt, ceiling,
-							);
-						}
+					// Governance can set a weight or `max_debt` below the debt. One
+					// documented procedure does this on purpose: to retire an asset,
+					// governance disables minting and sets the weight to zero, which
+					// drives the ceiling to zero while the debt drains. The warning
+					// still fires in that state; it is advisory for this reason.
+					let ceiling = Self::max_asset_debt(&internal_asset, &external_asset, &info);
+					if debt > ceiling {
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?} debt ({:?}) exceeds ceiling ({:?})",
+							internal_asset, external_asset, debt, ceiling,
+						);
 					}
 
 					// Check 11 (advisory): the ceiling weight and the debt are zero,
@@ -1868,35 +1869,28 @@ pub mod pallet {
 				);
 			}
 
-			// Check 16 (advisory): a fee row or a weight row exists for a pair that
-			// the PSM does not approve. Governance can set a fee before it approves
-			// the external asset.
+			// Check 16: no fee row or weight row exists for a pair that the PSM
+			// does not approve. The fee extrinsics refuse assets that are not
+			// approved, and remove_external_asset clears all three rows. A stray
+			// weight row also shrinks the ceilings of the approved assets, because
+			// the ceiling formula divides by the sum of the weights.
 			for (internal_asset, external_asset, _) in MintingFee::<T>::iter() {
-				if !ExternalAssets::<T>::contains_key(&internal_asset, &external_asset) {
-					log::warn!(
-						target: "runtime::psm",
-						"MintingFee entry for non-approved pair ({:?}, {:?})",
-						internal_asset, external_asset,
-					);
-				}
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"MintingFee entry exists for non-approved pair"
+				);
 			}
 			for (internal_asset, external_asset, _) in RedemptionFee::<T>::iter() {
-				if !ExternalAssets::<T>::contains_key(&internal_asset, &external_asset) {
-					log::warn!(
-						target: "runtime::psm",
-						"RedemptionFee entry for non-approved pair ({:?}, {:?})",
-						internal_asset, external_asset,
-					);
-				}
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"RedemptionFee entry exists for non-approved pair"
+				);
 			}
 			for (internal_asset, external_asset, _) in AssetCeilingWeight::<T>::iter() {
-				if !ExternalAssets::<T>::contains_key(&internal_asset, &external_asset) {
-					log::warn!(
-						target: "runtime::psm",
-						"AssetCeilingWeight entry for non-approved pair ({:?}, {:?})",
-						internal_asset, external_asset,
-					);
-				}
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"AssetCeilingWeight entry exists for non-approved pair"
+				);
 			}
 
 			// Check 17 (advisory): the debt of an instance is above its ceiling.
