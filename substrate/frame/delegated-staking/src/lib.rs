@@ -403,7 +403,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let agent = ensure_signed(origin)?;
 
-			// ensure amount is non-zero.
 			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
 
 			// Ensure delegator is sane.
@@ -585,8 +584,6 @@ impl<T: Config> Pallet<T> {
 				.ok_or(ArithmeticError::Overflow)?;
 			existing_delegation
 		} else {
-			// a new delegation of zero is rejected; a zero top-up on an existing delegation
-			// above is left as a no-op, which nomination-pools relies on.
 			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
 			Delegation::<T>::new(&agent, amount)
 		}

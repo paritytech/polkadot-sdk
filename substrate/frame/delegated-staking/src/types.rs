@@ -65,8 +65,8 @@ impl<T: Config> Delegation<T> {
 
 	/// Save self to storage.
 	///
-	/// If the delegation amount is zero, remove the delegation. Also adds and removes provider
-	/// reference as needed.
+	/// If an existing delegation's amount is zero, remove it; a new zero-amount delegation is not
+	/// stored. Adds and removes the provider reference as needed.
 	pub(crate) fn update(self, key: &T::AccountId) {
 		if <Delegators<T>>::contains_key(key) {
 			// Clean up if no delegation left.
