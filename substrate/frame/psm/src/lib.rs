@@ -130,6 +130,24 @@ pub mod weights;
 mod benchmarking;
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod mock;
+
+/// Runtime toggle for the injected redeem-side debt bug. The Quint MBT
+/// harness switches it on to prove the bidirectional invariant catches a
+/// bug class that the try_state checks cannot.
+#[cfg(feature = "fuzzing")]
+pub mod bug_injection {
+	use core::sync::atomic::{AtomicBool, Ordering};
+
+	static UNDERSTATE_DEBT_ON_REDEEM: AtomicBool = AtomicBool::new(false);
+
+	pub fn set_understate_debt_on_redeem(on: bool) {
+		UNDERSTATE_DEBT_ON_REDEEM.store(on, Ordering::Relaxed);
+	}
+
+	pub fn understate_debt_on_redeem() -> bool {
+		UNDERSTATE_DEBT_ON_REDEEM.load(Ordering::Relaxed)
+	}
+}
 #[cfg(test)]
 mod tests;
 
@@ -913,7 +931,22 @@ pub mod pallet {
 			}
 
 			PsmDebt::<T>::mutate(&internal_asset, &external_asset, |debt| {
-				*debt = debt.saturating_sub(effective_internal_net);
+				// The bug toggle exists for the Quint MBT harness. When set, the
+				// pallet understates the debt by one unit per redeem. Every
+				// upper-bound try_state check still passes; only the model's
+				// bidirectional state comparison catches the divergence. The
+				// toggle compiles only with the fuzzing feature and is off by
+				// default, so unit tests under --all-features are unaffected.
+				#[cfg(feature = "fuzzing")]
+				let to_subtract = if crate::bug_injection::understate_debt_on_redeem() {
+					use sp_runtime::traits::One;
+					effective_internal_net.saturating_sub(One::one())
+				} else {
+					effective_internal_net
+				};
+				#[cfg(not(feature = "fuzzing"))]
+				let to_subtract = effective_internal_net;
+				*debt = debt.saturating_sub(to_subtract);
 			});
 
 			Self::deposit_event(Event::Redeemed {
