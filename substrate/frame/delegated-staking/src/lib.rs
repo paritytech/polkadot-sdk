@@ -403,6 +403,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let agent = ensure_signed(origin)?;
 
+			// ensure amount is non-zero.
+			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
+
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
@@ -434,8 +437,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let delegator = ensure_signed(origin)?;
 
-			// ensure amount is non-zero. A zero amount would persist a useless zero-amount
-			// `Delegation` record and leak a provider reference for the delegator.
+			// ensure amount is non-zero.
 			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
 
 			// ensure delegator is sane.

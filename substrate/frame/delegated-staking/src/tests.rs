@@ -368,6 +368,30 @@ fn zero_amount_delegation_is_rejected() {
 	});
 }
 
+#[test]
+fn zero_amount_migration_is_rejected() {
+	ExtBuilder::default().build_and_execute(|| {
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegator: AccountId = 300;
+
+		// set intention to accept delegation.
+		fund(&agent, 1000);
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+
+		// a zero amount migration is rejected outright, before any state is touched.
+		assert_noop!(
+			DelegatedStaking::migrate_delegation(RawOrigin::Signed(agent).into(), delegator, 0),
+			Error::<T>::InvalidDelegation
+		);
+
+		// no delegation record is persisted for the destination and no provider reference is
+		// leaked, so it is not wrongly marked as a delegator.
+		assert!(!Delegators::<T>::contains_key(delegator));
+		assert!(!DelegatedStaking::is_delegator(&delegator));
+	});
+}
+
 /// Integration tests with pallet-staking.
 mod staking_integration {
 	use super::*;
