@@ -145,6 +145,14 @@ doc:
     `Tally::approval` also summed `ayes + nays` in `Votes`. Both fields accrue saturatingly, so
     that sum could overflow on its own; it is now computed in `u64` as well. Reported by the
     Runtime Whitebox Fuzzer.
+- audience: Node Dev
+  description: |-
+    The dispute-coordinator did not shut down cleanly when it received `Conclude` before its first
+    active leaf. `wait_for_first_leaf` correctly reported the shutdown, but `initialize` treated it
+    as "keep waiting" and went back to waiting for a leaf. The subsystem then only stopped once the
+    overseer dropped its channel, and it did so through a fatal `SubsystemReceive` error instead of
+    a normal exit. `initialize` now propagates the shutdown, making `run`'s existing concluded
+    branch reachable. Reported by the Runtime Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
@@ -167,4 +175,6 @@ crates:
 - name: pallet-derivatives
   bump: patch
 - name: pallet-ranked-collective
+  bump: patch
+- name: polkadot-node-core-dispute-coordinator
   bump: patch

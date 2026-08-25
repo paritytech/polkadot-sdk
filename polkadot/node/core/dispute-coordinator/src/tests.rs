@@ -780,6 +780,48 @@ async fn handle_get_block_number(ctx_handle: &mut VirtualOverseer, test_state: &
 }
 
 #[test]
+fn conclude_before_the_first_leaf_shuts_down() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// The subsystem is still in `initialize`, waiting for its first leaf.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			// It has to exit: no more messages and the channel is closed.
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
+#[test]
+fn conclude_after_leafless_signals_shuts_down() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Signals carrying no activated leaf must not end initialization ...
+			virtual_overseer
+				.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+					test_state.last_block,
+					2,
+				)))
+				.await;
+			virtual_overseer
+				.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+					ActiveLeavesUpdate::default(),
+				)))
+				.await;
+
+			// ... but `Conclude` still has to. (Had one of them ended it, the subsystem would
+			// already be gone and one of these sends would panic.)
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
+#[test]
 fn too_many_unconfirmed_statements_are_considered_spam() {
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
