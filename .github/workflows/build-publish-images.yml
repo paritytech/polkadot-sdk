@@ -786,10 +786,8 @@ jobs:
     runs-on: ubuntu-latest
     name: All zombienet tests passed
     needs:
-      # disable polkadot/cumulus requirement to review multiple
-      # flaky tests.
-      # - trigger-zombienet-polkadot
-      # - trigger-zombienet-cumulus
+      - trigger-zombienet-polkadot
+      - trigger-zombienet-cumulus
       - trigger-zombienet-substrate
       - trigger-zombienet-parachain-template
     if: always() && !cancelled()

@@ -4247,6 +4247,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					use $crate::{
 						sp_runtime::traits::Block,
 						tracing::trace,
+						evm::TraceEntry,
 						runtime_api::*,
 						pallet_revive_types::runtime_api::*
 					};
@@ -4271,21 +4272,23 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					// Faithful proof-size accounting needs a PoV recorder registered for this call
 					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
-					// `ExhaustsResources` and drop a trace.
-					let mut traces = vec![];
+					// `ExhaustsResources`. V1 drops such traces; V2 reports them as `NotTraced`.
+					let mut entries = vec![];
 					let (header, extrinsics) = input.block.deconstruct();
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
 						let t = tracer.as_tracing();
-						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+						let result = trace(t, || <$Executive>::apply_extrinsic(ext));
 
 						if let Some(tx_trace) = tracer.collect_trace() {
-							traces.push((index as u32, tx_trace));
+							entries.push((index as u32, TraceEntry::Traced(tx_trace)));
+						} else if let Some(entry) = TraceEntry::for_untraced(&result) {
+							entries.push((index as u32, entry));
 						}
 					}
 
-					let output = TraceBlockOutputPayload { traces };
+					let output = TraceBlockOutputPayload { entries };
 					output_wrapper(output)
 				}
 
@@ -4294,7 +4297,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> $crate::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload {
 					use $crate::pallet_revive_types::runtime_api::*;
 					use $crate::runtime_api::*;
-					use $crate::{sp_runtime::traits::Block, tracing::trace};
+					use $crate::{evm::TraceEntry, sp_runtime::traits::Block, tracing::trace};
 					use alloc::boxed::Box;
 
 					let (input, output_wrapper): (
@@ -4314,29 +4317,32 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					if matches!(&input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
 						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
 					{
-						return output_wrapper(TraceTxOutputPayload { trace: None })
+						return output_wrapper(TraceTxOutputPayload { entry: None })
 					}
 
 					// Faithful proof-size accounting needs a PoV recorder registered for this call
 					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
-					// `ExhaustsResources` and drop a trace.
+					// `ExhaustsResources`. V1 drops such traces; V2 reports them as `NotTraced`.
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config);
 					let (header, extrinsics) = input.block.deconstruct();
 
 					<$Executive>::initialize_block(&header);
+					let mut entry = None;
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						if index as u32 == input.tx_index {
 							let t = tracer.as_tracing();
-							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+							let result = trace(t, || <$Executive>::apply_extrinsic(ext));
+							entry = match tracer.collect_trace() {
+								Some(tx_trace) => Some(TraceEntry::Traced(tx_trace)),
+								None => TraceEntry::for_untraced(&result),
+							};
 							break;
 						} else {
 							let _ = <$Executive>::apply_extrinsic(ext);
 						}
 					}
 
-					let output = TraceTxOutputPayload {
-						trace: tracer.collect_trace()
-					};
+					let output = TraceTxOutputPayload { entry };
 					output_wrapper(output)
 				}
 
