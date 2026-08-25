@@ -325,8 +325,10 @@ pub(crate) fn is_scheduling_parent_valid(
 	);
 	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {
 		// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
-		// the previous slot.
-		*current_slot == *info.slot + 1
+		// the previous slot. The slot comes from a BABE pre-digest in a peer-supplied
+		// header, so the increment is checked: a leaf at `u64::MAX` has no successor slot
+		// and is rejected rather than overflowing.
+		info.slot.checked_add(1).is_some_and(|next_slot| *current_slot == next_slot)
 	} else {
 		// scheduling_parent is not a leaf. This is allowed only if the sp is the parent of
 		// any leaf whose slot is still in progress.
@@ -384,5 +386,61 @@ impl LeafClaimQueues {
 		let Some(cq) = self.claim_queues.get(&core) else { return Vec::new() };
 		let valid_len = self.scheduling_lookahead.saturating_sub(depth).min(cq.len());
 		cq.iter().take(valid_len).copied().collect()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use polkadot_node_clock::MockClock;
+	use sp_consensus_slots::Slot;
+
+	/// A clock whose wall-clock reading lands in relay-chain slot `slot`.
+	fn clock_at_slot(slot: u64) -> MockClock {
+		let clock = MockClock::default();
+		clock.advance(Duration::from_millis(slot * RELAY_CHAIN_SLOT_DURATION_MILLIS));
+		clock
+	}
+
+	fn leaf_info(parent_hash: Hash, slot: u64) -> LeafSchedulingInfo {
+		LeafSchedulingInfo { parent_hash, slot: Slot::from(slot) }
+	}
+
+	#[test]
+	fn leaf_at_previous_slot_is_valid() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let info = HashMap::from([(leaf, leaf_info(Hash::repeat_byte(0x42), 4))]);
+
+		assert!(is_scheduling_parent_valid(&clock_at_slot(5), &leaf, &info));
+	}
+
+	#[test]
+	fn leaf_at_current_slot_is_invalid() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let info = HashMap::from([(leaf, leaf_info(Hash::repeat_byte(0x42), 5))]);
+
+		assert!(!is_scheduling_parent_valid(&clock_at_slot(5), &leaf, &info));
+	}
+
+	#[test]
+	fn parent_of_leaf_in_current_slot_is_valid() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let parent = Hash::repeat_byte(0x42);
+		let info = HashMap::from([(leaf, leaf_info(parent, 5))]);
+
+		assert!(is_scheduling_parent_valid(&clock_at_slot(5), &parent, &info));
+		// The same parent is stale once its leaf's slot is over.
+		assert!(!is_scheduling_parent_valid(&clock_at_slot(6), &parent, &info));
+	}
+
+	// The leaf slot originates from a BABE pre-digest in a peer-supplied header. `u64::MAX` has no
+	// successor slot, so it must be rejected instead of overflowing the `+ 1` (which panicked in
+	// debug builds and wrapped to a `0` that matched a zero `current_slot` in release builds).
+	#[test]
+	fn max_leaf_slot_is_rejected_without_overflowing() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let info = HashMap::from([(leaf, leaf_info(Hash::repeat_byte(0x42), u64::MAX))]);
+
+		assert!(!is_scheduling_parent_valid(&clock_at_slot(0), &leaf, &info));
 	}
 }

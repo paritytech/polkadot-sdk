@@ -1,0 +1,14 @@
+title: 'collator-protocol: use checked slot arithmetic in `is_scheduling_parent_valid`'
+doc:
+- audience: Node Dev
+  description: |-
+    The leaf branch of `is_scheduling_parent_valid` computed the leaf's successor slot with plain
+    `u64` addition on a slot taken from a BABE pre-digest in a peer-supplied header. A leaf slot of
+    `u64::MAX` overflowed unconditionally: debug builds panicked, and release builds wrapped the sum
+    to `0`, which matched a `current_slot` of `0` and accepted a provably invalid scheduling parent.
+
+    The increment is now checked, so a leaf slot with no successor is rejected instead of
+    overflowing. Reported by the Runtime Whitebox Fuzzer.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
