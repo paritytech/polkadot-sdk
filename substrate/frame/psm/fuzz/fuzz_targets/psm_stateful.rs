@@ -720,7 +720,11 @@ fn run_campaign(seed: u64, max_commands: usize, verbose: bool) {
 			let result = execute_command(&cmd);
 			let post_state = snapshot_state();
 			let check = fuzz_helpers::do_try_state();
-			log_command(i, &cmd, &pre_state, result, &post_state, &check, verbose);
+			// Without --verbose, print the full log line for one command in
+			// every 10_000. Long campaigns then show liveness in the same
+			// format as verbose mode, at 0.01% of the volume.
+			let sampled = !verbose && i % 10_000 == 0;
+			log_command(i, &cmd, &pre_state, result, &post_state, &check, verbose || sampled);
 			if let Err(e) = check {
 				panic!("PSM invariant violated at command {}: {:?}", i, e);
 			}
