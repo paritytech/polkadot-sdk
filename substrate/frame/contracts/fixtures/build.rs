@@ -129,7 +129,9 @@ fn create_cargo_toml<'a>(
 	};
 	set_dep("uapi", "../uapi")?;
 	set_dep("common", "./contracts/common")?;
-	cargo_toml["dependencies"]["polkavm-derive"]["version"] =
+	// The workspace dependency can either be a plain version string or a table (e.g. when
+	// pointing at a git branch), so we copy the whole specification over.
+	cargo_toml["dependencies"]["polkavm-derive"] =
 		root_toml["workspace"]["dependencies"]["polkavm-derive"].clone();
 
 	cargo_toml["bin"] = toml::Value::Array(
