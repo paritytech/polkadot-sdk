@@ -1,0 +1,41 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Registrar: add deregister flow'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Adds deregistration to the registrar pallets, the counterpart of the register flow and
+      with the same shape: the parachain asks, the relay chain answers, and only the answer
+      moves money.
+
+      `pallet-registrar-para::deregister` is callable by the manager, the para itself or root. A
+      merely reserved id is dropped on the spot with its deposit returned. A registered para must
+      leave the relay chain's registry too, so the entry parks as `Deregistering` and the relay
+      chain's verdict settles it: confirmation releases both deposits, refusal puts it back to
+      registered. A verdict that never arrives is chased up with `cancel_deregistration` after
+      `PendingDeadline`, mirroring `cancel_registration`.
+
+      A para that still holds a coretime lease or region cannot be deregistered out from under
+      itself. The new `AssignmentChecker` config type answers that; `()` never blocks, for
+      runtimes without coretime knowledge. There is also a new `ParachainOrigin` config type so
+      a para can act as itself.
+
+      On the relay side, `pallet-registrar-relay::deregister` checks the manager and the lock and
+      removes the para, reporting refusals back instead of erroring so the parachain never sits on
+      stuck deposits. An id the registry never knew is confirmed as gone rather than refused. The
+      `ParachainRegistrar` trait grows `manager_of`, `is_locked` and `deregister`, implemented by
+      `paras_registrar`.
+
+      Still not wired into a production runtime.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major
+  - name: polkadot-runtime-common
+    bump: minor
