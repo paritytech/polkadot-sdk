@@ -1,0 +1,12 @@
+title: "cumulus-primitives-timestamp: saturate relay slot timestamp arithmetic"
+doc:
+  - audience: Node Dev
+    description: |
+      `InherentDataProvider::provide_inherent_data` now computes the timestamp with
+      saturating arithmetic, and converts the relay chain slot duration with a
+      saturating `try_from` instead of an `as` cast. An extreme relay chain slot or
+      slot duration now clamps to `u64::MAX` instead of overflowing, which previously
+      panicked in debug and silently wrapped in release.
+crates:
+  - name: cumulus-primitives-timestamp
+    bump: patch
