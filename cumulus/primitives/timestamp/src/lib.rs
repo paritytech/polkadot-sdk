@@ -61,10 +61,60 @@ impl InherentDataProvider {
 	pub fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
 		// As the parachain starts building at around `relay_chain_slot + 1` we use that slot to
 		// calculate the timestamp.
-		let data: InherentType = ((*self.relay_chain_slot + 1) *
-			self.relay_chain_slot_duration.as_millis() as u64)
+		//
+		// The arithmetic saturates instead of overflowing: an extreme relay chain slot would
+		// otherwise panic in debug and silently wrap to a nonsensical timestamp in release.
+		// `as_millis` returns a `u128`, so it is converted with a saturating `try_from` rather
+		// than a truncating `as` cast.
+		let slot_duration_ms =
+			u64::try_from(self.relay_chain_slot_duration.as_millis()).unwrap_or(u64::MAX);
+		let data: InherentType = (*self.relay_chain_slot)
+			.saturating_add(1)
+			.saturating_mul(slot_duration_ms)
 			.into();
 
 		inherent_data.put_data(INHERENT_IDENTIFIER, &data)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn timestamp_for(relay_chain_slot: u64, slot_duration: Duration) -> InherentType {
+		let inherent_data = InherentDataProvider::from_relay_chain_slot_and_duration(
+			relay_chain_slot.into(),
+			slot_duration,
+		)
+		.create_inherent_data()
+		.expect("creating inherent data works");
+
+		inherent_data
+			.get_data(&INHERENT_IDENTIFIER)
+			.expect("decoding the timestamp works")
+			.expect("the timestamp inherent is present")
+	}
+
+	#[test]
+	fn timestamp_is_derived_from_the_next_relay_chain_slot() {
+		// The parachain builds at `relay_chain_slot + 1`, so (5 + 1) * 6000 = 36_000.
+		assert_eq!(timestamp_for(5, Duration::from_millis(6_000)), InherentType::from(36_000u64));
+	}
+
+	#[test]
+	fn extreme_relay_chain_slot_saturates() {
+		// `relay_chain_slot + 1` used to overflow here, panicking in debug and wrapping in
+		// release. It must now clamp instead.
+		assert_eq!(
+			timestamp_for(u64::MAX, Duration::from_millis(6_000)),
+			InherentType::from(u64::MAX)
+		);
+	}
+
+	#[test]
+	fn extreme_slot_duration_saturates() {
+		// A slot duration whose milliseconds exceed `u64::MAX` must clamp rather than be
+		// truncated by an `as` cast.
+		assert_eq!(timestamp_for(1, Duration::from_secs(u64::MAX)), InherentType::from(u64::MAX));
 	}
 }
