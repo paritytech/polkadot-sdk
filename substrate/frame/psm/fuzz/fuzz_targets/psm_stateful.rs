@@ -10,30 +10,25 @@
 use frame_support::traits::fungibles::Inspect;
 use pallet_psm::mock::fuzz_helpers;
 use pallet_psm::mock::{
-	set_mock_maximum_issuance, Assets, MockMaximumIssuance, Psm, RuntimeOrigin, System, Test,
-	ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID, INSURANCE_FUND, INTERNAL_ASSET_ID, INTERNAL_UNIT,
-	USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
+	Assets, Psm, RuntimeOrigin, System, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
+	INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
 use pallet_psm::PsmDebt;
+use pallet_psm_fuzz::{account, build_fuzzer_genesis};
 use rand::seq::SliceRandom;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use sp_io::TestExternalities;
-use sp_runtime::{BuildStorage, Permill};
+use sp_runtime::Permill;
 use std::env;
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-// Constants match psm.rs but are duplicated here because this is a separate binary
-// with no shared state. The values have the same rationale: finite balances to allow
-// the fuzzer to discover rejection paths, and a 20M issuance cap for ceiling headroom.
+// Genesis lives in pallet_psm_fuzz::build_fuzzer_genesis; these constants
+// only steer command generation.
 const N_ACCOUNTS: u8 = 10;
 const MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
-const INITIAL_EXTERNAL_BALANCE: u128 = 500_000 * INTERNAL_UNIT;
-const INITIAL_NATIVE_BALANCE: u128 = 1_000_000 * INTERNAL_UNIT;
-const MAX_PSM_ISSUANCE: u128 = 20_000_000 * INTERNAL_UNIT;
 
 // ---------------------------------------------------------------------------
 // Command enum
@@ -41,9 +36,9 @@ const MAX_PSM_ISSUANCE: u128 = 20_000_000 * INTERNAL_UNIT;
 
 #[derive(Debug)]
 enum Command {
-	Mint { account: u64, asset_id: u32, amount: u128 },
-	Redeem { account: u64, asset_id: u32, amount: u128 },
-	SetMaxPsmDebt { ratio: Permill },
+	Mint { account: u8, asset_id: u32, amount: u128 },
+	Redeem { account: u8, asset_id: u32, amount: u128 },
+	SetMaxPsmDebt { value: u128 },
 	SetAssetCeilingWeight { asset_id: u32, weight: Permill },
 	SetMintingFee { asset_id: u32, fee: Permill },
 	SetRedemptionFee { asset_id: u32, fee: Permill },
@@ -56,10 +51,10 @@ enum Command {
 // State snapshot structs
 // ---------------------------------------------------------------------------
 
-// FuzzState captures ALL relevant pallet state in a single snapshot so that generators
-// can make informed decisions. Per-account balances are included so generators can pick
-// accounts that actually have sufficient funds to complete an operation, rather than
-// wasting commands on trivially-failing mints from empty accounts.
+// FuzzState captures the pallet state in one snapshot, so that the generators
+// can make informed choices. Per-account balances let generators pick accounts
+// that can complete an operation, instead of wasting commands on mints from
+// empty accounts.
 #[derive(Debug)]
 #[allow(dead_code)]
 struct AssetState {
@@ -82,15 +77,9 @@ struct FuzzState {
 	unapproved: Vec<u32>,
 	max_psm_debt: u128,
 	total_psm_debt: u128,
-	max_psm_debt_ratio: Permill,
-	max_issuance: u128,
 	total_pusd_issuance: u128,
 	block_number: u32,
 }
-
-// ---------------------------------------------------------------------------
-// FuzzState helper predicates
-// ---------------------------------------------------------------------------
 
 impl FuzzState {
 	fn any_asset_can_mint(&self) -> bool {
@@ -113,102 +102,16 @@ impl FuzzState {
 }
 
 // ---------------------------------------------------------------------------
-// Genesis setup (copied from psm.rs — separate binary, no shared state)
-// ---------------------------------------------------------------------------
-
-// Genesis mirrors psm.rs exactly: 6 assets created, 2 PSM-approved (USDC 60%, USDT 40%),
-// 3 unapproved for AddExternalAsset testing, all funded across all accounts.
-// See psm.rs build_fuzzer_genesis comments for the full rationale.
-fn build_fuzzer_genesis() -> TestExternalities {
-	let mut storage = <frame_system::GenesisConfig<Test> as Default>::default()
-		.build_storage()
-		.expect("system genesis storage builds; qed");
-
-	let accounts: Vec<u64> = (1..=N_ACCOUNTS as u64).collect();
-
-	pallet_balances::GenesisConfig::<Test> {
-		balances: accounts
-			.iter()
-			.map(|&a| (a, INITIAL_NATIVE_BALANCE))
-			.chain(std::iter::once((INSURANCE_FUND, 1)))
-			.collect(),
-		..Default::default()
-	}
-	.assimilate_storage(&mut storage)
-	.expect("balances genesis assimilates; qed");
-
-	let asset_owner: u64 = 1;
-	pallet_assets::GenesisConfig::<Test> {
-		assets: vec![
-			(INTERNAL_ASSET_ID, asset_owner, true, 1),
-			(USDC_ASSET_ID, asset_owner, true, 1),
-			(USDT_ASSET_ID, asset_owner, true, 1),
-			(USDX_ASSET_ID, asset_owner, true, 1),
-			(DAI_MOCK_ASSET_ID, asset_owner, true, 1),
-		],
-		metadata: vec![
-			(INTERNAL_ASSET_ID, b"Internal Asset".to_vec(), b"INTERNAL".to_vec(), 6),
-			(USDC_ASSET_ID, b"USD Coin".to_vec(), b"USDC".to_vec(), 6),
-			(USDT_ASSET_ID, b"Tether USD".to_vec(), b"USDT".to_vec(), 6),
-			(USDX_ASSET_ID, b"Low-Decimal Coin".to_vec(), b"USDX".to_vec(), 2),
-			(DAI_MOCK_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 18),
-		],
-		accounts: accounts
-			.iter()
-			.flat_map(|&a| {
-				[
-					(USDC_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
-					(USDT_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
-					(USDX_ASSET_ID, a, 500_000 * pallet_psm::mock::USDX_UNIT),
-					(DAI_MOCK_ASSET_ID, a, 500_000 * pallet_psm::mock::DAI_UNIT),
-				]
-				.into_iter()
-			})
-			.collect(),
-		..Default::default()
-	}
-	.assimilate_storage(&mut storage)
-	.expect("assets genesis assimilates; qed");
-
-	pallet_psm::GenesisConfig::<Test> {
-		max_psm_debt_of_total: Permill::from_percent(50),
-		asset_configs: [
-			(
-				USDC_ASSET_ID,
-				(Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(60)),
-			),
-			(
-				USDT_ASSET_ID,
-				(Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(40)),
-			),
-		]
-		.into_iter()
-		.collect(),
-		_marker: Default::default(),
-	}
-	.assimilate_storage(&mut storage)
-	.expect("PSM genesis assimilates; qed");
-
-	let mut ext: TestExternalities = storage.into();
-	ext.execute_with(|| {
-		System::set_block_number(1);
-		set_mock_maximum_issuance(MAX_PSM_ISSUANCE);
-	});
-	ext
-}
-
-// ---------------------------------------------------------------------------
 // State snapshot — reads ALL relevant storage before each command
 // ---------------------------------------------------------------------------
 
 fn snapshot_state() -> FuzzState {
 	let approved = fuzz_helpers::approved_assets();
-	let max_issuance = MockMaximumIssuance::get();
 	let total_pusd_issuance = Assets::total_issuance(INTERNAL_ASSET_ID);
 
 	let mut assets = Vec::with_capacity(approved.len());
 	for &asset_id in &approved {
-		let debt = PsmDebt::<Test>::get(asset_id);
+		let debt = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, asset_id);
 		let ceiling = fuzz_helpers::max_asset_debt(asset_id);
 		let remaining_ceiling = ceiling.saturating_sub(debt);
 		let reserve = fuzz_helpers::get_reserve(asset_id);
@@ -218,9 +121,10 @@ fn snapshot_state() -> FuzzState {
 
 		let mut account_external = Vec::with_capacity(N_ACCOUNTS as usize);
 		let mut account_pusd = Vec::with_capacity(N_ACCOUNTS as usize);
-		for account in 1..=N_ACCOUNTS as u64 {
-			account_external.push(Assets::balance(asset_id, account));
-			account_pusd.push(Assets::balance(INTERNAL_ASSET_ID, account));
+		for idx in 1..=N_ACCOUNTS {
+			let who = account(idx);
+			account_external.push(Assets::balance(asset_id, &who));
+			account_pusd.push(Assets::balance(INTERNAL_ASSET_ID, &who));
 		}
 
 		assets.push(AssetState {
@@ -251,8 +155,6 @@ fn snapshot_state() -> FuzzState {
 		unapproved,
 		max_psm_debt: fuzz_helpers::max_psm_debt(),
 		total_psm_debt: fuzz_helpers::total_psm_debt(),
-		max_psm_debt_ratio: fuzz_helpers::max_psm_debt_ratio(),
-		max_issuance,
 		total_pusd_issuance,
 		block_number,
 	}
@@ -292,7 +194,7 @@ where
 // to produce interesting mints (they can actually complete the operation). Accounts with
 // zero balance still have weight 1 (via .max(1)) so they are occasionally selected,
 // exercising the insufficient-balance rejection path.
-fn pick_richest_account(rng: &mut StdRng, balances: &[u128]) -> (u64, u128) {
+fn pick_richest_account(rng: &mut StdRng, balances: &[u128]) -> (u8, u128) {
 	// balances always has N_ACCOUNTS entries; qed
 	if balances.is_empty() {
 		return (1, 0);
@@ -305,7 +207,7 @@ fn pick_richest_account(rng: &mut StdRng, balances: &[u128]) -> (u64, u128) {
 	let mut pick = rng.gen_range(0..total);
 	for (i, w) in weights.iter().enumerate() {
 		if pick < *w {
-			return ((i + 1) as u64, balances[i]);
+			return ((i + 1) as u8, balances[i]);
 		}
 		pick -= w;
 	}
@@ -328,9 +230,7 @@ fn pick_mint_amount(
 ) -> u128 {
 	let remaining = asset.remaining_ceiling;
 	let global_remaining = state.max_psm_debt.saturating_sub(state.total_psm_debt);
-	let issuance_remaining = state.max_issuance.saturating_sub(state.total_pusd_issuance);
-	let effective_cap =
-		remaining.min(global_remaining).min(issuance_remaining).min(account_balance);
+	let effective_cap = remaining.min(global_remaining).min(account_balance);
 
 	if effective_cap < MIN_SWAP {
 		return MIN_SWAP; // BelowMinimumSwap path
@@ -402,23 +302,14 @@ fn gen_redeem(rng: &mut StdRng, state: &FuzzState) -> Command {
 // correctly — mints should be blocked, and the violation should persist until redeemed.
 fn gen_lower_ceiling_below_debt(rng: &mut StdRng, state: &FuzzState) -> Command {
 	let debt = state.total_psm_debt;
-	let max_issuance = state.max_issuance;
-	// max_issuance > 0: guarded by debt > 0 and debt <= max_psm_debt <= ratio * max_issuance; qed
-	let max_ratio = Permill::from_rational(debt, max_issuance.max(1));
-	let factor = Permill::from_percent(rng.gen_range(10..90));
-	// Permill * Permill: multiply raw parts then divide by 1M
-	let max_raw = max_ratio.deconstruct() as u128;
-	let factor_raw = factor.deconstruct() as u128;
-	let target_raw = max_raw * factor_raw / 1_000_000;
-	let ratio = Permill::from_parts(target_raw.min(1_000_000) as u32);
-	Command::SetMaxPsmDebt { ratio }
+	// A random 10-90% of the current debt puts the new cap strictly below it.
+	let pct = rng.gen_range(10..90u128);
+	Command::SetMaxPsmDebt { value: debt.saturating_mul(pct) / 100 }
 }
 
 fn gen_raise_ceiling(rng: &mut StdRng, state: &FuzzState) -> Command {
-	let current_parts = state.max_psm_debt_ratio.deconstruct() as u128;
-	let increment = rng.gen_range(1..500_000) as u128;
-	let new_parts = (current_parts + increment).min(1_000_000);
-	Command::SetMaxPsmDebt { ratio: Permill::from_parts(new_parts as u32) }
+	let increment = rng.gen_range(1..=5_000_000u128) * INTERNAL_UNIT;
+	Command::SetMaxPsmDebt { value: state.max_psm_debt.saturating_add(increment) }
 }
 
 // 50/50 split in weight assignment: half the time the new weight is set below what is
@@ -579,9 +470,16 @@ fn gen_command(rng: &mut StdRng, state: &FuzzState) -> Command {
 
 fn execute_command(cmd: &Command) -> &'static str {
 	match cmd {
-		Command::Mint { account, asset_id, amount } => {
+		Command::Mint { account: idx, asset_id, amount } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				match Psm::mint(RuntimeOrigin::signed(*account), *asset_id, *amount) {
+				let fee = fuzz_helpers::minting_fee(*asset_id);
+				match Psm::mint(
+					RuntimeOrigin::signed(account(*idx)),
+					INTERNAL_ASSET_ID,
+					*asset_id,
+					*amount,
+					fee,
+				) {
 					Ok(()) => "OK",
 					Err(_) => "ERR",
 				}
@@ -589,9 +487,16 @@ fn execute_command(cmd: &Command) -> &'static str {
 				"SKIP"
 			}
 		},
-		Command::Redeem { account, asset_id, amount } => {
+		Command::Redeem { account: idx, asset_id, amount } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				match Psm::redeem(RuntimeOrigin::signed(*account), *asset_id, *amount) {
+				let fee = fuzz_helpers::redemption_fee(*asset_id);
+				match Psm::redeem(
+					RuntimeOrigin::signed(account(*idx)),
+					INTERNAL_ASSET_ID,
+					*asset_id,
+					*amount,
+					fee,
+				) {
 					Ok(()) => "OK",
 					Err(_) => "ERR",
 				}
@@ -599,13 +504,13 @@ fn execute_command(cmd: &Command) -> &'static str {
 				"SKIP"
 			}
 		},
-		Command::SetMaxPsmDebt { ratio } => {
-			let _ = Psm::set_max_psm_debt(RuntimeOrigin::root(), *ratio);
+		Command::SetMaxPsmDebt { value } => {
+			let _ = Psm::set_max_debt(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *value);
 			"OK"
 		},
 		Command::SetAssetCeilingWeight { asset_id, weight } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), *asset_id, *weight);
+				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id, *weight);
 				"OK"
 			} else {
 				"SKIP"
@@ -613,7 +518,7 @@ fn execute_command(cmd: &Command) -> &'static str {
 		},
 		Command::SetMintingFee { asset_id, fee } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				let _ = Psm::set_minting_fee(RuntimeOrigin::root(), *asset_id, *fee);
+				let _ = Psm::set_minting_fee(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id, *fee);
 				"OK"
 			} else {
 				"SKIP"
@@ -621,7 +526,7 @@ fn execute_command(cmd: &Command) -> &'static str {
 		},
 		Command::SetRedemptionFee { asset_id, fee } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				let _ = Psm::set_redemption_fee(RuntimeOrigin::root(), *asset_id, *fee);
+				let _ = Psm::set_redemption_fee(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id, *fee);
 				"OK"
 			} else {
 				"SKIP"
@@ -629,7 +534,7 @@ fn execute_command(cmd: &Command) -> &'static str {
 		},
 		Command::SetAssetStatus { asset_id, status } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				let _ = Psm::set_asset_status(RuntimeOrigin::root(), *asset_id, *status);
+				let _ = Psm::set_asset_status(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id, *status);
 				"OK"
 			} else {
 				"SKIP"
@@ -639,15 +544,15 @@ fn execute_command(cmd: &Command) -> &'static str {
 		// a non-zero ceiling weight immediately after adding, the new asset would have
 		// zero ceiling and all subsequent mints would fail trivially.
 		Command::AddExternalAsset { asset_id, weight } => {
-			if Psm::add_external_asset(RuntimeOrigin::root(), *asset_id).is_ok() {
-				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), *asset_id, *weight);
+			if Psm::add_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id).is_ok() {
+				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id, *weight);
 				"OK"
 			} else {
 				"ERR"
 			}
 		},
 		Command::RemoveExternalAsset { asset_id } => {
-			let _ = Psm::remove_external_asset(RuntimeOrigin::root(), *asset_id);
+			let _ = Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id);
 			"OK"
 		},
 	}
@@ -686,8 +591,8 @@ fn format_command(cmd: &Command) -> String {
 		Command::Redeem { account, asset_id, amount } => {
 			format!("Redeem(acct={}, {}, {})", account, asset_name(*asset_id), amount)
 		},
-		Command::SetMaxPsmDebt { ratio } => {
-			format!("SetMaxPsmDebt({:.3}%)", ratio.deconstruct() as f64 / 10_000.0)
+		Command::SetMaxPsmDebt { value } => {
+			format!("SetMaxPsmDebt({})", format_amount(*value))
 		},
 		Command::SetAssetCeilingWeight { asset_id, weight } => format!(
 			"SetWeight({}, {:.3}%)",
@@ -746,7 +651,7 @@ fn log_command(
 	};
 	if verbose {
 		eprintln!(
-			"[{:>4}] {:<36} dispatch={:<4} invariant={} {BLUE}PRE  debt={}/{} issuance={}/{} reserve={}{RESET} {YELLOW}POST debt={}/{} issuance={}/{} reserve={}{RESET}",
+			"[{:>4}] {:<36} dispatch={:<4} invariant={} {BLUE}PRE  debt={}/{} issuance={} reserve={}{RESET} {YELLOW}POST debt={}/{} issuance={} reserve={}{RESET}",
 			step,
 			format_command(cmd),
 			result,
@@ -754,17 +659,15 @@ fn log_command(
 			format_amount(pre.total_psm_debt),
 			format_amount(pre.max_psm_debt),
 			format_amount(pre.total_pusd_issuance),
-			format_amount(pre.max_issuance),
 			format_amount(pre_reserve),
 			format_amount(post.total_psm_debt),
 			format_amount(post.max_psm_debt),
 			format_amount(post.total_pusd_issuance),
-			format_amount(post.max_issuance),
 			format_amount(post_reserve),
 		);
 	} else if check.is_err() {
 		eprintln!(
-			"[{:>4}] {} dispatch={} invariant={}\n       {BLUE}PRE  debt={}/{} issuance={}/{} reserve={}{RESET}\n       {YELLOW}POST debt={}/{} issuance={}/{} reserve={}{RESET}",
+			"[{:>4}] {} dispatch={} invariant={}\n       {BLUE}PRE  debt={}/{} issuance={} reserve={}{RESET}\n       {YELLOW}POST debt={}/{} issuance={} reserve={}{RESET}",
 			step,
 			format_command(cmd),
 			result,
@@ -772,12 +675,10 @@ fn log_command(
 			format_amount(pre.total_psm_debt),
 			format_amount(pre.max_psm_debt),
 			format_amount(pre.total_pusd_issuance),
-			format_amount(pre.max_issuance),
 			format_amount(pre_reserve),
 			format_amount(post.total_psm_debt),
 			format_amount(post.max_psm_debt),
 			format_amount(post.total_pusd_issuance),
-			format_amount(post.max_issuance),
 			format_amount(post_reserve),
 		);
 	}

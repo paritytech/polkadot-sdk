@@ -1553,7 +1553,7 @@ pub mod pallet {
 
 		/// PSM debt ceiling for an instance, read from the stored [`PsmInfo`]. Returns
 		/// zero if no PSM is installed for `internal_asset`.
-		#[cfg(test)]
+		#[cfg(any(test, feature = "fuzzing"))]
 		pub(crate) fn max_psm_debt(internal_asset: &T::AssetId) -> BalanceOf<T> {
 			Psm::<T>::get(internal_asset).map(|p| p.max_debt).unwrap_or_default()
 		}

@@ -6,10 +6,10 @@
 //! the binaries need.
 
 use arbitrary::{Arbitrary, Unstructured};
-use frame_support::traits::fungibles::Inspect;
 use pallet_psm::mock::{
-	Assets, Psm, RuntimeOrigin, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID, INSURANCE_FUND,
-	INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
+	AccountId, Assets, Psm, RuntimeOrigin, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
+	INSURANCE_FUND, INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID,
+	USDX_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
 use pallet_psm::PsmDebt;
@@ -31,10 +31,15 @@ const MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
 // multi-transaction sequences but small enough that sustained minting can exhaust it.
 const INITIAL_EXTERNAL_BALANCE: u128 = 500_000 * INTERNAL_UNIT;
 const INITIAL_NATIVE_BALANCE: u128 = 1_000_000 * INTERNAL_UNIT;
-// 20M units leaves headroom for ceiling exploration: with 50% MaxPsmDebtOfTotal the
-// global debt cap starts at 10M, so the fuzzer can mint well past any single-asset
-// ceiling without immediately hitting the issuance limit.
-const MAX_PSM_ISSUANCE: u128 = 20_000_000 * INTERNAL_UNIT;
+// The instance debt ceiling for the fuzzer genesis. 10M units keeps parity with
+// the pre-redesign setup, where a 20M issuance cap and a 50% ratio gave a 10M cap.
+const GENESIS_MAX_DEBT: u128 = 10_000_000 * INTERNAL_UNIT;
+
+// The mock keys accounts by AccountId32. The fuzzer works with small indices;
+// this maps index i to the account [i; 32] bytes, matching ALICE = [1; 32].
+pub fn account(i: u8) -> AccountId {
+	AccountId::new([i; 32])
+}
 
 // ---------------------------------------------------------------------------
 // Hint enums (produced by Arbitrary, no storage access)
@@ -281,26 +286,26 @@ pub fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 		.build_storage()
 		.expect("system genesis storage builds; qed");
 
-	let accounts: Vec<u64> = (1..=N_ACCOUNTS as u64).collect();
+	let accounts: Vec<AccountId> = (1..=N_ACCOUNTS).map(account).collect();
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: accounts
 			.iter()
-			.map(|&a| (a, INITIAL_NATIVE_BALANCE))
-			.chain(std::iter::once((INSURANCE_FUND, 1)))
+			.map(|a| (a.clone(), INITIAL_NATIVE_BALANCE))
+			.chain(core::iter::once((INSURANCE_FUND, 1)))
 			.collect(),
 		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
 	.expect("balances genesis assimilates; qed");
 
-	let asset_owner: u64 = 1;
+	let asset_owner: AccountId = account(1);
 	pallet_assets::GenesisConfig::<Test> {
 		assets: vec![
-			(INTERNAL_ASSET_ID, asset_owner, true, 1),
-			(USDC_ASSET_ID, asset_owner, true, 1),
-			(USDT_ASSET_ID, asset_owner, true, 1),
-			(USDX_ASSET_ID, asset_owner, true, 1),
+			(INTERNAL_ASSET_ID, asset_owner.clone(), true, 1),
+			(USDC_ASSET_ID, asset_owner.clone(), true, 1),
+			(USDT_ASSET_ID, asset_owner.clone(), true, 1),
+			(USDX_ASSET_ID, asset_owner.clone(), true, 1),
 			(DAI_MOCK_ASSET_ID, asset_owner, true, 1),
 		],
 		metadata: vec![
@@ -312,13 +317,12 @@ pub fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 		],
 		accounts: accounts
 			.iter()
-			.flat_map(|&a| {
-				// Fund each account with 500K tokens expressed in each asset's own unit.
+			.flat_map(|a| {
 				[
-					(USDC_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
-					(USDT_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
-					(USDX_ASSET_ID, a, 500_000 * pallet_psm::mock::USDX_UNIT),
-					(DAI_MOCK_ASSET_ID, a, 500_000 * pallet_psm::mock::DAI_UNIT),
+					(USDC_ASSET_ID, a.clone(), INITIAL_EXTERNAL_BALANCE),
+					(USDT_ASSET_ID, a.clone(), INITIAL_EXTERNAL_BALANCE),
+					(USDX_ASSET_ID, a.clone(), 500_000 * pallet_psm::mock::USDX_UNIT),
+					(DAI_MOCK_ASSET_ID, a.clone(), 500_000 * pallet_psm::mock::DAI_UNIT),
 				]
 				.into_iter()
 			})
@@ -328,29 +332,10 @@ pub fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 	.assimilate_storage(&mut storage)
 	.expect("assets genesis assimilates; qed");
 
-	pallet_psm::GenesisConfig::<Test> {
-		max_psm_debt_of_total: Permill::from_percent(50),
-		asset_configs: [
-			(
-				USDC_ASSET_ID,
-				(Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(60)),
-			),
-			(
-				USDT_ASSET_ID,
-				(Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(40)),
-			),
-		]
-		.into_iter()
-		.collect(),
-		_marker: Default::default(),
-	}
-	.assimilate_storage(&mut storage)
-	.expect("PSM genesis assimilates; qed");
-
 	let mut ext: sp_io::TestExternalities = storage.into();
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		pallet_psm::mock::set_mock_maximum_issuance(MAX_PSM_ISSUANCE);
+		pallet_psm::mock::fuzz_helpers::install_fuzzer_psm(GENESIS_MAX_DEBT);
 	});
 	ext
 }
@@ -370,38 +355,49 @@ pub fn dispatch_op(op: &Op) {
 			// guidance discover which limit is the binding constraint.
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
-			let account = (*account_idx % N_ACCOUNTS + 1) as u64;
+			let who = account(*account_idx % N_ACCOUNTS + 1);
 			if !fuzz_helpers::is_approved_asset(asset_id) {
 				return;
 			}
-			let debt = PsmDebt::<Test>::get(asset_id);
+			let debt = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, asset_id);
 			let ceiling = fuzz_helpers::max_asset_debt(asset_id);
 			let remaining = ceiling.saturating_sub(debt);
 			let global_remaining =
 				fuzz_helpers::max_psm_debt().saturating_sub(fuzz_helpers::total_psm_debt());
-			let balance = Assets::balance(asset_id, account);
-			let issuance_remaining = pallet_psm::mock::MockMaximumIssuance::get()
-				.saturating_sub(Assets::total_issuance(INTERNAL_ASSET_ID));
-			let effective_cap =
-				remaining.min(global_remaining).min(issuance_remaining).min(balance);
+			let balance = Assets::balance(asset_id, &who);
+			let effective_cap = remaining.min(global_remaining).min(balance);
 			let amount = resolve_amount(tier, effective_cap);
 			if amount >= MIN_SWAP {
-				let _ = Psm::mint(RuntimeOrigin::signed(account), asset_id, amount);
+				let fee = fuzz_helpers::minting_fee(asset_id);
+				let _ = Psm::mint(
+					RuntimeOrigin::signed(who),
+					INTERNAL_ASSET_ID,
+					asset_id,
+					amount,
+					fee,
+				);
 			}
 		},
 		Op::Redeem { account_idx, asset_idx, tier } => {
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
-			let account = (*account_idx % N_ACCOUNTS + 1) as u64;
+			let who = account(*account_idx % N_ACCOUNTS + 1);
 			if !fuzz_helpers::is_approved_asset(asset_id) {
 				return;
 			}
-			let debt = PsmDebt::<Test>::get(asset_id);
-			let user_pusd = Assets::balance(INTERNAL_ASSET_ID, account);
-			let effective_cap = debt.min(user_pusd);
+			let debt = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, asset_id);
+			let user_internal = Assets::balance(INTERNAL_ASSET_ID, &who);
+			let effective_cap = debt.min(user_internal);
 			let amount = resolve_amount(tier, effective_cap);
 			if amount >= MIN_SWAP {
-				let _ = Psm::redeem(RuntimeOrigin::signed(account), asset_id, amount);
+				let fee = fuzz_helpers::redemption_fee(asset_id);
+				let _ = Psm::redeem(
+					RuntimeOrigin::signed(who),
+					INTERNAL_ASSET_ID,
+					asset_id,
+					amount,
+					fee,
+				);
 			}
 		},
 		// When force_below_debt is true, the ratio is computed so that max_psm_debt ends up
@@ -410,42 +406,33 @@ pub fn dispatch_op(op: &Op) {
 		// subsequent mints must be rejected, and the violation must persist until either
 		// debt is redeemed or the ceiling is raised.
 		Op::SetMaxPsmDebt { force_below_debt, parts } => {
-			let ratio = if *force_below_debt {
-				let debt = fuzz_helpers::total_psm_debt();
-				let max_issuance = pallet_psm::mock::MockMaximumIssuance::get();
-				if debt == 0 || max_issuance == 0 {
-					Permill::from_parts(parts % 1_000_001)
-				} else {
-					let below_debt = Permill::from_rational(debt / 2, max_issuance);
-					let max_parts = below_debt.deconstruct() as u32;
-					if max_parts == 0 {
-						Permill::zero()
-					} else {
-						below_debt.min(Permill::from_parts(parts % max_parts))
-					}
-				}
+			// max_debt is an absolute amount after the multi-instance redesign.
+			// force_below_debt drives the ceiling under the current debt, so the
+			// pallet must reject further mints until redemptions catch up.
+			let value = if *force_below_debt {
+				fuzz_helpers::total_psm_debt() / 2
 			} else {
-				Permill::from_parts(parts % 1_000_001)
+				((*parts as u128) % 20).saturating_mul(1_000_000 * INTERNAL_UNIT)
 			};
-			let _ = Psm::set_max_psm_debt(RuntimeOrigin::root(), ratio);
+			let _ = Psm::set_max_debt(RuntimeOrigin::root(), INTERNAL_ASSET_ID, value);
 		},
 		Op::SetAssetCeilingWeight { asset_idx, parts } => {
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
 			let weight = Permill::from_parts(parts % 1_000_001);
-			let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), asset_id, weight);
+			let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id, weight);
 		},
 		Op::SetMintingFee { asset_idx, parts } => {
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
 			let fee = Permill::from_parts(parts % 1_000_001);
-			let _ = Psm::set_minting_fee(RuntimeOrigin::root(), asset_id, fee);
+			let _ = Psm::set_minting_fee(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id, fee);
 		},
 		Op::SetRedemptionFee { asset_idx, parts } => {
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
 			let fee = Permill::from_parts(parts % 1_000_001);
-			let _ = Psm::set_redemption_fee(RuntimeOrigin::root(), asset_id, fee);
+			let _ = Psm::set_redemption_fee(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id, fee);
 		},
 		Op::SetAssetStatus { asset_idx, level } => {
 			let asset_id =
@@ -458,7 +445,7 @@ pub fn dispatch_op(op: &Op) {
 				1 => CircuitBreakerLevel::MintingDisabled,
 				_ => CircuitBreakerLevel::AllDisabled,
 			};
-			let _ = Psm::set_asset_status(RuntimeOrigin::root(), asset_id, status);
+			let _ = Psm::set_asset_status(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id, status);
 		},
 		// Newly-added assets receive a non-zero ceiling weight immediately via the paired
 		// set_asset_ceiling_weight call. Without this, a freshly-added asset has zero ceiling
@@ -474,21 +461,21 @@ pub fn dispatch_op(op: &Op) {
 				return;
 			}
 			let asset_id = candidates[(*asset_idx as usize) % candidates.len()];
-			if Psm::add_external_asset(RuntimeOrigin::root(), asset_id).is_ok() {
+			if Psm::add_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id).is_ok() {
 				let weight = Permill::from_parts(((*asset_idx as u32) % 1_000_001).max(1));
-				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), asset_id, weight);
+				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id, weight);
 			}
 		},
 		Op::RemoveExternalAsset { asset_idx } => {
 			let candidates: Vec<u32> = fuzz_helpers::approved_assets()
 				.into_iter()
-				.filter(|&id| PsmDebt::<Test>::get(id) == 0)
+				.filter(|&id| PsmDebt::<Test>::get(INTERNAL_ASSET_ID, id) == 0)
 				.collect();
 			if candidates.is_empty() {
 				return;
 			}
 			let asset_id = candidates[(*asset_idx as usize) % candidates.len()];
-			let _ = Psm::remove_external_asset(RuntimeOrigin::root(), asset_id);
+			let _ = Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id);
 		},
 	}
 }
