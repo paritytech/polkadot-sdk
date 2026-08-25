@@ -29,6 +29,9 @@
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
 8. [Messaging](#8-messaging)
+   - 8.1 [Current Limitations](#81-current-limitations)
+   - 8.2 [Proposed Solution: Full XCMP](#82-proposed-solution-full-xcmp)
+   - 8.3 [Speculative Messaging (MVP)](#83-speculative-messaging-mvp)
 9. [References](#9-references)
 
 ---
@@ -208,6 +211,12 @@ struct ParachainServiceState {
     ///
     /// See §6.1 for the per-entry formula.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
+
+    /// Service-global generation allocator: the last generation issued.
+    /// Starts at 0 so the first allocation is 1 (ie generation 0 is invalid).
+    /// This ensures a rollback cant re-mint a value the consumer trusted in the past. 
+    /// See §8.3.
+    next_generation: Generation,
 }
 
 enum LogEntry {
@@ -271,6 +280,21 @@ enum RefineLog {
     /// The PVF exited without calling `set_parent_head_hash` and/or `set_head`
     /// exactly once. Both head declarations are mandatory. See §4.2.
     MissingHeadDeclaration,
+    /// A spec-msg enactment proof failed to verify (malformed, off-path, or
+    /// the belt entry names another service). See §8.3.
+    InvalidEnactmentProof,
+    /// A spec-msg enactment proof exceeded `MAX_PROOF_BYTES`. See §8.3.
+    ProofTooLarge,
+    /// The invocation touched more distinct `(ParaId, Generation)` sources
+    /// than `declare_budget` declared, or more than `MAX_SOURCES`. See §4.3, §8.3.
+    TooManySources,
+    /// `set_requires_root` was called more than once, or its entries repeat
+    /// a `(ParaId, Generation)` pair. See §4.3.
+    DuplicateRequiresEntry,
+    /// A spec-msg input named generation 0, which is reserved-invalid. See §8.3.
+    InvalidGeneration,
+    /// A spec-msg host function was called before `declare_budget`. See §4.3.
+    MissingBudget,
 }
 
 /// Why a state-balance reservation failed (see §6.1).
@@ -371,6 +395,14 @@ struct IncomingTransferChain {
 /// `ParaInfo` contributes to the baseline state-balance reservation (see §6.1).
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
+/// A parachain history generation, allocated from `next_generation`.
+/// 0 is reserved/invalid everywhere. See §8.3.
+type Generation = u64;
+
+/// A sender's commitment over all of its outbound message streams,
+/// carried in its header's SPMS digest. See §8.3.
+type StreamsRoot = [u8; 32];
+
 /// Fixed 128-byte transfer memo, matching Gray Paper `C_memosize = 128`.
 type Memo = [u8; 128];
 
@@ -389,6 +421,10 @@ struct ValidationCode {
 }
 
 struct ParaInfo {
+    /// The parachain's history generation, allocated at `ParaInfo` creation
+    /// and re-allocated on every history discontinuity (§6, §8.3).
+    /// The first field to ensure we can partially read from a fixed-offset.
+    generation: Generation,
     /// Current head data (output of last included block).
     head_data: HeadData,
     /// Currently active validation code, or `None` for a freshly-registered
@@ -428,6 +464,7 @@ singletons; the tag prepended to the encoded map key for map entries).
 | `0x06` | `incoming_transfers` |
 | `0x07` | `incoming_transfer_chain` |
 | `0x08` | `key_value_storage` |
+| `0x09` | `next_generation` |
 
 ### 3.2 Work Items
 
@@ -484,6 +521,12 @@ enum ParachainWorkDigest {
         upward_messages: Vec<UpwardMessage>,
         /// The work package's lookup-anchor timeslot.
         lookup_anchor: Timeslot,
+        /// Speculative-messaging sources this candidate consumed, unique on
+        /// the pair, at most `MAX_SOURCES = 64` entries.
+        /// (full set is 770 bytes of the 48 KiB budget).
+        /// Every entry is checked against the source's live generation before the head
+        /// write (§5.1 step 6). Empty when nothing was consumed. See §8.3.
+        spec_msg_requires: Vec<(ParaId, Generation)>,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
@@ -664,6 +707,7 @@ These forward the full JAM fetch functionality to the PVF:
 | `work_item_summary(index: u32)` | `Option<WorkItemSummary>` | Summary of a specific work item by index |
 | `work_item_payload(index: u32)` | `Option<Vec<u8>>` | Payload of a specific work item by index |
 | `import_segment(index: u32)` | `Option<Vec<u8>>` | A specific import segment, by its index in the work item's import manifest. Indices `0 .. import_count` enumerate the work item's segments in manifest order. |
+| `verify_enacted_root(para_id: ParaId, proof: EnactmentProof)` | `Option<(StreamsRoot, Generation)>` | Prove that `para_id` enacted a header carrying an SPMS digest, walking `proof` from the anchor's accumulation-output-log super-peak down to the header preimage (§8.3). The anchor is implicit and the belt entry's service id is checked against this service's own id, never against package data. Malformed input aborts Refine (`InvalidEnactmentProof`, `ProofTooLarge`, `TooManySources`, `InvalidGeneration`); `None` means no proof was supplied. Requires a prior `declare_budget`. |
 
 #### Side-effect host functions
 
@@ -674,6 +718,8 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
+| `declare_budget(distinct_sources: u8)` | `()` | Declare how many distinct `(ParaId, Generation)` sources this Refine invocation may touch, across `verify_enacted_root` calls and requires entries (repeated pairs are memoized and charged once). Required before the first spec-msg call. Otherwise, aborts Refine with `Err(RefineLog::MissingBudget)`. A PVF making no spec-msg calls never needs it. At most `MAX_SOURCES = 64`. See §8.3. |
+| `set_requires_root(entries: Vec<(ParaId, Generation)>)` | `()` | Declare the spec-msg sources this candidate consumed, one call carrying the whole set. A second call aborts Refine. Entries must be unique on the pair. A duplicate pair results in `Err(RefineLog::DuplicateRequiresEntry)` rather than deduping silently. Forwarded to Accumulate as `ParachainWorkDigest.spec_msg_requires` and checked before the head write (§5.1 step 6). See §8.3. |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent: no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
 | `forget(para_id: ParaId, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent: no-op if `para_id` is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
@@ -689,6 +735,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
 | `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
 | `parachain_set_state_balance(para_id: ParaId, new_total: Balance)` | `()` | Overwrite `ParaInfo[para_id].total_state_balance` (Coretime chain only). On rejection an `AccumulateLog::StateBalanceUpdateRejected` is appended to the parachain's log. See §6.1. |
+| `parachain_bump_generation(para_id: ParaId)` | `()` | Allocate a fresh history generation for a parachain without touching its head data (Coretime chain only), for discontinuities that rewrite nothing. See §6, §8.3. |
 
 Host functions that are restricted to specific parachains (e.g. Coretime chain, Asset Hub)
 will abort with an error when called by any other parachain. Likewise, a host function
@@ -806,12 +853,19 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    result's `(validation_code_hash, len)` pair matches either the active
    `ParaInfo.validation_code` or the pending upgrade's code. If it matches neither,
    the candidate is rejected.
-6. **Head data update + code upgrade check**: Writes the new `head_data` from the
-   work digest into `ParaInfo` for the parachain and immediately checks whether the
-   candidate was validated with the pending new PVF code. If so, activate the new
-   code, release the old code (see §6.1), and clear `pending_upgrade`. This must
-   happen here because later candidates from the same parachain in the same block
-   may already use the new code.
+6. **Requires check + head data update + code upgrade check**: If the digest carries
+   `spec_msg_requires` entries, every named source's `ParaInfo` must exist with a
+   `generation` equal to the provided one. On the first failing entry the candidate is
+   rejected silently, like every other rejection above (§8.3).
+   
+   The check sits here and not earlier so that it is the last gate (passing implies enacting) and runs
+   before the head write (a rejected consumer never publishes a root of its own).
+
+   Then writes the new `head_data` from the work digest into `ParaInfo` for the
+   parachain and immediately checks whether the candidate was validated with the
+   pending new PVF code. If so, activate the new code, release the old code (see
+   §6.1), and clear `pending_upgrade`. This must happen here because later candidates
+   from the same parachain in the same block may already use the new code.
 7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work digest, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
@@ -1100,6 +1154,10 @@ not change in that block, not that it holds any particular value. Proving a para
 current head therefore means locating the most recent block whose tree carries a leaf
 for it, and proving against that block's root.
 
+Speculative messaging (§8.3) builds its enactment proofs against this exact layout: the
+leaf encoding, the hash function, and the ordering above are consumed by other
+parachains' PVFs, so they should be treated as a frozen interface.
+
 ---
 
 ## 6. Parachain Management
@@ -1108,15 +1166,16 @@ Parachain lifecycle and management is driven by the **Coretime chain**, which ow
 policy layer: ParaId allocation, deposits, and deciding when to create, overwrite, or
 clean up a parachain's state.
 
-The Parachain Service exposes four low-level, idempotent host functions that drive
+The Parachain Service exposes five low-level, idempotent host functions that drive
 state-balance management, registration, forced updates, and deregistration:
 
 - `parachain_set_state_balance(para_id, new_total)`: set the parachain's quota
 - `parachain_set_head(para_id, new_head)`: upsert head data
 - `parachain_set_validation_code(para_id, new_validation_code_hash, new_validation_code_len)`: upsert validation code
+- `parachain_bump_generation(para_id)`: allocate a fresh history generation (§8.3)
 - `parachain_clean_up(para_id)`: remove all per-parachain state
 
-All four are Coretime-chain-only; the Parachain Service performs no rights-checking
+All five are Coretime-chain-only; the Parachain Service performs no rights-checking
 of its own and in particular **does not enforce ParaId uniqueness**. The Coretime
 chain is the sole authority on which `ParaId`s are live and who owns them.
 `parachain_set_state_balance` is the sole creator of `ParaInfo` (see §6.1);
@@ -1125,6 +1184,10 @@ silently no-op when invoked on a `ParaId` whose `ParaInfo` doesn't exist yet, so
 Coretime must call `parachain_set_state_balance` first in any registration
 sequence. On an existing `ParaId`, `parachain_set_head` /
 `parachain_set_validation_code` simply overwrite (useful for forced recovery).
+
+The `parachain_set_state_balance` allocates the initial generation when it creates `ParaInfo`
+and `parachain_set_head` allocates a fresh one if it overwrote a live head. This ensures
+speculative messaging doesn't consume an older rollbacked root.
 
 ### 6.1 State-Balance Accounting
 
@@ -1245,16 +1308,17 @@ that `Compact<Balance>` is sized at its worst case of 9 B:
 JAM per-entry octet overhead                                       =      34
 map tag                                                            =       1
 ParaId (key)                                                       =       4
+generation: Generation (u64, §8.3)                                 =       8
 head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098
 validation_code: Option<ValidationCode> = 1 + 32 + 4 + 1           =      38
 pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42
 total_state_balance: Compact<Balance>                              =       9
 used_state_balance: Compact<Balance>                               =       9
 is_deregistering: bool                                             =       1
-                                                          octets       4 236
+                                                          octets       4 244
                                                           1 item          10
                                                                      -------
-                                                                       4 246
+                                                                       4 254
 ```
 
 `(ParaId, parachain_log[para_id])` entry, value + key bounded by a flat 64 KiB cap,
@@ -1276,7 +1340,7 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
                                                                       65 585
 ```
 
-**`baseline_footprint = 4 246 + 65 585 = 69 831`** balance units per parachain.
+**`baseline_footprint = 4 254 + 65 585 = 69 839`** balance units per parachain.
 
 #### Asset Hub baseline footprint
 
@@ -1299,10 +1363,12 @@ pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  · 1 item
   34 + 1 (key) + 2 + 341 × (2 + 4)                         octets      2 083
 incoming_transfer_chain: Option<IncomingTransferChain>  · 1 item
   34 + 1 (key) + 1 + 4 + 4 + 4 (count)                     octets         48
-                                                  octets subtotal   1 222 948
-                                                    344 items × 10      3 440
+next_generation: Generation (§8.3)  · 1 item
+  34 + 1 (key) + 8                                         octets         43
+                                                  octets subtotal   1 222 991
+                                                    345 items × 10      3 450
                                                                     ---------
-                                                                    1 226 388
+                                                                    1 226 441
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
@@ -1322,13 +1388,13 @@ incoming_transfers: Map<Timeslot, IncomingTransfers>  — worst case N items
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 226 388 + 196 × N
+asset_hub_global_items = 1 226 441 + 196 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation: each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 226 388 + 196 000 = 1 422 388`, or
+(§5.1). At `N = 1000` the reservation is `1 226 441 + 196 000 = 1 422 441`, or
 **≈ 1.36 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
@@ -1689,6 +1755,163 @@ The exact host functions for HRMP channel management (open, accept, close) and X
 handling are not yet specified. Additional host functions will likely be needed once the
 messaging model is finalized.
 
+### 8.3 Speculative Messaging (MVP)
+
+[Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md)
+is our primary candidate for offchain message communication. For the initial release, the
+speculation happens at **accumulation tier**, where consumer verifies messages against
+a sender root that is already enacted.
+
+The design uses entirely the functionality from this document, without relying on JAM changes.
+
+The sender's only consensus-side commitment is a digest item in its own header (`StreamsRoot`).
+The `StreamsRoot` is provable via enactment: §5.5 puts the sender's new head into this
+service's per-block accumulation output, JAM's accumulation-output log puts that output
+under the anchor's super-peak, and the consumer's Refine walks down from the super-peak it
+gets from `work_package_context()` (§4.3).
+
+#### Service Difference
+
+**Host calls (§4.3)** — three Refine calls plus one Coretime-only management call:
+
+- `verify_enacted_root(para_id, proof) -> Option<(StreamsRoot, Generation)> - In Refine, verifies the enactment proof and extracts the `StreamsRoot` and `Generation` from header digest
+- `declare_budget(distinct_sources: u8)` - In Refine, reserves sufficient gas for distinct calls to `verify_enacted_root`
+- `set_requires_root(entries: Vec<(ParaId, Generation)>)` - In Refine, sets in one call the block's requires
+- `parachain_bump_generation(para_id)` - In Accumulate (Coretime), bumps the generation number without touching head data  
+
+**Refine failures (§3.1)** - The following refine logs caused by `verify_enacted_root` failures: `InvalidEnactmentProof`, `ProofTooLarge`, `TooManySources`,
+`DuplicateRequiresEntry`, `InvalidGeneration`, `MissingBudget`.
+
+**Accumulate (§5.1 step 6)** - Every specified generation inside the `requires` field must exist with
+an equial `generation` inside `ParaInfo`.
+
+**Management calls (§6)** — `parachain_set_state_balance` allocates the initial generation when it creates `ParaInfo`
+and `parachain_set_head` allocates a fresh one on live head overwrote
+
+**Footprint (§6.1)** — +8 baseline bytes per para (`ParaInfo.generation`) and one 8-byte
+singleton (`next_generation`).
+Constants: `MAX_SOURCES = 64`, `MAX_PROOF_BYTES` (TBD), `MAX_VERIFICATION_HASHES` (TBD).
+
+#### The sender's commitment
+
+The sender's runtime folds outbound messages into per-destination stream MMRs and commits
+them under a single root, carried in a digest item of its own header:
+
+```rust
+const SPMS_ENGINE_ID: [u8; 4] = *b"SPMS";
+
+/// A digest item in the parachain header (the sender's consensus side)
+enum SpmsDigest {
+    /// Encodes to u8.
+    V0 {
+        /// Sender `generation` same as above.
+        generation: u64,
+        /// The root of the sender's outbound message streams.
+        streams_root: H256
+    },
+}
+```
+Only the final block of a PoV bundle is provable, intermediate roots are never consumed.
+
+#### The proof path
+
+A consumer proves a sender's root in-core, one proof per consumed source in its PoV:
+
+```
+anchor super-peak                      RefineContext: validated by JAM at inclusion
+
+  ->belt leaf                          the enacting block's accumulation output
+                                       walked via `EnactmentProof::belt_path` 
+
+    → (ParachainService, heads_root)   this service's per-block output (§5.5)
+                                       matched against `EnactmentProof::heads_root`
+
+      → Leaf { para_id, head_hash }    walked via `EnactmentProof::heads_path`,
+                                       keccak path in the changed-heads tree
+
+        → header preimage              hashes to head_hash
+  
+          → SpmsDigest                 the (StreamsRoot, Generation)
+```
+
+```rust
+/// Carried in the consumer's PoV, one per consumed source.
+struct EnactmentProof {
+    /// Path from the anchor's super-peak to the enacting block's entry in the
+    /// accumulation-output log.
+    /// 
+    /// TODO-GrayPaper: We need the exact format and hash function.
+    belt_path: Vec<u8>,
+
+    /// PS's per-block accumulation output for that block.
+    heads_root: Hash,
+
+    /// keccak path in the changed-heads tree to `Leaf { para_id, head_hash }`.
+    heads_path: Vec<Hash>,
+
+    /// Full header preimage; must hash to `head_hash`.
+    /// The SPMS digest `(generation, streams_root)` is extracted out of it.
+    header: Vec<u8>,
+}
+```
+
+
+
+The walk lives in the service's Refine wrapper, exposed as `verify_enacted_root` (§4.3),
+never in guest code. Then the message Lifts verify against the root as on Polkadot.
+Settlement replaces only the liveness check and never message verification.
+A guest that skips lift verification is broken either way.
+
+The anchor must be matched against the last 8 JAM blocks at guarantee time.
+This needs to take into account AURA authorizer which makes the anchor double as the slot claim, which could 
+shrink the collator window from 8 to its own rotation run.
+
+> Unknown: The verification gas is unknown, and now needs `keccak_256` for the belt and
+> heads paths, BLAKE2b for the lifts.
+
+#### Generations
+
+A generation (§3.1) marks one continuous stretch of a parachain's history. It is allocated
+service-globally, never per-para, so no rollback anywhere can re-mint a value a consumer
+has already trusted. A consumer learns a root's generation from the SPMS digest it was committed in, 
+and names it in its requires entry.
+
+#### The requires check
+
+The consumer names each consumed source as a `(ParaId, Generation)` digest entry (§3.3),
+and Accumulate checks every entry against the source's live generation at the head of §5.1
+step 6. The rejection is **silent**, like every other Accumulate rejection. The consumer's node
+needs no log entry to diagnose it since generations are monotonic. If the candidate did not
+enact and the named generation is no longer the latest one from `ParaInfo`, then the source
+rolled back and channel is frozen.
+
+#### Refine budget
+
+`declare_budget` (§4.3) must be called before the first spec-msg call.
+Verification work is additionally capped by a `MAX_VERIFICATION_HASHES` constant covering the belt walk,
+the heads path, the header hash and the message lifts, and proof blobs by `MAX_PROOF_BYTES`.
+
+#### Deliberately absent
+
+- **No per-sender root cell, no per-enactment state write.** The output log is the cell.
+- **No `set_provides_root`, no provides field in the digest.** Enactment commits the root.
+- **No ring of recently-enacted roots.** That funds the speculation tiers (consuming roots
+  before they enact), out of MVP scope; they will land in the next PS version.
+- **No log entry on a requires rejection.** A rejected candidate changes nothing. The consumer's node derives the diagnosis from block-end state.
+- **No payloads, archives or discovery in consensus.** Distribution is node-side, in the
+  port document.
+
+#### Open items
+
+- `TODO(GP)`: cite that the super-peak in `RefineContext` is validated against recent
+  history at report inclusion — the soundness root of the whole proof path.
+- `TODO(GP)`: the accumulation-output-log proof format and hash function.
+- `TODO(GP)`: whether the newest recent-history entry carries a usable super-peak or gets
+  it one block late, like the posterior state root (decides the minimum anchor age).
+- `TODO(measure)`: PVM keccak/BLAKE2b throughput against `MAX_VERIFICATION_HASHES` at a
+  useful fan-in — the one number that can sink the tier.
+- `TODO(measure)`: the gas-per-byte read rate, deciding the generation read's home above.
+
 ---
 
 ## 9. References
@@ -1702,3 +1925,5 @@ messaging model is finalized.
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/): Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
+- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md): The stream/lift messaging design ported in §8.3
+- [Speculative Messaging on JAM](https://github.com/paritytech/polkadot-sdk/pull/12809): The full JAM port — transport, archives, discovery, recovery, speculation tiers
