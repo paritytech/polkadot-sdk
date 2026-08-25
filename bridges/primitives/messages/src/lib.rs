@@ -582,18 +582,22 @@ mod tests {
 	#[test]
 	fn calc_relayers_rewards_does_not_overflow() {
 		let relayers = vec![
-			UnrewardedRelayer { relayer: 1, messages: DeliveredMessages { begin: 0, end: 1 } },
 			UnrewardedRelayer {
-				relayer: 2,
-				messages: DeliveredMessages { begin: 2, end: MessageNonce::MAX },
+				relayer: 1,
+				messages: DeliveredMessages { begin: 0, end: MessageNonce::MAX },
 			},
+			UnrewardedRelayer {
+				relayer: 1,
+				messages: DeliveredMessages { begin: 0, end: MessageNonce::MAX },
+			},
+			UnrewardedRelayer { relayer: 2, messages: DeliveredMessages { begin: 0, end: 1 } },
 		]
 		.into_iter()
 		.collect();
 
 		let rewards = calc_relayers_rewards(relayers, &(0..=MessageNonce::MAX));
-		assert_eq!(rewards.get(&1), Some(&2));
-		assert_eq!(rewards.get(&2), Some(&(MessageNonce::MAX - 1)));
+		assert_eq!(rewards.get(&1), Some(&MessageNonce::MAX));
+		assert_eq!(rewards.get(&2), Some(&2));
 	}
 
 	#[test]
