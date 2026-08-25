@@ -1302,7 +1302,7 @@ async fn validate_candidate(
 		},
 		Ok(res) => {
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head() {
-				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
+				gum::info!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
 				let committed_candidate_receipt = CommittedCandidateReceipt {
