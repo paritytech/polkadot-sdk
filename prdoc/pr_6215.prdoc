@@ -28,10 +28,22 @@ doc:
     operation succeeded. In-tree callers already abort the extrinsic on `None`, so no chain state
     was affected; this hardens the public API for runtimes that call it directly. Reported by the
     Runtime Whitebox Fuzzer.
+- audience: Runtime Dev
+  description: |-
+    `cumulus_primitives_timestamp::InherentDataProvider::provide_inherent_data` computed the next
+    relay chain slot with plain `u64` arithmetic and truncated the slot duration with `as u64`, so
+    an out-of-range slot or slot duration panicked in debug builds and wrapped to an arbitrary
+    timestamp in release builds. The arithmetic now saturates. Note that a saturated `u64::MAX`
+    timestamp still overflows the unchecked addition in `pallet_timestamp::check_inherent`, a
+    pre-existing defect in `sp-timestamp`'s `Add` impl. The constructor has no in-tree callers,
+    so no node or chain was affected; this hardens the public API. Reported by the Runtime
+    Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
 - name: pallet-elections-phragmen
   bump: patch
 - name: pallet-conviction-voting
+  bump: patch
+- name: cumulus-primitives-timestamp
   bump: patch

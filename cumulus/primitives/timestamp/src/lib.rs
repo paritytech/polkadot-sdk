@@ -61,10 +61,63 @@ impl InherentDataProvider {
 	pub fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
 		// As the parachain starts building at around `relay_chain_slot + 1` we use that slot to
 		// calculate the timestamp.
-		let data: InherentType = ((*self.relay_chain_slot + 1) *
-			self.relay_chain_slot_duration.as_millis() as u64)
-			.into();
+		//
+		// Neither input is validated by the constructor, so the arithmetic saturates instead of
+		// wrapping to some arbitrary in-range timestamp. Erroring out would need a new `no_std`
+		// variant in `sp_inherents::Error`. (`Slot::timestamp` does the checked multiplication,
+		// but only for a `SlotDuration`, whose `From<Duration>` truncates.)
+		let slot_duration_millis =
+			u64::try_from(self.relay_chain_slot_duration.as_millis()).unwrap_or(u64::MAX);
+		let next_slot = self.relay_chain_slot.saturating_add(1u64);
+		let data: InherentType = (*next_slot).saturating_mul(slot_duration_millis).into();
 
 		inherent_data.put_data(INHERENT_IDENTIFIER, &data)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn timestamp_for(relay_chain_slot: u64, slot_duration: Duration) -> InherentType {
+		let inherent_data = InherentDataProvider::from_relay_chain_slot_and_duration(
+			Slot::from(relay_chain_slot),
+			slot_duration,
+		)
+		.create_inherent_data()
+		.expect("inherent data is created");
+
+		inherent_data
+			.get_data(&INHERENT_IDENTIFIER)
+			.expect("inherent data decodes")
+			.expect("inherent data is present")
+	}
+
+	#[test]
+	fn zero_slot_duration_is_a_zero_timestamp() {
+		assert_eq!(timestamp_for(100, Duration::ZERO), 0u64);
+	}
+
+	#[test]
+	fn timestamp_is_the_start_of_the_next_relay_chain_slot() {
+		assert_eq!(timestamp_for(100, Duration::from_millis(6_000)), 606_000u64);
+	}
+
+	#[test]
+	fn max_relay_chain_slot_does_not_overflow() {
+		assert_eq!(timestamp_for(u64::MAX, Duration::from_millis(6_000)), u64::MAX);
+	}
+
+	#[test]
+	fn huge_slot_duration_does_not_overflow() {
+		assert_eq!(timestamp_for(1, Duration::MAX), u64::MAX);
+	}
+
+	#[test]
+	fn slot_duration_above_u64_millis_does_not_truncate() {
+		// `as_millis()` is exactly `2^64` here, so the old `as u64` cast silently made it `0`.
+		let duration = Duration::new(18_446_744_073_709_551, 616_000_000);
+		assert_eq!(duration.as_millis(), u128::from(u64::MAX) + 1);
+		assert_eq!(timestamp_for(1, duration), u64::MAX);
 	}
 }
