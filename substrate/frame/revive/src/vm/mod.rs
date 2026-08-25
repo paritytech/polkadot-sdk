@@ -138,15 +138,18 @@ impl<T: Config> Token<T> for CodeInfoLoadToken {
 		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
 		// whitelist. Its trie walk is already paid by this load's read, so add only
 		// the missing part of a write.
-		let already_paid =
-			matches!(self.warmth, Warmth::Hot(paid) if paid.covers(self.code_info_op));
-		if self.code_info_op == StorageOp::Write && !already_paid {
-			weight
-				.saturating_add(RuntimeCosts::deferred_write_cost::<T>())
-				.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<T>())
-		} else {
-			weight
-		}
+		let bumps_refcount = self.code_info_op == StorageOp::Write;
+		let surcharge = match self.warmth {
+			// Upgrading a tracked entry to `Write` also journals the upgrade.
+			Warmth::Hot(paid) if bumps_refcount && !paid.covers(StorageOp::Write) => {
+				RuntimeCosts::deferred_write_cost::<T>()
+					.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<T>())
+			},
+			// A cold touch inserts at `Write`, so there is nothing to journal.
+			Warmth::Cold { .. } if bumps_refcount => RuntimeCosts::deferred_write_cost::<T>(),
+			_ => Weight::zero(),
+		};
+		weight.saturating_add(surcharge)
 	}
 }
 
@@ -467,20 +470,25 @@ mod tests {
 		let load = |info, code_info_op| {
 			Token::<Test>::weight(&CodeInfoLoadToken { warmth: info, code_info_op })
 		};
-		let deferred = RuntimeCosts::deferred_write_cost::<Test>()
-			.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
+		let deferred = RuntimeCosts::deferred_write_cost::<Test>();
+		let journaled_upgrade = RuntimeCosts::access_list_upgrade_overhead::<Test>();
 		let cold = Warmth::cold_non_revertible();
 
 		assert_eq!(
 			load(cold, StorageOp::Write).saturating_sub(load(cold, StorageOp::Read)),
 			deferred,
-			"the instantiate load must add exactly the refcount write",
+			"a cold bump inserts the entry at `Write`, so it owes the re-hash but no upgrade",
 		);
 		assert_eq!(
 			load(Warmth::Hot(Paid::Read), StorageOp::Write)
 				.saturating_sub(load(Warmth::Hot(Paid::Write), StorageOp::Write)),
-			deferred,
-			"only the bump that finds the key read-paid owes the re-hash",
+			deferred.saturating_add(journaled_upgrade),
+			"the bump that finds the key read-paid owes the re-hash and journals the upgrade",
+		);
+		assert_ne!(
+			journaled_upgrade,
+			Weight::zero(),
+			"the upgrade term must be priced, or neither assertion above can fail",
 		);
 	}
 
