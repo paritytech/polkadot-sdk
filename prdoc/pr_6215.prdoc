@@ -20,8 +20,18 @@ doc:
     `[0, MaxCandidates - 1]`: pre-filling the candidate list up to the limit is no longer a state
     in which the measured call is accepted. Runtimes regenerating weights will see the new range.
     Reported by the Runtime Whitebox Fuzzer.
+- audience: Runtime Dev
+  description: |-
+    `pallet-conviction-voting`'s `Tally::add` and `Tally::remove` mutated `support` before checking
+    the `ayes`/`nays` arithmetic, so a call that returned `None` on over/underflow left the tally
+    partially modified. Both now compute all fields first and only commit once every checked
+    operation succeeded. In-tree callers already abort the extrinsic on `None`, so no chain state
+    was affected; this hardens the public API for runtimes that call it directly. Reported by the
+    Runtime Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
 - name: pallet-elections-phragmen
+  bump: patch
+- name: pallet-conviction-voting
   bump: patch

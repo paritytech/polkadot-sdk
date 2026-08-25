@@ -1089,3 +1089,45 @@ fn empty_tally_approval_is_zero() {
 		);
 	});
 }
+
+#[test]
+fn failed_tally_remove_leaves_tally_unchanged() {
+	// `ayes` underflows after `support` was already decremented.
+	let initial = TallyOf::<Test>::from_parts(0, 0, 10);
+	let mut t = initial.clone();
+	assert!(t.remove(aye(10, 0)).is_none());
+	assert_eq!(t, initial);
+
+	// `nays` underflows after `support` and `ayes` were already decremented.
+	let initial = TallyOf::<Test>::from_parts(1, 0, 10);
+	let mut t = initial.clone();
+	assert!(t.remove(split(10, 10)).is_none());
+	assert_eq!(t, initial);
+
+	// `support` underflows on the abstain leg, after the aye leg was already subtracted.
+	let initial = TallyOf::<Test>::from_parts(0, 0, 10);
+	let mut t = initial.clone();
+	assert!(t.remove(split_abstain(10, 0, 10)).is_none());
+	assert_eq!(t, initial);
+}
+
+#[test]
+fn failed_tally_add_leaves_tally_unchanged() {
+	// `ayes` overflows after `support` was already incremented.
+	let initial = TallyOf::<Test>::from_parts(u64::MAX, 0, 0);
+	let mut t = initial.clone();
+	assert!(t.add(aye(10, 0)).is_none());
+	assert_eq!(t, initial);
+
+	// `nays` overflows after `support` and `ayes` were already incremented.
+	let initial = TallyOf::<Test>::from_parts(0, u64::MAX, 0);
+	let mut t = initial.clone();
+	assert!(t.add(split(10, 10)).is_none());
+	assert_eq!(t, initial);
+
+	// `support` overflows on the abstain leg, after the aye leg was already added.
+	let initial = TallyOf::<Test>::from_parts(0, 0, u64::MAX - 10);
+	let mut t = initial.clone();
+	assert!(t.add(split_abstain(10, 0, 10)).is_none());
+	assert_eq!(t, initial);
+}
