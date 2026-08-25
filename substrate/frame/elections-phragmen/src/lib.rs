@@ -462,7 +462,7 @@ pub mod pallet {
 			let actual_count = Candidates::<T>::decode_len().unwrap_or(0) as u32;
 			ensure!(actual_count <= candidate_count, Error::<T>::InvalidWitnessData);
 			ensure!(
-				actual_count <= <T as Config>::MaxCandidates::get(),
+				actual_count < <T as Config>::MaxCandidates::get(),
 				Error::<T>::TooManyCandidates
 			);
 
@@ -1333,6 +1333,7 @@ mod tests {
 		pub static DesiredMembers: u32 = 2;
 		pub static DesiredRunnersUp: u32 = 0;
 		pub static TermDuration: u64 = 5;
+		pub static MaxCandidates: u32 = 100;
 		pub static Members: Vec<u64> = vec![];
 		pub static Prime: Option<u64> = None;
 	}
@@ -1384,7 +1385,6 @@ mod tests {
 	parameter_types! {
 		pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
 		pub const PhragmenMaxVoters: u32 = 1000;
-		pub const PhragmenMaxCandidates: u32 = 100;
 	}
 
 	impl Config for Test {
@@ -1405,7 +1405,7 @@ mod tests {
 		type WeightInfo = ();
 		type MaxVoters = PhragmenMaxVoters;
 		type MaxVotesPerVoter = ConstU32<16>;
-		type MaxCandidates = PhragmenMaxCandidates;
+		type MaxCandidates = MaxCandidates;
 	}
 
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
@@ -1452,6 +1452,10 @@ mod tests {
 		pub fn genesis_members(mut self, members: Vec<(u64, u64)>) -> Self {
 			MEMBERS.with(|m| *m.borrow_mut() = members.iter().map(|(m, _)| *m).collect::<Vec<_>>());
 			self.genesis_members = members;
+			self
+		}
+		pub fn max_candidates(self, count: u32) -> Self {
+			MAX_CANDIDATES.with(|m| *m.borrow_mut() = count);
 			self
 		}
 		pub fn desired_members(self, count: u32) -> Self {
@@ -1810,6 +1814,22 @@ mod tests {
 			assert_eq!(candidate_ids(), vec![1, 2, 3]);
 			assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
 			assert_eq!(candidate_ids(), vec![1, 2, 3, 4]);
+		});
+	}
+
+	#[test]
+	fn candidate_submission_is_capped_at_max_candidates() {
+		ExtBuilder::default().max_candidates(2).build_and_execute(|| {
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(1)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(2)));
+			assert_eq!(candidate_ids(), vec![1, 2]);
+
+			// the candidate list is full: no further candidacy is accepted.
+			assert_noop!(
+				submit_candidacy(RuntimeOrigin::signed(3)),
+				Error::<Test>::TooManyCandidates
+			);
+			assert_eq!(candidate_ids(), vec![1, 2]);
 		});
 	}
 

@@ -1,4 +1,4 @@
-title: 'collator-protocol: use checked slot arithmetic in `is_scheduling_parent_valid`'
+title: 'Fixes for issues reported by the Runtime Whitebox Fuzzer'
 doc:
 - audience: Node Dev
   description: |-
@@ -9,6 +9,19 @@ doc:
 
     The increment is now checked, so a leaf slot with no successor is rejected instead of
     overflowing. Reported by the Runtime Whitebox Fuzzer.
+- audience: Runtime Dev
+  description: |-
+    `pallet-elections-phragmen::submit_candidacy` allowed one candidate more than the documented
+    `MaxCandidates` limit: the guard compared the current candidate count with `<=` instead of `<`,
+    so a call made while the list already held `MaxCandidates` entries succeeded and grew it to
+    `MaxCandidates + 1`. The guard now rejects such a call with `TooManyCandidates`.
+
+    The `submit_candidacy` benchmark's `c` component range shifts accordingly, to
+    `[0, MaxCandidates - 1]`: pre-filling the candidate list up to the limit is no longer a state
+    in which the measured call is accepted. Runtimes regenerating weights will see the new range.
+    Reported by the Runtime Whitebox Fuzzer.
 crates:
 - name: polkadot-collator-protocol
+  bump: patch
+- name: pallet-elections-phragmen
   bump: patch
