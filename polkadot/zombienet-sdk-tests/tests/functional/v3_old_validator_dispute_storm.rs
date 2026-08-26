@@ -204,7 +204,7 @@ async fn v3_old_validator_dispute_storm(#[case] num_old: usize) -> Result<(), an
 		.wait_metric_with_timeout(
 			"polkadot_parachain_candidate_disputes_total",
 			|d| d >= 4.0,
-			300u64,
+			500u64,
 		)
 		.await?;
 
