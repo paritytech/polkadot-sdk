@@ -829,8 +829,8 @@ fn has_received_from(
 	hash: &Hash,
 	who: &PeerId,
 ) -> bool {
-	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who))
-		|| pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
+	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who)) ||
+		pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
 }
 
 impl Peer {
@@ -850,9 +850,9 @@ impl Peer {
 	///
 	/// Light V2 peers must set their topic affinity before receiving any statements.
 	fn can_receive(&self) -> bool {
-		!(self.is_light
-			&& self.protocol_version == PeerProtocolVersion::V2
-			&& self.topic_affinity.is_none())
+		!(self.is_light &&
+			self.protocol_version == PeerProtocolVersion::V2 &&
+			self.topic_affinity.is_none())
 	}
 
 	fn kind(&self) -> &'static str {
@@ -1165,8 +1165,8 @@ where
 						rate_limiter: PeerRateLimiter::new(
 							self.statements_per_second,
 							NonZeroU32::new(
-								self.statements_per_second.get()
-									* config::STATEMENTS_BURST_COEFFICIENT,
+								self.statements_per_second.get() *
+									config::STATEMENTS_BURST_COEFFICIENT,
 							)
 							.expect("burst capacity is nonzero"),
 						),
@@ -1693,8 +1693,8 @@ where
 			.peers
 			.iter()
 			.filter(|(peer_id, peer_data)| {
-				peer_data.pending_topic_affinity.is_some()
-					&& !self.pending_initial_syncs.contains_key(peer_id)
+				peer_data.pending_topic_affinity.is_some() &&
+					!self.pending_initial_syncs.contains_key(peer_id)
 			})
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
