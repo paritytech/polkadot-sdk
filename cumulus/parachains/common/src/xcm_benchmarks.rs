@@ -17,8 +17,7 @@
 
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
-use xcm::latest::prelude::*;
-use xcm_executor::RECURSION_LIMIT;
+use xcm::{latest::prelude::*, RECURSION_LIMIT};
 
 /// Worst-case `(origin, message)` for a standard parachain barrier's heaviest `ref_time` path (the
 /// matching `proof_size` path is [`worst_case_barrier_check_proof_size`]).
