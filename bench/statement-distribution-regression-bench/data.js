@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787753410466,
+  "lastUpdate": 1787760084455,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f134881a56e7733a6b5171c81b05ce4df40dd695",
-          "message": "[Release|CI/CD] Bump Zepter version in post crates action (#10885)\n\nResolving following error lines:\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21254581447/job/61165383938#step:17:15\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-23T12:33:22Z",
-          "tree_id": "fe4c50d35ca79c55709258004dac104697c7fcd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f134881a56e7733a6b5171c81b05ce4df40dd695"
-        },
-        "date": 1769175931635,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.052,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038380801272000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06540606566999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09308485092999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fcdd029217854918b47707a2feccf544896adce0",
+          "message": "pallet-delegated-staking: ignore zero-amount delegations (#12992)\n\nCloses #12911\n\nFor a new delegator, calling `delegate_to_agent` with amount 0 used to\nstore an empty `Delegation` record and take a provider reference. That\nleft the account marked as a delegator for good, which then stops it\nfrom registering as an agent.\n\nThe fix only touches the new-delegator case:\n- `Delegation::update` stores nothing for a new zero-amount entry. Every\nwrite path goes through it, so none can leave a zero record behind.\n- `do_delegate` and `migrate_delegation` reject a zero amount for a new\ndelegator.\n- A zero top-up on an existing delegation stays a no-op.\n`nomination-pools` `bond_extra(Rewards)` passes amount 0 at 100%\ncommission, and rejecting it would break reward bonding there.\n- Added a try-state check that stored delegations are never zero.\n\nTests cover the three cases (new zero rejected, zero migrate rejected,\nexisting zero top-up still works): `SKIP_WASM_BUILD=1 cargo test -p\npallet-delegated-staking --lib`.\n\nRWF finding, same cluster as #12769 / #12771 / #12922. Same approach as\n#13001 - thanks @sigurpol and @acatangiu for the reviews.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Paolo La Camera <paolo.lacamera@pm.me>",
+          "timestamp": "2026-08-26T13:48:54Z",
+          "tree_id": "bb7c021090a935bdb734d2198123d9130e7365c9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fcdd029217854918b47707a2feccf544896adce0"
+        },
+        "date": 1787760045481,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08400000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04004115177599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08293256200399995,
             "unit": "seconds"
           }
         ]
