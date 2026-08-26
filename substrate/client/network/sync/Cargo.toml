@@ -43,6 +43,12 @@ thiserror = { workspace = true }
 tokio = { features = ["macros", "time"], workspace = true, default-features = true }
 tokio-stream = { workspace = true }
 
+[features]
+default = []
+# Builds for biting a live network: warp sync then asks for state without a range proof.
+# See `strategy/polkadot.rs`.
+doppelganger = []
+
 [dev-dependencies]
 quickcheck = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
