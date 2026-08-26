@@ -12,6 +12,6 @@ crates:
 - name: pallet-revive-uapi
   bump: minor
   validate: false
-- asset-hub-westend-runtime
+- name: asset-hub-westend-runtime
   bump: minor
   validate: false
