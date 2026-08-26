@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787732989455,
+  "lastUpdate": 1787738066550,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
-          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-26T09:27:22Z",
-          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
-        },
-        "date": 1769423665170,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12774873006666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.275096616566668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13200413706666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fb8731d6fba9e40c5e2e335c81918992937f5764",
+          "message": "bp-messages: don't overflow when counting rewarded messages (#12926)\n\n`calc_relayers_rewards` counted messages as `end - begin + 1`, which\noverflows when the range covers the whole nonce space. Use the existing\nsaturating_len() helper, and saturating_add for the running total.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12907\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-08-26T08:19:51Z",
+          "tree_id": "6e0516aa8b31f26f210b60c28b14adda49f68bec",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8731d6fba9e40c5e2e335c81918992937f5764"
+        },
+        "date": 1787738026648,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.881891600766664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13835336850000002,
             "unit": "seconds"
           }
         ]
