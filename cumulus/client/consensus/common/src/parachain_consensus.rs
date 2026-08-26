@@ -80,31 +80,24 @@ fn handle_new_finalized_head<P, Block, B>(
 	}
 }
 
-/// Streams finalized parachain heads from the relay chain.
+/// Streams finalized parachain heads from the backing chain.
 ///
-/// This worker continuously monitors the relay chain for finalized blocks and extracts
-/// the corresponding parachain head data for the given `para_id`. The extracted head
-/// data is sent through the provided channel for consumption by the consensus system.
+/// This worker decodes the raw parachain head bytes yielded by `finalized_heads` (extracted from
+/// the backing chain's finalized blocks — the relay chain today, JAM state later) and sends the
+/// decoded headers through the provided channel for consumption by the consensus system.
 ///
 /// This is necessary because finalization of blocks can take a long
 /// time. During this blocking operation, we should not keep references to finality notifications,
 /// because that prevents the corresponding blocks from getting pruned.
-pub async fn finalized_head_stream_worker<R: RelayChainInterface + Clone, Block: BlockT>(
+pub async fn finalized_head_stream_worker<Block: BlockT>(
 	mut tx: UnboundedSender<Block::Header>,
-	para_id: ParaId,
-	relay_chain: R,
+	finalized_heads: impl Stream<Item = Vec<u8>> + Send,
 ) {
-	let finalized_heads = match finalized_heads(relay_chain.clone(), para_id).await {
-		Ok(finalized_heads_stream) => finalized_heads_stream.fuse(),
-		Err(err) => {
-			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve finalized heads stream.");
-			return;
-		},
-	};
+	let finalized_heads = finalized_heads.fuse();
 
 	pin_mut!(finalized_heads);
 	loop {
-		if let Some((head_data, _)) = finalized_heads.next().await {
+		if let Some(head_data) = finalized_heads.next().await {
 			let header = match Block::Header::decode(&mut &head_data[..]) {
 				Ok(header) => header,
 				Err(err) => {
@@ -226,15 +219,42 @@ pub fn spawn_parachain_consensus_tasks<P, R, Block, B, S>(
 	B: Backend<Block> + 'static,
 {
 	let (tx, rx) = futures::channel::mpsc::unbounded();
-	let worker = finalized_head_stream_worker::<_, Block>(tx, para_id, relay_chain.clone());
-	let consensus = run_parachain_consensus(
-		para_id,
-		parachain,
-		relay_chain,
-		announce_block,
-		Box::new(rx),
-		recovery_chan_tx,
-	);
+	let worker = {
+		let relay_chain = relay_chain.clone();
+		async move {
+			match finalized_heads(relay_chain, para_id).await {
+				Ok(finalized_heads_stream) =>
+					finalized_head_stream_worker::<Block>(
+						tx,
+						finalized_heads_stream.map(|(head_data, _)| head_data),
+					)
+					.await,
+				Err(err) => tracing::error!(
+					target: LOG_TARGET,
+					error = ?err,
+					"Unable to retrieve finalized heads stream.",
+				),
+			}
+		}
+	};
+	let consensus = async move {
+		match new_best_heads(relay_chain, para_id).await {
+			Ok(best_heads_stream) =>
+				run_parachain_consensus(
+					parachain,
+					announce_block,
+					Box::new(best_heads_stream.boxed()),
+					Box::new(rx),
+					recovery_chan_tx,
+				)
+				.await,
+			Err(err) => tracing::error!(
+				target: LOG_TARGET,
+				error = ?err,
+				"Unable to retrieve best heads stream.",
+			),
+		}
+	};
 
 	spawn_handle.spawn_essential_blocking("cumulus-consensus", None, Box::pin(consensus));
 	spawn_handle.spawn_essential_blocking(
@@ -246,19 +266,20 @@ pub fn spawn_parachain_consensus_tasks<P, R, Block, B, S>(
 
 /// Run the parachain consensus.
 ///
-/// This will follow the given `relay_chain` to act as consensus for the parachain that corresponds
-/// to the given `para_id`. It will set the new best block of the parachain as it gets aware of it.
-/// The same happens for the finalized block.
+/// This will follow the injected best/finalized head streams to act as consensus for the
+/// parachain. It will set the new best block of the parachain as it gets aware of it. The same
+/// happens for the finalized block. The streams carry the parachain heads as extracted from the
+/// backing chain (the relay chain today, JAM state later); the raw best-head bytes are decoded
+/// to headers here.
 ///
 /// # Note
 ///
 /// This will access the backend of the parachain and thus, this future should be spawned as
 /// blocking task.
-pub async fn run_parachain_consensus<P, R, Block, B>(
-	para_id: ParaId,
+pub async fn run_parachain_consensus<P, Block, B>(
 	parachain: Arc<P>,
-	relay_chain: R,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
+	new_best_head_stream: Box<impl Stream<Item = Vec<u8>> + Unpin + Send>,
 	finalized_head_stream: Box<impl Stream<Item = Block::Header> + Unpin + Send>,
 	recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
 ) where
@@ -270,14 +291,12 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>,
 	for<'a> &'a P: BlockImport<Block>,
-	R: RelayChainInterface + Clone,
 	B: Backend<Block>,
 {
 	let follow_new_best = follow_new_best(
-		para_id,
 		parachain.clone(),
-		relay_chain.clone(),
 		announce_block,
+		new_best_head_stream,
 		recovery_chan_tx,
 	);
 	let follow_finalized_head = follow_finalized_head(parachain, finalized_head_stream);
@@ -287,12 +306,11 @@ pub async fn run_parachain_consensus<P, R, Block, B>(
 	}
 }
 
-/// Follow the relay chain new best head, to update the Parachain new best head.
-async fn follow_new_best<P, R, Block, B>(
-	para_id: ParaId,
+/// Follow the backing chain's new best head, to update the Parachain new best head.
+async fn follow_new_best<P, Block, B>(
 	parachain: Arc<P>,
-	relay_chain: R,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
+	new_best_heads: Box<impl Stream<Item = Vec<u8>> + Unpin + Send>,
 	mut recovery_chan_tx: Option<Sender<RecoveryRequest<Block>>>,
 ) where
 	Block: BlockT,
@@ -303,16 +321,9 @@ async fn follow_new_best<P, R, Block, B>(
 		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>,
 	for<'a> &'a P: BlockImport<Block>,
-	R: RelayChainInterface + Clone,
 	B: Backend<Block>,
 {
-	let new_best_heads = match new_best_heads(relay_chain, para_id).await {
-		Ok(best_heads_stream) => best_heads_stream.fuse(),
-		Err(err) => {
-			tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve best heads stream.");
-			return;
-		},
-	};
+	let new_best_heads = new_best_heads.fuse();
 
 	pin_mut!(new_best_heads);
 

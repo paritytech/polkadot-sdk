@@ -475,10 +475,14 @@ async fn follow_new_best_works() {
 
 	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
 	let consensus = run_parachain_consensus(
-		100.into(),
 		client.clone(),
-		relay_chain,
 		Arc::new(|_, _| {}),
+		Box::new(
+			cumulus_relay_chain_streams::new_best_heads(relay_chain, 100.into())
+				.await
+				.expect("mock stream")
+				.boxed(),
+		),
 		Box::new(finalized_receiver),
 		None,
 	);
@@ -515,10 +519,14 @@ async fn follow_new_best_with_dummy_recovery_works() {
 
 	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
 	let consensus = run_parachain_consensus(
-		100.into(),
 		client.clone(),
-		relay_chain,
 		Arc::new(|_, _| {}),
+		Box::new(
+			cumulus_relay_chain_streams::new_best_heads(relay_chain, 100.into())
+				.await
+				.expect("mock stream")
+				.boxed(),
+		),
 		Box::new(finalized_receiver),
 		Some(recovery_chan_tx),
 	);
@@ -581,10 +589,14 @@ async fn follow_finalized_works() {
 
 	let (mock_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
 	let consensus = run_parachain_consensus(
-		100.into(),
 		client.clone(),
-		relay_chain,
 		Arc::new(|_, _| {}),
+		Box::new(
+			cumulus_relay_chain_streams::new_best_heads(relay_chain, 100.into())
+				.await
+				.expect("mock stream")
+				.boxed(),
+		),
 		Box::new(finalized_receiver),
 		None,
 	);
@@ -632,10 +644,14 @@ async fn follow_finalized_does_not_stop_on_unknown_block() {
 
 	let (mock_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
 	let consensus = run_parachain_consensus(
-		100.into(),
 		client.clone(),
-		relay_chain,
 		Arc::new(|_, _| {}),
+		Box::new(
+			cumulus_relay_chain_streams::new_best_heads(relay_chain, 100.into())
+				.await
+				.expect("mock stream")
+				.boxed(),
+		),
 		Box::new(finalized_receiver),
 		None,
 	);
@@ -692,10 +708,14 @@ async fn follow_new_best_sets_best_after_it_is_imported() {
 
 	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
 	let consensus = run_parachain_consensus(
-		100.into(),
 		client.clone(),
-		relay_chain,
 		Arc::new(|_, _| {}),
+		Box::new(
+			cumulus_relay_chain_streams::new_best_heads(relay_chain, 100.into())
+				.await
+				.expect("mock stream")
+				.boxed(),
+		),
 		Box::new(finalized_receiver),
 		None,
 	);
@@ -773,10 +793,14 @@ async fn do_not_set_best_block_to_older_block() {
 
 	let (_finalized_sender, finalized_receiver) = futures::channel::mpsc::unbounded();
 	let consensus = run_parachain_consensus(
-		100.into(),
 		client.clone(),
-		relay_chain,
 		Arc::new(|_, _| {}),
+		Box::new(
+			cumulus_relay_chain_streams::new_best_heads(relay_chain, 100.into())
+				.await
+				.expect("mock stream")
+				.boxed(),
+		),
 		Box::new(finalized_receiver),
 		None,
 	);
