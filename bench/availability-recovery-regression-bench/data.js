@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787742928762,
+  "lastUpdate": 1787747579671,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340",
-          "message": "net: Spawn network backend as essential task (#10847)\n\nThis PR spawns the network backends as essential (libp2p / litep2p).\n\nWhen the network future exits, it will bring down the whole process.\n- there's no point in running a node without the core network backend as\nit will not be able to communicate with peers\n- while at it, have changed some logs from debug to warn\n- the network backend can be brought down unintentionally by the\n`import_notif_stream`\n\n\nDiscovered during:\n- https://github.com/paritytech/polkadot-sdk/issues/10821\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-26T15:39:44Z",
-          "tree_id": "63664732e2d31aac59b145d73bf121b6ac450c2e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340"
-        },
-        "date": 1769446381525,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.293012900633336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12557869793333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1290673724,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3d7197b37974af7d22c8a7101c89f28a06285f9e",
+          "message": "statement gossip: bound outbound sends with a per-peer outbox (#12878)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12838\n\nThe statement gossip protocol encoded every propagation chunk for every\npeer up front, holding an unbounded number of encoded payloads for up to\nten seconds each when peers read slowly. Propagation now queues hashes\nto a per-peer outbox (at most 64 Ki hashes, 2 MiB, oldest dropped first\nand counted by the `outbox_full` reason of\n`substrate_sync_statement_undelivered_total`), keeps at most one chunk\nper peer in flight, and encodes statements from the store only when the\npeer's send slot is free.\n\nInitial-sync and propagation chunks together are capped at 16 MiB in\nflight, observable via the new\n`substrate_sync_propagation_in_flight_bytes` gauge next to the existing\ninitial-sync one. Initial-sync chunks share the propagation fetch path\nand now also skip statements the receiving peer itself sent us.\n\n## Integration\n\n`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES` in `sc_network_statement::config` is\nrenamed to `MAX_SEND_IN_FLIGHT_BYTES` and now covers propagation and\ninitial-sync chunks together. `MAX_PROPAGATION_OUTBOX_LEN` is added.",
+          "timestamp": "2026-08-26T10:52:58Z",
+          "tree_id": "9e37c4f80ac8c3591c75d62e0ea543f65943be8c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d7197b37974af7d22c8a7101c89f28a06285f9e"
+        },
+        "date": 1787747548851,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.793711640266661,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14151926983333335,
             "unit": "seconds"
           }
         ]
