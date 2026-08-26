@@ -119,9 +119,8 @@ pub enum StorageAccessKind {
 	Transient,
 }
 
-/// The operation a storage access performs. `Read` sorts below `Write`, which
-/// [`Self::covers`] relies on.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+/// The operation a storage access performs.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StorageOp {
 	/// Reads the slot.
 	Read,
@@ -132,7 +131,10 @@ pub enum StorageOp {
 impl StorageOp {
 	/// Whether charging `self` also pays for `op`.
 	pub fn covers(self, op: StorageOp) -> bool {
-		self >= op
+		match self {
+			StorageOp::Write => true,
+			StorageOp::Read => matches!(op, StorageOp::Read),
+		}
 	}
 }
 
@@ -197,8 +199,8 @@ pub struct AccessEntry {
 pub struct AccessList {
 	/// All currently-hot entries with the cost each has paid.
 	///
-	/// Plain rather than bounded: `BoundedBTreeMap` has no `entry` API, and
-	/// without it a cold touch pays a second lookup.
+	/// Not a `BoundedBTreeMap` because it has no `entry` API, which would make a
+	/// cold touch search the map twice.
 	accessed: BTreeMap<AccessEntry, StorageOp>,
 	/// Flat journal of insertions (in order); each entry was added by exactly
 	/// one frame, and `checkpoints` marks the frame boundaries inside this journal.
@@ -243,7 +245,7 @@ impl AccessList {
 	pub fn commit_frame(&mut self) {
 		self.checkpoints.pop().expect(
 			"A call to commit_frame must be preceded by a corresponding call to enter_frame;
-			every caller pairs the two, Stack::run for every frame but the first; qed",
+			Stack::run closes every checkpoint it opens; qed",
 		);
 	}
 
@@ -258,7 +260,7 @@ impl AccessList {
 	pub fn rollback_frame(&mut self) {
 		let (journal_checkpoint, upgrades_checkpoint) = self.checkpoints.pop().expect(
 			"A call to rollback_frame must be preceded by a corresponding call to enter_frame;
-			every caller pairs the two, Stack::run for every frame but the first; qed",
+			Stack::run closes every checkpoint it opens; qed",
 		);
 		for entry in self.journal.drain(journal_checkpoint..) {
 			self.accessed.remove(&entry);
@@ -272,7 +274,7 @@ impl AccessList {
 	}
 
 	/// Non-mutating sibling of [`Self::touch`]. The two agree on a slot's warmth,
-	/// so pricing an access from a peek is never cheaper than pricing it from a touch.
+	/// so an access priced from a peek never disagrees with one priced from a touch.
 	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
 		match self.accessed.get(entry) {
 			Some(charged) => Warmth::Hot { charged: *charged },
@@ -301,8 +303,8 @@ impl AccessList {
 		match self.accessed.entry(access_entry) {
 			Entry::Occupied(mut tree_entry) => {
 				self.hot_count = self.hot_count.saturating_add(1);
-				let previous = *tree_entry.get();
-				if !previous.covers(op) {
+				let prev_charged = *tree_entry.get();
+				if !prev_charged.covers(op) {
 					// Defensive: one upgrade per tracked slot, so the journal
 					// cannot fill. If it does, later writes just pay the surcharge again.
 					let journaled = self.upgrades.try_push(tree_entry.key().clone());
@@ -311,7 +313,7 @@ impl AccessList {
 						*tree_entry.get_mut() = StorageOp::Write;
 					}
 				}
-				Warmth::Hot { charged: previous }
+				Warmth::Hot { charged: prev_charged }
 			},
 			Entry::Vacant(tree_entry) => {
 				self.cold_count = self.cold_count.saturating_add(1);

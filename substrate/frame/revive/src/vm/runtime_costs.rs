@@ -418,7 +418,10 @@ mod tests {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
+		let hot_kinds = [
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
+		];
 
 		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
@@ -430,15 +433,25 @@ mod tests {
 			]
 		};
 
-		for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
-			let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
-			let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
-			assert!(
-				cold_weight.ref_time() > hot_weight.ref_time(),
-				"expected cold > hot ref_time for {cold_cost:?}: cold={cold_weight:?} hot={hot_weight:?}",
-			);
-			assert_eq!(hot_weight.proof_size(), 0, "hot proof_size {hot_cost:?}: {hot_weight:?}");
-			assert!(cold_weight.proof_size() > 0, "cold proof_size {cold_cost:?}: {cold_weight:?}",);
+		for hot in hot_kinds {
+			for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
+				let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
+				let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
+				assert!(
+					cold_weight.ref_time() > hot_weight.ref_time(),
+					"expected cold > hot ref_time for {cold_cost:?}: \
+					 cold={cold_weight:?} hot={hot_weight:?}",
+				);
+				assert_eq!(
+					hot_weight.proof_size(),
+					0,
+					"hot proof_size {hot_cost:?}: {hot_weight:?}"
+				);
+				assert!(
+					cold_weight.proof_size() > 0,
+					"cold proof_size {cold_cost:?}: {cold_weight:?}",
+				);
+			}
 		}
 
 		for (rev_cost, non_rev_cost) in with_kind(cold_revertible).into_iter().zip(with_kind(cold))

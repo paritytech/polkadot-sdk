@@ -3369,7 +3369,11 @@ fn cold_hot_child_upgrade_follows_the_frame_outcome() {
 
 		ctx.ext.touch_storage_access(false, &slot, StorageOp::Read);
 
-		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]).is_err(), "the child must revert");
+		assert_matches!(
+			run_child_call(ctx.ext, &BOB_ADDR, vec![1]),
+			Err(ExecError { error: DispatchError::Other("revert after upgrading"), .. }),
+			"the child must fail at its own revert",
+		);
 		assert_matches!(
 			ctx.ext.peek_storage_access(false, &slot),
 			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
