@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787738252050,
+  "lastUpdate": 1787743120780,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "81a3af9830ea8b6ff64b066b73b04bb3b675add5",
-          "message": "parachain-system: Ensure left-over message budget fits into the PoV (#10863)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-21T22:20:18Z",
-          "tree_id": "4bf5bf95429f6f1ff512cf11703aa41c58195224",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/81a3af9830ea8b6ff64b066b73b04bb3b675add5"
-        },
-        "date": 1769038395826,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027097099099999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009222689139999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0065083774499999966,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010336949969999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "166888152+racequite@users.noreply.github.com",
+            "name": "Rui JingAn",
+            "username": "racequite"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aef03478f32894b72791c425143022f640a64a66",
+          "message": "fix(state-sync): reject empty unverified state responses (#12946)\n\n# Description\n\nReject state responses with no entries when state proof verification is\ndisabled.\n\nPreviously, an empty `entries` list accompanied by non-empty `proof`\nbytes could reach the unverified state processing path, which assumes\nthat at least one entry exists. Malformed peer data is now returned as\n`ImportResult::BadResponse`, allowing `StateStrategy` to drop the peer.\n\nhttps://github.com/paritytech/polkadot-sdk/issues/12945\n\n## Integration\n\nNo downstream integration changes are required. Node operators receive\nthe fix by updating `sc-network-sync`.\n\n## Review Notes\n\nResponse validation is now mode-specific:\n\n- unverified state sync requires non-empty `entries`;\n- verified state sync requires non-empty `proof`.\n\nThis avoids rejecting valid proof-only responses in verified mode.\n\nRegression tests cover both the direct `BadResponse` result and the\nresulting `DropPeer` action at the strategy layer.\n\n# Checklist\n\n* [x] My PR includes a detailed description.\n* [x] My PR follows the labeling requirements.\n* [x] Documentation changes are not applicable.\n* [x] I have added tests that prove the fix is effective.\n\n---------\n\nSigned-off-by: racequite <quiterace@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-26T08:52:33Z",
+          "tree_id": "4e3eaf4a2e41a4defda361bf2dbbc91cc03f3d03",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aef03478f32894b72791c425143022f640a64a66"
+        },
+        "date": 1787743081879,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.010171071379999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010628196730000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0027544289500000003,
             "unit": "seconds"
           }
         ]
