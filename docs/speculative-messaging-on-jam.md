@@ -113,7 +113,7 @@ settlement check reads A's root before the update and B is rejected.
 
 - **Tier 0: Enacted (Safe Baseline MVP)**:
   - consume enacted roots with HRMP parity. The requires entry carries `(ParaId, StreamsRoot)` and settlement checks the root against the ring
-  - latency: 1 or 2 slots from guarantee to accumulate, plus 1 or 2 for anchor lag (between 12 and 24+ seconds)
+  - latency: 1 or 2 slots from guarantee to accumulate, plus receiver build and submission time (between 12 and 24+ seconds)
   - optimization: node-side fetches `StreamsRoot` from guanranteed but not yet accumulated reports
   - race condition: structurally impossible since `A` is already enacted. The only remaining risk is not matching the `Provides`
     against the `W` settlement ring size.
@@ -166,7 +166,7 @@ The payloads are immediately fetched from p2p layer and verified locally. The re
 The `B` package is submitted once count assurance bits for A's core are near 2/3. This gives a higher chance for `A`'s report
 to Accumulate within 1-2 slot delay until `B` accumulates.
 
-- If `A` dies before `B` package is submitted, then `B` reanchors against T0 latest enacted root without burning the slot
+- If `A` dies before `B` package is submitted, then `B` rebuilds against the latest T0 enacted root without burning the slot
 - If `A` dies after `B` package is submitted, then `B` burns the slot and `B` rebuilds against T0
 - If `B`'s head doesn't advance after its package accumulates, then `B` burns the slot and conservatively rebuilds against T0
 
@@ -265,8 +265,8 @@ Parachain A talks with Parachain B:
 **Pruning**
 
 A sender may prune payloads below a watermark once the receiver block acknowledges it.
-Archives serve extension proofs from any block boundary within the last 25h. Since any enacted root is provable regardless of age,
-the payload serving horizon is archive policy rather than a protocol window.
+Archives serve extension proofs from any block boundary within the last 25h. The payload serving
+horizon is archive policy, while settlement remains limited to roots still present in the ring.
 
 ## Forced Recovery
 
@@ -291,9 +291,9 @@ The delivered messages stand and the re-delivered overlap after the restart. Bef
 must communicate: what was delivered under the abandoned roots and compensate or it becomes an inflation source
 for the counterparties.
 
-> Note: abandoned enactments stay provable forever since the output log is append-only, and a dormant
-chain's ring persists. The dead chain's last messages remain drainable at the Enacted tier as long
-as its ring stands. A `parachain_clean_up` removes the ring and ends drainability with it.
+> Note: a dormant chain's ring persists. The dead chain's last messages remain drainable at the
+Enacted tier as long as its ring stands. A `parachain_clean_up` removes the ring and ends
+drainability with it.
 
 ## 4. Execution: End to End
 
@@ -305,31 +305,27 @@ as its ring stands. A `parachain_clean_up` removes the ring and ends drainabilit
    - PVF `export()`s payloads and node-side archives them.
 
 2. **JAM:** report guaranteed -> available -> accumulated
-    - step 6 writes A's head and pushes the enacted root into `ring[A]`. The output log carries the
-      head under every later super-peak.
+    - step 6 writes A's head and pushes the enacted root into `ring[A]`.
 
 3. **B:** node follows A's enacted heads, fetches payloads (p2p exchange preferred for low latency, or DA)
 
-   - selects an anchor (best imported block, within its authorizer's eligible set — any anchor at or after
-   each source's enacting block works)
-   - authors a block consuming stream prefixes, reserving the proof envelope as `proof_size`, and names each
-   source's `(ParaId, StreamsRoot)` via `set_requires_root`
-   - in-core the wrapper walks each enactment proof from the anchor's
-   super-peak and the guest verifies lifts against each source's `StreamsRoot`. Failures abort with `RefineLog`.
+   - verifies fetched messages and their stream proofs against each source's `StreamsRoot`
+   - authors a block consuming stream prefixes and records the consumption
+   - in-core the wrapper verifies the PoV-carried lifts, stitches bundle intervals and gap proofs,
+   and synthesizes each source's `(ParaId, StreamsRoot)`. Failures abort with `RefineLog`.
    - on-chain, §5.1 step 6 checks each named root is in its source's ring, then B enacts.
 
 ## 5. Node Stack
 
 **Topology**, in preference order:
 
-(1) **embedded JAM follower with state**: follows the output log and PS head commitments,
-generates enactment proofs locally, no third-party liveness in the critical path (MVP
-production target)
+(1) **embedded JAM follower with state**: follows PS head commitments and settlement rings,
+with no third-party liveness in the critical path (MVP production target)
 
-(2) **CE 129 `StateRequest`** against a trusted node. Plausible pending
-four confirmations (ask 16): serves non-validators, 64 reads/slot/consumer load, state at
-anchor − 8 retained, hash-leaf preimages for `BootnodeRecord` (3) RPC / light-follower
-fallback.
+(2) **CE 129 `StateRequest`** against a trusted node. Plausible pending four confirmations
+(ask 16): serves non-validators, with capacity and retention requirements still to be confirmed.
+
+(3) **RPC / light-follower fallback**.
 
 **`ProvidesSource`:** reads A's enacted heads at imported blocks — **best, not finalized**. Block
 stream, startup tip, sync gate, ring read at a recent hash,
@@ -397,10 +393,10 @@ Because of how it's designed, this loop works safely on JAM.
   If A is enacted, but B fails to enact, the system won't enact A until B can enact.
   A is parked for a timeout and if B takes too long or never arrives, A is dropped as well.
 
-## Apendix
+## Appendix
 
-This sections highlights an alternative to the onchain ring settlement that is valid only
-for the Enacted tier (MVP).
+This appendix records an unscoped alternative to on-chain ring settlement. It applies only
+to the Enacted tier and is not part of the MVP or the design above.
 
 ### Alternative Verification
 
