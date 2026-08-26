@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787743120780,
+  "lastUpdate": 1787747736169,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2eb43506e24f8d19028b0d928c3039d2830e7572",
-          "message": "[pallet-revive] weight charge in `sr25519_verify` and `ecdsa_to_eth_address` precompiles (#10861)\n\nI couldn't see where the weight is charged in those builtin pre-compiles\nand a quick test indicated that there's no charges implemented. Assuming\nthose are compute-heavy functions, the missing weight charges seem like\na serious DoS vector.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-22T13:58:11Z",
-          "tree_id": "d648dc0c502a8f294882daa049dea09aaded03a3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2eb43506e24f8d19028b0d928c3039d2830e7572"
-        },
-        "date": 1769094652159,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009315338759999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006855354259999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00268880311,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0027544289500000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3d7197b37974af7d22c8a7101c89f28a06285f9e",
+          "message": "statement gossip: bound outbound sends with a per-peer outbox (#12878)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12838\n\nThe statement gossip protocol encoded every propagation chunk for every\npeer up front, holding an unbounded number of encoded payloads for up to\nten seconds each when peers read slowly. Propagation now queues hashes\nto a per-peer outbox (at most 64 Ki hashes, 2 MiB, oldest dropped first\nand counted by the `outbox_full` reason of\n`substrate_sync_statement_undelivered_total`), keeps at most one chunk\nper peer in flight, and encodes statements from the store only when the\npeer's send slot is free.\n\nInitial-sync and propagation chunks together are capped at 16 MiB in\nflight, observable via the new\n`substrate_sync_propagation_in_flight_bytes` gauge next to the existing\ninitial-sync one. Initial-sync chunks share the propagation fetch path\nand now also skip statements the receiving peer itself sent us.\n\n## Integration\n\n`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES` in `sc_network_statement::config` is\nrenamed to `MAX_SEND_IN_FLIGHT_BYTES` and now covers propagation and\ninitial-sync chunks together. `MAX_PROPAGATION_OUTBOX_LEN` is added.",
+          "timestamp": "2026-08-26T10:52:58Z",
+          "tree_id": "9e37c4f80ac8c3591c75d62e0ea543f65943be8c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d7197b37974af7d22c8a7101c89f28a06285f9e"
+        },
+        "date": 1787747706135,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01097266569999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025561841699999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00983228755999999,
             "unit": "seconds"
           }
         ]
