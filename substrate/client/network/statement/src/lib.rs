@@ -84,7 +84,8 @@ use futures::{
 	stream::FuturesUnordered,
 };
 use governor::{
-	clock::DefaultClock,
+	clock::{Clock, DefaultClock},
+	middleware::NoOpMiddleware,
 	state::{InMemoryState, NotKeyed},
 	Quota, RateLimiter,
 };
@@ -113,7 +114,7 @@ use sp_statement_store::{
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
-	iter,
+	fmt, iter,
 	num::NonZeroU32,
 	pin::Pin,
 	sync::Arc,
@@ -625,19 +626,44 @@ pub struct StatementHandler<
 	sync_recovery_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 }
 
+/// A token bucket, measured against whatever clock it was built with.
+trait TokenBucket: fmt::Debug + Send + Sync {
+	/// Whether admitting `n` more cells would exceed the quota.
+	fn would_exceed(&self, n: NonZeroU32) -> bool;
+}
+
+impl<C> TokenBucket for RateLimiter<NotKeyed, InMemoryState, C, NoOpMiddleware<C::Instant>>
+where
+	C: Clock + fmt::Debug + Send + Sync,
+	C::Instant: fmt::Debug + Send + Sync,
+{
+	fn would_exceed(&self, n: NonZeroU32) -> bool {
+		!matches!(self.check_n(n), Ok(Ok(())))
+	}
+}
+
 /// Per-peer rate limiter using a token bucket algorithm.
 ///
 /// The token bucket allows short bursts up to the per-second limit while enforcing
 /// the average rate over time.
 #[derive(Debug)]
 struct PeerRateLimiter {
-	limiter: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
+	bucket: Box<dyn TokenBucket>,
 }
 
 impl PeerRateLimiter {
 	fn new(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
+		Self::with_clock(statements_per_second, burst, &DefaultClock::default())
+	}
+
+	/// The same quota, measured against `clock`.
+	fn with_clock<C>(statements_per_second: NonZeroU32, burst: NonZeroU32, clock: &C) -> Self
+	where
+		C: Clock + fmt::Debug + Send + Sync + 'static,
+		C::Instant: fmt::Debug + Send + Sync,
+	{
 		let quota = Quota::per_second(statements_per_second).allow_burst(burst);
-		Self { limiter: RateLimiter::direct(quota) }
+		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)) }
 	}
 
 	/// Check if receiving `count` statements would exceed the rate limit.
@@ -649,7 +675,7 @@ impl PeerRateLimiter {
 		let Some(n) = NonZeroU32::new(count as u32) else {
 			return false;
 		};
-		!matches!(self.limiter.check_n(n), Ok(Ok(())))
+		self.bucket.would_exceed(n)
 	}
 }
 
@@ -803,8 +829,8 @@ fn has_received_from(
 	hash: &Hash,
 	who: &PeerId,
 ) -> bool {
-	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who)) ||
-		pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
+	recently_received_statements.get(hash).is_some_and(|peers| peers.contains(who))
+		|| pending_statements_peers.get(hash).is_some_and(|peers| peers.contains(who))
 }
 
 impl Peer {
@@ -824,9 +850,9 @@ impl Peer {
 	///
 	/// Light V2 peers must set their topic affinity before receiving any statements.
 	fn can_receive(&self) -> bool {
-		!(self.is_light &&
-			self.protocol_version == PeerProtocolVersion::V2 &&
-			self.topic_affinity.is_none())
+		!(self.is_light
+			&& self.protocol_version == PeerProtocolVersion::V2
+			&& self.topic_affinity.is_none())
 	}
 
 	fn kind(&self) -> &'static str {
@@ -1139,8 +1165,8 @@ where
 						rate_limiter: PeerRateLimiter::new(
 							self.statements_per_second,
 							NonZeroU32::new(
-								self.statements_per_second.get() *
-									config::STATEMENTS_BURST_COEFFICIENT,
+								self.statements_per_second.get()
+									* config::STATEMENTS_BURST_COEFFICIENT,
 							)
 							.expect("burst capacity is nonzero"),
 						),
@@ -1667,8 +1693,8 @@ where
 			.peers
 			.iter()
 			.filter(|(peer_id, peer_data)| {
-				peer_data.pending_topic_affinity.is_some() &&
-					!self.pending_initial_syncs.contains_key(peer_id)
+				peer_data.pending_topic_affinity.is_some()
+					&& !self.pending_initial_syncs.contains_key(peer_id)
 			})
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
@@ -1837,9 +1863,13 @@ where
 mod tests {
 
 	use super::*;
-	use std::sync::{
-		atomic::{AtomicBool, AtomicUsize, Ordering},
-		Mutex,
+	use governor::clock::FakeRelativeClock;
+	use std::{
+		sync::{
+			atomic::{AtomicBool, AtomicUsize, Ordering},
+			Mutex,
+		},
+		time::Duration,
 	};
 
 	/// Default seed used for bloom filters in tests.
@@ -2574,8 +2604,7 @@ mod tests {
 
 		notification_service.block_sends();
 		let result =
-			tokio::time::timeout(std::time::Duration::from_secs(1), handler.propagate_statements())
-				.await;
+			tokio::time::timeout(Duration::from_secs(1), handler.propagate_statements()).await;
 
 		assert!(result.is_ok(), "Propagation waited for a pending send");
 		assert_eq!(handler.pending_sends.len(), 1);
@@ -3582,32 +3611,24 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_legitimate_traffic_not_flagged() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
-			build_handler(1);
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_,
+			clock,
+		) = build_handler_with_fake_clock(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
-
-		let start = std::time::Instant::now();
-		let duration = std::time::Duration::from_secs(5);
 		let mut counter = 0u32;
 
-		while start.elapsed() < duration {
-			let mut statements = Vec::new();
-			for i in 0..5_000 {
-				let mut statement = Statement::new();
-				statement.set_plain_data(vec![
-					counter as u8,
-					(counter >> 8) as u8,
-					(counter >> 16) as u8,
-					i as u8,
-				]);
-				statements.push(statement);
-				counter = counter.wrapping_add(1);
-			}
-
-			handler.on_statements(peer_id, statements);
-
-			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		// 100 steps of 100ms is 10 simulated seconds: twice the 5s the full burst takes to drain,
+		// so any drift in the accounting would have tripped by the end.
+		for _ in 0..100 {
+			handler.on_statements(peer_id, statement_batch(5_000, &mut counter));
+			clock.advance(Duration::from_millis(100));
 		}
 
 		let reports = network.get_reports();
@@ -3709,49 +3730,97 @@ mod tests {
 		);
 	}
 
-	#[tokio::test]
-	async fn test_sustained_rate_above_limit_triggers_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
-			build_handler(1);
+	/// Like [`build_handler`], but every peer's rate limiter runs on the returned clock instead of
+	/// on wall-clock time, so rate-limit behaviour spanning several batches is exact. The quota is
+	/// the production one.
+	fn build_handler_with_fake_clock(
+		num_peers: usize,
+	) -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		Vec<PeerId>,
+		FakeRelativeClock,
+	) {
+		let (mut handler, statement_store, network, notification_service, queue_receiver, peer_ids) =
+			build_handler(num_peers);
 
-		let peer_id = *handler.peers.keys().next().unwrap();
-
-		let mut counter = 0u32;
-
-		let start = std::time::Instant::now();
-		let duration = std::time::Duration::from_secs(5);
-
-		let mut flooding_detected = false;
-		while start.elapsed() < duration {
-			let mut statements = Vec::new();
-			for i in 0..30_000 {
-				let mut statement = Statement::new();
-				statement.set_plain_data(vec![
-					counter as u8,
-					(counter >> 8) as u8,
-					(counter >> 16) as u8,
-					i as u8,
-				]);
-				statements.push(statement);
-				counter = counter.wrapping_add(1);
-			}
-
-			handler.on_statements(peer_id, statements);
-
-			// Check if flooding was detected
-			let reports = network.get_reports();
-			if reports
-				.iter()
-				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING)
-			{
-				flooding_detected = true;
-				break;
-			}
-
-			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		let clock = FakeRelativeClock::default();
+		for peer in handler.peers.values_mut() {
+			peer.rate_limiter =
+				PeerRateLimiter::with_clock(statements_per_second(), burst(), &clock);
 		}
 
-		assert!(flooding_detected, "Sustained rate of 300k/sec should trigger flooding");
+		(handler, statement_store, network, notification_service, queue_receiver, peer_ids, clock)
+	}
+
+	/// The production quota the handler is built with: 50k statements/sec, 250k burst.
+	fn statements_per_second() -> NonZeroU32 {
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+			.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero")
+	}
+
+	fn burst() -> NonZeroU32 {
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)
+			.expect("burst capacity is nonzero")
+	}
+
+	fn statement_batch(count: u32, counter: &mut u32) -> Statements {
+		(0..count)
+			.map(|i| {
+				let mut statement = Statement::new();
+				statement.set_plain_data(vec![
+					*counter as u8,
+					(*counter >> 8) as u8,
+					(*counter >> 16) as u8,
+					i as u8,
+				]);
+				*counter = counter.wrapping_add(1);
+				statement
+			})
+			.collect()
+	}
+
+	/// A rate sustained above the quota must drain the bucket across successive batches and
+	/// eventually get the peer reported and disconnected.
+	#[tokio::test]
+	async fn test_sustained_rate_above_limit_triggers_flooding() {
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_,
+			clock,
+		) = build_handler_with_fake_clock(1);
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		let mut counter = 0u32;
+
+		let flooding_reported = |network: &TestNetwork| {
+			network
+				.get_reports()
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING)
+		};
+
+		for batch in 0..9 {
+			handler.on_statements(peer_id, statement_batch(30_000, &mut counter));
+			assert!(
+				!flooding_reported(&network),
+				"batch {batch} is still within the burst and must not be flagged",
+			);
+			clock.advance(Duration::from_millis(100));
+		}
+
+		handler.on_statements(peer_id, statement_batch(30_000, &mut counter));
+		assert!(
+			flooding_reported(&network),
+			"the 10th batch overdraws the burst and must be flagged as flooding",
+		);
 
 		let disconnected = network.get_disconnected_peers();
 		assert!(
