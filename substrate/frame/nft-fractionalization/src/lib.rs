@@ -379,11 +379,12 @@ pub mod pallet {
 			T::Assets::start_destroy(asset_id.clone(), None)?;
 			// Finish the destruction, otherwise the asset entry, its metadata and the metadata
 			// deposit stay around. `burn_from` above emptied the only account holding fractions,
-			// so this normally succeeds. But if the asset still has accounts or approvals, which anyone could create, it fails.
-			// So we don't block the unify so the NFT doesn't get locked for good. We keep old behavior: the asset stays in `Destroying` state and anyone can clean it
-			// up with `destroy_accounts`/`destroy_approvals` + `finish_destroy`. The storage layer
-			// is there because a `Destroy` impl is not required to be atomic on failure, and we
-			// are swallowing that failure.
+			// so this normally succeeds. But if the asset still has accounts or approvals, which
+			// anyone could create, it fails. So we don't block the unify so the NFT doesn't get
+			// locked for good. We keep old behavior: the asset stays in `Destroying` state and
+			// anyone can clean it up with `destroy_accounts`/`destroy_approvals` +
+			// `finish_destroy`. The storage layer is there because a `Destroy` impl is not
+			// required to be atomic on failure, and we are swallowing that failure.
 			if let Err(error) =
 				storage::with_storage_layer(|| T::Assets::finish_destroy(asset_id.clone()))
 			{
