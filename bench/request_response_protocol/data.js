@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787752097489,
+  "lastUpdate": 1787756858661,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -118151,6 +118151,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2828712032,
             "range": "± 37219474",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fcdd029217854918b47707a2feccf544896adce0",
+          "message": "pallet-delegated-staking: ignore zero-amount delegations (#12992)\n\nCloses #12911\n\nFor a new delegator, calling `delegate_to_agent` with amount 0 used to\nstore an empty `Delegation` record and take a provider reference. That\nleft the account marked as a delegator for good, which then stops it\nfrom registering as an agent.\n\nThe fix only touches the new-delegator case:\n- `Delegation::update` stores nothing for a new zero-amount entry. Every\nwrite path goes through it, so none can leave a zero record behind.\n- `do_delegate` and `migrate_delegation` reject a zero amount for a new\ndelegator.\n- A zero top-up on an existing delegation stays a no-op.\n`nomination-pools` `bond_extra(Rewards)` passes amount 0 at 100%\ncommission, and rejecting it would break reward bonding there.\n- Added a try-state check that stored delegations are never zero.\n\nTests cover the three cases (new zero rejected, zero migrate rejected,\nexisting zero top-up still works): `SKIP_WASM_BUILD=1 cargo test -p\npallet-delegated-staking --lib`.\n\nRWF finding, same cluster as #12769 / #12771 / #12922. Same approach as\n#13001 - thanks @sigurpol and @acatangiu for the reviews.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Paolo La Camera <paolo.lacamera@pm.me>",
+          "timestamp": "2026-08-26T13:48:54Z",
+          "tree_id": "bb7c021090a935bdb734d2198123d9130e7365c9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fcdd029217854918b47707a2feccf544896adce0"
+        },
+        "date": 1787756818933,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19711730,
+            "range": "± 86187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20815423,
+            "range": "± 318226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21970626,
+            "range": "± 211290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26380944,
+            "range": "± 209865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61116319,
+            "range": "± 772238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 371189835,
+            "range": "± 7746925",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2936027309,
+            "range": "± 57753040",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17267233,
+            "range": "± 305874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16928498,
+            "range": "± 159634",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17545624,
+            "range": "± 230817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21752537,
+            "range": "± 116551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65281498,
+            "range": "± 698695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 375069197,
+            "range": "± 4134045",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2723018433,
+            "range": "± 23715620",
             "unit": "ns/iter"
           }
         ]
