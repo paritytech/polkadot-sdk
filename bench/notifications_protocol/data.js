@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787752046606,
+  "lastUpdate": 1787756808940,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -211199,6 +211199,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2505412725,
             "range": "± 65660842",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fcdd029217854918b47707a2feccf544896adce0",
+          "message": "pallet-delegated-staking: ignore zero-amount delegations (#12992)\n\nCloses #12911\n\nFor a new delegator, calling `delegate_to_agent` with amount 0 used to\nstore an empty `Delegation` record and take a provider reference. That\nleft the account marked as a delegator for good, which then stops it\nfrom registering as an agent.\n\nThe fix only touches the new-delegator case:\n- `Delegation::update` stores nothing for a new zero-amount entry. Every\nwrite path goes through it, so none can leave a zero record behind.\n- `do_delegate` and `migrate_delegation` reject a zero amount for a new\ndelegator.\n- A zero top-up on an existing delegation stays a no-op.\n`nomination-pools` `bond_extra(Rewards)` passes amount 0 at 100%\ncommission, and rejecting it would break reward bonding there.\n- Added a try-state check that stored delegations are never zero.\n\nTests cover the three cases (new zero rejected, zero migrate rejected,\nexisting zero top-up still works): `SKIP_WASM_BUILD=1 cargo test -p\npallet-delegated-staking --lib`.\n\nRWF finding, same cluster as #12769 / #12771 / #12922. Same approach as\n#13001 - thanks @sigurpol and @acatangiu for the reviews.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Paolo La Camera <paolo.lacamera@pm.me>",
+          "timestamp": "2026-08-26T13:48:54Z",
+          "tree_id": "bb7c021090a935bdb734d2198123d9130e7365c9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fcdd029217854918b47707a2feccf544896adce0"
+        },
+        "date": 1787756769052,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4328759,
+            "range": "± 19790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 284731,
+            "range": "± 1103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4476542,
+            "range": "± 29192",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 357629,
+            "range": "± 1416",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5220453,
+            "range": "± 19132",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 876998,
+            "range": "± 3090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10583758,
+            "range": "± 18130",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4662016,
+            "range": "± 60986",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 41664591,
+            "range": "± 319519",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36900253,
+            "range": "± 407195",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 340747727,
+            "range": "± 2215049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 294858748,
+            "range": "± 925365",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2567668338,
+            "range": "± 8339004",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2337445415,
+            "range": "± 17532773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3302138,
+            "range": "± 16892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1796530,
+            "range": "± 7357",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3413924,
+            "range": "± 18844",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1865809,
+            "range": "± 13097",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3860690,
+            "range": "± 12231",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2172721,
+            "range": "± 10061",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7698028,
+            "range": "± 30653",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5085263,
+            "range": "± 44516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37145927,
+            "range": "± 74210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 34564199,
+            "range": "± 232914",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 305916063,
+            "range": "± 861891",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 270472106,
+            "range": "± 830420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2382620879,
+            "range": "± 4856303",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2367300468,
+            "range": "± 63292480",
             "unit": "ns/iter"
           }
         ]
