@@ -8,5 +8,10 @@ crates:
   bump: minor
 - name: pallet-revive
   bump: minor
+  validate: false
 - name: pallet-revive-uapi
   bump: minor
+  validate: false
+- asset-hub-westend-runtime
+  bump: minor
+  validate: false
