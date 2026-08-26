@@ -139,9 +139,9 @@ module transfer_drain_test {
         tight, { result: WorkOk(Ok(candidate(msgs))), authTrace: 0 },
         Set(), None, FixedCodeLen, MaxIncomingTransfers + 1).state
     val consumeFirst =
-      replay(List(ConsumeTransfersUpTo(MaxIncomingTransfers), Solicit({ hash: h, len: len })))
+      replay(List(ConsumeTransfersUpTo(MaxIncomingTransfers), Solicit({ target: Parachain(ah), hash: h, len: len })))
     val solicitFirst =
-      replay(List(Solicit({ hash: h, len: len }), ConsumeTransfersUpTo(MaxIncomingTransfers)))
+      replay(List(Solicit({ target: Parachain(ah), hash: h, len: len }), ConsumeTransfersUpTo(MaxIncomingTransfers)))
     all {
       // The allowance is one short of the solicit, and draining does not help.
       assert(not(tight.paraInfo(ah).hasHeadroom(preimageFootprint(len)))),

@@ -40,7 +40,7 @@ module state_balance_test {
       }))
       // Para tries to solicit a new preimage: must be rejected.
       .then(applyHappyPath(para, paraCode, List(
-        Solicit({ hash: soliciteeHash, len: soliciteeLen })
+        Solicit({ target: Parachain(para), hash: soliciteeHash, len: soliciteeLen })
       )))
       .then(expectThat(all {
         // No referencer added for the rejected preimage.

@@ -72,7 +72,7 @@ module accumulate_test {
       UpgradeService({ codeHash: newCode, len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 })
     init
       // Make the new service code available, so the upgrade's own preconditions hold.
-      .then(applyHappyPath(ah, ahCode, List(Solicit({ hash: newCode, len: FixedCodeLen }))))
+      .then(applyHappyPath(ah, ahCode, List(Solicit({ target: Parachain(ah), hash: newCode, len: FixedCodeLen }))))
       .then(provide(newCode, FixedCodeLen))
       .then(expectThat(all {
         svc.preimageAvailable(newCode, FixedCodeLen),

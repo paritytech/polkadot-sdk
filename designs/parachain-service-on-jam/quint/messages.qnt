@@ -66,10 +66,44 @@ module messages {
   | Parachain(ParaId)
   | Service(ServiceId)
 
-  /// Why a reclaim against a supervised service failed. See §6.5.
-  type ServiceReclaimError =
-  | UnknownService
-  | NotSupervised
+  /// Why a `forget` or `remove_service_storage` against a supervised service's
+  /// store failed.
+  type ServiceStoreError =
+  | StoreUnknownService
+  | StoreNotSupervised
+
+  /// Why a `Service`-targeted `solicit` failed.
+  type ServiceSolicitError =
+  | SolicitUnknownService
+  | SolicitNotSupervised
+  // Would leave the target below its threshold balance.
+  | TargetCannotAfford
+  // The target already has a live request not awaiting re-solicitation.
+  | AlreadySolicited
+
+  /// Why an `eject_service` failed.
+  type ServiceEjectError =
+  | EjectUnknownService
+  | EjectNotSupervised
+  // Still holds storage or preimage requests.
+  | NotEmpty
+  // Created in this timeslot.
+  | CreatedThisSlot
+  // The Parachain Service named itself.
+  | TargetIsSelf
+
+  /// Why a `set_service_supervisor` failed.
+  type ServiceSupervisorError =
+  | HandoffUnknownService
+  // The proposed new supervisor does not exist.
+  | HandoffUnknownNewSupervisor
+  | HandoffNotSupervised
+
+  /// How a `create_service` turned out. The only operation logging a success,
+  /// since Asset Hub needs the assigned id announced to it.
+  type ServiceCreationResult =
+  | Created(ServiceId)
+  | CannotAfford
 
   /// Why a JAM `transfer` replaying a `TransferOut` failed.
   /// See §5.1 outgoing transfers.
@@ -119,8 +153,13 @@ module messages {
   // A `forget` removed the last referencer without expunging the preimage;
   // the caller must `forget(hash, len)` again at `due` to free it. See §6.1.
   | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
-  // A reclaim against a supervised service failed (§6.5).
-  | ServiceReclaimFailed({ service: ServiceId, error: ServiceReclaimError })
+  // Failures of the supervised-service operations, one per operation.
+  | ServiceStoreFailed({ service: ServiceId, error: ServiceStoreError })
+  | ServiceSolicitFailed({ service: ServiceId, error: ServiceSolicitError })
+  | ServiceEjectFailed({ service: ServiceId, error: ServiceEjectError })
+  | ServiceSupervisorFailed({ service: ServiceId, error: ServiceSupervisorError })
+  // Announces a create_service outcome to Asset Hub, echoing its id.
+  | ServiceCreation({ id: int, result: ServiceCreationResult })
   // `parachain_clean_up` rejected: the parachain still holds state beyond its
   // baseline and validation code(s) and must release the rest first. See §6.4.
   | TooMuchStateHeld
@@ -140,13 +179,24 @@ module messages {
     // request_code_upgrade(hash, len): start a PVF code upgrade (§5.2).
     | RequestCodeUpgrade({ hash: ValidationCodeHash, len: int })
   // solicit(hash, len)
-  | Solicit({ hash: Hash, len: int })
+  // solicit(target, hash, len): §6.1 for a Parachain target.
+  | Solicit({ target: Target, hash: Hash, len: int })
+  // eject_service(service).
+  | EjectService({ service: ServiceId })
+  // set_service_supervisor(service, newSupervisor).
+  | SetServiceSupervisor({ service: ServiceId, newSupervisor: ServiceId })
+  // create_service(...): `id` is Asset Hub's own, echoed back in the
+  // ServiceCreation entry that announces the assigned ServiceId to it.
+  | CreateService({
+      codeHash: Hash, len: int, minItemGas: int, minMemoGas: int, id: int,
+      sourceSupervisorBalance: bool, newSupervisorBalance: bool
+    })
   // forget(para_id, hash, len). `paraId` names whose reference is released; a
   // para may only name itself, while the Coretime chain may name any para, which
   // is how a para that can no longer produce blocks gets drained (§6.4).
-  // forget(target, hash, len): §6.1 for a Parachain target, §6.5 for a Service.
+  // forget(target, hash, len): §6.1 for a Parachain target.
   | Forget({ target: Target, hash: Hash, len: int })
-  // remove_service_storage(service, key): §6.5.
+  // remove_service_storage(service, key).
   | RemoveServiceStorage({ service: ServiceId, key: List[int] })
   // kv_set(key, value): write to key_value_storage.
   | SetKV({ key: List[int], value: List[int] })
@@ -274,8 +324,12 @@ module messages {
     | ConsumeTransfersUpTo(_) => true
     | UpgradeService(_) => true
     | RemoveServiceStorage(_) => true
+    | EjectService(_) => true
+    | CreateService(_) => true
+    | SetServiceSupervisor(_) => true
     // Only a Service target; a Parachain target keeps the §6.1 rules.
     | Forget(p) => match p.target { | Service(_) => true | Parachain(_) => false }
+    | Solicit(p) => match p.target { | Service(_) => true | Parachain(_) => false }
     | _ => false
   }
 
@@ -298,6 +352,12 @@ module messages {
   para_id != CoretimeParaId and
   (match m {
     | Forget(p) => match p.target {
+      | Parachain(target) => target != para_id
+      | Service(_) => false
+    }
+    // Same rule as `Forget`: a para may only name itself, so it cannot charge
+    // another's balance, while Coretime may name any para.
+    | Solicit(p) => match p.target {
       | Parachain(target) => target != para_id
       | Service(_) => false
     }

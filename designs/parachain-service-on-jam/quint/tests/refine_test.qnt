@@ -54,7 +54,7 @@ module refine_test {
       authorizedParas: List(CoretimeParaId),
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
-    val msg = Solicit({ hash: { hashBytes: 7 }, len: 1024 })
+    val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1024 })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
     val overOut = refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), over, 0)[0]
@@ -85,12 +85,12 @@ module refine_test {
     // 1. Solicit at the code's OWN len: matches the active code, so it only
     //    sets `pinned`: no new entry, no charge.
     val pinned = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0,
-      Solicit({ hash: h, len: FixedCodeLen }))
+      Solicit({ target: Parachain(para), hash: h, len: FixedCodeLen }))
     val piP = pinned.state.paraInfo(para)
     // 2. Solicit the SAME hash at a different len: a genuinely distinct entry,
     //    charged, and it must NOT disturb the active code's `pinned` bit.
     val sol = applyUpwardMessage({ ...baseAcc, state: pinned.state }, para, FixedCodeLen, 0, 0,
-      Solicit({ hash: h, len: otherLen }))
+      Solicit({ target: Parachain(para), hash: h, len: otherLen }))
     val pi1 = sol.state.paraInfo(para)
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
     //    and the active code stays pinned.

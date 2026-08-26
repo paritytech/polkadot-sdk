@@ -100,7 +100,13 @@ module accumulate {
           logs: acc.logs.appendOption(d.log)
       }
       | Solicit(payload) =>
-      val pi = acc.state.paraInfo(para_id)
+      match payload.target {
+      | Service(_) =>
+      // Undecided for the same reasons as a Service-targeted `Forget`, plus
+      // the target's own threshold, which is not modelled either.
+      acc
+      | Parachain(target) =>
+      val pi = acc.state.paraInfo(target)
       val activeVc = pi.validationCode
       val isActive =
         match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
@@ -117,21 +123,21 @@ module accumulate {
         { ...acc,
           state: { ...acc.state,
             parachains: acc.state.parachains.put(
-              para_id,
+              target,
               { ...pi, validationCode:
                 match activeVc { | Some(vc) => Some({ ...vc, pinned: true }) | None => activeVc } }) } }
       } else if (isPending) {
         { ...acc,
           state: { ...acc.state,
             parachains: acc.state.parachains.put(
-              para_id,
+              target,
               { ...pi, pendingUpgrade:
                 match pi.pendingUpgrade {
                   | None => None
                   | Some(pair) => Some(({ ...pair._1, pinned: true }, pair._2))
                 } }) } }
       } else {
-        val d = acc.state.addReferencer(para_id, payload.hash, payload.len)
+        val d = acc.state.addReferencer(target, payload.hash, payload.len)
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
@@ -141,12 +147,24 @@ module accumulate {
           logs: acc.logs.appendOption(d.log)
         }
       }
+      }
+      | EjectService(_) =>
+      // Undecided: existence, supervision and the target's emptiness are all
+      // unmodelled.
+      acc
+      | CreateService(_) =>
+      // Undecided: whether this service can fund it, and the id JAM would
+      // assign, are both unmodelled.
+      acc
+      | SetServiceSupervisor(_) =>
+      // Undecided: existence of both services and supervision are unmodelled.
+      acc
       | Forget(payload) =>
       match payload.target {
       | Service(_) =>
       // Outcome depends on whether the target exists and whom this service
       // supervises, both abstracted here, as is the expunge state a success
-      // would turn on. Left undecided (§6.5).
+      // would turn on. Left undecided.
       acc
       | Parachain(target) =>
       if (not(acc.state.isLive(target))) acc
@@ -493,7 +511,13 @@ module accumulate {
               // `Solicit` is always for the caller itself; `Forget` names its
               // target, so a Coretime-driven forget clears the TARGET's entry.
               val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
-                | Solicit(p) => s.union(Set((ok.paraId, p.hash, p.len)))
+                // Records the TARGET, so a Coretime-delegated solicit lands on
+                // the para actually charged. A Service target is not in our
+                // registry at all.
+                | Solicit(p) => match p.target {
+                  | Parachain(target) => s.union(Set((target, p.hash, p.len)))
+                  | Service(_) => s
+                }
                 | Forget(p) => match p.target {
                   | Parachain(target) => s.exclude(Set((target, p.hash, p.len)))
                   // Not our store, so the ghost set is untouched.

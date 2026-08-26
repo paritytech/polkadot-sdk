@@ -266,6 +266,12 @@ module state {
   /// charged at their actual `compactLen`. The InsufficientStateBalance body is
   /// its reason's 1 B discriminant plus a 32 B hash (FromSolicit's preimage
   /// hash, FromSetKV's key hash). `StagedValidatorKeysOverflow` is nullary.
+  
+  /// Payload octets a `ServiceCreationResult` carries beyond its discriminant:
+  /// the assigned ServiceId on `Created`, nothing on the failures.
+  pure def creationPayload(r: ServiceCreationResult): int =
+  match r { | Created(_) => 4 | _ => 0 }
+
   pure def accumulateLogSize(e: AccumulateLog): int =
   1 + match e {
     | InsufficientStateBalance(r) =>
@@ -283,8 +289,13 @@ module state {
     | TransferFailed(p) => compactLen(p.id) + 1
     // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
     | ForgetAgainAt(p) => 32 + compactLen(p.len) + 4
-    // service 4 + error tag 1.
-    | ServiceReclaimFailed(_) => 5
+    // service 4 + error tag 1, for each of the four failure entries.
+    | ServiceStoreFailed(_) => 5
+    | ServiceSolicitFailed(_) => 5
+    | ServiceEjectFailed(_) => 5
+    | ServiceSupervisorFailed(_) => 5
+    // id Compact<u64> + result (1 tag, + 4 when Created).
+    | ServiceCreation(p) => compactLen(p.id) + 1 + creationPayload(p.result)
     | TooMuchStateHeld => 0
   }
 

@@ -270,7 +270,7 @@ module code_upgrades_test {
     }
     val pinned = applyUpwardMessage(
       baseAcc, para, FixedCodeLen, 0, 0,
-      Solicit({ hash: vchAsHash(pendingUpgradeHash), len: FixedCodeLen })
+      Solicit({ target: Parachain(para), hash: vchAsHash(pendingUpgradeHash), len: FixedCodeLen })
     ).state
     val reaped = reapTimedOutUpgrade(pinned, UpgradeTimeoutTimeslots, para, FixedCodeLen)
     all {

@@ -344,15 +344,24 @@ module main {
     Set(
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen }),
       RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
-      Solicit({ hash: anyHash, len: 1024 }),
+      Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       // Solicit/forget of the para's OWN active code, exercising the
       // `pinned` path (§5.2).
-      Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      Solicit({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
       Forget({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      // AH-only reclaims against a supervised service (§6.5).
+      // AH-only operations on a supervised service.
       Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+      Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
+      EjectService({ service: MkServiceId(4) }),
+      SetServiceSupervisor({
+        service: MkServiceId(4), newSupervisor: MkServiceId(4)
+      }),
+      CreateService({
+        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
+        id: 1, sourceSupervisorBalance: false, newSupervisorBalance: false
+      }),
       // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
       // modes: a deferred transfer (memo + gas) and a plain move (neither),
       // the self-moves between the service's own two balances, and a foreign
