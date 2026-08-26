@@ -8,12 +8,13 @@ doc:
 
     The access list now tracks per slot whether the transaction has paid the read cost or the write cost. The first write to a  read-paid slot pays the write surcharge and upgrades the slot to write-paid. Upgrades are journaled per frame, like insertions, and roll back with a reverting frame since the reverted write leaves no root work behind.
 
-    `AccessList` holds a `BoundedBTreeMap<AccessEntry, Paid>` in place of the set (the 1-byte value fits in the B-tree nodes' spare space) plus a second journal for the upgrades. The worst-case per-entry memory constant grows from 512 to 768 bytes to cover a slot's upgrade entry.
+    `AccessList` holds a `BTreeMap<AccessEntry, Paid>` in place of the bounded set, plus a second journal for the upgrades. `MAX_ACCESS_LIST_ENTRIES` is enforced at the insertion point rather than by the type, since `BoundedBTreeMap` has no `entry` API and would make every cold touch search the map twice. The worst-case per-entry memory constant grows from 512 to 768 bytes, all of it for a slot's upgrade-journal entry; an entry measures the same in the map as it did in the set, since the one-byte value does not push a B-tree node into the allocator's next size class.
 
     ### Pricing notes
     - The surcharge is ref_time-only; the root re-hash adds no proof.
     - The surcharge can be paid twice when a frame reverts: the reverted frame keeps its charge, the upgrade rolls back, and the slot's next write pays it again.
     - The rollback work of draining upgrades is not charged separately: the reverted write already paid a surcharge for block-end work that will never happen.
+    - The `access_list_touch_hot_full` benchmark now measures the worst case, the largest key in a full map and a write that upgrades a read-paid slot.
 crates:
 - name: pallet-revive
   bump: major

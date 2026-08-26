@@ -21,8 +21,11 @@
 //! `enter_frame` / `commit_frame` / `rollback_frame` wired into `Stack::run`)
 //! mirrors [`crate::transient_storage::TransientStorage`].
 
-use alloc::vec::Vec;
-use frame_support::{BoundedBTreeMap, BoundedVec};
+use alloc::{
+	collections::btree_map::{BTreeMap, Entry},
+	vec::Vec,
+};
+use frame_support::BoundedVec;
 use sp_core::{ConstU32, H160};
 
 use crate::{exec::Key, limits};
@@ -63,7 +66,7 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 /// (~7.5 MiB PoV) at ~770 cold touches.
 pub const MAX_ACCESS_LIST_ENTRIES: usize = 2_048;
 
-/// Worst-case per-entry memory in the `BoundedBTreeMap` + journals, measured
+/// Worst-case per-entry memory in the `BTreeMap` + journals, measured
 /// against sc-allocator (8-byte headers, power-of-2 buckets). `Slot::Fix` and
 /// `Slot::VarInline` measure ~366 B; `Slot::VarLong` ~502 B. An entry in the
 /// `upgrades` journal adds up to ~200 B on top. Rounded up to 768 for
@@ -196,7 +199,10 @@ pub struct AccessEntry {
 #[derive(Default)]
 pub struct AccessList {
 	/// All currently-hot entries with the cost each has paid.
-	accessed: BoundedBTreeMap<AccessEntry, Paid, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
+	///
+	/// Plain rather than bounded: `BoundedBTreeMap` has no `entry` API, and
+	/// without it a cold touch pays a second lookup.
+	accessed: BTreeMap<AccessEntry, Paid>,
 	/// Flat journal of insertions (in order); each entry was added by exactly
 	/// one frame, and `checkpoints` marks the frame boundaries inside this journal.
 	journal: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
@@ -263,7 +269,8 @@ impl AccessList {
 		}
 	}
 
-	/// Non-mutating sibling of [`touch`](Self::touch).
+	/// Non-mutating sibling of [`Self::touch`]. The two agree on a slot's warmth,
+	/// so pricing an access from a peek is never cheaper than pricing it from a touch.
 	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
 		match self.accessed.get(entry) {
 			Some(paid) => Warmth::Hot(*paid),
@@ -287,32 +294,35 @@ impl AccessList {
 	///
 	/// Past [`MAX_ACCESS_LIST_ENTRIES`], new entries are billed cold without
 	/// being journaled; previously-hot slots continue to bill hot.
-	pub fn touch(&mut self, entry: AccessEntry, op: StorageOp) -> Warmth {
-		if let Some(paid) = self.accessed.get_mut(&entry) {
-			self.hot_count = self.hot_count.saturating_add(1);
-			let previous = *paid;
-			if !previous.covers(op) {
-				// Defensive: one upgrade per tracked slot, so the journal
-				// cannot fill. If it does, later writes just pay the surcharge again.
-				let journaled = self.upgrades.try_push(entry);
-				debug_assert!(journaled.is_ok(), "at most one live upgrade per tracked slot");
-				if journaled.is_ok() {
-					*paid = Paid::Write;
+	pub fn touch(&mut self, access_entry: AccessEntry, op: StorageOp) -> Warmth {
+		let at_cap = self.is_full();
+		match self.accessed.entry(access_entry) {
+			Entry::Occupied(mut tree_entry) => {
+				self.hot_count = self.hot_count.saturating_add(1);
+				let previous = *tree_entry.get();
+				if !previous.covers(op) {
+					// Defensive: one upgrade per tracked slot, so the journal
+					// cannot fill. If it does, later writes just pay the surcharge again.
+					let journaled = self.upgrades.try_push(tree_entry.key().clone());
+					debug_assert!(journaled.is_ok(), "at most one live upgrade per tracked slot");
+					if journaled.is_ok() {
+						*tree_entry.get_mut() = Paid::Write;
+					}
 				}
-			}
-			return Warmth::Hot(previous);
+				Warmth::Hot(previous)
+			},
+			Entry::Vacant(tree_entry) => {
+				self.cold_count = self.cold_count.saturating_add(1);
+				if at_cap {
+					return Warmth::Cold { revertible: false };
+				}
+				self.journal
+					.try_push(tree_entry.key().clone())
+					.expect("journal grows in lockstep with accessed and shares its bound; qed");
+				tree_entry.insert(op);
+				Warmth::Cold { revertible: self.in_nested_frame() }
+			},
 		}
-		self.cold_count = self.cold_count.saturating_add(1);
-		if self.is_full() {
-			return Warmth::Cold { revertible: false };
-		}
-		self.accessed
-			.try_insert(entry.clone(), op)
-			.expect("under cap; is_full checked above; qed");
-		self.journal
-			.try_push(entry)
-			.expect("journal grows in lockstep with accessed and shares its bound; qed");
-		Warmth::Cold { revertible: self.in_nested_frame() }
 	}
 
 	/// Per-transaction metrics snapshot.
@@ -437,6 +447,12 @@ mod tests {
 			al.touch(existing, StorageOp::Write),
 			Warmth::Hot(Paid::Write),
 			"write at cap: upgraded",
+		);
+
+		assert_eq!(
+			al.metrics().size,
+			MAX_ACCESS_LIST_ENTRIES,
+			"the cap holds across past-cap touches and upgrades",
 		);
 	}
 
