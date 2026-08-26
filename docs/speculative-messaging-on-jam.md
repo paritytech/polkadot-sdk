@@ -267,7 +267,7 @@ must communicate: what was delivered under the abandoned roots and compensate or
 for the counterparties.
 
 > Note: abandoned enactments stay provable forever since the output log is append-only, and a dormant
-chain's ring persists — so a dead chain's last messages remain drainable at the Enacted tier as long
+chain's ring persists. The dead chain's last messages remain drainable at the Enacted tier as long
 as its ring stands. A `parachain_clean_up` removes the ring and ends drainability with it.
 
 ## 4. Execution: End to End
@@ -310,40 +310,12 @@ fallback.
 stream, startup tip, sync gate, ring read at a recent hash,
 pending-provides hint (dormant until Prefetch mode).
 
-## 6. Trust Model
-
-| Property | Polkadot | JAM |
-|---|---|---|
-| Message authenticity | PVF | PVF — unchanged |
-| Root authenticity | relay consensus check | wrapper output-log proof in-core; ring root check at §5.1 step 6 |
-| Provides commitment | UMP signal | header digest + §5.5 enactment commitment |
-| Stream monotonicity | not enforced | not enforced — self-harm, consumer-visible |
-
-Polkadot capabilities: same-block A -> B deferred to the Guaranteed tier.
-
-> **Why not JAM's `prerequisites`?**
->
-> (1) Wrong granularity: a package hash orders, a StreamsRoot is content. The root must be carried regardless.
->
-> (2) Report is not enactment: steps 3/5 can decline after accumulation, so compare-and-reject survives anyway.
-> 
-> (3) `J = 8` is too small and shared with the Imported tier's segment lookups; fan-in targets 64.
->
-> (4) The 8-block reporting gate makes it strictly worse than proving enacted state.
->
-> **Right solution at the Imported tier: segment roots are content-addressed.**
-
 ## 10. Open Questions
 
-1. **PVM hashing throughput + metered gas ceiling**
-  Verification now spans keccak_256 (belt + heads paths) and blake2 (lifts) in Refine, under a max 5 billion
-  gas ceiling shared with the parachain's own execution. If guest hashing doesn't fit, the fallback is
-  hashing host calls for the child PVM.
+2. **`W`** at best-block depth
 
-2. **`W`** at best-block depth. Now a day-0 sizing input.
-
-  The ring is live and read by settlement from day 0, so `W` must be fixed before launch. It must be
-  sized for the Announced (best-block) pipeline — announce to enact — not the Guaranteed one, since
+  The ring is live and read by settlement from day 0, so `W` must be fixed before launch.
+  It must be sized for the Announced (best-block) pipeline — announce to enact — not the Guaranteed one, since
   the higher tiers reuse the same ring without a consensus change.
 
 3. **Silent ready-queue expiry**
