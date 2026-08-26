@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787701697613,
+  "lastUpdate": 1787732249975,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -117611,6 +117611,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2814728526,
             "range": "± 35733260",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zln1905391059@163.com",
+            "name": "Langning Zhang",
+            "username": "Boulea7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b16a3e0c96fa58e9716ed949eef8c55d06522d32",
+          "message": "[RWF] pallet-beefy: return the correct future voting proof error (#12858)\n\n# Description\n\nFixes #12784.\n\nInvalid signatures in `FutureBlockVotingProof` were rejected as\n`InvalidForkVotingProof`. This changes that failure path to return\n`InvalidFutureBlockVotingProof` and adds a regression test that tampers\nwith the signed payload. The invalid proof remains rejected.\n\n## Integration\n\nNo storage migration, weight change, call index change, or error enum\nordinal change is required. The observable module error code for an\ninvalid signature in this specific future-block-voting proof path\nchanges from 2 (`InvalidForkVotingProof`) to 3\n(`InvalidFutureBlockVotingProof`). Downstream consumers that\nspecial-case the incorrect code 2 for this path should update to code 3.\n\n## Review Notes\n\nThe `FutureBlockVotingProof` branch already returns\n`InvalidFutureBlockVotingProof` for its block-number guard. The\ninvalid-signature branch now uses the same proof-specific error.\n\nThe regression test creates a valid future-block-voting proof, changes\nits payload without re-signing it, and verifies that reporting it\nreturns `InvalidFutureBlockVotingProof`.\n\n# Checklist\n\n* [x] My PR includes a detailed description and integration notes.\n* [x] I have added a regression test that proves the fix.\n* [x] No documentation changes are required for this internal\nerror-selection correction.\n* [ ] A `T*` label and prdoc will be requested through command-bot\ncomments.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-26T07:04:27Z",
+          "tree_id": "b0b316ead1629041056ad417c87627c057fa1f45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b16a3e0c96fa58e9716ed949eef8c55d06522d32"
+        },
+        "date": 1787732211697,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20199123,
+            "range": "± 173446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20455408,
+            "range": "± 212216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21775045,
+            "range": "± 130988",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26709333,
+            "range": "± 243919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61674313,
+            "range": "± 1156713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349899231,
+            "range": "± 3449724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2830478424,
+            "range": "± 172879626",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17460139,
+            "range": "± 220052",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17757904,
+            "range": "± 186920",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17969999,
+            "range": "± 218413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22603215,
+            "range": "± 165235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63077401,
+            "range": "± 701822",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 370417566,
+            "range": "± 4899058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2714880283,
+            "range": "± 10064532",
             "unit": "ns/iter"
           }
         ]
