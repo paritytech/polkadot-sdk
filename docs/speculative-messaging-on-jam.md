@@ -312,58 +312,31 @@ pending-provides hint (dormant until Prefetch mode).
 
 ## 10. Open Questions
 
-2. **`W`** at best-block depth
-
+1. **`W`** at best-block depth
   The ring is live and read by settlement from day 0, so `W` must be fixed before launch.
   It must be sized for the Announced (best-block) pipeline — announce to enact — not the Guaranteed one, since
   the higher tiers reuse the same ring without a consensus change.
 
-3. **Silent ready-queue expiry**
+  Since we read the read for settlement, we can read up to 64 candidates * `W` * 32 bytes each.
+  Then if `W` is 128, the Accumulation step might run out of gas and silently drop later packages.
+
+2. **Silent ready-queue expiry**
   If B declares a prerequisite on A and A never accumulates, B's report is dropped
   after up to an epoch with zero on-chain trace. The node must detect the drop itself and rebuild-and-retry.
 
-4. **ParaId reuse** The ring is dropped at clean-up and recreated empty on re-registration, so a
-  reused id's stale roots are never consumable. That a reused `ParaId` is a *different chain* is a
-  Coretime guarantee (registration policy), not a consensus check — consumers must treat channel
-  identity as managed by Coretime.
+3. **ParaId reuse**
+  The ring is dropped at clean-up and recreated empty on re-registration.
 
-5. **Acknowledgement/slashing on JAM**
+4. **Acknowledgement/slashing on JAM**
   The Announced tier's security on Polkadot rests on LLv2 ACK slashing. JAM has no equivalent
-
-6. **CE 129**
-  Can a collator without a JAM node ask another node for state? Recent-history reads are fine, but the
-  enactment proof needs output-log peaks and bootnode records need hash-leaf preimages.
-
-7. **Pin the rest** 
-  JAM DA retention period is not pinned. For message recovery we'd need a real number. Similar to key derivation.
-
-8. **Settlement gas at worst-case fan-in**
-  At MVP settlement reads one ring per source (up to 64 per candidate, `W` × 32 bytes each), and
-  the head write adds a ring push. We don't have JAM gas per read byte estimates. 
-  
-  Running out of gas in Accumulate silently drops later packages, so this design raises PS's required `min_item_gas`.
-
-9. **Authorizer anchor policy**: AURA uses anchor to prove it's our turn.
-  The same anchor is also the block all message proofs verify against.
-  The current collator cannot freely pick between the 8 recent blocks anymore (only ones in the current rotation). 
-  Needs to make the slot claim independent of anchor choice.
-
-10. **Output-log citations (GP)**
-  For the EnactmentProof we need: 
-  - The super-peak in the refine context is validated against recent history at report inclusion.
-  - Accumulation output log have a proof format and hash function
-  - Newest recent history entry carries a usable super-peak or gets it one block late (decides minimum anchor age). 
 
 ## 12. Super Chains
 
 A superchain pair consumes each other's speculative output every step (A consumes B in this block and B consumes an earlier A block).
 Because of how it's designed, this loop works safely on JAM.
 
-Solving the work package ordering:
-
 > Why not mutual JAM `prerequisites`?
 > An honest author cannot even encode the cycle. `P_A` would need `hash(P_B)` which needs `hash(P_A)`
-> 
 > Colluding guarantors *can* put mutually-referencing reports on chain, but those park in the ready queue,
 > never release, and are silently discarded at the epoch boundary.
 
