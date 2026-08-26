@@ -1,0 +1,9 @@
+title: Reject mismatched candidate backing vote counts
+doc:
+- audience: Runtime Dev
+  description: |-
+    Reject candidate backing when the validator bitfield and supplied validity
+    attestations contain different numbers of votes.
+crates:
+- name: polkadot-primitives
+  bump: patch
