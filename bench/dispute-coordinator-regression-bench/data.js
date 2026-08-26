@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787733178118,
+  "lastUpdate": 1787738252050,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0a386503ab5d3f77d30031e539640c89b254b492",
-          "message": "Upgrade litep2p to v0.13.0 (#10859)\n\nThis PR upgrades litep2p to the latest version, bringing multiple fixes\nwith this release.\n\nSpecifically, this release enhances WebSocket stability by resolving\n`AsyncWrite` errors and ensuring that partial writes during the\nnegotiation phase no longer trigger connection failures.\n\nIt also fixes large file download using Bitswap protocol by grouping\nblocks into batches of <= 2 MiB.",
-          "timestamp": "2026-01-21T15:43:42Z",
-          "tree_id": "c3ae5729679199b94777f823ad261bf884d02989",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0a386503ab5d3f77d30031e539640c89b254b492"
-        },
-        "date": 1769014750813,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00271230998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006558477039999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009271494529999976,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009903955379999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fb8731d6fba9e40c5e2e335c81918992937f5764",
+          "message": "bp-messages: don't overflow when counting rewarded messages (#12926)\n\n`calc_relayers_rewards` counted messages as `end - begin + 1`, which\noverflows when the range covers the whole nonce space. Use the existing\nsaturating_len() helper, and saturating_add for the running total.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12907\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-08-26T08:19:51Z",
+          "tree_id": "6e0516aa8b31f26f210b60c28b14adda49f68bec",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8731d6fba9e40c5e2e335c81918992937f5764"
+        },
+        "date": 1787738212474,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025348793799999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009813392519999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010336949969999999,
             "unit": "seconds"
           }
         ]
