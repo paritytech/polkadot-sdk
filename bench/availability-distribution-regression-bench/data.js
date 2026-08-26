@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787702602448,
+  "lastUpdate": 1787733036457,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a27459b873aff925e52f7e54dbd78fc4cc42d18",
-          "message": "net/metrics: Add metrics for inbound/outbound traffic  (#10846)\n\nThis PR adds a new metric for inbound / outbound traffic for individual\nrequest-response protocols.\n\n- the PR is motivated by\nhttps://github.com/paritytech/polkadot-sdk/issues/10765 which shows a\nsignificant number of bytes as downloaded (4-5 MiB/s). This is\nsuspicious for a fully synced validator, 1-2 blocks to the tip of the\nchain.\n- It suggests a protocol is internally consuming too much bandwidth\nleading to network inefficiencies, wasted CPU, and in the case of the\nissue to OOM kills\n\ncc @paritytech/sdk-node\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-23T11:30:58Z",
-          "tree_id": "76c79c63d0dc92bddbaf9e7e3459f9e50eced7d4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a27459b873aff925e52f7e54dbd78fc4cc42d18"
-        },
-        "date": 1769172584825,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006899433100000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009783365833333347,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14449894992666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023027879586666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007864648113333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zln1905391059@163.com",
+            "name": "Langning Zhang",
+            "username": "Boulea7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b16a3e0c96fa58e9716ed949eef8c55d06522d32",
+          "message": "[RWF] pallet-beefy: return the correct future voting proof error (#12858)\n\n# Description\n\nFixes #12784.\n\nInvalid signatures in `FutureBlockVotingProof` were rejected as\n`InvalidForkVotingProof`. This changes that failure path to return\n`InvalidFutureBlockVotingProof` and adds a regression test that tampers\nwith the signed payload. The invalid proof remains rejected.\n\n## Integration\n\nNo storage migration, weight change, call index change, or error enum\nordinal change is required. The observable module error code for an\ninvalid signature in this specific future-block-voting proof path\nchanges from 2 (`InvalidForkVotingProof`) to 3\n(`InvalidFutureBlockVotingProof`). Downstream consumers that\nspecial-case the incorrect code 2 for this path should update to code 3.\n\n## Review Notes\n\nThe `FutureBlockVotingProof` branch already returns\n`InvalidFutureBlockVotingProof` for its block-number guard. The\ninvalid-signature branch now uses the same proof-specific error.\n\nThe regression test creates a valid future-block-voting proof, changes\nits payload without re-signing it, and verifies that reporting it\nreturns `InvalidFutureBlockVotingProof`.\n\n# Checklist\n\n* [x] My PR includes a detailed description and integration notes.\n* [x] I have added a regression test that proves the fix.\n* [x] No documentation changes are required for this internal\nerror-selection correction.\n* [ ] A `T*` label and prdoc will be requested through command-bot\ncomments.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-26T07:04:27Z",
+          "tree_id": "b0b316ead1629041056ad417c87627c057fa1f45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b16a3e0c96fa58e9716ed949eef8c55d06522d32"
+        },
+        "date": 1787732997965,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009726316593333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007917506420000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022861363413333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14641203558666668,
             "unit": "seconds"
           }
         ]
