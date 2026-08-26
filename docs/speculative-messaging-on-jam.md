@@ -169,10 +169,13 @@ Instead of rejecting `B`'s candidate when the requires check fails, the PS will 
 once A's root is written in the ring. 
 At most one digest is buffered per parachain at any given time to ensure the state can't grow.
 A buffered digest expires after `K = 2` slots (TBD needs real data to size).
-Retries run in the `always-accumulate` phase, paid by the protocol's gas grant and capped per block.
-Therefore, can never consume gas registered by the block's own work packages.
+
 The storage digest is charged from B's balance and refunded on settlement or expiry.
 
+Running the retries consume gas:
+- option 1 (depends on gas usage): Retries run in the `always-accumulate` phase, paid by the protocol's gas grant and capped per block.
+  Therefore, can never consume gas registered by the block's own work packages.
+- option 2: B's next package reserves double the gas
 
 ## Transport and Discovery
 
