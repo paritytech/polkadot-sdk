@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Event","MigrationState"],"struct":["Pallet"],"trait":["Config"],"type":["MigrationStatus","Module"]};

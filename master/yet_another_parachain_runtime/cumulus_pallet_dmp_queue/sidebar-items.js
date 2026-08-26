@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Event","MigrationState"],"mod":["pallet","weights"],"struct":["Pallet"],"trait":["Config","WeightInfo"],"type":["MaxDmpMessageLenOf","MigrationStatus","Module"]};
