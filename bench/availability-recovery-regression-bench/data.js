@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787759939258,
+  "lastUpdate": 1787781373941,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "df0500abc53f46111071ee3a1075f0da4f5541c0",
-          "message": "Remove failing assertion related to VoterList count mismatch (#10880)\n\nUpdated bags-list so that on_insert queues items into PendingRebag\ninstead of failing, and removed the invariant that required VoterList's\ncount to equal the combined number of Nominators and Validators. This is\nsafe while bags-list is locked. After unlocking, on_idle drains\nPendingRebag, and the counts converge back to consistency over time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
-          "timestamp": "2026-01-28T16:22:18Z",
-          "tree_id": "ca2ebf68f7dc48ff1cb353f693263fc115392586",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/df0500abc53f46111071ee3a1075f0da4f5541c0"
-        },
-        "date": 1769621868128,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.336336759933332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12430905623333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13899223300000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1f2b2296190a219519da938a84bd9db60b0051f6",
+          "message": "Gap-sync: Allow download of bodies during gap sync  (#12917)\n\nAfter warp sync, gap sync backfills the block history below the warp\ntarget. Previously this either fetched all bodies (archive nodes) or\nnone (pruned nodes). Storage chains (`pallet-transaction-storage`) need\na middle ground: pruned nodes must still hold the bodies of the\nretention window so the network can serve the stored data and restore\nindexed transactions.\n\n## Changes\n\n- Replace the `archive_blocks: bool` flag in the syncing strategy with a\n`GapSyncBodyPolicy`:\n  - `HeadersOnly` / `All`: the previous pruned/archive behavior,\n- `DownloadFinalized(window)`: require bodies only for blocks within\n`window` below the finalized block. The cutoff moves with finality and\nis recomputed on every scheduling pass. Ranges entirely below the cutoff\nare requested header-only; a peer answering empty to a request with\nmandatory bodies is disconnected.\n- The policy is resolved lazily via a `GapSyncBodyPolicyProvider` when\n`ChainSync` is created. On a warp-syncing node right after state sync\ncompletes.\n- Omni-node derives the policy from\n`TransactionStorageApi::retention_period` and the pruning config: the\nwindow is the retention period minus a 256-block safety margin\n(tolerates peers whose finality runs ahead of ours).\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-26T19:37:34Z",
+          "tree_id": "de6bd40c007446584d8aaf49c29c6ffbba248979",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f2b2296190a219519da938a84bd9db60b0051f6"
+        },
+        "date": 1787781332896,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.065352836233334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13962568246666668,
             "unit": "seconds"
           }
         ]
