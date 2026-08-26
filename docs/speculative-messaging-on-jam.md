@@ -4,7 +4,7 @@ The [Parachain Service](https://github.com/paritytech/polkadot-sdk/blob/afe236db
 
 Here is a breakdown of exactly what needs to change to make Speculative Messaging work smoothly on JAM, ensuring every Polkadot feature has a clear, explicit JAM backport.
 
-> For MVP, chains speculate at `Enactment` tier. Sender parachain `A` writes its `Provides/StreamsRoot` entry
+> For MVP, chains speculate at the `Enacted` tier. Sender parachain `A` writes its `Provides/StreamsRoot` entry
 > inside a `recent_provides` settlement ring (bounded vector). Receiver `B` monitors the ring, fetches messages from `A` and targets its
 > `Requires` field agains the latest `recent_provides` entry. In the `Accumulate` phase, the PS ensures that
 > all `Requires` are matched against their respective `recent_provides` entries.
@@ -20,7 +20,7 @@ a consensus mechanims Speculative Messaging or PS provides.
 
 ## Changes at MVP Tier
 
-We are releasing SpecMsg with Accumulation Tier (HRMP parity) from day 0. The changes needed:
+We are releasing with the Enacted tier (HRMP parity) from day 0. The changes needed:
 
 1. Sender header digest: `DigestItem::Consensus(SPMS_ENGINE_ID, enum SpmsDigest)`.
 
@@ -86,40 +86,91 @@ this is accepted rather than solved (ie draining Coretime's commands before any 
 
 ## Speculation Tiers
 
-- **T0 Accumulate / Consume enacted roots (MVP)**: Parity with HRMP
-  - 1 or 2 slots from guarantee to accumulate, plus 1 or 2 for anchor lag
-  - root verification in-core via the output-log proof; the requires entry carries
-    `(ParaId, StreamsRoot)` and settlement checks the root against the source's ring — the
-    rollback brake, since a forced rollback clears the ring
+Each tier is named after the sender-side event the consumer trusts:
+**Enacted, then Guaranteed, then Announced, then Imported and Fused**.
 
-- **T1a Backed / PrefetchHint**: prefetch on backed with zero consensus change.
-  - node reads guaranteed but not yet accumulated reports to warm cache
-  - still consumes T0 enacted roots
+> Speculation risk: a race condition between A's ring push and B's requires check against the ring.
+Since both candidates are independent, they have their own travel time through guaranteed, then availability,
+then the accumulate pipeline. And either can stall or get rejected. If B report accumulates first, the
+settlement check reads A's root before the update and B is rejected.
 
-- **T1b Backed / Active**
-  - saves 1 or 2 slots
-  - needs no consensus change
-  - `A` guaranteed report can die and `B` burns its slot (ie `A` must land first or `B` burns a slot)
-  - Same block `A -> B` is possible since Accumulation happens in order and A's ring push lands before B's settlement runs.
+- **Tier 0: Enacted (Safe Baseline MVP)**:
+  - consume enacted roots with HRMP parity. The requires entry carries `(ParaId, StreamsRoot)` and settlement checks the root against the ring
+  - latency: 1 or 2 slots from guarantee to accumulate, plus 1 or 2 for anchor lag (between 12 and 24+ seconds)
+  - optimization: node-side fetches `StreamsRoot` from guanranteed but not yet accumulated reports
+  - race condition: structurally impossible since `A` is already enacted. The only remaining risk is not matching the `Provides`
+    against the `W` settlement ring size.
 
-- **T2 Best Block**
-  - saves 2 to 4 slots
-  - needs offchain announce protocol, offchain verification and header-digest read path for package boundary roots
-  - Recommended: high-fan-in consumption (64 sources like every tier up to here) at the lowest latency; T3 matches
-    the latency but caps fan-in at 8. Needs LLv2 ACK/Slashing on JAM
-  - Optional `prerequisites` for ordering: B's package declares A's hash. `J = 8` caps prerequisites plus segment
-    lookups per report, not consumed sources, so fan-in stays at 64. The 64 to 8 drop only happens at Tier 3.
-  - Work package hash is distributed via `/spec-msg/announce` notification protocol.
+- **Tier 1: Guaranteed (A little faster)**
+  - consume guaranteed but not yet enacted roots (acts on optimization from Tier 0)
+  - latency: saves 1 or 2 slots
+  - risk: if settlement fails `B` burns its slot (`A` can die or `A` lands later)
+  - solution for race condition:
+    - 1. Node side timed work package submission
+    - 2. Parachain Service topological sort of dependencies
+    - 3. (Optional): `prerequisites` fields (capped at `J = 8`)
+  - In theory, same block `A -> B` is possible 
 
-- **T3 InCore Tier**
-  - B imports A's exported segment
-  - delivery becomes in-core and deterministic with `import_segments()`
-  - we drop the maximum communication sources from 64 to 8 (`J` constant), but keep the same latency as *T2 Best Block*
-  - Recommended: low-fan-in (8 consumed sources), latency critical (parity with T2) and segment import is straightforward without LLv2 ACK/Slashing
+- **Tier 2: Announced (High Speed Communication)**
+  - consume best-block roots advertised via `/spec-msg/announce` notification protocol
+  - latency: saves 2 or 4 slots
+  - risk: if settlement fails `B` burns its slot (`A` can die or `A` lands later)
+  - relies on llv2 ack / slashing since building block `A` is cheap
+  - solution for race condition:
+    - 1. `prerequisites` fields: work package hash is distributed offchain via `/spec-msg/announce` (capped at `J = 8`)
+    - 2. Parachain Service Buffering 
 
-- **T4 SuperChains**
-  - Both A and B candidates are bundled in the same package
-  - Needs a PS service rule that if any member fails the whole group is declined.
+- **Tier 3: InCore Imported**: delivery via in-core segment import
+  - B's report names A's segment root. JAM parks the report in the ready queue until the segement dependency is resolved
+  - B can't accumulate before A, the ring still guards cases when `A` is rejected
+  - Needs to a segment framing to export the speculative messages, which can land at a later time
+  - latency: same as Tier 2: Announced
+
+- **Tier 4: Fused / SuperChains**
+  - Both candidates are bundled in the same work package, utilizing the same core
+  - Ordering is resolved while creating the work package
+  - Parachain Service must ensure that if multiple candidates are bundled in the same work package
+  the whole group is declined if one of them fails
+  - If candidates are built by different collators, they must negotiate via p2p protocols which one is trusted with the package
+
+**Solutions to reduce the race condition**
+
+1. Node side timed work package submission
+
+The receiver sees A's reportin the guarantees extrinsic and fetch the work package hash, core and `StreamsRoot` from the header digest.
+The payloads are immediately fetched from p2p layer and verified locally. The receiver `B` work package is created but not submitted.
+
+The `B` package is submitted once count assurance bits for A's core are near 2/3. This gives a higher chance for `A`'s report
+to Accumulate within 1-2 slot delay until `B` accumulates.
+
+- If `A` dies before `B` package is submitted, then `B` reanchors against T0 latest enacted root without burning the slot
+- If `A` dies after `B` package is submitted, then `B` burns the slot and `B` rebuilds against T0
+- If `B`'s head doesn't advance after its package accumulates, then `B` burns the slot and conservatively rebuilds against T0
+
+2. Parachain Service topological sort of dependencies
+
+Within one JAM block, the PS `Accumulate` processes digests in the provided order from JAM (sorted by core order).
+If sender A and consumer B land in the same block, but B core is first, then B `Requires` check fails.
+
+To ensure we are not relying on JAM provided order, PS reorders the blocks's digest.
+The solution is to build a depedency graph based on the speculative `Provides` and `Requires`.
+
+If B digest contains `spec_msg_requires` towards `A` and `A` has the same `StreamsRoot` as B's `Requires`, the we have
+an edge from `A -> B`. Edges are created by `ParaID` only. Then we run topological sort on the edges. Everything
+unrelated to speculative messaging remains unchanged.
+
+If a cycle is detected, PS continues with the original order from JAM. The ring will reject the candidates naturally.
+
+3. Parachain Service Buffering
+
+Instead of rejecting `B`'s candidate when the requires check fails, the PS will buffer the work digest and settles it later
+once A's root is written in the ring. 
+At most one digest is buffered per parachain at any given time to ensure the state can't grow.
+A buffered digest expires after `K = 2` slots (TBD needs real data to size).
+Retries run in the `always-accumulate` phase, paid by the protocol's gas grant and capped per block.
+Therefore, can never consume gas registered by the block's own work packages.
+The storage digest is charged from B's balance and refunded on settlement or expiry.
+
 
 ## Transport and Discovery
 
@@ -128,7 +179,7 @@ We have 2 delivery paths for messages:
 - Secondary via PVF exports of payloads to DA as framed segments.
 
 Since segments cannot be exported retroactively, the DA exports are used since day 0. This offers a bootnode agnostic fallback to fetch messages and
-Tier 3 (in-core tier) relies on the segments. 64 KiB of messages per block would cost 0.6% of the budget.
+the Imported tier relies on the segments. 64 KiB of messages per block would cost 0.6% of the budget.
 The actual cost is erasure-coding bandwidth across validators.
 
 **Discovery**
@@ -215,8 +266,8 @@ must communicate: what was delivered under the abandoned roots and compensate or
 for the counterparties.
 
 > Note: abandoned enactments stay provable forever since the output log is append-only, and a dormant
-chain's ring persists — so a dead chain's last messages remain drainable at T0 as long as its ring
-stands. A `parachain_clean_up` removes the ring and ends drainability with it.
+chain's ring persists — so a dead chain's last messages remain drainable at the Enacted tier as long
+as its ring stands. A `parachain_clean_up` removes the ring and ends drainability with it.
 
 ## 4. Execution: End to End
 
@@ -256,7 +307,7 @@ fallback.
 
 **`ProvidesSource`:** reads A's enacted heads at imported blocks — **best, not finalized**. Block
 stream, startup tip, sync gate, ring read at a recent hash,
-pending-provides hint (dormant until Tier 1a).
+pending-provides hint (dormant until Prefetch mode).
 
 ## 6. Trust Model
 
@@ -267,7 +318,7 @@ pending-provides hint (dormant until Tier 1a).
 | Provides commitment | UMP signal | header digest + §5.5 enactment commitment |
 | Stream monotonicity | not enforced | not enforced — self-harm, consumer-visible |
 
-Polkadot capabilities: same-block A -> B deferred to Tier 1b.
+Polkadot capabilities: same-block A -> B deferred to the Guaranteed tier.
 
 > **Why not JAM's `prerequisites`?**
 >
@@ -275,11 +326,11 @@ Polkadot capabilities: same-block A -> B deferred to Tier 1b.
 >
 > (2) Report is not enactment: steps 3/5 can decline after accumulation, so compare-and-reject survives anyway.
 > 
-> (3) `J = 8` is too small and shared with Tier 3's segment lookups; fan-in targets 64.
+> (3) `J = 8` is too small and shared with the Imported tier's segment lookups; fan-in targets 64.
 >
 > (4) The 8-block reporting gate makes it strictly worse than proving enacted state.
 >
-> **Right solution at Tier 3: segment roots are content-addressed.**
+> **Right solution at the Imported tier: segment roots are content-addressed.**
 
 ## 10. Open Questions
 
@@ -291,8 +342,8 @@ Polkadot capabilities: same-block A -> B deferred to Tier 1b.
 2. **`W`** at best-block depth. Now a day-0 sizing input.
 
   The ring is live and read by settlement from day 0, so `W` must be fixed before launch. It must be
-  sized for the best-block pipeline (announce to enact), not the backed one, since the higher tiers
-  reuse the same ring without a consensus change.
+  sized for the Announced (best-block) pipeline — announce to enact — not the Guaranteed one, since
+  the higher tiers reuse the same ring without a consensus change.
 
 3. **Silent ready-queue expiry**
   If B declares a prerequisite on A and A never accumulates, B's report is dropped
@@ -304,7 +355,7 @@ Polkadot capabilities: same-block A -> B deferred to Tier 1b.
   identity as managed by Coretime.
 
 5. **Acknowledgement/slashing on JAM**
-  Tier 2's security on Polkadot rests on LLv2 ACK slashing. JAM has no equivalent
+  The Announced tier's security on Polkadot rests on LLv2 ACK slashing. JAM has no equivalent
 
 6. **CE 129**
   Can a collator without a JAM node ask another node for state? Recent-history reads are fine, but the
@@ -376,7 +427,7 @@ Solving the work package ordering:
 ## Apendix
 
 This sections highlights an alternative to the onchain ring settlement that is valid only
-for the MVP tier (Enactment).
+for the Enacted tier (MVP).
 
 ### Alternative Verification
 
