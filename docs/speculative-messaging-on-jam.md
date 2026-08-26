@@ -81,14 +81,14 @@ A forced `parachain_set_head` that overwrites a live head will also clear the ri
 spec_msg_recent_provides: Map<ParaId, BoundedVec<StreamsRoot, W>>
 ```
 
-The ring is charged from the baseline of the parachain. Passing the settlement ring check implies that
-the candidate will enact. Every requires entry source must exist and the named root must be present in the ring.
-The candidate is rejected silently and the receiver `B` monitors offchain this behaviour, similar to
-`parent-head` or `check-code` failures. Otherwise, letting rejected candidates append `AccumulateLogs` would let junk
-candidates push out valuable entries.
+The ring reads are charged to the parachain. Every `Requires` source must exist and its root must be present in the ring.
+On the first missing entry, PS rejects the candidate and emits one bounded `AccumulateLog::RequiresUnmet { source, root }`
+allowing the receiver to identify a settlement miss and rebuild. Otherwise, the block builder cannot distinguish
+between a missing root from gas exhaustion, or queue expiry or parent-head failure. Logging only the first
+miss is bounded and the candidate has already passed authorization checks.
 
- Before processing a digest, PS charges its worst-case ring-read cost against that item’s declared accumulation gas. The
- `W` should be reasonable bounded and the scan reads the newest entries first stopping on the first match.
+Before processing a digest, PS charges its worst-case ring-read cost against that item’s declared accumulation gas. The
+`W` should be reasonable bounded and the scan reads the newest entries first stopping on the first match.
 
 > Note: A forced rollback (`ParachainSetHead` from the Coretime chain) isn't applied instantly. Its an upward message,
 replayed at step 7 when the Coretime chain's own package accumulates. Packages accumulate in order within a block,
