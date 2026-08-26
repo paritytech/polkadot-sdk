@@ -123,8 +123,10 @@ settlement check reads A's root before the update and B is rejected.
 - **Tier 3: InCore Imported**: delivery via in-core segment import
   - B's report names A's segment root. JAM parks the report in the ready queue until the segement dependency is resolved
   - B can't accumulate before A, the ring still guards cases when `A` is rejected
+  - If `A` segments never become available, `B` package isn't refined and the slot isn't burned
   - Needs to a segment framing to export the speculative messages, which can land at a later time
-  - latency: same as Tier 2: Announced
+  - latency: same as `Tier 2: Announced`
+  - race condition: doesn't apply since `B`'s report has a prerequisite on `A`
 
 - **Tier 4: Fused / SuperChains**
   - Both candidates are bundled in the same work package, utilizing the same core
@@ -176,11 +178,10 @@ The storage digest is charged from B's balance and refunded on settlement or exp
 
 We have 2 delivery paths for messages:
 - Primary offchain req-resp protocol `/spec-msg/exchange` which holds the messages in a node side archive. This outlives the DA window and gives unbounded catch-up.
-- Secondary via PVF exports of payloads to DA as framed segments.
+- Secondary via PVF exports of payloads to DA as framed segments add from `Tier 3` onward.
 
-Since segments cannot be exported retroactively, the DA exports are used since day 0. This offers a bootnode agnostic fallback to fetch messages and
-the Imported tier relies on the segments. 64 KiB of messages per block would cost 0.6% of the budget.
-The actual cost is erasure-coding bandwidth across validators.
+The DA exports are added from `Tier 3` and offers a bootnode agnostic fallback to fetch messages.
+64 KiB of messages per block would cost 0.6% of the budget. The actual cost is erasure-coding bandwidth across validators.
 
 **Discovery**
 
