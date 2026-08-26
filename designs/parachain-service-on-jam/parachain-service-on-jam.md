@@ -331,7 +331,9 @@ enum TransferError {
     DestinationNotSupervised,
     /// The supplied gas is below `dest`'s `min_memo_gas`.
     GasBelowDestinationMinimum,
-    /// The transfer would leave the Parachain Service below its threshold balance.
+    /// The `source` service cannot cover `amount`, either because the debited
+    /// balance is too small or because the transfer would leave it below its
+    /// threshold balance.
     InsufficientServiceBalance,
 }
 

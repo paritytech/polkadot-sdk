@@ -75,7 +75,8 @@ module messages {
   | DestinationNotSupervised
   // The supplied gas is below dest's `min_memo_gas`.
   | GasBelowDestinationMinimum
-  // The transfer would leave the service below its threshold balance.
+  // The source service cannot cover the amount: the debited balance is too
+  // small, or the transfer would leave it below its threshold balance.
   | InsufficientServiceBalance
 
   type AccumulateLog =
