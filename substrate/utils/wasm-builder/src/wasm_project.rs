@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #[cfg(feature = "metadata-hash")]
-use crate::builder::MetadataExtraInfo;
+use crate::builder::MetadataHash;
 use crate::{
 	copy_file_if_changed, write_file_if_changed, CargoCommandVersioned, RuntimeTarget, OFFLINE,
 };
@@ -78,6 +78,28 @@ impl WasmBinary {
 	/// Returns the escaped path to the wasm binary.
 	pub fn wasm_binary_path_escaped(&self) -> String {
 		self.0.display().to_string().escape_default().to_string()
+	}
+}
+
+/// The result of building a runtime blob for one [`RuntimeTarget`].
+pub struct BuiltBlob {
+	/// The compact and compressed blob, if it was created.
+	pub compact: Option<WasmBinary>,
+	/// The blob as it was created by the compiler.
+	pub bloaty: WasmBinaryBloaty,
+	/// The metadata hash that was compiled into the blob.
+	#[cfg(feature = "metadata-hash")]
+	pub metadata_hash: Option<[u8; 32]>,
+}
+
+impl BuiltBlob {
+	/// Returns the escaped path to the final blob.
+	///
+	/// This is the compact and compressed blob or the bloaty blob if it wasn't compacted.
+	pub fn final_path_escaped(&self) -> String {
+		self.compact
+			.as_ref()
+			.map_or_else(|| self.bloaty.bloaty_path_escaped(), |c| c.wasm_binary_path_escaped())
 	}
 }
 
@@ -155,11 +177,7 @@ fn build_subdirectory(target: RuntimeTarget) -> &'static str {
 	}
 }
 
-/// Creates the WASM project, compiles the WASM binary and compacts the WASM binary.
-///
-/// # Returns
-///
-/// The path to the compact runtime binary and the bloaty runtime binary.
+/// Creates the blob project for `target`, compiles it and compacts the WASM binary.
 pub(crate) fn create_and_compile(
 	target: RuntimeTarget,
 	orig_project_cargo_toml: &Path,
@@ -168,8 +186,8 @@ pub(crate) fn create_and_compile(
 	features_to_enable: Vec<String>,
 	blob_out_name_override: Option<String>,
 	check_for_runtime_version_section: bool,
-	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
-) -> (Option<WasmBinary>, WasmBinaryBloaty) {
+	#[cfg(feature = "metadata-hash")] metadata_hash: Option<MetadataHash>,
+) -> BuiltBlob {
 	let runtime_workspace_root = get_wasm_workspace_root();
 	let runtime_workspace = runtime_workspace_root.join(build_subdirectory(target));
 
@@ -188,9 +206,9 @@ pub(crate) fn create_and_compile(
 	let build_config = BuildConfiguration::detect(target, &project);
 
 	#[cfg(feature = "metadata-hash")]
-	let raw_blob_path = match enable_metadata_hash {
-		Some(extra_info) => {
-			// When the metadata hash is enabled we need to build the runtime twice.
+	let metadata_hash = match metadata_hash {
+		// To generate the hash we need to build the runtime twice.
+		Some(MetadataHash::Generate(extra_info)) => {
 			let raw_blob_path = build_bloaty_blob(
 				target,
 				&build_config.blob_build_profile,
@@ -200,38 +218,30 @@ pub(crate) fn create_and_compile(
 				None,
 			);
 
-			let hash = crate::metadata_hash::generate_metadata_hash(&raw_blob_path, extra_info);
-
-			build_bloaty_blob(
-				target,
-				&build_config.blob_build_profile,
-				&project,
-				default_rustflags,
-				cargo_cmd,
-				Some(hash),
-			)
+			Some(crate::metadata_hash::generate_metadata_hash(&raw_blob_path, extra_info))
 		},
-		None => build_bloaty_blob(
-			target,
-			&build_config.blob_build_profile,
-			&project,
-			default_rustflags,
-			cargo_cmd,
-			None,
-		),
+		Some(MetadataHash::Reuse(hash)) => Some(hash),
+		None => None,
 	};
 
-	// If the feature is not enabled, we only need to do it once.
+	#[cfg(feature = "metadata-hash")]
+	let raw_blob_path = build_bloaty_blob(
+		target,
+		&build_config.blob_build_profile,
+		&project,
+		default_rustflags,
+		cargo_cmd,
+		metadata_hash,
+	);
+
 	#[cfg(not(feature = "metadata-hash"))]
-	let raw_blob_path = {
-		build_bloaty_blob(
-			target,
-			&build_config.blob_build_profile,
-			&project,
-			default_rustflags,
-			cargo_cmd,
-		)
-	};
+	let raw_blob_path = build_bloaty_blob(
+		target,
+		&build_config.blob_build_profile,
+		&project,
+		default_rustflags,
+		cargo_cmd,
+	);
 
 	let blob_name =
 		blob_out_name_override.unwrap_or_else(|| get_blob_name(target, &wasm_project_cargo_toml));
@@ -273,7 +283,12 @@ pub(crate) fn create_and_compile(
 		}
 	}
 
-	(final_blob_binary, bloaty_blob_binary)
+	BuiltBlob {
+		compact: final_blob_binary,
+		bloaty: bloaty_blob_binary,
+		#[cfg(feature = "metadata-hash")]
+		metadata_hash,
+	}
 }
 
 fn maybe_compact_and_compress_wasm(

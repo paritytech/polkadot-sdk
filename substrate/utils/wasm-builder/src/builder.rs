@@ -21,13 +21,22 @@ use std::{
 	process,
 };
 
-use crate::RuntimeTarget;
+use crate::{wasm_project::BuiltBlob, RuntimeTarget};
 
 /// Extra information when generating the `metadata-hash`.
 #[cfg(feature = "metadata-hash")]
 pub(crate) struct MetadataExtraInfo {
 	pub decimals: u8,
 	pub token_symbol: String,
+}
+
+/// The `metadata-hash` that should be compiled into the blob.
+#[cfg(feature = "metadata-hash")]
+pub(crate) enum MetadataHash {
+	/// Generate the hash by building the blob twice.
+	Generate(MetadataExtraInfo),
+	/// Use the hash that was already generated for another target.
+	Reuse([u8; 32]),
 }
 
 /// Returns the manifest dir from the `CARGO_MANIFEST_DIR` env.
@@ -60,6 +69,7 @@ impl WasmBuilderSelectProject {
 			disable_runtime_version_section_check: false,
 			export_heap_base: false,
 			import_memory: false,
+			enable_pvm: false,
 			#[cfg(feature = "metadata-hash")]
 			enable_metadata_hash: None,
 		}
@@ -80,6 +90,7 @@ impl WasmBuilderSelectProject {
 				disable_runtime_version_section_check: false,
 				export_heap_base: false,
 				import_memory: false,
+				enable_pvm: false,
 				#[cfg(feature = "metadata-hash")]
 				enable_metadata_hash: None,
 			})
@@ -119,6 +130,9 @@ pub struct WasmBuilder {
 	export_heap_base: bool,
 	/// Whether `--import-memory` should be added to the link args (WASM-only).
 	import_memory: bool,
+
+	/// Whether the PVM binary should be built as well.
+	enable_pvm: bool,
 
 	/// Whether to enable the metadata hash generation.
 	#[cfg(feature = "metadata-hash")]
@@ -190,6 +204,18 @@ impl WasmBuilder {
 		self
 	}
 
+	/// Build the PVM binary next to the WASM binary.
+	///
+	/// The generated file will contain the extra constants `PVM_BINARY` and `PVM_BINARY_PATH`
+	/// pointing to the PolkaVM program.
+	///
+	/// If `SUBSTRATE_RUNTIME_TARGET` selects the `riscv` target, only the PVM binary is built and
+	/// the `PVM_BINARY*` constants alias the `WASM_BINARY*` constants.
+	pub fn enable_pvm(mut self) -> Self {
+		self.enable_pvm = true;
+		self
+	}
+
 	/// Append the given `flag` to `RUST_FLAGS`.
 	///
 	/// `flag` is appended as is, so it needs to be a valid flag.
@@ -233,19 +259,26 @@ impl WasmBuilder {
 		self
 	}
 
-	/// Build the WASM binary.
-	pub fn build(mut self) {
-		let target = RuntimeTarget::new();
+	/// Returns the `RUSTFLAGS` to use for building the given `target`.
+	fn rust_flags(&self, target: RuntimeTarget) -> String {
+		let mut rust_flags = self.rust_flags.clone();
 
 		if target == RuntimeTarget::Wasm {
 			if self.export_heap_base {
-				self.rust_flags.push("-C link-arg=--export=__heap_base".into());
+				rust_flags.push("-C link-arg=--export=__heap_base".into());
 			}
 
 			if self.import_memory {
-				self.rust_flags.push("-C link-arg=--import-memory".into());
+				rust_flags.push("-C link-arg=--import-memory".into());
 			}
 		}
+
+		rust_flags.join(" ")
+	}
+
+	/// Build the WASM binary.
+	pub fn build(self) {
+		let target = RuntimeTarget::new();
 
 		let out_dir = PathBuf::from(env::var("OUT_DIR").expect("`OUT_DIR` is set by cargo!"));
 		let file_path =
@@ -256,22 +289,43 @@ impl WasmBuilder {
 			// changes
 			generate_rerun_if_changed_instructions();
 
-			provide_dummy_wasm_binary_if_not_exist(&file_path);
+			provide_dummy_wasm_binary_if_not_exist(&file_path, self.enable_pvm);
 
 			return;
 		}
 
-		build_project(
+		// If the target is already `riscv`, the blob built below is the PVM blob.
+		let build_pvm = self.enable_pvm && target != RuntimeTarget::Riscv;
+		let rust_flags = self.rust_flags(target);
+		let pvm_rust_flags = self.rust_flags(RuntimeTarget::Riscv);
+
+		let blob = build_blob(
 			target,
-			file_path,
-			self.project_cargo_toml,
-			self.rust_flags.join(" "),
-			self.features_to_enable,
-			self.file_name,
+			&self.project_cargo_toml,
+			rust_flags,
+			self.features_to_enable.clone(),
+			self.file_name.clone(),
 			!self.disable_runtime_version_section_check,
 			#[cfg(feature = "metadata-hash")]
-			self.enable_metadata_hash,
+			self.enable_metadata_hash.map(MetadataHash::Generate),
 		);
+
+		let pvm_blob = build_pvm.then(|| {
+			build_blob(
+				RuntimeTarget::Riscv,
+				&self.project_cargo_toml,
+				pvm_rust_flags,
+				self.features_to_enable,
+				self.file_name,
+				!self.disable_runtime_version_section_check,
+				// Both blobs are built from the same runtime and thus, share the metadata hash.
+				// Reusing it also means that we don't need to execute the PVM blob.
+				#[cfg(feature = "metadata-hash")]
+				blob.metadata_hash.map(MetadataHash::Reuse),
+			)
+		});
+
+		write_blob_constants(&file_path, &blob, pvm_blob.as_ref(), self.enable_pvm);
 
 		// As last step we need to generate our `rerun-if-changed` stuff. If a build fails, we don't
 		// want to spam the output!
@@ -300,15 +354,25 @@ fn check_skip_build() -> bool {
 }
 
 /// Provide a dummy WASM binary if there doesn't exist one.
-fn provide_dummy_wasm_binary_if_not_exist(file_path: &Path) {
-	if !file_path.exists() {
-		crate::write_file_if_changed(
-			file_path,
-			"pub const WASM_BINARY_PATH: Option<&str> = None;\
-			 pub const WASM_BINARY: Option<&[u8]> = None;\
-			 pub const WASM_BINARY_BLOATY: Option<&[u8]> = None;",
+fn provide_dummy_wasm_binary_if_not_exist(file_path: &Path, enable_pvm: bool) {
+	if file_path.exists() {
+		return;
+	}
+
+	let mut constants = String::from(
+		"pub const WASM_BINARY_PATH: Option<&str> = None;\
+		 pub const WASM_BINARY: Option<&[u8]> = None;\
+		 pub const WASM_BINARY_BLOATY: Option<&[u8]> = None;",
+	);
+
+	if enable_pvm {
+		constants.push_str(
+			"pub const PVM_BINARY_PATH: Option<&str> = None;\
+			 pub const PVM_BINARY: Option<&[u8]> = None;",
 		);
 	}
+
+	crate::write_file_if_changed(file_path, constants);
 }
 
 /// Generate the `rerun-if-changed` instructions for cargo to make sure that the WASM binary is
@@ -320,12 +384,7 @@ fn generate_rerun_if_changed_instructions() {
 	println!("cargo:rerun-if-env-changed={}", generate_crate_skip_build_env_name());
 }
 
-/// Build the currently built project as wasm binary.
-///
-/// The current project is determined by using the `CARGO_MANIFEST_DIR` environment variable.
-///
-/// `file_name` - The name + path of the file being generated. The file contains the
-/// constant `WASM_BINARY`, which contains the built wasm binary.
+/// Build the given project for `target`.
 ///
 /// `project_cargo_toml` - The path to the `Cargo.toml` of the project that should be built.
 ///
@@ -333,21 +392,20 @@ fn generate_rerun_if_changed_instructions() {
 ///
 /// `features_to_enable` - Features that should be enabled for the project.
 ///
-/// `wasm_binary_name` - The optional wasm binary name that is extended with
-/// `.compact.compressed.wasm`. If `None`, the project name will be used.
+/// `blob_name` - The optional blob name that is extended with `.compact.compressed.wasm`.
+/// If `None`, the project name will be used.
 ///
 /// `check_for_runtime_version_section` - Should the wasm binary be checked for the
 /// `runtime_version` section?
-fn build_project(
+fn build_blob(
 	target: RuntimeTarget,
-	file_name: PathBuf,
-	project_cargo_toml: PathBuf,
+	project_cargo_toml: &Path,
 	default_rustflags: String,
 	features_to_enable: Vec<String>,
-	wasm_binary_name: Option<String>,
+	blob_name: Option<String>,
 	check_for_runtime_version_section: bool,
-	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
-) {
+	#[cfg(feature = "metadata-hash")] metadata_hash: Option<MetadataHash>,
+) -> BuiltBlob {
 	// Init jobserver as soon as possible
 	crate::wasm_project::get_jobserver();
 	let cargo_cmd = match crate::prerequisites::check(target) {
@@ -358,35 +416,59 @@ fn build_project(
 		},
 	};
 
-	let (wasm_binary, bloaty) = crate::wasm_project::create_and_compile(
+	crate::wasm_project::create_and_compile(
 		target,
-		&project_cargo_toml,
+		project_cargo_toml,
 		&default_rustflags,
 		cargo_cmd,
 		features_to_enable,
-		wasm_binary_name,
+		blob_name,
 		check_for_runtime_version_section,
 		#[cfg(feature = "metadata-hash")]
-		enable_metadata_hash,
-	);
+		metadata_hash,
+	)
+}
 
-	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {
-		(wasm_binary.wasm_binary_path_escaped(), bloaty.bloaty_path_escaped())
-	} else {
-		(bloaty.bloaty_path_escaped(), bloaty.bloaty_path_escaped())
+/// Write the constants pointing to the built blobs into `file_path`.
+///
+/// `pvm_blob` is the PVM blob that was built next to the WASM blob. If `enable_pvm` is set, but
+/// there is no separate `pvm_blob`, the WASM blob is the PVM blob and the constants are aliased.
+fn write_blob_constants(
+	file_path: &Path,
+	blob: &BuiltBlob,
+	pvm_blob: Option<&BuiltBlob>,
+	enable_pvm: bool,
+) {
+	let wasm_binary = blob.final_path_escaped();
+	let wasm_binary_bloaty = blob.bloaty.bloaty_path_escaped();
+
+	let pvm_constants = match (pvm_blob, enable_pvm) {
+		(Some(pvm_blob), _) => {
+			let pvm_binary = pvm_blob.bloaty.bloaty_path_escaped();
+
+			format!(
+				r#"
+				pub const PVM_BINARY_PATH: Option<&str> = Some("{pvm_binary}");
+				pub const PVM_BINARY: Option<&[u8]> = Some(include_bytes!("{pvm_binary}"));
+			"#
+			)
+		},
+		(None, true) => r#"
+				pub const PVM_BINARY_PATH: Option<&str> = WASM_BINARY_PATH;
+				pub const PVM_BINARY: Option<&[u8]> = WASM_BINARY;
+			"#
+		.into(),
+		(None, false) => String::new(),
 	};
 
 	crate::write_file_if_changed(
-		file_name,
+		file_path,
 		format!(
 			r#"
-				pub const WASM_BINARY_PATH: Option<&str> = Some("{wasm_binary_path}");
+				pub const WASM_BINARY_PATH: Option<&str> = Some("{wasm_binary}");
 				pub const WASM_BINARY: Option<&[u8]> = Some(include_bytes!("{wasm_binary}"));
 				pub const WASM_BINARY_BLOATY: Option<&[u8]> = Some(include_bytes!("{wasm_binary_bloaty}"));
-			"#,
-			wasm_binary_path = wasm_binary,
-			wasm_binary = wasm_binary,
-			wasm_binary_bloaty = wasm_binary_bloaty,
+			{pvm_constants}"#
 		),
 	);
 }

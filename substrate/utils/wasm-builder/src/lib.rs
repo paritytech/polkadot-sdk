@@ -51,6 +51,11 @@
 //! Additionally it will create the `WASM_BINARY_PATH` which is the path to the WASM blob on the
 //! filesystem.
 //!
+//! ### PolkaVM
+//!
+//! [`WasmBuilder::enable_pvm`] builds the runtime as PolkaVM program next to the Wasm binary. The
+//! program is included as `PVM_BINARY` with `PVM_BINARY_PATH` being its path on the filesystem.
+//!
 //! ### Feature
 //!
 //! Wasm builder supports to enable cargo features while building the Wasm binary. By default it
