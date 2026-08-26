@@ -6,60 +6,34 @@ title: Collation protocol v4 with bounded segment advertisements
 doc:
   - audience: Node Dev
     description: |
-      This PR adds collation protocol v4 (`/collation/4`). A v4 collator sends one
-      `AdvertiseSegment` per scheduling parent and core with up to `MAX_SEGMENT_LEN` (32)
-      candidate fingerprints (output head hash, parent head hash, claim queue offset). There is
-      no `Declare` and no `CollationSeconded` in v4. The para id is part of the advertisement and
-      the peer is bound to it by its first one. Segments are only handled by the experimental
-      validator side. The collator side keeps one segment per (scheduling parent, core) and
-      drops later ones for the same key. v2/v3 validators get a regular `AdvertiseCollation` for
-      the segment tip.
+      This PR adds collation protocol v4 (`/collation/4`). A v4 collator advertises up to
+      `MAX_SEGMENT_LEN` (32) candidates per scheduling parent and core in one `AdvertiseSegment`.
+      There is no `Declare` and no `CollationSeconded` in v4. Collations are fetched over the new
+      `/req_collation/3` protocol. v2/v3 validators get an `AdvertiseCollation` for the segment tip.
 
-      New request-response protocol `/req_collation/3` (`request_response::v3`). The request
-      has scheduling parent, para id and output head data hash instead of relay parent and
-      candidate hash. The response always contains the parent head data.
+      v4 is the main collation protocol for collators and for validators running
+      `--experimental-collator-protocol`, v3 and v2 are fallbacks. `PeerSetProtocolNames::new`
+      picks the newest version now. Nodes running the old validator side have to pin v3 with
+      `PeerSetProtocolNames::new_with_main_collation_version`, otherwise v4 advertisements from
+      new collators are dropped. `/req_collation/3` has to be registered with the network, the
+      receiver goes into `OverseerGenArgs::collation_req_v3_receiver`.
 
-      Collators and validators started with `--experimental-collator-protocol` use v4 as the
-      main collation protocol, v3 and v2 are fallbacks. Everything else pins v3 via
-      `PeerSetProtocolNames::new_with_main_collation_version`. `PeerSetProtocolNames::new` picks
-      the newest supported version now. Nodes running the old validator side have to pin v3 with
-      `new_with_main_collation_version`, otherwise v4 gets negotiated with new collators and
-      their advertisements are dropped. `/req_collation/3` has to be registered with the network
-      like the v2 one and the receiver goes into `OverseerGenArgs::collation_req_v3_receiver` /
-      `ProtocolSide::Collator::request_receiver_v3`.
-
-      - `CollationGenerationMessage::SubmitCollation` and `SubmitCollationParams` are replaced by
-        `SubmitSegment` and `SubmitSegmentParams`: a list of `SegmentCollation` with one
-        scheduling parent, core index and descriptor version for the whole segment. V2 segments
-        must have exactly one collation. Only V2 and V3 descriptor versions are accepted.
-      - `CollatorProtocolMessage::DistributeCollation` is replaced by `DistributeSegment`
-        (`Segment`, `SegmentEntry`), the receipt is assembled in the collator protocol.
+      - `CollationGenerationMessage::SubmitCollation` is replaced by `SubmitSegment`
+        (`SubmitSegmentParams`, `SegmentCollation`), `CollatorProtocolMessage::DistributeCollation`
+        by `DistributeSegment`. Segments are write-once per (scheduling parent, core).
       - `CollationResult::result_sender`, `CollationResult::into_inner`,
         `CollationSecondedSignal` and `TryFrom<&CollationSecondedSignal> for BlockAnnounceData`
-        are removed. `CollationSeconded` messages from old validators are ignored.
-      - `CandidateDescriptorVersion::Unknown` is now `Unknown(u8)`. This changes the encoding of
-        the variant, which is part of the v3 `AdvertiseCollation` message but never sent by a
-        working node.
-      - `CollationProtocols` has a fourth type parameter for `V4`. `Requests` and `Protocol`
-        have a new `CollationFetchingV3` variant.
-      - `PeerSet::get_main_version()` is removed, use `PeerSetProtocolNames::get_main_version()`.
-        `PeerSetProtocolNames::get_fallback_names()` is a method now.
-      - `TestCandidateBuilder` has new `scheduling_parent` and `para_head` fields and
-        `build_v3()`.
-      - `polkadot_primitives::v9::parse_ump_signals_for_commitments` runs the UMP signal checks
-        without a receipt.
-      - The lookahead collator builds one block per relay parent, the loop building up to two
-        is removed.
-      - The collator declares with the negotiated protocol version when the authority ids
-        arrive after the connection, previously it assumed v2.
-
-      Adds a zombienet test for v3/v4 negotiation with a mixed validator set.
+        are removed.
+      - `CandidateDescriptorVersion::Unknown` is now `Unknown(u8)`.
+      - `PeerSet::get_main_version()` is removed. `Requests` and `Protocol` have a new
+        `CollationFetchingV3` variant, `CollationProtocols` has a fourth type parameter for `V4`.
+      - The lookahead collator builds one block per relay parent.
 
   - audience: Node Operator
     description: |
-      No action needed. Validators only negotiate v4 with `--experimental-collator-protocol`.
-      Collators fall back to v3/v2 for older validators. There is no required upgrade order
-      between validators and collators.
+      No action needed. Validators only negotiate v4 with `--experimental-collator-protocol`
+      (on by default on Kusama). There is no required upgrade order between validators and
+      collators.
 
 crates:
   - name: polkadot-node-network-protocol
