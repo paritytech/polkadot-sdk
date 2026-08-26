@@ -191,15 +191,37 @@ The para's runtime maintains its list in the existing KV store (tag `0x08`):
 /// Full storage key: 0x08 ++ SCALE((para_id, BOOTNODES_KEY)).
 const BOOTNODES_KEY: &[u8] = b"bootnodes/v1";
 
-struct BootnodeRecord {
-    /// bump = publish under .../v2
-    version: u8,  
-    /// Reachable bootnodes into the para's network, not the authoring node.
-    addrs: BoundedVec<Multiaddr /* <=128 B */, ConstU32<8>>,
+/// Ephemeral record of a parachain's active bootnodes.
+struct AddressRecord {
+    /// The para ID this record belongs to.
+    para_id: u32,
+    /// The timeslot after which this entire record is invalid and should be dropped.
+    expires_at: Timeslot,
+    /// Up to 4 active bootnodes.
+    bootnodes: BoundedVec<Bootnode, 4>,
+}
+
+struct Bootnode {
+    /// The network address (must NOT contain a peer ID).
+    addr: Multiaddr,
+    /// The public key from which the node's peer ID is derived.
+    node_key: Ed25519Public,
+    /// A monotonic sequence number to prevent replay attacks.
+    seq: u64,
+    /// Proof of possession. The node must sign:
+    /// `("bootnode-pop-v1", jam_genesis_hash, AddressRecord::para_id, Bootnode::seq, Bootnode::addr)`
+    /// This proves the node owner consents to being a bootnode for this specific broadcast.
+    sig: Ed25519Signature,
 }
 ```
 
-> Note: KV writes are charged and skipped on **insufficient balance**. This is accepted since we have DA as independent path to fetch messages.
+The parachain service doesn't verify the `AddressRecord` fields. The admission of a new
+address into the book is part of the Parachain runtime logic.
+
+Initially the chain operator will setup the network via an explicit `--bootnodes` CLI flag. Once the chain
+is registered new collators and nodes can join by reading the `AddressRecord` under the storage key.
+
+> Note: KV writes are charged and skipped on **insufficient balance**.
 
 **Flow**
 
