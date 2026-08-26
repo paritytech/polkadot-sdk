@@ -228,8 +228,7 @@ pub mod pallet {
 		///
 		/// Possible issues are
 		/// 1) Cannot delegate to self,
-		/// 2) Cannot delegate to multiple delegates,
-		/// 3) Cannot delegate a zero amount.
+		/// 2) Cannot delegate to multiple delegates.
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
@@ -403,14 +402,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			let agent = ensure_signed(origin)?;
 
-			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
-
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
+
+			// nothing to delegate, and nothing to bond.
+			if amount.is_zero() {
+				return Ok(());
+			}
 
 			// and has enough delegated balance to migrate.
 			let proxy_delegator = Self::generate_proxy_delegator(Agent::from(agent));
@@ -444,6 +446,11 @@ pub mod pallet {
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
+
+			// nothing to delegate, and nothing to bond.
+			if amount.is_zero() {
+				return Ok(());
+			}
 
 			// add to delegation.
 			Self::do_delegate(Delegator::from(delegator), Agent::from(agent.clone()), amount)?;
@@ -584,7 +591,6 @@ impl<T: Config> Pallet<T> {
 				.ok_or(ArithmeticError::Overflow)?;
 			existing_delegation
 		} else {
-			ensure!(!amount.is_zero(), Error::<T>::InvalidDelegation);
 			Delegation::<T>::new(&agent, amount)
 		}
 		.update(&delegator);

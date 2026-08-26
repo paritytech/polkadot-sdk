@@ -65,24 +65,21 @@ impl<T: Config> Delegation<T> {
 
 	/// Save self to storage.
 	///
-	/// If an existing delegation's amount is zero, remove it; a new zero-amount delegation is not
-	/// stored. Adds and removes the provider reference as needed.
+	/// If the delegation amount is zero, no delegation is stored: an existing one is removed and a
+	/// new one is not created. Also adds and removes provider reference as needed.
 	pub(crate) fn update(self, key: &T::AccountId) {
-		if <Delegators<T>>::contains_key(key) {
-			// Clean up if no delegation left.
-			if self.amount == Zero::zero() {
+		let exists = <Delegators<T>>::contains_key(key);
+
+		if self.amount.is_zero() {
+			if exists {
 				<Delegators<T>>::remove(key);
 				// Remove provider if no delegation left.
 				let _ = frame_system::Pallet::<T>::dec_providers(key).defensive();
-				return;
 			}
-		} else if self.amount == Zero::zero() {
-			// A new delegation of zero would persist a record that has no effect and leak a
-			// provider reference. Every write path funnels through here, so returning before
-			// the insert keeps stored delegations non-zero without affecting a zero top-up on
-			// an existing delegation, which is handled above.
 			return;
-		} else {
+		}
+
+		if !exists {
 			// this is a new delegation. Provide for this account.
 			frame_system::Pallet::<T>::inc_providers(key);
 		}

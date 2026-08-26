@@ -1,15 +1,15 @@
-title: "pallet-delegated-staking: reject zero-amount delegations for new delegators"
+title: "pallet-delegated-staking: ignore zero-amount delegations"
 doc:
   - audience: Runtime Dev
     description: |
-      A zero-amount delegation for a new delegator no longer stores an empty Delegation
-      record or takes a provider reference. Before, it left the account marked as a
-      delegator, which blocked it from registering as an agent.
+      A zero-amount delegation is now a no-op instead of storing an empty Delegation record.
+      Before, it left the account marked as a delegator and holding a provider reference,
+      which blocked it from registering as an agent.
 
-      do_delegate and migrate_delegation reject a zero amount for a new delegator, and
-      Delegation::update stores nothing for a new zero-amount entry. A zero top-up on an
-      existing delegation is unchanged (still a no-op), which nomination-pools relies on for
-      bond_extra at 100% commission.
+      delegate_to_agent and migrate_delegation return early on a zero amount, and
+      Delegation::update stores nothing for a zero-amount entry: an existing delegation at
+      zero is removed and a new one is not created. This holds for both new and existing
+      delegators, so nomination-pools' bond_extra at 100% commission keeps working.
 
       A try-state check also asserts that stored delegations are never zero.
 crates:
