@@ -14,8 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::nodes::jam;
 use crate::{
-	cli::{AuthoringPolicy, DevSealMode},
+	cli::{AuthoringPolicy, DevSealMode, JamNodeParams},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
@@ -45,6 +46,7 @@ use cumulus_client_consensus_aura::{
 	},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
+use cumulus_client_consensus_common as consensus_common;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{
@@ -62,7 +64,8 @@ use sc_consensus::{
 	BlockImportParams, DefaultImportQueue, LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
-use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
+use sc_network::{config::FullNetworkConfiguration, NetworkBlock, NotificationMetrics, PeerId};
+use jam_rpc_interface::JamRpcInterface;
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
@@ -477,6 +480,263 @@ where
 		})?;
 
 		// Spawn the storage monitor.
+		if let Some(database_path) = database_path {
+			sc_storage_monitor::StorageMonitorService::try_spawn(
+				storage_monitor.clone(),
+				database_path,
+				&task_manager.spawn_essential_handle(),
+			)
+			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+		}
+
+		Ok(task_manager)
+	}
+
+	fn start_jam_node(
+		config: Configuration,
+		jam_params: JamNodeParams,
+		node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		// Destructure all fields so the compiler enforces handling new args.
+		let NodeExtraArgs {
+			authoring_policy: _,
+			ref export_pov,
+			max_pov_percentage,
+			ref statement_store_config,
+			ref storage_monitor,
+			ref hop,
+			collator_reserved_slots: _,
+		} = node_extra_args;
+
+		// Warn about args that have no effect in the JAM PoC.
+		if export_pov.is_some() {
+			log::warn!("`--export-pov` has no effect in JAM mode yet.");
+		}
+		if max_pov_percentage.is_some() {
+			log::warn!("`--max-pov-percentage` has no effect in JAM mode yet.");
+		}
+		if statement_store_config.is_some() {
+			log::warn!("The statement store is not supported in JAM mode yet.");
+		}
+		if hop.is_some() {
+			log::warn!("HOP is not supported in JAM mode yet.");
+		}
+		if config.offchain_worker.enabled {
+			log::warn!("Offchain workers are not supported in JAM mode yet.");
+		}
+
+		let PartialComponents {
+			client,
+			backend,
+			mut task_manager,
+			import_queue,
+			keystore_container,
+			select_chain: _,
+			transaction_pool,
+			other: (block_import, mut telemetry, _, _, _),
+		} = Self::new_partial(&config)?;
+
+		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
+			&config.network,
+			None,
+		);
+		let metrics = NotificationMetrics::new(None);
+
+		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
+			sc_service::build_network(sc_service::BuildNetworkParams {
+				config: &config,
+				client: client.clone(),
+				transaction_pool: transaction_pool.clone(),
+				spawn_handle: task_manager.spawn_handle(),
+				spawn_essential_handle: task_manager.spawn_essential_handle(),
+				import_queue,
+				net_config,
+				block_announce_validator_builder: None,
+				warp_sync_config: None,
+				block_relay: None,
+				metrics,
+			})?;
+
+		let para_id =
+			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
+		let is_authority = config.role.is_authority();
+		let announce_block = {
+			let sync_service = sync_service.clone();
+			Arc::new(move |hash, data| sync_service.announce_block(hash, data))
+		};
+
+		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
+			task_manager.spawn_handle(),
+			client.clone(),
+			transaction_pool.clone(),
+			config.prometheus_registry(),
+			telemetry.as_ref().map(|t| t.handle()),
+		);
+
+		log::info!(
+			"🍇 Starting in JAM mode: para id {para_id}, service id {}, core {}, \
+			 collator: {is_authority}",
+			jam_params.service_id,
+			jam_params.core,
+		);
+
+		let jam_init = {
+			let client = client.clone();
+			let keystore = keystore_container.keystore();
+			let spawn_essential = task_manager.spawn_essential_handle();
+			let spawner = task_manager.spawn_handle();
+			let announce_block = announce_block.clone();
+			let block_import = block_import.clone();
+			async move {
+				let (jam, worker) = match JamRpcInterface::new(jam_params.rpc_urls.clone()).await
+				{
+					Ok(connection) => connection,
+					Err(error) => {
+						log::error!("Unable to connect to any JAM node: {error}");
+						return;
+					},
+				};
+				let jam = Arc::new(jam);
+				spawn_essential.spawn_essential("jam-rpc-worker", Some("jam"), Box::pin(worker));
+
+				let best_heads = match jam::para_head_stream(
+					&*jam,
+					jam_params.service_id,
+					para_id.into(),
+					false,
+				)
+				.await
+				{
+					Ok(stream) => stream,
+					Err(error) => {
+						log::error!("Unable to open the JAM best para-head stream: {error}");
+						return;
+					},
+				};
+				let finalized_heads = match jam::para_head_stream(
+					&*jam,
+					jam_params.service_id,
+					para_id.into(),
+					true,
+				)
+				.await
+				{
+					Ok(stream) => stream,
+					Err(error) => {
+						log::error!("Unable to open the JAM finalized para-head stream: {error}");
+						return;
+					},
+				};
+				let (finalized_tx, finalized_rx) = futures::channel::mpsc::unbounded();
+				spawn_essential.spawn_essential_blocking(
+					"jam-finalized-head-stream",
+					Some("jam"),
+					Box::pin(consensus_common::finalized_head_stream_worker::<Block>(
+						finalized_tx,
+						finalized_heads,
+					)),
+				);
+				spawn_essential.spawn_essential_blocking(
+					"jam-parachain-consensus",
+					Some("jam"),
+					Box::pin(consensus_common::run_parachain_consensus(
+						client.clone(),
+						announce_block.clone(),
+						Box::new(best_heads.boxed()),
+						Box::new(finalized_rx),
+						None,
+					)),
+				);
+
+				if !is_authority {
+					return;
+				}
+
+				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
+				let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
+				let (rebuild_sender, rebuild_receiver) = futures::channel::mpsc::channel(4);
+				spawn_essential.spawn_essential(
+					"jam-block-builder",
+					Some("jam"),
+					Box::pin(jam::builder_task::run_builder_task::<
+						Block,
+						RuntimeApi,
+						AuraId,
+						_,
+						_,
+						_,
+					>(jam::builder_task::BuilderTaskParams {
+						para_client: client.clone(),
+						block_import,
+						proposer_factory,
+						keystore,
+						para_id,
+						jam: jam.clone(),
+						message_sender,
+						rebuild_receiver,
+					})),
+				);
+				spawn_essential.spawn_essential(
+					"jam-collation",
+					Some("jam"),
+					Box::pin(jam::collation_task::run_collation_task(
+						jam::collation_task::CollationTaskParams {
+							para_client: client,
+							jam,
+							para_id,
+							service_id: jam_params.service_id,
+							core: jam_params.core,
+							message_receiver,
+							rebuild_sender,
+							announce_block,
+							spawner: Box::new(spawner),
+							max_resubmits: 3,
+						},
+					)),
+				);
+			}
+		};
+		task_manager
+			.spawn_essential_handle()
+			.spawn("jam-init", Some("jam"), Box::pin(jam_init));
+
+		let spawn_handle = Arc::new(task_manager.spawn_handle());
+		let rpc_extensions_builder = {
+			let client = client.clone();
+			let transaction_pool = transaction_pool.clone();
+			let backend_for_rpc = backend.clone();
+
+			Box::new(move |_| {
+				let module = Self::BuildRpcExtensions::build_rpc_extensions(
+					client.clone(),
+					backend_for_rpc.clone(),
+					transaction_pool.clone(),
+					None,
+					None,
+					spawn_handle.clone(),
+				)?;
+				Ok(module)
+			})
+		};
+
+		let database_path = config.database.path().map(|p| p.to_path_buf());
+
+		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			network,
+			client,
+			keystore: keystore_container.keystore(),
+			task_manager: &mut task_manager,
+			transaction_pool,
+			rpc_builder: rpc_extensions_builder,
+			backend,
+			system_rpc_tx,
+			tx_handler_controller,
+			sync_service,
+			config,
+			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
+		})?;
+
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(
 				storage_monitor.clone(),

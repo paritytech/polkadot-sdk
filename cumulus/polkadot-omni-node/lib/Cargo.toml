@@ -26,6 +26,15 @@ futures = { workspace = true }
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+url = { workspace = true }
+
+# JAM backend (PoC wiring: path deps to the sibling checkouts; the upstream shape
+# is git deps behind a feature or a publish = false shim crate).
+jam-interface = { path = "../../../../parachain-service/cumulus/jam-interface" }
+jam-rpc-interface = { path = "../../../../parachain-service/cumulus/jam-rpc-interface" }
+jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-service/cumulus" }
+jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = ["std"] }
+jam-codec = { version = "0.1.1", features = ["std", "derive"] }
 
 # Local
 frame-metadata = { workspace = true, default-features = true }
@@ -72,7 +81,9 @@ sc-tracing = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
@@ -85,10 +96,14 @@ sp-offchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 sp-transaction-storage-proof = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
@@ -115,6 +130,7 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 sc-consensus-aura = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

@@ -16,7 +16,7 @@
 
 use crate::{
 	chain_spec::Extensions,
-	cli::DevSealMode,
+	cli::{DevSealMode, JamNodeParams},
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -358,6 +358,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		_node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
+	}
+
+	fn start_jam_node(
+		_config: Configuration,
+		_jam_params: JamNodeParams,
+		_node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		Err(sc_service::Error::Other("JAM not supported for this node type".into()))
 	}
 
 	/// Start a node with the given parachain spec.
@@ -714,6 +722,14 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager>;
 
+	/// Start node against a JAM chain.
+	fn start_jam_node(
+		self: Box<Self>,
+		config: Configuration,
+		jam_params: JamNodeParams,
+		node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager>;
+
 	/// Start the node.
 	fn start_node(
 		self: Box<Self>,
@@ -736,6 +752,15 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args)
+	}
+
+	fn start_jam_node(
+		self: Box<Self>,
+		config: Configuration,
+		jam_params: JamNodeParams,
+		node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		<Self as NodeSpec>::start_jam_node(config, jam_params, node_extra_args)
 	}
 
 	fn start_node(

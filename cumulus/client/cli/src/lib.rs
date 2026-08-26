@@ -304,6 +304,22 @@ pub struct RunCmd {
 	)]
 	pub relay_chain_rpc_urls: Vec<Url>,
 
+	/// EXPERIMENTAL (JAM): Run the parachain node against a JAM chain instead of a relay chain.
+	///
+	/// The provided URLs should point to JSON-RPC (JIP-2) endpoints of JAM nodes. The node
+	/// connects to them following the order they were specified in. If the connection fails, it
+	/// attempts to connect to the next endpoint in the list.
+	///
+	/// Presence of this flag selects the JAM mode; there is no embedded JAM node.
+	#[arg(
+		long,
+		value_parser = validate_relay_chain_url,
+		num_args = 1..,
+		alias = "jam-rpc-url",
+		conflicts_with = "relay_chain_rpc_urls"
+	)]
+	pub jam_rpc_urls: Vec<Url>,
+
 	/// EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
 	/// building blocks that do not fit in the max_pov_size. It is a percentage of the max_pov_size
 	/// configuration of the relay-chain.
