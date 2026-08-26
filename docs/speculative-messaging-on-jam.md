@@ -45,12 +45,17 @@ enum SpmsDigest {
 
 2. Digest fields: `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>` on the PS work digest
 
-The field is set via `set_requires_root` host call at most once per `Refine`. Each entry names the
-consumed root itself, so settlement can check it against the source's ring.
+The `spec_msg_requires` must not be chosen by the parachain block. Otherwise it can state any consumption.
+The block records what is consumed, then the PS Refine wrapper verifies the PoV carried lift,
+stitches bundle intervals and gap proofs, and synthesizes a `(ParaId, StreamsRoot)` per source.
 
+The PS Refine should write `spec_msg_requires` directly after verifying the consumption records and PoV lifts.
+
+To ensure canonical encoding and uniqueness, the PS Refine wrapper produces unique entries sorted by `ParaId`.
+The Refine phase rejects malformed input.
+
+`spec_msg_requires` is a digest field, because UMP signals are replayed after the head write (so it can't gate enactment).
 At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
-
-This must be a digest field and not UpwardMessage, because UMP replays after the head write (so it can't gate enactment).
 
 3. Settlement: ring `spec_msg_recent_provides` and `Requires` check
 
