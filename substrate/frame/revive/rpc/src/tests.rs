@@ -23,7 +23,10 @@ use crate::{
 	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
 	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
-	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
+	client::{
+		Client, GapFillRequest, SubscriptionGapQueue, connect,
+		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+	},
 	example::TransactionBuilder,
 	subxt_client::{self, SrcChainConfig},
 };
@@ -53,7 +56,7 @@ use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
 	BlockV1, CallTracerConfigV1, CodeV1, GenericTransactionV1, HashesOrTransactionInfosV1,
 	TraceBlockInputPayloadV1, TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload,
-	TraceBlockVersionedOutputPayload, TraceV1, TraceV2, TracerTypeV1,
+	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1,
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -377,6 +380,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_invalid_transaction,
 		test_evm_blocks_should_match,
 		test_evm_blocks_hydrated_should_match,
+		test_get_block_receipts,
 		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
@@ -851,6 +855,50 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 		panic!("Expected hydrated transactions");
 	};
 	assert_eq!(expected_tx_info, tx_info, "TransationInfos should match");
+
+	Ok(())
+}
+
+/// Verifies that `eth_getBlockReceipts` returns every receipt of a block, that querying the same
+/// block by number and by hash yields the same receipts, and that an unknown block returns `null`.
+async fn test_get_block_receipts() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let deploy_tx = TransactionRequest::default()
+		.from(from)
+		.input(AlloyBytes::from(bytecode).into())
+		.create();
+
+	// Act
+	let receipt = provider.send_transaction(deploy_tx).await?.get_receipt().await?;
+	let block_number = receipt.block_number.expect("Mined receipt has a block number");
+	let block_hash = receipt.block_hash.expect("Mined receipt has a block hash");
+
+	let by_number = provider
+		.get_block_receipts(BlockId::number(block_number))
+		.await?
+		.expect("Block should have receipts");
+	let by_hash = provider
+		.get_block_receipts(BlockId::hash(block_hash))
+		.await?
+		.expect("Block should have receipts");
+	let missing = provider.get_block_receipts(BlockId::hash(B256::from([0x42u8; 32]))).await?;
+
+	// Assert
+	let hashes_by_number = by_number.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
+	let hashes_by_hash = by_hash.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
+	assert_eq!(hashes_by_number, hashes_by_hash, "Receipts by number and by hash should match");
+	assert!(
+		by_number.iter().any(|r| r.transaction_hash == receipt.transaction_hash),
+		"Block receipts should include the sent transaction"
+	);
+	assert!(
+		by_number.iter().all(|r| r.block_hash == Some(block_hash)),
+		"All receipts should belong to the queried block"
+	);
+	assert!(missing.is_none(), "Receipts for a non-existent block should be null");
 
 	Ok(())
 }
@@ -2051,12 +2099,14 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 	let TraceBlockVersionedOutputPayload::V2(v2_output) = v2_output else {
 		return Err(anyhow!("V2 trace_block input should return V2 output"));
 	};
-	let (_, trace_v2) = v2_output
-		.traces
+	let (_, entry_v2) = v2_output
+		.entries
 		.into_iter()
-		.find(|(_, trace)| matches!(trace, TraceV2::Call(call) if !call.logs.is_empty()))
+		.find(
+			|(_, entry)| matches!(entry, TraceEntryV1::Traced(TraceV2::Call(call)) if !call.logs.is_empty()),
+		)
 		.ok_or_else(|| anyhow!("V2 output should include a call trace with logs"))?;
-	let TraceV2::Call(call_v2) = trace_v2 else {
+	let TraceEntryV1::Traced(TraceV2::Call(call_v2)) = entry_v2 else {
 		return Err(anyhow!("V2 output should include a call trace"));
 	};
 	let indexes = call_v2.logs.iter().map(|log| log.index).collect::<Vec<_>>();
@@ -2147,7 +2197,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
@@ -2165,6 +2216,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		receipt_provider,
 		true,
 		subscription_gap_queue,
+		runtime_api_provider,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
