@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787738113373,
+  "lastUpdate": 1787742976734,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
-          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-26T09:27:22Z",
-          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
-        },
-        "date": 1769423698081,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007046729326666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009404425993333364,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.0230973676,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14435421622,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14736352504000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "166888152+racequite@users.noreply.github.com",
+            "name": "Rui JingAn",
+            "username": "racequite"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aef03478f32894b72791c425143022f640a64a66",
+          "message": "fix(state-sync): reject empty unverified state responses (#12946)\n\n# Description\n\nReject state responses with no entries when state proof verification is\ndisabled.\n\nPreviously, an empty `entries` list accompanied by non-empty `proof`\nbytes could reach the unverified state processing path, which assumes\nthat at least one entry exists. Malformed peer data is now returned as\n`ImportResult::BadResponse`, allowing `StateStrategy` to drop the peer.\n\nhttps://github.com/paritytech/polkadot-sdk/issues/12945\n\n## Integration\n\nNo downstream integration changes are required. Node operators receive\nthe fix by updating `sc-network-sync`.\n\n## Review Notes\n\nResponse validation is now mode-specific:\n\n- unverified state sync requires non-empty `entries`;\n- verified state sync requires non-empty `proof`.\n\nThis avoids rejecting valid proof-only responses in verified mode.\n\nRegression tests cover both the direct `BadResponse` result and the\nresulting `DropPeer` action at the strategy layer.\n\n# Checklist\n\n* [x] My PR includes a detailed description.\n* [x] My PR follows the labeling requirements.\n* [x] Documentation changes are not applicable.\n* [x] I have added tests that prove the fix is effective.\n\n---------\n\nSigned-off-by: racequite <quiterace@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-26T08:52:33Z",
+          "tree_id": "4e3eaf4a2e41a4defda361bf2dbbc91cc03f3d03",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aef03478f32894b72791c425143022f640a64a66"
+        },
+        "date": 1787742937851,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02285104688,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010090263913333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14550687646666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007780172719999999,
             "unit": "seconds"
           }
         ]
