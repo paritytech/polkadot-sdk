@@ -444,153 +444,154 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#294 id=294 data-nosnippet>294</a>			metrics: sc_network::NetworkWorker::&lt;Block, Hash&gt;::register_notification_metrics(
 <a href=#295 id=295 data-nosnippet>295</a>				parachain_config.prometheus_config.as_ref().map(|config| <span class="kw-2">&amp;</span>config.registry),
 <a href=#296 id=296 data-nosnippet>296</a>			),
-<a href=#297 id=297 data-nosnippet>297</a>		})
-<a href=#298 id=298 data-nosnippet>298</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#299 id=299 data-nosnippet>299</a>	<span class="kw">let </span>collator_peer_id = relay_chain_network.local_peer_id();
-<a href=#300 id=300 data-nosnippet>300</a>
-<a href=#301 id=301 data-nosnippet>301</a>	<span class="kw">if </span>parachain_config.offchain_worker.enabled {
-<a href=#302 id=302 data-nosnippet>302</a>		<span class="kw">use </span>futures::FutureExt;
-<a href=#303 id=303 data-nosnippet>303</a>
-<a href=#304 id=304 data-nosnippet>304</a>		<span class="kw">let </span>offchain_workers =
-<a href=#305 id=305 data-nosnippet>305</a>			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
-<a href=#306 id=306 data-nosnippet>306</a>				runtime_api_provider: client.clone(),
-<a href=#307 id=307 data-nosnippet>307</a>				keystore: <span class="prelude-val">Some</span>(params.keystore_container.keystore()),
-<a href=#308 id=308 data-nosnippet>308</a>				offchain_db: backend.offchain_storage(),
-<a href=#309 id=309 data-nosnippet>309</a>				transaction_pool: <span class="prelude-val">Some</span>(OffchainTransactionPoolFactory::new(
-<a href=#310 id=310 data-nosnippet>310</a>					transaction_pool.clone(),
-<a href=#311 id=311 data-nosnippet>311</a>				)),
-<a href=#312 id=312 data-nosnippet>312</a>				network_provider: Arc::new(network.clone()),
-<a href=#313 id=313 data-nosnippet>313</a>				is_validator: parachain_config.role.is_authority(),
-<a href=#314 id=314 data-nosnippet>314</a>				enable_http_requests: <span class="bool-val">false</span>,
-<a href=#315 id=315 data-nosnippet>315</a>				custom_extensions: <span class="kw">move </span>|<span class="kw">_</span>| <span class="macro">vec!</span>[],
-<a href=#316 id=316 data-nosnippet>316</a>			})<span class="question-mark">?</span>;
-<a href=#317 id=317 data-nosnippet>317</a>		task_manager.spawn_handle().spawn(
-<a href=#318 id=318 data-nosnippet>318</a>			<span class="string">"offchain-workers-runner"</span>,
-<a href=#319 id=319 data-nosnippet>319</a>			<span class="string">"offchain-work"</span>,
-<a href=#320 id=320 data-nosnippet>320</a>			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
-<a href=#321 id=321 data-nosnippet>321</a>		);
-<a href=#322 id=322 data-nosnippet>322</a>	}
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a>	<span class="kw">let </span>rpc_builder = {
-<a href=#325 id=325 data-nosnippet>325</a>		<span class="kw">let </span>client = client.clone();
-<a href=#326 id=326 data-nosnippet>326</a>		<span class="kw">let </span>transaction_pool = transaction_pool.clone();
-<a href=#327 id=327 data-nosnippet>327</a>
-<a href=#328 id=328 data-nosnippet>328</a>		Box::new(<span class="kw">move </span>|<span class="kw">_</span>| {
-<a href=#329 id=329 data-nosnippet>329</a>			<span class="kw">let </span>deps =
-<a href=#330 id=330 data-nosnippet>330</a>				<span class="kw">crate</span>::rpc::FullDeps { client: client.clone(), pool: transaction_pool.clone() };
-<a href=#331 id=331 data-nosnippet>331</a>
-<a href=#332 id=332 data-nosnippet>332</a>			<span class="kw">crate</span>::rpc::create_full(deps).map_err(Into::into)
-<a href=#333 id=333 data-nosnippet>333</a>		})
-<a href=#334 id=334 data-nosnippet>334</a>	};
-<a href=#335 id=335 data-nosnippet>335</a>
-<a href=#336 id=336 data-nosnippet>336</a>	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-<a href=#337 id=337 data-nosnippet>337</a>		rpc_builder,
-<a href=#338 id=338 data-nosnippet>338</a>		client: client.clone(),
-<a href=#339 id=339 data-nosnippet>339</a>		transaction_pool: transaction_pool.clone(),
-<a href=#340 id=340 data-nosnippet>340</a>		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
-<a href=#341 id=341 data-nosnippet>341</a>		config: parachain_config,
-<a href=#342 id=342 data-nosnippet>342</a>		keystore: params.keystore_container.keystore(),
-<a href=#343 id=343 data-nosnippet>343</a>		backend: backend.clone(),
-<a href=#344 id=344 data-nosnippet>344</a>		network: network.clone(),
-<a href=#345 id=345 data-nosnippet>345</a>		sync_service: sync_service.clone(),
-<a href=#346 id=346 data-nosnippet>346</a>		system_rpc_tx,
-<a href=#347 id=347 data-nosnippet>347</a>		tx_handler_controller,
-<a href=#348 id=348 data-nosnippet>348</a>		telemetry: telemetry.as_mut(),
-<a href=#349 id=349 data-nosnippet>349</a>		tracing_execute_block: <span class="prelude-val">Some</span>(Arc::new(ParachainTracingExecuteBlock::new(client.clone()))),
-<a href=#350 id=350 data-nosnippet>350</a>	})<span class="question-mark">?</span>;
-<a href=#351 id=351 data-nosnippet>351</a>
-<a href=#352 id=352 data-nosnippet>352</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(hwbench) = hwbench {
-<a href=#353 id=353 data-nosnippet>353</a>		sc_sysinfo::print_hwbench(<span class="kw-2">&amp;</span>hwbench);
-<a href=#354 id=354 data-nosnippet>354</a>		<span class="comment">// Here you can check whether the hardware meets your chains' requirements. Putting a link
-<a href=#355 id=355 data-nosnippet>355</a>		// in there and swapping out the requirements for your own are probably a good idea. The
-<a href=#356 id=356 data-nosnippet>356</a>		// requirements for a para-chain are dictated by its relay-chain.
-<a href=#357 id=357 data-nosnippet>357</a>		</span><span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench, <span class="bool-val">false</span>) {
-<a href=#358 id=358 data-nosnippet>358</a>			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>validator =&gt; {
-<a href=#359 id=359 data-nosnippet>359</a>				<span class="macro">log::warn!</span>(
-<a href=#360 id=360 data-nosnippet>360</a>				<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'."</span>,
-<a href=#361 id=361 data-nosnippet>361</a>				err
-<a href=#362 id=362 data-nosnippet>362</a>			);
-<a href=#363 id=363 data-nosnippet>363</a>			},
-<a href=#364 id=364 data-nosnippet>364</a>			<span class="kw">_ </span>=&gt; {},
-<a href=#365 id=365 data-nosnippet>365</a>		}
-<a href=#366 id=366 data-nosnippet>366</a>
-<a href=#367 id=367 data-nosnippet>367</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>telemetry) = telemetry {
-<a href=#368 id=368 data-nosnippet>368</a>			<span class="kw">let </span>telemetry_handle = telemetry.handle();
-<a href=#369 id=369 data-nosnippet>369</a>			task_manager.spawn_handle().spawn(
-<a href=#370 id=370 data-nosnippet>370</a>				<span class="string">"telemetry_hwbench"</span>,
-<a href=#371 id=371 data-nosnippet>371</a>				<span class="prelude-val">None</span>,
-<a href=#372 id=372 data-nosnippet>372</a>				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
-<a href=#373 id=373 data-nosnippet>373</a>			);
-<a href=#374 id=374 data-nosnippet>374</a>		}
-<a href=#375 id=375 data-nosnippet>375</a>	}
-<a href=#376 id=376 data-nosnippet>376</a>
-<a href=#377 id=377 data-nosnippet>377</a>	<span class="kw">let </span>announce_block = {
-<a href=#378 id=378 data-nosnippet>378</a>		<span class="kw">let </span>sync_service = sync_service.clone();
-<a href=#379 id=379 data-nosnippet>379</a>		Arc::new(<span class="kw">move </span>|hash, data| sync_service.announce_block(hash, data))
-<a href=#380 id=380 data-nosnippet>380</a>	};
-<a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a>	<span class="kw">let </span>relay_chain_slot_duration = Duration::from_secs(<span class="number">6</span>);
-<a href=#383 id=383 data-nosnippet>383</a>
-<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">let </span>overseer_handle = relay_chain_interface
-<a href=#385 id=385 data-nosnippet>385</a>		.overseer_handle()
-<a href=#386 id=386 data-nosnippet>386</a>		.map_err(|e| sc_service::Error::Application(Box::new(e)))<span class="question-mark">?</span>;
-<a href=#387 id=387 data-nosnippet>387</a>
-<a href=#388 id=388 data-nosnippet>388</a>	start_relay_chain_tasks(StartRelayChainTasksParams {
-<a href=#389 id=389 data-nosnippet>389</a>		client: client.clone(),
-<a href=#390 id=390 data-nosnippet>390</a>		announce_block: announce_block.clone(),
-<a href=#391 id=391 data-nosnippet>391</a>		para_id,
-<a href=#392 id=392 data-nosnippet>392</a>		relay_chain_interface: relay_chain_interface.clone(),
-<a href=#393 id=393 data-nosnippet>393</a>		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
-<a href=#394 id=394 data-nosnippet>394</a>		da_recovery_profile: <span class="kw">if </span>validator {
-<a href=#395 id=395 data-nosnippet>395</a>			DARecoveryProfile::Collator
-<a href=#396 id=396 data-nosnippet>396</a>		} <span class="kw">else </span>{
-<a href=#397 id=397 data-nosnippet>397</a>			DARecoveryProfile::FullNode
-<a href=#398 id=398 data-nosnippet>398</a>		},
-<a href=#399 id=399 data-nosnippet>399</a>		import_queue: import_queue_service,
-<a href=#400 id=400 data-nosnippet>400</a>		relay_chain_slot_duration,
-<a href=#401 id=401 data-nosnippet>401</a>		recovery_handle: Box::new(overseer_handle.clone()),
-<a href=#402 id=402 data-nosnippet>402</a>		sync_service: sync_service.clone(),
-<a href=#403 id=403 data-nosnippet>403</a>		prometheus_registry: prometheus_registry.as_ref(),
-<a href=#404 id=404 data-nosnippet>404</a>	})<span class="question-mark">?</span>;
-<a href=#405 id=405 data-nosnippet>405</a>
-<a href=#406 id=406 data-nosnippet>406</a>	start_bootnode_tasks(StartBootnodeTasksParams {
-<a href=#407 id=407 data-nosnippet>407</a>		embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
-<a href=#408 id=408 data-nosnippet>408</a>		dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
-<a href=#409 id=409 data-nosnippet>409</a>		para_id,
-<a href=#410 id=410 data-nosnippet>410</a>		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
-<a href=#411 id=411 data-nosnippet>411</a>		relay_chain_interface: relay_chain_interface.clone(),
-<a href=#412 id=412 data-nosnippet>412</a>		relay_chain_fork_id,
-<a href=#413 id=413 data-nosnippet>413</a>		relay_chain_network,
-<a href=#414 id=414 data-nosnippet>414</a>		request_receiver: paranode_rx,
-<a href=#415 id=415 data-nosnippet>415</a>		parachain_network: network,
-<a href=#416 id=416 data-nosnippet>416</a>		advertise_non_global_ips,
-<a href=#417 id=417 data-nosnippet>417</a>		parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
-<a href=#418 id=418 data-nosnippet>418</a>		parachain_fork_id,
-<a href=#419 id=419 data-nosnippet>419</a>		parachain_public_addresses,
-<a href=#420 id=420 data-nosnippet>420</a>	});
-<a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>	<span class="kw">if </span>validator {
-<a href=#423 id=423 data-nosnippet>423</a>		start_consensus(
-<a href=#424 id=424 data-nosnippet>424</a>			client.clone(),
-<a href=#425 id=425 data-nosnippet>425</a>			backend,
-<a href=#426 id=426 data-nosnippet>426</a>			block_import,
-<a href=#427 id=427 data-nosnippet>427</a>			prometheus_registry.as_ref(),
-<a href=#428 id=428 data-nosnippet>428</a>			telemetry.as_ref().map(|t| t.handle()),
-<a href=#429 id=429 data-nosnippet>429</a>			<span class="kw-2">&amp;</span>task_manager,
-<a href=#430 id=430 data-nosnippet>430</a>			relay_chain_interface,
-<a href=#431 id=431 data-nosnippet>431</a>			transaction_pool,
-<a href=#432 id=432 data-nosnippet>432</a>			params.keystore_container.keystore(),
-<a href=#433 id=433 data-nosnippet>433</a>			relay_chain_slot_duration,
-<a href=#434 id=434 data-nosnippet>434</a>			para_id,
-<a href=#435 id=435 data-nosnippet>435</a>			collator_key.expect(<span class="string">"Command line arguments do not allow this. qed"</span>),
-<a href=#436 id=436 data-nosnippet>436</a>			collator_peer_id,
-<a href=#437 id=437 data-nosnippet>437</a>			overseer_handle,
-<a href=#438 id=438 data-nosnippet>438</a>			announce_block,
-<a href=#439 id=439 data-nosnippet>439</a>		)<span class="question-mark">?</span>;
-<a href=#440 id=440 data-nosnippet>440</a>	}
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a>	<span class="prelude-val">Ok</span>((task_manager, client))
-<a href=#443 id=443 data-nosnippet>443</a>}
+<a href=#297 id=297 data-nosnippet>297</a>			gap_sync_body_policy: <span class="prelude-val">None</span>,
+<a href=#298 id=298 data-nosnippet>298</a>		})
+<a href=#299 id=299 data-nosnippet>299</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#300 id=300 data-nosnippet>300</a>	<span class="kw">let </span>collator_peer_id = relay_chain_network.local_peer_id();
+<a href=#301 id=301 data-nosnippet>301</a>
+<a href=#302 id=302 data-nosnippet>302</a>	<span class="kw">if </span>parachain_config.offchain_worker.enabled {
+<a href=#303 id=303 data-nosnippet>303</a>		<span class="kw">use </span>futures::FutureExt;
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a>		<span class="kw">let </span>offchain_workers =
+<a href=#306 id=306 data-nosnippet>306</a>			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+<a href=#307 id=307 data-nosnippet>307</a>				runtime_api_provider: client.clone(),
+<a href=#308 id=308 data-nosnippet>308</a>				keystore: <span class="prelude-val">Some</span>(params.keystore_container.keystore()),
+<a href=#309 id=309 data-nosnippet>309</a>				offchain_db: backend.offchain_storage(),
+<a href=#310 id=310 data-nosnippet>310</a>				transaction_pool: <span class="prelude-val">Some</span>(OffchainTransactionPoolFactory::new(
+<a href=#311 id=311 data-nosnippet>311</a>					transaction_pool.clone(),
+<a href=#312 id=312 data-nosnippet>312</a>				)),
+<a href=#313 id=313 data-nosnippet>313</a>				network_provider: Arc::new(network.clone()),
+<a href=#314 id=314 data-nosnippet>314</a>				is_validator: parachain_config.role.is_authority(),
+<a href=#315 id=315 data-nosnippet>315</a>				enable_http_requests: <span class="bool-val">false</span>,
+<a href=#316 id=316 data-nosnippet>316</a>				custom_extensions: <span class="kw">move </span>|<span class="kw">_</span>| <span class="macro">vec!</span>[],
+<a href=#317 id=317 data-nosnippet>317</a>			})<span class="question-mark">?</span>;
+<a href=#318 id=318 data-nosnippet>318</a>		task_manager.spawn_handle().spawn(
+<a href=#319 id=319 data-nosnippet>319</a>			<span class="string">"offchain-workers-runner"</span>,
+<a href=#320 id=320 data-nosnippet>320</a>			<span class="string">"offchain-work"</span>,
+<a href=#321 id=321 data-nosnippet>321</a>			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+<a href=#322 id=322 data-nosnippet>322</a>		);
+<a href=#323 id=323 data-nosnippet>323</a>	}
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>	<span class="kw">let </span>rpc_builder = {
+<a href=#326 id=326 data-nosnippet>326</a>		<span class="kw">let </span>client = client.clone();
+<a href=#327 id=327 data-nosnippet>327</a>		<span class="kw">let </span>transaction_pool = transaction_pool.clone();
+<a href=#328 id=328 data-nosnippet>328</a>
+<a href=#329 id=329 data-nosnippet>329</a>		Box::new(<span class="kw">move </span>|<span class="kw">_</span>| {
+<a href=#330 id=330 data-nosnippet>330</a>			<span class="kw">let </span>deps =
+<a href=#331 id=331 data-nosnippet>331</a>				<span class="kw">crate</span>::rpc::FullDeps { client: client.clone(), pool: transaction_pool.clone() };
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>			<span class="kw">crate</span>::rpc::create_full(deps).map_err(Into::into)
+<a href=#334 id=334 data-nosnippet>334</a>		})
+<a href=#335 id=335 data-nosnippet>335</a>	};
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+<a href=#338 id=338 data-nosnippet>338</a>		rpc_builder,
+<a href=#339 id=339 data-nosnippet>339</a>		client: client.clone(),
+<a href=#340 id=340 data-nosnippet>340</a>		transaction_pool: transaction_pool.clone(),
+<a href=#341 id=341 data-nosnippet>341</a>		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
+<a href=#342 id=342 data-nosnippet>342</a>		config: parachain_config,
+<a href=#343 id=343 data-nosnippet>343</a>		keystore: params.keystore_container.keystore(),
+<a href=#344 id=344 data-nosnippet>344</a>		backend: backend.clone(),
+<a href=#345 id=345 data-nosnippet>345</a>		network: network.clone(),
+<a href=#346 id=346 data-nosnippet>346</a>		sync_service: sync_service.clone(),
+<a href=#347 id=347 data-nosnippet>347</a>		system_rpc_tx,
+<a href=#348 id=348 data-nosnippet>348</a>		tx_handler_controller,
+<a href=#349 id=349 data-nosnippet>349</a>		telemetry: telemetry.as_mut(),
+<a href=#350 id=350 data-nosnippet>350</a>		tracing_execute_block: <span class="prelude-val">Some</span>(Arc::new(ParachainTracingExecuteBlock::new(client.clone()))),
+<a href=#351 id=351 data-nosnippet>351</a>	})<span class="question-mark">?</span>;
+<a href=#352 id=352 data-nosnippet>352</a>
+<a href=#353 id=353 data-nosnippet>353</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(hwbench) = hwbench {
+<a href=#354 id=354 data-nosnippet>354</a>		sc_sysinfo::print_hwbench(<span class="kw-2">&amp;</span>hwbench);
+<a href=#355 id=355 data-nosnippet>355</a>		<span class="comment">// Here you can check whether the hardware meets your chains' requirements. Putting a link
+<a href=#356 id=356 data-nosnippet>356</a>		// in there and swapping out the requirements for your own are probably a good idea. The
+<a href=#357 id=357 data-nosnippet>357</a>		// requirements for a para-chain are dictated by its relay-chain.
+<a href=#358 id=358 data-nosnippet>358</a>		</span><span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench, <span class="bool-val">false</span>) {
+<a href=#359 id=359 data-nosnippet>359</a>			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>validator =&gt; {
+<a href=#360 id=360 data-nosnippet>360</a>				<span class="macro">log::warn!</span>(
+<a href=#361 id=361 data-nosnippet>361</a>				<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'."</span>,
+<a href=#362 id=362 data-nosnippet>362</a>				err
+<a href=#363 id=363 data-nosnippet>363</a>			);
+<a href=#364 id=364 data-nosnippet>364</a>			},
+<a href=#365 id=365 data-nosnippet>365</a>			<span class="kw">_ </span>=&gt; {},
+<a href=#366 id=366 data-nosnippet>366</a>		}
+<a href=#367 id=367 data-nosnippet>367</a>
+<a href=#368 id=368 data-nosnippet>368</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>telemetry) = telemetry {
+<a href=#369 id=369 data-nosnippet>369</a>			<span class="kw">let </span>telemetry_handle = telemetry.handle();
+<a href=#370 id=370 data-nosnippet>370</a>			task_manager.spawn_handle().spawn(
+<a href=#371 id=371 data-nosnippet>371</a>				<span class="string">"telemetry_hwbench"</span>,
+<a href=#372 id=372 data-nosnippet>372</a>				<span class="prelude-val">None</span>,
+<a href=#373 id=373 data-nosnippet>373</a>				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
+<a href=#374 id=374 data-nosnippet>374</a>			);
+<a href=#375 id=375 data-nosnippet>375</a>		}
+<a href=#376 id=376 data-nosnippet>376</a>	}
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>	<span class="kw">let </span>announce_block = {
+<a href=#379 id=379 data-nosnippet>379</a>		<span class="kw">let </span>sync_service = sync_service.clone();
+<a href=#380 id=380 data-nosnippet>380</a>		Arc::new(<span class="kw">move </span>|hash, data| sync_service.announce_block(hash, data))
+<a href=#381 id=381 data-nosnippet>381</a>	};
+<a href=#382 id=382 data-nosnippet>382</a>
+<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">let </span>relay_chain_slot_duration = Duration::from_secs(<span class="number">6</span>);
+<a href=#384 id=384 data-nosnippet>384</a>
+<a href=#385 id=385 data-nosnippet>385</a>	<span class="kw">let </span>overseer_handle = relay_chain_interface
+<a href=#386 id=386 data-nosnippet>386</a>		.overseer_handle()
+<a href=#387 id=387 data-nosnippet>387</a>		.map_err(|e| sc_service::Error::Application(Box::new(e)))<span class="question-mark">?</span>;
+<a href=#388 id=388 data-nosnippet>388</a>
+<a href=#389 id=389 data-nosnippet>389</a>	start_relay_chain_tasks(StartRelayChainTasksParams {
+<a href=#390 id=390 data-nosnippet>390</a>		client: client.clone(),
+<a href=#391 id=391 data-nosnippet>391</a>		announce_block: announce_block.clone(),
+<a href=#392 id=392 data-nosnippet>392</a>		para_id,
+<a href=#393 id=393 data-nosnippet>393</a>		relay_chain_interface: relay_chain_interface.clone(),
+<a href=#394 id=394 data-nosnippet>394</a>		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
+<a href=#395 id=395 data-nosnippet>395</a>		da_recovery_profile: <span class="kw">if </span>validator {
+<a href=#396 id=396 data-nosnippet>396</a>			DARecoveryProfile::Collator
+<a href=#397 id=397 data-nosnippet>397</a>		} <span class="kw">else </span>{
+<a href=#398 id=398 data-nosnippet>398</a>			DARecoveryProfile::FullNode
+<a href=#399 id=399 data-nosnippet>399</a>		},
+<a href=#400 id=400 data-nosnippet>400</a>		import_queue: import_queue_service,
+<a href=#401 id=401 data-nosnippet>401</a>		relay_chain_slot_duration,
+<a href=#402 id=402 data-nosnippet>402</a>		recovery_handle: Box::new(overseer_handle.clone()),
+<a href=#403 id=403 data-nosnippet>403</a>		sync_service: sync_service.clone(),
+<a href=#404 id=404 data-nosnippet>404</a>		prometheus_registry: prometheus_registry.as_ref(),
+<a href=#405 id=405 data-nosnippet>405</a>	})<span class="question-mark">?</span>;
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a>	start_bootnode_tasks(StartBootnodeTasksParams {
+<a href=#408 id=408 data-nosnippet>408</a>		embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
+<a href=#409 id=409 data-nosnippet>409</a>		dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
+<a href=#410 id=410 data-nosnippet>410</a>		para_id,
+<a href=#411 id=411 data-nosnippet>411</a>		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
+<a href=#412 id=412 data-nosnippet>412</a>		relay_chain_interface: relay_chain_interface.clone(),
+<a href=#413 id=413 data-nosnippet>413</a>		relay_chain_fork_id,
+<a href=#414 id=414 data-nosnippet>414</a>		relay_chain_network,
+<a href=#415 id=415 data-nosnippet>415</a>		request_receiver: paranode_rx,
+<a href=#416 id=416 data-nosnippet>416</a>		parachain_network: network,
+<a href=#417 id=417 data-nosnippet>417</a>		advertise_non_global_ips,
+<a href=#418 id=418 data-nosnippet>418</a>		parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
+<a href=#419 id=419 data-nosnippet>419</a>		parachain_fork_id,
+<a href=#420 id=420 data-nosnippet>420</a>		parachain_public_addresses,
+<a href=#421 id=421 data-nosnippet>421</a>	});
+<a href=#422 id=422 data-nosnippet>422</a>
+<a href=#423 id=423 data-nosnippet>423</a>	<span class="kw">if </span>validator {
+<a href=#424 id=424 data-nosnippet>424</a>		start_consensus(
+<a href=#425 id=425 data-nosnippet>425</a>			client.clone(),
+<a href=#426 id=426 data-nosnippet>426</a>			backend,
+<a href=#427 id=427 data-nosnippet>427</a>			block_import,
+<a href=#428 id=428 data-nosnippet>428</a>			prometheus_registry.as_ref(),
+<a href=#429 id=429 data-nosnippet>429</a>			telemetry.as_ref().map(|t| t.handle()),
+<a href=#430 id=430 data-nosnippet>430</a>			<span class="kw-2">&amp;</span>task_manager,
+<a href=#431 id=431 data-nosnippet>431</a>			relay_chain_interface,
+<a href=#432 id=432 data-nosnippet>432</a>			transaction_pool,
+<a href=#433 id=433 data-nosnippet>433</a>			params.keystore_container.keystore(),
+<a href=#434 id=434 data-nosnippet>434</a>			relay_chain_slot_duration,
+<a href=#435 id=435 data-nosnippet>435</a>			para_id,
+<a href=#436 id=436 data-nosnippet>436</a>			collator_key.expect(<span class="string">"Command line arguments do not allow this. qed"</span>),
+<a href=#437 id=437 data-nosnippet>437</a>			collator_peer_id,
+<a href=#438 id=438 data-nosnippet>438</a>			overseer_handle,
+<a href=#439 id=439 data-nosnippet>439</a>			announce_block,
+<a href=#440 id=440 data-nosnippet>440</a>		)<span class="question-mark">?</span>;
+<a href=#441 id=441 data-nosnippet>441</a>	}
+<a href=#442 id=442 data-nosnippet>442</a>
+<a href=#443 id=443 data-nosnippet>443</a>	<span class="prelude-val">Ok</span>((task_manager, client))
+<a href=#444 id=444 data-nosnippet>444</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

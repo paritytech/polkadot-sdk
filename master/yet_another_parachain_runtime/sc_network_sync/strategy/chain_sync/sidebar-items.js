@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ChainSyncMode"],"fn":["validate_blocks"],"struct":["ChainSync"]};
+window.SIDEBAR_ITEMS = {"enum":["ChainSyncMode","GapSyncBodyPolicy"],"fn":["validate_blocks"],"struct":["ChainSync"],"type":["GapSyncBodyPolicyProvider"]};
