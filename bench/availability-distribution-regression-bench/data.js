@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787747618752,
+  "lastUpdate": 1787753312626,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340",
-          "message": "net: Spawn network backend as essential task (#10847)\n\nThis PR spawns the network backends as essential (libp2p / litep2p).\n\nWhen the network future exits, it will bring down the whole process.\n- there's no point in running a node without the core network backend as\nit will not be able to communicate with peers\n- while at it, have changed some logs from debug to warn\n- the network backend can be brought down unintentionally by the\n`import_notif_stream`\n\n\nDiscovered during:\n- https://github.com/paritytech/polkadot-sdk/issues/10821\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-26T15:39:44Z",
-          "tree_id": "63664732e2d31aac59b145d73bf121b6ac450c2e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340"
-        },
-        "date": 1769446414177,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023417161379999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007075592673333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010212647746666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14646747441333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14630791089333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "be6cb5e6c2b370d29fbf87c94dcda55704e55ef1",
+          "message": "Snowbridge: drop outbound-queue-v2 message leaves from state (#12211)\n\n# Description\n\nThe `outbound-queue-v2` pallet stored the per-message merkle leaves in\nthe `MessageLeaves` storage value and only\ncleared them at the start of the next block. As a result the leaves\npersisted in state across blocks and were\nneedlessly included in the PoV, even though they are only required to\nbuild the commitment root and to generate proofs\noff-chain.\n\nThis PR makes `MessageLeaves` truly transient: the leaves are still\nappended during block execution to build the merkle\nroot, but the value is now killed within the same block, right after the\ncommitment is produced in `commit()`. The\ncommitted root inserted into the header digest is unchanged.\n\nCloses #7971\n\n## Integration\n\nNo integration steps are required for downstream runtimes. The change is\ninternal to the `outbound-queue-v2` pallet:\n\n- The on-chain commitment (merkle root in the header digest) is computed\nexactly as before, so relayers and the\nEthereum-side verification are unaffected.\n- The `prove_message` runtime API keeps the same signature and return\nvalue; it now recomputes the leaves from\n`Messages` instead of reading `MessageLeaves`.\n- `MessageLeaves` is no longer expected to be present in state after a\nblock; any tooling that read it directly (there\nshould be none, as it was transient by design) must recompute leaves\nfrom `Messages` instead.\n\n## Review Notes\n\n- `commit()` now calls `MessageLeaves::kill()` immediately after\nbuilding the root, so the value never persists beyond\nthe block in which it is produced and never enters the PoV.\n- Because the leaves are no longer stored, the `prove_message` runtime\nAPI reconstructs them from the `Messages`\nstorage, in the same order they were appended during block execution, so\n`leaf_index` stays valid. This API is read\noff-chain only, so reading `Messages` here does not enter any block's\nPoV.\n- Leaf computation (Keccak256 of the ABI-encoded message) was extracted\ninto a single `Pallet::message_leaf` helper,\nshared by message processing and proof generation, so both always\nproduce identical leaves.\n- The `MessageLeaves::kill()` in `on_initialize` is kept as a defensive\ncleanup that also removes any value left\npersisted by a pre-upgrade runtime.\n- New test `prove_message_recomputes_committed_leaves_after_commit`\nasserts that, after `commit` drops the leaves,\nproofs recomputed from `Messages` still verify against the very same\nroot committed on-chain.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-26T11:59:01Z",
+          "tree_id": "ab51fb87c515356fec316d98375e08f1cd884e7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/be6cb5e6c2b370d29fbf87c94dcda55704e55ef1"
+        },
+        "date": 1787753272957,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009805192906666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007821152786666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02283084833333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14592082556000002,
             "unit": "seconds"
           }
         ]
