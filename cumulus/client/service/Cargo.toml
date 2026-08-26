@@ -63,4 +63,4 @@ tokio = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
 [features]
-doppelganger = [ "dep:tokio", "dep:serde_json" ]
+doppelganger = [ "dep:tokio", "dep:serde_json", "sc-network-sync/doppelganger" ]

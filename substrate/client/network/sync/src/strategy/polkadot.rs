@@ -412,12 +412,29 @@ where
 						target: LOG_TARGET,
 						"Warp sync is complete, continuing with state sync."
 					);
+					// Warp cannot ask for unproved state: `SyncMode::Warp` has no `skip_proofs`,
+					// unlike `--sync fast-unsafe`. That deadlocks on Kusama Asset Hub, where
+					// `Staking::ErasValidatorPrefs` turns the responder's 2 MiB collection budget
+					// into a 15.6 MiB proof: the next chunk cannot be served, the cursor stops,
+					// and peers ban the node for re-requesting the same range.
+					//
+					// Only doppelganger builds can skip it, and only when asked: those bite a
+					// chain rather than follow it, so the state is overwritten immediately.
+					#[cfg(feature = "doppelganger")]
+					let skip_proof = {
+						let skip_proof = std::env::var("ZOMBIE_WARP_SKIP_PROOF").is_ok();
+						info!(target: LOG_TARGET, "Skipping state proofs: {skip_proof}");
+						skip_proof
+					};
+					#[cfg(not(feature = "doppelganger"))]
+					let skip_proof = false;
+
 					let state_sync = StateStrategy::new(
 						self.client.clone(),
 						res.target_header,
 						res.target_body,
 						res.target_justifications,
-						false,
+						skip_proof,
 						self.peer_best_blocks
 							.iter()
 							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),
