@@ -10,6 +10,8 @@ doc:
       Delegation::update stores nothing for a new zero-amount entry. A zero top-up on an
       existing delegation is unchanged (still a no-op), which nomination-pools relies on for
       bond_extra at 100% commission.
+
+      A try-state check also asserts that stored delegations are never zero.
 crates:
   - name: pallet-delegated-staking
     bump: patch
