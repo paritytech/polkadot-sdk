@@ -649,7 +649,8 @@ where
 				);
 
 				if !is_authority {
-					return;
+					// Essential task: park forever, returning would shut the node down.
+					return futures::future::pending::<()>().await;
 				}
 
 				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
@@ -694,6 +695,9 @@ where
 						},
 					)),
 				);
+
+				// Essential task: park forever, returning would shut the node down.
+				futures::future::pending::<()>().await;
 			}
 		};
 		task_manager
