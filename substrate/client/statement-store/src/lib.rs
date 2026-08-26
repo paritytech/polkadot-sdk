@@ -2646,11 +2646,11 @@ impl StatementStore for Store {
 		// does not make it into the finalized chain, but this is an acceptable tradeoff for
 		// better responsiveness to allowance changes.
 		let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {
-			Ok(Some(allowance)) => allowance,
-			Ok(None) => {
+			Ok(Some(allowance)) if !allowance.is_depleted() => allowance,
+			Ok(Some(_)) | Ok(None) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Account {} has no statement allowance set",
+					"Account {} has no usable statement allowance",
 					HexDisplay::from(&account_id),
 				);
 				let reason = RejectionReason::NoAllowance;
@@ -3360,6 +3360,9 @@ mod tests {
 				Some(3) => StatementAllowance::new(3, 1000),
 				Some(4) => StatementAllowance::new(4, 1000),
 				Some(42) => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				// Depleted on one axis, but still present in state.
+				Some(50) => StatementAllowance::new(0, 1000),
+				Some(51) => StatementAllowance::new(5, 0),
 				Some(_) | None => StatementAllowance::new(100, 1000),
 			};
 			Ok(Some(sc_client_api::StorageData(allowance.encode())))
@@ -3601,6 +3604,26 @@ mod tests {
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
 		let statement1 = statement(1, 1, None, 0);
 		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
+	}
+
+	#[test]
+	fn depleted_count_allowance_admits_nothing() {
+		let (store, _temp) = test_store();
+		// Account 50 has `max_count: 0`.
+		let result = store.submit(statement(50, 1, None, 100), StatementSource::Network);
+		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.total_size(), 0);
+	}
+
+	#[test]
+	fn depleted_size_allowance_admits_nothing() {
+		let (store, _temp) = test_store();
+		// Account 51 has `max_size: 0`; a zero-length statement passes the length gate.
+		let result = store.submit(statement(51, 1, None, 0), StatementSource::Network);
+		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.total_size(), 0);
 	}
 
 	#[test]
