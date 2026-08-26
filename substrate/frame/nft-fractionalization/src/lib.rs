@@ -379,11 +379,8 @@ pub mod pallet {
 			T::Assets::start_destroy(asset_id.clone(), None)?;
 			// Finish the destruction, otherwise the asset entry, its metadata and the metadata
 			// deposit stay around. `burn_from` above emptied the only account holding fractions,
-			// so this normally succeeds. It fails while the asset still has accounts -- a
-			// `touch`ed account survives a zero balance -- or approvals, no matter whose, and
-			// possibly for reasons of the registry's own. Since anyone can create such an account
-			// or approval, blocking the unify on them would lock the NFT for good, so we keep the
-			// old behaviour there: the asset stays in `Destroying` state and anyone can clean it
+			// so this normally succeeds. But if the asset still has accounts or approvals, which anyone could create, it fails.
+			// So we don't block the unify so the NFT doesn't get locked for good. We keep old behavior: the asset stays in `Destroying` state and anyone can clean it
 			// up with `destroy_accounts`/`destroy_approvals` + `finish_destroy`. The storage layer
 			// is there because a `Destroy` impl is not required to be atomic on failure, and we
 			// are swallowing that failure.
