@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787742097521,
+  "lastUpdate": 1787746725306,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -117935,6 +117935,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2942008255,
             "range": "± 12638939",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3d7197b37974af7d22c8a7101c89f28a06285f9e",
+          "message": "statement gossip: bound outbound sends with a per-peer outbox (#12878)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12838\n\nThe statement gossip protocol encoded every propagation chunk for every\npeer up front, holding an unbounded number of encoded payloads for up to\nten seconds each when peers read slowly. Propagation now queues hashes\nto a per-peer outbox (at most 64 Ki hashes, 2 MiB, oldest dropped first\nand counted by the `outbox_full` reason of\n`substrate_sync_statement_undelivered_total`), keeps at most one chunk\nper peer in flight, and encodes statements from the store only when the\npeer's send slot is free.\n\nInitial-sync and propagation chunks together are capped at 16 MiB in\nflight, observable via the new\n`substrate_sync_propagation_in_flight_bytes` gauge next to the existing\ninitial-sync one. Initial-sync chunks share the propagation fetch path\nand now also skip statements the receiving peer itself sent us.\n\n## Integration\n\n`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES` in `sc_network_statement::config` is\nrenamed to `MAX_SEND_IN_FLIGHT_BYTES` and now covers propagation and\ninitial-sync chunks together. `MAX_PROPAGATION_OUTBOX_LEN` is added.",
+          "timestamp": "2026-08-26T10:52:58Z",
+          "tree_id": "9e37c4f80ac8c3591c75d62e0ea543f65943be8c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d7197b37974af7d22c8a7101c89f28a06285f9e"
+        },
+        "date": 1787746695243,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20909711,
+            "range": "± 129232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21161164,
+            "range": "± 229863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22582940,
+            "range": "± 220620",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28088902,
+            "range": "± 348353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 67013990,
+            "range": "± 1577085",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 430531474,
+            "range": "± 8915054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3134032703,
+            "range": "± 102762927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18222364,
+            "range": "± 173590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17997128,
+            "range": "± 230159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18840455,
+            "range": "± 140012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23480393,
+            "range": "± 147393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 69638866,
+            "range": "± 1120716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 427027354,
+            "range": "± 4922461",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2904077555,
+            "range": "± 27492594",
             "unit": "ns/iter"
           }
         ]
