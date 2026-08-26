@@ -6535,10 +6535,7 @@ mod tests {
 			max_size,
 		)
 		.expect("the test store never fails a fetch");
-		assert_eq!(
-			statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
-			vec![live_hash],
-		);
+		assert_eq!(statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![live_hash],);
 
 		let watermark = store.admission_watermark().expect("watermark is readable");
 		let (batch, _size) =
