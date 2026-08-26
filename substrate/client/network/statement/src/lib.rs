@@ -847,11 +847,6 @@ fn unix_timestamp_secs() -> u64 {
 		.as_secs()
 }
 
-/// Whether the store would reject the statement as `AlreadyExpired`.
-fn is_expired(statement: &Statement, now: u64) -> bool {
-	now >= u64::from(statement.get_expiration_timestamp_secs())
-}
-
 /// Fetch the next chunk of statements admitted between `cursor` and `watermark`, filtering
 /// in the `admitted_statements` callback so non-matching statements are never cloned into
 /// the batch.
@@ -876,7 +871,7 @@ fn fetch_admitted_chunk(
 		watermark,
 		INITIAL_SYNC_SCAN_LIMIT,
 		&mut |hash, encoded, stmt| {
-			if is_expired(stmt, now) {
+			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
 			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
@@ -912,7 +907,7 @@ fn fetch_statement_chunk(
 	let mut accumulated_size = 0;
 	let (statements, processed) =
 		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
-			if is_expired(stmt, now) {
+			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
 			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
