@@ -7,8 +7,11 @@
 #        polkajam-testnet --num-ordinary-nodes 1        # RPC on ws://127.0.0.1:19800
 #      (In sandboxes without userfaultfd: POLKAVM_BACKEND=interpreter POLKAVM_ALLOW_INSECURE=1.)
 #   2. The parasim service registered on it (parachain-service repo):
-#        scripts/parasim-run.sh   # or: jamt create-service <parasim-service.jam> <endowment> \
-#                                 #       --register=parasim --raw --id 5
+#        jamt create-service <parasim-service.jam> 1000000000000000000 \
+#            --register=parasim --raw --id 5
+#      Register from a COPY of the blob: PVM builds are not byte-deterministic and a later
+#      cargo run can rewrite the blob after its hash was registered, leaving the service
+#      without a resolvable code preimage ("Service code not found").
 #   3. This repo built: cargo build --release -p polkadot-omni-node -p parachain-template-runtime
 #
 # The demo parachain uses PARA ID 0: under the dev-genesis null authorizer (empty
