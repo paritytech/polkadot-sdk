@@ -15,3 +15,7 @@ crates:
   bump: minor
 - name: sp-keystore
   bump: patch
+- name: sp-rpc
+  bump: patch
+- name: sc-storage-monitor
+  bump: patch
