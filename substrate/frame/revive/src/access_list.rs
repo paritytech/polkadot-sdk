@@ -119,31 +119,28 @@ pub enum StorageAccessKind {
 	Transient,
 }
 
-/// What a transaction has already paid for a slot. Ordered: `Write` has
-/// paid for everything `Read` has.
+/// The operation a storage access performs. `Read` sorts below `Write`, which
+/// [`Self::covers`] relies on.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Paid {
-	/// The read cost is paid.
+pub enum StorageOp {
+	/// Reads the slot.
 	Read,
-	/// The write cost is paid.
+	/// Writes the slot.
 	Write,
 }
 
-impl Paid {
-	/// Whether this level has already paid for an access performing `op`.
+impl StorageOp {
+	/// Whether charging `self` also pays for `op`.
 	pub fn covers(self, op: StorageOp) -> bool {
 		self >= op
 	}
 }
 
-/// The same two variants named for the operation being performed.
-pub type StorageOp = Paid;
-
 /// Warmth of an access-list entry, as it stood **before** the access.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Warmth {
-	/// Entry is in the access list; carries the level the slot had paid.
-	Hot(Paid),
+	/// Entry is in the access list; `charged` is the operation it has paid for.
+	Hot { charged: StorageOp },
 	/// Entry is not in the access list; when `revertible` is true, the touch
 	/// rolls back with the current frame.
 	Cold { revertible: bool },
@@ -202,7 +199,7 @@ pub struct AccessList {
 	///
 	/// Plain rather than bounded: `BoundedBTreeMap` has no `entry` API, and
 	/// without it a cold touch pays a second lookup.
-	accessed: BTreeMap<AccessEntry, Paid>,
+	accessed: BTreeMap<AccessEntry, StorageOp>,
 	/// Flat journal of insertions (in order); each entry was added by exactly
 	/// one frame, and `checkpoints` marks the frame boundaries inside this journal.
 	journal: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
@@ -244,7 +241,10 @@ impl AccessList {
 	///
 	/// Will panic if there is no open frame.
 	pub fn commit_frame(&mut self) {
-		self.checkpoints.pop().expect("frame open; qed");
+		self.checkpoints.pop().expect(
+			"A call to commit_frame must be preceded by a corresponding call to enter_frame;
+			every caller pairs the two, Stack::run for every frame but the first; qed",
+		);
 	}
 
 	/// Rollback the top frame.
@@ -256,15 +256,17 @@ impl AccessList {
 	///
 	/// Will panic if there is no open frame.
 	pub fn rollback_frame(&mut self) {
-		let (journal_checkpoint, upgrades_checkpoint) =
-			self.checkpoints.pop().expect("frame open; qed");
+		let (journal_checkpoint, upgrades_checkpoint) = self.checkpoints.pop().expect(
+			"A call to rollback_frame must be preceded by a corresponding call to enter_frame;
+			every caller pairs the two, Stack::run for every frame but the first; qed",
+		);
 		for entry in self.journal.drain(journal_checkpoint..) {
 			self.accessed.remove(&entry);
 		}
 		for entry in self.upgrades.drain(upgrades_checkpoint..) {
 			// Removed already if the same frame also inserted the entry.
-			if let Some(paid) = self.accessed.get_mut(&entry) {
-				*paid = Paid::Read;
+			if let Some(charged) = self.accessed.get_mut(&entry) {
+				*charged = StorageOp::Read;
 			}
 		}
 	}
@@ -273,7 +275,7 @@ impl AccessList {
 	/// so pricing an access from a peek is never cheaper than pricing it from a touch.
 	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
 		match self.accessed.get(entry) {
-			Some(paid) => Warmth::Hot(*paid),
+			Some(charged) => Warmth::Hot { charged: *charged },
 			None if self.is_full() => Warmth::Cold { revertible: false },
 			None => Warmth::Cold { revertible: self.in_nested_frame() },
 		}
@@ -306,10 +308,10 @@ impl AccessList {
 					let journaled = self.upgrades.try_push(tree_entry.key().clone());
 					debug_assert!(journaled.is_ok(), "at most one live upgrade per tracked slot");
 					if journaled.is_ok() {
-						*tree_entry.get_mut() = Paid::Write;
+						*tree_entry.get_mut() = StorageOp::Write;
 					}
 				}
-				Warmth::Hot(previous)
+				Warmth::Hot { charged: previous }
 			},
 			Entry::Vacant(tree_entry) => {
 				self.cold_count = self.cold_count.saturating_add(1);
@@ -331,7 +333,6 @@ impl AccessList {
 	}
 
 	/// Returns the number of open checkpoints.
-	#[cfg(test)]
 	pub fn frame_depth(&self) -> usize {
 		self.checkpoints.len()
 	}
@@ -440,12 +441,12 @@ mod tests {
 		// A write can still upgrade a tracked slot once the map is full.
 		assert_eq!(
 			al.touch(existing.clone(), StorageOp::Write),
-			Warmth::Hot(Paid::Read),
+			Warmth::Hot { charged: StorageOp::Read },
 			"first write at cap: was read-paid",
 		);
 		assert_eq!(
 			al.touch(existing, StorageOp::Write),
-			Warmth::Hot(Paid::Write),
+			Warmth::Hot { charged: StorageOp::Write },
 			"write at cap: upgraded",
 		);
 
@@ -471,7 +472,7 @@ mod tests {
 
 		al.touch(entry.clone(), StorageOp::Read);
 
-		let read_paid = Warmth::Hot(Paid::Read);
+		let read_paid = Warmth::Hot { charged: StorageOp::Read };
 		assert_eq!(al.peek(&entry), read_paid, "peek reports the paid level");
 		assert_eq!(al.peek(&entry), read_paid, "peek must not upgrade");
 		assert_eq!(
@@ -486,8 +487,8 @@ mod tests {
 		let mut al = AccessList::new();
 		let entry = AccessEntry { address: H160::zero(), slot: Slot::Fix([2; 32]) };
 
-		let read_paid = Warmth::Hot(Paid::Read);
-		let write_paid = Warmth::Hot(Paid::Write);
+		let read_paid = Warmth::Hot { charged: StorageOp::Read };
+		let write_paid = Warmth::Hot { charged: StorageOp::Write };
 
 		assert!(al.touch(entry.clone(), StorageOp::Read).is_cold(), "first read: cold");
 		assert_eq!(al.touch(entry.clone(), StorageOp::Read), read_paid, "read after read");
@@ -520,10 +521,10 @@ mod tests {
 		let mut al = AccessList::new();
 
 		agree(&mut al, entry(1), StorageOp::Read, Warmth::Cold { revertible: false });
-		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot(Paid::Read));
-		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot(Paid::Read));
-		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot(Paid::Write));
-		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot(Paid::Write));
+		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot { charged: StorageOp::Read });
+		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot { charged: StorageOp::Read });
+		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot { charged: StorageOp::Write });
+		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot { charged: StorageOp::Write });
 
 		al.enter_frame();
 		agree(&mut al, entry(2), StorageOp::Write, Warmth::Cold { revertible: true });
@@ -536,11 +537,11 @@ mod tests {
 		agree(&mut al, entry(3), StorageOp::Write, Warmth::Cold { revertible: false });
 		// A tracked read-paid slot still upgrades at the cap.
 		let filled = AccessEntry { address: H160::from_low_u64_be(0), slot: Slot::Fix([0; 32]) };
-		agree(&mut al, filled.clone(), StorageOp::Write, Warmth::Hot(Paid::Read));
+		agree(&mut al, filled.clone(), StorageOp::Write, Warmth::Hot { charged: StorageOp::Read });
 		al.rollback_frame();
 		assert_eq!(
 			al.peek(&filled),
-			Warmth::Hot(Paid::Read),
+			Warmth::Hot { charged: StorageOp::Read },
 			"an at-cap upgrade rolls back with its frame"
 		);
 	}
@@ -552,27 +553,33 @@ mod tests {
 		al.touch(entry.clone(), StorageOp::Read);
 
 		al.enter_frame();
-		assert_eq!(al.touch(entry.clone(), StorageOp::Write), Warmth::Hot(Paid::Read));
+		assert_eq!(
+			al.touch(entry.clone(), StorageOp::Write),
+			Warmth::Hot { charged: StorageOp::Read }
+		);
 		al.rollback_frame();
 		assert_eq!(
 			al.peek(&entry),
-			Warmth::Hot(Paid::Read),
+			Warmth::Hot { charged: StorageOp::Read },
 			"the reverted frame's write was undone, so the next write pays again"
 		);
 
 		al.enter_frame();
 		al.enter_frame();
-		assert_eq!(al.touch(entry.clone(), StorageOp::Write), Warmth::Hot(Paid::Read));
+		assert_eq!(
+			al.touch(entry.clone(), StorageOp::Write),
+			Warmth::Hot { charged: StorageOp::Read }
+		);
 		al.commit_frame();
 		assert_eq!(
 			al.peek(&entry),
-			Warmth::Hot(Paid::Write),
+			Warmth::Hot { charged: StorageOp::Write },
 			"a committed upgrade belongs to the parent frame"
 		);
 		al.rollback_frame();
 		assert_eq!(
 			al.peek(&entry),
-			Warmth::Hot(Paid::Read),
+			Warmth::Hot { charged: StorageOp::Read },
 			"the parent's revert drops the committed upgrade"
 		);
 	}
@@ -590,7 +597,7 @@ mod tests {
 
 		assert_eq!(
 			al.peek(&upgraded),
-			Warmth::Hot(Paid::Write),
+			Warmth::Hot { charged: StorageOp::Write },
 			"a rollback must only drop its own frame's upgrades"
 		);
 	}

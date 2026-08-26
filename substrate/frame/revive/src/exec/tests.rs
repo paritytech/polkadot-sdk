@@ -23,7 +23,7 @@
 use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
-	access_list::{MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, Paid, StorageOp, Warmth},
+	access_list::{MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StorageOp, Warmth},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
 	test_utils::*,
@@ -3372,14 +3372,14 @@ fn cold_hot_child_upgrade_follows_the_frame_outcome() {
 		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]).is_err(), "the child must revert");
 		assert_matches!(
 			ctx.ext.peek_storage_access(false, &slot),
-			StorageAccessKind::Persistent(Warmth::Hot(Paid::Read)),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
 			"the reverted child's upgrade must roll back, leaving the write unpaid",
 		);
 
 		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![2]).is_ok(), "the child must succeed");
 		assert_matches!(
 			ctx.ext.peek_storage_access(false, &slot),
-			StorageAccessKind::Persistent(Warmth::Hot(Paid::Write)),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
 			"the committed child's upgrade must stay",
 		);
 		exec_success()

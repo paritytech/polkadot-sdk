@@ -256,8 +256,8 @@ impl RuntimeCosts {
 					cost
 				}
 			},
-			StorageAccessKind::Persistent(Warmth::Hot(paid)) => hot()
-				.saturating_add(if paid.covers(op) {
+			StorageAccessKind::Persistent(Warmth::Hot { charged }) => hot()
+				.saturating_add(if charged.covers(op) {
 					Weight::zero()
 				} else {
 					Self::hot_write_surcharge::<T>()
@@ -411,14 +411,14 @@ impl<T: Config> Token<T> for RuntimeCosts {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{access_list::Paid, tests::Test};
+	use crate::tests::Test;
 
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot = StorageAccessKind::Persistent(Warmth::Hot(Paid::Write));
+		let hot = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
 
 		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
@@ -471,8 +471,8 @@ mod tests {
 		);
 		assert_eq!(surcharge.proof_size(), 0, "the surcharge adds no proof: {surcharge:?}");
 
-		let read_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Read));
-		let write_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Write));
+		let read_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read });
+		let write_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
 
 		let write_costs = |kind: StorageAccessKind| {
 			[

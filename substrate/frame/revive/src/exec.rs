@@ -1593,6 +1593,11 @@ where
 		// For the first frame, only log the final metrics since it doesn't open a
 		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
 		if is_first_frame {
+			debug_assert_eq!(
+				self.access_list.frame_depth(),
+				0,
+				"every nested frame closed the checkpoint it opened",
+			);
 			let m = self.access_list.metrics();
 			log::trace!(
 				target: LOG_TARGET,
