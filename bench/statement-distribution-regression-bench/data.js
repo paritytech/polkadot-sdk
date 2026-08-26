@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787733131000,
+  "lastUpdate": 1787738205199,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0a386503ab5d3f77d30031e539640c89b254b492",
-          "message": "Upgrade litep2p to v0.13.0 (#10859)\n\nThis PR upgrades litep2p to the latest version, bringing multiple fixes\nwith this release.\n\nSpecifically, this release enhances WebSocket stability by resolving\n`AsyncWrite` errors and ensuring that partial writes during the\nnegotiation phase no longer trigger connection failures.\n\nIt also fixes large file download using Bitswap protocol by grouping\nblocks into batches of <= 2 MiB.",
-          "timestamp": "2026-01-21T15:43:42Z",
-          "tree_id": "c3ae5729679199b94777f823ad261bf884d02989",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0a386503ab5d3f77d30031e539640c89b254b492"
-        },
-        "date": 1769014717769,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.05199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038368881972,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06800352108599997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08216232476399993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fb8731d6fba9e40c5e2e335c81918992937f5764",
+          "message": "bp-messages: don't overflow when counting rewarded messages (#12926)\n\n`calc_relayers_rewards` counted messages as `end - begin + 1`, which\noverflows when the range covers the whole nonce space. Use the existing\nsaturating_len() helper, and saturating_add for the running total.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12907\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-08-26T08:19:51Z",
+          "tree_id": "6e0516aa8b31f26f210b60c28b14adda49f68bec",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8731d6fba9e40c5e2e335c81918992937f5764"
+        },
+        "date": 1787738166137,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.056,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.040125305101999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08628823266199989,
             "unit": "seconds"
           }
         ]
