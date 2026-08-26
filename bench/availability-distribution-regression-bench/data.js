@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787753312626,
+  "lastUpdate": 1787759987806,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5fd7bb53b86f381ea42c67cf3da04622aa3a9953",
-          "message": "Version bumps 2512-1 (#10904)\n\nThis PR backports regular version bumps and prdocs reordering from after\npatch release `stable2512-1`\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-01-26T19:02:45Z",
-          "tree_id": "56edc347f7e5e81eadd2f81fd240956c902b01b6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fd7bb53b86f381ea42c67cf3da04622aa3a9953"
-        },
-        "date": 1769458306128,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14568116943333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023327979246666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010410899213333316,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007287514200000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14592082556000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fcdd029217854918b47707a2feccf544896adce0",
+          "message": "pallet-delegated-staking: ignore zero-amount delegations (#12992)\n\nCloses #12911\n\nFor a new delegator, calling `delegate_to_agent` with amount 0 used to\nstore an empty `Delegation` record and take a provider reference. That\nleft the account marked as a delegator for good, which then stops it\nfrom registering as an agent.\n\nThe fix only touches the new-delegator case:\n- `Delegation::update` stores nothing for a new zero-amount entry. Every\nwrite path goes through it, so none can leave a zero record behind.\n- `do_delegate` and `migrate_delegation` reject a zero amount for a new\ndelegator.\n- A zero top-up on an existing delegation stays a no-op.\n`nomination-pools` `bond_extra(Rewards)` passes amount 0 at 100%\ncommission, and rejecting it would break reward bonding there.\n- Added a try-state check that stored delegations are never zero.\n\nTests cover the three cases (new zero rejected, zero migrate rejected,\nexisting zero top-up still works): `SKIP_WASM_BUILD=1 cargo test -p\npallet-delegated-staking --lib`.\n\nRWF finding, same cluster as #12769 / #12771 / #12922. Same approach as\n#13001 - thanks @sigurpol and @acatangiu for the reviews.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Paolo La Camera <paolo.lacamera@pm.me>",
+          "timestamp": "2026-08-26T13:48:54Z",
+          "tree_id": "bb7c021090a935bdb734d2198123d9130e7365c9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fcdd029217854918b47707a2feccf544896adce0"
+        },
+        "date": 1787759948700,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007580513573333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022833081479999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1474931874866667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009889795766666654,
             "unit": "seconds"
           }
         ]
