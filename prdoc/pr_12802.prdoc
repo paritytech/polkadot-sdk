@@ -18,3 +18,5 @@ doc:
 crates:
 - name: pallet-revive
   bump: major
+- name: asset-hub-westend-runtime
+  bump: patch

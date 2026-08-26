@@ -42,9 +42,6 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 /// EIP-2929 does not specify a structural cap; Ethereum relies on gas to
 /// implicitly bound growth.
 ///
-/// Past this cap, new touches bill cold without being tracked;
-/// slots already tracked continue to bill hot.
-///
 /// Memory grows discontinuously due to the runtime allocator (sc-allocator)
 /// rounding allocations up to power-of-2 size classes.
 ///
@@ -207,9 +204,7 @@ pub struct AccessList {
 	journal: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
 	/// Flat journal of `Read` to `Write` upgrades (in order).
 	upgrades: BoundedVec<AccessEntry, ConstU32<{ MAX_ACCESS_LIST_ENTRIES as u32 }>>,
-	/// Stack of `(journal, upgrades)` lengths at frame entry. Rolling back
-	/// drains both journals down to `checkpoints.last()`: drained insertions
-	/// are removed from `accessed`, drained upgrades downgraded to `Read`.
+	/// Stack of `(journal, upgrades)` lengths at frame entry.
 	checkpoints: Vec<(usize, usize)>,
 	/// Total cold touches across the transaction. Includes touches in
 	/// frames that later rolled back.
