@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787733036457,
+  "lastUpdate": 1787738113373,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f134881a56e7733a6b5171c81b05ce4df40dd695",
-          "message": "[Release|CI/CD] Bump Zepter version in post crates action (#10885)\n\nResolving following error lines:\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21254581447/job/61165383938#step:17:15\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-23T12:33:22Z",
-          "tree_id": "fe4c50d35ca79c55709258004dac104697c7fcd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f134881a56e7733a6b5171c81b05ce4df40dd695"
-        },
-        "date": 1769175864258,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0070119431533333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1435892524400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02299898888666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009414698580000009,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14641203558666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian@parity.io",
+            "name": "Adrian Catangiu",
+            "username": "acatangiu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fb8731d6fba9e40c5e2e335c81918992937f5764",
+          "message": "bp-messages: don't overflow when counting rewarded messages (#12926)\n\n`calc_relayers_rewards` counted messages as `end - begin + 1`, which\noverflows when the range covers the whole nonce space. Use the existing\nsaturating_len() helper, and saturating_add for the running total.\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/12907\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Andrii <ndk@parity.io>",
+          "timestamp": "2026-08-26T08:19:51Z",
+          "tree_id": "6e0516aa8b31f26f210b60c28b14adda49f68bec",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fb8731d6fba9e40c5e2e335c81918992937f5764"
+        },
+        "date": 1787738073051,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02282834211999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009939299146666681,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007748624293333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14736352504000005,
             "unit": "seconds"
           }
         ]
