@@ -230,15 +230,16 @@ is registered new collators and nodes can join by reading the `AddressRecord` un
 
 Parachain A talks with Parachain B:
 
-1. B's JAM follower watches PS's per-block head commitments (§5.5) for A's leaf. A changed head carries a new
-`StreamsRootA` in A's header digest: A added new outbound messages.
+1. `B` node watches enacted heads from `A`.
+  When `A` enacts a new `StreamRootA`, the PS pushes it into `spec_msg_recent_provides[A]`
 
-2. B finds A's network via JAM state keys. A published the bootnodes under `0x08 ++ SCALE((A, "bootnodes/v1"))`. 
-The record contains up to 8 multiaddresses (managed by parachain itself).
+2. B reads A's bootnodes from `0x08 ++ SCALE((A, "bootnodes/v1"))` and connects to an archive node.
 
-3. B dials bootnodes and discovers A's archive nodes. Messages plus MMR extension proof are fetched from `/spec-msg/exchange` req-resp protocol.
+3. B fetches messages with their MMR extension and proofs from `/spec-msg/exchange` req-response.
+  Then it verifies locally the messages against `StreamsRootA`.
 
-4. Extension is verified against `StreamsRootA` locally and a prefix of the messages is consumed in the next block. The PoV carries the enactment proof for A's root.
+4. B consumes a prefix of messages and declares `Requires(A, StreamsRootA)`.
+  During `Accumulate, the PS accepts B only if the root is still in A's ring.
 
 **Pruning**
 
