@@ -409,7 +409,7 @@ pub mod pallet {
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
-			// nothing to delegate, and nothing to bond.
+			// nothing to delegate.
 			if amount.is_zero() {
 				return Ok(());
 			}
