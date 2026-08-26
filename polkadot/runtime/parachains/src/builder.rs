@@ -785,11 +785,16 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								ValidityAttestation::Explicit(sig.clone())
 							})
 							.collect();
+						let validator_indices: BitVec<u8, BitOrderLsb0> = group_validators
+							.iter()
+							.enumerate()
+							.map(|(index, _)| index < validity_votes.len())
+							.collect();
 
 						BackedCandidate::<T::Hash>::new(
 							candidate,
 							validity_votes,
-							bitvec::bitvec![u8, bitvec::order::Lsb0; 1; group_validators.len()],
+							validator_indices,
 							core_idx,
 						)
 					})
