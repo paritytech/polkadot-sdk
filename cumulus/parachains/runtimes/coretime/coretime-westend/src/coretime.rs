@@ -53,6 +53,8 @@ enum CoretimeProviderCalls {
 		Vec<(CoreAssignment, PartsOf57600)>,
 		Option<relay_chain::BlockNumber>,
 	),
+	#[codec(index = 5)]
+	QueueOnDemandBatch(Vec<(ParaId, relay_chain::BlockNumber)>),
 }
 
 parameter_types! {
@@ -213,6 +215,43 @@ impl CoretimeInterface for CoretimeAllocator {
 			}
 		}
 	}
+
+	fn queue_on_demand_batch(batch: Vec<(ParaId, RCBlockNumberOf<Self>)>) {
+		use crate::coretime::CoretimeProviderCalls::QueueOnDemandBatch;
+
+		// TODO: figure out the correct weight
+		let call_weight = Weight::from_parts(980_000_000, 3800);
+
+		for chunk in batch.chunks(100) {
+			let partial_batch = chunk.to_vec();
+
+			let queue_on_demand_batch_call =
+				RelayRuntimePallets::Coretime(QueueOnDemandBatch(partial_batch));
+
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
+				},
+				Instruction::Transact {
+					origin_kind: OriginKind::Native,
+					call: queue_on_demand_batch_call.encode().into(),
+					fallback_max_weight: Some(call_weight),
+				},
+			]);
+
+			match PolkadotXcm::send_xcm(Here, Location::parent(), message) {
+				Ok(_) => tracing::debug!(
+					target: "runtime::coretime",
+					"On-demand batch sent successfully."
+				),
+				Err(e) => tracing::error!(
+					target: "runtime::coretime", error=?e,
+					"On-demand batch failed to send"
+				),
+			}
+		}
+	}
 }
 
 pub struct SovereignAccountOf;
@@ -240,4 +279,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+	type DefaultOnDemandOrderCap = ConstU32<100>;
+	type DefaultOnDemandDrainRatePerBlock = ConstU32<1>;
+	type DefaultOnDemandPriceStep = ConstU32<3>;
 }

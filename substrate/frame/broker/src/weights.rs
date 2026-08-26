@@ -109,6 +109,7 @@ pub trait WeightInfo {
 	fn remove_assignment() -> Weight;
 	fn remove_potential_renewal() -> Weight;
 	fn force_transfer() -> Weight;
+	fn place_order() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -630,6 +631,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	// TODO: run benchmarks
+	fn place_order() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1149,5 +1154,9 @@ impl WeightInfo for () {
 		Weight::from_parts(23_961_000, 3551)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	// TODO: run benchmarks
+	fn place_order() -> Weight {
+		Weight::from_parts(10_000_000, 0)
 	}
 }

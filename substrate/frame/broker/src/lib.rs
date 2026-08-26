@@ -48,6 +48,7 @@ pub use fp_coretime::{
 	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
 	CORE_MASK_BITS,
 };
+pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 pub use types::*;
 
 extern crate alloc;
@@ -68,6 +69,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
+	use polkadot_primitives::ON_DEMAND_MAX_QUEUE_MAX_SIZE;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -134,6 +136,21 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.
 		#[pallet::constant]
 		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
+
+		/// The default maximum number of outstanding on-demand orders beyond which new orders will
+		/// be rejected.
+		#[pallet::constant]
+		type DefaultOnDemandOrderCap: Get<u32>;
+
+		/// The default number of orders assumed to be drained out of order queue per relay chain
+		/// block.
+		#[pallet::constant]
+		type DefaultOnDemandDrainRatePerBlock: Get<u32>;
+
+		/// The default percentage by which every additional on-demand order in the queue increases
+		/// the spot price for new orders.
+		#[pallet::constant]
+		type DefaultOnDemandPriceStep: Get<u32>;
 	}
 
 	/// The current configuration of this pallet.
@@ -210,6 +227,23 @@ pub mod pallet {
 	/// Received revenue info from the relay chain.
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
+
+	/// The configuration for the pricing of on demand coretime orders.
+	#[pallet::storage]
+	pub type OnDemandPriceConfig<T> = StorageValue<_, OnDemandPriceParametersOf<T>, OptionQuery>;
+	/// The current estimated state of on demand orders queue.
+	#[pallet::storage]
+	pub type OnDemandQueueState<T> = StorageValue<_, OnDemandQueueStateOf<T>, OptionQuery>;
+
+	#[pallet::storage]
+	pub type OnDemandPendingBatch<T> = StorageValue<
+		_,
+		BoundedVec<
+			EnqueuedOnDemandOrder<RelayBlockNumberOf<T>>,
+			ConstU32<ON_DEMAND_MAX_QUEUE_MAX_SIZE>,
+		>,
+		ValueQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -517,6 +551,8 @@ pub mod pallet {
 			/// The timeslice associated with the potential renewal that was removed.
 			timeslice: Timeslice,
 		},
+		/// An order was placed at some spot price amount by orderer ordered_by
+		OnDemandOrderPlaced { para_id: ParaId, spot_price: BalanceOf<T>, ordered_by: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -600,6 +636,12 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// Reached on demand order cap.
+		OnDemandQueueFull,
+		/// Pending batch of on demand orders was full.
+		OnDemandBatchFull,
+		/// On demand spot price was higher than the maximum amount declared in `place_order`.
+		SpotPriceHigherThanMaxAmount,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -619,7 +661,16 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+			// TODO: adjust the weight for initalization and on_finalize
+			Self::initialize_on_demand();
 			Self::do_tick()
+		}
+
+		fn on_finalize(_now: BlockNumberFor<T>) {
+			let batch = OnDemandPendingBatch::<T>::take().into_inner();
+			T::Coretime::queue_on_demand_batch(
+				batch.into_iter().map(|order| (order.para_id, order.ordered_at)).collect(),
+			);
 		}
 	}
 
@@ -1080,6 +1131,16 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_transfer(region_id, None, new_owner)?;
 			Ok(())
+		}
+
+		#[pallet::call_index(29)]
+		pub fn place_order(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			max_amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_place_order(who, para_id, max_amount)
 		}
 
 		#[pallet::call_index(99)]

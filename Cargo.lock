@@ -12686,6 +12686,8 @@ dependencies = [
  "frame-system",
  "log",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "pretty_assertions",
  "scale-info",
  "sp-api 26.0.0",

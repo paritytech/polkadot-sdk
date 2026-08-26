@@ -21,6 +21,8 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
+polkadot-primitives = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }

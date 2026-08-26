@@ -681,4 +681,9 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// To be measured
+	fn place_order() -> Weight {
+		// A placeholder value copied from above
+		Weight::from_parts(22_610_000, 0)
+	}
 }
