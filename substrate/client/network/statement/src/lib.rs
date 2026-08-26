@@ -107,7 +107,10 @@ use sc_network::{
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{
+	traits::{Block as BlockT, ConstU32},
+	BoundedVec,
+};
 use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
@@ -124,6 +127,8 @@ pub mod config;
 
 /// A set of statements.
 pub type Statements = Vec<Statement>;
+
+type StatementBatch = BoundedVec<Statement, ConstU32<{ MAX_STATEMENTS_PER_NOTIFICATION as u32 }>>;
 
 /// The protocol version that was negotiated with a peer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,7 +152,7 @@ impl PeerProtocolVersion {
 #[derive(Debug, Encode, Decode)]
 enum StatementMessage {
 	#[codec(index = 0)]
-	Statements(Vec<Statement>),
+	Statements(StatementBatch),
 	/// Bloom filter bytes representing the topics this peer is interested in.
 	#[codec(index = 1)]
 	ExplicitTopicAffinity(AffinityFilter),
@@ -167,20 +172,34 @@ impl StatementMessage {
 	}
 }
 
-/// Whether a raw `Vec<Statement>` declares more statements than a notification can carry, read from
-/// its `Compact` length prefix without decoding the statements.
-fn v1_declares_too_many_statements(mut bytes: &[u8]) -> bool {
-	matches!(
-		<Compact<u32>>::decode(&mut bytes),
-		Ok(Compact(count)) if count as usize > MAX_STATEMENTS_PER_NOTIFICATION
-	)
+enum BatchError {
+	TooMany(u32),
+	Malformed,
 }
 
-/// As [`declares_too_many_statements`], for a V2 `StatementMessage`.
-fn v2_declares_too_many_statements(mut bytes: &[u8]) -> bool {
+fn decode_v1_message(bytes: &[u8]) -> Result<StatementMessage, BatchError> {
+	<StatementBatch as Decode>::decode(&mut &*bytes)
+		.map(StatementMessage::Statements)
+		.map_err(|_| classify_v1_batch_error(bytes))
+}
+
+fn decode_v2_message(bytes: &[u8]) -> Result<StatementMessage, BatchError> {
+	StatementMessage::decode(&mut &*bytes).map_err(|_| classify_v2_batch_error(bytes))
+}
+
+fn classify_v1_batch_error(mut bytes: &[u8]) -> BatchError {
+	match <Compact<u32>>::decode(&mut bytes) {
+		Ok(Compact(count)) if count as usize > MAX_STATEMENTS_PER_NOTIFICATION => {
+			BatchError::TooMany(count)
+		},
+		_ => BatchError::Malformed,
+	}
+}
+
+fn classify_v2_batch_error(mut bytes: &[u8]) -> BatchError {
 	match u8::decode(&mut bytes) {
-		Ok(STATEMENTS_VARIANT_INDEX) => v1_declares_too_many_statements(bytes),
-		_ => false,
+		Ok(STATEMENTS_VARIANT_INDEX) => classify_v1_batch_error(bytes),
+		_ => BatchError::Malformed,
 	}
 }
 
@@ -1224,63 +1243,63 @@ where
 					log::error!(target: LOG_TARGET, "Received notification from unknown peer {peer}");
 					return;
 				};
+				let version = peer_data.protocol_version;
 
-				match peer_data.protocol_version {
-					PeerProtocolVersion::V1 => {
-						// V1 peers send raw Vec<Statement>.
-						if v1_declares_too_many_statements(notification.as_ref()) {
-							self.report_oversized_batch(peer);
-						} else if let Ok(statements) =
-							<Statements as Decode>::decode(&mut notification.as_ref())
-						{
-							self.on_statements(peer, statements);
-						} else {
-							self.report_malformed_batch(peer, "v1 statement list");
-						}
+				let message = match version {
+					// V1 peers send raw Vec<Statement>.
+					PeerProtocolVersion::V1 => decode_v1_message(notification.as_ref()),
+					// V2 peers send StatementMessage enum.
+					PeerProtocolVersion::V2 => decode_v2_message(notification.as_ref()),
+				};
+				match message {
+					Ok(StatementMessage::Statements(statements)) => {
+						self.on_statements(peer, statements.into_inner())
 					},
-					PeerProtocolVersion::V2 => {
-						// V2 peers send StatementMessage enum.
-						if v2_declares_too_many_statements(notification.as_ref()) {
-							self.report_oversized_batch(peer);
-						} else if let Ok(message) =
-							StatementMessage::decode(&mut notification.as_ref())
-						{
-							match message {
-								StatementMessage::Statements(statements) => {
-									self.on_statements(peer, statements)
-								},
-								StatementMessage::ExplicitTopicAffinity(filter) => {
-									if let Some(peer_data) = self.peers.get_mut(&peer) {
-										if peer_data.rate_limiter.is_flooding(1) {
-											log::debug!(
-												target: LOG_TARGET,
-												"Rate-limiting ExplicitTopicAffinity from {peer}"
-											);
-											self.network.report_peer(peer, rep::BAD_MESSAGE);
-										} else {
-											log::debug!(
-												target: LOG_TARGET,
-												"Received topic affinity filter from {peer}"
-											);
-											// Defer both the affinity update and sync scheduling
-											// to the main loop tick.
-											peer_data.pending_topic_affinity = Some(filter);
-										}
-									}
-								},
+					Ok(StatementMessage::ExplicitTopicAffinity(filter)) => {
+						if let Some(peer_data) = self.peers.get_mut(&peer) {
+							if peer_data.rate_limiter.is_flooding(1) {
+								log::debug!(
+									target: LOG_TARGET,
+									"Rate-limiting ExplicitTopicAffinity from {peer}"
+								);
+								self.network.report_peer(peer, rep::BAD_MESSAGE);
+							} else {
+								log::debug!(
+									target: LOG_TARGET,
+									"Received topic affinity filter from {peer}"
+								);
+								// Defer both the affinity update and sync scheduling
+								// to the main loop tick.
+								peer_data.pending_topic_affinity = Some(filter);
 							}
-						} else {
-							self.report_malformed_batch(peer, "v2 statement message");
 						}
 					},
+					Err(error) => self.report_batch_error(peer, error, version),
 				}
 			},
 		}
 	}
 
+	fn report_batch_error(&self, peer: PeerId, error: BatchError, version: PeerProtocolVersion) {
+		match error {
+			BatchError::TooMany(declared) => self.report_oversized_batch(peer, declared),
+			BatchError::Malformed => self.report_malformed_batch(
+				peer,
+				match version {
+					PeerProtocolVersion::V1 => "v1 statement list",
+					PeerProtocolVersion::V2 => "v2 statement message",
+				},
+			),
+		}
+	}
+
 	/// Report and disconnect a peer whose statement batch declared too many statements.
-	fn report_oversized_batch(&self, peer: PeerId) {
-		log::warn!(target: LOG_TARGET, "Peer {peer} sent an oversized statement batch. Disconnecting.");
+	fn report_oversized_batch(&self, peer: PeerId, declared: u32) {
+		log::warn!(
+			target: LOG_TARGET,
+			"Peer {peer} declared {declared} statements in one batch \
+			 (limit {MAX_STATEMENTS_PER_NOTIFICATION}). Disconnecting."
+		);
 		self.network.report_peer(peer, rep::EXCESSIVE_STATEMENTS);
 		self.network.disconnect_peer(peer, self.protocol_name.clone());
 	}
@@ -3905,7 +3924,7 @@ mod tests {
 		let mut statement = Statement::new();
 		statement.set_plain_data(b"v2 statement".to_vec());
 		let hash = statement.hash();
-		let msg = StatementMessage::Statements(vec![statement]);
+		let msg = StatementMessage::Statements(vec![statement].try_into().unwrap());
 		let encoded = msg.encode();
 
 		handler
@@ -4421,7 +4440,8 @@ mod tests {
 
 		let refs: Vec<&Statement> = vec![&stmt1, &stmt2];
 		let hand_rolled = StatementMessage::encode_statement_refs(&refs);
-		let derive_encoded = StatementMessage::Statements(vec![stmt1, stmt2]).encode();
+		let derive_encoded =
+			StatementMessage::Statements(vec![stmt1, stmt2].try_into().unwrap()).encode();
 
 		assert_eq!(
 			hand_rolled, derive_encoded,
@@ -4433,7 +4453,7 @@ mod tests {
 	fn test_encode_statement_refs_empty() {
 		let refs: Vec<&Statement> = vec![];
 		let hand_rolled = StatementMessage::encode_statement_refs(&refs);
-		let derive_encoded = StatementMessage::Statements(vec![]).encode();
+		let derive_encoded = StatementMessage::Statements(vec![].try_into().unwrap()).encode();
 
 		assert_eq!(hand_rolled, derive_encoded);
 	}
