@@ -10779,9 +10779,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.15.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2fd9bfacea3d32a3cc0c7228ac37f86465c373edeb9740d4bb3cd1d0d00e4c"
+checksum = "5e588ab8f917ed65ebcf00ab52da6001e5724fbabac9ff6f06623ea7fa004cda"
 dependencies = [
  "async-trait",
  "bs58",
@@ -21861,7 +21861,7 @@ dependencies = [
  "ip_network",
  "libp2p",
  "linked_hash_set",
- "litep2p 0.15.0",
+ "litep2p 0.15.1",
  "log",
  "mockall",
  "multihash-codetable",
@@ -22152,7 +22152,7 @@ dependencies = [
  "ed25519-dalek",
  "libp2p-identity",
  "libp2p-kad",
- "litep2p 0.15.0",
+ "litep2p 0.15.1",
  "log",
  "multiaddr 0.18.2",
  "multihash 0.19.5",
@@ -23164,9 +23164,9 @@ dependencies = [
 
 [[package]]
 name = "sctp-proto"
-version = "0.10.3"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f895c3c33ae20283f9129bd09db2ca69138798b372ef2b98bd2946d23ea4819b"
+checksum = "a22cbe1d867f74fc377b9e63ac74457ea7dcfda23a0deaba6af083ad7e060019"
 dependencies = [
  "bytes",
  "crc",
@@ -26663,9 +26663,9 @@ dependencies = [
 
 [[package]]
 name = "str0m"
-version = "0.22.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4656b60e74d1a0cf7c407b0d992c5bc141c3e75193f4b1399817d54a180505f3"
+checksum = "8522aa06c731cfdc1488e32de7fcebcfc8d9d86d49a6ecc95a64779fe7b545f2"
 dependencies = [
  "arrayvec 0.7.6",
  "base64ct",
