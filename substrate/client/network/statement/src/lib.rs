@@ -76,7 +76,7 @@ mod affinity;
 use crate::config::*;
 
 use affinity::AffinityFilter;
-use codec::{Compact, Decode, Encode, MaxEncodedLen, MemTrackingInput};
+use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::{
 	channel::oneshot,
 	future::{pending, FusedFuture},
@@ -167,25 +167,20 @@ impl StatementMessage {
 	}
 }
 
-/// Outcome of decoding a notification payload under [`MAX_STATEMENT_DECODE_BYTES`].
-enum BoundedDecode<T> {
-	/// The payload decoded within the memory budget.
-	Decoded(T),
-	/// The payload's allocation exceeded the budget — an amplification attempt.
-	Oversized,
-	/// The payload could not be decoded for another reason.
-	Malformed,
+/// Whether a raw `Vec<Statement>` declares more statements than a notification can carry, read from
+/// its `Compact` length prefix without decoding the statements.
+fn v1_declares_too_many_statements(mut bytes: &[u8]) -> bool {
+	matches!(
+		<Compact<u32>>::decode(&mut bytes),
+		Ok(Compact(count)) if count as usize > MAX_STATEMENTS_PER_NOTIFICATION
+	)
 }
 
-/// Decode `T` from `bytes` under [`MAX_STATEMENT_DECODE_BYTES`], distinguishing a batch that
-/// exceeds the budget from a plain decode failure.
-fn decode_within_budget<T: Decode>(bytes: &[u8]) -> BoundedDecode<T> {
-	let mut slice = bytes;
-	let mut input = MemTrackingInput::new(&mut slice, MAX_STATEMENT_DECODE_BYTES);
-	match T::decode(&mut input) {
-		Ok(value) => BoundedDecode::Decoded(value),
-		Err(_) if input.used_mem() >= MAX_STATEMENT_DECODE_BYTES => BoundedDecode::Oversized,
-		Err(_) => BoundedDecode::Malformed,
+/// As [`declares_too_many_statements`], for a V2 `StatementMessage`.
+fn v2_declares_too_many_statements(mut bytes: &[u8]) -> bool {
+	match u8::decode(&mut bytes) {
+		Ok(STATEMENTS_VARIANT_INDEX) => v1_declares_too_many_statements(bytes),
+		_ => false,
 	}
 }
 
@@ -209,7 +204,7 @@ mod rep {
 	pub const DUPLICATE_STATEMENT: Rep = Rep::new(-(1 << 7), "Duplicate statement");
 	/// Reputation change when a peer floods us with statements.
 	pub const STATEMENT_FLOODING: Rep = Rep::new_fatal("Statement flooding");
-	/// Reputation change when a peer sends a statement batch that exceeds the decode memory limit.
+	/// Reputation change when a peer declares more statements than a notification can hold.
 	pub const EXCESSIVE_STATEMENTS: Rep = Rep::new_fatal("Oversized statement batch");
 	/// Reputation change when a peer sends us a message we can't decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad statement message");
@@ -799,6 +794,9 @@ fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> C
 		count = new_count;
 	}
 
+	// The byte limit keeps a chunk within the count a peer will accept.
+	debug_assert!(count <= MAX_STATEMENTS_PER_NOTIFICATION);
+
 	// If we couldn't fit even a single statement, skip it.
 	if count == 0 {
 		ChunkResult::SkipOversized
@@ -1230,47 +1228,49 @@ where
 				match peer_data.protocol_version {
 					PeerProtocolVersion::V1 => {
 						// V1 peers send raw Vec<Statement>.
-						match decode_within_budget::<Statements>(notification.as_ref()) {
-							BoundedDecode::Decoded(statements) => {
-								self.on_statements(peer, statements)
-							},
-							BoundedDecode::Oversized => self.report_oversized_batch(peer),
-							BoundedDecode::Malformed => {
-								self.report_malformed_batch(peer, "v1 statement list")
-							},
+						if v1_declares_too_many_statements(notification.as_ref()) {
+							self.report_oversized_batch(peer);
+						} else if let Ok(statements) =
+							<Statements as Decode>::decode(&mut notification.as_ref())
+						{
+							self.on_statements(peer, statements);
+						} else {
+							self.report_malformed_batch(peer, "v1 statement list");
 						}
 					},
 					PeerProtocolVersion::V2 => {
 						// V2 peers send StatementMessage enum.
-						match decode_within_budget::<StatementMessage>(notification.as_ref()) {
-							BoundedDecode::Decoded(StatementMessage::Statements(statements)) => {
-								self.on_statements(peer, statements)
-							},
-							BoundedDecode::Decoded(StatementMessage::ExplicitTopicAffinity(
-								filter,
-							)) => {
-								if let Some(peer_data) = self.peers.get_mut(&peer) {
-									if peer_data.rate_limiter.is_flooding(1) {
-										log::debug!(
-											target: LOG_TARGET,
-											"Rate-limiting ExplicitTopicAffinity from {peer}"
-										);
-										self.network.report_peer(peer, rep::BAD_MESSAGE);
-									} else {
-										log::debug!(
-											target: LOG_TARGET,
-											"Received topic affinity filter from {peer}"
-										);
-										// Defer both the affinity update and sync scheduling
-										// to the main loop tick.
-										peer_data.pending_topic_affinity = Some(filter);
+						if v2_declares_too_many_statements(notification.as_ref()) {
+							self.report_oversized_batch(peer);
+						} else if let Ok(message) =
+							StatementMessage::decode(&mut notification.as_ref())
+						{
+							match message {
+								StatementMessage::Statements(statements) => {
+									self.on_statements(peer, statements)
+								},
+								StatementMessage::ExplicitTopicAffinity(filter) => {
+									if let Some(peer_data) = self.peers.get_mut(&peer) {
+										if peer_data.rate_limiter.is_flooding(1) {
+											log::debug!(
+												target: LOG_TARGET,
+												"Rate-limiting ExplicitTopicAffinity from {peer}"
+											);
+											self.network.report_peer(peer, rep::BAD_MESSAGE);
+										} else {
+											log::debug!(
+												target: LOG_TARGET,
+												"Received topic affinity filter from {peer}"
+											);
+											// Defer both the affinity update and sync scheduling
+											// to the main loop tick.
+											peer_data.pending_topic_affinity = Some(filter);
+										}
 									}
-								}
-							},
-							BoundedDecode::Oversized => self.report_oversized_batch(peer),
-							BoundedDecode::Malformed => {
-								self.report_malformed_batch(peer, "v2 statement message")
-							},
+								},
+							}
+						} else {
+							self.report_malformed_batch(peer, "v2 statement message");
 						}
 					},
 				}
@@ -1278,7 +1278,7 @@ where
 		}
 	}
 
-	/// Report and disconnect a peer whose statement batch exceeded the decode memory budget.
+	/// Report and disconnect a peer whose statement batch declared too many statements.
 	fn report_oversized_batch(&self, peer: PeerId) {
 		log::warn!(target: LOG_TARGET, "Peer {peer} sent an oversized statement batch. Disconnecting.");
 		self.network.report_peer(peer, rep::EXCESSIVE_STATEMENTS);
@@ -4768,13 +4768,9 @@ mod tests {
 		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
 	}
 
-	// A batch of minimal (one-byte) statements whose declared count decodes past the memory
-	// budget: `Compact(count)` followed by `count` zero bytes, each a zero-field `Statement`.
+	// A `Vec<Statement>` length prefix declaring more statements than a notification can hold.
 	fn oversized_statement_batch() -> Vec<u8> {
-		let count = (MAX_STATEMENT_DECODE_BYTES / core::mem::size_of::<Statement>()) as u32 + 1;
-		let mut bytes = Compact(count).encode();
-		bytes.extend(core::iter::repeat(0u8).take(count as usize));
-		bytes
+		Compact((MAX_STATEMENTS_PER_NOTIFICATION + 1) as u32).encode()
 	}
 
 	#[tokio::test]
