@@ -66,6 +66,9 @@ where
 	pub max_parallel_downloads: u32,
 	/// Maximum number of blocks to request.
 	pub max_blocks_per_request: u32,
+	/// Maximum total size in bytes of block bodies queued for import before block download
+	/// applies backpressure. Zero disables the limit.
+	pub max_queued_block_bytes: usize,
 	/// Number of peers that need to be connected before warp sync is started.
 	pub min_peers_to_start_warp_sync: Option<usize>,
 	/// Prometheus metrics registry.
@@ -385,6 +388,7 @@ where
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
+				config.max_queued_block_bytes,
 				config.state_request_protocol_name.clone(),
 				config.block_downloader.clone(),
 				config.archive_blocks,
@@ -438,6 +442,7 @@ where
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
+						self.config.max_queued_block_bytes,
 						self.config.state_request_protocol_name.clone(),
 						self.config.block_downloader.clone(),
 						self.config.archive_blocks,
@@ -469,6 +474,7 @@ where
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
+				self.config.max_queued_block_bytes,
 				self.config.state_request_protocol_name.clone(),
 				self.config.block_downloader.clone(),
 				self.config.archive_blocks,

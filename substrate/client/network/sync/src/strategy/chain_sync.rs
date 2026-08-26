@@ -137,6 +137,7 @@ mod rep {
 
 struct Metrics {
 	queued_blocks: Gauge<U64>,
+	queued_block_bytes: Gauge<U64>,
 	fork_targets: Gauge<U64>,
 }
 
@@ -146,6 +147,13 @@ impl Metrics {
 			queued_blocks: {
 				let g =
 					Gauge::new("substrate_sync_queued_blocks", "Number of blocks in import queue")?;
+				register(g, r)?
+			},
+			queued_block_bytes: {
+				let g = Gauge::new(
+					"substrate_sync_queued_block_bytes",
+					"Total size in bytes of block bodies queued for import",
+				)?;
 				register(g, r)?
 			},
 			fork_targets: {
@@ -394,9 +402,14 @@ pub struct ChainSync<B: BlockT, Client> {
 	mode: ChainSyncMode,
 	/// Any extra justification requests.
 	extra_justifications: ExtraRequests<B>,
-	/// A set of hashes of blocks that are being downloaded or have been
-	/// downloaded and are queued for import.
-	queue_blocks: HashSet<B::Hash>,
+	/// Hashes of blocks that are being downloaded or have been downloaded and are queued for
+	/// import, each mapped to the size in bytes of the block data held in memory for it.
+	queue_blocks: HashMap<B::Hash, usize>,
+	/// Sum of the values in `queue_blocks`, maintained incrementally.
+	queued_block_bytes: usize,
+	/// Upper bound on `queued_block_bytes` before block download applies backpressure.
+	/// Zero disables the limit, leaving `MAX_IMPORTING_BLOCKS` as the only bound.
+	max_queued_block_bytes: usize,
 	/// A pending attempt to start the state sync.
 	///
 	/// The initiation of state sync may be deferred in cases where other conditions
@@ -773,9 +786,11 @@ where
 
 		let mut has_error = false;
 		for (_, hash) in &results {
-			if self.queue_blocks.remove(hash) {
+			if let Some(bytes) = self.queue_blocks.remove(hash) {
+				self.queued_block_bytes = self.queued_block_bytes.saturating_sub(bytes);
 				if let Some(metrics) = &self.metrics {
 					metrics.queued_blocks.dec();
+					metrics.queued_block_bytes.set(self.queued_block_bytes as u64);
 				}
 			}
 			self.blocks.clear_queued(hash);
@@ -1060,6 +1075,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
+		max_queued_block_bytes: usize,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		archive_blocks: bool,
@@ -1076,6 +1092,8 @@ where
 			extra_justifications: ExtraRequests::new("justification", metrics_registry),
 			mode,
 			queue_blocks: Default::default(),
+			queued_block_bytes: 0,
+			max_queued_block_bytes,
 			pending_state_sync_attempt: None,
 			fork_targets: Default::default(),
 			allowed_requests: Default::default(),
@@ -1690,7 +1708,7 @@ where
 
 	fn validate_and_queue_blocks(&mut self, mut new_blocks: Vec<IncomingBlock<B>>, gap: bool) {
 		let orig_len = new_blocks.len();
-		new_blocks.retain(|b| !self.queue_blocks.contains(&b.hash));
+		new_blocks.retain(|b| !self.queue_blocks.contains_key(&b.hash));
 		if new_blocks.len() != orig_len {
 			debug!(
 				target: LOG_TARGET,
@@ -1723,11 +1741,21 @@ where
 			);
 			self.on_block_queued(h, n)
 		}
-		self.queue_blocks.extend(new_blocks.iter().map(|b| b.hash));
+		for block in &new_blocks {
+			let bytes = incoming_block_bytes::<B>(block);
+			// Keyed by hash, so a repeat within `new_blocks` overwrites rather than adds. Add
+			// once per hash to pair with the single subtraction it gets on import, otherwise
+			// the total drifts up for good and latches the limit shut. Like the block count,
+			// this measures the queue and not the vector below, which keeps both copies.
+			if self.queue_blocks.insert(block.hash, bytes).is_none() {
+				self.queued_block_bytes = self.queued_block_bytes.saturating_add(bytes);
+			}
+		}
 		if let Some(metrics) = &self.metrics {
 			metrics
 				.queued_blocks
 				.set(self.queue_blocks.len().try_into().unwrap_or(u64::MAX));
+			metrics.queued_block_bytes.set(self.queued_block_bytes as u64);
 		}
 
 		self.actions.push(SyncingAction::ImportBlocks { origin, blocks: new_blocks })
@@ -1886,7 +1914,7 @@ where
 
 	/// What is the status of the block corresponding to the given hash?
 	fn block_status(&self, hash: &B::Hash) -> Result<BlockStatus, ClientError> {
-		if self.queue_blocks.contains(hash) {
+		if self.queue_blocks.contains_key(hash) {
 			return Ok(BlockStatus::Queued);
 		}
 		self.client.block_status(*hash)
@@ -1967,6 +1995,16 @@ where
 			trace!(target: LOG_TARGET, "Too many blocks in the queue.");
 			return Vec::new();
 		}
+
+		if self.max_queued_block_bytes > 0 && self.queued_block_bytes > self.max_queued_block_bytes {
+			trace!(
+				target: LOG_TARGET,
+				"Too many block bytes in the queue: {} > {}.",
+				self.queued_block_bytes,
+				self.max_queued_block_bytes,
+			);
+			return Vec::new();
+		}
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
 		let is_archive = self.archive_blocks;
@@ -1980,6 +2018,18 @@ where
 		let allowed_requests = self.allowed_requests.clone();
 		let max_parallel = if is_major_syncing { 1 } else { self.max_parallel_downloads };
 		let max_blocks_per_request = self.max_blocks_per_request;
+		// The read-ahead limit is a block count, but the memory it guards is proportional to
+		// block size. Convert the byte budget into a block count using the average size of the
+		// blocks currently queued, so that chains with large blocks stop reading ahead sooner.
+		// Falls back to the count limit alone while nothing is queued to average over.
+		let max_download_ahead = match self.queued_block_bytes.checked_div(self.queue_blocks.len())
+		{
+			Some(average) if average > 0 && self.max_queued_block_bytes > 0 => {
+				let budget = (self.max_queued_block_bytes / average).max(1);
+				MAX_DOWNLOAD_AHEAD.min(budget.try_into().unwrap_or(u32::MAX))
+			},
+			_ => MAX_DOWNLOAD_AHEAD,
+		};
 		let gap_sync = &mut self.gap_sync;
 		let disconnected_peers = &mut self.disconnected_peers;
 		let metrics = self.metrics.as_ref();
@@ -2026,6 +2076,7 @@ where
 					mode.required_block_attributes(false, is_archive),
 					max_parallel,
 					max_blocks_per_request,
+					max_download_ahead,
 					last_finalized,
 					best_queued,
 				) {
@@ -2046,7 +2097,7 @@ where
 					last_finalized,
 					mode.required_block_attributes(false, is_archive),
 					|hash| {
-						if queue_blocks.contains(hash) {
+						if queue_blocks.contains_key(hash) {
 							BlockStatus::Queued
 						} else {
 							client.block_status(*hash).unwrap_or(BlockStatus::Unknown)
@@ -2067,6 +2118,7 @@ where
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
+						max_download_ahead,
 					)
 				}) {
 					peer.state = PeerSyncState::DownloadingGap(range.start);
@@ -2322,6 +2374,7 @@ fn peer_block_request<B: BlockT>(
 	attrs: BlockAttributes,
 	max_parallel_downloads: u32,
 	max_blocks_per_request: u32,
+	max_ahead: u32,
 	finalized: NumberFor<B>,
 	best_num: NumberFor<B>,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
@@ -2341,7 +2394,7 @@ fn peer_block_request<B: BlockT>(
 		peer.best_number,
 		peer.common_number,
 		max_parallel_downloads,
-		MAX_DOWNLOAD_AHEAD,
+		max_ahead,
 	)?;
 
 	// The end is not part of the range.
@@ -2364,6 +2417,19 @@ fn peer_block_request<B: BlockT>(
 	Some((range, request))
 }
 
+/// Size in bytes of the block data held in memory for `block` while it awaits import.
+///
+/// Headers and justifications are ignored: the body dominates, and on chains with large blocks it
+/// is the term that makes a limit on the *number* of queued blocks insufficient on its own.
+fn incoming_block_bytes<B: BlockT>(block: &IncomingBlock<B>) -> usize {
+	let body = block.body.as_ref().map_or(0, |body| body.encoded_size());
+	let indexed_body = block
+		.indexed_body
+		.as_ref()
+		.map_or(0, |chunks| chunks.iter().map(|chunk| chunk.len()).sum());
+	body + indexed_body
+}
+
 /// Get a new block request for the peer if any.
 fn peer_gap_block_request<B: BlockT>(
 	id: &PeerId,
@@ -2373,6 +2439,7 @@ fn peer_gap_block_request<B: BlockT>(
 	target: NumberFor<B>,
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
+	max_ahead: u32,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
 	let range = blocks.needed_blocks(
 		*id,
@@ -2380,7 +2447,7 @@ fn peer_gap_block_request<B: BlockT>(
 		std::cmp::min(peer.best_number, target),
 		common_number,
 		1,
-		MAX_DOWNLOAD_AHEAD,
+		max_ahead,
 	)?;
 
 	// The end is not part of the range.

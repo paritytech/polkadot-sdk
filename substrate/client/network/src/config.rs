@@ -656,6 +656,10 @@ pub struct NetworkConfiguration {
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
 
+	/// Maximum total size in bytes of block bodies queued for import before block download
+	/// applies backpressure. Zero disables the limit.
+	pub max_queued_block_bytes: usize,
+
 	/// Number of peers that need to be connected before warp sync is started.
 	pub min_peers_to_start_warp_sync: Option<usize>,
 
@@ -717,6 +721,7 @@ impl NetworkConfiguration {
 			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			max_queued_block_bytes: 512 * 1024 * 1024,
 			min_peers_to_start_warp_sync: None,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,

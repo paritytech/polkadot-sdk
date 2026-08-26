@@ -1579,6 +1579,7 @@ where
 		mode: net_config.network_config.sync_mode,
 		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
+		max_queued_block_bytes: net_config.network_config.max_queued_block_bytes,
 		min_peers_to_start_warp_sync: net_config.network_config.min_peers_to_start_warp_sync,
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,

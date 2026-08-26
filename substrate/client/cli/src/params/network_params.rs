@@ -175,6 +175,17 @@ pub struct NetworkParams {
 	#[arg(long, value_name = "COUNT", default_value_t = 64)]
 	pub max_blocks_per_request: u32,
 
+	/// Maximum total size, in MiB, of block bodies queued for import.
+	///
+	/// Block download applies backpressure once the blocks waiting to be imported reach this
+	/// many bytes, in addition to the existing limit on their number. The count limit alone is
+	/// size-blind: on chains with large blocks it permits gigabytes of block bodies to
+	/// accumulate in memory ahead of the import queue.
+	///
+	/// Set to 0 to disable the size limit and bound the queue by block count only.
+	#[arg(long, value_name = "MiB", default_value_t = 512)]
+	pub max_queued_block_mib: u32,
+
 	/// Network backend used for P2P networking.
 	///
 	/// Litep2p is a lightweight alternative to libp2p, that is designed to be more
@@ -282,6 +293,7 @@ impl NetworkParams {
 			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: self.max_parallel_downloads,
 			max_blocks_per_request: self.max_blocks_per_request,
+			max_queued_block_bytes: self.max_queued_block_mib as usize * 1024 * 1024,
 			min_peers_to_start_warp_sync: None,
 			enable_dht_random_walk: !self.reserved_only,
 			allow_non_globals_in_dht,

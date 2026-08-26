@@ -988,6 +988,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			mode: network_config.sync_mode,
 			max_parallel_downloads: network_config.max_parallel_downloads,
 			max_blocks_per_request: network_config.max_blocks_per_request,
+			max_queued_block_bytes: network_config.max_queued_block_bytes,
 			metrics_registry: None,
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
