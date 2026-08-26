@@ -6,7 +6,7 @@
 
 use crate::utils::{
 	assert_nodes_are_validators, check_metrics, env_or_default, initialize_network,
-	MetricCheckSetup, INTEGRATION_IMAGE_ENV,
+	maybe_enable_experimental_collator_protocol, MetricCheckSetup, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
@@ -14,6 +14,7 @@ use futures::future::try_join_all;
 use std::collections::HashMap;
 use zombienet_sdk::{
 	subxt::{
+		self,
 		ext::subxt_rpcs::client::{rpc_params, RpcParams},
 		OnlineClient, PolkadotConfig,
 	},
@@ -231,10 +232,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(vec![
+			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
 				"--log=beefy=debug".into(),
 				"--enable-offchain-indexing=true".into(),
-			])
+			]))
 			.with_default_resources(|r| {
 				r.with_limit_memory("4G")
 					.with_limit_cpu("2")

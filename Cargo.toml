@@ -81,7 +81,6 @@ members = [
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
-	"cumulus/pallets/dmp-queue",
 	"cumulus/pallets/parachain-system",
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
@@ -292,6 +291,7 @@ members = [
 	"substrate/client/mixnet",
 	"substrate/client/network",
 	"substrate/client/network-gossip",
+	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
 	"substrate/client/network/statement",
@@ -391,6 +391,9 @@ members = [
 	"substrate/frame/grandpa",
 	"substrate/frame/honzon/oracle",
 	"substrate/frame/honzon/oracle/runtime-api",
+	"substrate/frame/hrmp/para",
+	"substrate/frame/hrmp/primitives",
+	"substrate/frame/hrmp/relay",
 	"substrate/frame/identity",
 	"substrate/frame/im-online",
 	"substrate/frame/indices",
@@ -430,6 +433,10 @@ members = [
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
+	"substrate/frame/registrar/integration-tests",
+	"substrate/frame/registrar/para",
+	"substrate/frame/registrar/primitives",
+	"substrate/frame/registrar/relay",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
 	"substrate/frame/revive/dev-node/node",
@@ -445,8 +452,8 @@ members = [
 	"substrate/frame/safe-mode",
 	"substrate/frame/salary",
 	"substrate/frame/sassafras",
+	"substrate/frame/scarcity",
 	"substrate/frame/scheduler",
-	"substrate/frame/scored-pool",
 	"substrate/frame/session",
 	"substrate/frame/session/benchmarking",
 	"substrate/frame/society",
@@ -669,25 +676,25 @@ anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
 aquamarine = { version = "0.5.0" }
 arbitrary = { version = "1.3.2" }
-ark-bls12-377 = { version = "0.5.0", default-features = false }
-ark-bls12-377-ext = { version = "0.5.2", default-features = false }
-ark-bls12-381 = { version = "0.5.0", default-features = false }
-ark-bls12-381-ext = { version = "0.5.2", default-features = false }
-ark-bw6-761 = { version = "0.5.0", default-features = false }
-ark-bw6-761-ext = { version = "0.5.2", default-features = false }
-ark-ec = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-377 = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-377-ext = { version = "0.5.2", default-features = false }
-ark-ed-on-bls12-381-bandersnatch = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.5.2", default-features = false }
-ark-ff = { version = "0.5.0", default-features = false }
-ark-pallas = { version = "0.5.0", default-features = false }
-ark-pallas-ext = { version = "0.5.2", default-features = false }
-ark-scale = { version = "0.0.13", default-features = false }
-ark-std = { version = "0.5.0", default-features = false }
-ark-vesta = { version = "0.5.0", default-features = false }
-ark-vesta-ext = { version = "0.5.2", default-features = false }
-ark-vrf = { version = "0.5.0", default-features = false }
+ark-bls12-377 = { version = "0.6.0", default-features = false }
+ark-bls12-377-ext = { version = "0.6.0", default-features = false }
+ark-bls12-381 = { version = "0.6.0", default-features = false }
+ark-bls12-381-ext = { version = "0.6.0", default-features = false }
+ark-bw6-761 = { version = "0.6.0", default-features = false }
+ark-bw6-761-ext = { version = "0.6.0", default-features = false }
+ark-ec = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-377 = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-377-ext = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.6.0", default-features = false }
+ark-ff = { version = "0.6.0", default-features = false }
+ark-pallas = { version = "0.6.0", default-features = false }
+ark-pallas-ext = { version = "0.6.0", default-features = false }
+ark-scale = { version = "0.0.14", default-features = false }
+ark-std = { version = "0.6.0", default-features = false }
+ark-vesta = { version = "0.6.0", default-features = false }
+ark-vesta-ext = { version = "0.6.0", default-features = false }
+ark-vrf = { version = "0.5.3", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
@@ -762,6 +769,7 @@ color-print = { version = "0.3.4" }
 colored = { version = "2.0.4" }
 comfy-table = { version = "7.1.4", default-features = false }
 console = { version = "0.15.8" }
+const-crypto = { version = "0.3.0", default-features = false }
 const-hex = { version = "1.10.0", default-features = false }
 coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/coretime/coretime-westend" }
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
@@ -964,6 +972,7 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
+p256 = { version = "0.13.2", default-features = false }
 pallet-accumulate-and-forward = { path = "substrate/frame/accumulate-and-forward", default-features = false }
 pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
@@ -1058,6 +1067,8 @@ pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
+pallet-registrar-para = { path = "substrate/frame/registrar/para", default-features = false }
+pallet-registrar-relay = { path = "substrate/frame/registrar/relay", default-features = false }
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
@@ -1066,6 +1077,7 @@ pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = 
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }
 pallet-salary = { path = "substrate/frame/salary", default-features = false }
+pallet-scarcity = { path = "substrate/frame/scarcity", default-features = false }
 pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false }
 pallet-session = { path = "substrate/frame/session", default-features = false }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false }
@@ -1178,10 +1190,10 @@ polkadot-subsystem-test-sim-macros = { path = "polkadot/node/test-sim/macros" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.33.0", default-features = false }
-polkavm-common = { version = "0.33.0", default-features = false }
-polkavm-derive = "0.33.0"
-polkavm-linker = "0.33.0"
+polkavm = { version = "0.35.0", default-features = false }
+polkavm-common = { version = "0.35.0", default-features = false }
+polkavm-derive = "0.35.0"
+polkavm-linker = "0.35.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
@@ -1210,6 +1222,7 @@ rand_pcg = { version = "0.3.1" }
 rbtag = { version = "0.3" }
 ref-cast = { version = "1.0.23" }
 regex = { version = "1.10.2" }
+registrar-primitives = { path = "substrate/frame/registrar/primitives", default-features = false }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
@@ -1267,6 +1280,7 @@ sc-informant = { path = "substrate/client/informant", default-features = false }
 sc-keystore = { path = "substrate/client/keystore", default-features = false }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false }
 sc-network = { path = "substrate/client/network", default-features = false }
+sc-network-bitswap = { path = "substrate/client/network/bitswap", default-features = false }
 sc-network-common = { path = "substrate/client/network/common", default-features = false }
 sc-network-gossip = { path = "substrate/client/network-gossip", default-features = false }
 sc-network-light = { path = "substrate/client/network/light", default-features = false }
@@ -1428,9 +1442,10 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.44", default-features = false }
-subxt-metadata = { version = "0.44", default-features = false }
-subxt-signer = { version = "0.44" }
+subxt = { version = "0.50", default-features = false }
+subxt-metadata = { version = "0.50", default-features = false }
+subxt-rpcs = { version = "0.50", default-features = false }
+subxt-signer = { version = "0.50" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1467,8 +1482,8 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "=0.3.19" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.42.1" }
-trie-db = { version = "0.31.0", default-features = false }
+trie-bench = { version = "0.42.2" }
+trie-db = { version = "0.32.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
@@ -1494,6 +1509,7 @@ westend-runtime = { path = "polkadot/runtime/westend", default-features = false 
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system" }
 x25519-dalek = { version = "2.0" }
+x509-cert = { version = "0.2.5", default-features = false }
 xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm" }
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder" }
 xcm-docs = { path = "polkadot/xcm/docs" }

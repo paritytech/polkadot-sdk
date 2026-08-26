@@ -25,8 +25,14 @@ use crate::runtime_api::*;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct ReceiptDataInputPayloadV1;
 
+/// The input type used when calling the `eth_receipt_data_versioned` runtime API function. This
+/// function replaces the unversioned `eth_receipt_data` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum ReceiptDataVersionedInputPayload {
+	/// The arguments provided when calling the `eth_receipt_data_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `eth_receipt_data` runtime API function.
 	V1(ReceiptDataInputPayloadV1),
 }
 
@@ -35,7 +41,14 @@ pub struct ReceiptDataOutputPayloadV1 {
 	pub receipt_data: Vec<ReceiptGasInfoV1>,
 }
 
+/// The output type returned when calling the `eth_receipt_data_versioned` runtime API function.
+/// This function replaces the unversioned `eth_receipt_data` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum ReceiptDataVersionedOutputPayload {
+	/// The output returned when calling the `eth_receipt_data_versioned` runtime API function with
+	/// `V1` arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `eth_receipt_data`
+	/// runtime API function.
 	V1(ReceiptDataOutputPayloadV1),
 }

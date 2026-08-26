@@ -28,7 +28,7 @@ use zombienet_sdk::{
 };
 
 use sc_statement_store::subxt_client::CustomConfig;
-use statement_store_subxt::OnlineClient;
+use subxt::OnlineClient;
 pub(super) const RPC_POOL_SIZE: usize = 10000;
 pub(super) const COLLATOR_INFO_LOG_FILTER: &str = "info,statement-store=info,statement-gossip=info";
 pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
