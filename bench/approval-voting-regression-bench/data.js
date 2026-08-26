@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787702646808,
+  "lastUpdate": 1787733084021,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "cyrill@parity.io",
-            "name": "xermicus",
-            "username": "xermicus"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2eb43506e24f8d19028b0d928c3039d2830e7572",
-          "message": "[pallet-revive] weight charge in `sr25519_verify` and `ecdsa_to_eth_address` precompiles (#10861)\n\nI couldn't see where the weight is charged in those builtin pre-compiles\nand a quick test indicated that there's no charges implemented. Assuming\nthose are compute-heavy functions, the missing weight charges seem like\na serious DoS vector.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-22T13:58:11Z",
-          "tree_id": "d648dc0c502a8f294882daa049dea09aaded03a3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2eb43506e24f8d19028b0d928c3039d2830e7572"
-        },
-        "date": 1769094585740,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63631.329999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8102767363499703,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.70783752420296,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6091196552399984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002018043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.598176152689962,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000241372,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.638629125029997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6076758962500004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002018043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000241372,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6421867759899995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.285164286979996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00512367685,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.659137934060001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zln1905391059@163.com",
+            "name": "Langning Zhang",
+            "username": "Boulea7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b16a3e0c96fa58e9716ed949eef8c55d06522d32",
+          "message": "[RWF] pallet-beefy: return the correct future voting proof error (#12858)\n\n# Description\n\nFixes #12784.\n\nInvalid signatures in `FutureBlockVotingProof` were rejected as\n`InvalidForkVotingProof`. This changes that failure path to return\n`InvalidFutureBlockVotingProof` and adds a regression test that tampers\nwith the signed payload. The invalid proof remains rejected.\n\n## Integration\n\nNo storage migration, weight change, call index change, or error enum\nordinal change is required. The observable module error code for an\ninvalid signature in this specific future-block-voting proof path\nchanges from 2 (`InvalidForkVotingProof`) to 3\n(`InvalidFutureBlockVotingProof`). Downstream consumers that\nspecial-case the incorrect code 2 for this path should update to code 3.\n\n## Review Notes\n\nThe `FutureBlockVotingProof` branch already returns\n`InvalidFutureBlockVotingProof` for its block-number guard. The\ninvalid-signature branch now uses the same proof-specific error.\n\nThe regression test creates a valid future-block-voting proof, changes\nits payload without re-signing it, and verifies that reporting it\nreturns `InvalidFutureBlockVotingProof`.\n\n# Checklist\n\n* [x] My PR includes a detailed description and integration notes.\n* [x] I have added a regression test that proves the fix.\n* [x] No documentation changes are required for this internal\nerror-selection correction.\n* [ ] A `T*` label and prdoc will be requested through command-bot\ncomments.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-26T07:04:27Z",
+          "tree_id": "b0b316ead1629041056ad417c87627c057fa1f45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b16a3e0c96fa58e9716ed949eef8c55d06522d32"
+        },
+        "date": 1787733045190,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63566.81999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.645210153790001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6732772744200015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018775399999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.810902608179987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7750925853899786,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.461466962962648,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0062097089799999965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001929011,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.372553261460005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018775399999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6498184256400013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001929011,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6887411985,
             "unit": "seconds"
           }
         ]
