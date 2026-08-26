@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate sc_network_statement</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_network_statement/index.html">sc_<wbr>network_<wbr>statement</a><span class="version">0.16.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#propagation" title="Propagation">Propagation</a></li><li><a href="#tracking-received-statements" title="Tracking received statements">Tracking received statements</a></li><li><a href="#topic-affinity-and-light-nodes" title="Topic affinity and light nodes">Topic affinity and light nodes</a></li><li><a href="#usage" title="Usage">Usage</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sc_<wbr>network_<wbr>statement</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sc_network_statement/lib.rs.html#19-5240">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Statement handling to plug on top of the network service.</p>
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate sc_network_statement</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_network_statement/index.html">sc_<wbr>network_<wbr>statement</a><span class="version">0.16.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#propagation" title="Propagation">Propagation</a></li><li><a href="#tracking-received-statements" title="Tracking received statements">Tracking received statements</a></li><li><a href="#send-scheduling" title="Send scheduling">Send scheduling</a></li><li><a href="#topic-affinity-and-light-nodes" title="Topic affinity and light nodes">Topic affinity and light nodes</a></li><li><a href="#usage" title="Usage">Usage</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sc_<wbr>network_<wbr>statement</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sc_network_statement/lib.rs.html#19-5991">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Statement handling to plug on top of the network service.</p>
 <p>This crate implements gossip-based propagation of statements between nodes, layered on the
 substrate notifications protocol. Two protocol versions are negotiated per peer: <code>statement/2</code>
 (preferred) with <code>statement/1</code> as a fallback.</p>
@@ -158,8 +158,10 @@ substrate notifications protocol. Two protocol versions are negotiated per peer:
 blocks; it resumes automatically once the node is fully synced (peers are reconnected to
 recover statements missed while syncing).</li>
 <li>A propagation loop runs every second (<code>config::PROPAGATE_TIMEOUT</code>): it takes all statements
-added since the previous round, batches them up to the maximum notification size
-(<code>config::MAX_STATEMENT_NOTIFICATION_SIZE</code>, ~1 MiB), and sends the batches to connected peers.</li>
+added since the previous round and queues their hashes to a per-peer outbox. Each peer has at
+most one propagation chunk in flight at a time. When its send slot is free, statements are
+fetched from the store, filtered and encoded up to the maximum notification size
+(<code>config::MAX_STATEMENT_NOTIFICATION_SIZE</code>, ~1 MiB).</li>
 <li>Incoming statements are pushed onto a bounded validation queue
 (<code>config::MAX_PENDING_STATEMENTS</code>); if the queue is full, incoming statements are dropped.</li>
 <li>Peer reputation is adjusted based on statement quality (good, duplicate, invalid, flooding).</li>
@@ -171,12 +173,30 @@ can pick it up again. The only duplicates worth preventing are statements sent b
 peers they came from.</p>
 <p>While a statement waits for validation, the peers it came from are recorded in
 <code>pending_statements_peers</code>. On import they move to <code>recently_received_statements</code>, and a
-peer that resends the statement before its tick is added there too. The propagation pass
-skips the recorded peers and clears <code>recently_received_statements</code> when done.</p>
-<p>Initial sync sends a snapshot of the whole store with no per-peer filtering, so a peer can
-occasionally receive a statement twice and may charge a small reputation penalty for the
-duplicate. TODO: dedupe the initial-sync and propagation paths once sends flow through a
-per-peer outbox (issue #12838).</p>
+peer that resends the statement before its tick is added there too. Propagation and
+initial-sync chunks both skip the recorded peers, and the propagation pass clears
+<code>recently_received_statements</code> when done.</p>
+<h3 id="send-scheduling"><a class="doc-anchor" href="#send-scheduling">§</a>Send scheduling</h3>
+<p>Every peer has one send slot, shared by propagation and initial sync, so at most one chunk per
+connection is in flight. Each chunk carries a fresh id, so the result of a send left over from
+a previous connection cannot free the current one’s slot. A completed chunk frees the slot at
+once and the next propagation chunk follows, a failed send included: the failed chunk is not
+retried, but the rest of the backlog keeps draining.</p>
+<p>Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
+the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
+outbox past <code>config::MAX_PROPAGATION_OUTBOX_LEN</code> drops its oldest hashes, since the freshest
+statements are the ones still worth delivering. Dropped hashes are counted in
+<code>undelivered_statements</code>.</p>
+<p>In-flight bytes of both kinds are held against the shared
+<code>config::MAX_SEND_IN_FLIGHT_BYTES</code> budget. A peer that finds the budget full, or whose store
+fetch fails, is parked once and refilled in parking order as completed sends free bytes and on
+propagation ticks. While initial syncs are pending, propagation parks
+<code>config::INITIAL_SYNC_RESERVED_BYTES</code> early: refills reclaim freed bytes synchronously,
+while the timer-driven sync bursts would otherwise always find the budget full.</p>
+<p>A statement can still reach a peer twice when it sits both in the peer’s initial-sync snapshot
+and in a propagation tick around it, and the peer may charge a small reputation penalty for the
+duplicate. TODO: replace the hash snapshot with a cursor over the store’s admission sequence,
+which splits the two paths by admission order instead of by content.</p>
 <h3 id="topic-affinity-and-light-nodes"><a class="doc-anchor" href="#topic-affinity-and-light-nodes">§</a>Topic affinity and light nodes</h3>
 <p>The <code>statement/2</code> protocol lets a peer advertise which topics it cares about as a bloom filter
 (“topic affinity”). Once a peer has an active affinity filter, only matching statements are
