@@ -4,29 +4,24 @@ The [Parachain Service](https://github.com/paritytech/polkadot-sdk/blob/afe236db
 
 Here is a breakdown of exactly what needs to change to make Speculative Messaging work smoothly on JAM, ensuring every Polkadot feature has a clear, explicit JAM backport.
 
-> For MVP, if a root has already been enacted, B can simply prove the enactment in core.
-> Enactment itself is the commitment that needs no sender host call, no dedicated state, no cell.
+> For MVP, chains speculate at `Enactment` tier. Sender parachain `A` writes its `Provides/StreamsRoot` entry
+> inside a `recent_provides` settlement ring (bounded vector). Receiver `B` monitors the ring, fetches messages from `A` and targets its
+> `Requires` field agains the latest `recent_provides` entry. In the `Accumulate` phase, the PS ensures that
+> all `Requires` are matched against their respective `recent_provides` entries.
 
-The Parachain Service refine context carries the anchor's **accumulation-output-log super-peak**, and the 
-Accumulate output commits the heads that changed per block. Therefore, any root that was enacted
-is provable in-core from any recent anchor without any recency bound on enactment.
+Therefore, we introduce on-chain settlement from the MVP. The sender `StreamsRoot` is pushed to the ring,
+the consumer `Requires` field (ie `(ParaId, StreamsRoot)`) is checked against the ring. The same
+mechanism handles settlement for all speculation tiers.
+
+The settlement ring is used for monitoring rollbacks. When a `parachain_set_head` overwrites a live
+head, it will also clear out the parachain's ring. Abandoned roots are no longer consumed and recovery
+(resetting the channels, compensate for delivered messages) is a `Coretime` runbook procedure, not
+a consensus mechanims Speculative Messaging or PS provides.
 
 ```
 anchor super-peak → belt leaf → (PS, heads_root) → Leaf { para_id, head_hash }
   → header preimage → SPMS digest → StreamsRootA
 ```
-
-In-core validation proves the root was enacted; on-chain settlement then re-checks every consumed root
-against the sender's ring of recently enacted roots. Every consumer records `(ParaId, StreamsRoot)` per
-source in its digest.
-
-The settlement ring is live from day 0: every enacted SPMS root is pushed into the sender's ring at the
-head write, and settlement requires each consumed root to be present in its source's ring. The same
-machinery settles the higher speculation tiers later with no further consensus change.
-
-The ring is also the rollback brake: a forced `parachain_set_head` that overwrites a live head clears
-the para's ring, so abandoned roots stop being consumable immediately. Recovery beyond that (resetting
-channels, compensating deliveries) is a Coretime runbook procedure, not a consensus mechanism.
 
 
 ## Changes at Accumulation Tier MVP
@@ -46,7 +41,6 @@ This is the sender's consensus commitment relying only on 33 bytes in its header
 ```rust
 /// SCALE-encoded payload of `DigestItem::Consensus(SPMS_ENGINE_ID, ..)`: 33 bytes.
 enum SpmsDigest {
-    /// Versioned so we can have coexisting diget formats and coordonate the release schedule.
     /// Encodes to u8.
     V0 {
         /// The root of the sender's outbound message streams.
@@ -58,50 +52,36 @@ enum SpmsDigest {
 2. Digest fields: `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>` on the PS work digest
 
 The field is set via `set_requires_root` host call at most once per `Refine`. Each entry names the
-consumed root itself, so settlement can re-check it against the source's ring from day 0.
+consumed root itself, so settlement can check it against the source's ring.
+
 At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
+
 This must be a digest field and not UpwardMessage, because UMP replays after the head write (so it can't gate enactment).
 
-3. `declare_budget(distinct_sources)` mandatory, once per Refine, before the first spec-msg call
+3. Settlement: ring `spec_msg_recent_provides` and `Requires` check
 
-At MVP, the `declare_budget(distinct_sources)` declares upfront how many distinct `ParaId`
-sources it will touch. Then, lets the `Refine` wrapper reserve gas for proof verification before the
-work starts.
+The settlement ring represents the last `W` enacted roots per para, keyed at `0x09 ++ para_id`.
 
+It is check and ring is delivered by the MVP implementation. If the enacted head carries an SPMS digest
+its root is pushed into the senders ring only if different from the newest entry. The ring evicts the
+oldest entry beyond `W`.
 
-4. Settlement: the requires check runs at §5.1 step 6, against the day-0 ring `spec_msg_recent_provides`
-
-The settlement ring represents the last `W` enacted roots per para, keyed at `0x09 ++ para_id`. It is
-live from day 0: at the head write (§5.1 step 6), if the enacted head carries an SPMS digest, its root
-is pushed into the sender's ring — iff different from the newest entry, evicting the oldest beyond `W`.
-Paras that never emit SPMS digests never write. A forced `parachain_set_head` that overwrites a live
-head clears the ring instead.
+A forced `parachain_set_head` that overwrites a live head will also clear the ring.
 
 ```rust
 /// Keyed `0x09 ++ SCALE(para_id)`.
 /// 
-/// §5.1 step 6 pushes the enacted root at the head write iff != newest entry, evicts oldest.
+/// Step 6 pushes the enacted root at the head write iff != newest entry, evicts oldest.
 /// Cleared when a forced `parachain_set_head` overwrites a live head.
 /// Read by settlement, never proved.
 spec_msg_recent_provides: Map<ParaId, BoundedVec<StreamsRoot, W>>
 ```
 
-The ring is charged at first write rather than priced from the day-0 baseline. An unfunded parachain still
-receives and consumes; what it cannot do is fund its own ring, so its roots never become consumable — it
-cannot act as a source at any tier until funded.
-
-The requires check itself sits at the head of §5.1 step 6 — the last gate, so passing implies enacting,
-and before the head write, so a rejected `B` never publishes a root of its own. Every requires entry's
-source must exist and the named root must be present in the source's ring, or the candidate is rejected.
-The candidate is rejected silently and the receiver `B` monitors off-chain similar to `parent-head` or 
-`check-code` failures. Otherwise, letting rejected candidates append `AccumulateLogs` would let junk
+The ring is charged from the baseline of the parachain. Passing the settlement ring check implies that
+the candidate will enact. Every requires entry source must exist and the named root must be present in the ring.
+The candidate is rejected silently and the receiver `B` monitors offchain this behaviour, similar to
+`parent-head` or `check-code` failures. Otherwise, letting rejected candidates append `AccumulateLogs` would let junk
 candidates push out valuable entries.
-
-The ring check bounds which roots are consumable to the source's last `W` **enacted roots** — a bound in
-enactments, not in time: a dormant sender's ring persists, and because streams are cumulative MMRs, any
-newer root reaches every older message via lifts. Catch-up stays unbounded; consumers simply verify
-against a recent root.
-
 
 > Note: A forced rollback (`ParachainSetHead` from the Coretime chain) isn't applied instantly. Its an upward message,
 replayed at step 7 when the Coretime chain's own package accumulates. Packages accumulate in order within a block,
@@ -124,9 +104,7 @@ this is accepted rather than solved (ie draining Coretime's commands before any 
 
 - **T1b Backed / Active**
   - saves 1 or 2 slots
-  - **zero consensus change**: the requires entry already carries the root and the ring is already
-    live and checked at settlement — the tier is purely node-side (B dares to consume a root that
-    is guaranteed but not yet enacted; the in-core enactment proof is skipped since none exists yet)
+  - needs no consensus change
   - `A` guaranteed report can die and `B` burns its slot (ie `A` must land first or `B` burns a slot)
   - Same block `A -> B` is possible since Accumulation happens in order and A's ring push lands before B's settlement runs.
 
