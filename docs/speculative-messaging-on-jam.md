@@ -60,6 +60,11 @@ It is check and ring is delivered by the MVP implementation. If the enacted head
 its root is pushed into the senders ring only if different from the newest entry. The ring evicts the
 oldest entry beyond `W`.
 
+> `W` is no longer extra pipeline headroom. It is the window against which `Requires` must match.
+If a package `Requires` is not in the ring, that slot is lost. On polkadot, a stale candidate
+can retry for free. On JAM, each retry costs another slot.
+
+
 A forced `parachain_set_head` that overwrites a live head will also clear the ring.
 
 ```rust
