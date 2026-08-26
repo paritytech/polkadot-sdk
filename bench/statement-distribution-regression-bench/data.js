@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787693388606,
+  "lastUpdate": 1787702691738,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "22591718+RomarQ@users.noreply.github.com",
-            "name": "Rodrigo Quelhas",
-            "username": "RomarQ"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "841c77b967af6ba4f2bb70e1d3fad70e5749dc61",
-          "message": "Migrate pallet-example-offchain-worker to TransactionExtension API (#10716)\n\n## Summary\n\nPart of #2415\n\nThis PR is a focused extraction from the larger PR #10150, specifically\nmigrating only `pallet-example-offchain-worker` to use the modern\n`TransactionExtension` API.\n\n## Changes\n\nThis PR migrates `pallet-example-offchain-worker` from the deprecated\n`ValidateUnsigned` trait to the `TransactionExtension` API using the\n`#[pallet::authorize]` attribute.",
-          "timestamp": "2026-01-21T07:54:49Z",
-          "tree_id": "fc6c9fa3a67ef038039a680458f7a8d27e6c4ec1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/841c77b967af6ba4f2bb70e1d3fad70e5749dc61"
-        },
-        "date": 1768986654177,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.036,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038047590526,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06354888750999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.040118870283999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5996b688c3b3b33c228074988cdf7c3231c1cff8",
+          "message": "Remove deprecated cumulus-pallet-dmp-queue (#12681)\n\n## Summary\n\n- Remove the `cumulus-pallet-dmp-queue` crate (deprecated after November\n2024).\n- Drop workspace membership and umbrella feature/dependency wiring.\n- No in-repo runtime still depends on this pallet; DMP is handled via\n`pallet-message-queue`.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-25T20:32:50Z",
+          "tree_id": "2550914affb0c823a2d7df36c6e6935985fd237e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5996b688c3b3b33c228074988cdf7c3231c1cff8"
+        },
+        "date": 1787702656032,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12199999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039797253394,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08388914268199993,
             "unit": "seconds"
           }
         ]
