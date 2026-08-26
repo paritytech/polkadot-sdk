@@ -18,13 +18,7 @@ head, it will also clear out the parachain's ring. Abandoned roots are no longer
 (resetting the channels, compensate for delivered messages) is a `Coretime` runbook procedure, not
 a consensus mechanims Speculative Messaging or PS provides.
 
-```
-anchor super-peak → belt leaf → (PS, heads_root) → Leaf { para_id, head_hash }
-  → header preimage → SPMS digest → StreamsRootA
-```
-
-
-## Changes at Accumulation Tier MVP
+## Changes at MVP Tier
 
 We are releasing SpecMsg with Accumulation Tier (HRMP parity) from day 0. The changes needed:
 
@@ -126,52 +120,6 @@ this is accepted rather than solved (ie draining Coretime's commands before any 
 - **T4 SuperChains**
   - Both A and B candidates are bundled in the same package
   - Needs a PS service rule that if any member fails the whole group is declined.
-
-## Verification
-
-B's PoV carries per consumed source an `EnactmentProof`:
-
-```rust
-struct EnactmentProof {
-    /// Path from the anchor's super-peak to the enacting block's entry in the
-    /// accumulation-output log.
-    /// 
-    /// TODO-GrayPaper: We need the exact format and hash function.
-    belt_path: Vec<u8>,
-
-    /// PS's per-block accumulation output for that block.
-    heads_root: Hash,
-
-    /// keccak path in the changed-heads tree to `Leaf { para_id, head_hash }`.
-    heads_path: Vec<Hash>,
-
-    /// Full header preimage; must hash to `head_hash`.
-    /// The SPMS digest `streams_root` is extracted out of it.
-    header: Vec<u8>,
-}
-```
-
-Verification occurs in the Parachain Service Refine wrapper via
-`verify_enacted_root(para_id, proof) -> Option<StreamsRoot>` and not in the guest code.
-Malformed proofs abort Refine with `RefineLog::InvalidEnactmentProof`.
-
-Then the message Lifts verify against the root as on Polkadot. Settlement (§5.1 step 6) re-checks the
-named root against the source's ring — never message verification, which
-is inherently guest-side. A guest that skips lift verification is broken either way.
-
-The anchor must be matched against the last 8 JAM blocks at guarantee time. The 6s slots needs roughly 3-4 slots out of the
-8 for state root lag, building, distribution and inclusion. This leaves approximately 4-5 slots to match against. Missing the
-window means the re-anchoring swaps the proof envelope, not the block. Since MMR peaks are prefetched, lift generation also
-remains local. This needs to take into account AURA authorizer which makes the anchor double as the slot claim, which could 
-shrink the collator window from 8 to its own rotation run.
-
-PoV cost is about 4KiB per touched stream plus, per source, the belt path (log2 of chain length), the heads
-path (<= log2 of core count) and A's full header preimage. For example, 128 streams and 64 sources stays well
-under 1 MiB out of the ~13MiB budget.
-
-> Unknown: The verification gas is unknown, and now needs `keccak_256` for the belt and
-> heads paths, BLAKE2b for the lifts. Needs to fit inside the Refine 5 * 10^9.
-> The fallback is hashing host calls for the child PVM, capped by a `MAX_VERIFICATION_HASHES` constant.
 
 ## Transport and Discovery
 
@@ -424,3 +372,36 @@ Solving the work package ordering:
   This is a fallback logic for when things get out of sync.
   If A is enacted, but B fails to enact, the system won't enact A until B can enact.
   A is parked for a timeout and if B takes too long or never arrives, A is dropped as well.
+
+## Apendix
+
+This sections highlights an alternative to the onchain ring settlement that is valid only
+for the MVP tier (Enactment).
+
+### Alternative Verification
+
+The RefineContext carries the anchor's accumulation-output-log super peak. The verification
+can happen in-core of the receiver parachain. Since speculation happens at enactment, the
+super peak contains the sender parachain header hash. The receiver node passes in its PoV
+an enactment proof which walks the super peak to the sender header hash, plus the full sender header.
+The receiver then extracts from the SPMS digest the `StreamsRoot` and compares against its `Provides`.
+
+Walking the super-peak:
+
+```
+anchor super-peak → belt leaf → (PS, heads_root) → Leaf { para_id, head_hash }
+  → header preimage → SPMS digest → StreamsRootA
+```
+
+```rust
+struct EnactmentProof {
+    /// Path from the anchor's super-peak to the enacting block's entry.
+    belt_path: Vec<u8>,
+    /// PS's per-block accumulation output for that block.
+    heads_root: Hash,
+    /// keccak path in the changed-heads tree to `Leaf { para_id, head_hash }`.
+    heads_path: Vec<Hash>,
+    /// Full header preimage that must match to `head_hash`.
+    header: Vec<u8>,
+}
+```
