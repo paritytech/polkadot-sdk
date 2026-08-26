@@ -119,27 +119,27 @@ impl ExportedFunction {
 	}
 }
 
-/// Cost of reading a contract's code metadata (`CodeInfoOf`).
+/// Cost of both reads a code load makes, charged before the first of them.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 struct CodeInfoLoadToken {
-	warmth: Warmth,
+	warmth: CodeLoadWarmth,
 	code_info_op: StorageOp,
 }
 
 impl<T: Config> Token<T> for CodeInfoLoadToken {
 	fn weight(&self) -> Weight {
 		let weight = runtime_costs::weight_by_warmth::<T, _>(
-			[self.warmth],
+			[self.warmth.info, self.warmth.blob],
 			TouchedKey::Address,
-			|| T::WeightInfo::code_info_load(),
+			|| T::WeightInfo::code_load(),
 			|| Weight::zero(), // a hot read is already in the proof
 		);
 		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
 		// whitelist. Its trie walk is already paid by this load's read, so add only
 		// the missing part of a write.
 		let bumps_refcount = self.code_info_op == StorageOp::Write;
-		let surcharge = match self.warmth {
+		let surcharge = match self.warmth.info {
 			// Upgrading a tracked entry to `Write` also journals the upgrade.
 			Warmth::Hot(paid) if bumps_refcount && !paid.covers(StorageOp::Write) => {
 				RuntimeCosts::deferred_write_cost::<T>()
@@ -188,7 +188,7 @@ impl<T: Config> Token<T> for CodeBlobLoadToken {
 		runtime_costs::weight_by_warmth::<T, _>(
 			[self.warmth],
 			TouchedKey::Address,
-			|| T::WeightInfo::code_blob_load().saturating_add(len_weight_of(per_byte)),
+			|| len_weight_of(per_byte),
 			|| len_weight_of(per_byte_hot),
 		)
 		.saturating_add(compilation)
@@ -199,10 +199,7 @@ impl<T: Config> Token<T> for CodeBlobLoadToken {
 #[cfg(test)]
 pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoadWarmth) -> Weight {
 	use crate::tests::Test;
-	let base = Token::<Test>::weight(&CodeInfoLoadToken {
-		warmth: warmth.info,
-		code_info_op: StorageOp::Read,
-	});
+	let base = Token::<Test>::weight(&CodeInfoLoadToken { warmth, code_info_op: StorageOp::Read });
 	let bytes =
 		Token::<Test>::weight(&CodeBlobLoadToken { code_len, code_type, warmth: warmth.blob });
 	base.saturating_add(bytes)
@@ -383,7 +380,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		code_info_op: StorageOp,
 	) -> Result<Self, DispatchError> {
 		// Priced here because the call benches whitelist these keys; ref_time overlaps.
-		meter.charge_weight_token(CodeInfoLoadToken { warmth: warmth.info, code_info_op })?;
+		meter.charge_weight_token(CodeInfoLoadToken { warmth, code_info_op })?;
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		meter.charge_weight_token(CodeBlobLoadToken {
 			code_len: code_info.code_len,
@@ -468,7 +465,9 @@ mod tests {
 	#[test]
 	fn the_refcount_write_is_charged_exactly_when_owed() {
 		let load = |info, code_info_op| {
-			Token::<Test>::weight(&CodeInfoLoadToken { warmth: info, code_info_op })
+			/// only `info` drives the surcharge under test.
+			let warmth = CodeLoadWarmth { info, blob: Warmth::cold_non_revertible() };
+			Token::<Test>::weight(&CodeInfoLoadToken { warmth, code_info_op })
 		};
 		let deferred = RuntimeCosts::deferred_write_cost::<Test>();
 		let journaled_upgrade = RuntimeCosts::access_list_upgrade_overhead::<Test>();
@@ -513,9 +512,7 @@ mod tests {
 			);
 			assert_eq!(hot.proof_size(), 0, "hot proof_size {code_type:?}: {hot:?}");
 
-			let both_reads_proof = <Test as Config>::WeightInfo::code_info_load()
-				.proof_size()
-				.saturating_add(<Test as Config>::WeightInfo::code_blob_load().proof_size());
+			let both_reads_proof = <Test as Config>::WeightInfo::code_load().proof_size();
 			assert!(
 				cold.proof_size() >= both_reads_proof + u64::from(code_len),
 				"cold load must include the {both_reads_proof}-byte proof of its two reads \
@@ -535,8 +532,9 @@ mod tests {
 				},
 			);
 			assert!(
-				hot_info_cold_blob.proof_size() >= u64::from(code_len),
-				"a cold blob keeps its per-byte proof while info is hot: {hot_info_cold_blob:?}",
+				hot_info_cold_blob.proof_size() >= both_reads_proof + u64::from(code_len),
+				"a cold blob walks a trie path even when info is hot, so it owes the \
+				 {both_reads_proof}-byte base too: {hot_info_cold_blob:?}",
 			);
 
 			let twice_as_long =

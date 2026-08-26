@@ -669,12 +669,32 @@ mod tests {
 	}
 
 	#[test]
-	fn hot_storage_overlay_overhead_is_not_zero() {
-		let overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
-		assert!(
-			overhead.ref_time() > 0,
-			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
-		);
-		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
+	fn derived_overheads_stay_positive() {
+		let cold = Warmth::cold_non_revertible();
+		let hot = Warmth::Hot(Paid::Read);
+		let overlay = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
+		let derived = [
+			("cold slot touch", RuntimeCosts::access_list_overhead::<Test>(cold, TouchedKey::Slot)),
+			(
+				"cold address touch",
+				RuntimeCosts::access_list_overhead::<Test>(cold, TouchedKey::Address),
+			),
+			("hot slot touch", RuntimeCosts::access_list_overhead::<Test>(hot, TouchedKey::Slot)),
+			(
+				"hot address touch",
+				RuntimeCosts::access_list_overhead::<Test>(hot, TouchedKey::Address),
+			),
+			("journaled upgrade", RuntimeCosts::access_list_upgrade_overhead::<Test>()),
+			("deferred write", RuntimeCosts::deferred_write_cost::<Test>()),
+			("hot storage overlay", overlay),
+		];
+		for (name, weight) in derived {
+			assert!(
+				weight.ref_time() > 0,
+				"{name} is the difference between two benched values, so a regen that inverts \
+				 the pair floors it to zero through `saturating_sub` instead of failing here",
+			);
+		}
+		assert_eq!(overlay.proof_size(), 0, "the overlay probe is in-memory only: {overlay:?}");
 	}
 }
