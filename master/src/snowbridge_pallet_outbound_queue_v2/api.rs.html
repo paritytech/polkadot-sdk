@@ -152,21 +152,27 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2 id=2 data-nosnippet>2</a>// SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="doccomment">//! Helpers for implementing runtime api
 <a href=#4 id=4 data-nosnippet>4</a>
-<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use crate</span>::{Config, MessageLeaves};
-<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>frame_support::storage::StorageStreamIter;
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>snowbridge_merkle_tree::{merkle_proof, MerkleProof};
-<a href=#8 id=8 data-nosnippet>8</a>
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub fn </span>prove_message&lt;T&gt;(leaf_index: u64) -&gt; <span class="prelude-ty">Option</span>&lt;MerkleProof&gt;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">where
-<a href=#11 id=11 data-nosnippet>11</a>	</span>T: Config,
-<a href=#12 id=12 data-nosnippet>12</a>{
-<a href=#13 id=13 data-nosnippet>13</a>	<span class="kw">if </span>!MessageLeaves::&lt;T&gt;::exists() {
-<a href=#14 id=14 data-nosnippet>14</a>		<span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#15 id=15 data-nosnippet>15</a>	}
-<a href=#16 id=16 data-nosnippet>16</a>	<span class="kw">let </span>proof =
-<a href=#17 id=17 data-nosnippet>17</a>		merkle_proof::&lt;&lt;T <span class="kw">as </span>Config&gt;::Hashing, <span class="kw">_</span>&gt;(MessageLeaves::&lt;T&gt;::stream_iter(), leaf_index);
-<a href=#18 id=18 data-nosnippet>18</a>	<span class="prelude-val">Some</span>(proof)
-<a href=#19 id=19 data-nosnippet>19</a>}
+<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use crate</span>::{Config, Messages, Pallet};
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>snowbridge_merkle_tree::{merkle_proof, MerkleProof};
+<a href=#7 id=7 data-nosnippet>7</a>
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">pub fn </span>prove_message&lt;T&gt;(leaf_index: u64) -&gt; <span class="prelude-ty">Option</span>&lt;MerkleProof&gt;
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">where
+<a href=#10 id=10 data-nosnippet>10</a>	</span>T: Config,
+<a href=#11 id=11 data-nosnippet>11</a>{
+<a href=#12 id=12 data-nosnippet>12</a>	<span class="kw">let </span>messages = Messages::&lt;T&gt;::get();
+<a href=#13 id=13 data-nosnippet>13</a>	<span class="comment">// `merkle_proof` panics if `leaf_index` is out of range, so guard against it here and return
+<a href=#14 id=14 data-nosnippet>14</a>	// `None` instead. This also covers the empty-`Messages` case.
+<a href=#15 id=15 data-nosnippet>15</a>	</span><span class="kw">if </span>leaf_index &gt;= messages.len() <span class="kw">as </span>u64 {
+<a href=#16 id=16 data-nosnippet>16</a>		<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#17 id=17 data-nosnippet>17</a>	}
+<a href=#18 id=18 data-nosnippet>18</a>	<span class="comment">// `MessageLeaves` is not persisted to state, so the committed leaves are recomputed from the
+<a href=#19 id=19 data-nosnippet>19</a>	// `Messages` stored for the current block. They are produced in the same order in which they
+<a href=#20 id=20 data-nosnippet>20</a>	// were appended during block execution, so `leaf_index` stays valid. This runs off-chain only,
+<a href=#21 id=21 data-nosnippet>21</a>	// so reading `Messages` here does not enter any block's PoV.
+<a href=#22 id=22 data-nosnippet>22</a>	</span><span class="kw">let </span>leaves = messages.iter().map(Pallet::&lt;T&gt;::message_leaf);
+<a href=#23 id=23 data-nosnippet>23</a>	<span class="kw">let </span>proof = merkle_proof::&lt;&lt;T <span class="kw">as </span>Config&gt;::Hashing, <span class="kw">_</span>&gt;(leaves, leaf_index);
+<a href=#24 id=24 data-nosnippet>24</a>	<span class="prelude-val">Some</span>(proof)
+<a href=#25 id=25 data-nosnippet>25</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
