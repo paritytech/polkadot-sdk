@@ -1729,6 +1729,35 @@ fn test_runtime_api_pending_rewards() {
 		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+
+		// SCENARIO: Validator with exposure but zero reward points (e.g. elected but authored no
+		// blocks). Its payout transfers nothing, so pending_rewards is false.
+		let validator_four = 304; // elected but earned zero points
+		let _ = asset::set_stakeable_balance::<T>(&validator_four, stake);
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(validator_four),
+			stake,
+			RewardDestination::Staked
+		));
+		let exposure_four =
+			Exposure::<AccountId, Balance> { total: stake, own: stake, others: Default::default() };
+		Eras::<T>::upsert_exposure(0, &validator_four, exposure_four);
+
+		// exposure exists and the page is unclaimed, yet the validator has no reward points.
+		assert!(!ErasRewardPoints::<T>::get(0).individual.contains_key(&validator_four));
+		assert!(!Eras::<T>::is_rewards_claimed(0, &validator_four, 0));
+		assert!(!Eras::<T>::pending_rewards(0, &validator_four));
+
+		// paying out succeeds but is a no-op: no `Rewarded` event is emitted for the validator.
+		let _ = staking_events_since_last_call();
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_four, 0));
+		assert!(!staking_events_since_last_call().iter().any(|e| matches!(
+			e,
+			Event::Rewarded { stash, .. } if *stash == validator_four
+		)));
+		// the no-op payout still marks the (only) page claimed.
+		assert!(Eras::<T>::is_rewards_claimed(0, &validator_four, 0));
+		assert_eq!(ClaimedRewards::<T>::get(0, &validator_four).to_vec(), vec![0]);
 	});
 }
 

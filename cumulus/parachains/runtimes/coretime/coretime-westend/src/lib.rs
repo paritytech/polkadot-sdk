@@ -69,14 +69,12 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, BlockNumberProvider},
+	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Debug, DispatchError, MultiAddress, MultiSignature, MultiSigner, Perbill,
 	Percent,
 };
 use sp_session::OpaqueGeneratedSessionKeys;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
@@ -127,19 +125,7 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
-	pallet_broker::migration::MigrateV0ToV1<Runtime>,
-	pallet_broker::migration::MigrateV1ToV2<Runtime>,
-	pallet_broker::migration::MigrateV2ToV3<Runtime>,
-	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-	>,
+	pallet_broker::migration::MigrateV4ToV5<Runtime, BrokerFirstSaleRegion>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -166,7 +152,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("coretime-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -174,12 +160,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -649,22 +629,15 @@ impl pallet_accumulate_and_forward::Config for Runtime {
 	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 
-pub struct BrokerMigrationV4BlockConversion;
+/// `region_begin` of the first bulk Coretime sale on Westend, from the first
+/// `broker.SaleInitialized` event. Anchors the v5 migration's `sale_index` reconstruction.
+const CORETIME_WESTEND_FIRST_SALE_REGION_BEGIN: u32 = 246_662;
 
-impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
-	for BrokerMigrationV4BlockConversion
-{
-	fn convert_block_number_to_relay_height(input_block_number: u32) -> u32 {
-		let relay_height = pallet_broker::RCBlockNumberProviderOf::<
-			<Runtime as pallet_broker::Config>::Coretime,
-		>::current_block_number();
-		let parachain_block_number = frame_system::Pallet::<Runtime>::block_number();
-		let offset = relay_height - parachain_block_number * 2;
-		offset + input_block_number * 2
-	}
+pub struct BrokerFirstSaleRegion;
 
-	fn convert_block_length_to_relay_length(input_block_length: u32) -> u32 {
-		input_block_length * 2
+impl pallet_broker::migration::v5::FirstSaleRegion for BrokerFirstSaleRegion {
+	fn region_begin() -> u32 {
+		CORETIME_WESTEND_FIRST_SALE_REGION_BEGIN
 	}
 }
 
@@ -1144,6 +1117,32 @@ impl_runtime_apis! {
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
+
+				fn get_assets(n: u32) -> Assets {
+					// Worst case: `n` distinct regions, each costing a `Regions` read and write.
+					// `issue` leaves them owner-less, as `mint_into` requires at claim time.
+					let regions: Vec<Asset> = (0..n)
+						.map(|i| {
+							let region_id = pallet_broker::Pallet::<Runtime>::issue(
+								i as pallet_broker::CoreIndex,
+								0,
+								pallet_broker::CoreMask::complete(),
+								42,
+								None,
+								None,
+							);
+							Asset {
+								fun: NonFungible(Index(region_id.into())),
+								id: AssetId(xcm_config::BrokerPalletLocation::get()),
+							}
+						})
+						.collect();
+					regions.into()
+				}
+
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			parameter_types! {
@@ -1252,9 +1251,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					let origin = Location::new(1, [Parachain(1000)]);
-					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
-					Ok((origin, target))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 
 				fn worst_case_barrier_check_ref_time(

@@ -23,11 +23,22 @@ use std::time;
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
 
-/// Maximum number of known statement hashes to keep for a peer.
-pub const MAX_KNOWN_STATEMENTS: usize = 4 * 1024 * 1024; // * 32 bytes for hash = 128 MB per peer
-
 /// Maximum allowed size for a statement notification.
 pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
+
+/// Soft limit on encoded statement chunks held in flight across all peers, shared by initial-sync
+/// and propagation sends. Since admission is checked before adding the next whole notification, it
+/// may be exceeded by less than one maximum-sized notification.
+pub const MAX_SEND_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
+
+/// Part of [`MAX_SEND_IN_FLIGHT_BYTES`] withheld from propagation while initial syncs are
+/// pending. Freed budget is otherwise reclaimed synchronously by parked propagations, while
+/// sync bursts only check on a timer and would always find the budget full.
+pub const INITIAL_SYNC_RESERVED_BYTES: u64 = 4 * MAX_STATEMENT_NOTIFICATION_SIZE;
+
+/// Maximum number of statement hashes queued for propagation to one peer.
+/// On overflow the oldest hashes are dropped first.
+pub const MAX_PROPAGATION_OUTBOX_LEN: usize = 64 * 1024;
 
 /// Maximum number of statement validation request we keep at any moment.
 pub const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;

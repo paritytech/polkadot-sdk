@@ -51,8 +51,6 @@ use sp_runtime::{
 use sp_session::OpaqueGeneratedSessionKeys;
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
@@ -131,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("statemine"),
 	impl_name: alloc::borrow::Cow::Borrowed("statemine"),
 	authoring_version: 1,
-	spec_version: 1_022_003,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -139,12 +137,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 const RELAY_PARENT_OFFSET: u32 = 0;
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -289,7 +281,8 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
+	type CallbackHandle = ();
+	type AssetIdAllocator = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -306,6 +299,7 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
+	pub MaxSwapFee: Permill = Permill::from_percent(2);
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -338,6 +332,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -448,6 +443,8 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = LpFee;
+	type AdminOrigin = AssetsForceOrigin;
+	type MaxSwapFee = MaxSwapFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -515,6 +512,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1872,6 +1870,39 @@ impl_runtime_apis! {
 						fun: Fungible(amount),
 					}
 				}
+
+				fn get_assets(n: u32) -> XcmAssets {
+					use frame_benchmarking::whitelisted_caller;
+					use frame_support::traits::tokens::fungible::{Inspect, Mutate};
+					let account: AccountId = whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let amount = 1_000_000u128;
+					// Worst case: `n` distinct `ForeignAssets`. Keyed by a full `Location`, they
+					// book ~600 more bytes of proof per map than trust-backed assets, and match
+					// later in `AssetTransactors`.
+					let assets: Vec<Asset> = (0..n).map(|i| {
+						// Another chain's assets pallet, so the id is genuinely foreign.
+						let asset_location = Location::new(
+							1,
+							[Parachain(3000), PalletInstance(53), GeneralIndex((1984 + i).into())],
+						);
+						assert_ok!(ForeignAssets::force_create(
+							RuntimeOrigin::root(),
+							asset_location.clone().into(),
+							account.clone().into(),
+							true,
+							1u128,
+						));
+						Asset { id: AssetId(asset_location), fun: Fungible(amount) }
+					}).collect();
+					assets.into()
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+				}
 			}
 
 			impl XcmBridgeHubRouterConfig<ToWestendXcmRouterInstance> for Runtime {
@@ -2058,12 +2089,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					// Any location can alias to an internal location.
-					// Here parachain 1001 aliases to an internal account.
-					Ok((
-						Location::new(1, [Parachain(1001)]),
-						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
-					))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 			}
 

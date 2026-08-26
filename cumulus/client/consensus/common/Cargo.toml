@@ -54,3 +54,4 @@ sp-tracing = { workspace = true, default-features = true }
 # Cumulus
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+substrate-test-runtime = { workspace = true }

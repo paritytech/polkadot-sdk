@@ -26,7 +26,6 @@ environmental = { workspace = true }
 ethereum-standards = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
-humantime-serde = { optional = true, workspace = true }
 impl-trait-for-tuples = { workspace = true }
 k256 = { features = ["alloc", "ecdsa"], workspace = true, optional = true }
 log = { workspace = true }
@@ -52,7 +51,10 @@ frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-types = { workspace = true }
-pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
+pallet-revive-uapi = { workspace = true, features = [
+	"precompiles-sol-interfaces",
+	"scale",
+] }
 pallet-transaction-payment = { workspace = true }
 ripemd = { workspace = true }
 sp-api = { workspace = true }
@@ -65,7 +67,9 @@ sp-crypto-hashing = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-version = { workspace = true }
-subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
+subxt-signer = { workspace = true, optional = true, features = [
+	"unstable-eth",
+] }
 
 [dev-dependencies]
 alloy-consensus = { workspace = true, default-features = true }
@@ -105,7 +109,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"humantime-serde",
 	"k256?/std",
 	"log/std",
 	"num-bigint/std",

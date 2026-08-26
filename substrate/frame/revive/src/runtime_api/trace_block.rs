@@ -18,11 +18,7 @@
 use alloc::vec::Vec;
 use pallet_revive_types::runtime_api::*;
 
-use crate::evm::{Trace, TracerType};
-
-// ======
-// Input
-// ======
+use crate::evm::{TraceEntry, TracerType};
 
 pub struct TraceBlockInputPayload<Block> {
 	pub block: Block,
@@ -50,19 +46,22 @@ impl<Block> From<TraceBlockInputPayloadV2<Block>> for TraceBlockInputPayload<Blo
 	}
 }
 
-// =======
-// Output
-// =======
-
 #[derive(Default)]
 pub struct TraceBlockOutputPayload {
-	pub traces: Vec<(u32, Trace)>,
+	pub entries: Vec<(u32, TraceEntry)>,
 }
 
 impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV1 {
 	fn from(value: TraceBlockOutputPayload) -> Self {
 		Self {
-			traces: value.traces.into_iter().map(|(index, trace)| (index, trace.into())).collect(),
+			traces: value
+				.entries
+				.into_iter()
+				.filter_map(|(index, entry)| match entry {
+					TraceEntry::Traced(trace) => Some((index, trace.into())),
+					TraceEntry::NotTraced => None,
+				})
+				.collect(),
 		}
 	}
 }
@@ -70,7 +69,11 @@ impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV1 {
 impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV2 {
 	fn from(value: TraceBlockOutputPayload) -> Self {
 		Self {
-			traces: value.traces.into_iter().map(|(index, trace)| (index, trace.into())).collect(),
+			entries: value
+				.entries
+				.into_iter()
+				.map(|(index, entry)| (index, entry.into()))
+				.collect(),
 		}
 	}
 }

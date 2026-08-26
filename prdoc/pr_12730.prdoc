@@ -1,0 +1,81 @@
+title: 'pallet-scarcity: coinage-style NFT ownership with feeless rest-time-prioritized transfers'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds `pallet-scarcity`, a FRAME pallet for collectible instances under a
+    coinage-style ownership model: one instance per fresh purse public key,
+    with a stable `InstanceId` reverse index as the external handle. Item
+    identity is immutable once written and may be minted many times. Metadata
+    is a three-level mutable key/value store: collection entries provide
+    defaults, item entries override the same key for every mint of that
+    definition, and instance entries override both for one minted NFT. Only
+    the collection owner may write these scopes; each entry has its own
+    deposit and there is no metadata freeze mechanism.
+
+    Storage deposits are paid on the supply side. The collection owner backs
+    the collection record, item definitions, metadata entries, and ordinarily
+    minted instances with one aggregate consideration ticket. The runtime
+    chooses the consideration mechanism; for example, it may use a fungible
+    hold, no consideration, or another runtime-defined policy. Collection
+    ownership uses a two-step handoff: the current owner nominates a successor,
+    then the successor claims by atomically establishing an equivalent ticket
+    before the former owner's ticket is dropped. A failed claim leaves
+    ownership and both tickets unchanged. Runtime pallets may use the
+    `MintWithoutDeposit` integration trait to mint without an instance deposit
+    when state growth is bounded by another scarce resource or protocol rule.
+    Initial instance metadata is also depositless through this integration.
+
+    The collection owner has full collection-scoped lifecycle control. It may
+    force-transfer or force-burn individual instances, delete item definitions
+    after their live instances and item metadata are removed, and delete a
+    collection after its items and collection metadata are removed. Holders
+    retain feeless transfer and burn operations. Cleanup is incremental and
+    bounded, all deposits are released exactly, and collection, item, and
+    instance identifiers are never reused.
+
+    Transfers and burns are feeless and authorized by the owning purse key
+    through the `AsScarcity` transaction extension, which elevates a custom
+    `Origin::Nft` capability origin, consumes the instance in `prepare`,
+    assigns transaction priority proportional to the instance's rest time
+    (seconds since it last moved, capped), and restores the instance with an
+    exponential backoff lock when dispatch fails. Burning releases instance
+    and instance-metadata deposits while keeping minted-ever item supply
+    monotonic and decrementing live supply. Authorizations bind to both the
+    permanent instance identifier and its `state_nonce`. Every successful
+    holder or collection-owner transfer increments `state_nonce`, so moving an
+    instance away and back to the same purse cannot revive an earlier
+    authorization. Following Coinage's purse model, NFT-authorized operations
+    do not use the purse key's System account nonce. Consumption-on-use and a
+    per-instance-state `provides` tag containing the encoded
+    `(InstanceId, state_nonce)` tuple prevent concurrent use of the same
+    authorization without a hash-collision risk. A failed dispatch restores
+    the same NFT state behind an exponential backoff lock, so the same signed
+    transaction can be submitted again after the lock expires.
+
+    The pallet and `AsScarcity` extension are included in the development
+    runtime for ordinary signed transactions, using timestamp time and balance
+    holds for storage consideration. Extension ordering is security-critical:
+    `AsScarcity` runs with the origin modifiers before `AuthorizeCall`,
+    signed-account checks including `CheckNonce`, and transaction payment.
+    Those account checks deliberately skip the resulting `Origin::Nft`, while
+    payment observes it and skips feeless transfers and burns. NFT-only purse
+    keys therefore require neither a System account nor a balance. This PR
+    does not expose Scarcity calls to `pallet-contracts` or `pallet-revive`; a
+    runtime-specific call filter, chain extension, or precompile remains
+    necessary before a contract can act as a collection owner from contract
+    code.
+
+    A `try_state` hook verifies allocation bounds, dependency and metadata
+    counters, live supply, collection/item references, the owner/reverse-index
+    bijection, locks, metadata references, and each collection's accounted
+    aggregate against its stored deposit components. Metadata growth is priced
+    by a deposit per entry. `define_item` accepts a linearly weighted `Vec`
+    whose batch size is bounded by extrinsic and block length, while each key
+    and value remains individually bounded. Per-instance metadata has an
+    explicit configured bound so burn cleanup remains bounded, and burn calls
+    refund unused weight according to the number of entries actually removed.
+crates:
+- name: pallet-scarcity
+  bump: major
+- name: polkadot-sdk
+  bump: minor

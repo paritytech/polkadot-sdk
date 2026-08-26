@@ -30,7 +30,10 @@ use frame_support::{
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
 use sp_weights::Weight;
-use xcm::latest::{prelude::*, AssetTransferFilter};
+use xcm::{
+	latest::{prelude::*, AssetTransferFilter},
+	RECURSION_LIMIT,
+};
 
 pub mod traits;
 use traits::{
@@ -62,14 +65,6 @@ pub struct FeesMode {
 	/// Defaults to false.
 	pub jit_withdraw: bool,
 }
-
-/// The maximum recursion depth allowed when executing nested XCM instructions.
-///
-/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
-/// `ProcessMessageError::StackLimitReached`.
-///
-/// Also used in the `DenyRecursively` barrier.
-pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
 
@@ -1087,7 +1082,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			// `fallback_max_weight` is not used in the executor, it's only for conversions.
-			Transact { origin_kind, mut call, .. } => {
+			Transact { origin_kind, call, .. } => {
 				let origin = self.cloned_origin().ok_or_else(|| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",
@@ -1097,7 +1092,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					XcmError::BadOrigin
 				})?;
 
-				let message_call = call.take_decoded().map_err(|_| {
+				let message_call = call.try_into().map_err(|_| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",
 						"Failed to decode call",
@@ -1108,7 +1103,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 				tracing::trace!(
 					target: "xcm::process_instruction::transact",
-					?call,
+					?message_call,
 					"Processing call",
 				);
 

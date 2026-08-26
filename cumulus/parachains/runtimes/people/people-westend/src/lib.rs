@@ -65,8 +65,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature, MultiSigner,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
@@ -133,11 +131,6 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -163,18 +156,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -1076,11 +1063,16 @@ impl_runtime_apis! {
 					)
 				}
 
+				// `get_assets` stays at its default: the `AssetTransactor` only handles the
+				// native token, so a multi-asset worst case is not constructible here.
 				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(RelayLocation::get()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
 			}
 
@@ -1189,9 +1181,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					let origin = Location::new(1, [Parachain(1000)]);
-					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
-					Ok((origin, target))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 
 				fn worst_case_barrier_check_ref_time(

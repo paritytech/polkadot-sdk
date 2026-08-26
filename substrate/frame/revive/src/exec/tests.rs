@@ -1268,6 +1268,88 @@ fn instantiation_from_contract() {
 }
 
 #[test]
+fn reentrant_instantiate_at_same_address_is_rejected() {
+	// EIP-684: while `B1` constructs at address `X`, its constructor re-enters the deployer to
+	// instantiate the same code+salt. That resolves to `X` again and must be rejected rather
+	// than run a second constructor for one account.
+	let salt = [42u8; 32];
+
+	let constructor_ch = MockLoader::insert(Constructor, |ctx, _| {
+		// Re-enter the deployer (BOB) while we are still being constructed.
+		ctx.ext
+			.call(
+				&CallResources::NoLimits,
+				&BOB_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
+			.unwrap();
+		exec_success()
+	});
+
+	let invocations = Rc::new(RefCell::new(0u32));
+	let second_instantiate_error = Rc::new(RefCell::new(None::<DispatchError>));
+	let factory_ch = MockLoader::insert(Call, {
+		let invocations = Rc::clone(&invocations);
+		let second_instantiate_error = Rc::clone(&second_instantiate_error);
+		move |ctx, _| {
+			*invocations.borrow_mut() += 1;
+			let n = *invocations.borrow();
+			// Bound the recursion in case the guard fails to reject the collision.
+			if n <= 2 {
+				let min_balance = <Test as Config>::Currency::minimum_balance();
+				let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+				let result = ctx.ext.instantiate(
+					&CallResources::NoLimits,
+					Code::Existing(constructor_ch),
+					value,
+					vec![],
+					Some(&salt),
+				);
+				if n == 2 {
+					if let Err(err) = &result {
+						*second_instantiate_error.borrow_mut() = Some(err.error);
+					}
+				}
+			}
+			exec_success()
+		}
+	});
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.existential_deposit(15)
+		.build()
+		.execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			set_balance(&ALICE, min_balance * 1000);
+			place_contract(&BOB, factory_ch);
+			let origin = Origin::from_account_id(ALICE);
+			let mut meter =
+				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
+
+			// `B1` still constructs; only the colliding re-entrant instantiate fails.
+			assert_ok!(MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut meter,
+				Pallet::<Test>::convert_native_to_evm(min_balance * 100),
+				vec![],
+				&ExecConfig::new_substrate_tx(),
+			));
+
+			// Initial call plus one re-entry; without the guard it would recurse further.
+			assert_eq!(*invocations.borrow(), 2);
+			assert_eq!(
+				*second_instantiate_error.borrow(),
+				Some(<Error<Test>>::DuplicateContract.into())
+			);
+		});
+}
+
+#[test]
 fn instantiation_traps() {
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| Err("It's a trap!".into()));
 	let instantiator_ch = MockLoader::insert(Call, {
@@ -1419,6 +1501,63 @@ fn in_memory_changes_not_discarded() {
 			&ExecConfig::new_substrate_tx(),
 		);
 		assert_matches!(result, Ok(_));
+	});
+}
+
+#[test]
+fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
+	// Exercises a banked refund: self-reenter, `charge_storage` a removal (no cache reload),
+	// self-reenter again. The second bank fires on an invalidated frame; `load()` reloads so
+	// the removal's pro-rata refund is applied. 30 bytes (not 1) so the refund doesn't round
+	// to 0.
+	let code_bob = MockLoader::insert(Call, |ctx, _| {
+		if ctx.input_data[0] == 0 {
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1, 2, 3]), false).unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+			ctx.ext
+				.charge_storage(&Diff { bytes_removed: 30, ..Default::default() })
+				.unwrap();
+			assert_ok!(ctx.ext.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			));
+		}
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = <Test as Config>::Currency::minimum_balance();
+		set_balance(&ALICE, min_balance * 1000);
+		place_contract(&BOB, code_bob);
+		let mut meter =
+			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
+				.unwrap();
+		let origin = Origin::from_account_id(ALICE);
+		let exec_config = ExecConfig::new_substrate_tx();
+		assert_ok!(MockStack::run_call(
+			origin.clone(),
+			BOB_ADDR,
+			&mut meter,
+			U256::zero(),
+			vec![0],
+			&exec_config,
+		));
+		meter.execute_postponed_deposits(&origin, &exec_config).unwrap();
+
+		// K1 = 35 bytes → deposit 37; 30-byte removal refunds floor(30/35 * 35) = 29 → net 8.
+		let charged = min_balance * 1000 - get_balance(&ALICE);
+		assert_eq!(charged, 8, "banked removal refund not applied: expected net deposit 8");
 	});
 }
 

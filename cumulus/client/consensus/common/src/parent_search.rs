@@ -16,34 +16,57 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
-
 use cumulus_primitives_core::{
-	relay_chain::{BlockId as RBlockId, OccupiedCoreAssumption},
+	relay_chain::{BlockId as RelayBlockId, OccupiedCoreAssumption},
 	ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-
+use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
 use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus_babe::contains_epoch_change;
 use sp_blockchain::Backend as BlockchainBackend;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use std::future::Future;
 
 const LOG_TARGET: &str = "consensus::common::parent_search";
 
+#[derive(Clone, Debug)]
+pub enum ParentSearchParams {
+	/// Candidate version V2
+	V2 {
+		/// The scheduling-parent that is intended to be used.
+		/// For V2, the scheduling parent is equal to the relay parent.
+		scheduling_parent: RelayHash,
+	},
+	/// Candidate version V3
+	V3 {
+		/// The scheduling-parent that is intended to be used.
+		scheduling_parent: RelayHash,
+	},
+}
+
+impl ParentSearchParams {
+	fn scheduling_parent(&self) -> &RelayHash {
+		match self {
+			ParentSearchParams::V2 { scheduling_parent } => scheduling_parent,
+			ParentSearchParams::V3 { scheduling_parent } => scheduling_parent,
+		}
+	}
+}
+
 /// A potential parent block returned from [`find_parent_for_building`]
 #[derive(PartialEq, Clone)]
-pub struct ParentSearchResult<B: BlockT> {
-	/// The header of the included block (confirmed on relay chain).
-	pub included_header: B::Header,
+pub struct ParentSearchResult<Block: BlockT> {
+	/// The header of the included block (confirmed on relay chain) at the scheduling parent.
+	pub included_at_scheduling: Block::Header,
 	/// The header of the best parent block to build on.
-	pub best_parent_header: B::Header,
+	pub best_parent_header: Block::Header,
 }
 
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ParentSearchResult")
-			.field("included_number", &self.included_header.number())
+			.field("included_at_scheduling_number", &self.included_at_scheduling.number())
 			.field("best_parent_hash", &self.best_parent_header.hash())
 			.field("best_parent_number", &self.best_parent_header.number())
 			.finish()
@@ -121,7 +144,9 @@ async fn build_relay_parent_ancestry(
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
 	let mut current_rp = relay_parent;
 	while ancestry.len() <= ancestry_lookback {
-		let Some(header) = relay_client.header(RBlockId::hash(current_rp)).await? else { break };
+		let Some(header) = relay_client.header(RelayBlockId::hash(current_rp)).await? else {
+			break;
+		};
 
 		ancestry.push((current_rp, *header.state_root()));
 		current_rp = *header.parent_hash();
@@ -163,11 +188,11 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 /// The `start` block (pending or included) is always valid by construction.
 /// This function explores its descendants via DFS, returning the deepest block
 /// whose relay-parent is within the allowed ancestry.
-fn find_deepest_valid_parent<Block: BlockT>(
+async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 	backend: &impl Backend<Block>,
 	start_header: Block::Header,
 	start_hash: Block::Hash,
-	rp_ancestry: &[(RelayHash, RelayHash)],
+	is_valid: impl Fn(&Block::Header) -> Fut,
 ) -> Block::Header {
 	let mut best = start_header;
 
@@ -184,19 +209,65 @@ fn find_deepest_valid_parent<Block: BlockT>(
 	while let Some(hash) = frontier.pop() {
 		let Ok(Some(header)) = backend.blockchain().header(hash) else { continue };
 
-		if !is_relay_parent_in_ancestry::<Block>(&header, rp_ancestry) {
+		if !is_valid(&header).await {
 			continue;
 		}
 
 		// This block is valid - update best if it's deeper.
 		if header.number() > best.number() {
-			best = header.clone();
+			best = header;
 		}
 
 		frontier.extend(backend.blockchain().children(hash).ok().into_iter().flatten());
 	}
 
 	best
+}
+
+async fn get_relay_parent<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	header: &Block::Header,
+) -> RelayChainResult<Option<RelayHash>> {
+	let digest = header.digest();
+
+	if let Some(relay_parent) = cumulus_primitives_core::extract_relay_parent(digest) {
+		return Ok(Some(relay_parent));
+	}
+
+	if let Some((storage_root, number)) =
+		cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
+	{
+		let Some(relay_parent_header) = relay_client.header(RelayBlockId::Number(number)).await?
+		else {
+			return Ok(None);
+		};
+		if relay_parent_header.state_root != storage_root {
+			return Ok(None);
+		}
+		return Ok(Some(relay_parent_header.hash()));
+	}
+
+	Ok(None)
+}
+
+async fn has_ancestor_relay_parent_info<Block: BlockT>(
+	relay_client: &impl RelayChainInterface,
+	scheduling_parent: RelayHash,
+	header: &Block::Header,
+) -> RelayChainResult<bool> {
+	let Some(relay_parent) = get_relay_parent::<Block>(relay_client, header).await? else {
+		return Ok(false);
+	};
+
+	if relay_parent == scheduling_parent {
+		return Ok(true);
+	}
+
+	let relay_parent_session = relay_client.session_index_for_child(relay_parent).await?;
+	let maybe_info = relay_client
+		.ancestor_relay_parent_info(scheduling_parent, relay_parent_session, relay_parent)
+		.await?;
+	Ok(maybe_info.is_some())
 }
 
 /// Find the best parent block to build on.
@@ -212,18 +283,18 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	backend: &impl Backend<Block>,
 	para_id: ParaId,
-	relay_parent: RelayHash,
+	params: ParentSearchParams,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
 	tracing::trace!(
 		target: LOG_TARGET,
 		?para_id,
-		?relay_parent,
+		?params,
 		"Parent search"
 	);
 
-	// Get the included block.
+	let scheduling_parent = *params.scheduling_parent();
 	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, relay_parent, para_id).await?
+		fetch_included_from_relay_chain(relay_client, backend, scheduling_parent, para_id).await?
 	else {
 		return Ok(None);
 	};
@@ -235,12 +306,12 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		// before being returned to us.
 		let maybe_header = fetch_pvd_header::<Block>(
 			relay_client,
-			relay_parent,
+			scheduling_parent,
 			para_id,
 			OccupiedCoreAssumption::Included,
 		)
 		.await?
-		.filter(|pvd_header| pvd_header.hash() != included_hash);
+		.filter(|header| header.hash() != included_hash);
 
 		// If the pending block is not locally known, we can't proceed.
 		if let Some(header) = maybe_header {
@@ -257,18 +328,40 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
-	let ancestry_lookback = relay_client
-		.scheduling_lookahead(relay_parent)
-		.await
-		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-		.saturating_sub(1) as usize;
-	// Build up the ancestry record of the relay chain to compare against.
-	let rp_ancestry =
-		build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
+	let best_parent_header = match params {
+		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
+			let ancestry_lookback = relay_client
+				.scheduling_lookahead(relay_parent)
+				.await
+				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+				.saturating_sub(1) as usize;
+			// Build up the ancestry record of the relay chain to compare against.
+			let rp_ancestry =
+				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
-	// Search for the deepest valid parent starting from the pending/included block.
-	let best_parent_header =
-		find_deepest_valid_parent(backend, start_header, start_hash, &rp_ancestry);
+			// Search for the deepest valid parent starting from the pending/included block.
+			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
+				let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
+				async move { is_valid }
+			})
+			.await
+		},
+		ParentSearchParams::V3 { scheduling_parent } => {
+			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
+				let header = header.clone();
+				async move {
+					has_ancestor_relay_parent_info::<Block>(
+						relay_client,
+						scheduling_parent,
+						&header,
+					)
+					.await
+					.unwrap_or(false)
+				}
+			})
+			.await
+		},
+	};
 
-	Ok(Some(ParentSearchResult { included_header, best_parent_header }))
+	Ok(Some(ParentSearchResult { included_at_scheduling: included_header, best_parent_header }))
 }
