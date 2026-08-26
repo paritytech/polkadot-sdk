@@ -72,8 +72,9 @@ impl ResubmissionPolicy for RecontextOnFailure {
 	fn on_status(&mut self, status: &WorkPackageStatus) -> PolicyAction {
 		match status {
 			WorkPackageStatus::Reportable { .. } => PolicyAction::Wait,
-			WorkPackageStatus::Reported { .. } | WorkPackageStatus::Ready { .. } =>
-				PolicyAction::Done,
+			WorkPackageStatus::Reported { .. } | WorkPackageStatus::Ready { .. } => {
+				PolicyAction::Done
+			},
 			WorkPackageStatus::Failed(_) => self.try_resubmit(),
 		}
 	}

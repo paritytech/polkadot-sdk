@@ -22,8 +22,8 @@ use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
-	relay_chain::{BlockId, BlockNumber, CoreState, Hash},
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
+	relay_chain::{BlockId, BlockNumber, CoreState, Hash},
 };
 use cumulus_relay_chain_interface::{
 	ChildInfo, CommittedCandidateReceipt, CoreIndex, OccupiedCoreAssumption, OverseerHandle,
@@ -31,13 +31,13 @@ use cumulus_relay_chain_interface::{
 	ValidatorId,
 };
 use cumulus_test_client::{
-	runtime::{Block, Header},
 	Backend, BuildBlockBuilder, Client, TestClientBuilder, TestClientBuilderExt,
+	runtime::{Block, Header},
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
+use futures::{FutureExt, Stream, StreamExt, channel::mpsc, executor::block_on, select};
 use futures_timer::Delay;
-use polkadot_primitives::{vstaging::RelayParentInfo, CandidateEvent, HeadData, NodeFeatures};
+use polkadot_primitives::{CandidateEvent, HeadData, NodeFeatures, vstaging::RelayParentInfo};
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::Backend as BlockchainBackend;

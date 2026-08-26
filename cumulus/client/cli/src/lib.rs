@@ -31,8 +31,8 @@ use sc_chain_spec::ChainSpec;
 use sc_cli::RpcEndpoint;
 use sc_client_api::HeaderBackend;
 use sc_service::{
-	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
+	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
 };
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::{Block as BlockT, Zero};

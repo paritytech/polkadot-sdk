@@ -14,10 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::nodes::jam;
 use crate::{
 	cli::{AuthoringPolicy, DevSealMode, JamNodeParams},
 	common::{
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
@@ -28,8 +28,8 @@ use crate::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
 			ParachainClient,
 		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
+	nodes::jam,
 };
 use codec::Encode;
 use cumulus_client_collator::service::{
@@ -50,22 +50,22 @@ use cumulus_client_consensus_common as consensus_common;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{
-	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
-	RelayParentOffsetApi, TargetBlockRate,
+	CollectCollationInfo, GetParachainInfo, ParaId, RelayParentOffsetApi, TargetBlockRate,
+	relay_chain::ValidationCode,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use futures::{prelude::*, FutureExt};
+use futures::{FutureExt, prelude::*};
+use jam_rpc_interface::JamRpcInterface;
 use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
-	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, DefaultImportQueue, LongestChain,
+	import_queue::{BasicQueue, Verifier as VerifierT},
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
-use sc_network::{config::FullNetworkConfiguration, NetworkBlock, NotificationMetrics, PeerId};
-use jam_rpc_interface::JamRpcInterface;
+use sc_network::{NetworkBlock, NotificationMetrics, PeerId, config::FullNetworkConfiguration};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
@@ -588,8 +588,7 @@ where
 			let announce_block = announce_block.clone();
 			let block_import = block_import.clone();
 			async move {
-				let (jam, worker) = match JamRpcInterface::new(jam_params.rpc_urls.clone()).await
-				{
+				let (jam, worker) = match JamRpcInterface::new(jam_params.rpc_urls.clone()).await {
 					Ok(connection) => connection,
 					Err(error) => {
 						log::error!("Unable to connect to any JAM node: {error}");
@@ -613,20 +612,18 @@ where
 						return;
 					},
 				};
-				let finalized_heads = match jam::para_head_stream(
-					&*jam,
-					jam_params.service_id,
-					para_id.into(),
-					true,
-				)
-				.await
-				{
-					Ok(stream) => stream,
-					Err(error) => {
-						log::error!("Unable to open the JAM finalized para-head stream: {error}");
-						return;
-					},
-				};
+				let finalized_heads =
+					match jam::para_head_stream(&*jam, jam_params.service_id, para_id.into(), true)
+						.await
+					{
+						Ok(stream) => stream,
+						Err(error) => {
+							log::error!(
+								"Unable to open the JAM finalized para-head stream: {error}"
+							);
+							return;
+						},
+					};
 				let (finalized_tx, finalized_rx) = futures::channel::mpsc::unbounded();
 				spawn_essential.spawn_essential_blocking(
 					"jam-finalized-head-stream",
@@ -779,7 +776,7 @@ where
 			Box<dyn std::error::Error + Send + Sync>,
 		>,
 	> + Send
-	       + Sync {
+	+ Sync {
 		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
 
 		// Start 2 hours in the past to avoid timestamps immediately running into the future.

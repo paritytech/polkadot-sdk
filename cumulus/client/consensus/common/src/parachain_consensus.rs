@@ -32,8 +32,9 @@ use polkadot_primitives::Id as ParaId;
 
 use codec::Decode;
 use futures::{
+	FutureExt, SinkExt, Stream, StreamExt,
 	channel::mpsc::{Sender, UnboundedSender},
-	pin_mut, select, FutureExt, SinkExt, Stream, StreamExt,
+	pin_mut, select,
 };
 use sp_core::traits::SpawnEssentialNamed;
 
@@ -223,12 +224,13 @@ pub fn spawn_parachain_consensus_tasks<P, R, Block, B, S>(
 		let relay_chain = relay_chain.clone();
 		async move {
 			match finalized_heads(relay_chain, para_id).await {
-				Ok(finalized_heads_stream) =>
+				Ok(finalized_heads_stream) => {
 					finalized_head_stream_worker::<Block>(
 						tx,
 						finalized_heads_stream.map(|(head_data, _)| head_data),
 					)
-					.await,
+					.await
+				},
 				Err(err) => tracing::error!(
 					target: LOG_TARGET,
 					error = ?err,
@@ -239,7 +241,7 @@ pub fn spawn_parachain_consensus_tasks<P, R, Block, B, S>(
 	};
 	let consensus = async move {
 		match new_best_heads(relay_chain, para_id).await {
-			Ok(best_heads_stream) =>
+			Ok(best_heads_stream) => {
 				run_parachain_consensus(
 					parachain,
 					announce_block,
@@ -247,7 +249,8 @@ pub fn spawn_parachain_consensus_tasks<P, R, Block, B, S>(
 					Box::new(rx),
 					recovery_chan_tx,
 				)
-				.await,
+				.await
+			},
 			Err(err) => tracing::error!(
 				target: LOG_TARGET,
 				error = ?err,
@@ -293,12 +296,8 @@ pub async fn run_parachain_consensus<P, Block, B>(
 	for<'a> &'a P: BlockImport<Block>,
 	B: Backend<Block>,
 {
-	let follow_new_best = follow_new_best(
-		parachain.clone(),
-		announce_block,
-		new_best_head_stream,
-		recovery_chan_tx,
-	);
+	let follow_new_best =
+		follow_new_best(parachain.clone(), announce_block, new_best_head_stream, recovery_chan_tx);
 	let follow_finalized_head = follow_finalized_head(parachain, finalized_head_stream);
 	select! {
 		_ = follow_new_best.fuse() => {},

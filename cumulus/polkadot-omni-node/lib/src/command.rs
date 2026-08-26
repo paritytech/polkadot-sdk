@@ -17,6 +17,7 @@
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
+		NodeBlock, NodeExtraArgs,
 		chain_spec::LoadSpec,
 		runtime::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
@@ -24,7 +25,6 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
-		NodeBlock, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
@@ -311,14 +311,17 @@ where
 						.map_err(Into::into);
 				}
 
-				let jam_marker = crate::common::chain_spec::Extensions::try_get(&*config.chain_spec)
-					.map(|extensions| extensions.relay_chain().starts_with("jam"))
-					.unwrap_or(false);
+				let jam_marker =
+					crate::common::chain_spec::Extensions::try_get(&*config.chain_spec)
+						.map(|extensions| extensions.relay_chain().starts_with("jam"))
+						.unwrap_or(false);
 				if let Some(jam_params) = cli.jam_mode()? {
 					if !jam_marker {
-						return Err("JAM mode requires a JAM chain spec: set `relay_chain: \"jam\"` \
+						return Err(
+							"JAM mode requires a JAM chain spec: set `relay_chain: \"jam\"` \
 							in the chain spec extensions"
-							.into());
+								.into(),
+						);
 					}
 					return node_spec
 						.start_jam_node(config, jam_params, node_extra_args)

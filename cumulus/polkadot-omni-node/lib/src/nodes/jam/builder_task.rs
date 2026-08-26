@@ -26,17 +26,17 @@
 //! `set_validation_data`); the fake relay slot is a pure function of the JAM anchor's timeslot,
 //! so importers re-execute it deterministically.
 
-use super::{jam_slot_as_relay_slot, jam_slot_timestamp, JamCollatorMessage, LOG_TARGET};
+use super::{JamCollatorMessage, LOG_TARGET, jam_slot_as_relay_slot, jam_slot_timestamp};
 use crate::common::{
+	ConstructNodeRuntimeApi, NodeBlock,
 	aura::{AuraIdT, AuraRuntimeApi},
 	types::ParachainClient,
-	ConstructNodeRuntimeApi, NodeBlock,
 };
 use codec::Encode;
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
-use futures::{channel::mpsc, StreamExt};
+use futures::{StreamExt, channel::mpsc};
 use jam_interface::{BlockDesc, JamChainSource};
 use jam_types::RefineContext;
 use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
@@ -206,15 +206,20 @@ where
 {
 	// Anchor selection (polkajam's `create_refine_context`): anchor = parent of best (other
 	// nodes may not have seen best yet), lookup anchor = parent of finalized.
-	let anchor =
-		jam.parent(jam_best.header_hash).await.map_err(|e| format!("anchor: {e}"))?;
-	let state_root =
-		jam.state_root(anchor.header_hash).await.map_err(|e| format!("state root: {e}"))?;
-	let beefy_root =
-		jam.beefy_root(anchor.header_hash).await.map_err(|e| format!("beefy root: {e}"))?;
+	let anchor = jam.parent(jam_best.header_hash).await.map_err(|e| format!("anchor: {e}"))?;
+	let state_root = jam
+		.state_root(anchor.header_hash)
+		.await
+		.map_err(|e| format!("state root: {e}"))?;
+	let beefy_root = jam
+		.beefy_root(anchor.header_hash)
+		.await
+		.map_err(|e| format!("beefy root: {e}"))?;
 	let finalized = jam.finalized_block().await.map_err(|e| format!("finalized: {e}"))?;
-	let lookup_anchor =
-		jam.parent(finalized.header_hash).await.map_err(|e| format!("lookup anchor: {e}"))?;
+	let lookup_anchor = jam
+		.parent(finalized.header_hash)
+		.await
+		.map_err(|e| format!("lookup anchor: {e}"))?;
 	let context = RefineContext {
 		anchor: anchor.header_hash,
 		state_root,
@@ -249,7 +254,9 @@ where
 		.authorities(parent_hash)
 		.map_err(|e| format!("authorities: {e}"))?;
 	let Some(author_pub) = aura_internal::claim_slot::<<AuraId as AuraIdT>::BoundedPair>(
-		para_slot, &authorities, keystore,
+		para_slot,
+		&authorities,
+		keystore,
 	)
 	.await
 	else {
@@ -307,11 +314,14 @@ where
 		.await
 		.map_err(|e| format!("propose: {e}"))?;
 
-	let sealed_importable = cumulus_client_consensus_aura::collator::seal::<
-		_,
-		<AuraId as AuraIdT>::BoundedPair,
-	>(proposal.block, proposal.storage_changes, slot_claim.author_pub(), keystore)
-	.map_err(|e| format!("seal: {e}"))?;
+	let sealed_importable =
+		cumulus_client_consensus_aura::collator::seal::<_, <AuraId as AuraIdT>::BoundedPair>(
+			proposal.block,
+			proposal.storage_changes,
+			slot_claim.author_pub(),
+			keystore,
+		)
+		.map_err(|e| format!("seal: {e}"))?;
 
 	let block = Block::new(
 		sealed_importable.post_header(),
@@ -340,13 +350,7 @@ where
 		"Built and imported a parachain block.",
 	);
 
-	Ok(Some(JamCollatorMessage {
-		parent_header,
-		block,
-		proof,
-		context,
-		triggered_by: jam_best,
-	}))
+	Ok(Some(JamCollatorMessage { parent_header, block, proof, context, triggered_by: jam_best }))
 }
 
 /// Timestamp + mocked parachain inherent, both derived from the JAM anchor's timeslot.
@@ -376,15 +380,13 @@ where
 
 	let current_para_block =
 		UniqueSaturatedInto::<u32>::unique_saturated_into(*parent_header.number()) + 1;
-	let relay_parent_offset = para_client
-		.runtime_api()
-		.relay_parent_offset(parent_hash)
-		.unwrap_or_default();
+	let relay_parent_offset =
+		para_client.runtime_api().relay_parent_offset(parent_hash).unwrap_or_default();
 	let relay_blocks_per_para_block =
 		(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
 	let target_relay_slot = jam_slot_as_relay_slot(anchor.slot);
-	let relay_offset = (target_relay_slot as u32)
-		.saturating_sub(relay_blocks_per_para_block * current_para_block);
+	let relay_offset =
+		(target_relay_slot as u32).saturating_sub(relay_blocks_per_para_block * current_para_block);
 
 	let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
 		current_para_block,

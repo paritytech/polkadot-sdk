@@ -22,8 +22,8 @@ const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
-		chain_spec::{Extensions, LoadSpec},
 		NodeExtraArgs,
+		chain_spec::{Extensions, LoadSpec},
 	},
 };
 use chain_spec_builder::ChainSpecBuilder;
@@ -33,7 +33,7 @@ use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	RpcEndpoint, SharedParams, SubstrateCli,
 };
-use sc_service::{config::PrometheusConfig, BasePath};
+use sc_service::{BasePath, config::PrometheusConfig};
 use sc_storage_monitor::StorageMonitorParams;
 use std::{
 	fmt::{Display, Formatter},

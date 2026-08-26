@@ -25,12 +25,12 @@
 //! Phase-1 simplifications: null authorizer (empty token, nothing to sign), fixed core, PoV is
 //! NOT zstd-compressed (parasim rejects compressed PoVs; JIP-2 is silent on compression).
 
-use super::{para_head_stream, resubmission::*, JamCollatorMessage, LOG_TARGET};
-use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
+use super::{JamCollatorMessage, LOG_TARGET, para_head_stream, resubmission::*};
+use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::ParachainBlockData;
-use futures::{channel::mpsc, StreamExt};
-use jam_cumulus_facade::{authorizer::fixed_authorizer, ParachainCandidate};
+use futures::{StreamExt, channel::mpsc};
+use jam_cumulus_facade::{ParachainCandidate, authorizer::fixed_authorizer};
 use jam_interface::{
 	CoreIndex, JamChainSource, JamStateSource, JamWorkPackageSubmission, ServiceId,
 	VersionedParameters, WorkPackage, WorkPackageHash,
@@ -84,8 +84,9 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 
 	let (refine_gas_limit, accumulate_gas_limit) = loop {
 		match jam.parameters().await {
-			Ok(VersionedParameters::V1(parameters)) =>
-				break (parameters.max_refine_gas, parameters.max_accumulate_gas),
+			Ok(VersionedParameters::V1(parameters)) => {
+				break (parameters.max_refine_gas, parameters.max_accumulate_gas);
+			},
 			Err(error) => {
 				tracing::warn!(
 					target: LOG_TARGET,
@@ -196,10 +197,8 @@ fn report_new_para_head<Block: BlockT>(
 	match Block::Header::decode(&mut &head[..]) {
 		Ok(header) => {
 			let hash = header.hash();
-			let ours = submitted_blocks
-				.lock()
-				.expect("submitted-blocks lock poisoned")
-				.contains(&hash);
+			let ours =
+				submitted_blocks.lock().expect("submitted-blocks lock poisoned").contains(&hash);
 			tracing::info!(
 				target: LOG_TARGET,
 				block_hash = ?hash,
@@ -276,9 +275,7 @@ fn handle_new_block<Block, RuntimeApi, Jam>(
 	let validation_code_hash = sp_crypto_hashing::blake2_256(&validation_code);
 
 	let payload = ParachainCandidate {
-		validation_code_hash: jam_cumulus_facade::ValidationCodeHash(
-			validation_code_hash.into(),
-		),
+		validation_code_hash: jam_cumulus_facade::ValidationCodeHash(validation_code_hash.into()),
 		pov,
 	}
 	.encode();
@@ -343,10 +340,9 @@ async fn submit_and_follow<Block, Jam, Policy>(
 	Policy: ResubmissionPolicy,
 {
 	loop {
-		let package_hash =
-			WorkPackageHash::from(sp_crypto_hashing::blake2_256(&jam_codec::Encode::encode(
-				&package,
-			)));
+		let package_hash = WorkPackageHash::from(sp_crypto_hashing::blake2_256(
+			&jam_codec::Encode::encode(&package),
+		));
 		if let Err(error) = jam.submit_work_package(core, &package, Vec::new()).await {
 			tracing::warn!(
 				target: LOG_TARGET,
@@ -392,11 +388,12 @@ async fn submit_and_follow<Block, Jam, Policy>(
 					"Unable to follow the work-package status.",
 				);
 				match policy.on_stream_closed() {
-					PolicyAction::Resubmit =>
+					PolicyAction::Resubmit => {
 						match recontext(jam, &mut package, block_hash).await {
 							Ok(()) => continue,
 							Err(()) => return,
-						},
+						}
+					},
 					_ => return,
 				}
 			},

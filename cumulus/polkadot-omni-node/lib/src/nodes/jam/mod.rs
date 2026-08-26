@@ -23,8 +23,8 @@
 //!   gated by the Aura slot), selects the JAM anchor, builds the parachain block with the shared
 //!   authoring primitives and a *mocked* parachain inherent (phases 1–3), and feeds the channel;
 //! - the [collation task](collation_task) assembles the work package (payload =
-//!   `ParachainCandidate`), submits it, follows `workPackageStatus`, and drives resubmission
-//!   behind a pluggable [policy](resubmission).
+//!   `ParachainCandidate`), submits it, follows `workPackageStatus`, and drives resubmission behind
+//!   a pluggable [policy](resubmission).
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
@@ -35,7 +35,7 @@ pub(crate) mod resubmission;
 
 use codec::Decode;
 use futures::{Stream, StreamExt};
-use jam_cumulus_facade::service_state::{para_info_key, ParaInfo};
+use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{BlockDesc, JamStateSource, ServiceId, Slot as JamSlot};
 use jam_types::RefineContext;
 use sp_runtime::traits::Block as BlockT;
@@ -131,10 +131,7 @@ mod tests {
 	#[test]
 	fn jam_slot_timestamp_is_common_era_based() {
 		assert_eq!(jam_slot_timestamp(0).as_millis(), jam_types::JAM_COMMON_ERA * 1000);
-		assert_eq!(
-			jam_slot_timestamp(10).as_millis(),
-			(jam_types::JAM_COMMON_ERA + 60) * 1000
-		);
+		assert_eq!(jam_slot_timestamp(10).as_millis(), (jam_types::JAM_COMMON_ERA + 60) * 1000);
 	}
 
 	#[test]

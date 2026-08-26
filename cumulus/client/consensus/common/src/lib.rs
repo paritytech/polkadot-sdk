@@ -18,11 +18,11 @@
 use codec::Decode;
 use polkadot_primitives::{Block as PBlock, Hash as PHash, Header as PHeader, ValidationCodeHash};
 
-use cumulus_primitives_core::{relay_chain, AbridgedHostConfiguration};
+use cumulus_primitives_core::{AbridgedHostConfiguration, relay_chain};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
 use sc_client_api::Backend;
-use sc_consensus::{shared_data::SharedData, BlockImport, ImportResult};
+use sc_consensus::{BlockImport, ImportResult, shared_data::SharedData};
 use sp_consensus_slots::Slot;
 
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
