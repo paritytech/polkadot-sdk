@@ -2220,7 +2220,6 @@ mod tests {
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
 
-	/// Create a statement that the production store could admit.
 	fn new_live_statement() -> Statement {
 		let mut statement = sp_statement_store::Statement::new();
 		statement.set_expiry_from_parts(u32::MAX, 0);
@@ -6491,8 +6490,7 @@ mod tests {
 		live.set_plain_data(vec![1u8; 16]);
 		let live_hash = live.hash();
 
-		let mut stale = new_live_statement();
-		stale.set_expiry_from_parts(1, 0);
+		let mut stale = Statement::new();
 		stale.set_plain_data(vec![2u8; 16]);
 		let stale_hash = stale.hash();
 
