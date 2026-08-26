@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787693248562,
+  "lastUpdate": 1787702557894,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a27459b873aff925e52f7e54dbd78fc4cc42d18",
-          "message": "net/metrics: Add metrics for inbound/outbound traffic  (#10846)\n\nThis PR adds a new metric for inbound / outbound traffic for individual\nrequest-response protocols.\n\n- the PR is motivated by\nhttps://github.com/paritytech/polkadot-sdk/issues/10765 which shows a\nsignificant number of bytes as downloaded (4-5 MiB/s). This is\nsuspicious for a fully synced validator, 1-2 blocks to the tip of the\nchain.\n- It suggests a protocol is internally consuming too much bandwidth\nleading to network inefficiencies, wasted CPU, and in the case of the\nissue to OOM kills\n\ncc @paritytech/sdk-node\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-23T11:30:58Z",
-          "tree_id": "76c79c63d0dc92bddbaf9e7e3459f9e50eced7d4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a27459b873aff925e52f7e54dbd78fc4cc42d18"
-        },
-        "date": 1769172551674,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.287485853966668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12973438553333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.650826714033334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5996b688c3b3b33c228074988cdf7c3231c1cff8",
+          "message": "Remove deprecated cumulus-pallet-dmp-queue (#12681)\n\n## Summary\n\n- Remove the `cumulus-pallet-dmp-queue` crate (deprecated after November\n2024).\n- Drop workspace membership and umbrella feature/dependency wiring.\n- No in-repo runtime still depends on this pallet; DMP is handled via\n`pallet-message-queue`.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-08-25T20:32:50Z",
+          "tree_id": "2550914affb0c823a2d7df36c6e6935985fd237e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5996b688c3b3b33c228074988cdf7c3231c1cff8"
+        },
+        "date": 1787702521984,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.911060165033334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13471772099999998,
             "unit": "seconds"
           }
         ]
