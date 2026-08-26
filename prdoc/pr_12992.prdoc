@@ -2,21 +2,14 @@ title: "pallet-delegated-staking: reject zero-amount delegations for new delegat
 doc:
   - audience: Runtime Dev
     description: |
-      A zero `amount` no longer creates a `Delegation` record for an account that is not
-      already a delegator. Previously such a call leaked a provider reference and permanently
-      marked the account as a delegator, blocking it from registering as an agent.
+      A zero-amount delegation for a new delegator no longer stores an empty Delegation
+      record or takes a provider reference. Before, it left the account marked as a
+      delegator, which blocked it from registering as an agent.
 
-      `delegate_to_agent` (via `do_delegate`) and `migrate_delegation` now fail with
-      `InvalidDelegation` when the amount is zero and the delegator does not yet exist, and
-      `Delegation::update` writes nothing for a new zero-amount entry, so no write path can
-      persist one.
-
-      A zero-amount top-up on an *existing* delegation stays a no-op and is deliberately not
-      rejected: `pallet-nomination-pools`' `bond_extra(BondExtra::Rewards)` bonds a claimed
-      amount of zero when nothing is pending, for example at 100% commission, and rejecting it
-      would break reward bonding for those pools.
-
-      A try-state check asserts that stored delegations are non-zero.
+      do_delegate and migrate_delegation reject a zero amount for a new delegator, and
+      Delegation::update stores nothing for a new zero-amount entry. A zero top-up on an
+      existing delegation is unchanged (still a no-op), which nomination-pools relies on for
+      bond_extra at 100% commission.
 crates:
   - name: pallet-delegated-staking
     bump: patch
