@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, Weight,
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
+	pristine_code,
 	tracing::Tracing,
 };
 use alloc::{
@@ -183,7 +184,7 @@ where
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
 		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
-		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
+		let code: Vec<u8> = pristine_code::get::<T>(&code_hash)?;
 		return Some(code.into());
 	}
 

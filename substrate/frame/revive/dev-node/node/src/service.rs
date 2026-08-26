@@ -16,6 +16,8 @@
 // limitations under the License.
 
 use crate::cli::Consensus;
+#[cfg(revive_jit)]
+use polkadot_sdk::sc_client_api::ExecutorProvider;
 use polkadot_sdk::{
 	sc_client_api::StorageProvider,
 	sc_executor::WasmExecutor,
@@ -27,6 +29,10 @@ use polkadot_sdk::{
 use revive_dev_runtime::{OpaqueBlock as Block, Runtime, RuntimeApi};
 use std::sync::Arc;
 
+#[cfg(not(revive_jit))]
+type HostFunctions = (sp_io::SubstrateHostFunctions,);
+
+#[cfg(revive_jit)]
 type HostFunctions = (sp_io::SubstrateHostFunctions, sp_virtualization::HostFunctions);
 
 #[docify::export]
@@ -68,6 +74,11 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 			Default::default(),
 		)?;
 	let client = Arc::new(client);
+
+	#[cfg(revive_jit)]
+	client
+		.execution_extensions()
+		.set_extensions_factory(sc_virtualization::ExtensionsFactory);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
 		task_manager.spawn_handle().spawn("telemetry", None, worker.run());

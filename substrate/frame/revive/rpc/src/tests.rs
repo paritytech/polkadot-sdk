@@ -1264,15 +1264,21 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 		"Transaction should be successful"
 	);
 
-	// Step 5: Verify the code was actually uploaded
+	// Step 5: Verify the code was actually uploaded.
+	//
+	// pallet-revive doesn't declare `PristineCode` via `#[pallet::storage]`
+	// (it stores the raw blob under a manually derived key), so no
+	// subxt-generated typed storage accessor is available. Fetch the raw
+	// storage key instead; the value is the raw bytecode without any
+	// SCALE length prefix.
 	let code_hash = H256(sp_io::hashing::keccak_256(&bytecode));
-	let query = subxt_client::storage().revive().pristine_code();
+	let mut key = Vec::with_capacity(64 + code_hash.as_bytes().len());
+	key.extend_from_slice(&sp_io::hashing::twox_128(b"Revive"));
+	key.extend_from_slice(&sp_io::hashing::twox_128(b"PristineCode"));
+	key.extend_from_slice(code_hash.as_bytes());
 	let block_hash: sp_core::H256 = get_substrate_block_hash(receipt.block_number).await?;
-	let at_block = node_client.at_block(block_hash).await?;
-	let stored_code = at_block.storage().try_fetch(query, (code_hash,)).await?;
-	let stored_code = stored_code.map(|v| v.decode()).transpose()?;
-	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
-	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
+	let stored_code = node_client.at_block(block_hash).await?.storage().fetch_raw(key).await?;
+	assert_eq!(stored_code, bytecode, "Stored code should match the uploaded bytecode");
 
 	Ok(())
 }

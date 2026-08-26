@@ -34,6 +34,7 @@ mod impl_fungibles;
 mod limits;
 mod metering;
 mod primitives;
+mod pristine_code;
 #[doc(hidden)]
 pub mod runtime_api;
 #[doc(hidden)]
@@ -64,7 +65,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
+	vm::{BackendCosts, CodeInfo, InterpreterBackend, RuntimeCosts, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -696,13 +697,6 @@ pub mod pallet {
 		EthTransaction(T::AccountId),
 	}
 
-	/// A mapping from a contract's code hash to its code.
-	/// The code's size is bounded by [`crate::limits::BLOB_BYTES`] for PVM and
-	/// [`revm::primitives::eip170::MAX_CODE_SIZE`] for EVM bytecode.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, Vec<u8>>;
-
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
 	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
@@ -926,7 +920,7 @@ pub mod pallet {
 							AccountInfo { account_type: info.clone().into(), dust: 0 },
 						);
 
-						<PristineCode<T>>::insert(blob.code_hash(), code.0.clone());
+						pristine_code::insert::<T>(blob.code_hash(), &code.0);
 						<CodeInfoOf<T>>::insert(blob.code_hash(), blob.code_info().clone());
 						for (k, v) in storage {
 							let _ = info.write(&Key::from_fixed(k.0), Some(v.0.to_vec()), None, false).inspect_err(|err| {
@@ -1033,9 +1027,11 @@ pub mod pallet {
 						num_topic: 0,
 						len: limits::EVENT_BYTES,
 					})
-					.saturating_add(<RuntimeCosts as WeightToken<T>>::weight(
-						&RuntimeCosts::HostFn,
-					))),
+					.saturating_add(
+						<BackendCosts<InterpreterBackend> as WeightToken<T>>::weight(
+							&BackendCosts::<InterpreterBackend>::HostFn,
+						),
+					)),
 				)
 				.unwrap()
 				.saturating_mul(limits::EVENT_BYTES.into());
@@ -2730,7 +2726,7 @@ impl<T: Config> Pallet<T> {
 			return code.into();
 		}
 		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
+			.and_then(|contract| pristine_code::get::<T>(&contract.code_hash))
 			.map(|code| code.into())
 			.unwrap_or_default()
 	}

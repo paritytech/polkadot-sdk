@@ -112,10 +112,13 @@ pub fn run() -> Result<()> {
 								"Runtime benchmarking wasn't enabled when building the node. \
 							You can enable it with `--features runtime-benchmarks`."
 									.into(),
-							)
+							);
 						}
 
-						cmd.run_with_spec::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(Some(config.chain_spec))
+						cmd.run_with_spec::<HashingFor<Block>, (
+							sp_statement_store::runtime_api::HostFunctions,
+							sp_virtualization::HostFunctions,
+						)>(Some(config.chain_spec))
 					},
 					BenchmarkCmd::Block(cmd) => {
 						// ensure that we keep the task manager alive
@@ -171,8 +174,9 @@ pub fn run() -> Result<()> {
 							&ext_factory,
 						)
 					},
-					BenchmarkCmd::Machine(cmd) =>
-						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()),
+					BenchmarkCmd::Machine(cmd) => {
+						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
+					},
 				}
 			})
 		},

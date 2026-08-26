@@ -36,11 +36,12 @@ use crate::{
 		},
 		run::builtin as run_builtin_precompile,
 	},
+	pristine_code,
 	storage::WriteOutcome,
 	vm::{
 		evm,
 		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
-		pvm,
+		pvm, with_jit_override,
 	},
 	*,
 };
@@ -223,6 +224,85 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Same shape as `call_with_pvm_code_per_byte` but forces the JIT backend via
+	// `with_jit_override`. Bench-harness externalities start fresh per iteration so
+	// the per-extension compiled-module cache is empty here — every measurement is
+	// a cold compile.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_pvm_jit_cold_cache_per_byte(
+		c: Linear<0, { 100 * 1024 }>,
+	) -> Result<(), BenchmarkError> {
+		// Force the constructor through the interpreter so it doesn't
+		// pre-warm the host JIT cache via `from_pvm_code`; the measured
+		// `Pallet::call` below needs a cold cache.
+		let instance = with_jit_override(false, || {
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])
+		})?;
+		let origin = RawOrigin::Signed(instance.caller.clone());
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		let result;
+		#[block]
+		{
+			result = with_jit_override(true, || {
+				Pallet::<T>::call(
+					origin.into(),
+					instance.address,
+					value,
+					Weight::MAX,
+					storage_deposit,
+					vec![],
+				)
+			});
+		}
+		assert!(result.is_ok());
+		Ok(())
+	}
+
+	// Same as `call_with_pvm_jit_cold_cache_per_byte` but primes the per-extension
+	// cache with a prior call so the measured call hits the warm `Module::lookup` path.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_pvm_jit_warm_cache_per_byte(
+		c: Linear<0, { 100 * 1024 }>,
+	) -> Result<(), BenchmarkError> {
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
+		let origin = RawOrigin::Signed(instance.caller.clone());
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		// Prime the per-extension cache so the measured call hits the warm path.
+		with_jit_override(true, || {
+			Pallet::<T>::call(
+				origin.clone().into(),
+				instance.address,
+				value,
+				Weight::MAX,
+				storage_deposit,
+				vec![],
+			)
+		})
+		.map_err(|e| e.error)?;
+
+		let result;
+		#[block]
+		{
+			result = with_jit_override(true, || {
+				Pallet::<T>::call(
+					origin.into(),
+					instance.address,
+					value,
+					Weight::MAX,
+					storage_deposit,
+					vec![],
+				)
+			});
+		}
+		assert!(result.is_ok());
+		Ok(())
+	}
+
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
@@ -236,7 +316,7 @@ mod benchmarks {
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
-		let code_len = PristineCode::<T>::get(instance.info()?.code_hash)
+		let code_len = pristine_code::get::<T>(&instance.info()?.code_hash)
 			.expect("code should be stored")
 			.len();
 		assert_eq!(
@@ -679,8 +759,24 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::noop());
-		let (mut ext, module) = setup.ext();
-		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
+		// Force the interpreter at load time: this benchmark measures
+		// interpreter host-fn dispatch overhead, and `prepare_call_interpreter`
+		// requires the bytes to be present on the blob.
+		let (mut ext, module) = with_jit_override(false, || setup.ext());
+		let prepared = CallSetup::<T>::prepare_call_interpreter(&mut ext, &module, r.encode(), 0);
+		#[block]
+		{
+			prepared.call().unwrap();
+		}
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn noop_host_fn_jit(r: Linear<0, API_BENCHMARK_RUNS>) {
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::noop());
+		// Force the JIT at load time: this benchmark measures JIT host-fn
+		// dispatch overhead.
+		let (mut ext, module) = with_jit_override(true, || setup.ext());
+		let prepared = CallSetup::<T>::prepare_call_jit(&mut ext, &module, r.encode());
 		#[block]
 		{
 			prepared.call().unwrap();
@@ -1352,7 +1448,7 @@ mod benchmarks {
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
 
-		assert!(PristineCode::<T>::get(code_hash).is_some());
+		assert!(pristine_code::get::<T>(&code_hash).is_some());
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
@@ -1392,7 +1488,7 @@ mod benchmarks {
 		result.unwrap();
 
 		// Check that the contract is removed
-		assert!(PristineCode::<T>::get(code_hash).is_none());
+		assert!(pristine_code::get::<T>(&code_hash).is_none());
 
 		// Check that the balance has been transferred away
 		let balance = <T as Config>::Currency::total_balance(&instance.account_id);
@@ -2429,6 +2525,82 @@ mod benchmarks {
 		);
 	}
 
+	// Same as `seal_call` but the callee is dispatched to the JIT backend via the
+	// `with_jit_override` env override regardless of the compile-time `cfg!(revive_jit)`
+	// default. Only the (0, 0, 0) base case is measured — per-argument deltas come from
+	// `seal_call` and match between backends. Setup is duplicated rather than factored
+	// because the `setup -> ext -> runtime -> memory` borrow chain prevents returning a
+	// single state bundle from a helper.
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_jit() {
+		let Contract { account_id: callee, .. } =
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+
+		let callee_bytes = callee.encode();
+		let callee_len = callee_bytes.len() as u32;
+
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(0u32.into(), 0));
+		let value_bytes = evm_value.encode();
+
+		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+		let deposit_bytes = Into::<U256>::into(deposit).encode();
+		let deposit_len = deposit_bytes.len() as u32;
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_storage_deposit_limit(deposit);
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(Pallet::<T>::min_balance() + 1u32.into());
+
+		let (mut ext, _) = setup.ext();
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+		let result;
+		#[block]
+		{
+			result = with_jit_override(true, || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::empty().bits(), 0), // flags + callee
+					u64::MAX,                                 // ref_time_limit
+					u64::MAX,                                 // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+					pack_hi_lo(0, 0),                         // input len + data ptr
+					pack_hi_lo(0, SENTINEL),                  // output len + data ptr
+				)
+			});
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+	}
+
+	// Base cost of an EVM CALL opcode dispatch (no value transfer, no input). The
+	// per-argument deltas come from `seal_call`; only the base differs between
+	// backends.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_call() -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_init_code_for_runtime_size(0),
+			vec![],
+		)?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[extrinsic_call]
+		call(
+			RawOrigin::Signed(instance.caller.clone()),
+			instance.address,
+			value,
+			Weight::MAX,
+			storage_deposit,
+			vec![],
+		);
+
+		Ok(())
+	}
+
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
@@ -2526,6 +2698,47 @@ mod benchmarks {
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
+	}
+
+	// JIT-forced sibling of `seal_delegate_call`. The body cost converges between
+	// backends; only the dispatch base differs. Setup duplicated rather than
+	// factored — same borrow-chain reason as `seal_call_jit`.
+	#[benchmark(pov_mode = Measured)]
+	fn seal_delegate_call_jit() {
+		let Contract { account_id: address, .. } =
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+
+		let address_bytes = address.encode();
+		let address_len = address_bytes.len() as u32;
+
+		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+		let deposit_bytes = Into::<U256>::into(deposit).encode();
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_storage_deposit_limit(deposit);
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+
+		let (mut ext, _) = setup.ext();
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut memory = memory!(address_bytes, deposit_bytes,);
+
+		let result;
+		#[block]
+		{
+			result = with_jit_override(true, || {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					address_len,             // deposit_ptr
+					pack_hi_lo(0, 0),        // input len + data ptr
+					pack_hi_lo(0, SENTINEL), // output len + ptr
+				)
+			});
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 	}
 
 	// t: with or without some value to transfer
@@ -3036,9 +3249,16 @@ mod benchmarks {
 		);
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(true));
-		let (mut ext, module) = setup.ext();
-		let mut prepared =
-			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
+		// Force the interpreter at load time: this benchmark measures
+		// interpreter per-fuel cost, and `prepare_call_interpreter` / `setup_aux_data`
+		// only exist on the interpreter `PreparedCall`.
+		let (mut ext, module) = with_jit_override(false, || setup.ext());
+		let mut prepared = CallSetup::<T>::prepare_call_interpreter(
+			&mut ext,
+			&module,
+			Vec::new(),
+			MEMORY_SIZE as u32,
+		);
 
 		assert!(
 			u64::from(prepared.aux_data_base()) & (CACHE_LINE_SIZE - 1) == 0,
@@ -3081,8 +3301,10 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_empty_loop(r: Linear<0, 10_000>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(false));
-		let (mut ext, module) = setup.ext();
-		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
+		// Force the interpreter at load time: see `instr` above.
+		let (mut ext, module) = with_jit_override(false, || setup.ext());
+		let mut prepared =
+			CallSetup::<T>::prepare_call_interpreter(&mut ext, &module, Vec::new(), 0);
 		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
 
 		#[block]
@@ -3116,7 +3338,7 @@ mod benchmarks {
 		assert!(result.is_continue());
 		assert_eq!(
 			*interpreter.memory.slice(0..n as usize),
-			PristineCode::<T>::get(target.info()?.code_hash).unwrap()[0..n as usize],
+			pristine_code::get::<T>(&target.info()?.code_hash).unwrap()[0..n as usize],
 			"Memory should contain the target contract's code after extcodecopy"
 		);
 
