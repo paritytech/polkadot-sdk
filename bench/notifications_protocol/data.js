@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787746686695,
+  "lastUpdate": 1787752046606,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -211007,6 +211007,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2496420004,
             "range": "± 69652947",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "be6cb5e6c2b370d29fbf87c94dcda55704e55ef1",
+          "message": "Snowbridge: drop outbound-queue-v2 message leaves from state (#12211)\n\n# Description\n\nThe `outbound-queue-v2` pallet stored the per-message merkle leaves in\nthe `MessageLeaves` storage value and only\ncleared them at the start of the next block. As a result the leaves\npersisted in state across blocks and were\nneedlessly included in the PoV, even though they are only required to\nbuild the commitment root and to generate proofs\noff-chain.\n\nThis PR makes `MessageLeaves` truly transient: the leaves are still\nappended during block execution to build the merkle\nroot, but the value is now killed within the same block, right after the\ncommitment is produced in `commit()`. The\ncommitted root inserted into the header digest is unchanged.\n\nCloses #7971\n\n## Integration\n\nNo integration steps are required for downstream runtimes. The change is\ninternal to the `outbound-queue-v2` pallet:\n\n- The on-chain commitment (merkle root in the header digest) is computed\nexactly as before, so relayers and the\nEthereum-side verification are unaffected.\n- The `prove_message` runtime API keeps the same signature and return\nvalue; it now recomputes the leaves from\n`Messages` instead of reading `MessageLeaves`.\n- `MessageLeaves` is no longer expected to be present in state after a\nblock; any tooling that read it directly (there\nshould be none, as it was transient by design) must recompute leaves\nfrom `Messages` instead.\n\n## Review Notes\n\n- `commit()` now calls `MessageLeaves::kill()` immediately after\nbuilding the root, so the value never persists beyond\nthe block in which it is produced and never enters the PoV.\n- Because the leaves are no longer stored, the `prove_message` runtime\nAPI reconstructs them from the `Messages`\nstorage, in the same order they were appended during block execution, so\n`leaf_index` stays valid. This API is read\noff-chain only, so reading `Messages` here does not enter any block's\nPoV.\n- Leaf computation (Keccak256 of the ABI-encoded message) was extracted\ninto a single `Pallet::message_leaf` helper,\nshared by message processing and proof generation, so both always\nproduce identical leaves.\n- The `MessageLeaves::kill()` in `on_initialize` is kept as a defensive\ncleanup that also removes any value left\npersisted by a pre-upgrade runtime.\n- New test `prove_message_recomputes_committed_leaves_after_commit`\nasserts that, after `commit` drops the leaves,\nproofs recomputed from `Messages` still verify against the very same\nroot committed on-chain.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-26T11:59:01Z",
+          "tree_id": "ab51fb87c515356fec316d98375e08f1cd884e7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/be6cb5e6c2b370d29fbf87c94dcda55704e55ef1"
+        },
+        "date": 1787752003744,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4517883,
+            "range": "± 46723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 288403,
+            "range": "± 3089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4366155,
+            "range": "± 30354",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 358816,
+            "range": "± 4676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5469604,
+            "range": "± 36978",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 883809,
+            "range": "± 7413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10863879,
+            "range": "± 65133",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4831478,
+            "range": "± 37705",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43504542,
+            "range": "± 290779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38146399,
+            "range": "± 549692",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 378476210,
+            "range": "± 3208968",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 311923106,
+            "range": "± 2000697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2650564734,
+            "range": "± 13471962",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2438182411,
+            "range": "± 14700440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3410895,
+            "range": "± 17942",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1833676,
+            "range": "± 15431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3451022,
+            "range": "± 9981",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1870865,
+            "range": "± 8856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3937982,
+            "range": "± 20487",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2222320,
+            "range": "± 13399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7985139,
+            "range": "± 157185",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5224694,
+            "range": "± 56730",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37515860,
+            "range": "± 218932",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35290473,
+            "range": "± 572149",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 323317241,
+            "range": "± 2378671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 281381734,
+            "range": "± 1969015",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2590945497,
+            "range": "± 29498697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2505412725,
+            "range": "± 65660842",
             "unit": "ns/iter"
           }
         ]
