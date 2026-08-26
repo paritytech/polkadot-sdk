@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787738159556,
+  "lastUpdate": 1787743024498,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f134881a56e7733a6b5171c81b05ce4df40dd695",
-          "message": "[Release|CI/CD] Bump Zepter version in post crates action (#10885)\n\nResolving following error lines:\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21254581447/job/61165383938#step:17:15\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-23T12:33:22Z",
-          "tree_id": "fe4c50d35ca79c55709258004dac104697c7fcd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f134881a56e7733a6b5171c81b05ce4df40dd695"
-        },
-        "date": 1769175897607,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.159999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002572939,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7023700377400015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.911858649109979,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.669569103179998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8294295260799878,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.695342803980001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.6859888155533795,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025245919999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002572939,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005873709730000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.647343713319999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025245919999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3619297550799923,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.6769541336500007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "166888152+racequite@users.noreply.github.com",
+            "name": "Rui JingAn",
+            "username": "racequite"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aef03478f32894b72791c425143022f640a64a66",
+          "message": "fix(state-sync): reject empty unverified state responses (#12946)\n\n# Description\n\nReject state responses with no entries when state proof verification is\ndisabled.\n\nPreviously, an empty `entries` list accompanied by non-empty `proof`\nbytes could reach the unverified state processing path, which assumes\nthat at least one entry exists. Malformed peer data is now returned as\n`ImportResult::BadResponse`, allowing `StateStrategy` to drop the peer.\n\nhttps://github.com/paritytech/polkadot-sdk/issues/12945\n\n## Integration\n\nNo downstream integration changes are required. Node operators receive\nthe fix by updating `sc-network-sync`.\n\n## Review Notes\n\nResponse validation is now mode-specific:\n\n- unverified state sync requires non-empty `entries`;\n- verified state sync requires non-empty `proof`.\n\nThis avoids rejecting valid proof-only responses in verified mode.\n\nRegression tests cover both the direct `BadResponse` result and the\nresulting `DropPeer` action at the strategy layer.\n\n# Checklist\n\n* [x] My PR includes a detailed description.\n* [x] My PR follows the labeling requirements.\n* [x] Documentation changes are not applicable.\n* [x] I have added tests that prove the fix is effective.\n\n---------\n\nSigned-off-by: racequite <quiterace@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-26T08:52:33Z",
+          "tree_id": "4e3eaf4a2e41a4defda361bf2dbbc91cc03f3d03",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aef03478f32894b72791c425143022f640a64a66"
+        },
+        "date": 1787742985541,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63573.56,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002358321,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6598946000100003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8417395037699578,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002358321,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.664194252679999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.703662842910001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002099691,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3597626889799903,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.487841740022929,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.68868481253,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.922998737439949,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002099691,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00506003656,
             "unit": "seconds"
           }
         ]
