@@ -43,3 +43,10 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-utility/try-runtime",
 ]
+# Promotes the `try_state` deposit-amount checks from a warning to a hard error.
+#
+# The stored deposits legitimately go stale on a live chain when governance changes a `*Deposit*`
+# parameter, and stay stale until each account calls `poke_deposit`, so those checks only warn by
+# default. Parameters are constant for the length of a fuzzing campaign, which makes the deposit
+# formula a hard invariant there, and a fuzzer reads failures rather than logs.
+fuzzing = []

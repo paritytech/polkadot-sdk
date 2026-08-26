@@ -1074,9 +1074,9 @@ impl<T: Config> Pallet<T> {
 	///    rejects an exact hit, making order and uniqueness one property.
 	/// 3. No self-delegation: `add_proxy_delegate` rejects it with `NoSelfProxy`.
 	/// 4. (warn) Reserve covers the deposit; warns because `create_pure` reserves a pure account's
-	///    deposit on the spawner.
-	/// 5. (warn) Deposit equals [`Self::deposit`] of the length; warns because a parameter change
-	///    leaves it stale until [`Pallet::poke_deposit`].
+	///    deposit on the spawner. No feature flag changes this one, since that state is legal.
+	/// 5. (warn, hard error under `fuzzing`) Deposit equals [`Self::deposit`] of the length; warns
+	///    because a parameter change leaves it stale until [`Pallet::poke_deposit`].
 	///
 	/// `Announcements`, same convention:
 	/// 6. Pending list is non-empty: the last removal deletes the entry.
@@ -1086,8 +1086,20 @@ impl<T: Config> Pallet<T> {
 	/// 9. No height is later than the current block, the one `announce` stamps.
 	/// 10. Reserve covers the deposit; a hard error unlike 4, since it is always reserved on the
 	///     announcer itself.
-	/// 11. (warn) Deposit equals `AnnouncementDepositBase + AnnouncementDepositFactor *
-	///     pending.len()`; warns for the same reason as 5.
+	/// 11. (warn, hard error under `fuzzing`) Deposit equals `AnnouncementDepositBase +
+	///     AnnouncementDepositFactor * pending.len()`; warns for the same reason as 5.
+	///
+	/// Across both maps, and the only check that reads both:
+	/// 12. Reserve covers the *sum* of an account's two deposits. 4 and 10 read one map each, so
+	///     the same units of reserve can satisfy both while backing only one of the two claims.
+	///     Guarded on 4 holding, since an untouched pure proxy legally has a `Proxies` deposit that
+	///     nothing on the key account reserves.
+	///
+	/// The `fuzzing` severity gate on 5 and 11: a fuzzer detects failures, it does not read logs,
+	/// so a warning yields a campaign nothing. `warn!` is nonetheless right for a live chain,
+	/// where a `*Deposit*` parameter change leaves stored deposits stale until each account calls
+	/// [`Pallet::poke_deposit`]. Parameters are constant for the length of a campaign, which makes
+	/// the formula a hard invariant in that context.
 	///
 	/// Not checked. The first two are legally reachable:
 	/// - An announcement outliving its proxy relationship, since `remove_proxy`, `remove_proxies`
@@ -1132,10 +1144,14 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 
-			// (warn) The deposit matches what the current parameters price the entry at,
-			// unless a parameter change left it stale.
+			// (warn, hard error under `fuzzing`) The deposit matches what the current parameters
+			// price the entry at, unless a parameter change left it stale.
 			let expected_deposit = Self::deposit(proxies.len() as u32);
 			if deposit != expected_deposit {
+				#[cfg(feature = "fuzzing")]
+				return Err("Proxies deposit does not match the current parameters".into());
+
+				#[cfg(not(feature = "fuzzing"))]
 				log::warn!(
 					target: LOG_TARGET,
 					"Proxies deposit for {:?} is {:?}, but its {} proxies price at {:?} under the \
@@ -1179,11 +1195,15 @@ impl<T: Config> Pallet<T> {
 				"Announcements deposit exceeds the key account's reserved balance"
 			);
 
-			// (warn) The deposit matches what the current parameters price the entry at,
-			// unless a parameter change left it stale.
+			// (warn, hard error under `fuzzing`) The deposit matches what the current parameters
+			// price the entry at, unless a parameter change left it stale.
 			let expected_deposit = T::AnnouncementDepositBase::get() +
 				T::AnnouncementDepositFactor::get() * (pending.len() as u32).into();
 			if deposit != expected_deposit {
+				#[cfg(feature = "fuzzing")]
+				return Err("Announcements deposit does not match the current parameters".into());
+
+				#[cfg(not(feature = "fuzzing"))]
 				log::warn!(
 					target: LOG_TARGET,
 					"Announcements deposit for {:?} is {:?}, but its {} announcements price at \
@@ -1194,6 +1214,25 @@ impl<T: Config> Pallet<T> {
 					deposit,
 					pending.len(),
 					expected_deposit,
+				);
+			}
+		}
+
+		// The reserve covers the sum of both deposits, not just each one on its own: 4 and 10 read
+		// one map each, so the same units can satisfy both. Accounts in only one map need no
+		// check, their sum being that single deposit, so walking `Announcements` alone suffices.
+		for delegate in Announcements::<T>::iter_keys() {
+			let announcements_deposit = Announcements::<T>::get(&delegate).1;
+			let proxies_deposit = Proxies::<T>::get(&delegate).1;
+			let reserved = T::Currency::reserved_balance(&delegate);
+
+			// Skips the pure-proxy case of an uncovered `Proxies` deposit, which 4 warns about.
+			if reserved >= proxies_deposit {
+				// `>=`, not `==`: other pallets reserve on these accounts, so the sum is a lower
+				// bound.
+				ensure!(
+					reserved >= proxies_deposit.saturating_add(announcements_deposit),
+					"Reserve does not cover the sum of both deposits"
 				);
 			}
 		}
