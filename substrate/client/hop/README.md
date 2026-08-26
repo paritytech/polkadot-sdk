@@ -45,6 +45,7 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 |---|---|
 | `cli` | `HopParams` — `clap`-flattenable CLI parameters |
 | `pool` | `HopDataPool` — disk-backed blob store + in-memory metadata index |
+| `metrics` | `HopMetrics` — Prometheus metrics; no-ops without a registry |
 | `rpc` | `HopApi` / `HopRpcServer` — jsonrpsee methods (`hop_submit`/`claim`/`ack`/`poolStatus`) |
 | `promotion` | `HopPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
 | `rate_limit` | `RateLimitConfig`, `RateLimiter` — per-account token buckets |
@@ -73,22 +74,27 @@ pub struct Cli {
 ### 2. Initialize the pool
 
 ```rust,ignore
-use sc_hop::HopDataPool;
+use sc_hop::{HopDataPool, HopMetrics};
 use std::sync::Arc;
 
 let hop_pool = hop_params.enabled.then(|| {
-    HopDataPool::new(
+    HopDataPool::new_with_metrics(
         hop_params.max_pool_size * 1024 * 1024,  // pool cap, bytes
         hop_params.max_user_size * 1024 * 1024,  // per-user cap, bytes
         hop_params.retention_secs,
         hop_params.data_dir.clone()
             .unwrap_or_else(|| chain_data_dir.join("hop")),
         hop_params.rate_limit_config(),
+        // Registration must not fail startup, so degrade to no-ops.
+        HopMetrics::new(prometheus_registry).unwrap_or_else(|_| HopMetrics::disabled()),
     )
     .map(Arc::new)
     .map_err(|e| format!("Failed to create HOP pool: {e}"))
 }).transpose()?;
 ```
+
+`HopParams::build_pool_with_metrics(database_path, prometheus_registry)` does all of the
+above; `HopParams::build_pool(database_path)` is the same without metrics.
 
 ### 3. Register RPC and spawn the maintenance task
 
@@ -214,6 +220,22 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1019 | `DuplicateRecipient` | Recipient list contains duplicates |
 | 1020 | `RateLimited` | Per-account rate limit exceeded; response includes `retry_after_secs` |
 | 1021 | `MissingDataDir` | Neither `--hop-data-dir` nor a chain database path was available |
+
+## Metrics
+
+| Metric | Type | Labels |
+|---|---|---|
+| `substrate_hop_pool_entries` / `_pool_bytes` / `_pool_max_bytes` | gauge | |
+| `substrate_hop_pool_inserted_bytes_total` | counter | |
+| `substrate_hop_pool_removed_total` | counter | `reason` (values below) |
+| `substrate_hop_rpc_errors_total` | counter | `method` (wire name, e.g. `hop_submit`), `reason` (`HopError` variant) |
+| `substrate_hop_promotions_confirmed_total` | counter | |
+| `substrate_hop_promotion_backlog` | gauge | |
+| `substrate_hop_maintenance_ticks_total` | counter | |
+
+`reason` values, all pre-created at registration: `acked`, `expired_promoted`,
+`expired_unpromoted` (an upper bound on loss; re-checking stops at
+`MAX_PROMOTION_ATTEMPTS`), `corrupt`, `startup_dropped`.
 
 ## Limits and fixed parameters
 

@@ -430,7 +430,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.transpose()?;
 
 			let hop_pool = node_extra_args.hop.as_ref().and_then(|params| {
-				match params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf())) {
+				match params.build_pool_with_metrics(
+					parachain_config.database.path().map(|p| p.to_path_buf()),
+					prometheus_registry.as_ref(),
+				) {
 					Ok(pool) => Some(pool),
 					Err(e) => {
 						log::warn!(
