@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787753361559,
+  "lastUpdate": 1787760036611,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340",
-          "message": "net: Spawn network backend as essential task (#10847)\n\nThis PR spawns the network backends as essential (libp2p / litep2p).\n\nWhen the network future exits, it will bring down the whole process.\n- there's no point in running a node without the core network backend as\nit will not be able to communicate with peers\n- while at it, have changed some logs from debug to warn\n- the network backend can be brought down unintentionally by the\n`import_notif_stream`\n\n\nDiscovered during:\n- https://github.com/paritytech/polkadot-sdk/issues/10821\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-26T15:39:44Z",
-          "tree_id": "63664732e2d31aac59b145d73bf121b6ac450c2e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340"
-        },
-        "date": 1769446446894,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.030000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.51999666066306,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002379562,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000028919600000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00575851183,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000028919600000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002379562,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.668522023519997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6793892633999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.76096910171996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6401225666100023,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3567062089999964,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6120099025399997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7984606248199648,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.00518350261,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "abdulwaarithz@gmail.com",
+            "name": "Abdulwaarith Zakariyya",
+            "username": "abdulwaarith0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fcdd029217854918b47707a2feccf544896adce0",
+          "message": "pallet-delegated-staking: ignore zero-amount delegations (#12992)\n\nCloses #12911\n\nFor a new delegator, calling `delegate_to_agent` with amount 0 used to\nstore an empty `Delegation` record and take a provider reference. That\nleft the account marked as a delegator for good, which then stops it\nfrom registering as an agent.\n\nThe fix only touches the new-delegator case:\n- `Delegation::update` stores nothing for a new zero-amount entry. Every\nwrite path goes through it, so none can leave a zero record behind.\n- `do_delegate` and `migrate_delegation` reject a zero amount for a new\ndelegator.\n- A zero top-up on an existing delegation stays a no-op.\n`nomination-pools` `bond_extra(Rewards)` passes amount 0 at 100%\ncommission, and rejecting it would break reward bonding there.\n- Added a try-state check that stored delegations are never zero.\n\nTests cover the three cases (new zero rejected, zero migrate rejected,\nexisting zero top-up still works): `SKIP_WASM_BUILD=1 cargo test -p\npallet-delegated-staking --lib`.\n\nRWF finding, same cluster as #12769 / #12771 / #12922. Same approach as\n#13001 - thanks @sigurpol and @acatangiu for the reviews.\n\n---------\n\nSigned-off-by: Abdulwaarith <abdulwaarithz@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Paolo La Camera <paolo.lacamera@pm.me>",
+          "timestamp": "2026-08-26T13:48:54Z",
+          "tree_id": "bb7c021090a935bdb734d2198123d9130e7365c9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fcdd029217854918b47707a2feccf544896adce0"
+        },
+        "date": 1787759997098,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.77,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6604742697699986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8421079979099726,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002227888,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005168342449999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.580212990702714,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3706504505899937,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7004628998299993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000024367869999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000024367869999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.934779626859967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.670500951110001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002227888,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6854147152000007,
             "unit": "seconds"
           }
         ]
