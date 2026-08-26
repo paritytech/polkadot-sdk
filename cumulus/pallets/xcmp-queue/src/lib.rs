@@ -1338,8 +1338,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 						},
 					}
 					.unwrap();
-					let decoded_message = VersionedXcm::<()>::decode_with_depth_limit(
-						MAX_XCM_DECODE_DEPTH,
+					let decoded_message = VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(
 						&mut &message_bytes[..],
 					)
 					.unwrap();
