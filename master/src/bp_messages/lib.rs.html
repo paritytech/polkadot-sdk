@@ -668,107 +668,130 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#518 id=518 data-nosnippet>518</a>		<span class="kw">let </span>nonce_begin = sp_std::cmp::max(entry.messages.begin, <span class="kw-2">*</span>received_range.start());
 <a href=#519 id=519 data-nosnippet>519</a>		<span class="kw">let </span>nonce_end = sp_std::cmp::min(entry.messages.end, <span class="kw-2">*</span>received_range.end());
 <a href=#520 id=520 data-nosnippet>520</a>		<span class="kw">if </span>nonce_end &gt;= nonce_begin {
-<a href=#521 id=521 data-nosnippet>521</a>			<span class="kw-2">*</span>relayers_rewards.entry(entry.relayer).or_default() += nonce_end - nonce_begin + <span class="number">1</span>;
-<a href=#522 id=522 data-nosnippet>522</a>		}
-<a href=#523 id=523 data-nosnippet>523</a>	}
-<a href=#524 id=524 data-nosnippet>524</a>	relayers_rewards
-<a href=#525 id=525 data-nosnippet>525</a>}
-<a href=#526 id=526 data-nosnippet>526</a>
-<a href=#527 id=527 data-nosnippet>527</a><span class="doccomment">/// Error that happens during message verification.
-<a href=#528 id=528 data-nosnippet>528</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo)]
-<a href=#529 id=529 data-nosnippet>529</a></span><span class="kw">pub enum </span>VerificationError {
-<a href=#530 id=530 data-nosnippet>530</a>	<span class="doccomment">/// The message proof is empty.
-<a href=#531 id=531 data-nosnippet>531</a>	</span>EmptyMessageProof,
-<a href=#532 id=532 data-nosnippet>532</a>	<span class="doccomment">/// Error returned by the bridged header chain.
-<a href=#533 id=533 data-nosnippet>533</a>	</span>HeaderChain(HeaderChainError),
-<a href=#534 id=534 data-nosnippet>534</a>	<span class="doccomment">/// Error returned while reading/decoding inbound lane data from the storage proof.
-<a href=#535 id=535 data-nosnippet>535</a>	</span>InboundLaneStorage(StorageProofError),
-<a href=#536 id=536 data-nosnippet>536</a>	<span class="doccomment">/// The declared message weight is incorrect.
-<a href=#537 id=537 data-nosnippet>537</a>	</span>InvalidMessageWeight,
-<a href=#538 id=538 data-nosnippet>538</a>	<span class="doccomment">/// Declared messages count doesn't match actual value.
-<a href=#539 id=539 data-nosnippet>539</a>	</span>MessagesCountMismatch,
-<a href=#540 id=540 data-nosnippet>540</a>	<span class="doccomment">/// Error returned while reading/decoding message data from the `VerifiedStorageProof`.
-<a href=#541 id=541 data-nosnippet>541</a>	</span>MessageStorage(StorageProofError),
-<a href=#542 id=542 data-nosnippet>542</a>	<span class="doccomment">/// The message is too large.
-<a href=#543 id=543 data-nosnippet>543</a>	</span>MessageTooLarge,
-<a href=#544 id=544 data-nosnippet>544</a>	<span class="doccomment">/// Error returned while reading/decoding outbound lane data from the `VerifiedStorageProof`.
-<a href=#545 id=545 data-nosnippet>545</a>	</span>OutboundLaneStorage(StorageProofError),
-<a href=#546 id=546 data-nosnippet>546</a>	<span class="doccomment">/// Storage proof related error.
-<a href=#547 id=547 data-nosnippet>547</a>	</span>StorageProof(StorageProofError),
-<a href=#548 id=548 data-nosnippet>548</a>	<span class="doccomment">/// Custom error
-<a href=#549 id=549 data-nosnippet>549</a>	</span>Other(<span class="attr">#[codec(skip)] </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
-<a href=#550 id=550 data-nosnippet>550</a>}
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a><span class="attr">#[cfg(test)]
-<a href=#553 id=553 data-nosnippet>553</a></span><span class="kw">mod </span>tests {
-<a href=#554 id=554 data-nosnippet>554</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#555 id=555 data-nosnippet>555</a>
-<a href=#556 id=556 data-nosnippet>556</a>	<span class="attr">#[test]
-<a href=#557 id=557 data-nosnippet>557</a>	</span><span class="kw">fn </span>lane_is_closed_by_default() {
-<a href=#558 id=558 data-nosnippet>558</a>		<span class="macro">assert_eq!</span>(InboundLaneData::&lt;()&gt;::default().state, LaneState::Closed);
-<a href=#559 id=559 data-nosnippet>559</a>		<span class="macro">assert_eq!</span>(OutboundLaneData::default().state, LaneState::Closed);
-<a href=#560 id=560 data-nosnippet>560</a>	}
-<a href=#561 id=561 data-nosnippet>561</a>
-<a href=#562 id=562 data-nosnippet>562</a>	<span class="attr">#[test]
-<a href=#563 id=563 data-nosnippet>563</a>	</span><span class="kw">fn </span>total_unrewarded_messages_does_not_overflow() {
-<a href=#564 id=564 data-nosnippet>564</a>		<span class="kw">let </span>lane_data = InboundLaneData {
-<a href=#565 id=565 data-nosnippet>565</a>			state: LaneState::Opened,
-<a href=#566 id=566 data-nosnippet>566</a>			relayers: <span class="macro">vec!</span>[
-<a href=#567 id=567 data-nosnippet>567</a>				UnrewardedRelayer { relayer: <span class="number">1</span>, messages: DeliveredMessages::new(<span class="number">0</span>) },
-<a href=#568 id=568 data-nosnippet>568</a>				UnrewardedRelayer {
-<a href=#569 id=569 data-nosnippet>569</a>					relayer: <span class="number">2</span>,
-<a href=#570 id=570 data-nosnippet>570</a>					messages: DeliveredMessages::new(MessageNonce::MAX),
-<a href=#571 id=571 data-nosnippet>571</a>				},
-<a href=#572 id=572 data-nosnippet>572</a>			]
-<a href=#573 id=573 data-nosnippet>573</a>			.into_iter()
-<a href=#574 id=574 data-nosnippet>574</a>			.collect(),
-<a href=#575 id=575 data-nosnippet>575</a>			last_confirmed_nonce: <span class="number">0</span>,
-<a href=#576 id=576 data-nosnippet>576</a>		};
-<a href=#577 id=577 data-nosnippet>577</a>		<span class="macro">assert_eq!</span>(lane_data.total_unrewarded_messages(), MessageNonce::MAX);
-<a href=#578 id=578 data-nosnippet>578</a>	}
-<a href=#579 id=579 data-nosnippet>579</a>
-<a href=#580 id=580 data-nosnippet>580</a>	<span class="attr">#[test]
-<a href=#581 id=581 data-nosnippet>581</a>	</span><span class="kw">fn </span>inbound_lane_data_returns_correct_hint() {
-<a href=#582 id=582 data-nosnippet>582</a>		<span class="kw">let </span>test_cases = <span class="macro">vec!</span>[
-<a href=#583 id=583 data-nosnippet>583</a>			<span class="comment">// single relayer, multiple messages
-<a href=#584 id=584 data-nosnippet>584</a>			</span>(<span class="number">1</span>, <span class="number">128u8</span>),
-<a href=#585 id=585 data-nosnippet>585</a>			<span class="comment">// multiple relayers, single message per relayer
-<a href=#586 id=586 data-nosnippet>586</a>			</span>(<span class="number">128u8</span>, <span class="number">128u8</span>),
-<a href=#587 id=587 data-nosnippet>587</a>			<span class="comment">// several messages per relayer
-<a href=#588 id=588 data-nosnippet>588</a>			</span>(<span class="number">13u8</span>, <span class="number">128u8</span>),
-<a href=#589 id=589 data-nosnippet>589</a>		];
-<a href=#590 id=590 data-nosnippet>590</a>		<span class="kw">for </span>(relayer_entries, messages_count) <span class="kw">in </span>test_cases {
-<a href=#591 id=591 data-nosnippet>591</a>			<span class="kw">let </span>expected_size = InboundLaneData::&lt;u8&gt;::encoded_size_hint(relayer_entries <span class="kw">as _</span>);
-<a href=#592 id=592 data-nosnippet>592</a>			<span class="kw">let </span>actual_size = InboundLaneData {
-<a href=#593 id=593 data-nosnippet>593</a>				state: LaneState::Opened,
-<a href=#594 id=594 data-nosnippet>594</a>				relayers: (<span class="number">1u8</span>..=relayer_entries)
-<a href=#595 id=595 data-nosnippet>595</a>					.map(|i| UnrewardedRelayer {
-<a href=#596 id=596 data-nosnippet>596</a>						relayer: i,
-<a href=#597 id=597 data-nosnippet>597</a>						messages: DeliveredMessages::new(i <span class="kw">as _</span>),
-<a href=#598 id=598 data-nosnippet>598</a>					})
-<a href=#599 id=599 data-nosnippet>599</a>					.collect(),
-<a href=#600 id=600 data-nosnippet>600</a>				last_confirmed_nonce: messages_count <span class="kw">as _</span>,
-<a href=#601 id=601 data-nosnippet>601</a>			}
-<a href=#602 id=602 data-nosnippet>602</a>			.encode()
-<a href=#603 id=603 data-nosnippet>603</a>			.len();
-<a href=#604 id=604 data-nosnippet>604</a>			<span class="kw">let </span>difference = (expected_size.unwrap() <span class="kw">as </span>f64 - actual_size <span class="kw">as </span>f64).abs();
-<a href=#605 id=605 data-nosnippet>605</a>			<span class="macro">assert!</span>(
-<a href=#606 id=606 data-nosnippet>606</a>				difference / (std::cmp::min(actual_size, expected_size.unwrap()) <span class="kw">as </span>f64) &lt; <span class="number">0.1</span>,
-<a href=#607 id=607 data-nosnippet>607</a>				<span class="string">"Too large difference between actual ({actual_size}) and expected ({expected_size:?}) inbound lane data size. Test case: {relayer_entries}+{messages_count}"</span>,
-<a href=#608 id=608 data-nosnippet>608</a>			);
-<a href=#609 id=609 data-nosnippet>609</a>		}
-<a href=#610 id=610 data-nosnippet>610</a>	}
-<a href=#611 id=611 data-nosnippet>611</a>
-<a href=#612 id=612 data-nosnippet>612</a>	<span class="attr">#[test]
-<a href=#613 id=613 data-nosnippet>613</a>	</span><span class="kw">fn </span>contains_result_works() {
-<a href=#614 id=614 data-nosnippet>614</a>		<span class="kw">let </span>delivered_messages = DeliveredMessages { begin: <span class="number">100</span>, end: <span class="number">150 </span>};
-<a href=#615 id=615 data-nosnippet>615</a>
-<a href=#616 id=616 data-nosnippet>616</a>		<span class="macro">assert!</span>(!delivered_messages.contains_message(<span class="number">99</span>));
-<a href=#617 id=617 data-nosnippet>617</a>		<span class="macro">assert!</span>(delivered_messages.contains_message(<span class="number">100</span>));
-<a href=#618 id=618 data-nosnippet>618</a>		<span class="macro">assert!</span>(delivered_messages.contains_message(<span class="number">150</span>));
-<a href=#619 id=619 data-nosnippet>619</a>		<span class="macro">assert!</span>(!delivered_messages.contains_message(<span class="number">151</span>));
-<a href=#620 id=620 data-nosnippet>620</a>	}
-<a href=#621 id=621 data-nosnippet>621</a>}
+<a href=#521 id=521 data-nosnippet>521</a>			<span class="kw">let </span>relayer_reward = relayers_rewards.entry(entry.relayer).or_default();
+<a href=#522 id=522 data-nosnippet>522</a>			<span class="kw-2">*</span>relayer_reward =
+<a href=#523 id=523 data-nosnippet>523</a>				relayer_reward.saturating_add((nonce_begin..=nonce_end).saturating_len());
+<a href=#524 id=524 data-nosnippet>524</a>		}
+<a href=#525 id=525 data-nosnippet>525</a>	}
+<a href=#526 id=526 data-nosnippet>526</a>	relayers_rewards
+<a href=#527 id=527 data-nosnippet>527</a>}
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a><span class="doccomment">/// Error that happens during message verification.
+<a href=#530 id=530 data-nosnippet>530</a></span><span class="attr">#[derive(Encode, Decode, DecodeWithMemTracking, Debug, PartialEq, Eq, PalletError, TypeInfo)]
+<a href=#531 id=531 data-nosnippet>531</a></span><span class="kw">pub enum </span>VerificationError {
+<a href=#532 id=532 data-nosnippet>532</a>	<span class="doccomment">/// The message proof is empty.
+<a href=#533 id=533 data-nosnippet>533</a>	</span>EmptyMessageProof,
+<a href=#534 id=534 data-nosnippet>534</a>	<span class="doccomment">/// Error returned by the bridged header chain.
+<a href=#535 id=535 data-nosnippet>535</a>	</span>HeaderChain(HeaderChainError),
+<a href=#536 id=536 data-nosnippet>536</a>	<span class="doccomment">/// Error returned while reading/decoding inbound lane data from the storage proof.
+<a href=#537 id=537 data-nosnippet>537</a>	</span>InboundLaneStorage(StorageProofError),
+<a href=#538 id=538 data-nosnippet>538</a>	<span class="doccomment">/// The declared message weight is incorrect.
+<a href=#539 id=539 data-nosnippet>539</a>	</span>InvalidMessageWeight,
+<a href=#540 id=540 data-nosnippet>540</a>	<span class="doccomment">/// Declared messages count doesn't match actual value.
+<a href=#541 id=541 data-nosnippet>541</a>	</span>MessagesCountMismatch,
+<a href=#542 id=542 data-nosnippet>542</a>	<span class="doccomment">/// Error returned while reading/decoding message data from the `VerifiedStorageProof`.
+<a href=#543 id=543 data-nosnippet>543</a>	</span>MessageStorage(StorageProofError),
+<a href=#544 id=544 data-nosnippet>544</a>	<span class="doccomment">/// The message is too large.
+<a href=#545 id=545 data-nosnippet>545</a>	</span>MessageTooLarge,
+<a href=#546 id=546 data-nosnippet>546</a>	<span class="doccomment">/// Error returned while reading/decoding outbound lane data from the `VerifiedStorageProof`.
+<a href=#547 id=547 data-nosnippet>547</a>	</span>OutboundLaneStorage(StorageProofError),
+<a href=#548 id=548 data-nosnippet>548</a>	<span class="doccomment">/// Storage proof related error.
+<a href=#549 id=549 data-nosnippet>549</a>	</span>StorageProof(StorageProofError),
+<a href=#550 id=550 data-nosnippet>550</a>	<span class="doccomment">/// Custom error
+<a href=#551 id=551 data-nosnippet>551</a>	</span>Other(<span class="attr">#[codec(skip)] </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
+<a href=#552 id=552 data-nosnippet>552</a>}
+<a href=#553 id=553 data-nosnippet>553</a>
+<a href=#554 id=554 data-nosnippet>554</a><span class="attr">#[cfg(test)]
+<a href=#555 id=555 data-nosnippet>555</a></span><span class="kw">mod </span>tests {
+<a href=#556 id=556 data-nosnippet>556</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#557 id=557 data-nosnippet>557</a>
+<a href=#558 id=558 data-nosnippet>558</a>	<span class="attr">#[test]
+<a href=#559 id=559 data-nosnippet>559</a>	</span><span class="kw">fn </span>lane_is_closed_by_default() {
+<a href=#560 id=560 data-nosnippet>560</a>		<span class="macro">assert_eq!</span>(InboundLaneData::&lt;()&gt;::default().state, LaneState::Closed);
+<a href=#561 id=561 data-nosnippet>561</a>		<span class="macro">assert_eq!</span>(OutboundLaneData::default().state, LaneState::Closed);
+<a href=#562 id=562 data-nosnippet>562</a>	}
+<a href=#563 id=563 data-nosnippet>563</a>
+<a href=#564 id=564 data-nosnippet>564</a>	<span class="attr">#[test]
+<a href=#565 id=565 data-nosnippet>565</a>	</span><span class="kw">fn </span>total_unrewarded_messages_does_not_overflow() {
+<a href=#566 id=566 data-nosnippet>566</a>		<span class="kw">let </span>lane_data = InboundLaneData {
+<a href=#567 id=567 data-nosnippet>567</a>			state: LaneState::Opened,
+<a href=#568 id=568 data-nosnippet>568</a>			relayers: <span class="macro">vec!</span>[
+<a href=#569 id=569 data-nosnippet>569</a>				UnrewardedRelayer { relayer: <span class="number">1</span>, messages: DeliveredMessages::new(<span class="number">0</span>) },
+<a href=#570 id=570 data-nosnippet>570</a>				UnrewardedRelayer {
+<a href=#571 id=571 data-nosnippet>571</a>					relayer: <span class="number">2</span>,
+<a href=#572 id=572 data-nosnippet>572</a>					messages: DeliveredMessages::new(MessageNonce::MAX),
+<a href=#573 id=573 data-nosnippet>573</a>				},
+<a href=#574 id=574 data-nosnippet>574</a>			]
+<a href=#575 id=575 data-nosnippet>575</a>			.into_iter()
+<a href=#576 id=576 data-nosnippet>576</a>			.collect(),
+<a href=#577 id=577 data-nosnippet>577</a>			last_confirmed_nonce: <span class="number">0</span>,
+<a href=#578 id=578 data-nosnippet>578</a>		};
+<a href=#579 id=579 data-nosnippet>579</a>		<span class="macro">assert_eq!</span>(lane_data.total_unrewarded_messages(), MessageNonce::MAX);
+<a href=#580 id=580 data-nosnippet>580</a>	}
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a>	<span class="attr">#[test]
+<a href=#583 id=583 data-nosnippet>583</a>	</span><span class="kw">fn </span>calc_relayers_rewards_does_not_overflow() {
+<a href=#584 id=584 data-nosnippet>584</a>		<span class="kw">let </span>relayers = <span class="macro">vec!</span>[
+<a href=#585 id=585 data-nosnippet>585</a>			UnrewardedRelayer {
+<a href=#586 id=586 data-nosnippet>586</a>				relayer: <span class="number">1</span>,
+<a href=#587 id=587 data-nosnippet>587</a>				messages: DeliveredMessages { begin: <span class="number">0</span>, end: MessageNonce::MAX },
+<a href=#588 id=588 data-nosnippet>588</a>			},
+<a href=#589 id=589 data-nosnippet>589</a>			UnrewardedRelayer {
+<a href=#590 id=590 data-nosnippet>590</a>				relayer: <span class="number">1</span>,
+<a href=#591 id=591 data-nosnippet>591</a>				messages: DeliveredMessages { begin: <span class="number">0</span>, end: MessageNonce::MAX },
+<a href=#592 id=592 data-nosnippet>592</a>			},
+<a href=#593 id=593 data-nosnippet>593</a>			UnrewardedRelayer { relayer: <span class="number">2</span>, messages: DeliveredMessages { begin: <span class="number">0</span>, end: <span class="number">1 </span>} },
+<a href=#594 id=594 data-nosnippet>594</a>		]
+<a href=#595 id=595 data-nosnippet>595</a>		.into_iter()
+<a href=#596 id=596 data-nosnippet>596</a>		.collect();
+<a href=#597 id=597 data-nosnippet>597</a>
+<a href=#598 id=598 data-nosnippet>598</a>		<span class="kw">let </span>rewards = calc_relayers_rewards(relayers, <span class="kw-2">&amp;</span>(<span class="number">0</span>..=MessageNonce::MAX));
+<a href=#599 id=599 data-nosnippet>599</a>		<span class="macro">assert_eq!</span>(rewards.get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>MessageNonce::MAX));
+<a href=#600 id=600 data-nosnippet>600</a>		<span class="macro">assert_eq!</span>(rewards.get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="number">2</span>));
+<a href=#601 id=601 data-nosnippet>601</a>	}
+<a href=#602 id=602 data-nosnippet>602</a>
+<a href=#603 id=603 data-nosnippet>603</a>	<span class="attr">#[test]
+<a href=#604 id=604 data-nosnippet>604</a>	</span><span class="kw">fn </span>inbound_lane_data_returns_correct_hint() {
+<a href=#605 id=605 data-nosnippet>605</a>		<span class="kw">let </span>test_cases = <span class="macro">vec!</span>[
+<a href=#606 id=606 data-nosnippet>606</a>			<span class="comment">// single relayer, multiple messages
+<a href=#607 id=607 data-nosnippet>607</a>			</span>(<span class="number">1</span>, <span class="number">128u8</span>),
+<a href=#608 id=608 data-nosnippet>608</a>			<span class="comment">// multiple relayers, single message per relayer
+<a href=#609 id=609 data-nosnippet>609</a>			</span>(<span class="number">128u8</span>, <span class="number">128u8</span>),
+<a href=#610 id=610 data-nosnippet>610</a>			<span class="comment">// several messages per relayer
+<a href=#611 id=611 data-nosnippet>611</a>			</span>(<span class="number">13u8</span>, <span class="number">128u8</span>),
+<a href=#612 id=612 data-nosnippet>612</a>		];
+<a href=#613 id=613 data-nosnippet>613</a>		<span class="kw">for </span>(relayer_entries, messages_count) <span class="kw">in </span>test_cases {
+<a href=#614 id=614 data-nosnippet>614</a>			<span class="kw">let </span>expected_size = InboundLaneData::&lt;u8&gt;::encoded_size_hint(relayer_entries <span class="kw">as _</span>);
+<a href=#615 id=615 data-nosnippet>615</a>			<span class="kw">let </span>actual_size = InboundLaneData {
+<a href=#616 id=616 data-nosnippet>616</a>				state: LaneState::Opened,
+<a href=#617 id=617 data-nosnippet>617</a>				relayers: (<span class="number">1u8</span>..=relayer_entries)
+<a href=#618 id=618 data-nosnippet>618</a>					.map(|i| UnrewardedRelayer {
+<a href=#619 id=619 data-nosnippet>619</a>						relayer: i,
+<a href=#620 id=620 data-nosnippet>620</a>						messages: DeliveredMessages::new(i <span class="kw">as _</span>),
+<a href=#621 id=621 data-nosnippet>621</a>					})
+<a href=#622 id=622 data-nosnippet>622</a>					.collect(),
+<a href=#623 id=623 data-nosnippet>623</a>				last_confirmed_nonce: messages_count <span class="kw">as _</span>,
+<a href=#624 id=624 data-nosnippet>624</a>			}
+<a href=#625 id=625 data-nosnippet>625</a>			.encode()
+<a href=#626 id=626 data-nosnippet>626</a>			.len();
+<a href=#627 id=627 data-nosnippet>627</a>			<span class="kw">let </span>difference = (expected_size.unwrap() <span class="kw">as </span>f64 - actual_size <span class="kw">as </span>f64).abs();
+<a href=#628 id=628 data-nosnippet>628</a>			<span class="macro">assert!</span>(
+<a href=#629 id=629 data-nosnippet>629</a>				difference / (std::cmp::min(actual_size, expected_size.unwrap()) <span class="kw">as </span>f64) &lt; <span class="number">0.1</span>,
+<a href=#630 id=630 data-nosnippet>630</a>				<span class="string">"Too large difference between actual ({actual_size}) and expected ({expected_size:?}) inbound lane data size. Test case: {relayer_entries}+{messages_count}"</span>,
+<a href=#631 id=631 data-nosnippet>631</a>			);
+<a href=#632 id=632 data-nosnippet>632</a>		}
+<a href=#633 id=633 data-nosnippet>633</a>	}
+<a href=#634 id=634 data-nosnippet>634</a>
+<a href=#635 id=635 data-nosnippet>635</a>	<span class="attr">#[test]
+<a href=#636 id=636 data-nosnippet>636</a>	</span><span class="kw">fn </span>contains_result_works() {
+<a href=#637 id=637 data-nosnippet>637</a>		<span class="kw">let </span>delivered_messages = DeliveredMessages { begin: <span class="number">100</span>, end: <span class="number">150 </span>};
+<a href=#638 id=638 data-nosnippet>638</a>
+<a href=#639 id=639 data-nosnippet>639</a>		<span class="macro">assert!</span>(!delivered_messages.contains_message(<span class="number">99</span>));
+<a href=#640 id=640 data-nosnippet>640</a>		<span class="macro">assert!</span>(delivered_messages.contains_message(<span class="number">100</span>));
+<a href=#641 id=641 data-nosnippet>641</a>		<span class="macro">assert!</span>(delivered_messages.contains_message(<span class="number">150</span>));
+<a href=#642 id=642 data-nosnippet>642</a>		<span class="macro">assert!</span>(!delivered_messages.contains_message(<span class="number">151</span>));
+<a href=#643 id=643 data-nosnippet>643</a>	}
+<a href=#644 id=644 data-nosnippet>644</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
