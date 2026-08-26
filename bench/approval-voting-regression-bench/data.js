@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787743024498,
+  "lastUpdate": 1787747658724,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
-          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-26T09:27:22Z",
-          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
-        },
-        "date": 1769423730939,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63622.19,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0051684459200000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.692453936519997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6590165260799985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002557705,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3603509511899894,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.5158937887928605,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.687278657659998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002557705,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022036389999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.652462565420001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8216566884099883,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022036389999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.878387771199971,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.00506003656,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3d7197b37974af7d22c8a7101c89f28a06285f9e",
+          "message": "statement gossip: bound outbound sends with a per-peer outbox (#12878)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12838\n\nThe statement gossip protocol encoded every propagation chunk for every\npeer up front, holding an unbounded number of encoded payloads for up to\nten seconds each when peers read slowly. Propagation now queues hashes\nto a per-peer outbox (at most 64 Ki hashes, 2 MiB, oldest dropped first\nand counted by the `outbox_full` reason of\n`substrate_sync_statement_undelivered_total`), keeps at most one chunk\nper peer in flight, and encodes statements from the store only when the\npeer's send slot is free.\n\nInitial-sync and propagation chunks together are capped at 16 MiB in\nflight, observable via the new\n`substrate_sync_propagation_in_flight_bytes` gauge next to the existing\ninitial-sync one. Initial-sync chunks share the propagation fetch path\nand now also skip statements the receiving peer itself sent us.\n\n## Integration\n\n`MAX_INITIAL_SYNC_IN_FLIGHT_BYTES` in `sc_network_statement::config` is\nrenamed to `MAX_SEND_IN_FLIGHT_BYTES` and now covers propagation and\ninitial-sync chunks together. `MAX_PROPAGATION_OUTBOX_LEN` is added.",
+          "timestamp": "2026-08-26T10:52:58Z",
+          "tree_id": "9e37c4f80ac8c3591c75d62e0ea543f65943be8c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d7197b37974af7d22c8a7101c89f28a06285f9e"
+        },
+        "date": 1787747627483,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63562.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.80846194519997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000024063850000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6948749357599997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6533630557399994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001883482,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000024063850000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3502403140199943,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00523038453,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6373749969399984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8010652363399743,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.474100452313119,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001883482,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6663130218699997,
             "unit": "seconds"
           }
         ]
