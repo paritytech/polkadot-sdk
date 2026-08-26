@@ -27,8 +27,9 @@ We are releasing with the Enacted tier (HRMP parity) from day 0. The changes nee
 This payload is the leaf that every enactment proof walk terminates on. To ensure we can change the
 digest layout in the future while having coexisting versions, the `SpmsDigest` is a versioned enum. 
 
-For bundled PoV the Parachain Service commits the head a parachain ended the block with. Therefore, only the
-final inner block's root is ever provable and intermediate roots can never be consumed or settled.
+For bundled PoV, only the candidate-boundary StreamsRoot is added to the settlement ring.
+Messages from inner blocks can still be consumed, but the receiver PoV must lift the stream state
+to the final root. Inner blocks cannot be settled directly.
 
 This is the sender's consensus commitment relying only on 33 bytes in its header.
 
@@ -123,6 +124,10 @@ settlement check reads A's root before the update and B is rejected.
 
 - **Tier 2: Announced (High Speed Communication)**
   - consume best-block roots advertised via `/spec-msg/announce` notification protocol
+  - Announced roots represent fetching hints. Before `Refine`, the package builder must retarget
+  the lifts to the final candidate root. An intermediate announced root must never be writted directly into `Requires`.
+  The `/spec-msg/announce` carries the exact `work_package_hash` and the final `StreamsRoot`.
+
   - latency: saves 2 or 4 slots
   - risk: if settlement fails `B` burns its slot (`A` can die or `A` lands later)
   - relies on llv2 ack / slashing since building block `A` is cheap
