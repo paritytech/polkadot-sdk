@@ -283,6 +283,8 @@ module state {
     | TransferFailed(p) => compactLen(p.id) + 1
     // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
     | ForgetAgainAt(p) => 32 + compactLen(p.len) + 4
+    // service 4 + error tag 1.
+    | ServiceReclaimFailed(_) => 5
     | TooMuchStateHeld => 0
   }
 

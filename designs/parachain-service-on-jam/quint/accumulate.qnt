@@ -142,7 +142,13 @@ module accumulate {
         }
       }
       | Forget(payload) =>
-      val target = payload.paraId
+      match payload.target {
+      | Service(_) =>
+      // Outcome depends on whether the target exists and whom this service
+      // supervises, both abstracted here, as is the expunge state a success
+      // would turn on. Left undecided (§6.5).
+      acc
+      | Parachain(target) =>
       if (not(acc.state.isLive(target))) acc
       else {
         val pi = acc.state.paraInfo(target)
@@ -187,6 +193,7 @@ module accumulate {
             logs: acc.logs.appendOption(d.log)
           }
         }
+      }
       }
       | SetValidatorKeys(payload) =>
       // Both Refine and `accumulateOkPrefix`'s service-restriction check
@@ -325,6 +332,9 @@ module accumulate {
         state: d.state,
         logs: acc.logs.appendOption(d.log)
       }
+      | RemoveServiceStorage(_) =>
+      // Undecided for the same reasons as a Service-targeted `Forget`.
+      acc
       | RemoveKV(payload) =>
       if (not(acc.state.isLive(payload.paraId))) acc
       else {
@@ -484,7 +494,11 @@ module accumulate {
               // target, so a Coretime-driven forget clears the TARGET's entry.
               val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
                 | Solicit(p) => s.union(Set((ok.paraId, p.hash, p.len)))
-                | Forget(p) => s.exclude(Set((p.paraId, p.hash, p.len)))
+                | Forget(p) => match p.target {
+                  | Parachain(target) => s.exclude(Set((target, p.hash, p.len)))
+                  // Not our store, so the ghost set is untouched.
+                  | Service(_) => s
+                }
                 | _ => s
               })
               // The lookup-anchor prune already ran inside `accumulateOkPrefix`,

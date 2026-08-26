@@ -345,11 +345,14 @@ module main {
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen }),
       RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
       Solicit({ hash: anyHash, len: 1024 }),
-      Forget({ paraId: para_id, hash: anyHash, len: 1024 }),
+      Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       // Solicit/forget of the para's OWN active code, exercising the
       // `pinned` path (§5.2).
       Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      Forget({ paraId: para_id, hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      Forget({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      // AH-only reclaims against a supervised service (§6.5).
+      Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+      RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
       // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
       // modes: a deferred transfer (memo + gas) and a plain move (neither),
       // the self-moves between the service's own two balances, and a foreign
@@ -407,8 +410,8 @@ module main {
       // Coretime chain, which drains a para that can no longer release its own
       // state, and rejected as `RestrictedHostFunction` from every other caller.
       // Both outcomes are reachable since the emitting para is sampled.
-      Forget({ paraId: MkParaId(3), hash: anyHash, len: 1024 }),
-      Forget({ paraId: MkParaId(3), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
+      Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
+      Forget({ target: Parachain(MkParaId(3)), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
       // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
       // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.

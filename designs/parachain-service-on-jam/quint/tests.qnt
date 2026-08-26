@@ -13,6 +13,7 @@ module tests {
   import code_upgrades_test.* from "./tests/code_upgrades_test"
   import state_balance_test.* from "./tests/state_balance_test"
   import management_test.* from "./tests/management_test"
+  import service_reclaim_test.* from "./tests/service_reclaim_test"
   import refine_test.* from "./tests/refine_test"
   import authorizer_queue_test.* from "./tests/authorizer_queue_test"
 }

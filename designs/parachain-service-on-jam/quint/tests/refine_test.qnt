@@ -95,11 +95,11 @@ module refine_test {
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
     //    and the active code stays pinned.
     val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0,
-      Forget({ paraId: para, hash: h, len: otherLen }))
+      Forget({ target: Parachain(para), hash: h, len: otherLen }))
     val pi2 = fgt.state.paraInfo(para)
     // 4. Forget at the code's OWN len: matches the active code, so it unpins it.
     val unpinned = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0,
-      Forget({ paraId: para, hash: h, len: FixedCodeLen }))
+      Forget({ target: Parachain(para), hash: h, len: FixedCodeLen }))
     all {
       assert(not(activeCodePinned(pi0))),
       // (1) correct len pins the active code, creating no entry and no charge.
@@ -159,19 +159,19 @@ module refine_test {
     all {
       // Asset Hub reaching for Coretime's state: Refine rejects, for both calls.
       assert(refineWithMsgs(initialState, AssetHubParaId,
-        List(Forget({ paraId: CoretimeParaId, hash: h, len: 1024 })))
+        List(Forget({ target: Parachain(CoretimeParaId), hash: h, len: 1024 })))
         == WorkOk(refineErr(AssetHubParaId, RestrictedHostFunction))),
       assert(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: CoretimeParaId, key: List(0) })))
         == WorkOk(refineErr(AssetHubParaId, RestrictedHostFunction))),
       // Asset Hub releasing its own state: refines fine.
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
-        List(Forget({ paraId: AssetHubParaId, hash: h, len: 1024 }))))),
+        List(Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 }))))),
       assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId,
         List(RemoveKV({ paraId: AssetHubParaId, key: List(0) }))))),
       // Coretime may name anyone.
       assert(isOkDigest(refineWithMsgs(initialState, CoretimeParaId,
-        List(Forget({ paraId: AssetHubParaId, hash: h, len: 1024 }))))),
+        List(Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 }))))),
       init
     }
   }

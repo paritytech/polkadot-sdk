@@ -80,8 +80,10 @@ module refine {
     // hash 32 + Compact<u32> len.
     | RequestCodeUpgrade(p) => 32 + compactLen(p.len)
     | Solicit(p) => 32 + compactLen(p.len)
-    // paraId 4 + hash 32 + Compact<u32> len.
-    | Forget(p) => 36 + compactLen(p.len)
+    // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
+    | Forget(p) => 37 + compactLen(p.len)
+    // service 4 + Vec<u8> key (compact len prefix + bytes).
+    | RemoveServiceStorage(p) => 4 + compactLen(p.key.length()) + p.key.length()
     | SetKV(p) =>
       compactLen(p.key.length()) + p.key.length()
         + compactLen(p.value.length()) + p.value.length()

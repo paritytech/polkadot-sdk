@@ -25,6 +25,7 @@
    - 6.2 [Registration](#62-registration)
    - 6.3 [Forced Updates (Recovery)](#63-forced-updates-recovery)
    - 6.4 [Clean-up (Deregistration)](#64-clean-up-deregistration)
+   - 6.5 [Reclaiming a Supervised Service](#65-reclaiming-a-supervised-service)
 7. [Authorization & Coretime](#7-authorization-coretime)
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
@@ -307,13 +308,30 @@ enum AccumulateLog {
     /// caller-supplied identifier from the `TransferOut`, echoed back so the
     /// parachain can match the failure to its own record. See §5.1 step 7.
     TransferFailed { id: Compact<u64>, error: TransferError },
-    /// A `forget` removed the last referencer without expunging the preimage.
-    /// See §6.1.
+    /// A `forget` left the preimage in place. It must be forgotten again at
+    /// `due`. See §6.1, and §6.5 for a `Service` target.
     ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
+    /// A reclaim against a supervised service failed. See §6.5.
+    ServiceReclaimFailed { service: ServiceId, error: ServiceReclaimError },
     /// `parachain_clean_up` was rejected because the parachain still holds state
     /// beyond its baseline and validation code(s); it must release the rest
     /// first. See §6.4.
     TooMuchStateHeld,
+}
+
+/// What a `forget` acts on: a registered parachain's share of this service's
+/// own store, or a supervised service's store.
+enum Target {
+    Parachain(ParaId),
+    Service(ServiceId),
+}
+
+/// Why a reclaim against a supervised service failed. See §6.5.
+enum ServiceReclaimError {
+    /// `service` is not a known service.
+    UnknownService,
+    /// The Parachain Service is not `service`'s effective supervisor.
+    NotSupervised,
 }
 
 /// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 7.
@@ -512,7 +530,10 @@ enum UpwardMessage {
     /// referencer may need a follow-up `forget` (two-step expunge; see §6.1).
     /// For that parachain's active or pending validation code it only clears
     /// `pinned` (§5.2).
-    Forget { para_id: ParaId, hash: Hash, len: Compact<u32> },
+    /// From `forget`. See §6.1 for a `Parachain` target, §6.5 for a `Service`.
+    Forget { target: Target, hash: Hash, len: Compact<u32> },
+    /// From `remove_service_storage`. See §6.5.
+    RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
     /// From `kv_set`: upsert `key_value_storage[(para_id, key)] = value`.
     /// Accumulate replays it with delta state-balance charging (see §6.1).
     SetKV { key: Vec<u8>, value: Vec<u8> },
@@ -678,9 +699,10 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
 | `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent: no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
-| `forget(para_id: ParaId, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent: no-op if `para_id` is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
+| `forget(target: Target, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget`. A `Parachain` target drops that parachain's referencer from this service's own store (see §6.1). Idempotent: no-op if it is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). A `Service` target forgets in that service's store instead and is **Asset Hub only** (§6.5). |
 | `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
 | `kv_remove(para_id: ParaId, key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent: no-op if the key is absent. |
+| `remove_service_storage(service: ServiceId, key: Vec<u8>)` | `()` | Delete `key` from a supervised service's own storage (Asset Hub only). Idempotent: no-op if the key is absent. See §6.5. |
 | `transfer_out(source: Option<ServiceId>, dest: ServiceId, amount: Balance, id: u64, source_supervisor_balance: bool, dest_supervisor_balance: bool, deferred: Option<(Memo, u64)>)` | `()` | Transfer balance between JAM services (Asset Hub only). `source = None` means this service; the two `*_supervisor_balance` flags choose which balance is debited on `source` and credited on `dest` (`true` = the supervisor balance); `deferred` selects between JAM's plain-move and deferred-transfer modes; `id` is caller-chosen and echoed back in `AccumulateLog::TransferFailed` if the transfer fails. See §5.1 step 7. |
 | `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` for `jam_slot` (Coretime chain only); queue and assigner are written together, as JAM's `assign` does. See §5.1 for when it fires and §7.1 for how a short queue fills the 80 slots. A queue outside 1 to `AUTH_QUEUE_SIZE` hashes, empty included, aborts Refine as `Err(RefineLog::InvalidAuthorizerQueue)`. Re-scheduling a core replaces its entry, so the last call wins. `new_assigner = None` keeps this service as the assigner; `Some(s)` hands the core to `s` and requires an exactly `AUTH_QUEUE_SIZE`-hash queue, since the service can no longer re-present a short one after giving the core away. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Aborts Refine as `Err(RefineLog::SetValidatorKeysTooManyKeys)` if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
@@ -1466,6 +1488,17 @@ than tracking per-preimage `forget` deadlines.
 
 Coretime also handles deposit refund and any economic unwinding according to its
 own policy.
+
+---
+
+### 6.5 Reclaiming a Supervised Service
+
+A service's threshold balance tracks its footprint (Gray Paper, *Account Footprint
+and Threshold Balance*), so a withdrawal from a service the Parachain Service
+supervises is capped at whatever sits above that threshold. Recovering more than
+that first means shrinking the service's footprint, for which the service exposes
+two calls: `forget` with a `Service` target for a preimage request, and
+`remove_service_storage` for a storage key.
 
 ---
 

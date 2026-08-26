@@ -60,6 +60,17 @@ module messages {
   | FromSolicit({ hash: Hash, len: int })
   | FromSetKV({ keyHash: KvKeyHash })
 
+  /// What a `forget` acts on: a parachain's share of this service's own store,
+  /// or a supervised service's store.
+  type Target =
+  | Parachain(ParaId)
+  | Service(ServiceId)
+
+  /// Why a reclaim against a supervised service failed. See §6.5.
+  type ServiceReclaimError =
+  | UnknownService
+  | NotSupervised
+
   /// Why a JAM `transfer` replaying a `TransferOut` failed.
   /// See §5.1 outgoing transfers.
   type TransferError =
@@ -108,6 +119,8 @@ module messages {
   // A `forget` removed the last referencer without expunging the preimage;
   // the caller must `forget(hash, len)` again at `due` to free it. See §6.1.
   | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
+  // A reclaim against a supervised service failed (§6.5).
+  | ServiceReclaimFailed({ service: ServiceId, error: ServiceReclaimError })
   // `parachain_clean_up` rejected: the parachain still holds state beyond its
   // baseline and validation code(s) and must release the rest first. See §6.4.
   | TooMuchStateHeld
@@ -131,7 +144,10 @@ module messages {
   // forget(para_id, hash, len). `paraId` names whose reference is released; a
   // para may only name itself, while the Coretime chain may name any para, which
   // is how a para that can no longer produce blocks gets drained (§6.4).
-  | Forget({ paraId: ParaId, hash: Hash, len: int })
+  // forget(target, hash, len): §6.1 for a Parachain target, §6.5 for a Service.
+  | Forget({ target: Target, hash: Hash, len: int })
+  // remove_service_storage(service, key): §6.5.
+  | RemoveServiceStorage({ service: ServiceId, key: List[int] })
   // kv_set(key, value): write to key_value_storage.
   | SetKV({ key: List[int], value: List[int] })
   // kv_remove(para_id, key): remove from key_value_storage. Same `paraId`
@@ -257,6 +273,9 @@ module messages {
     | SetValidatorKeys(_) => true
     | ConsumeTransfersUpTo(_) => true
     | UpgradeService(_) => true
+    | RemoveServiceStorage(_) => true
+    // Only a Service target; a Parachain target keeps the §6.1 rules.
+    | Forget(p) => match p.target { | Service(_) => true | Parachain(_) => false }
     | _ => false
   }
 
@@ -278,7 +297,10 @@ module messages {
   pure def targetsForeignPara(m: UpwardMessage, para_id: ParaId): bool =
   para_id != CoretimeParaId and
   (match m {
-    | Forget(p) => p.paraId != para_id
+    | Forget(p) => match p.target {
+      | Parachain(target) => target != para_id
+      | Service(_) => false
+    }
     | RemoveKV(p) => p.paraId != para_id
     | _ => false
   })
