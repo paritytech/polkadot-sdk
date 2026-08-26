@@ -24,17 +24,18 @@ We are releasing with the Enacted tier (HRMP parity) from day 0. The changes nee
 
 1. Sender header digest: `DigestItem::Consensus(SPMS_ENGINE_ID, enum SpmsDigest)`.
 
-This payload is the leaf that every enactment proof walk terminates on. To ensure we can change the
-digest layout in the future while having coexisting versions, the `SpmsDigest` is a versioned enum. 
-
 For bundled PoV, only the candidate-boundary StreamsRoot is added to the settlement ring.
 Messages from inner blocks can still be consumed, but the receiver PoV must lift the stream state
 to the final root. Inner blocks cannot be settled directly.
 
-This is the sender's consensus commitment relying only on 33 bytes in its header.
+To ensure we can change the digest layout in the future while having coexisting versions, the `SpmsDigest` is a versioned enum. 
+
+Refine rejects a header containing more than one SPMS digest or an unsupported version. Step 6 must
+treat either case as an absent digest. PS support for a new version must be activated before parachains emit it.
 
 ```rust
-/// SCALE-encoded payload of `DigestItem::Consensus(SPMS_ENGINE_ID, ..)`: 33 bytes.
+/// SCALE-encoded payload of `DigestItem::Consensus(SPMS_ENGINE_ID, ..)`
+/// Aproximately 39 bytes in its header.
 enum SpmsDigest {
     /// Encodes to u8.
     V0 {
@@ -71,6 +72,9 @@ If a package `Requires` is not in the ring, that slot is lost. On polkadot, a st
 can retry for free. On JAM, each retry costs another slot.
 
 A forced `parachain_set_head` that overwrites a live head will also clear the ring.
+For a parachain with an existing head, a byte-identical `parachain_set_head` is a no op.
+While `is_deregistering`, the parachain cannot submit work but remains a valid Requires source.
+Its ring is removed only when clean-up completes and ParaInfo is dropped.
 
 ```rust
 /// Keyed `0x09 ++ SCALE(para_id)`.
