@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787760084455,
+  "lastUpdate": 1787781524152,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "claravanstaden64@gmail.com",
-            "name": "Clara van Staden",
-            "username": "claravanstaden"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
-          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-26T09:27:22Z",
-          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
-        },
-        "date": 1769423763142,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.054,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03807913108000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06293110345999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08293256200399995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1f2b2296190a219519da938a84bd9db60b0051f6",
+          "message": "Gap-sync: Allow download of bodies during gap sync  (#12917)\n\nAfter warp sync, gap sync backfills the block history below the warp\ntarget. Previously this either fetched all bodies (archive nodes) or\nnone (pruned nodes). Storage chains (`pallet-transaction-storage`) need\na middle ground: pruned nodes must still hold the bodies of the\nretention window so the network can serve the stored data and restore\nindexed transactions.\n\n## Changes\n\n- Replace the `archive_blocks: bool` flag in the syncing strategy with a\n`GapSyncBodyPolicy`:\n  - `HeadersOnly` / `All`: the previous pruned/archive behavior,\n- `DownloadFinalized(window)`: require bodies only for blocks within\n`window` below the finalized block. The cutoff moves with finality and\nis recomputed on every scheduling pass. Ranges entirely below the cutoff\nare requested header-only; a peer answering empty to a request with\nmandatory bodies is disconnected.\n- The policy is resolved lazily via a `GapSyncBodyPolicyProvider` when\n`ChainSync` is created. On a warp-syncing node right after state sync\ncompletes.\n- Omni-node derives the policy from\n`TransactionStorageApi::retention_period` and the pruning config: the\nwindow is the retention period minus a 256-block safety margin\n(tolerates peers whose finality runs ahead of ours).\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-08-26T19:37:34Z",
+          "tree_id": "de6bd40c007446584d8aaf49c29c6ffbba248979",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f2b2296190a219519da938a84bd9db60b0051f6"
+        },
+        "date": 1787781482965,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.112,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08409658556799987,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.04065233323999999,
             "unit": "seconds"
           }
         ]
