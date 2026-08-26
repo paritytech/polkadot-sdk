@@ -69,8 +69,6 @@ use litep2p::{
 	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use prometheus_endpoint::Registry;
-use sc_client_api::BlockBackend;
-use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
 
 use sc_network_common::{role::Roles, ExHashT};
 use sc_network_types::{
