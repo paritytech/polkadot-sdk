@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787747658724,
+  "lastUpdate": 1787753361559,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "51d25debbc1b4ee0e81ceaf26d970fe93e089aa3",
-          "message": "[pallet-revive] Execution tracer (#9722)\n\nThis PR introduces a **Geth-compatible execution tracer**\n([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger))\nfor pallet-revive\n\nThe tracer can be used to capture both EVM opcode and PVM syscall.\nIt can be used with  the same RPC endpoint as Geth StructLogger.\n\n\nSince it can be quite resource intensive, It can only be queried from\nthe node when the **DebugSettings** are enabled (This is turned on now\nby default in the dev-node)\n\nTested in https://github.com/paritytech/evm-test-suite/pull/138\n\n\nexample:\n\n```sh\n❯ cast rpc debug_traceTransaction \"<TX_HASH>\" | jq\n\n# or with options\n# See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger\n\n  ❯ cast rpc debug_traceTransaction \"<TX_HASH>\", { \"tracer\": { \"enableMemory\": true } } | jq\n```\n\nThe response includes additional fields compared to the original Geth\ndebug RPC endpoints:\n\nFor the trace:\n- `weight_consumed`: same as gas but expressed in Weight\n- `base_call_weight`: the base cost of the transaction\n\nFor each step:\n- `weight_cost`: same as gas_cost but expressed in Weight\n\nFor an EVM execution, the output will look like this\n\n```json\n{\n  \"gas\": 4208049,\n  \"weight_consumed\": { \"ref_time\": 126241470000, \"proof_size\": 4208 },\n  \"base_call_weight\": { \"ref_time\": 9000000000, \"proof_size\": 3000 },\n  \"failed\": false,\n  \"returnValue\": \"0x\",\n  \"structLogs\": [\n    {\n      \"gas\": 4109533,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 0,\n      \"op\": \"PUSH1\",\n      \"stack\": []\n    },\n    {\n      \"gas\": 4109530,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 2,\n      \"op\": \"PUSH1\",\n      \"stack\": [\n        \"0x80\"\n      ]\n    },\n    {\n      \"gas\": 4109527,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 4,\n      \"op\": \"MSTORE\",\n      \"stack\": [\n        \"0x80\",\n        \"0x40\"\n      ]\n    }]\n}\n```\n\nFor PVM execution, each step includes additional fields not present in\nGeth:\n\n- `args`: Array of syscall arguments (register values a0-a5) as hex\nstrings\n- `returned`: The syscall return value as hex string\n\nThese fields are enabled by default. To disable them, use\n`disableSyscallDetails: true`.\n\nExample output with syscall details:\n\n```json\n{\n  \"gas\": 97108,\n  \"gasCost\": 131,\n  \"weight_cost\": { \"ref_time\": 3930000, \"proof_size\": 0 },\n  \"depth\": 1,\n  \"op\": \"call_data_load\",\n  \"args\": [\"0x0\", \"0x4\"],\n  \"returned\": \"0x2a\"\n}\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2026-01-26T14:22:27Z",
-          "tree_id": "c696ec74b23b860d9b4c6e7b1f116ed00122a83a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/51d25debbc1b4ee0e81ceaf26d970fe93e089aa3"
-        },
-        "date": 1769442347186,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63624.47000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.735858863269973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000023530749999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002392004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.616960068189999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7976142074999755,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.347704694079996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.6526267386729385,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000023530749999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005413748749999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6510665646600007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6595075817000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002392004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6575919983900014,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.6663130218699997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "be6cb5e6c2b370d29fbf87c94dcda55704e55ef1",
+          "message": "Snowbridge: drop outbound-queue-v2 message leaves from state (#12211)\n\n# Description\n\nThe `outbound-queue-v2` pallet stored the per-message merkle leaves in\nthe `MessageLeaves` storage value and only\ncleared them at the start of the next block. As a result the leaves\npersisted in state across blocks and were\nneedlessly included in the PoV, even though they are only required to\nbuild the commitment root and to generate proofs\noff-chain.\n\nThis PR makes `MessageLeaves` truly transient: the leaves are still\nappended during block execution to build the merkle\nroot, but the value is now killed within the same block, right after the\ncommitment is produced in `commit()`. The\ncommitted root inserted into the header digest is unchanged.\n\nCloses #7971\n\n## Integration\n\nNo integration steps are required for downstream runtimes. The change is\ninternal to the `outbound-queue-v2` pallet:\n\n- The on-chain commitment (merkle root in the header digest) is computed\nexactly as before, so relayers and the\nEthereum-side verification are unaffected.\n- The `prove_message` runtime API keeps the same signature and return\nvalue; it now recomputes the leaves from\n`Messages` instead of reading `MessageLeaves`.\n- `MessageLeaves` is no longer expected to be present in state after a\nblock; any tooling that read it directly (there\nshould be none, as it was transient by design) must recompute leaves\nfrom `Messages` instead.\n\n## Review Notes\n\n- `commit()` now calls `MessageLeaves::kill()` immediately after\nbuilding the root, so the value never persists beyond\nthe block in which it is produced and never enters the PoV.\n- Because the leaves are no longer stored, the `prove_message` runtime\nAPI reconstructs them from the `Messages`\nstorage, in the same order they were appended during block execution, so\n`leaf_index` stays valid. This API is read\noff-chain only, so reading `Messages` here does not enter any block's\nPoV.\n- Leaf computation (Keccak256 of the ABI-encoded message) was extracted\ninto a single `Pallet::message_leaf` helper,\nshared by message processing and proof generation, so both always\nproduce identical leaves.\n- The `MessageLeaves::kill()` in `on_initialize` is kept as a defensive\ncleanup that also removes any value left\npersisted by a pre-upgrade runtime.\n- New test `prove_message_recomputes_committed_leaves_after_commit`\nasserts that, after `commit` drops the leaves,\nproofs recomputed from `Messages` still verify against the very same\nroot committed on-chain.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-26T11:59:01Z",
+          "tree_id": "ab51fb87c515356fec316d98375e08f1cd884e7c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/be6cb5e6c2b370d29fbf87c94dcda55704e55ef1"
+        },
+        "date": 1787753321847,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63567.05,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.359336676430005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8320121245099805,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001690863,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.869552956829983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6364765807899992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.693695587100001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001690863,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.64769402457,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017036969999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.386899082322677,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017036969999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6951544608199978,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00518350261,
             "unit": "seconds"
           }
         ]
