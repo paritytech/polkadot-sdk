@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787702736234,
+  "lastUpdate": 1787733178118,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "97e54c54a9573daf4d4a5234a42a3d1f054d7f91",
-          "message": "[CI|Release] Improve post crates action (#10803)\n\nhttps://github.com/paritytech/release-engineering/issues/280\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-01-21T08:47:44Z",
-          "tree_id": "601aeb5b6aba51b4e1ad695e6818647d4b4f5427",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/97e54c54a9573daf4d4a5234a42a3d1f054d7f91"
-        },
-        "date": 1768990470006,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027100123199999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006610870189999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00927155994999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.008851819219999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zln1905391059@163.com",
+            "name": "Langning Zhang",
+            "username": "Boulea7"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b16a3e0c96fa58e9716ed949eef8c55d06522d32",
+          "message": "[RWF] pallet-beefy: return the correct future voting proof error (#12858)\n\n# Description\n\nFixes #12784.\n\nInvalid signatures in `FutureBlockVotingProof` were rejected as\n`InvalidForkVotingProof`. This changes that failure path to return\n`InvalidFutureBlockVotingProof` and adds a regression test that tampers\nwith the signed payload. The invalid proof remains rejected.\n\n## Integration\n\nNo storage migration, weight change, call index change, or error enum\nordinal change is required. The observable module error code for an\ninvalid signature in this specific future-block-voting proof path\nchanges from 2 (`InvalidForkVotingProof`) to 3\n(`InvalidFutureBlockVotingProof`). Downstream consumers that\nspecial-case the incorrect code 2 for this path should update to code 3.\n\n## Review Notes\n\nThe `FutureBlockVotingProof` branch already returns\n`InvalidFutureBlockVotingProof` for its block-number guard. The\ninvalid-signature branch now uses the same proof-specific error.\n\nThe regression test creates a valid future-block-voting proof, changes\nits payload without re-signing it, and verifies that reporting it\nreturns `InvalidFutureBlockVotingProof`.\n\n# Checklist\n\n* [x] My PR includes a detailed description and integration notes.\n* [x] I have added a regression test that proves the fix.\n* [x] No documentation changes are required for this internal\nerror-selection correction.\n* [ ] A `T*` label and prdoc will be requested through command-bot\ncomments.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>",
+          "timestamp": "2026-08-26T07:04:27Z",
+          "tree_id": "b0b316ead1629041056ad417c87627c057fa1f45",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b16a3e0c96fa58e9716ed949eef8c55d06522d32"
+        },
+        "date": 1787733139905,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026310914899999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009932887100000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009903955379999994,
             "unit": "seconds"
           }
         ]
