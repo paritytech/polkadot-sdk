@@ -380,7 +380,6 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				crate::rate_limit::RateLimitConfig::disabled(),
-				crate::metrics::HopMetrics::disabled(),
 			)
 			.unwrap(),
 		);
@@ -394,7 +393,7 @@ mod tests {
 		let registry = prometheus_endpoint::Registry::new();
 		let dir = TempDir::new().unwrap();
 		let pool = Arc::new(
-			HopDataPool::new(
+			HopDataPool::new_with_metrics(
 				1024 * 1024,
 				1024 * 1024,
 				100,

@@ -304,7 +304,7 @@ impl HopMaintenanceTask {
 			}
 		}
 
-		let freed = self.hop_pool.cleanup_expired(self.buffer_secs);
+		let freed = self.hop_pool.cleanup_expired_with_backlog(self.buffer_secs);
 		if freed > 0 {
 			tracing::info!(
 				target: "hop",
@@ -359,7 +359,6 @@ mod tests {
 				retention_secs,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
-				crate::metrics::HopMetrics::disabled(),
 			)
 			.unwrap(),
 		)

@@ -181,9 +181,14 @@ impl HopParams {
 	/// `<database_path>/hop`; if neither is available, returns [`HopError::MissingDataDir`].
 	/// Callers gate on whether HOP is enabled (e.g. via `--enable-hop`) before calling this.
 	///
-	/// Metrics are registered with `registry` when given; a registration failure
-	/// only disables metrics, it never fails pool construction.
-	pub fn build_pool(
+	/// Runs without metrics; see [`Self::build_pool_with_metrics`].
+	pub fn build_pool(&self, database_path: Option<PathBuf>) -> Result<Arc<HopDataPool>, HopError> {
+		self.build_pool_with_metrics(database_path, None)
+	}
+
+	/// [`Self::build_pool`] with metrics registered on `registry` when given; a
+	/// registration failure only disables metrics, it never fails pool construction.
+	pub fn build_pool_with_metrics(
 		&self,
 		database_path: Option<PathBuf>,
 		registry: Option<&Registry>,
@@ -209,7 +214,7 @@ impl HopParams {
 			HopMetrics::disabled()
 		});
 
-		let pool = HopDataPool::new(
+		let pool = HopDataPool::new_with_metrics(
 			self.max_pool_size.saturating_mul(1024 * 1024),
 			self.max_user_size.saturating_mul(1024 * 1024),
 			self.retention_secs,
@@ -242,7 +247,7 @@ mod tests {
 
 	#[test]
 	fn build_pool_without_any_dir_returns_missing_data_dir() {
-		match HopParams::default().build_pool(None, None) {
+		match HopParams::default().build_pool(None) {
 			Err(HopError::MissingDataDir) => (),
 			Err(other) => panic!("expected MissingDataDir, got: {other:?}"),
 			Ok(_) => panic!("expected MissingDataDir, got Ok"),

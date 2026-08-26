@@ -78,7 +78,7 @@ use sc_hop::{HopDataPool, HopMetrics};
 use std::sync::Arc;
 
 let hop_pool = hop_params.enabled.then(|| {
-    HopDataPool::new(
+    HopDataPool::new_with_metrics(
         hop_params.max_pool_size * 1024 * 1024,  // pool cap, bytes
         hop_params.max_user_size * 1024 * 1024,  // per-user cap, bytes
         hop_params.retention_secs,
@@ -93,7 +93,8 @@ let hop_pool = hop_params.enabled.then(|| {
 }).transpose()?;
 ```
 
-`HopParams::build_pool(database_path, prometheus_registry)` does all of the above.
+`HopParams::build_pool_with_metrics(database_path, prometheus_registry)` does all of the
+above; `HopParams::build_pool(database_path)` is the same without metrics.
 
 ### 3. Register RPC and spawn the maintenance task
 

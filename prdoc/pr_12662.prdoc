@@ -12,9 +12,9 @@ doc:
       - `substrate_hop_promotion_backlog` (gauge, snapshot once per maintenance cycle)
       - `substrate_hop_maintenance_ticks_total` (counter, maintenance-loop liveness)
 
-      API: `HopParams::build_pool` gains an `Option<&Registry>` parameter, `HopDataPool::new` a `HopMetrics` one, and `HopDataPool::cleanup_expired` a promotion-window one. A metrics registration failure only disables metrics. The omni-node passes its existing registry.
+      API (additive): `HopParams::build_pool_with_metrics`, `HopDataPool::new_with_metrics` and `HopDataPool::cleanup_expired_with_backlog` take the registry / metrics / promotion window; the existing `build_pool`, `new` and `cleanup_expired` keep their signatures and run without metrics. A metrics registration failure only disables metrics. The omni-node passes its existing registry.
 crates:
   - name: sc-hop
-    bump: major
+    bump: minor
   - name: polkadot-omni-node-lib
     bump: patch

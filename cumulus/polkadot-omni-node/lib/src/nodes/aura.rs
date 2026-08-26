@@ -419,7 +419,7 @@ where
 		let hop_pool = hop
 			.as_ref()
 			.map(|params| {
-				params.build_pool(
+				params.build_pool_with_metrics(
 					config.database.path().map(|p| p.to_path_buf()),
 					config.prometheus_registry(),
 				)
