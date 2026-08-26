@@ -70,7 +70,6 @@ oldest entry beyond `W`.
 If a package `Requires` is not in the ring, that slot is lost. On polkadot, a stale candidate
 can retry for free. On JAM, each retry costs another slot.
 
-
 A forced `parachain_set_head` that overwrites a live head will also clear the ring.
 
 ```rust
@@ -87,6 +86,9 @@ the candidate will enact. Every requires entry source must exist and the named r
 The candidate is rejected silently and the receiver `B` monitors offchain this behaviour, similar to
 `parent-head` or `check-code` failures. Otherwise, letting rejected candidates append `AccumulateLogs` would let junk
 candidates push out valuable entries.
+
+ Before processing a digest, PS charges its worst-case ring-read cost against that item’s declared accumulation gas. The
+ `W` should be reasonable bounded and the scan reads the newest entries first stopping on the first match.
 
 > Note: A forced rollback (`ParachainSetHead` from the Coretime chain) isn't applied instantly. Its an upward message,
 replayed at step 7 when the Coretime chain's own package accumulates. Packages accumulate in order within a block,
@@ -331,13 +333,15 @@ pending-provides hint (dormant until Prefetch mode).
 
 ## 10. Open Questions
 
-1. **`W`** at best-block depth
+1. **W at the Enacted pipeline**
   The ring is live and read by settlement from day 0, so `W` must be fixed before launch.
-  It must be sized for the Announced (best-block) pipeline — announce to enact — not the Guaranteed one, since
-  the higher tiers reuse the same ring without a consensus change.
+  It must exceed the maximum number of distinct roots a sender can enact between the receiver
+  selected a root and the accumulation phase (including elastic scaling). A sender using k cores
+  may advance the ring up to k times per JAM block.
 
-  Since we read the read for settlement, we can read up to 64 candidates * `W` * 32 bytes each.
-  Then if `W` is 128, the Accumulation step might run out of gas and silently drop later packages.
+  Since we read the read for settlement, we can read up to `(num digests) * (64 candidates) * W * 32 B`.
+  With hundreads of digets per block, that could reach 10+ MiB of reads.
+  Then the Accumulation step might run out of gas and silently drop later packages.
 
 2. **Silent ready-queue expiry**
   If B declares a prerequisite on A and A never accumulates, B's report is dropped
