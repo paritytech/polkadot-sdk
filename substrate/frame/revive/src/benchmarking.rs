@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StorageOp},
+	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StorageOp, Warmth},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -2017,9 +2017,18 @@ mod benchmarks {
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Write);
+			outcome = al.touch(entry.clone(), StorageOp::Write);
 		}
-		assert!(!outcome.is_cold(), "the fill seeded this entry");
+		assert_eq!(
+			outcome,
+			Warmth::Hot { charged: StorageOp::Read },
+			"the fill seeded this entry read-paid"
+		);
+		assert_eq!(
+			al.peek(&entry),
+			Warmth::Hot { charged: StorageOp::Write },
+			"the write upgraded the entry"
+		);
 		Ok(())
 	}
 

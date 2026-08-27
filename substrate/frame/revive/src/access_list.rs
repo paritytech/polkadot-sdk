@@ -45,18 +45,18 @@ pub const MAX_INLINE_KEY_LEN: usize = 36;
 /// Memory grows discontinuously due to the runtime allocator (sc-allocator)
 /// rounding allocations up to power-of-2 size classes.
 ///
-/// All figures below are approximate order-of-magnitude estimates. The
-/// Ethereum-gas column shows the EIP-2929 cost of filling the map to that
-/// size via cold SLOADs (2 100 gas each).
+/// All figures below are approximate order-of-magnitude estimates; every slot
+/// includes an upgrade. The Ethereum-gas column shows the EIP-2929 cost of
+/// filling the map to that size via cold SLOADs (2 100 gas each).
 ///
 /// | Entries | Fix/Inline (Best) | VarLong (Worst) |     Gas (Ethereum) |
 /// |---------|-------------------|-----------------|--------------------|
-/// |       1 |      ~1.3 KB      |     ~1.4 KB     |          2.1 k gas |
-/// |       2 |      ~1.3 KB      |     ~1.6 KB     |          4.2 k gas |
-/// |       8 |      ~1.5 KB      |     ~2.6 KB     |         16.8 k gas |
-/// |      32 |       ~7 KB       |      ~11 KB     |         67.2 k gas |
-/// |     128 |      ~45 KB       |      ~65 KB     |          269 k gas |
-/// |   2 048 |      ~730 KB      |       ~1 MB     |          4.3 M gas |
+/// |       1 |      ~1.5 KB      |     ~1.8 KB     |          2.1 k gas |
+/// |       2 |      ~1.5 KB      |     ~2.2 KB     |          4.2 k gas |
+/// |       8 |      ~2.3 KB      |     ~5.3 KB     |         16.8 k gas |
+/// |      32 |      ~11 KB       |      ~23 KB     |         67.2 k gas |
+/// |     128 |      ~45 KB       |      ~96 KB     |          269 k gas |
+/// |   2 048 |      ~730 KB      |     ~1.5 MB     |          4.3 M gas |
 ///
 /// Set ~2× above the current PoV-reachable ceiling as a backstop: each
 /// cold access charges ~10 KB `proof_size`, capping a transaction
