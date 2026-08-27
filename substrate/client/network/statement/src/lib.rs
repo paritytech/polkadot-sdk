@@ -521,7 +521,8 @@ impl StatementHandlerPrototype {
 		statements_per_second: u32,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		// Still bounded via the `MAX_PENDING_STATEMENTS` check in `on_statements`.
+		let (queue_sender, queue_receiver) = async_channel::unbounded();
 
 		if num_submission_workers == 0 {
 			log::warn!(
@@ -840,6 +841,13 @@ fn max_statement_payload_size(envelope_overhead: usize) -> usize {
 	MAX_STATEMENT_NOTIFICATION_SIZE as usize - envelope_overhead
 }
 
+fn unix_timestamp_secs() -> u64 {
+	std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap_or_default()
+		.as_secs()
+}
+
 /// Fetch the next chunk of statements admitted between `cursor` and `watermark`, filtering
 /// in the `admitted_statements` callback so non-matching statements are never cloned into
 /// the batch.
@@ -857,12 +865,16 @@ fn fetch_admitted_chunk(
 	watermark: u64,
 	max_size: usize,
 ) -> sp_statement_store::Result<(AdmittedBatch, usize)> {
+	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
 	let batch = store.admitted_statements(
 		cursor,
 		watermark,
 		INITIAL_SYNC_SCAN_LIMIT,
 		&mut |hash, encoded, stmt| {
+			if stmt.is_expired(now) {
+				return FilterDecision::Skip;
+			}
 			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 				return FilterDecision::Skip;
 			}
@@ -892,9 +904,13 @@ fn fetch_statement_chunk(
 	hashes: &[Hash],
 	max_size: usize,
 ) -> sp_statement_store::Result<(Vec<(Hash, Statement)>, usize, usize)> {
+	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
 	let (statements, processed) =
 		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
+			if stmt.is_expired(now) {
+				return FilterDecision::Skip;
+			}
 			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 				return FilterDecision::Skip;
 			}
@@ -1040,6 +1056,7 @@ where
 				},
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
+					self.shrink_pending_statements_peers();
 					self.metrics.as_ref().map(|metrics| {
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
 					});
@@ -1083,6 +1100,15 @@ where
 				self.drain_deferred_peers();
 				self.start_sync_recovery();
 			}
+		}
+	}
+
+	/// Release excess map capacity once the map is less than a quarter full.
+	fn shrink_pending_statements_peers(&mut self) {
+		const MIN_RETAINED_CAPACITY: usize = 1024;
+		let map = &mut self.pending_statements_peers;
+		if map.capacity() > MIN_RETAINED_CAPACITY && map.capacity() / 4 > map.len() {
+			map.shrink_to(MIN_RETAINED_CAPACITY);
 		}
 	}
 
@@ -2205,6 +2231,12 @@ mod tests {
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
 
+	fn new_live_statement() -> Statement {
+		let mut statement = sp_statement_store::Statement::new();
+		statement.set_expiry_from_parts(u32::MAX, 0);
+		statement
+	}
+
 	#[derive(Clone)]
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
@@ -2872,7 +2904,7 @@ mod tests {
 		) = build_handler(3);
 		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement from two peers".to_vec());
 		let hash = statement.hash();
 
@@ -2912,7 +2944,7 @@ mod tests {
 		) = build_handler(3);
 		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement received mid-import".to_vec());
 		let hash = statement.hash();
 
@@ -2956,7 +2988,7 @@ mod tests {
 		) = build_handler(3);
 		let (sender, forwarder, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"late forwarder".to_vec());
 		let hash = statement.hash();
 
@@ -2997,7 +3029,7 @@ mod tests {
 		) = build_handler(2);
 		let (sender, receiver) = (peer_ids[0], peer_ids[1]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"during major sync".to_vec());
 		let hash = statement.hash();
 
@@ -3030,7 +3062,7 @@ mod tests {
 	#[tokio::test]
 	async fn propagation_does_not_wait_for_pending_send() {
 		let (mut handler, statement_store, _, notification_service, _, _) = build_handler(1);
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement".to_vec());
 		statement_store
 			.recent_statements
@@ -3054,7 +3086,7 @@ mod tests {
 
 		// 100 KB each, so the tick spans several 1 MiB chunks.
 		for i in 0..25u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
@@ -3074,7 +3106,7 @@ mod tests {
 		assert!(backlog > 0, "the remaining hashes stay in the outbox");
 
 		// Another tick accumulates into the same outbox while the slot is busy.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"second tick".to_vec());
 		statement_store
 			.recent_statements
@@ -3093,12 +3125,12 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut kept = Statement::new();
+		let mut kept = new_live_statement();
 		kept.set_plain_data(b"kept".to_vec());
 		let kept_hash = kept.hash();
 		statement_store.insert(kept);
 
-		let mut pruned = Statement::new();
+		let mut pruned = new_live_statement();
 		pruned.set_plain_data(b"pruned".to_vec());
 		let pruned_hash = pruned.hash();
 
@@ -3123,7 +3155,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement".to_vec());
 		let hash = statement.hash();
 		statement_store.statements.lock().unwrap().insert(hash, statement);
@@ -3158,10 +3190,10 @@ mod tests {
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		let peer_id = peer_ids[0];
 
-		let mut oversized = Statement::new();
+		let mut oversized = new_live_statement();
 		oversized.set_plain_data(vec![1u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
 		let oversized_hash = oversized.hash();
-		let mut small = Statement::new();
+		let mut small = new_live_statement();
 		small.set_plain_data(b"small".to_vec());
 		let small_hash = small.hash();
 		statement_store.insert(oversized);
@@ -3189,7 +3221,7 @@ mod tests {
 		// Several chunks worth of statements with a blocked substream, so the slot
 		// is taken and a backlog stays queued.
 		for i in 0..25u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
@@ -3221,10 +3253,10 @@ mod tests {
 		let peer_id = peer_ids[0];
 
 		// 700 KiB each, so a 1 MiB chunk carries exactly one statement.
-		let mut first = Statement::new();
+		let mut first = new_live_statement();
 		first.set_plain_data(vec![1u8; 700 * 1024]);
 		let first_hash = first.hash();
-		let mut second = Statement::new();
+		let mut second = new_live_statement();
 		second.set_plain_data(vec![2u8; 700 * 1024]);
 		let second_hash = second.hash();
 		statement_store.insert(first);
@@ -3257,7 +3289,7 @@ mod tests {
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		let peer_id = peer_ids[0];
 
-		let mut old = Statement::new();
+		let mut old = new_live_statement();
 		old.set_plain_data(b"oldest".to_vec());
 		let old_hash = old.hash();
 
@@ -3265,7 +3297,7 @@ mod tests {
 		// peer's slot is busy.
 		let fresh_hashes: HashSet<_> = (0..3u8)
 			.map(|i| {
-				let mut fresh = Statement::new();
+				let mut fresh = new_live_statement();
 				fresh.set_plain_data(vec![i; 8]);
 				let hash = fresh.hash();
 				statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
@@ -3307,7 +3339,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"received after append".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
@@ -3345,12 +3377,12 @@ mod tests {
 		let (mut handler, statement_store, _network, _notification_service, queue_receiver, _) =
 			build_handler(1);
 
-		let mut statement1 = Statement::new();
+		let mut statement1 = new_live_statement();
 		statement1.set_plain_data(b"statement1".to_vec());
 
 		statement_store.insert(statement1.clone());
 
-		let mut statement2 = Statement::new();
+		let mut statement2 = new_live_statement();
 		statement2.set_plain_data(b"statement2".to_vec());
 		let hash2 = statement2.hash();
 
@@ -3372,7 +3404,7 @@ mod tests {
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
-		let mut statement1 = Statement::new();
+		let mut statement1 = new_live_statement();
 		statement1.set_plain_data(b"statement1".to_vec());
 
 		handler.on_statements(peer_id, vec![statement1.clone()]);
@@ -3406,7 +3438,7 @@ mod tests {
 		let num_statements = 30;
 		let statement_size = 100 * 1024; // 100KB per statement
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; statement_size];
 			data[0] = i as u8;
 			statement.set_plain_data(data);
@@ -3448,7 +3480,7 @@ mod tests {
 		let (mut handler, statement_store, _network, notification_service, _queue_receiver, _) =
 			build_handler(1);
 
-		let mut statement1 = Statement::new();
+		let mut statement1 = new_live_statement();
 		statement1.set_plain_data(vec![1u8; 100]);
 		let hash1 = statement1.hash();
 		statement_store
@@ -3457,7 +3489,7 @@ mod tests {
 			.unwrap()
 			.insert(hash1, statement1.clone());
 
-		let mut oversized1 = Statement::new();
+		let mut oversized1 = new_live_statement();
 		oversized1.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize * 100]);
 		let hash_oversized1 = oversized1.hash();
 		statement_store
@@ -3466,7 +3498,7 @@ mod tests {
 			.unwrap()
 			.insert(hash_oversized1, oversized1);
 
-		let mut statement2 = Statement::new();
+		let mut statement2 = new_live_statement();
 		statement2.set_plain_data(vec![3u8; 100]);
 		let hash2 = statement2.hash();
 		statement_store
@@ -3475,7 +3507,7 @@ mod tests {
 			.unwrap()
 			.insert(hash2, statement2.clone());
 
-		let mut oversized2 = Statement::new();
+		let mut oversized2 = new_live_statement();
 		oversized2.set_plain_data(vec![4u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
 		let hash_oversized2 = oversized2.hash();
 		statement_store
@@ -3484,7 +3516,7 @@ mod tests {
 			.unwrap()
 			.insert(hash_oversized2, oversized2);
 
-		let mut statement3 = Statement::new();
+		let mut statement3 = new_live_statement();
 		statement3.set_plain_data(vec![5u8; 100]);
 		let hash3 = statement3.hash();
 		statement_store
@@ -3624,7 +3656,7 @@ mod tests {
 		let statement_size = 100 * 1024; // 100KB per statement
 		let mut expected_hashes = Vec::new();
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; statement_size];
 			// Use multiple bytes for uniqueness since we have >255 statements
 			data[0] = (i % 256) as u8;
@@ -3708,7 +3740,7 @@ mod tests {
 		let mut hashes: Vec<_> = [b"initial-sync-one".to_vec(), b"initial-sync-two".to_vec()]
 			.into_iter()
 			.map(|payload| {
-				let mut statement = Statement::new();
+				let mut statement = new_live_statement();
 				statement.set_plain_data(payload);
 				let hash = statement.hash();
 				statement_store.insert(statement);
@@ -3766,7 +3798,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"queued before re-sync".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
@@ -3792,7 +3824,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"initial-sync statement".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
@@ -3830,7 +3862,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"initial-sync statement".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
@@ -3875,7 +3907,7 @@ mod tests {
 		// number and the test proves nothing.
 		let total = 25;
 		for i in 0..total {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i as u8;
 			statement.set_plain_data(data);
@@ -3914,7 +3946,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"filtered by affinity".to_vec());
 		statement.set_topic(0, [0xAA; 32].into());
 		statement_store.insert(statement);
@@ -3951,7 +3983,7 @@ mod tests {
 		// 100 KB each, so the store spans several 1 MiB chunks and the peer has more to receive
 		// after its first one.
 		for i in 0..25u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
@@ -3976,7 +4008,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"superseded".to_vec());
 		statement_store.insert(statement);
 
@@ -4002,7 +4034,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"superseded failure".to_vec());
 		statement_store.insert(statement);
 
@@ -4037,7 +4069,7 @@ mod tests {
 
 		let mut data_len = max_size - 32;
 		let exact = loop {
-			let mut candidate = Statement::new();
+			let mut candidate = new_live_statement();
 			candidate.set_plain_data(vec![7u8; data_len]);
 			let size = candidate.encoded_size();
 			assert!(size <= max_size, "no data length encodes to exactly {max_size}");
@@ -4047,7 +4079,7 @@ mod tests {
 			data_len += 1;
 		};
 		let exact_hash = exact.hash();
-		let mut oversized = Statement::new();
+		let mut oversized = new_live_statement();
 		oversized.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
 		statement_store.insert(exact);
 		statement_store.insert(oversized);
@@ -4075,7 +4107,7 @@ mod tests {
 		// ~1.1 MB of statements, so each peer's first chunk sits just under the 1 MiB cap and a
 		// handful of peers is enough to exhaust the budget.
 		for i in 0..11u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
@@ -4115,7 +4147,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"deferred by budget".to_vec());
 		let hash = statement.hash();
 		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
@@ -4153,7 +4185,7 @@ mod tests {
 
 		// One chunk is ~900 KB, so freeing a few bytes admits exactly one of the
 		// two parked peers into the 16 MiB budget.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(vec![7u8; 900 * 1024]);
 		let hash = statement.hash();
 		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
@@ -4195,7 +4227,7 @@ mod tests {
 		let propagation_peer = peer_ids[0];
 		let sync_peer = peer_ids[1];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"backlog".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
@@ -4251,7 +4283,7 @@ mod tests {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(2);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"burst behind a busy slot".to_vec());
 		statement_store.insert(statement);
 
@@ -4280,7 +4312,7 @@ mod tests {
 
 		// An initial-sync chunk takes the slot, then a fresh statement arrives by
 		// tick while the slot is busy.
-		let mut synced = Statement::new();
+		let mut synced = new_live_statement();
 		synced.set_plain_data(b"snapshot statement".to_vec());
 		let synced_hash = synced.hash();
 		statement_store.insert(synced);
@@ -4288,7 +4320,7 @@ mod tests {
 		handler.process_initial_sync_burst();
 		assert!(handler.in_flight_chunks.contains_key(&peer_id));
 
-		let mut fresh = Statement::new();
+		let mut fresh = new_live_statement();
 		fresh.set_plain_data(b"fresh gossip".to_vec());
 		let fresh_hash = fresh.hash();
 		statement_store.recent_statements.lock().unwrap().insert(fresh_hash, fresh);
@@ -4315,7 +4347,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"shared budget".to_vec());
 		statement_store.insert(statement);
 		handler.schedule_initial_sync_for_peer(peer_id);
@@ -4341,7 +4373,7 @@ mod tests {
 		let statement_size = 100 * 1024; // 100KB per statement
 		let mut expected_hashes = Vec::new();
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; statement_size];
 			data[0] = (i % 256) as u8;
 			data[1] = (i / 256) as u8;
@@ -4458,7 +4490,7 @@ mod tests {
 		let mut total_encoded_size = 0;
 
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			// Distribute remainder across first `remainder` statements to exactly fill max_size
 			let extra = if i < remainder { 1 } else { 0 };
 			let mut data = vec![42u8; per_statement_data_size + extra];
@@ -4530,7 +4562,7 @@ mod tests {
 
 		// Create first statement that's just over half the payload limit
 		let first_stmt_data_size = payload_limit / 2 + 10;
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(vec![1u8; first_stmt_data_size]);
 		let stmt1_encoded_size = stmt1.encoded_size();
 
@@ -4539,7 +4571,7 @@ mod tests {
 		let remaining = payload_limit.saturating_sub(stmt1_encoded_size);
 		let target_stmt2_encoded = remaining + 3; // 3 bytes over limit when combined
 		let stmt2_data_size = target_stmt2_encoded.saturating_sub(4); // ~4 bytes encoding overhead
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(vec![2u8; stmt2_data_size]);
 		let stmt2_encoded_size = stmt2.encoded_size();
 
@@ -4634,7 +4666,7 @@ mod tests {
 
 		let mut flood_statements = Vec::new();
 		for i in 0..600_000 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![i as u8, (i >> 8) as u8, (i >> 16) as u8]);
 			flood_statements.push(statement);
 		}
@@ -4722,7 +4754,7 @@ mod tests {
 
 		let mut statements = Vec::new();
 		for i in 0..260_000 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![
 				i as u8,
 				(i >> 8) as u8,
@@ -4766,7 +4798,7 @@ mod tests {
 
 		let mut statements = Vec::new();
 		for i in 0..250_000 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![
 				i as u8,
 				(i >> 8) as u8,
@@ -4965,7 +4997,7 @@ mod tests {
 			.await;
 
 		// V1 peer sends raw Vec<Statement>.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"v1 statement".to_vec());
 		let hash = statement.hash();
 		let raw_encoded = vec![statement].encode();
@@ -5001,7 +5033,7 @@ mod tests {
 			.await;
 
 		// V2 peer sends StatementMessage::Statements.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"v2 statement".to_vec());
 		let hash = statement.hash();
 		let msg = StatementMessage::Statements(vec![statement]);
@@ -5104,17 +5136,17 @@ mod tests {
 		handler.process_pending_affinities();
 
 		// Create statements: one matching, one not matching, one with no topics.
-		let mut stmt_matching = Statement::new();
+		let mut stmt_matching = new_live_statement();
 		stmt_matching.set_plain_data(b"matching".to_vec());
 		stmt_matching.set_topic(0, topic_aa.into());
 		let hash_matching = stmt_matching.hash();
 
-		let mut stmt_not_matching = Statement::new();
+		let mut stmt_not_matching = new_live_statement();
 		stmt_not_matching.set_plain_data(b"not matching".to_vec());
 		stmt_not_matching.set_topic(0, topic_bb.into());
 		let hash_not_matching = stmt_not_matching.hash();
 
-		let mut stmt_no_topic = Statement::new();
+		let mut stmt_no_topic = new_live_statement();
 		stmt_no_topic.set_plain_data(b"no topic".to_vec());
 		let hash_no_topic = stmt_no_topic.hash();
 
@@ -5185,12 +5217,12 @@ mod tests {
 
 		// V1 peers have no topic affinity - all statements should be propagated.
 		let topic_aa: [u8; 32] = [0xAA; 32];
-		let mut stmt_with_topic = Statement::new();
+		let mut stmt_with_topic = new_live_statement();
 		stmt_with_topic.set_plain_data(b"with topic".to_vec());
 		stmt_with_topic.set_topic(0, topic_aa.into());
 		let hash_with_topic = stmt_with_topic.hash();
 
-		let mut stmt_no_topic = Statement::new();
+		let mut stmt_no_topic = new_live_statement();
 		stmt_no_topic.set_plain_data(b"no topic".to_vec());
 		let hash_no_topic = stmt_no_topic.hash();
 
@@ -5237,17 +5269,17 @@ mod tests {
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
 
-		let mut stmt_aa = Statement::new();
+		let mut stmt_aa = new_live_statement();
 		stmt_aa.set_plain_data(b"stmt_aa".to_vec());
 		stmt_aa.set_topic(0, topic_aa.into());
 		let hash_aa = stmt_aa.hash();
 
-		let mut stmt_bb = Statement::new();
+		let mut stmt_bb = new_live_statement();
 		stmt_bb.set_plain_data(b"stmt_bb".to_vec());
 		stmt_bb.set_topic(0, topic_bb.into());
 		let hash_bb = stmt_bb.hash();
 
-		let mut stmt_no_topic = Statement::new();
+		let mut stmt_no_topic = new_live_statement();
 		stmt_no_topic.set_plain_data(b"no topic".to_vec());
 		let hash_no_topic = stmt_no_topic.hash();
 
@@ -5378,12 +5410,12 @@ mod tests {
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
 
-		let mut stmt_aa = Statement::new();
+		let mut stmt_aa = new_live_statement();
 		stmt_aa.set_plain_data(b"stmt_aa".to_vec());
 		stmt_aa.set_topic(0, topic_aa.into());
 		let hash_aa = stmt_aa.hash();
 
-		let mut stmt_bb = Statement::new();
+		let mut stmt_bb = new_live_statement();
 		stmt_bb.set_plain_data(b"stmt_bb".to_vec());
 		stmt_bb.set_topic(0, topic_bb.into());
 		let hash_bb = stmt_bb.hash();
@@ -5445,11 +5477,11 @@ mod tests {
 
 		// Propagation must apply the same affinity filter. The original statements sit below
 		// the sync watermark and belong to the cursor, so fresh admissions carry the check.
-		let mut stmt_aa2 = Statement::new();
+		let mut stmt_aa2 = new_live_statement();
 		stmt_aa2.set_plain_data(b"stmt_aa2".to_vec());
 		stmt_aa2.set_topic(0, topic_aa.into());
 		let hash_aa2 = stmt_aa2.hash();
-		let mut stmt_bb2 = Statement::new();
+		let mut stmt_bb2 = new_live_statement();
 		stmt_bb2.set_plain_data(b"stmt_bb2".to_vec());
 		stmt_bb2.set_topic(0, topic_bb.into());
 		let hash_bb2 = stmt_bb2.hash();
@@ -5532,9 +5564,9 @@ mod tests {
 
 	#[test]
 	fn test_encode_statement_refs_matches_derive_encoding() {
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(b"first".to_vec());
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(b"second".to_vec());
 
 		let refs: Vec<&Statement> = vec![&stmt1, &stmt2];
@@ -5618,7 +5650,7 @@ mod tests {
 			})
 			.await;
 
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"encoding test".to_vec());
 		statement_store.insert(stmt);
 
@@ -5667,7 +5699,7 @@ mod tests {
 		let peer_id = PeerId::random();
 
 		// Add some statements to the store.
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(b"stmt1".to_vec());
 		statement_store.insert(stmt1);
 
@@ -5690,7 +5722,7 @@ mod tests {
 		);
 
 		// Add another statement and re-schedule.
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(b"stmt2".to_vec());
 		statement_store.insert(stmt2);
 
@@ -5757,7 +5789,7 @@ mod tests {
 		};
 
 		// Add a statement so there's something to sync.
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"during major sync".to_vec());
 		statement_store.insert(stmt);
 
@@ -5811,9 +5843,9 @@ mod tests {
 		let peer_id = PeerId::random();
 
 		// Add statements to the store.
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(b"delivered before".to_vec());
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(b"never delivered".to_vec());
 
 		statement_store.insert(stmt1);
@@ -5851,7 +5883,7 @@ mod tests {
 			build_handler_no_peers();
 		let peer_id = PeerId::random();
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"pre-watermark".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement.clone());
@@ -5888,7 +5920,7 @@ mod tests {
 			build_handler_no_peers();
 		let peer_id = PeerId::random();
 
-		let mut pre = Statement::new();
+		let mut pre = new_live_statement();
 		pre.set_plain_data(b"pre-watermark".to_vec());
 		let pre_hash = pre.hash();
 		statement_store.insert(pre.clone());
@@ -5908,7 +5940,7 @@ mod tests {
 		notification_service.clear_sent_notifications();
 
 		// A late tick drains the already synced statement together with a fresh one.
-		let mut fresh = Statement::new();
+		let mut fresh = new_live_statement();
 		fresh.set_plain_data(b"post-watermark".to_vec());
 		let fresh_hash = fresh.hash();
 		statement_store.recent_statements.lock().unwrap().insert(pre_hash, pre);
@@ -5951,7 +5983,7 @@ mod tests {
 			.await;
 
 		// Send V1-encoded data to V2 peer — also should not panic.
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"v1 encoded".to_vec());
 		let v1_encoded = vec![stmt].encode();
 		handler
@@ -5984,7 +6016,7 @@ mod tests {
 			build_handler_no_peers();
 
 		// Add a statement so there's something to sync.
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"full node v2".to_vec());
 		statement_store.insert(stmt);
 
@@ -6023,7 +6055,7 @@ mod tests {
 		// Insert 3 statements into recent_statements for propagation
 		let mut expected_hashes = Vec::new();
 		for i in 0..3u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![i; 100]);
 			let hash = statement.hash();
 			expected_hashes.push(hash);
@@ -6069,7 +6101,7 @@ mod tests {
 		// Create 5 statements
 		let mut hashes = Vec::new();
 		for i in 0..5u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![i; 100]);
 			let hash = statement.hash();
 			hashes.push(hash);
@@ -6460,5 +6492,62 @@ mod tests {
 		handler2.start_sync_recovery();
 		assert!(handler2.sync_recovery_peer.is_some());
 		assert_eq!(net2.get_removed_reserved().len(), 1);
+	}
+
+	#[test]
+	fn send_paths_skip_expired_statements() {
+		let mut live = new_live_statement();
+		live.set_expiry_from_parts(u32::MAX, 0);
+		live.set_plain_data(vec![1u8; 16]);
+		let live_hash = live.hash();
+
+		let mut stale = Statement::new();
+		stale.set_plain_data(vec![2u8; 16]);
+		let stale_hash = stale.hash();
+
+		let store = TestStatementStore::new();
+		store.insert(stale.clone());
+		store.insert(live.clone());
+
+		let peer = Peer {
+			rate_limiter: PeerRateLimiter::new(
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+				NonZeroU32::new(
+					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.expect("burst capacity is nonzero"),
+			),
+			protocol_version: PeerProtocolVersion::V1,
+			topic_affinity: None,
+			is_light: false,
+			pending_topic_affinity: None,
+			sync_watermark: 0,
+		};
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
+
+		let (statements, _processed, _size) = fetch_statement_chunk(
+			&store,
+			&received,
+			&pending,
+			&who,
+			&peer,
+			&[stale_hash, live_hash],
+			max_size,
+		)
+		.expect("the test store never fails a fetch");
+		assert_eq!(statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![live_hash],);
+
+		let watermark = store.admission_watermark().expect("watermark is readable");
+		let (batch, _size) =
+			fetch_admitted_chunk(&store, &received, &pending, &who, &peer, 0, watermark, max_size)
+				.expect("the test store never fails a walk");
+		assert_eq!(
+			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![live_hash],
+		);
 	}
 }
