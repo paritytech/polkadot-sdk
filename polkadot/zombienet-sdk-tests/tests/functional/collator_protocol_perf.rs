@@ -252,6 +252,10 @@ struct Snapshot {
 	fetches_failed: f64,
 	/// Summed over validators.
 	seconded: f64,
+	/// Non-best parablock imports on the collator = para forks (`[Parachain] 🆕 Imported`).
+	para_forks: f64,
+	/// Best-block switches onto a fork branch (`[Parachain] ♻️ Reorg`).
+	para_reorgs: f64,
 	relay_side: Option<CollatorRelaySide>,
 }
 
@@ -284,6 +288,10 @@ impl Probes<'_> {
 			},
 			None => None,
 		};
+		let collator_log = self.collator.logs().await?;
+		let para_forks = collator_log.matches("[Parachain] 🆕 Imported").count() as f64;
+		let para_reorgs =
+			collator_log.lines().filter(|l| l.contains("[Parachain] ♻")).count() as f64;
 		Ok(Snapshot {
 			para_finalized_height,
 			para_best_height,
@@ -291,6 +299,8 @@ impl Probes<'_> {
 			fetches_succeeded,
 			fetches_failed,
 			seconded,
+			para_forks,
+			para_reorgs,
 			relay_side,
 		})
 	}
@@ -398,6 +408,9 @@ fn log_summary(cell: &str, chain: &str, m: &Measurement) {
 	let fetches = m.end.fetches_succeeded - m.start.fetches_succeeded;
 	let fetch_failures = m.end.fetches_failed - m.start.fetches_failed;
 	let seconded = m.end.seconded - m.start.seconded;
+	let forks = m.end.para_forks - m.start.para_forks;
+	let reorgs = m.end.para_reorgs - m.start.para_reorgs;
+	let mean_depth = if reorgs > 0.0 { forks / reorgs } else { 0.0 };
 	let per_backed = |x: f64| if backed > 0.0 { x / backed } else { f64::NAN };
 
 	log::info!("==== collator-protocol perf [{cell}] chain={chain} ====");
@@ -440,6 +453,9 @@ fn log_summary(cell: &str, chain: &str, m: &Measurement) {
 	log::info!(
 		"5. seconded (Σ validators): {seconded:>6.0}   per backed {:.2}",
 		per_backed(seconded)
+	);
+	log::info!(
+		"6. para forks:              {forks:>6.0}   fork events {reorgs:.0}   mean depth {mean_depth:.1}"
 	);
 }
 
