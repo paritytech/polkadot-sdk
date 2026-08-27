@@ -1,7 +1,6 @@
-# CLAUDE.md — statement-store DHT feature (work in progress)
+# CLAUDE.md — statement gossip protocol
 
-**While this file exists, work across the statement-store crates is part of the statement-store
-DHT-affinity feature: https://github.com/paritytech/polkadot-sdk/issues/11932** The feature spans:
+Guidance for `sc-network-statement` and the crates it works in lockstep with:
 
 - `substrate/client/network/statement/` — the gossip protocol (this crate).
 - `substrate/client/statement-store/` — the statement store itself.
@@ -9,41 +8,12 @@ DHT-affinity feature: https://github.com/paritytech/polkadot-sdk/issues/11932** 
 
 Apply this file's conventions when touching any of them.
 
-**Before merging `feature/statement-store-dht` into `master`, remove this file and any other
-AI-only helper files added for this work** — they must not reach `master`.
-
-## Branching
-
-- `feature/statement-store-dht` is the integration branch for this feature.
-- Base every new PR on `feature/statement-store-dht`, not `master`, and target it in the PR.
-
-## What the feature does
-
-Replaces the v1 flood-gossip path with a DHT-affinity path: a node advertises the topics it cares
-about and routes statements to interested peers instead of broadcasting to everyone. Built from a
-design document and split across coordinated sub-issues:
-
-- #11932 — umbrella feature
-- #11933 — peers topology module (which peers to keep connected, by affinity)
-- #11934 — explicit affinity module (which topics this node cares about)
-- #11935 — peer steering module
-- #11936 — store limitations and configuration
-- #11937 — statement-store orchestrator
-- #10910 — refactor index locking
-- #11938 — rollout plan for the protocol change
-- #11288 — light node support
-
 ## Layout (this crate)
 
 - `lib.rs` — `StatementHandler` event loop and the v1 flood path (current production path).
 - `affinity.rs` — `AffinityFilter`, the bloom filter a node advertises to peers.
 - `v2dht/` — the new DHT path; `V2DhtOrchestrator` coordinates it.
 - `config.rs` — protocol constants.
-
-## The v2 path is gated
-
-`v2dht_enabled()` in `lib.rs` is hard-coded `false`. The new path is dead code behind it until the
-feature is ready, so v2 code carries `#[allow(dead_code)]`. Keep the v1 path working meanwhile.
 
 ## Wire compatibility
 
@@ -58,6 +28,27 @@ SKIP_WASM_BUILD=1 cargo test -p sc-network-statement
 SKIP_WASM_BUILD=1 cargo clippy -p sc-network-statement --all-targets
 cargo +nightly fmt -p sc-network-statement
 ```
+
+## DHT-affinity feature (work in progress)
+
+The statement-store DHT-affinity feature replaces the v1 flood-gossip path with a DHT-affinity
+path: a node advertises the topics it cares about and routes statements to interested peers
+instead of broadcasting to everyone. The scope covers the peers topology, explicit affinity, and
+peer steering modules, the orchestrator that coordinates them, store retention and configuration,
+light node support, and the rollout of the protocol change. The design document and the current
+task breakdown live under the umbrella issue:
+https://github.com/paritytech/polkadot-sdk/issues/11932.
+
+Remove this section when the feature stabilizes and the gate is removed.
+
+### The v2 path is gated
+
+`v2dht_enabled()` in `lib.rs` reads the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable, off
+by default. Until the feature is ready, the v2 path stays dead code in a default-configured node,
+so v2 code carries `#[allow(dead_code)]`. Two invariants hold while the gate exists:
+
+- Keep the v1 path working: with the gate off, behavior must match a node without the v2 code.
+- Put every v2 call site behind `v2dht_enabled()`; never let the v2 path leak into v1 handling.
 
 ## Writing
 
