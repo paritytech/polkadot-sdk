@@ -196,6 +196,16 @@ impl StorageAccessKind {
 	pub fn persistent(op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
 		Self::Persistent { warmth: warmth(), op }
 	}
+
+	/// Debug check that the access was touched with the operation the cost
+	/// performs; a mismatch would price the access wrongly.
+	fn checked_against(self, op: StorageOp) -> Self {
+		debug_assert!(
+			!matches!(self, Self::Persistent { op: touched, .. } if touched != op),
+			"storage access touched with a different operation than it is priced for",
+		);
+		self
+	}
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -349,31 +359,31 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					0,
 				)),
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
-				kind,
+				kind.checked_against(StorageOp::Write),
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
 				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
 			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind,
+				kind.checked_against(StorageOp::Write),
 				|| cost_storage!(write_cold, clear_storage, len),
 				|| T::WeightInfo::clear_storage_hot(len),
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
 			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind,
+				kind.checked_against(StorageOp::Read),
 				|| cost_storage!(read_cold, contains_storage, len),
 				|| T::WeightInfo::contains_storage_hot(len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
 			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind,
+				kind.checked_against(StorageOp::Read),
 				|| cost_storage!(read_cold, seal_get_storage, len),
 				|| T::WeightInfo::seal_get_storage_hot(len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
 			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind,
+				kind.checked_against(StorageOp::Write),
 				|| cost_storage!(write_cold, take_storage, len),
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
