@@ -261,7 +261,7 @@ pub(crate) fn validate_and_complete_addresses(
 mod tests {
 	use super::*;
 	use crate::config::{NetworkBackendType, NetworkConfiguration, NodeKeyConfig};
-	use sc_network_types::multihash::Code;
+	use sc_network_types::{multihash::Code, PeerId};
 
 	/// Node secret key from raw bytes.
 	fn node_key_from(bytes: [u8; 32]) -> Ed25519SecretKey {
@@ -447,7 +447,8 @@ mod tests {
 
 	#[test]
 	fn operator_supplied_certhash_rejected() {
-		// The node presents a certificate of its own; no hash the operator writes can match it.
+		// This is the shape check alone: a supplied `/certhash` is verified against the node's own
+		// and removed before it ever reaches here, so anything left past `webrtc-direct` is junk.
 		let their_certhash = Code::Sha2_256.digest(b"theirs");
 		let address = webrtc_address().with(Protocol::Certhash(their_certhash));
 
@@ -493,10 +494,17 @@ mod tests {
 		Protocol::Certhash(certificate.certhash().into())
 	}
 
+	/// The `/p2p` of the node of [`webrtc_config`].
+	fn node_peer_id() -> Protocol<'static> {
+		let keypair = webrtc_config("/ip4/1.2.3.4/tcp/30333").node_key.into_keypair().unwrap();
+
+		Protocol::P2p(keypair.public().to_peer_id().into())
+	}
+
 	#[test]
 	fn webrtc_public_address_completed() {
 		let mut config = webrtc_config("/ip4/203.0.113.9/udp/31234/webrtc-direct");
-		config.validate_and_complete_webrtc_addresses().unwrap();
+		config.validate_and_complete_addresses().unwrap();
 
 		assert_eq!(
 			config.public_addresses,
@@ -512,10 +520,10 @@ mod tests {
 		// Completion is not idempotent by design: a `/certhash` that is already there is rejected
 		// rather than tolerated, so running the completion twice is caught instead of hidden.
 		let mut config = webrtc_config("/ip4/203.0.113.9/udp/31234/webrtc-direct");
-		config.validate_and_complete_webrtc_addresses().unwrap();
+		config.validate_and_complete_addresses().unwrap();
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
 			Err(Error::InvalidWebRtcAddress { .. }),
 		));
 	}
@@ -526,7 +534,7 @@ mod tests {
 		// public address: the removal must drop the now listener-less public address with
 		// them instead of leaving it advertised with nothing serving it.
 		let mut config = webrtc_config("/ip4/203.0.113.9/udp/31234/webrtc-direct");
-		config.validate_and_complete_webrtc_addresses().unwrap();
+		config.validate_and_complete_addresses().unwrap();
 
 		config.remove_webrtc_addresses();
 
@@ -540,7 +548,7 @@ mod tests {
 		let mut config = webrtc_config(public_address);
 		let tcp_listener: Multiaddr = "/ip4/0.0.0.0/tcp/30333".parse().unwrap();
 		config.listen_addresses.push(tcp_listener.clone());
-		config.validate_and_complete_webrtc_addresses().unwrap();
+		config.validate_and_complete_addresses().unwrap();
 
 		config.remove_webrtc_addresses();
 
@@ -554,7 +562,7 @@ mod tests {
 		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234/webrtc-direct");
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
 			Err(Error::InvalidWebRtcAddress { .. }),
 		));
 	}
@@ -570,13 +578,15 @@ mod tests {
 		config.public_addresses = vec![address];
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
 			Err(Error::InvalidWebRtcAddress { .. }),
 		));
 	}
 
 	#[test]
-	fn webrtc_listen_address_with_certhash_rejected() {
+	fn webrtc_listen_address_with_wrong_certhash_rejected() {
+		// The certificate is derived from the node key, so a hash that disagrees with it is a hash
+		// this node will never present, however the two came to differ.
 		let address = "/ip4/0.0.0.0/udp/30333/webrtc-direct"
 			.parse::<Multiaddr>()
 			.unwrap()
@@ -585,9 +595,208 @@ mod tests {
 		config.listen_addresses = vec![address];
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
+			Err(Error::MismatchedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn webrtc_listen_address_with_matching_certhash_accepted() {
+		// The shape an operator gets by pasting back the address the node advertises.
+		let listen_address = "/ip4/0.0.0.0/udp/30333/webrtc-direct";
+		let mut config = webrtc_config("/ip4/203.0.113.9/udp/31234/webrtc-direct");
+		config.listen_addresses =
+			vec![listen_address.parse::<Multiaddr>().unwrap().with(node_certhash())];
+
+		config.validate_and_complete_addresses().unwrap();
+
+		// Checked, then removed: what gets bound is the bare address.
+		assert_eq!(config.listen_addresses, vec![listen_address.parse::<Multiaddr>().unwrap()]);
+		assert_eq!(
+			config.public_addresses,
+			vec!["/ip4/203.0.113.9/udp/31234/webrtc-direct"
+				.parse::<Multiaddr>()
+				.unwrap()
+				.with(node_certhash())],
+		);
+	}
+
+	#[test]
+	fn webrtc_listen_address_with_matching_certhash_and_peer_id_accepted() {
+		let listen_address = "/ip4/0.0.0.0/udp/30333/webrtc-direct";
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec![listen_address
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(node_certhash())
+			.with(node_peer_id())];
+
+		config.validate_and_complete_addresses().unwrap();
+
+		assert_eq!(config.listen_addresses, vec![listen_address.parse::<Multiaddr>().unwrap()]);
+	}
+
+	#[test]
+	fn listen_address_with_matching_peer_id_accepted() {
+		// Nothing about this configuration is WebRTC: the peer id of a plain listen address is
+		// checked all the same.
+		let listen_address = "/ip4/0.0.0.0/tcp/30333";
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses =
+			vec![listen_address.parse::<Multiaddr>().unwrap().with(node_peer_id())];
+
+		config.validate_and_complete_addresses().unwrap();
+
+		assert_eq!(config.listen_addresses, vec![listen_address.parse::<Multiaddr>().unwrap()]);
+	}
+
+	#[test]
+	fn listen_address_with_wrong_peer_id_rejected() {
+		// The regenerated-node-key case: the address the operator published names another node,
+		// and starting anyway would leave this one reachable on nothing anybody dials.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333"
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(Protocol::P2p(PeerId::random().into()))];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::MismatchedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn listen_address_identity_checked_on_libp2p() {
+		// The check sits above the backends, so it fires for libp2p as well.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.network_backend = NetworkBackendType::Libp2p;
+		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333"
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(Protocol::P2p(PeerId::random().into()))];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::MismatchedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn certhash_outside_webrtc_rejected() {
+		// A `/certhash` names a DTLS certificate, and only the WebRTC transport presents one, so
+		// this is a WebRTC address that isn't one, reported as such.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses =
+			vec!["/ip4/0.0.0.0/tcp/30333".parse::<Multiaddr>().unwrap().with(node_certhash())];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
 			Err(Error::InvalidWebRtcAddress { .. }),
 		));
+	}
+
+	#[test]
+	fn certhash_outside_webrtc_rejected_beside_a_webrtc_listener() {
+		// The node does listen for WebRTC here, so it has a certificate and the hash below is its
+		// own. TCP still presents no certificate, so the address is nonsense whatever the hash
+		// says, and accepting it would strip the hash and bind the address as if it had been bare.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec![
+			"/ip4/0.0.0.0/udp/30333/webrtc-direct".parse().unwrap(),
+			"/ip4/0.0.0.0/tcp/30333".parse::<Multiaddr>().unwrap().with(node_certhash()),
+		];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::InvalidWebRtcAddress { .. }),
+		));
+	}
+
+	#[test]
+	fn identity_components_in_the_wrong_order_rejected() {
+		// `/certhash` belongs before the peer id. Both hashes here are this node's own, so only
+		// the order is wrong, and taking the two for an unordered set would accept this.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec!["/ip4/0.0.0.0/udp/30333/webrtc-direct"
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(node_peer_id())
+			.with(node_certhash())];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::MalformedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn repeated_identity_component_rejected() {
+		// At most one of each. Both peer ids are this node's own, so stripping whatever matches
+		// would accept this and bind an address the operator never meant to write.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333"
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(node_peer_id())
+			.with(node_peer_id())];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::MalformedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn repeated_certhash_rejected() {
+		// The outer hash is not this node's, but the fault is that there are two of them, and
+		// comparing before the shape is checked would report a hash mismatch instead.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec!["/ip4/0.0.0.0/udp/30333/webrtc-direct"
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(node_certhash())
+			.with(Protocol::Certhash(Code::Sha2_256.digest(b"theirs")))];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::MalformedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn identity_component_before_the_end_rejected() {
+		// A peer id that is not the last component is still a peer id. Left unchecked, litep2p
+		// stops parsing at the `/p2p` and binds plain TCP under an identity nobody dials.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333"
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(Protocol::P2p(PeerId::random().into()))
+			.with(Protocol::Ws("/".into()))];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::MalformedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn node_key_untouched_without_configured_identity() {
+		// Nothing here names an identity, so the key it would be checked against is never
+		// resolved — and a file-backed one is never written.
+		use crate::config::Secret;
+
+		let directory = tempfile::Builder::new().prefix("webrtc").tempdir().unwrap();
+		let key_path = directory.path().join("node_key");
+
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.node_key = NodeKeyConfig::Ed25519(Secret::File(key_path.clone()));
+		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333".parse().unwrap()];
+
+		config.validate_and_complete_addresses().unwrap();
+
+		assert!(!key_path.exists(), "the node key must not be resolved with nothing to check");
 	}
 
 	#[test]
@@ -597,7 +806,7 @@ mod tests {
 		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333".parse().unwrap()];
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
 			Err(Error::WebRtcTransportNotConfigured { .. }),
 		));
 	}
@@ -610,7 +819,7 @@ mod tests {
 		config.listen_addresses = vec!["/dns/example.com/udp/30333/webrtc-direct".parse().unwrap()];
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
 			Err(Error::InvalidWebRtcAddress { .. }),
 		));
 	}
@@ -620,7 +829,7 @@ mod tests {
 		// An address of another transport is never touched.
 		let address = "/ip4/203.0.113.9/tcp/31234";
 		let mut config = webrtc_config(address);
-		config.validate_and_complete_webrtc_addresses().unwrap();
+		config.validate_and_complete_addresses().unwrap();
 
 		assert_eq!(config.public_addresses, vec![address.parse::<Multiaddr>().unwrap()]);
 	}
@@ -633,7 +842,7 @@ mod tests {
 		config.network_backend = NetworkBackendType::Libp2p;
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
 			Err(Error::WebRtcNotSupportedByBackend),
 		));
 	}
@@ -647,7 +856,7 @@ mod tests {
 		config.network_backend = NetworkBackendType::Libp2p;
 
 		assert!(matches!(
-			config.validate_and_complete_webrtc_addresses(),
+			config.validate_and_complete_addresses(),
 			Err(Error::WebRtcNotSupportedByBackend),
 		));
 	}
@@ -659,7 +868,7 @@ mod tests {
 		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333".parse().unwrap()];
 		config.network_backend = NetworkBackendType::Libp2p;
 
-		config.validate_and_complete_webrtc_addresses().unwrap();
+		config.validate_and_complete_addresses().unwrap();
 
 		assert_eq!(config.public_addresses, vec![address.parse::<Multiaddr>().unwrap()]);
 	}
@@ -677,7 +886,7 @@ mod tests {
 		config.node_key = NodeKeyConfig::Ed25519(Secret::File(key_path.clone()));
 		config.network_backend = NetworkBackendType::Libp2p;
 
-		assert!(config.validate_and_complete_webrtc_addresses().is_err());
+		assert!(config.validate_and_complete_addresses().is_err());
 		assert!(!key_path.exists(), "the node key file must not be created for a rejected config");
 	}
 }

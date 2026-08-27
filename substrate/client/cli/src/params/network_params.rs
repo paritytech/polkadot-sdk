@@ -75,6 +75,10 @@ pub struct NetworkParams {
 	///
 	/// WebRTC addresses (`/ip4/<ip>/udp/<port>/webrtc-direct` and
 	/// `/ip6/<ip>/udp/<port>/webrtc-direct`) only work on the litep2p network backend.
+	///
+	/// A `/p2p/<peer id>` and, on a `webrtc-direct` address, a `/certhash/<hash>` may be given,
+	/// if so, both are checked against the node key and the node doesn't start
+	/// if either disagrees with it.
 	#[arg(long, value_name = "LISTEN_ADDR", num_args = 1..)]
 	pub listen_addr: Vec<Multiaddr>,
 

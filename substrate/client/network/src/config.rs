@@ -39,6 +39,7 @@ pub use litep2p::protocol::libp2p::bitswap::BitswapHandle as Litep2pBitswapHandl
 pub use sc_network_types::{build_multiaddr, ed25519};
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
+	multihash::Multihash,
 	PeerId,
 };
 
@@ -146,6 +147,88 @@ pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> 
 	let peer_id = PeerId::from_multihash(multihash).map_err(|_| ParseErr::InvalidPeerId)?;
 
 	Ok((peer_id, addr))
+}
+
+/// The first component of `address` derived from the node key, if it carries one.
+fn configured_identity(address: &Multiaddr) -> Option<multiaddr::Protocol<'_>> {
+	address.iter().find(|protocol| {
+		matches!(protocol, multiaddr::Protocol::P2p(_) | multiaddr::Protocol::Certhash(_))
+	})
+}
+
+/// Verify and remove the identity components an operator appended to a listen address.
+///
+/// `/p2p/<peer id>` and `/certhash/<hash>` are both derived from the node key, so one that
+/// disagrees with the key in use means the address published elsewhere names a different node.
+/// Refuse to start rather than listen under an identity nobody dials.
+///
+/// `node_key_origin` names where the key compared against comes from, for the operator to correct.
+fn check_and_strip_identity(
+	address: &mut Multiaddr,
+	local_peer_id: PeerId,
+	certhash: Option<Multihash>,
+	node_key_origin: &str,
+) -> Result<(), crate::error::Error> {
+	let configured_address = address.clone();
+
+	// `/p2p/<peer id>` comes last, whatever the transport, and `/certhash/<hash>` sits before it.
+	let configured_peer_id = match address.pop() {
+		Some(multiaddr::Protocol::P2p(peer_id)) => Some(peer_id),
+		// Not a peer id, so it belongs to the address proper.
+		Some(other) => {
+			address.push(other);
+			None
+		},
+		None => None,
+	};
+
+	let configured_certhash = match address.pop() {
+		Some(multiaddr::Protocol::Certhash(hash)) => Some(hash),
+		Some(other) => {
+			address.push(other);
+			None
+		},
+		None => None,
+	};
+
+	// What is left is the address proper: one of each at most, at the end, in that order.
+	if let Some(stray) = configured_identity(address) {
+		return Err(crate::error::Error::MalformedAddressIdentity {
+			component: stray.to_string(),
+			address: configured_address,
+		});
+	}
+
+	// A certificate to hash is something only a `webrtc-direct` address presents.
+	if let Some(configured) = configured_certhash {
+		let expected =
+			certhash.filter(|_| webrtc::is_webrtc_address(address)).ok_or_else(|| {
+				crate::error::Error::InvalidWebRtcAddress { address: configured_address.clone() }
+			})?;
+
+		if configured != expected {
+			return Err(crate::error::Error::MismatchedAddressIdentity {
+				address: configured_address,
+				configured: multiaddr::Protocol::Certhash(configured).to_string(),
+				expected: multiaddr::Protocol::Certhash(expected).to_string(),
+				node_key_origin: node_key_origin.to_string(),
+			});
+		}
+	}
+
+	if let Some(configured) = configured_peer_id {
+		let expected = local_peer_id.into();
+		if configured != expected {
+			return Err(crate::error::Error::MismatchedAddressIdentity {
+				address: configured_address,
+				configured: multiaddr::Protocol::P2p(configured).to_string(),
+				expected: multiaddr::Protocol::P2p(expected).to_string(),
+				node_key_origin: node_key_origin.to_string(),
+			});
+		}
+	}
+
+	Ok(())
 }
 
 /// Address of a node, including its identity.
@@ -361,6 +444,17 @@ impl<K> fmt::Debug for Secret<K> {
 }
 
 impl NodeKeyConfig {
+	/// Where the key comes from, to point an operator at what to correct.
+	fn source(&self) -> String {
+		match self {
+			Self::Ed25519(Secret::Input(_)) => "the node key given with `--node-key`".into(),
+			Self::Ed25519(Secret::File(path)) => format!("the node key file `{}`", path.display()),
+			// Contradictory with an address that names an identity: nothing can match a key
+			// minted anew on each start, so say so rather than report a different key every run.
+			Self::Ed25519(Secret::New) => "the node key generated anew on each start".into(),
+		}
+	}
+
 	/// Evaluate a `NodeKeyConfig` to obtain an identity `Keypair`:
 	///
 	///  * If the secret is configured as input, the corresponding keypair is returned.
@@ -764,49 +858,71 @@ impl NetworkConfiguration {
 		config
 	}
 
-	/// Validate this node's `webrtc-direct` addresses and append its WebRTC `/certhash` to the
-	/// public ones.
+	/// Validate this node's listen addresses against its node key, and append its WebRTC
+	/// `/certhash` to the public `webrtc-direct` ones.
 	///
-	/// Fails on a `webrtc-direct` address configured for the [`NetworkBackendType::Libp2p`]
-	/// backend, which cannot serve WebRTC, on a public one with no listener behind it, and on any
-	/// of them that is malformed.
-	pub fn validate_and_complete_webrtc_addresses(&mut self) -> Result<(), crate::error::Error> {
+	/// A listen address may carry `/p2p/<peer id>`, and a `webrtc-direct` one `/certhash/<hash>`,
+	/// both are checked against the node key and removed.
+	pub fn validate_and_complete_addresses(&mut self) -> Result<(), crate::error::Error> {
 		let has_webrtc_addr = |addrs: &[Multiaddr]| addrs.iter().any(webrtc::is_webrtc_address);
 
 		let listen_webrtc = has_webrtc_addr(&self.listen_addresses);
 		let public_webrtc = has_webrtc_addr(&self.public_addresses);
 
-		// WebRTC is a litep2p-only transport.
-		if matches!(self.network_backend, NetworkBackendType::Libp2p) {
-			if listen_webrtc || public_webrtc {
-				return Err(crate::error::Error::WebRtcNotSupportedByBackend);
-			}
+		// WebRTC is a litep2p-only transport. Rejected before the node key is resolved, so a
+		// configuration that will not start leaves no key file behind.
+		if matches!(self.network_backend, NetworkBackendType::Libp2p) &&
+			(listen_webrtc || public_webrtc)
+		{
+			return Err(crate::error::Error::WebRtcNotSupportedByBackend);
+		}
+
+		// An address peers would be told to dial with no listener behind it. The default listen
+		// addresses have already been appended, so there is effectively no listener behind.
+		if !listen_webrtc && public_webrtc {
+			return Err(crate::error::Error::WebRtcTransportNotConfigured);
+		}
+
+		// Resolving the node key can write its file, so only do it for a configuration that names
+		// an identity to check or needs a certificate to present.
+		if !listen_webrtc &&
+			!self
+				.listen_addresses
+				.iter()
+				.any(|address| configured_identity(address).is_some())
+		{
 			return Ok(());
 		}
 
-		match (listen_webrtc, public_webrtc) {
-			// Nothing about this configuration is WebRTC.
-			(false, false) => Ok(()),
-			// An address peers would be told to dial with no listener behind it.
-			// Defaults addresses has already been appended so we are sure there is effectively
-			// no listener behind.
-			(false, true) => Err(crate::error::Error::WebRtcTransportNotConfigured),
-			// The node listens for WebRTC, so it presents a certificate which can be
-			// appended to public addresses.
-			(true, _) => {
-				let keypair = self.node_key.clone().into_keypair()?;
-				// Pin the resolved key, so that each following `into_keypair()` returns
-				// the same secret key.
-				self.node_key = NodeKeyConfig::Ed25519(Secret::Input(keypair.secret()));
-				let certificate = webrtc::derive_certificate(keypair.secret().into())
-					.map_err(crate::error::Error::Litep2p)?;
-				webrtc::validate_and_complete_addresses(
-					&self.listen_addresses,
-					&mut self.public_addresses,
-					certificate.certhash().into(),
-				)
-			},
+		// Take the source before pinning, otherwise every key would look like a `--node-key`.
+		let node_key_origin = self.node_key.source();
+		let keypair = self.node_key.clone().into_keypair()?;
+		// Pin the resolved key, so that each following `into_keypair()`
+		// returns the same secret key.
+		self.node_key = NodeKeyConfig::Ed25519(Secret::Input(keypair.secret()));
+		let local_peer_id = keypair.public().to_peer_id();
+
+		let certhash = listen_webrtc
+			.then(|| webrtc::derive_certificate(keypair.secret().into()))
+			.transpose()
+			.map_err(crate::error::Error::Litep2p)?
+			.map(|certificate| certificate.certhash().into());
+
+		for address in self.listen_addresses.iter_mut() {
+			check_and_strip_identity(address, local_peer_id, certhash, &node_key_origin)?;
 		}
+
+		// The listen addresses are bare now, shape check applies,
+		// `/certhash` is appended to the public addresses.
+		if let Some(certhash) = certhash {
+			webrtc::validate_and_complete_addresses(
+				&self.listen_addresses,
+				&mut self.public_addresses,
+				certhash,
+			)?;
+		}
+
+		Ok(())
 	}
 
 	/// Remove every `webrtc-direct` address of this node.
