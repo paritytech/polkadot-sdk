@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787844359432,
+  "lastUpdate": 1787850403061,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2",
-          "message": "Make some BEEFY keystore logic more generic (#10763)\n\nThis PR:\n1. makes some BEEFY keystore methods more generic:\n- `sign()`\n- `public_keys()`\nThis is done by implementing the specific logic in the\n`BeefyAuthorityId`.\n2. Removes the `BeefyAuthorityId::SignatureHasher` since for some\nalgorithms it doesn't make sense to have a hasher.\n\nAlso since now the `BeefyAuthorityId` implements both the signing and\nthe verification logic, we should have better consistency.\n\nRelated to\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-29T17:10:38Z",
-          "tree_id": "110d53e0e67de85770f7f7a662d7e9c98ef8764e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2"
-        },
-        "date": 1769711134540,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009685151053333327,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006854382986666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1439398102266667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023096977366666657,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02323301433333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c05f5093a189a1d8b09af7bf94c38b451d361ed9",
+          "message": "statement store: skip expired statements before sending (#13003)\n\n## Summary\n\n- skip expired statements while building initial-sync and propagation\nchunks\n- use the same expiry boundary as statement-store submission (`now >=\nexpiry`)\n- make network test fixtures explicitly live instead of relying on\nzero-expiry statements\n\n## Why\n\nExpiry cleanup is periodic and bounded, so an expired statement can\nremain in the store long enough to be selected for gossip. A receiving\npeer will reject it as `AlreadyExpired`; filtering at the send boundary\navoids sending data the receiver cannot accept.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-27T14:58:37Z",
+          "tree_id": "93d36a5390f32049b96b6c8df0b3b030db68891b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c05f5093a189a1d8b09af7bf94c38b451d361ed9"
+        },
+        "date": 1787850363757,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022831886946666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009885790399999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0075200195800000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1426425987933334,
             "unit": "seconds"
           }
         ]
