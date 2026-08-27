@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787830346722,
+  "lastUpdate": 1787834005879,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -118583,6 +118583,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2751260338,
             "range": "± 39543917",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6113c0dca3f94f4a2102ebe0ab56f31b4284435",
+          "message": "pallet-revive: make the first hot write after a cold read pay the deferred cost (#12802)\n\n### Summary\nA slot warmed by a read and then written was charged only the\ntransaction-time work, while the extra cost a write has over a read was\nskipped: re-encoding and re-hashing the slot's trie path when the\nblock's storage root is computed.\n\nThe access list now tracks per slot whether the transaction has paid the\nread cost or the write cost. The first write to a read-paid slot pays\nthe write surcharge and upgrades the slot to write-paid. Upgrades are\njournaled per frame, like insertions, and roll back with a reverting\nframe since the reverted write leaves no root work behind.\n\n`AccessList` holds a `BoundedBTreeMap<AccessEntry, Paid>` in place of\nthe set (the 1-byte value fits in the B-tree nodes' spare space) plus a\nsecond journal for the upgrades. The worst-case per-entry memory\nconstant grows from 512 to 768 bytes to cover a slot's upgrade entry.\n\n### Pricing notes\n- The surcharge is ref_time-only; the root re-hash adds no proof.\n- The surcharge can be paid twice when a frame reverts: the reverted\nframe keeps its charge, the upgrade rolls back, and the slot's next\nwrite pays it again.\n- The rollback work of draining upgrades is not charged separately: the\nreverted write already paid a surcharge for block-end work that will\nnever happen.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-27T11:19:08Z",
+          "tree_id": "7bbc8a156912b0cd42826cc1754962d240493950",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6113c0dca3f94f4a2102ebe0ab56f31b4284435"
+        },
+        "date": 1787833967446,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19415494,
+            "range": "± 88941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19612304,
+            "range": "± 75515",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20905651,
+            "range": "± 122533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25585034,
+            "range": "± 146095",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57429680,
+            "range": "± 495885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349582674,
+            "range": "± 3656087",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2608833551,
+            "range": "± 153262900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16812060,
+            "range": "± 192809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16843057,
+            "range": "± 141578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17092941,
+            "range": "± 124859",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21896072,
+            "range": "± 256548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63146690,
+            "range": "± 841216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 365256999,
+            "range": "± 2882383",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2662540094,
+            "range": "± 25946854",
             "unit": "ns/iter"
           }
         ]
