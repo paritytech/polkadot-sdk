@@ -265,11 +265,11 @@ impl V2DhtOrchestrator {
 	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
 	pub(crate) fn propagation_plan(
 		&self,
-		statements: &[(Hash, Statement)],
+		statements: &[(u64, Hash, Statement)],
 	) -> Vec<(PeerId, Vec<usize>)> {
 		let mut statements_by_peer: HashMap<PeerId, Vec<usize>> = HashMap::new();
 
-		for (index, (_hash, statement)) in statements.iter().enumerate() {
+		for (index, (_seq, _hash, statement)) in statements.iter().enumerate() {
 			let mut targets: HashSet<PeerId> = HashSet::new();
 
 			for topic in statement.topics() {
@@ -338,13 +338,13 @@ mod tests {
 		V2DhtOrchestrator::new(&[], peer(local_seed), config, "/statement/test".into(), None)
 	}
 
-	fn statement(seed: u8, topics: &[Topic]) -> (Hash, Statement) {
+	fn statement(seed: u8, topics: &[Topic]) -> (u64, Hash, Statement) {
 		let mut statement = Statement::new();
 		statement.set_plain_data(vec![seed]);
 		for (index, topic) in topics.iter().enumerate() {
 			statement.set_topic(index, *topic);
 		}
-		(statement.hash(), statement)
+		(seed as u64, statement.hash(), statement)
 	}
 
 	/// Routing targets `propagation_plan` is expected to reach for `topics`, taken from the

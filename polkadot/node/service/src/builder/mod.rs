@@ -44,7 +44,7 @@ use polkadot_node_core_chain_selection::{
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
-	request_response::{IncomingRequest, ReqProtocolNames},
+	request_response::{IncomingRequest, Protocol, ReqProtocolNames},
 };
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use polkadot_overseer::{Handle, OverseerConnector};
@@ -347,8 +347,8 @@ where
 
 		let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
-		let (collation_req_v1_receiver, cfg) =
-			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
+		let cfg = Protocol::CollationFetchingV1
+			.get_outbound_only_config::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		let (collation_req_v2_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
@@ -468,7 +468,7 @@ where
 			})
 		};
 
-		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				net_config,
@@ -481,6 +481,7 @@ where
 				warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 				block_relay: None,
 				metrics,
+				gap_sync_body_policy: None,
 			})?;
 
 		if config.offchain_worker.enabled {
@@ -632,7 +633,6 @@ where
 						network_service: network.clone(),
 						sync_service: sync_service.clone(),
 						authority_discovery_service,
-						collation_req_v1_receiver,
 						collation_req_v2_receiver,
 						available_data_req_receiver,
 						registry: prometheus_registry.as_ref(),

@@ -17,6 +17,7 @@
 // Test if disputes triggered on finalized blocks out of scope never get to be confirmed and
 // concluded.
 
+use crate::utils::maybe_enable_experimental_collator_protocol;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use serde_json::json;
@@ -35,7 +36,9 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+					("-lparachain=debug").into(),
+				]))
 				.with_genesis_overrides(json!({
 					"patch": {
 						"configuration" : {
