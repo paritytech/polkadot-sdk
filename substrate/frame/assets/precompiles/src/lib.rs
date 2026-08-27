@@ -389,6 +389,11 @@ where
 		call: &IERC20::transferCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		// `transfer()` is benchmarked with the mirror-log callback wired, so the mirrored
+		// `Transfer` log's cost is part of this charge — except the ethereum-context receipt
+		// capture (RLP-append + bloom accrual), which a pallet benchmark never executes
+		// (capture is a no-op outside an ethereum context). That per-log slice is accepted
+		// as unmetered.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer())?;
 
 		let from = Self::caller(env)?;
@@ -568,8 +573,8 @@ where
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// `transfer_approved()` accounts for the mirror-log callback; see `transfer` for why the
-		// precompile is slightly overcharged relative to the in-frame receipt path.
+		// `transfer_approved()` accounts for the mirror-log callback; see `transfer` for the
+		// receipt-capture slice that stays unmetered.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
 		let spender = Self::caller(env)?;
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
