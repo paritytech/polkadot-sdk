@@ -443,25 +443,26 @@ mod tests {
 		let len = 64u32;
 		let cold = Warmth::Cold { revertible: false };
 		let cold_revertible = Warmth::Cold { revertible: true };
-		let hot_warmths =
-			[Warmth::Hot { charged: StorageOp::Read }, Warmth::Hot { charged: StorageOp::Write }];
+		let read_paid = Warmth::Hot { charged: StorageOp::Read };
+		let write_paid = Warmth::Hot { charged: StorageOp::Write };
 
 		// Each cost carries its own operation: a write cost priced with `op: Read` would skip
 		// the surcharge and assert a case that cannot occur.
 		let with_warmth = |warmth: Warmth| -> Vec<RuntimeCosts> {
-			let read = StorageAccessKind::Persistent { warmth, op: StorageOp::Read };
-			let write = StorageAccessKind::Persistent { warmth, op: StorageOp::Write };
+			let read_kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Read };
+			let write_kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Write };
 			vec![
-				RuntimeCosts::GetStorage { len, kind: read },
-				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind: write },
-				RuntimeCosts::ClearStorage { len, kind: write },
-				RuntimeCosts::ContainsStorage { len, kind: read },
-				RuntimeCosts::TakeStorage { len, kind: write },
+				RuntimeCosts::GetStorage { len, kind: read_kind },
+				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind: write_kind },
+				RuntimeCosts::ClearStorage { len, kind: write_kind },
+				RuntimeCosts::ContainsStorage { len, kind: read_kind },
+				RuntimeCosts::TakeStorage { len, kind: write_kind },
 			]
 		};
 
-		for hot in hot_warmths {
-			for (cold_cost, hot_cost) in with_warmth(cold).into_iter().zip(with_warmth(hot)) {
+		for paid_level in [read_paid, write_paid] {
+			for (cold_cost, hot_cost) in with_warmth(cold).into_iter().zip(with_warmth(paid_level))
+			{
 				let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
 				let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
 				assert!(

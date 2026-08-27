@@ -218,7 +218,6 @@ pub fn tstore<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 
-	let key = Key::Fix(index.to_big_endian());
 	let access_kind = StorageAccessKind::Transient;
 	// Transient values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
@@ -226,7 +225,7 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 		len: limits::STORAGE_BYTES,
 		kind: access_kind,
 	})?;
-	let bytes = interpreter.ext.get_transient_storage(&key);
+	let bytes = interpreter.ext.get_transient_storage(&Key::Fix(index.to_big_endian()));
 
 	let actual_len = bytes.as_ref().map(|v| v.len() as u32).unwrap_or(0);
 	interpreter
