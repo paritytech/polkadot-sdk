@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{StorageOp, Warmth},
+	access_list::{CodeLoadWarmth, StorageOp, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
@@ -64,7 +64,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
+	vm::{CodeInfo, CodeLoadPricing, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -1894,8 +1894,10 @@ impl<T: Config> Pallet<T> {
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,
-						access_list::CodeLoadWarmth::cold_non_revertible(),
-						access_list::StorageOp::Write,
+						CodeLoadPricing::new(
+							CodeLoadWarmth::cold_non_revertible(),
+							StorageOp::Write,
+						),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

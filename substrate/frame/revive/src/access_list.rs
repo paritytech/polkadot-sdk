@@ -119,10 +119,9 @@ pub enum AccessEntry {
 	Storage { slot: Slot, address: H160 },
 	/// Account metadata (`AccountInfoOf`) of `address`.
 	AccountInfo { address: H160 },
-	/// Code metadata. Keyed by code hash: code is
-	/// deduplicated, so contracts sharing a blob share its metadata warmth.
+	/// Code info (`CodeInfoOf`), keyed by code hash: contracts with the same code share one entry.
 	CodeInfo { hash: H256 },
-	/// Code blob. Keyed by code hash for the same reason.
+	/// Code blob (`PristineCode`), keyed by code hash for the same reason.
 	CodeBlob { hash: H256 },
 }
 
@@ -187,6 +186,32 @@ impl Warmth {
 	}
 }
 
+#[cfg(test)]
+impl Warmth {
+	/// Every warmth an entry can have.
+	pub const ALL: [Warmth; 4] = [
+		Warmth::Cold { revertible: false },
+		Warmth::Cold { revertible: true },
+		Warmth::Hot { charged: StorageOp::Read },
+		Warmth::Hot { charged: StorageOp::Write },
+	];
+}
+
+// Exhaustive on purpose: a new variant fails to compile until `Warmth::ALL` lists it in order.
+#[cfg(test)]
+const _: () = {
+	let mut index = 0;
+	while index < Warmth::ALL.len() {
+		match Warmth::ALL[index] {
+			Warmth::Cold { revertible: false } => assert!(index == 0),
+			Warmth::Cold { revertible: true } => assert!(index == 1),
+			Warmth::Hot { charged: StorageOp::Read } => assert!(index == 2),
+			Warmth::Hot { charged: StorageOp::Write } => assert!(index == 3),
+		}
+		index += 1;
+	}
+};
+
 /// A group of state reads that warm and price together.
 pub trait Access {
 	type Warmth;
@@ -200,10 +225,10 @@ pub trait Access {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
-	/// A normal call reads the target's address mapping and contract metadata,
+	/// A normal call reads the target's address mapping and contract info,
 	/// and its account state only when it transfers value (`None` otherwise).
 	Plain { account: Option<Warmth>, original_account: Warmth, account_info: Warmth },
-	/// A delegate call reads only the target's contract metadata.
+	/// A delegate call reads only the target's contract info.
 	Delegate { account_info: Warmth },
 }
 
@@ -263,7 +288,7 @@ impl CodeLoadWarmth {
 	}
 }
 
-/// A code load reads the metadata and the blob at `hash`.
+/// A code load reads the info and the blob at `hash`.
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLoad {
 	pub hash: H256,

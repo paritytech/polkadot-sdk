@@ -34,6 +34,7 @@ use crate::{
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
 		test_utils::{get_balance, place_contract, set_balance},
 	},
+	vm::CodeLoadPricing,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};
@@ -145,8 +146,7 @@ impl Executable<Test> for MockExecutable {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
-		_warmth: CodeLoadWarmth,
-		_code_info_op: StorageOp,
+		_pricing: CodeLoadPricing,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -212,8 +212,7 @@ fn from_storage_cold<S: crate::metering::State>(
 	MockExecutable::from_storage(
 		code_hash,
 		meter,
-		CodeLoadWarmth::cold_non_revertible(),
-		StorageOp::Read,
+		CodeLoadPricing::new(CodeLoadWarmth::cold_non_revertible(), StorageOp::Read),
 	)
 }
 

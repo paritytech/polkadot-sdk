@@ -19,9 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{
-		Access, AccessEntry, AccessList, CallAccess, CodeLoad, CodeLoadWarmth, StorageOp, Warmth,
-	},
+	access_list::{self, Access, AccessEntry, AccessList, CallAccess, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -33,6 +31,7 @@ use crate::{
 	storage::{AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
+	vm::CodeLoadPricing,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -600,13 +599,11 @@ pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
 	/// # Note
-	/// Charges the size-based load weight from the weight meter; `warmth` picks
-	/// the cold or hot cost.
+	/// Charges the code load from the weight meter.
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: CodeLoadWarmth,
-		code_info_op: StorageOp,
+		pricing: CodeLoadPricing,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1087,12 +1084,11 @@ where
 	fn load_code<S: State>(
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
-		code_hash: H256,
-		code_info_op: StorageOp,
+		code_load: access_list::CodeLoad,
 	) -> Result<E, DispatchError> {
-		let code_load = CodeLoad { hash: code_hash, code_info_op };
-		let executable =
-			E::from_storage(code_hash, meter, access_list.warmth_of(code_load), code_info_op)?;
+		let pricing =
+			CodeLoadPricing::new(access_list.warmth_of(code_load), code_load.code_info_op);
+		let executable = E::from_storage(code_load.hash, meter, pricing)?;
 		access_list.warm(code_load);
 		Ok(executable)
 	}
@@ -1159,8 +1155,14 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable =
-							Self::load_code(access_list, meter, info.code_hash, StorageOp::Read)?;
+						let executable = Self::load_code(
+							access_list,
+							meter,
+							access_list::CodeLoad {
+								hash: info.code_hash,
+								code_info_op: StorageOp::Read,
+							},
+						)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else if let Some(instance) = precompile {
@@ -1170,8 +1172,11 @@ where
 						.as_contract()
 						.expect("When not a precompile the contract was loaded above; qed")
 						.code_hash;
-					let executable =
-						Self::load_code(access_list, meter, code_hash, StorageOp::Read)?;
+					let executable = Self::load_code(
+						access_list,
+						meter,
+						access_list::CodeLoad { hash: code_hash, code_info_op: StorageOp::Read },
+					)?;
 					ExecutableOrPrecompile::Executable(executable)
 				};
 
@@ -1960,7 +1965,7 @@ where
 
 	/// Warms everything a call to the target reads.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn warm_call_target(&mut self, call: CallAccess, code: CodeLoad) {
+	pub(crate) fn warm_call_target(&mut self, call: CallAccess, code: access_list::CodeLoad) {
 		self.access_list.warm(call);
 		self.access_list.warm(code);
 	}
@@ -2178,8 +2183,7 @@ where
 					let executable = Self::load_code(
 						&mut self.access_list,
 						&mut top_frame_mut!(self).frame_meter,
-						*hash,
-						StorageOp::Write,
+						access_list::CodeLoad { hash: *hash, code_info_op: StorageOp::Write },
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
