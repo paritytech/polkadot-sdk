@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787820058921,
+  "lastUpdate": 1787830928407,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "df0500abc53f46111071ee3a1075f0da4f5541c0",
-          "message": "Remove failing assertion related to VoterList count mismatch (#10880)\n\nUpdated bags-list so that on_insert queues items into PendingRebag\ninstead of failing, and removed the invariant that required VoterList's\ncount to equal the combined number of Nominators and Validators. This is\nsafe while bags-list is locked. After unlocking, on_idle drains\nPendingRebag, and the counts converge back to consistency over time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
-          "timestamp": "2026-01-28T16:22:18Z",
-          "tree_id": "ca2ebf68f7dc48ff1cb353f693263fc115392586",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/df0500abc53f46111071ee3a1075f0da4f5541c0"
-        },
-        "date": 1769621933646,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63619.95,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020307620000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020307620000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002203519,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002203519,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.662000490980001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6319466140699994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.698513629989997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6685517068399984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8109991368800029,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00559125741,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.362117458290007,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.798727442002839,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.839720294460005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8418458577799512,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "27e5022881702d5c8fe89457e3e7c01fcd536e07",
+          "message": "Fix 3 more flaky tests (#13011)\n\nThis fixes three more flaky tests.\n\n### 1. ensure_operation_limits_works (`sc-rpc-spec-v2`)\n\nAfter a storage operation completed, the test issued a second operation\nand required it to be accepted. But the permit is released by `Drop` on\nthe spawned task *after* it has emitted `OperationStorageDone`, so\nreceiving that event says nothing about when capacity is back. On a\nloaded runner the second call hit `LimitReached`.\n\nThe Semaphore release is already covered by other tests, so this tests\nscope was slimmed down. I had some other designs but all of them either\nrequired waiting or some extra test helper that kind of defeated the\npoint.\n\n### 2. recovers_from_only_chunks_if_pov_large::case_3\n(`polkadot-availability-recovery`)\n\nThe test harness answered every chunk request and `unwrap()`ed the\n`oneshot` send. Recovery fans requests out in parallel and drops the\nreceivers of the ones still outstanding as soon as it has enough chunks\nto reconstruct, so a late answer fails the send , which is ok.\n\n### 3. expiry_sweep_leaves_inconsistent_data_in_place\n(`sc-statement-store`)\n\nThe test submitted a statement and then overwrote its body with `0xFF`\nvia a raw `db.commit` to simulate corruption. `col::STATEMENTS` is a\nparity-db preimage column, where a `Set` on an existing key is skipped\n(\"Replace is not supported\"), so the write was never applied.\n\nThe test only passed while a read still caught it in the commit overlay,\nand failed once the log worker had processed the commit. The\ninconsistency is now planted directly: a due expiry row for a hash the\nstore never issued, whose stored body does not decode, plus an orphan\nexpiry row with no body at all. Both sweep paths (`Corrupt statement`,\n`Orphan\nexpiry index row`) are exercised.\n\n### Failed runs, 2026-07-12 → 2026-08-26\n\n| Test | Crate | Runs |\n|------|-------|-----:|\n| `chain_head::tests::ensure_operation_limits_works` | `sc-rpc-spec-v2`\n| 7 |\n| `tests::recovers_from_only_chunks_if_pov_large::case_3` |\n`polkadot-availability-recovery` | 6 |\n| `tests::expiry_sweep_leaves_inconsistent_data_in_place` |\n`sc-statement-store` | 5 |\n\nExample runs:\n\n- **`ensure_operation_limits_works`** — [2026-07-14\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/29372580523),\n[2026-08-08\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/31253233733),\n[2026-08-14\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/31802243774),\n[2026-08-23\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32646478557)\n- **`recovers_from_only_chunks_if_pov_large::case_3`** — [2026-07-16\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/29479000772),\n[2026-08-18 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32125030187),\n[2026-08-25 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32831443104),\n[2026-08-25\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/32850678430)\n- **`expiry_sweep_leaves_inconsistent_data_in_place`** — [2026-08-14\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/31830449615),\n[2026-08-21\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32464186830),\n[2026-08-24\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32706187714),\n[2026-08-26 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32952133342)",
+          "timestamp": "2026-08-27T10:04:40Z",
+          "tree_id": "6972470b2c8a4e364218b53819bc952e5e98bda9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/27e5022881702d5c8fe89457e3e7c01fcd536e07"
+        },
+        "date": 1787830886855,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52937.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63569.409999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.445003818192836,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023048700000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005201295409999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.69132854539,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.368514976040001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.683822822249999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6516765020200004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002140457,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002140457,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023048700000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.833373200809959,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.64759100638,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7852380533199583,
             "unit": "seconds"
           }
         ]
