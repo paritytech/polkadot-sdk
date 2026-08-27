@@ -23,6 +23,54 @@ use crate::{
 	session_rotation::{EraElectionPlanner, Eras, Rotator},
 };
 
+// ===== Test helpers =====
+
+/// Shared setup + payout logic for the `vested_incentive_*` tests.
+///
+/// Sets alice's (`11`) reward destination to `payee`, arms the incentive budget, rewards and
+/// claims era 2's payout, and asserts the invariants common to both scenarios.
+///
+/// Returns `(incentive, staker_reward, still_locked, usable_before)`.
+fn setup_and_payout_vested_incentive(
+	payee: RewardDestination<AccountId>,
+	dest: AccountId,
+) -> (Balance, Balance, Balance, Balance) {
+	let alice = 11;
+
+	assert_ok!(Staking::set_payee(RuntimeOrigin::signed(alice), payee));
+
+	VestingBondingPeriods::set(1);
+	setup_incentive_with_budget(45, 5);
+
+	Session::roll_until_active_era(2);
+	Eras::<Test>::reward_active_era(vec![(alice, 1)]);
+	Session::roll_until_active_era(3);
+	let _ = staking_events_since_last_call();
+
+	let free_before = Balances::free_balance(&dest);
+	let usable_before = Balances::usable_balance(&dest);
+
+	make_all_reward_payment(2);
+	let events = staking_events_since_last_call();
+	let incentive = incentive_paid_for(alice, &events).expect("incentive");
+	let staker_reward = staker_reward_for(alice, &events).expect("staker reward");
+
+	// Schedule landed on dest with the full incentive locked.
+	let schedules = pallet_vesting::Vesting::<Test>::get(dest).expect("schedule");
+	assert_eq!(schedules.len(), 1);
+	assert_eq!(schedules[0].0.locked(), incentive);
+	assert_eq!(Balances::free_balance(&dest), free_before + staker_reward + incentive);
+
+	// The schedule starts at era 2's bonding window — which began before the payout was
+	// claimed — so by `now` some of the incentive has already vested, but not all of it.
+	let still_locked = schedules[0]
+		.0
+		.locked_at::<sp_runtime::traits::ConvertInto>(System::block_number());
+	assert!(still_locked > 0, "the incentive must not be fully unlocked yet");
+
+	(incentive, staker_reward, still_locked, usable_before)
+}
+
 // ===== Config extrinsic tests =====
 
 #[test]
@@ -883,60 +931,63 @@ fn incentive_merges_into_existing_vesting_schedule_within_epoch() {
 #[test]
 fn vested_incentive_is_locked_immediately_after_payout() {
 	// Core security guarantee: after a vested payout, the incentive is locked
-	// by the vesting schedule and not spendable. A custom destination is used
-	// so no staking lock interferes with the assertion.
+	// by the vesting schedule and not spendable. A custom destination (`reserved == 0`) is
+	// used so no staking hold interferes with the assertion.
 	ExtBuilder::default().build_and_execute(|| {
 		let alice = 11;
 		let recipient = 999;
 
-		assert_ok!(Staking::set_payee(
-			RuntimeOrigin::signed(alice),
-			RewardDestination::Account(recipient)
-		));
+		let (incentive, staker_reward, still_locked, usable_before) =
+			setup_and_payout_vested_incentive(RewardDestination::Account(recipient), recipient);
 
-		VestingBondingPeriods::set(1);
-		setup_incentive_with_budget(45, 5);
-
-		Session::roll_until_active_era(2);
-		Eras::<Test>::reward_active_era(vec![(alice, 1)]);
-		Session::roll_until_active_era(3);
-		let _ = staking_events_since_last_call();
-
-		let free_before = Balances::free_balance(&recipient);
-		let usable_before = Balances::usable_balance(&recipient);
-
-		make_all_reward_payment(2);
-		let events = staking_events_since_last_call();
-		let incentive = incentive_paid_for(alice, &events).expect("incentive");
-		let staker_reward = staker_reward_for(alice, &events).expect("staker reward");
-
-		// Schedule landed on recipient with the full incentive locked.
-		let schedules = pallet_vesting::Vesting::<Test>::get(recipient).expect("schedule");
-		assert_eq!(schedules.len(), 1);
-		assert_eq!(schedules[0].0.locked(), incentive);
-
-		// The schedule starts at era 2's bonding window — which began before the payout was
-		// claimed — so by `now` some of the incentive has already vested. The usable balance
-		// must equal `free - still_locked_now`.
-		let still_locked = schedules[0]
-			.0
-			.locked_at::<sp_runtime::traits::ConvertInto>(System::block_number());
+		// The usable balance must equal `usable_before + staker_reward + unlocked_so_far`.
 		let unlocked_so_far = incentive.saturating_sub(still_locked);
-		assert!(still_locked > 0, "the incentive must not be fully unlocked yet");
-		assert_eq!(Balances::free_balance(&recipient), free_before + staker_reward + incentive);
 		assert_eq!(
 			Balances::usable_balance(&recipient),
 			usable_before + staker_reward + unlocked_so_far,
 		);
 
-		// Transferring more than what's currently usable must fail — the vesting lock keeps
-		// the still-locked portion of the incentive from being spent.
+		// Transferring more than what's currently usable must fail.
 		let usable_now = Balances::usable_balance(&recipient);
 		assert!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(recipient), alice, usable_now + 1)
 				.is_err(),
 			"transfer exceeding the usable balance should fail due to the vesting lock",
 		);
+	});
+}
+
+#[test]
+fn vested_incentive_not_locked_with_stash_payee() {
+	// Known issue - verify a lock-masking bug (see PR #12210), asserts the undesired behavior.
+	//
+	// While `pallet-vesting` locks funds via freezes (feeding `account.frozen`),
+	// `pallet-staking-async` bonds self-stake via holds (feeding `account.reserved`). Validator
+	// accounts with held self-stake higher than any frozen amount delivered to their stash
+	// (`payee = Stash`) have the frozen amount masked by the hold and thus equivalent to liquid,
+	// despite the vesting schedule(s) still reporting it as locked.
+	//
+	// Once the issue is addressed, the final assertion of this test must be inverted.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11;
+		let other = 2;
+
+		let (incentive, staker_reward, still_locked, usable_before) =
+			setup_and_payout_vested_incentive(RewardDestination::Stash, alice);
+
+		// The discriminating assertion: the freeze is fully masked by the self-stake hold, so the
+		// entire incentive (including the still-locked amount) is usable.
+		assert_eq!(Balances::usable_balance(&alice), usable_before + staker_reward + incentive,);
+
+		// Tangible demonstration: the vesting schedule on Alice's own stash claims `still_locked`
+		// is not spendable, yet the transfer of exactly that amount succeeds, because Alice's
+		// self-stake (`reserved`) covers the freeze:
+		// `untouchable = frozen.saturating_sub(reserved) == 0`.
+		assert_ok!(Balances::transfer_allow_death(
+			RuntimeOrigin::signed(alice),
+			other,
+			still_locked
+		));
 	});
 }
 
