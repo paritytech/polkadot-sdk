@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787781574241,
+  "lastUpdate": 1787820160118,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "51d25debbc1b4ee0e81ceaf26d970fe93e089aa3",
-          "message": "[pallet-revive] Execution tracer (#9722)\n\nThis PR introduces a **Geth-compatible execution tracer**\n([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger))\nfor pallet-revive\n\nThe tracer can be used to capture both EVM opcode and PVM syscall.\nIt can be used with  the same RPC endpoint as Geth StructLogger.\n\n\nSince it can be quite resource intensive, It can only be queried from\nthe node when the **DebugSettings** are enabled (This is turned on now\nby default in the dev-node)\n\nTested in https://github.com/paritytech/evm-test-suite/pull/138\n\n\nexample:\n\n```sh\n❯ cast rpc debug_traceTransaction \"<TX_HASH>\" | jq\n\n# or with options\n# See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger\n\n  ❯ cast rpc debug_traceTransaction \"<TX_HASH>\", { \"tracer\": { \"enableMemory\": true } } | jq\n```\n\nThe response includes additional fields compared to the original Geth\ndebug RPC endpoints:\n\nFor the trace:\n- `weight_consumed`: same as gas but expressed in Weight\n- `base_call_weight`: the base cost of the transaction\n\nFor each step:\n- `weight_cost`: same as gas_cost but expressed in Weight\n\nFor an EVM execution, the output will look like this\n\n```json\n{\n  \"gas\": 4208049,\n  \"weight_consumed\": { \"ref_time\": 126241470000, \"proof_size\": 4208 },\n  \"base_call_weight\": { \"ref_time\": 9000000000, \"proof_size\": 3000 },\n  \"failed\": false,\n  \"returnValue\": \"0x\",\n  \"structLogs\": [\n    {\n      \"gas\": 4109533,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 0,\n      \"op\": \"PUSH1\",\n      \"stack\": []\n    },\n    {\n      \"gas\": 4109530,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 2,\n      \"op\": \"PUSH1\",\n      \"stack\": [\n        \"0x80\"\n      ]\n    },\n    {\n      \"gas\": 4109527,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 4,\n      \"op\": \"MSTORE\",\n      \"stack\": [\n        \"0x80\",\n        \"0x40\"\n      ]\n    }]\n}\n```\n\nFor PVM execution, each step includes additional fields not present in\nGeth:\n\n- `args`: Array of syscall arguments (register values a0-a5) as hex\nstrings\n- `returned`: The syscall return value as hex string\n\nThese fields are enabled by default. To disable them, use\n`disableSyscallDetails: true`.\n\nExample output with syscall details:\n\n```json\n{\n  \"gas\": 97108,\n  \"gasCost\": 131,\n  \"weight_cost\": { \"ref_time\": 3930000, \"proof_size\": 0 },\n  \"depth\": 1,\n  \"op\": \"call_data_load\",\n  \"args\": [\"0x0\", \"0x4\"],\n  \"returned\": \"0x2a\"\n}\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2026-01-26T14:22:27Z",
-          "tree_id": "c696ec74b23b860d9b4c6e7b1f116ed00122a83a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/51d25debbc1b4ee0e81ceaf26d970fe93e089aa3"
-        },
-        "date": 1769442415146,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026811716400000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00908123239999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006332874150000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025687792699999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aefcffe111a6642e6378d0532e60bd49220d60e7",
+          "message": "statement gossip: drive initial sync with a cursor over the admission journal (#12890)\n\n# Description\n\nCloses #12868\n\nStatement gossip initial sync walks the store's admission journal behind\na per-peer cursor instead of snapshotting every statement hash per\nconnecting peer (a full store scan and up to 2 MiB each). Scheduling\ncaptures the journal watermark in constant time, and the peer's\npropagation skips admissions below it, so the two delivery paths own\ndisjoint admission ranges and duplicate-statement reputation penalties\naround syncs are gone. A sync interrupted by a failed send or store read\nresumes from its cursor instead of being abandoned.\n\n## Integration\n\n`sp_statement_store::StatementStore` changes:\n\n```diff\n-fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;\n+fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;\n-fn statement_hashes(&self) -> Vec<Hash>;\n+fn admission_watermark(&self) -> Result<u64>;\n+fn admitted_statements(&self, cursor: u64, watermark: u64, filter: ...) -> Result<AdmittedBatch>;\n```\n\nRecent statements carry their admission sequence number, oldest first.\n`statement_hashes` had no remaining callers.",
+          "timestamp": "2026-08-27T07:10:42Z",
+          "tree_id": "36dbe0271f91717a6dc547b05fd3eca3d81ce9b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aefcffe111a6642e6378d0532e60bd49220d60e7"
+        },
+        "date": 1787820119004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010515471319999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026420084299999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009856472179999992,
             "unit": "seconds"
           }
         ]
