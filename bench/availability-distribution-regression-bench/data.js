@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787781424615,
+  "lastUpdate": 1787820008370,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "df0500abc53f46111071ee3a1075f0da4f5541c0",
-          "message": "Remove failing assertion related to VoterList count mismatch (#10880)\n\nUpdated bags-list so that on_insert queues items into PendingRebag\ninstead of failing, and removed the invariant that required VoterList's\ncount to equal the combined number of Nominators and Validators. This is\nsafe while bags-list is locked. After unlocking, on_idle drains\nPendingRebag, and the counts converge back to consistency over time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
-          "timestamp": "2026-01-28T16:22:18Z",
-          "tree_id": "ca2ebf68f7dc48ff1cb353f693263fc115392586",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/df0500abc53f46111071ee3a1075f0da4f5541c0"
-        },
-        "date": 1769621900941,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023322346386666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14688019528666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007069043966666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010064186139999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007760647633333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aefcffe111a6642e6378d0532e60bd49220d60e7",
+          "message": "statement gossip: drive initial sync with a cursor over the admission journal (#12890)\n\n# Description\n\nCloses #12868\n\nStatement gossip initial sync walks the store's admission journal behind\na per-peer cursor instead of snapshotting every statement hash per\nconnecting peer (a full store scan and up to 2 MiB each). Scheduling\ncaptures the journal watermark in constant time, and the peer's\npropagation skips admissions below it, so the two delivery paths own\ndisjoint admission ranges and duplicate-statement reputation penalties\naround syncs are gone. A sync interrupted by a failed send or store read\nresumes from its cursor instead of being abandoned.\n\n## Integration\n\n`sp_statement_store::StatementStore` changes:\n\n```diff\n-fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;\n+fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;\n-fn statement_hashes(&self) -> Vec<Hash>;\n+fn admission_watermark(&self) -> Result<u64>;\n+fn admitted_statements(&self, cursor: u64, watermark: u64, filter: ...) -> Result<AdmittedBatch>;\n```\n\nRecent statements carry their admission sequence number, oldest first.\n`statement_hashes` had no remaining callers.",
+          "timestamp": "2026-08-27T07:10:42Z",
+          "tree_id": "36dbe0271f91717a6dc547b05fd3eca3d81ce9b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aefcffe111a6642e6378d0532e60bd49220d60e7"
+        },
+        "date": 1787819967194,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009976990640000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076751234000000034,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022952780699999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1436820817866668,
             "unit": "seconds"
           }
         ]
