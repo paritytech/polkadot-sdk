@@ -206,21 +206,34 @@ module foreign_services {
       .filter(i => not(fs.keys().contains(MkServiceId(i))))
       .fold(MinPublicServiceIndex + 64, (acc, i) => if (i < acc) i else acc))
 
+  /// The index a create lands at.
+  pure def resolveNewId(fs: ForeignServices, desiredId: Option[ServiceId]): ServiceId =
+  match desiredId {
+    | None => nextServiceId(fs)
+    | Some(want) => want
+  }
+
   /// Creating a service supervised by this one. JAM sets the new service's
   /// supervisor to its creator, which is what makes every other operation here
   /// available. Whether this service can fund it is not modelled, so
   /// `CannotAfford` never appears.
   pure def foreignCreate(
-    fs: ForeignServices, codeHash: Hash, len: int, id: int, now: Timeslot
+    fs: ForeignServices, codeHash: Hash, len: int, id: int,
+    desiredId: Option[ServiceId], now: Timeslot
   ): ForeignOutcome = {
-    val fresh = nextServiceId(fs)
-    { services: fs.put(fresh, {
-        supervisor: ParachainServiceId,
-        supervisorCreated: ParachainServiceCreated,
-        created: now,
-        requests: Map((codeHash, len) -> Unprovided),
-        storage: Set()
-      }),
-      log: Some(ServiceCreation({ id: id, result: Created(fresh) })) }
+    val fresh = resolveNewId(fs, desiredId)
+    if (createdOf(fs, fresh) != None)
+      // Only reachable for a protected `desiredId`: the allocator never
+      // returns a live index.
+      unchanged(fs, ServiceCreation({ id: id, result: IdTaken }))
+    else
+      { services: fs.put(fresh, {
+          supervisor: ParachainServiceId,
+          supervisorCreated: ParachainServiceCreated,
+          created: now,
+          requests: Map((codeHash, len) -> Unprovided),
+          storage: Set()
+        }),
+        log: Some(ServiceCreation({ id: id, result: Created(fresh) })) }
   }
 }

@@ -365,7 +365,14 @@ module main {
       }),
       CreateService({
         codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
-        id: 1, sourceSupervisorBalance: false, newSupervisorBalance: false
+        id: 1, desiredId: None,
+        sourceSupervisorBalance: false, newSupervisorBalance: false
+      }),
+      // Registrar-only protected index (§6.5).
+      CreateService({
+        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
+        id: 2, desiredId: Some(MkServiceId(42)),
+        sourceSupervisorBalance: false, newSupervisorBalance: false
       }),
       // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
       // modes: a deferred transfer (memo + gas) and a plain move (neither),

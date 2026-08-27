@@ -86,8 +86,11 @@ module refine {
     // service 4 + newSupervisor 4.
     | SetServiceSupervisor(_) => 8
     // codeHash 32 + Compact<u32> len + two u64 gas limits 16 + id Compact<u64>
+    // + Option<ServiceId> desiredId (1 tag + 4 when Some)
     // + two balance selectors 2.
-    | CreateService(p) => 50 + compactLen(p.len) + compactLen(p.id)
+    | CreateService(p) =>
+      50 + compactLen(p.len) + compactLen(p.id)
+        + (match p.desiredId { | Some(_) => 5 | None => 1 })
     // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
     | Forget(p) => 37 + compactLen(p.len)
     // service 4 + Vec<u8> key (compact len prefix + bytes).

@@ -154,10 +154,11 @@ Even in blocks where no parachain candidate becomes available, it still needs an
 to apply privileged control-plane updates such as authorizer queue changes, validator-key updates,
 and other service-level bookkeeping that must take effect without waiting for a parachain block.
 
-This, together with the host calls the service forwards, presupposes three privileged
+This, together with the host calls the service forwards, presupposes four privileged
 registrations in JAM's protocol state: membership in the always-accumulate set (with a gas
-allowance), being the **delegator** (required for `designate`, §5.3), and being the registered
-**assigner** of every core it manages (required for `assign`, §7.1).
+allowance), being the **delegator** (required for `designate`, §5.3), being the registered
+**assigner** of every core it manages (required for `assign`, §7.1), and being the
+**registrar** (required for `create_service`'s `desired_id`, §6.5).
 
 ### 3.1 Service State Layout
 
@@ -386,6 +387,8 @@ enum ServiceCreationResult {
     Created(ServiceId),
     /// The Parachain Service cannot fund the new service.
     CannotAfford,
+    /// A `desired_id` in the protected range that is already in use.
+    IdTaken,
 }
 
 /// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 7.
@@ -591,6 +594,8 @@ enum UpwardMessage {
         min_item_gas: u64,
         min_memo_gas: u64,
         id: Compact<u64>,
+        /// Index to create the service at, in JAM's protected range.
+        desired_id: Option<ServiceId>,
         source_supervisor_balance: bool,
         new_supervisor_balance: bool,
     },
@@ -775,7 +780,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `remove_service_storage(service: ServiceId, key: Vec<u8>)` | `()` | Delete `key` from a supervised service's own storage (Asset Hub only). Idempotent: no-op if the key is absent. |
 | `eject_service(service: ServiceId)` | `()` | Destroy a supervised service, crediting its regular and supervisor balances to this service's regular balance (Asset Hub only). Requires the service to hold no storage or preimage requests, and to have been created before this timeslot. |
 | `set_service_supervisor(service: ServiceId, new_supervisor: ServiceId)` | `()` | Hand a supervised service to `new_supervisor`, or name the service itself to set it free (Asset Hub only). `new_supervisor` must exist. One-way: the Parachain Service immediately loses every operation on that service, `eject_service` included, so whatever it funded into the service is forfeit. |
-| `create_service(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64, id: u64, source_supervisor_balance: bool, new_supervisor_balance: bool)` | `()` | Create a service supervised by this one (Asset Hub only), funded with its threshold balance from this service. The two flags choose which balance is debited here and which the new service is funded into. `id` is Asset Hub's own, echoed back in the `AccumulateLog::ServiceCreation` entry that announces the assigned `ServiceId` to it. |
+| `create_service(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64, id: u64, desired_id: Option<ServiceId>, source_supervisor_balance: bool, new_supervisor_balance: bool)` | `()` | Create a service supervised by this one (Asset Hub only), funded with its threshold balance from this service. The two flags choose which balance is debited here and which the new service is funded into. `desired_id` names an index in JAM's protected range. `id` is Asset Hub's own, echoed back in the `AccumulateLog::ServiceCreation` entry that announces the assigned `ServiceId` to it. |
 | `transfer_out(source: Option<ServiceId>, dest: ServiceId, amount: Balance, id: u64, source_supervisor_balance: bool, dest_supervisor_balance: bool, deferred: Option<(Memo, u64)>)` | `()` | Transfer balance between JAM services (Asset Hub only). `source = None` means this service; the two `*_supervisor_balance` flags choose which balance is debited on `source` and credited on `dest` (`true` = the supervisor balance); `deferred` selects between JAM's plain-move and deferred-transfer modes; `id` is caller-chosen and echoed back in `AccumulateLog::TransferFailed` if the transfer fails. See §5.1 step 7. |
 | `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` for `jam_slot` (Coretime chain only); queue and assigner are written together, as JAM's `assign` does. See §5.1 for when it fires and §7.1 for how a short queue fills the 80 slots. A queue outside 1 to `AUTH_QUEUE_SIZE` hashes, empty included, aborts Refine as `Err(RefineLog::InvalidAuthorizerQueue)`. Re-scheduling a core replaces its entry, so the last call wins. `new_assigner = None` keeps this service as the assigner; `Some(s)` hands the core to `s` and requires an exactly `AUTH_QUEUE_SIZE`-hash queue, since the service can no longer re-present a short one after giving the core away. |
 | `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Aborts Refine as `Err(RefineLog::SetValidatorKeysTooManyKeys)` if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |

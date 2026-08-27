@@ -160,7 +160,8 @@ module accumulate {
       { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | CreateService(payload) =>
       val o = foreignCreate(
-        acc.foreign, payload.codeHash, payload.len, payload.id, now)
+        acc.foreign, payload.codeHash, payload.len, payload.id, payload.desiredId,
+        now)
       { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | SetServiceSupervisor(payload) =>
       val o = foreignSetSupervisor(

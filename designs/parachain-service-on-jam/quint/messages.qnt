@@ -107,6 +107,8 @@ module messages {
   type ServiceCreationResult =
   | Created(ServiceId)
   | CannotAfford
+  // A desiredId in the protected range that is already in use.
+  | IdTaken
 
   /// Why a JAM `transfer` replaying a `TransferOut` failed.
   /// See §5.1 outgoing transfers.
@@ -192,6 +194,8 @@ module messages {
   // ServiceCreation entry that announces the assigned ServiceId to it.
   | CreateService({
       codeHash: Hash, len: int, minItemGas: int, minMemoGas: int, id: int,
+      // Index to create the service at, in JAM's protected range.
+      desiredId: Option[ServiceId],
       sourceSupervisorBalance: bool, newSupervisorBalance: bool
     })
   // forget(para_id, hash, len). `paraId` names whose reference is released; a

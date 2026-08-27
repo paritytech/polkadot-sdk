@@ -32,10 +32,13 @@ module service_ops_test {
   pure val solicitIt = Solicit({ target: Service(victim), hash: someHash, len: someLen })
   pure val removeIt = RemoveServiceStorage({ service: victim, key: someKey })
   pure val ejectIt = EjectService({ service: victim })
-  pure val createIt = CreateService({
+  pure def createWith(desired: Option[ServiceId]): UpwardMessage = CreateService({
     codeHash: someHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
-    id: 77, sourceSupervisorBalance: false, newSupervisorBalance: false
+    id: 77, desiredId: desired,
+    sourceSupervisorBalance: false, newSupervisorBalance: false
   })
+
+  pure val createIt = createWith(None)
   pure val allOps = List(forgetIt, solicitIt, removeIt, ejectIt, createIt)
 
   pure def logsOf(
@@ -62,6 +65,24 @@ module service_ops_test {
       out.foreign.get(victim).storage == Set(),
       // A second create does not collide with the first.
       after(out.foreign, createIt, 6).keys() == Set(victim, stranger),
+    }))
+  }
+
+  /// A `desired_id` places the service at that index; an index already in use
+  /// is refused and changes nothing.
+  run createHonoursDesiredIdTest = {
+    val wanted = MkServiceId(42)
+    val atWanted = replayForeign(Map(), AssetHubParaId, 5, createWith(Some(wanted)))
+    init.then(expectThat(all {
+      atWanted.logs == List(ServiceCreation({ id: 77, result: Created(wanted) })),
+      supervisedByUs(atWanted.foreign, wanted),
+      logsOf(atWanted.foreign, createWith(Some(wanted)), 6)
+        == List(ServiceCreation({ id: 77, result: IdTaken })),
+      after(atWanted.foreign, createWith(Some(wanted)), 6) == atWanted.foreign,
+      // Including our own index, which sits in the protected range.
+      logsOf(Map(), createWith(Some(ParachainServiceId)), 6)
+        == List(ServiceCreation({ id: 77, result: IdTaken })),
+      after(Map(), createWith(Some(ParachainServiceId)), 6) == Map(),
     }))
   }
 

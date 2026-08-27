@@ -21,15 +21,9 @@ module invariants {
     effectiveSupervisor(foreignServices, s) == ParachainServiceId
       or effectiveSupervisor(foreignServices, s) == s)
 
-  /// §6.5: created services land at or above the first public index, never in
-  /// the registrar's range, and never collide with a live one.
-  val foreign_ids_are_public: bool =
-  foreignServices.keys().forall(s =>
-    match s { | MkServiceId(i) => i >= MinPublicServiceIndex | _ => false })
-
-  /// The Parachain Service never appears among the services it supervises:
-  /// `create_service` allocates a fresh public id and `eject_service` refuses
-  /// to name self.
+  /// The Parachain Service never appears among the services it supervises.
+  /// `eject_service` refuses to name self, and a `desired_id` naming our own
+  /// index is refused as `IdTaken` even though it sits in the protected range.
   val foreign_excludes_self: bool =
   not(foreignServices.keys().contains(ParachainServiceId))
 
@@ -465,7 +459,6 @@ module invariants {
     head_state_matches_outcomes,
     head_commitment_matches_changed_heads,
     foreign_supervisor_is_us_or_self,
-    foreign_ids_are_public,
     foreign_excludes_self,
     parent_head_continuity,
     refine_error_logged,
