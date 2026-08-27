@@ -17,10 +17,21 @@
 //! Provides [`ParachainBlockData`] and its historical versions.
 
 use crate::SchedulingProof;
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_trie::CompactProof;
+
+/// Free-form, namespaced data a collator attaches to a block inside the PoV.
+///
+/// TEMPORARY: byte-compatible stand-in for the `AdditionalData` of the `sp-additional-data`
+/// crate introduced on the upstream prototype branch
+/// `paritytech/polkadot-sdk@alindima/relay-proof-read-hostfn-rebased` (shape taken from commit
+/// `a80f540795`), declared here so that the V3 carrier does not pull in a new crate. To be
+/// replaced by the upstream crate once that work lands. Keys are namespaced by their producer
+/// (`"polkadot/relay_proof"`, `"jam/anchor_state_proof"`, ...) so that unrelated producers
+/// cannot collide.
+pub type AdditionalData = BTreeMap<String, Vec<u8>>;
 
 /// Special prefix used by [`ParachainBlockData`] from version 1 and upwards to distinguish from the
 /// unversioned legacy/v0 version.
@@ -84,6 +95,20 @@ pub enum ParachainBlockData<Block> {
 		proof: CompactProof,
 		scheduling_proof: SchedulingProof,
 	},
+	/// V3 adds per-block additional data alongside the scheduling proof.
+	///
+	/// TEMPORARY: copied (byte-for-byte compatible, including the Encode/Decode arms) from the
+	/// upstream prototype branch `paritytech/polkadot-sdk@alindima/relay-proof-read-hostfn-rebased`
+	/// (commit `a80f540795`), so that JAM work packages built today stay decodable when the
+	/// upstream variant lands and replaces this copy.
+	V3 {
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: SchedulingProof,
+		/// One slot per block in `blocks`: `Some(map)` is that block's [`AdditionalData`],
+		/// `None` means the block carries none.
+		additional_data: Vec<Option<AdditionalData>>,
+	},
 }
 
 impl<Block: Encode> Encode for ParachainBlockData<Block> {
@@ -103,6 +128,15 @@ impl<Block: Encode> Encode for ParachainBlockData<Block> {
 				blocks.encode_to(&mut res);
 				proof.encode_to(&mut res);
 				scheduling_proof.encode_to(&mut res);
+				res
+			},
+			Self::V3 { blocks, proof, scheduling_proof, additional_data } => {
+				let mut res = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
+				3u8.encode_to(&mut res);
+				blocks.encode_to(&mut res);
+				proof.encode_to(&mut res);
+				scheduling_proof.encode_to(&mut res);
+				additional_data.encode_to(&mut res);
 				res
 			},
 		}
@@ -128,6 +162,14 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 					let scheduling_proof = crate::SchedulingProof::decode(input)?;
 
 					Ok(Self::V2 { blocks, proof, scheduling_proof })
+				},
+				3 => {
+					let blocks = Vec::<Block>::decode(input)?;
+					let proof = CompactProof::decode(input)?;
+					let scheduling_proof = crate::SchedulingProof::decode(input)?;
+					let additional_data = Vec::<Option<AdditionalData>>::decode(input)?;
+
+					Ok(Self::V3 { blocks, proof, scheduling_proof, additional_data })
 				},
 				_ => Err("Unknown `ParachainBlockData` version".into()),
 			}
@@ -160,6 +202,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { block, .. } => &block[..],
 			Self::V1 { blocks, .. } => &blocks,
 			Self::V2 { blocks, .. } => &blocks,
+			Self::V3 { blocks, .. } => &blocks,
 		}
 	}
 
@@ -169,6 +212,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { ref mut block, .. } => block,
 			Self::V1 { ref mut blocks, .. } => blocks,
 			Self::V2 { ref mut blocks, .. } => blocks,
+			Self::V3 { ref mut blocks, .. } => blocks,
 		}
 	}
 
@@ -178,6 +222,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { block, .. } => block.into_iter().collect(),
 			Self::V1 { blocks, .. } => blocks,
 			Self::V2 { blocks, .. } => blocks,
+			Self::V3 { blocks, .. } => blocks,
 		}
 	}
 
@@ -187,6 +232,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { proof, .. } => &proof,
 			Self::V1 { proof, .. } => proof,
 			Self::V2 { proof, .. } => proof,
+			Self::V3 { proof, .. } => proof,
 		}
 	}
 
@@ -196,14 +242,25 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V0 { block, proof } => (block.into_iter().collect(), proof),
 			Self::V1 { blocks, proof } => (blocks, proof),
 			Self::V2 { blocks, proof, .. } => (blocks, proof),
+			Self::V3 { blocks, proof, .. } => (blocks, proof),
 		}
 	}
 
-	/// Returns the scheduling proof if this is a V2 POV.
+	/// Returns the scheduling proof if this is a V2 or V3 POV.
 	pub fn scheduling_proof(&self) -> Option<&crate::SchedulingProof> {
 		match self {
-			Self::V2 { scheduling_proof, .. } => Some(scheduling_proof),
+			Self::V2 { scheduling_proof, .. } | Self::V3 { scheduling_proof, .. } => {
+				Some(scheduling_proof)
+			},
 			_ => None,
+		}
+	}
+
+	/// Returns the per-block additional data if this is a V3 POV; an empty slice otherwise.
+	pub fn additional_data(&self) -> &[Option<AdditionalData>] {
+		match self {
+			Self::V3 { additional_data, .. } => additional_data,
+			_ => &[],
 		}
 	}
 }
@@ -235,7 +292,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 					.first()
 					.map(|block| Self::V0 { block: [block.clone()], proof: proof.clone() })
 			},
-			Self::V2 { blocks, proof, .. } => {
+			Self::V2 { blocks, proof, .. } | Self::V3 { blocks, proof, .. } => {
 				if blocks.len() != 1 {
 					return None;
 				}
@@ -393,6 +450,58 @@ mod tests {
 		let (blocks, proof) = v2.into_inner();
 		assert_eq!(blocks.len(), 1);
 		assert_eq!(proof.encoded_nodes.len(), 1);
+	}
+
+	#[test]
+	fn decoding_encoding_v3_works() {
+		let mut additional = AdditionalData::new();
+		additional.insert("jam/anchor_state_proof".into(), vec![1u8, 2, 3, 4]);
+
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![TestBlock::new(
+				Header::new_from_number(10),
+				vec![TestExtrinsic::new_bare(MockCallU64(10))],
+			)],
+			proof: CompactProof { encoded_nodes: vec![vec![10u8; 200]] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![Some(additional.clone())],
+		};
+
+		let encoded = v3.encode();
+		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &encoded[..]).unwrap();
+
+		assert_eq!(v3.blocks(), decoded.blocks());
+		assert_eq!(v3.proof(), decoded.proof());
+		assert_eq!(v3.scheduling_proof(), decoded.scheduling_proof());
+		assert_eq!(decoded.additional_data(), &[Some(additional)]);
+	}
+
+	/// The consumers of this carrier (a PVF, or parasim's PoV walker) dispatch on these leading
+	/// bytes before any SCALE decoding happens, so they are part of the wire contract.
+	#[test]
+	fn v3_is_tagged_with_the_versioned_prefix_and_version_three() {
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![None],
+		};
+
+		let encoded = v3.encode();
+		let (prefix, rest) = encoded.split_at(VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.len());
+		assert_eq!(prefix, b"VERSIONEDPBD");
+		assert_eq!(rest[0], 3u8);
+	}
+
+	/// An empty scheduling proof is what a JAM collator sends: nothing to prove, and a `None`
+	/// signed scheduling info, which is what the consumer requires.
+	#[test]
+	fn empty_scheduling_proof_claims_nothing() {
+		let empty = SchedulingProof::empty();
+		assert!(empty.header_chain.is_empty());
+		assert!(empty.signed_scheduling_info.is_none());
+		assert_eq!(empty.internal_scheduling_parent_header.number, 0);
+		assert_eq!(empty.encode(), vec![0u8; 1 + 32 + 1 + 32 + 32 + 1 + 1]);
 	}
 
 	#[test]
