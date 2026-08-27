@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787781373941,
+  "lastUpdate": 1787819958300,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "21df44e5de8ed530e0a8c6832e66cb51ea3db7af",
-          "message": "statement-store: make encode/hash faster (#10882)\n\nBy reserving the memory in advance we halve the encoding speed which\nultimately speeds up the statement.hash() function which gets called in\na lot of places.\n\nMore importantly, when we start being connected to more nodes the hash\nfunction gets called a lot for the same statement because we might\nreceive the same statement from all peers we are connected to.\n\nFor example on versi on_statements ate a lot of time when running with\n15 nodes, see\nhttps://github.com/paritytech/polkadot-sdk/issues/10814#issuecomment-3773797276.\n\nModified the statement_network benchmark to also be parameterizable by\nthe number of times we might receive a statement and if we receive it\nfrom 16 peers, we notice a speed up with this PR of ~16%, which I\nconsider not negligible, so I consider this an worthy improvement.\n```\non_statements/statements_2000/peers_16/threads_8/blocking\n                        time:   [22.099 ms 22.641 ms 23.175 ms]\n                        change: [-18.841% -16.637% -14.429%] (p = 0.00 < 0.05)\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-01-28T17:12:42Z",
-          "tree_id": "ded5c3e49741efffb9e31f40b3b4bb9308c30d90",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/21df44e5de8ed530e0a8c6832e66cb51ea3db7af"
-        },
-        "date": 1769625106701,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.239373117733331,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12381112413333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13962568246666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aefcffe111a6642e6378d0532e60bd49220d60e7",
+          "message": "statement gossip: drive initial sync with a cursor over the admission journal (#12890)\n\n# Description\n\nCloses #12868\n\nStatement gossip initial sync walks the store's admission journal behind\na per-peer cursor instead of snapshotting every statement hash per\nconnecting peer (a full store scan and up to 2 MiB each). Scheduling\ncaptures the journal watermark in constant time, and the peer's\npropagation skips admissions below it, so the two delivery paths own\ndisjoint admission ranges and duplicate-statement reputation penalties\naround syncs are gone. A sync interrupted by a failed send or store read\nresumes from its cursor instead of being abandoned.\n\n## Integration\n\n`sp_statement_store::StatementStore` changes:\n\n```diff\n-fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;\n+fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;\n-fn statement_hashes(&self) -> Vec<Hash>;\n+fn admission_watermark(&self) -> Result<u64>;\n+fn admitted_statements(&self, cursor: u64, watermark: u64, filter: ...) -> Result<AdmittedBatch>;\n```\n\nRecent statements carry their admission sequence number, oldest first.\n`statement_hashes` had no remaining callers.",
+          "timestamp": "2026-08-27T07:10:42Z",
+          "tree_id": "36dbe0271f91717a6dc547b05fd3eca3d81ce9b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aefcffe111a6642e6378d0532e60bd49220d60e7"
+        },
+        "date": 1787819916665,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1416702605,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.883196476233334,
             "unit": "seconds"
           }
         ]
