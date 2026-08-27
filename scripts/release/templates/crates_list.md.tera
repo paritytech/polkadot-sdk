@@ -1,4 +1,4 @@
 The following crates were updated to the corresponding versions:
 
-- polkadot-collator-protocol@29.1.2
-- polkadot-omni-node-lib@0.14.2
+- sc-consensus-beefy@35.0.1
+- sc-consensus-grandpa@0.41.1
