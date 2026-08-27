@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787850394694,
+  "lastUpdate": 1787856021518,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -212543,6 +212543,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2771615745,
             "range": "± 42786870",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f32d520c591487ad3b867ef9f311953851711125",
+          "message": "Fix check-publish-compile: don't release sp-core/sp-keystore for the … (#13015)\n\n…arkworks bump\n\n`check-publish-compile` has been red on master since #12888 (\"Bump\narkworks to 0.6\"), and every PR branched off master since inherits the\nfailure:\n\n    error[E0277]: the trait bound `SpawnEssentialTaskHandle:\n      sp_core::traits::SpawnEssentialNamed` is not satisfied\n      --> polkadot/cli/src/command.rs:327:5\nnote: there are multiple different versions of crate `sp_core` in the\n      dependency graph\n\n`prdoc/pr_12888.prdoc` bumped `sp-core` (minor) and `sp-keystore`\n(patch), which puts both into the publish plan. `parity-publish apply\n--registry` then builds them from the local path (sp-core 43.1.0,\nsp-keystore 0.49.1) while every crate that is *not* in the plan —\n`sc-storage-monitor`, `sp-io`, `sp-runtime`, `sc-client-api`, ... — is\nstill pulled from crates.io carrying sp-core 43.0.0. `polkadot-cli` sees\nboth and fails to compile.\n\nNeither crate actually needs a release here:\n\n- `sp-keystore` has no change at all; `parity-publish` itself predicted\n`None` for it during the semver check on #12888.\n- `sp-core` has no source change. Its only manifest change is `ark-vrf`\nmoving from `0.5.0` to `0.5.3`, which the already published `^0.5.0`\nrequirement resolves to anyway.\n\n`sp-crypto-ec-utils` keeps its major bump.\n\nThis can be merged even if we'd release and use in our CI a\nparity-publish version that contains:\nhttps://github.com/paritytech/parity-publish/pull/96 (which addresses\nthe problem of two different dependencies and not being able to pick one\nas a dependant - e.g. same trait but pickable from multiple versions,\nwhile both being usable in a dependant).\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-08-27T17:06:57Z",
+          "tree_id": "c3388f66444cc5d410ebc3d6f89cf439ad8d117d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f32d520c591487ad3b867ef9f311953851711125"
+        },
+        "date": 1787855956157,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4469368,
+            "range": "± 25367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 288370,
+            "range": "± 2509",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4415400,
+            "range": "± 38985",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 356810,
+            "range": "± 3312",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5527035,
+            "range": "± 14290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 862587,
+            "range": "± 4238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10648693,
+            "range": "± 74731",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4721445,
+            "range": "± 99756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 42699443,
+            "range": "± 522750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38397190,
+            "range": "± 880151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 358050316,
+            "range": "± 4071577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 295763829,
+            "range": "± 2631630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2588466392,
+            "range": "± 28074052",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2365870500,
+            "range": "± 204018324",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3341015,
+            "range": "± 37971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1797656,
+            "range": "± 7862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3428653,
+            "range": "± 16816",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1867533,
+            "range": "± 10236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3877623,
+            "range": "± 16111",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2201070,
+            "range": "± 11876",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7839188,
+            "range": "± 32938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5133299,
+            "range": "± 39882",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36719564,
+            "range": "± 301895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35657987,
+            "range": "± 683557",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 307781152,
+            "range": "± 3627210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 272878600,
+            "range": "± 1523251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2544881477,
+            "range": "± 150575282",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2251155043,
+            "range": "± 22251919",
             "unit": "ns/iter"
           }
         ]
