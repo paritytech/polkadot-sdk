@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787834881704,
+  "lastUpdate": 1787844359432,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f87563a37d5ef6ad6153d9462e2aa70a027584f0",
-          "message": "[Release|CI/CD] Add `eth-rpc` binary to release draft artifacts (#10934)\n\nAddress: https://github.com/paritytech/release-engineering/issues/281",
-          "timestamp": "2026-01-29T16:39:29Z",
-          "tree_id": "be3a5043a67e8b7b2589056a48eada95cb8c472f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f87563a37d5ef6ad6153d9462e2aa70a027584f0"
-        },
-        "date": 1769708733862,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007229099473333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010054180646666654,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14323682486000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02313146710666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14236701842000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "15e20e2bf8d4ff1d0f6049b764b60e8b439165e8",
+          "message": "statement gossip: allocate the validation queue lazily (#12994)\n\n# Description\n\nStatementHandlerPrototype::build creates the validation queue with\nunbounded channel to not pre-allocate extra memory. The limit itself\nstill holds: on_statements checks MAX_PENDING_STATEMENTS before every\nenqueue. Also shrink pending_statements_peers on the propagation tick —\nHashMap keeps its high-water capacity, so a burst would otherwise pin it\npermanently.",
+          "timestamp": "2026-08-27T13:11:35Z",
+          "tree_id": "2036ebfa566ea3e8286623cab3ea7e335c9ab98e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/15e20e2bf8d4ff1d0f6049b764b60e8b439165e8"
+        },
+        "date": 1787844313992,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14461743408000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007654078866666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00998663112666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02323301433333333,
             "unit": "seconds"
           }
         ]
