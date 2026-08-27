@@ -85,6 +85,8 @@ jobs:
           pull_description: |
             Backport #${pull_number} into `${target_branch}` from ${pull_author}.
 
+            - https://github.com/paritytech/polkadot-sdk/pull/${pull_number}
+
             See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
 
             <!--
@@ -92,7 +94,7 @@ jobs:
               original-pr-number: #${pull_number}
             -->
           pull_title: |
-            [${target_branch}] Backport #${pull_number}
+            [${target_branch} Backport #${pull_number}] ${pull_title}
           experimental: >
             {
               "conflict_resolution": "draft_commit_conflicts"

@@ -562,6 +562,14 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			}
 			meta.finalized_number = number;
 			meta.finalized_hash = hash;
+
+			// A finalized block is canonical and must be reflected by the best block.
+			// If the current best block is behind the newly finalized one, advance it
+			// to maintain the invariant `best_number >= finalized_number`.
+			if number > meta.best_number {
+				meta.best_number = number;
+				meta.best_hash = hash;
+			}
 		}
 	}
 
@@ -4143,6 +4151,38 @@ pub(crate) mod tests {
 	}
 
 	#[test]
+	fn finalize_block_does_not_leave_best_behind_finalized() {
+		let backend = Backend::<Block>::new_test(10, 10);
+
+		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
+		let block1 = insert_header(&backend, 1, block0, None, Default::default());
+		let block2 = insert_header(&backend, 2, block1, None, Default::default());
+		let block3 = insert_header(&backend, 3, block2, None, Default::default());
+		let block4 = insert_header(&backend, 4, block3, None, Default::default());
+
+		assert_eq!(backend.blockchain().info().best_number, 4);
+
+		// Move `best` back to block 3, e.g. as the result of a re-org.
+		let mut op = backend.begin_operation().unwrap();
+		op.mark_head(block3).unwrap();
+		backend.commit_operation(op).unwrap();
+		assert_eq!(backend.blockchain().info().best_hash, block3);
+		assert_eq!(backend.blockchain().info().best_number, 3);
+
+		// Finalizing block 4 must not leave `best_number` behind `finalized_number`.
+		backend.finalize_block(block1, None).unwrap();
+		backend.finalize_block(block2, None).unwrap();
+		backend.finalize_block(block3, None).unwrap();
+		backend.finalize_block(block4, None).unwrap();
+
+		let info = backend.blockchain().info();
+		assert_eq!(info.finalized_number, 4);
+		assert_eq!(info.finalized_hash, block4);
+		assert!(info.best_number >= info.finalized_number);
+		assert_eq!(info.best_hash, block4);
+	}
+
+	#[test]
 	fn test_finalize_multiple_blocks_in_single_op() {
 		let backend = Backend::<Block>::new_test(10, 10);
 
@@ -6742,6 +6782,135 @@ pub(crate) mod tests {
 			let bytes = b"a7-bytes".to_vec();
 			commit_store(&factory, h, bytes.clone());
 			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn release_then_store_missing_same_commit_stores_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAB);
+			let bytes = b"ab-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.release(TEST_COL, h);
+				tx.store(TEST_COL, h, bytes.clone());
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "single release balances the store");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn reference_then_store_missing_same_commit_single_release_removes_value(
+			#[case] kind: BackendKind,
+		) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAC);
+			let bytes = b"ac-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.reference(TEST_COL, h);
+				tx.store(TEST_COL, h, bytes.clone());
+				db.commit(tx).unwrap();
+			}
+			assert_eq!(get_value(&factory, h).as_deref(), Some(bytes.as_slice()));
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "missing-key reference is a no-op");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn release_then_reference_at_one_same_commit_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAD);
+			let bytes = b"ad-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.release(TEST_COL, h);
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "reference after removal is a no-op");
+		}
+
+		// Same-commit multi-op refcount tests: each Store/Reference/Release must compose.
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_releases_same_commit_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA8);
+			let bytes = b"a8-bytes".to_vec();
+			commit_store(&factory, h, bytes);
+			commit_reference(&factory, h);
+			assert!(get_value(&factory, h).is_some(), "rc=2 after store + reference");
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.release(TEST_COL, h);
+				tx.release(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "rc 2 -> 0 after two releases");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_two_references_same_commit_increments_twice(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xA9);
+			let bytes = b"a9-bytes".to_vec();
+			commit_store(&factory, h, bytes.clone());
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.reference(TEST_COL, h);
+				tx.reference(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			commit_release(&factory, h);
+			commit_release(&factory, h);
+			assert_eq!(
+				get_value(&factory, h).as_deref(),
+				Some(bytes.as_slice()),
+				"rc 3 -> 1 after two releases, value still present",
+			);
+			commit_release(&factory, h);
+			assert!(get_value(&factory, h).is_none(), "rc=0 after final release");
+		}
+
+		#[rstest]
+		#[case::kvdb_memdb(BackendKind::KvdbMemdb)]
+		#[case::paritydb(BackendKind::ParityDb)]
+		#[case::rocksdb(BackendKind::RocksDb)]
+		fn store_then_release_same_commit_net_zero_removes_value(#[case] kind: BackendKind) {
+			let factory = DbFactory::new(kind);
+			let h = hash(0xAA);
+			let bytes = b"aa-bytes".to_vec();
+			{
+				let db = factory.open();
+				let mut tx = DbTransaction::new();
+				tx.store(TEST_COL, h, bytes);
+				tx.release(TEST_COL, h);
+				db.commit(tx).unwrap();
+			}
+			assert!(get_value(&factory, h).is_none(), "store + release nets to rc=0");
 		}
 
 		struct BackendFactory {
