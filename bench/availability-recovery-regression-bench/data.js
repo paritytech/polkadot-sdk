@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787850353559,
+  "lastUpdate": 1787857400447,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "02f16b7f9e9b5d5c889051286da6d2a36eb79e7a",
-          "message": "[pallet-revive] added trybuild test for precompile compile-time checks (#10698)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8364\n\nThis PR adds compile-time tests using try_build to validate invariants\nenforced on registered precompiles. The tests ensure collision detection\nand related compile-time checks are correctly triggered and remain\nenforced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2026-01-30T11:43:34Z",
-          "tree_id": "f226a0b4b0136dc84a597a278f932d31a55fc684",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/02f16b7f9e9b5d5c889051286da6d2a36eb79e7a"
-        },
-        "date": 1769777326749,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12538758346666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.270985213666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1401683171333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f32d520c591487ad3b867ef9f311953851711125",
+          "message": "Fix check-publish-compile: don't release sp-core/sp-keystore for the … (#13015)\n\n…arkworks bump\n\n`check-publish-compile` has been red on master since #12888 (\"Bump\narkworks to 0.6\"), and every PR branched off master since inherits the\nfailure:\n\n    error[E0277]: the trait bound `SpawnEssentialTaskHandle:\n      sp_core::traits::SpawnEssentialNamed` is not satisfied\n      --> polkadot/cli/src/command.rs:327:5\nnote: there are multiple different versions of crate `sp_core` in the\n      dependency graph\n\n`prdoc/pr_12888.prdoc` bumped `sp-core` (minor) and `sp-keystore`\n(patch), which puts both into the publish plan. `parity-publish apply\n--registry` then builds them from the local path (sp-core 43.1.0,\nsp-keystore 0.49.1) while every crate that is *not* in the plan —\n`sc-storage-monitor`, `sp-io`, `sp-runtime`, `sc-client-api`, ... — is\nstill pulled from crates.io carrying sp-core 43.0.0. `polkadot-cli` sees\nboth and fails to compile.\n\nNeither crate actually needs a release here:\n\n- `sp-keystore` has no change at all; `parity-publish` itself predicted\n`None` for it during the semver check on #12888.\n- `sp-core` has no source change. Its only manifest change is `ark-vrf`\nmoving from `0.5.0` to `0.5.3`, which the already published `^0.5.0`\nrequirement resolves to anyway.\n\n`sp-crypto-ec-utils` keeps its major bump.\n\nThis can be merged even if we'd release and use in our CI a\nparity-publish version that contains:\nhttps://github.com/paritytech/parity-publish/pull/96 (which addresses\nthe problem of two different dependencies and not being able to pick one\nas a dependant - e.g. same trait but pickable from multiple versions,\nwhile both being usable in a dependant).\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-08-27T17:06:57Z",
+          "tree_id": "c3388f66444cc5d410ebc3d6f89cf439ad8d117d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f32d520c591487ad3b867ef9f311953851711125"
+        },
+        "date": 1787857358955,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1338384356,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.087581876066665,
             "unit": "seconds"
           }
         ]
