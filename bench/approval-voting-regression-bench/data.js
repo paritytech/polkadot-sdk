@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787781473874,
+  "lastUpdate": 1787820058921,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c7b9c08825acc61f1adde54535a41855c04962a2",
-          "message": "[Release| CI/CD] Add missing permissions to the docker publishing jobs (#10925)\n\nThis PR fixes the issue with missing permissions in the Combined Publish\nRelease flow.\n[Example](https://github.com/paritytech-release/polkadot-sdk/actions/runs/21358125800)",
-          "timestamp": "2026-01-28T15:07:39Z",
-          "tree_id": "fc1a9ed61121b7f7e0cdacf395847ed44767e900",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7b9c08825acc61f1adde54535a41855c04962a2"
-        },
-        "date": 1769616978361,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63623.380000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8348551073599662,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001952961,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.490272153992968,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001952961,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002124561,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002124561,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6137608835400004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0053780342299999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.61773972179,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3037592596399934,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.696804359229962,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6511929970599994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6701183556099997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.6362143883799996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aefcffe111a6642e6378d0532e60bd49220d60e7",
+          "message": "statement gossip: drive initial sync with a cursor over the admission journal (#12890)\n\n# Description\n\nCloses #12868\n\nStatement gossip initial sync walks the store's admission journal behind\na per-peer cursor instead of snapshotting every statement hash per\nconnecting peer (a full store scan and up to 2 MiB each). Scheduling\ncaptures the journal watermark in constant time, and the peer's\npropagation skips admissions below it, so the two delivery paths own\ndisjoint admission ranges and duplicate-statement reputation penalties\naround syncs are gone. A sync interrupted by a failed send or store read\nresumes from its cursor instead of being abandoned.\n\n## Integration\n\n`sp_statement_store::StatementStore` changes:\n\n```diff\n-fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;\n+fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;\n-fn statement_hashes(&self) -> Vec<Hash>;\n+fn admission_watermark(&self) -> Result<u64>;\n+fn admitted_statements(&self, cursor: u64, watermark: u64, filter: ...) -> Result<AdmittedBatch>;\n```\n\nRecent statements carry their admission sequence number, oldest first.\n`statement_hashes` had no remaining callers.",
+          "timestamp": "2026-08-27T07:10:42Z",
+          "tree_id": "36dbe0271f91717a6dc547b05fd3eca3d81ce9b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aefcffe111a6642e6378d0532e60bd49220d60e7"
+        },
+        "date": 1787820017360,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.16000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019577699999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6451800364299958,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.375908556509999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.861335893999945,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.678185766360001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6631156671099987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005040612750000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001700936,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001700936,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.65205939706,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.611854668342994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019577699999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8418458577799512,
             "unit": "seconds"
           }
         ]
