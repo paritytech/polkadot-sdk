@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AddressMatcher","Error","ReentrancyProtection","RuntimeCosts"],"fn":["check_collision_for"],"mod":["run"],"struct":["Diff","ExecError","H160","H256","U256"],"trait":["Ext","ExtWithInfo","Precompile","Token"]};
+window.SIDEBAR_ITEMS = {"enum":["AddressMatcher","Error","ReentrancyProtection","RuntimeCosts","StorageOp"],"fn":["check_collision_for"],"mod":["run"],"struct":["Diff","ExecError","H160","H256","U256"],"trait":["Ext","ExtWithInfo","Precompile","Token"]};
