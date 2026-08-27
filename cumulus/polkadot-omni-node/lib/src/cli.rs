@@ -269,19 +269,35 @@ pub struct Cli<Config: CliConfig> {
 	/// list.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
 	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long, value_name = "K", default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR)]
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "K",
+		default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR,
+		hide = true
+	)]
 	pub statement_replication_factor: std::num::NonZeroUsize,
 
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long, value_name = "N", default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET)]
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "N",
+		default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET,
+		hide = true
+	)]
 	pub statement_gossip_target: std::num::NonZeroUsize,
 
 	/// Upper bound on collator reserved-peer slots.
