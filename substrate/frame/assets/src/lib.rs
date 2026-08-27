@@ -635,9 +635,7 @@ pub mod pallet {
 					},
 				);
 				// Fire `created` so callback state (e.g. the precompile asset-index map) is seeded
-				// for genesis assets, matching runtime creation. This runs before `NextAssetId` is
-				// set below, so `AutoIncAssetId::created` is a no-op here (it returns early while
-				// `NextAssetId` is unset); do not reorder these two loops.
+				// for genesis assets, matching runtime creation.
 				assert!(
 					T::CallbackHandle::created(id, owner).is_ok(),
 					"asset creation callback failed at genesis"
