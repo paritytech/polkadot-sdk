@@ -256,8 +256,12 @@ const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from
 ///
 /// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`. The node
 /// also reads this to gate v2-only wiring, such as the store's affinity-based retention resolver.
+/// The environment variable is read once; the value stays fixed for the process lifetime.
 pub fn v2dht_enabled() -> bool {
-	std::env::var_os("STATEMENT_STORE_V2_DHT_ENABLED").map_or(false, |value| value == "1")
+	static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+	*ENABLED.get_or_init(|| {
+		std::env::var_os("STATEMENT_STORE_V2_DHT_ENABLED").map_or(false, |value| value == "1")
+	})
 }
 
 struct Metrics {
