@@ -31,7 +31,7 @@ mod tests;
 
 pub use crate::{
 	AddressMapper, TransactionLimits,
-	access_list::StorageOp,
+	access_list::{StorageOp, Warmth},
 	exec::{
 		ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo, ReentrancyProtection,
 	},

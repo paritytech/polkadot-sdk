@@ -189,15 +189,12 @@ pub enum StorageAccessKind {
 }
 
 impl StorageAccessKind {
-	/// Builds the kind of an access performing `op`. Only persistent storage
-	/// calls `warmth`.
-	pub fn new(transient: bool, op: StorageOp, warmth: impl FnOnce(StorageOp) -> Warmth) -> Self {
+	pub fn new(transient: bool, op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
 		if transient { Self::Transient } else { Self::persistent(op, warmth) }
 	}
 
-	/// The kind of a persistent access performing `op`.
-	pub fn persistent(op: StorageOp, warmth: impl FnOnce(StorageOp) -> Warmth) -> Self {
-		Self::Persistent { warmth: warmth(op), op }
+	pub fn persistent(op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
+		Self::Persistent { warmth: warmth(), op }
 	}
 }
 

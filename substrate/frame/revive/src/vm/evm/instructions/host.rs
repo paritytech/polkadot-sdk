@@ -124,9 +124,9 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let key = Key::Fix(index.to_big_endian());
-	let access_kind = StorageAccessKind::persistent(StorageOp::Read, |op| {
-		interpreter.ext.touch_storage_access(&key, op)
-	});
+	let op = StorageOp::Read;
+	let access_kind =
+		StorageAccessKind::persistent(op, || interpreter.ext.touch_storage_access(&key, op));
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
 		len: limits::STORAGE_BYTES,
 		kind: access_kind,
@@ -168,9 +168,9 @@ fn store_helper<'ext, E: Ext>(
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
-	let access_kind = StorageAccessKind::new(transient, StorageOp::Write, |op| {
-		interpreter.ext.touch_storage_access(&key, op)
-	});
+	let op = StorageOp::Write;
+	let access_kind =
+		StorageAccessKind::new(transient, op, || interpreter.ext.touch_storage_access(&key, op));
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
 		new_bytes: 32,
 		old_bytes: limits::STORAGE_BYTES,
