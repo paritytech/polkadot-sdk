@@ -41,67 +41,79 @@ For a bundle, the wrapper carries the last changed root forward even when later 
 Intermediate roots are not settlement entries. A consumer that used an intermediate boundary must lift
 its endpoint to the candidate-boundary root before it can settle.
 
-To ensure post MVP tiers work, we need a sender header digest as well. There can be at most one SPMS digest
-in the header. The PS remains header agnostic and never decodes it:
-
-```rust
-/// SCALE payload is 33 bytes: one enum byte and one hash.
-enum SpmsDigest { V0 { streams_root: H256 }, }
-DigestItem::Consensus(SPMS_ENGINE_ID, SpmsDigest::V0 { streams_root })
-```
-
 ### Producing Receiver `Requires`
 
-Blocks record what they consumed, grouped by source and stream. They do not receive a `StreamsRoot` in
-the messaging inherent and do not emit the `Requires` directly. The record is declared by the collator.
-A false endpoint cannot bind to a valid lift, so lying provides no benefit.
+The validation wrapper verifies the PoV lifts and declares one `(ParaId, StreamsRoot)` per source parachain,
+via `set_requires_root` host call in Refine. PS Refine copies the entries into `spec_msg_requires` and
+ensures all sources are unique and bounded.
 
-By contrast, `Requires` refers to another chain’s committed history and is always derived by PS Refine Wrapper.
-
-After executing a block, the guest reads its `ConsumptionOutbox`, just as it reads `UpwardMessages`,
-and submits the assembled record through one host call:
+If the runtime is buggy or verifications are disabled, PS does not guarantee that the PoV lifts or stitches
+actually result in the provided `Requires`. The system relies on the Accumulation phase to verify that the
+`Requires` are present in the settlement ring.
 
 ```rust
-/// Records the messages consumed by the current block.
-/// May be called at most once per block.
-fn record_consumption(record: ConsumptionRecord) -> ();
+/// Declares the candidate's requires entries, one per consumed source.
+/// One call carries the whole set. May be called at most once per Refine.
+fn set_requires_root(entries: &[(ParaId, StreamsRoot)]) -> ();
 ```
 
-The PoV contains one lift for each touched stream. PS Refine then:
-
-1. Collects block records in bundle order and applies each consumed interval to the receiver MMR state
-3. Stitches consescutive intervals and proves any gaps
-4. Extends each endpoint to a stream root
-5. Derives a `StreamsRoot` via stream tree proof
-6. Checks all streams from a single source derive the same root
-7. Emits `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>`
-
-The PoV’s generation is not trusted. Accumulate checks it against current Parachain Service state.
-
-> PS handles only ConsumptionRecord, Interval, and StreamId, which are common messaging types, and
-> never parses a header.
+> PS doesn't enforce the validity of `Requires`. It remains header agnostic (ie, no decoding) and strictly
+> moves opaque 32byte roots.
+>
+> Moving the verification into the PS Refine wrapper doens't change the security guarantees.
+> Instead, PS Refine would simply check the collator provided consumption record against
+> the collator provided PoV lifts.
 
 At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
 
 ## 2. Settlement Ring
 
+> Note: On polkadot missing the settlement check emplies that the lifts are regenerated and candidate
+> is resubmitted. On JAM, the re anchoring changes the package hash and the cotretime slot is burned.
+
+Every `Requires` source must exist and its root must be present in the ring.
+
 The settlement ring represents the last `W` enacted roots per para, keyed at `0x09 ++ para_id`.
 
 ```rust
-/// Keyed `0x09 ++ SCALE(para_id)`. Newest last, slot-ordered by construction.
+/// Keyed by `0x09 ++ SCALE(para_id)`. Appended newest-last, ensuring strict slot-ordering by construction.
 ///
-/// Depth is dynamic: entries older than `D` (depth) slots are evicted, so a para pushing
-/// k roots per slot holds ~ k * D. Ensures elastic scaling adjusts the ring dynamically.
+/// A root is evicted `D` slots after the parachain pushes its *subsequent* root. Until then, 
+/// it remains in the ring buffer. This dynamic retention guarantees that the latest root of an 
+/// idle or on-demand parachain never expires, while allowing elastic scaling to adjust the buffer's size.
+/// 
+/// A block with no new messages pushes nothing.
+/// The `parachain_clean_up` delets the ring as well.
 spec_msg_recent_provides: Map<ParaId, BoundedVec<(StreamsRoot, Slot), W_MAX>>
 
-/// Number of slots between lift retarget and the accumulate phase 
-pub const D: u32 = 20;
-/// A parachain cannot exceed `MAX_CORES` cores. JAM supports max 341.
+/// The upper bound on the number of slots between a lift's retarget (package build) 
+/// and its accumulation.
+///
+/// Represents the sum of:
+///  `C_H` (anchor recency) + Availability timeout (`U`) + consumer pipeline depth +
+///   censorship margin.
+///
+/// Calculation: `D = 8 + 5 + 9 + 8 = 30` (provisional on `U` with 2 margin slots).
+pub const D: u32 = 32;
+/// Assumed ceiling on concurent cores per parachain. This is not enforced. However,
+/// JAM has 341 cores total.
+///
+/// If Coretime allocates more than `MAX_CORES` to a parachain, the ring will hit `W_MAX`
+/// and safely fall back to oldest-first eviction.
 pub const MAX_CORES: u32 = 20;
+
+/// The absolute maximum capacity of the ring buffer for a single parachain.
+///
+/// This size accommodates a parachain pushing one root per core, per slot, for `D` slots.
 pub const W_MAX: u32 = MAX_CORES * D;
 ```
 
-Every `Requires` source must exist and its root must be present in the ring.
+Under stable block production, the size used is roughtly the number of cores the parachain owns.
+Evection doesn't happen after a fixed amount to account for on-demand parachains.
+
+If the buffer contains `[(root A, slot 10)]`, `root A` remains valid indefinitely.
+The eviction only begins when the parachain pushes its next root. When `root B` lands at `slot 50`,
+root A is scheduled for eviction at `slot 50 + D`.
 
 > Note: A forced rollback (`ParachainSetHead` from the Coretime chain) isn't applied instantly. Its an upward message,
 replayed at step 7 when the Coretime chain's own package accumulates. Packages accumulate in order within a block,
@@ -189,10 +201,16 @@ To ensure we are not relying on JAM provided order, PS reorders the blocks's dig
 The solution is to build a depedency graph based on the speculative `Provides` and `Requires`.
 
 If B's `spec_msg_requires` contains `(A, root)` and A's `spec_msg_provides` is `Some(root)`, add an
-edge from `A -> B`. The source `ParaId` selects A and root equality confirms the dependency. Then we
-run topological sort on the edges. Everything unrelated to speculative messaging remains unchanged.
+edge from `A -> B`. The source `ParaId` selects A and root equality confirms the dependency. For a para
+with multiple candidates in the block, also add an implicit edge from each candidate to its successor, such
+that the chain order is a hard constraint of the graph.
+
+The reorder is part of the consensus logic. Therefore, the sort must be terministic. This is done using
+the Khan's algorithm. Between the nodes with in-degree zero, the digest with the smallest index in JAM's original
+core order is picked. Digests not ordered by any edge keep their JAM relative order.
 
 If a cycle is detected, PS continues with the original order from JAM. The ring will reject the candidates naturally.
+Cycles are not expected since that would imply that both sides are consuming from each other at the same time.
 
 3. Parachain Service Buffering
 
@@ -321,8 +339,9 @@ drainability with it.
 
    - verifies fetched messages and their stream proofs against each source's `StreamsRoot`
    - authors a block consuming stream prefixes and records the consumption
-   - in-core the wrapper verifies the PoV-carried lifts, stitches bundle intervals and gap proofs,
-   and synthesizes each source's `(ParaId, StreamsRoot)`. Failures abort with `RefineLog`.
+   - in-core the validation wrapper verifies the PoV-carried lifts, stitches bundle intervals and gap
+   proofs, and synthesizes each source's `(ParaId, StreamsRoot)` via `set_requires_root`. Failures
+   abort with `RefineLog`.
    - on-chain, §5.1 step 6 checks each named root is in its source's ring, then B enacts.
 
 ## 5. Node Stack
