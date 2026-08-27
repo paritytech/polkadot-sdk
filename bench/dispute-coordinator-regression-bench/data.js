@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787835018199,
+  "lastUpdate": 1787844505615,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c7b9c08825acc61f1adde54535a41855c04962a2",
-          "message": "[Release| CI/CD] Add missing permissions to the docker publishing jobs (#10925)\n\nThis PR fixes the issue with missing permissions in the Combined Publish\nRelease flow.\n[Example](https://github.com/paritytech-release/polkadot-sdk/actions/runs/21358125800)",
-          "timestamp": "2026-01-28T15:07:39Z",
-          "tree_id": "fc1a9ed61121b7f7e0cdacf395847ed44767e900",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7b9c08825acc61f1adde54535a41855c04962a2"
-        },
-        "date": 1769617044646,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009180041149999969,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002682914990000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0066212415899999984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01046304434,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "15e20e2bf8d4ff1d0f6049b764b60e8b439165e8",
+          "message": "statement gossip: allocate the validation queue lazily (#12994)\n\n# Description\n\nStatementHandlerPrototype::build creates the validation queue with\nunbounded channel to not pre-allocate extra memory. The limit itself\nstill holds: on_statements checks MAX_PENDING_STATEMENTS before every\nenqueue. Also shrink pending_statements_peers on the propagation tick —\nHashMap keeps its high-water capacity, so a burst would otherwise pin it\npermanently.",
+          "timestamp": "2026-08-27T13:11:35Z",
+          "tree_id": "2036ebfa566ea3e8286623cab3ea7e335c9ab98e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/15e20e2bf8d4ff1d0f6049b764b60e8b439165e8"
+        },
+        "date": 1787844463083,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009993350219999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025829144700000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009697875389999989,
             "unit": "seconds"
           }
         ]
