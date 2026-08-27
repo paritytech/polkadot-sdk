@@ -124,32 +124,16 @@ impl ExportedFunction {
 #[derive(Clone, Copy)]
 struct CodeInfoLoadToken {
 	warmth: CodeLoadWarmth,
-	code_info_op: StorageOp,
 }
 
 impl<T: Config> Token<T> for CodeInfoLoadToken {
 	fn weight(&self) -> Weight {
-		let weight = runtime_costs::weight_by_warmth::<T, _>(
+		runtime_costs::weight_by_warmth::<T, _>(
 			[self.warmth.info, self.warmth.blob],
 			TouchedKey::Address,
 			|| T::WeightInfo::code_load(),
 			|| Weight::zero(), // a hot read is already in the proof
-		);
-		// The refcount bump writes `CodeInfoOf`, a key the instantiate benches
-		// whitelist. Its trie walk is already paid by this load's read, so add only
-		// the missing part of a write.
-		let bumps_refcount = self.code_info_op == StorageOp::Write;
-		let surcharge = match self.warmth.info {
-			// Upgrading a tracked entry to `Write` also journals the upgrade.
-			Warmth::Hot { charged } if bumps_refcount && !charged.covers(StorageOp::Write) => {
-				RuntimeCosts::deferred_write_cost::<T>()
-					.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<T>())
-			},
-			// A cold touch inserts at `Write`, so there is nothing to journal.
-			Warmth::Cold { .. } if bumps_refcount => RuntimeCosts::deferred_write_cost::<T>(),
-			_ => Weight::zero(),
-		};
-		weight.saturating_add(surcharge)
+		)
 	}
 }
 
@@ -199,7 +183,7 @@ impl<T: Config> Token<T> for CodeBlobLoadToken {
 #[cfg(test)]
 pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoadWarmth) -> Weight {
 	use crate::tests::Test;
-	let base = Token::<Test>::weight(&CodeInfoLoadToken { warmth, code_info_op: StorageOp::Read });
+	let base = Token::<Test>::weight(&CodeInfoLoadToken { warmth });
 	let bytes =
 		Token::<Test>::weight(&CodeBlobLoadToken { code_len, code_type, warmth: warmth.blob });
 	base.saturating_add(bytes)
@@ -380,7 +364,11 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		code_info_op: StorageOp,
 	) -> Result<Self, DispatchError> {
 		// Priced here because the call benches whitelist these keys; ref_time overlaps.
-		meter.charge_weight_token(CodeInfoLoadToken { warmth, code_info_op })?;
+		meter.charge_weight_token(CodeInfoLoadToken { warmth })?;
+		// Those benches whitelist the refcount write too, so an instantiate owes it here.
+		if code_info_op == StorageOp::Write {
+			meter.charge_weight_token(RuntimeCosts::RefcountBump { info: warmth.info })?;
+		}
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		meter.charge_weight_token(CodeBlobLoadToken {
 			code_len: code_info.code_len,
@@ -458,35 +446,6 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 mod tests {
 	use super::*;
 	use crate::{access_list::Warmth, tests::Test};
-
-	#[test]
-	fn the_refcount_write_is_charged_exactly_when_owed() {
-		let load = |info, code_info_op| {
-			/// only `info` drives the surcharge under test.
-			let warmth = CodeLoadWarmth { info, blob: Warmth::cold_non_revertible() };
-			Token::<Test>::weight(&CodeInfoLoadToken { warmth, code_info_op })
-		};
-		let deferred = RuntimeCosts::deferred_write_cost::<Test>();
-		let journaled_upgrade = RuntimeCosts::access_list_upgrade_overhead::<Test>();
-		let cold = Warmth::cold_non_revertible();
-
-		assert_eq!(
-			load(cold, StorageOp::Write).saturating_sub(load(cold, StorageOp::Read)),
-			deferred,
-			"a cold bump inserts the entry at `Write`, so it owes the re-hash but no upgrade",
-		);
-		assert_eq!(
-			load(Warmth::Hot { charged: StorageOp::Read }, StorageOp::Write)
-				.saturating_sub(load(Warmth::Hot { charged: StorageOp::Write }, StorageOp::Write)),
-			deferred.saturating_add(journaled_upgrade),
-			"the bump that finds the key read-paid owes the re-hash and journals the upgrade",
-		);
-		assert_ne!(
-			journaled_upgrade,
-			Weight::zero(),
-			"the upgrade term must be priced, or neither assertion above can fail",
-		);
-	}
 
 	#[test]
 	fn code_load_cold_hot_pricing() {

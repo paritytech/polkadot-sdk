@@ -534,20 +534,20 @@ mod tests {
 		);
 	}
 
-	/// Touch read-paid entries with distinct addresses until the map is full.
-	fn fill(al: &mut AccessList, entries: usize) {
-		for i in 0..entries {
+	/// Touch read-paid entries with distinct addresses until the map holds `target_size` of them.
+	fn fill_to(al: &mut AccessList, target_size: usize) {
+		assert!(al.metrics().size <= target_size, "the map is already past the target");
+		for i in 0..target_size - al.metrics().size {
 			let address = H160::from_low_u64_be(i as u64);
 			let entry = AccessEntry::Storage { address, slot: Slot::Fix([0; 32]) };
 			assert!(!al.touch(entry, StorageOp::Read).is_hot(), "fill entries must be new");
 		}
-		assert_eq!(al.metrics().size, entries, "map filled to the requested size");
 	}
 
 	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
-		fill(&mut al, MAX_ACCESS_LIST_ENTRIES);
+		fill_to(&mut al, MAX_ACCESS_LIST_ENTRIES);
 
 		let new_entry = AccessEntry::Storage {
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
@@ -596,7 +596,7 @@ mod tests {
 	#[test]
 	fn call_peek_matches_touch_at_cap_boundary() {
 		let mut al = AccessList::new();
-		fill(&mut al, MAX_ACCESS_LIST_ENTRIES - 1);
+		fill_to(&mut al, MAX_ACCESS_LIST_ENTRIES - 1);
 
 		let target = H160::from_low_u64_be(0xdead_beef);
 		// Nested frame, so a journaled cold touch would be revertible.
@@ -674,7 +674,7 @@ mod tests {
 		agree(&mut al, entry(2), StorageOp::Write, Warmth::Cold { revertible: true });
 		al.rollback_frame();
 
-		fill(&mut al, MAX_ACCESS_LIST_ENTRIES);
+		fill_to(&mut al, MAX_ACCESS_LIST_ENTRIES);
 
 		al.enter_frame();
 		// Peek's own past-cap arm must agree with touch too.

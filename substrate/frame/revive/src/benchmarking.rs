@@ -2093,10 +2093,10 @@ mod benchmarks {
 				}
 			},
 			TouchedKey::Address => {
-				let mut address = [0xFFu8; 20];
-				address[18] = (i >> 8) as u8;
-				address[19] = i as u8;
-				AccessEntry::AccountInfo { address: H160::from(address) }
+				let mut hash = [0xFFu8; 32];
+				hash[30] = (i >> 8) as u8;
+				hash[31] = i as u8;
+				AccessEntry::CodeInfo { hash: H256::from(hash) }
 			},
 		}
 	}

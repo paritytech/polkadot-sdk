@@ -121,6 +121,8 @@ pub enum RuntimeCosts {
 	TakeStorage { len: u32, kind: StorageAccessKind },
 	/// Base weight of a call-family operation.
 	CallBase(CallWarmth),
+	/// The write half of the instantiate's `CodeInfoOf` refcount bump.
+	RefcountBump { info: Warmth },
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -459,6 +461,16 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::seal_delegate_call_hot,
 				),
 			},
+			RefcountBump { info } => match info {
+				// Upgrading a tracked entry to `Write` also journals the upgrade.
+				Warmth::Hot { charged } if !charged.covers(StorageOp::Write) => {
+					Self::deferred_write_cost::<T>()
+						.saturating_add(Self::access_list_upgrade_overhead::<T>())
+				},
+				Warmth::Hot { .. } => Weight::zero(),
+				// `code_load` already walked to the key, so only the write's re-hash is left.
+				Warmth::Cold { .. } => Self::deferred_write_cost::<T>(),
+			},
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
@@ -742,5 +754,28 @@ mod tests {
 			);
 		}
 		assert_eq!(overlay.proof_size(), 0, "the overlay probe is in-memory only: {overlay:?}");
+	}
+
+	#[test]
+	fn the_refcount_write_is_charged_exactly_when_owed() {
+		let bump = |info| Token::<Test>::weight(&RuntimeCosts::RefcountBump { info });
+		let deferred = RuntimeCosts::deferred_write_cost::<Test>();
+		let journaled_upgrade = RuntimeCosts::access_list_upgrade_overhead::<Test>();
+
+		assert_eq!(
+			bump(Warmth::cold_non_revertible()),
+			deferred,
+			"a cold bump inserts the entry at `Write`, so it owes the re-hash but no upgrade",
+		);
+		assert_eq!(
+			bump(Warmth::Hot { charged: StorageOp::Read }),
+			deferred.saturating_add(journaled_upgrade),
+			"the bump that finds the key read-paid owes the re-hash and journals the upgrade",
+		);
+		assert_eq!(
+			bump(Warmth::Hot { charged: StorageOp::Write }),
+			Weight::zero(),
+			"the bump that finds the key write-paid owes nothing: the re-hash is paid once",
+		);
 	}
 }
