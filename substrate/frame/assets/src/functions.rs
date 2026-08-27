@@ -396,6 +396,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Ok(());
 		}
 
+		Asset::<T, I>::insert(&id, details);
+
 		if !account.balance.is_zero() {
 			Self::deposit_event(Event::Burned {
 				asset_id: id.clone(),
@@ -405,7 +407,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::CallbackHandle::burned(&id, &who, account.balance);
 		}
 
-		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
 		T::Freezer::died(id.clone(), &who);
 		T::Holder::died(id, &who);
