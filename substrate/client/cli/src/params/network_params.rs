@@ -61,7 +61,10 @@ pub struct NetworkParams {
 	///
 	/// A `webrtc-direct` address must be given as
 	/// `/<ip4|ip6|dns|dns4|dns6>/<host>/udp/<port>/webrtc-direct`: the node appends its own
-	/// `/certhash/...` and `/p2p/...`, and doesn't start if either is supplied.
+	/// `/certhash/...`, and doesn't start if one is supplied.
+	///
+	/// A `/p2p/<peer id>` may be given on any address, if so it is checked against the node key
+	/// and the node doesn't start if it disagrees with it. The node appends its own otherwise.
 	#[arg(long, value_name = "PUBLIC_ADDR", num_args = 1..)]
 	pub public_addr: Vec<Multiaddr>,
 

@@ -156,11 +156,11 @@ fn configured_identity(address: &Multiaddr) -> Option<multiaddr::Protocol<'_>> {
 	})
 }
 
-/// Verify and remove the identity components an operator appended to a listen address.
+/// Verify and remove the identity components an operator appended to a configured address.
 ///
 /// `/p2p/<peer id>` and `/certhash/<hash>` are both derived from the node key, so one that
 /// disagrees with the key in use means the address published elsewhere names a different node.
-/// Refuse to start rather than listen under an identity nobody dials.
+/// Refuse to start rather than listen under an identity nobody dials, or advertise one.
 ///
 /// `node_key_origin` names where the key compared against comes from, for the operator to correct.
 fn check_and_strip_identity(
@@ -862,9 +862,12 @@ impl NetworkConfiguration {
 	/// `/certhash` to the public `webrtc-direct` ones.
 	///
 	/// A listen address may carry `/p2p/<peer id>`, and a `webrtc-direct` one `/certhash/<hash>`,
-	/// both are checked against the node key and removed.
+	/// a public address may carry `/p2p/<peer id>`. All are checked against the node key and
+	/// removed.
 	pub fn validate_and_complete_addresses(&mut self) -> Result<(), crate::error::Error> {
 		let has_webrtc_addr = |addrs: &[Multiaddr]| addrs.iter().any(webrtc::is_webrtc_address);
+		let names_identity =
+			|addrs: &[Multiaddr]| addrs.iter().any(|addr| configured_identity(addr).is_some());
 
 		let listen_webrtc = has_webrtc_addr(&self.listen_addresses);
 		let public_webrtc = has_webrtc_addr(&self.public_addresses);
@@ -886,10 +889,8 @@ impl NetworkConfiguration {
 		// Resolving the node key can write its file, so only do it for a configuration that names
 		// an identity to check or needs a certificate to present.
 		if !listen_webrtc &&
-			!self
-				.listen_addresses
-				.iter()
-				.any(|address| configured_identity(address).is_some())
+			!names_identity(&self.listen_addresses) &&
+			!names_identity(&self.public_addresses)
 		{
 			return Ok(());
 		}
@@ -910,6 +911,10 @@ impl NetworkConfiguration {
 
 		for address in self.listen_addresses.iter_mut() {
 			check_and_strip_identity(address, local_peer_id, certhash, &node_key_origin)?;
+		}
+
+		for address in self.public_addresses.iter_mut() {
+			check_and_strip_identity(address, local_peer_id, None, &node_key_origin)?;
 		}
 
 		// The listen addresses are bare now, shape check applies,

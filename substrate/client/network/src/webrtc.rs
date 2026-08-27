@@ -800,6 +800,54 @@ mod tests {
 	}
 
 	#[test]
+	fn public_address_with_matching_peer_id_accepted() {
+		// The shape an operator gets by pasting back the address they hand out as a bootnode.
+		let public_address = "/ip4/203.0.113.9/tcp/31234";
+		let mut config = webrtc_config(public_address);
+		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333".parse().unwrap()];
+		config.public_addresses =
+			vec![public_address.parse::<Multiaddr>().unwrap().with(node_peer_id())];
+
+		config.validate_and_complete_addresses().unwrap();
+
+		// Checked, then removed: every consumer of the list appends the peer id itself.
+		assert_eq!(config.public_addresses, vec![public_address.parse::<Multiaddr>().unwrap()]);
+	}
+
+	#[test]
+	fn public_address_with_wrong_peer_id_rejected() {
+		// What peers are told to dial, so this one matters more than a listener's: litep2p drops
+		// it with a warning and the node runs on, advertising nothing at that address.
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.listen_addresses = vec!["/ip4/0.0.0.0/tcp/30333".parse().unwrap()];
+		config.public_addresses = vec!["/ip4/203.0.113.9/tcp/31234"
+			.parse::<Multiaddr>()
+			.unwrap()
+			.with(Protocol::P2p(PeerId::random().into()))];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::MismatchedAddressIdentity { .. }),
+		));
+	}
+
+	#[test]
+	fn webrtc_public_address_with_peer_id_completed() {
+		// The peer id goes, the node's own `/certhash` is appended in its place.
+		let public_address = "/ip4/203.0.113.9/udp/31234/webrtc-direct";
+		let mut config = webrtc_config(public_address);
+		config.public_addresses =
+			vec![public_address.parse::<Multiaddr>().unwrap().with(node_peer_id())];
+
+		config.validate_and_complete_addresses().unwrap();
+
+		assert_eq!(
+			config.public_addresses,
+			vec![public_address.parse::<Multiaddr>().unwrap().with(node_certhash())],
+		);
+	}
+
+	#[test]
 	fn webrtc_public_address_without_a_listener_rejected() {
 		// No WebRTC listen address means no certificate, so there is nothing to advertise.
 		let mut config = webrtc_config("/ip4/203.0.113.9/udp/31234/webrtc-direct");
