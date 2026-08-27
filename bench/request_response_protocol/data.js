@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787780521605,
+  "lastUpdate": 1787819138975,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -118367,6 +118367,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2693236161,
             "range": "± 21270395",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aefcffe111a6642e6378d0532e60bd49220d60e7",
+          "message": "statement gossip: drive initial sync with a cursor over the admission journal (#12890)\n\n# Description\n\nCloses #12868\n\nStatement gossip initial sync walks the store's admission journal behind\na per-peer cursor instead of snapshotting every statement hash per\nconnecting peer (a full store scan and up to 2 MiB each). Scheduling\ncaptures the journal watermark in constant time, and the peer's\npropagation skips admissions below it, so the two delivery paths own\ndisjoint admission ranges and duplicate-statement reputation penalties\naround syncs are gone. A sync interrupted by a failed send or store read\nresumes from its cursor instead of being abandoned.\n\n## Integration\n\n`sp_statement_store::StatementStore` changes:\n\n```diff\n-fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>>;\n+fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;\n-fn statement_hashes(&self) -> Vec<Hash>;\n+fn admission_watermark(&self) -> Result<u64>;\n+fn admitted_statements(&self, cursor: u64, watermark: u64, filter: ...) -> Result<AdmittedBatch>;\n```\n\nRecent statements carry their admission sequence number, oldest first.\n`statement_hashes` had no remaining callers.",
+          "timestamp": "2026-08-27T07:10:42Z",
+          "tree_id": "36dbe0271f91717a6dc547b05fd3eca3d81ce9b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aefcffe111a6642e6378d0532e60bd49220d60e7"
+        },
+        "date": 1787819097648,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20445868,
+            "range": "± 157990",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20791311,
+            "range": "± 229012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22250499,
+            "range": "± 138677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27031059,
+            "range": "± 234434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61721307,
+            "range": "± 640469",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377878499,
+            "range": "± 6331161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2845162441,
+            "range": "± 168861197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17600115,
+            "range": "± 218223",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17452156,
+            "range": "± 173979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17870578,
+            "range": "± 204402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22327776,
+            "range": "± 159839",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62342645,
+            "range": "± 1125985",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 374602074,
+            "range": "± 5129955",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2751222065,
+            "range": "± 26977188",
             "unit": "ns/iter"
           }
         ]
