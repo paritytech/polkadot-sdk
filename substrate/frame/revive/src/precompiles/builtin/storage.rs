@@ -21,7 +21,7 @@ use crate::{
 	limits,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
-	vm::RuntimeCosts,
+	vm::{RuntimeCosts, StorageAccessKind},
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
@@ -64,7 +64,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.touch_storage_access(transient, &key, StorageOp::Write);
+				let access_kind = StorageAccessKind::new(transient, StorageOp::Write, |op| {
+					env.touch_storage_access(&key, op)
+				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
 						len: max_size,
@@ -90,7 +92,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			}) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.touch_storage_access(transient, &key, StorageOp::Read);
+				let access_kind = StorageAccessKind::new(transient, StorageOp::Read, |op| {
+					env.touch_storage_access(&key, op)
+				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
 						len: max_size,
@@ -111,7 +115,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
-				let access_kind = env.touch_storage_access(transient, &key, StorageOp::Write);
+				let access_kind = StorageAccessKind::new(transient, StorageOp::Write, |op| {
+					env.touch_storage_access(&key, op)
+				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {
 						len: max_size,

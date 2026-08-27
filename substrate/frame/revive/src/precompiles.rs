@@ -36,7 +36,7 @@ pub use crate::{
 		ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo, ReentrancyProtection,
 	},
 	metering::{Diff, Token},
-	vm::RuntimeCosts,
+	vm::{RuntimeCosts, StorageAccessKind},
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
