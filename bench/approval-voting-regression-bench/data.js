@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787850450714,
+  "lastUpdate": 1787857500247,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2",
-          "message": "Make some BEEFY keystore logic more generic (#10763)\n\nThis PR:\n1. makes some BEEFY keystore methods more generic:\n- `sign()`\n- `public_keys()`\nThis is done by implementing the specific logic in the\n`BeefyAuthorityId`.\n2. Removes the `BeefyAuthorityId::SignatureHasher` since for some\nalgorithms it doesn't make sense to have a hasher.\n\nAlso since now the `BeefyAuthorityId` implements both the signing and\nthe verification logic, we should have better consistency.\n\nRelated to\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-29T17:10:38Z",
-          "tree_id": "110d53e0e67de85770f7f7a662d7e9c98ef8764e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2"
-        },
-        "date": 1769711167414,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63623.040000000015,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.693480070580001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.789096274559963,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6626023735099986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3806319286499926,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023727050000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002239738,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005268552910000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023727050000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002239738,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6330875210499984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7763881137899709,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.566512111902991,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6376377140700016,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.446916353542702,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f32d520c591487ad3b867ef9f311953851711125",
+          "message": "Fix check-publish-compile: don't release sp-core/sp-keystore for the … (#13015)\n\n…arkworks bump\n\n`check-publish-compile` has been red on master since #12888 (\"Bump\narkworks to 0.6\"), and every PR branched off master since inherits the\nfailure:\n\n    error[E0277]: the trait bound `SpawnEssentialTaskHandle:\n      sp_core::traits::SpawnEssentialNamed` is not satisfied\n      --> polkadot/cli/src/command.rs:327:5\nnote: there are multiple different versions of crate `sp_core` in the\n      dependency graph\n\n`prdoc/pr_12888.prdoc` bumped `sp-core` (minor) and `sp-keystore`\n(patch), which puts both into the publish plan. `parity-publish apply\n--registry` then builds them from the local path (sp-core 43.1.0,\nsp-keystore 0.49.1) while every crate that is *not* in the plan —\n`sc-storage-monitor`, `sp-io`, `sp-runtime`, `sc-client-api`, ... — is\nstill pulled from crates.io carrying sp-core 43.0.0. `polkadot-cli` sees\nboth and fails to compile.\n\nNeither crate actually needs a release here:\n\n- `sp-keystore` has no change at all; `parity-publish` itself predicted\n`None` for it during the semver check on #12888.\n- `sp-core` has no source change. Its only manifest change is `ark-vrf`\nmoving from `0.5.0` to `0.5.3`, which the already published `^0.5.0`\nrequirement resolves to anyway.\n\n`sp-crypto-ec-utils` keeps its major bump.\n\nThis can be merged even if we'd release and use in our CI a\nparity-publish version that contains:\nhttps://github.com/paritytech/parity-publish/pull/96 (which addresses\nthe problem of two different dependencies and not being able to pick one\nas a dependant - e.g. same trait but pickable from multiple versions,\nwhile both being usable in a dependant).\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-08-27T17:06:57Z",
+          "tree_id": "c3388f66444cc5d410ebc3d6f89cf439ad8d117d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f32d520c591487ad3b867ef9f311953851711125"
+        },
+        "date": 1787857459873,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.653200242880002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.822278349759974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3732141760599896,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6625748461099987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6918929110299996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018842320000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.580192498192903,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005310647810000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017910639999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.868539318709967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.660068145060004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017910639999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018842320000000002,
             "unit": "seconds"
           }
         ]
