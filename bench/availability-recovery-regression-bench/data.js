@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787819958300,
+  "lastUpdate": 1787830826908,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ed9375f1c0462eb5cd24d7ed78732faa17af931b",
-          "message": "Update the resolc and retester versions (#10907)\n\n## Summary\n\nThis PR allows us to use nightly versions of the resolc compiler in the\ndifferential tests CI which include fixes not yet available in the\npublished version of the compiler. It also bumps the commit hash of\ndifferential tests used to a version that allows for gas limits to be\nspecified manually to circumvent the issue observed in\nhttps://github.com/paritytech/contract-issues/issues/259\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-29T14:26:44Z",
-          "tree_id": "6f78399931e3a9e257d74e1063e907544d44f23c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ed9375f1c0462eb5cd24d7ed78732faa17af931b"
-        },
-        "date": 1769701138217,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12402666350000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.078842028533336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.883196476233334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "27e5022881702d5c8fe89457e3e7c01fcd536e07",
+          "message": "Fix 3 more flaky tests (#13011)\n\nThis fixes three more flaky tests.\n\n### 1. ensure_operation_limits_works (`sc-rpc-spec-v2`)\n\nAfter a storage operation completed, the test issued a second operation\nand required it to be accepted. But the permit is released by `Drop` on\nthe spawned task *after* it has emitted `OperationStorageDone`, so\nreceiving that event says nothing about when capacity is back. On a\nloaded runner the second call hit `LimitReached`.\n\nThe Semaphore release is already covered by other tests, so this tests\nscope was slimmed down. I had some other designs but all of them either\nrequired waiting or some extra test helper that kind of defeated the\npoint.\n\n### 2. recovers_from_only_chunks_if_pov_large::case_3\n(`polkadot-availability-recovery`)\n\nThe test harness answered every chunk request and `unwrap()`ed the\n`oneshot` send. Recovery fans requests out in parallel and drops the\nreceivers of the ones still outstanding as soon as it has enough chunks\nto reconstruct, so a late answer fails the send , which is ok.\n\n### 3. expiry_sweep_leaves_inconsistent_data_in_place\n(`sc-statement-store`)\n\nThe test submitted a statement and then overwrote its body with `0xFF`\nvia a raw `db.commit` to simulate corruption. `col::STATEMENTS` is a\nparity-db preimage column, where a `Set` on an existing key is skipped\n(\"Replace is not supported\"), so the write was never applied.\n\nThe test only passed while a read still caught it in the commit overlay,\nand failed once the log worker had processed the commit. The\ninconsistency is now planted directly: a due expiry row for a hash the\nstore never issued, whose stored body does not decode, plus an orphan\nexpiry row with no body at all. Both sweep paths (`Corrupt statement`,\n`Orphan\nexpiry index row`) are exercised.\n\n### Failed runs, 2026-07-12 → 2026-08-26\n\n| Test | Crate | Runs |\n|------|-------|-----:|\n| `chain_head::tests::ensure_operation_limits_works` | `sc-rpc-spec-v2`\n| 7 |\n| `tests::recovers_from_only_chunks_if_pov_large::case_3` |\n`polkadot-availability-recovery` | 6 |\n| `tests::expiry_sweep_leaves_inconsistent_data_in_place` |\n`sc-statement-store` | 5 |\n\nExample runs:\n\n- **`ensure_operation_limits_works`** — [2026-07-14\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/29372580523),\n[2026-08-08\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/31253233733),\n[2026-08-14\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/31802243774),\n[2026-08-23\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32646478557)\n- **`recovers_from_only_chunks_if_pov_large::case_3`** — [2026-07-16\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/29479000772),\n[2026-08-18 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32125030187),\n[2026-08-25 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32831443104),\n[2026-08-25\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/32850678430)\n- **`expiry_sweep_leaves_inconsistent_data_in_place`** — [2026-08-14\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/31830449615),\n[2026-08-21\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32464186830),\n[2026-08-24\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32706187714),\n[2026-08-26 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32952133342)",
+          "timestamp": "2026-08-27T10:04:40Z",
+          "tree_id": "6972470b2c8a4e364218b53819bc952e5e98bda9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/27e5022881702d5c8fe89457e3e7c01fcd536e07"
+        },
+        "date": 1787830785293,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.137754004566666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1423650044666667,
             "unit": "seconds"
           }
         ]
