@@ -136,6 +136,8 @@ tokio = { workspace = true, features = ["time"] }
 [dev-dependencies]
 assert_cmd = { workspace = true }
 cumulus-test-runtime = { workspace = true }
+# The consumer of the JAM PoV, so the wire contract is tested against the real reader.
+parasim-service = { path = "../../../../parachain-service/testing/parasim-service" }
 nix = { features = ["signal"], workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }

@@ -48,6 +48,14 @@ pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 const JAM_SLOT_DURATION_MS: u64 = 6000;
 
+/// The [`cumulus_primitives_core::AdditionalData`] key under which the anchor state proof
+/// travels inside the PoV.
+///
+/// Namespaced by producer, next to the relay chain's own `"polkadot/relay_proof"`. This is a
+/// wire contract with the parachain service, which reads exactly this key; a test pins it
+/// against the reader's own constant.
+pub(crate) const ANCHOR_STATE_PROOF_KEY: &str = "jam/anchor_state_proof";
+
 /// Soft bound on the state proof the node returns. One key's proof is bounded by the trie depth,
 /// so this only has to be comfortably large.
 const PROOF_SIZE_LIMIT: u32 = 64 * 1024;

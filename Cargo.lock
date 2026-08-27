@@ -15929,6 +15929,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "parasim-service"
+version = "0.1.0"
+dependencies = [
+ "jam-pvm-common",
+ "jam-state-helpers",
+ "jam-types",
+ "parachain-service-interface",
+ "parity-scale-codec",
+ "polkavm-derive 0.36.0",
+]
+
+[[package]]
 name = "parity-db"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17550,6 +17562,7 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
  "parachains-common-types",
+ "parasim-service",
  "parity-scale-codec",
  "polkadot-cli",
  "polkadot-primitives",
