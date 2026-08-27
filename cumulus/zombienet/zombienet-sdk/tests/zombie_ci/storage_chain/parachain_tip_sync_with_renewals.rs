@@ -35,20 +35,31 @@ const GAP_SYNC_BODY_SAFETY_MARGIN: u32 =
 /// Number of blocks below the finalized tip for which the sync node backfills bodies
 /// during gap sync.
 const GAP_SYNC_BODY_WINDOW: u64 = (FIXTURE_RETENTION_PERIOD - GAP_SYNC_BODY_SAFETY_MARGIN) as u64;
-/// Caps the sync node's gap-sync request size (`--max-blocks-per-request`).
+/// Pins the sync node's gap-sync request size (`--max-blocks-per-request`) to a single
+/// block so the body cutoff is a sharp per-block boundary.
 ///
-/// Gap sync strips bodies only from request ranges that lie *entirely* at or below the
-/// body cutoff; a range straddling the cutoff downloads bodies for *all* of its blocks
-/// (it is never split). So bodies can leak up to one request-range below the cutoff.
-/// Bounding the request size bounds that leak, and the matching margin baked into
-/// `stores_below_window` keeps every store provably header-only regardless of how the
-/// gap ranges happen to align with the cutoff.
-const SYNC_NODE_MAX_BLOCKS_PER_REQUEST: u64 = 16;
+/// Gap sync strips bodies only from request ranges lying *entirely* at or below the body
+/// cutoff; a multi-block range straddling the cutoff downloads bodies for *all* of its
+/// blocks (it is never split), which would pull store bodies from below the cutoff. With a
+/// request size of 1 there is no straddle: a block gets a body iff it is strictly above the
+/// cutoff, so every store block at or below the cutoff stays header-only.
+const SYNC_NODE_MAX_BLOCKS_PER_REQUEST: u64 = 1;
+/// Extra blocks of finality head-room, on top of the body window, before the sync node is
+/// added.
+///
+/// The body cutoff is `warp_target - window`, and `warp_target` is the parachain block the
+/// sync node warps to — which lags the collator's finalized head because the sync node's
+/// embedded relay chain is still catching up when the parachain warp target is fixed. That
+/// lag has been observed as high as ~25 blocks on slow CI runners (vs. a handful locally).
+/// If the cutoff lands below `last_store_block` the top stores are backfilled with bodies
+/// and served, breaking `assert_missing`. This margin keeps the cutoff above every store
+/// even under a large warp-target lag.
+const WARP_TARGET_LAG_MARGIN: u64 = 48;
 /// Timeout for the chain to finalize past
-/// `last_store_block + GAP_SYNC_BODY_WINDOW + SYNC_NODE_MAX_BLOCKS_PER_REQUEST` before the
-/// sync node is added (~115 blocks; parachain finality advances at roughly one block per
-/// ~10s once relay-chain finality lag is included).
-const GAP_WINDOW_ADVANCE_TIMEOUT_SECS: u64 = 1200;
+/// `last_store_block + GAP_SYNC_BODY_WINDOW + WARP_TARGET_LAG_MARGIN` before the sync node
+/// is added (~150 blocks; parachain finality advances at roughly one block per ~10s once
+/// relay-chain finality lag is included).
+const GAP_WINDOW_ADVANCE_TIMEOUT_SECS: u64 = 1800;
 const SESSION_CHANGE_TIMEOUT_SECS: u64 = 300;
 const BITSWAP_RPC_POLL_TIMEOUT_SECS: u64 = 600;
 const RENEW_BLOCK_SYNC_TIMEOUT_SECS: u64 = 600;
@@ -62,6 +73,18 @@ fn verify_metadata(metadata: &super::fixture::SnapshotMetadata) -> Result<()> {
 	anyhow::ensure!(metadata.n_stores == N_STORES);
 	anyhow::ensure!(N_RENEW_EXERCISES <= metadata.n_stores);
 	Ok(())
+}
+
+/// Extracts the gap-sync target from a node's logs (the `#N` in
+/// `Starting gap sync #1 - #N`), taking the highest if it appears more than once.
+fn parse_gap_target(logs: &str) -> Option<u64> {
+	logs.lines()
+		.filter_map(|line| {
+			let rest = &line[line.find("Starting gap sync #")?..];
+			let after = rest.split(" - #").nth(1)?;
+			after.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok()
+		})
+		.max()
 }
 
 async fn add_sync_node(
@@ -247,19 +270,20 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 			.await
 			.context(format!("Node did not reach block height {target_height}"))?;
 
-		// The sync node backfills gap bodies for the last `GAP_SYNC_BODY_WINDOW`
-		// finalized blocks and would serve the original stores via bitswap if they
-		// fell inside that window. Wait until finality has moved every store block
-		// below the window, so the warp-synced node provably lacks the stored data
-		// and the renewals below have to be fetched via bitswap.
+		// The sync node backfills gap bodies for the last `GAP_SYNC_BODY_WINDOW` blocks
+		// below its warp target and would serve the original stores via bitswap if they
+		// fell inside that window. Wait until finality has moved every store block below
+		// the window, so the warp-synced node provably lacks the stored data and the
+		// renewals below have to be fetched via bitswap.
 		//
-		// The extra `SYNC_NODE_MAX_BLOCKS_PER_REQUEST` margin accounts for gap sync
-		// downloading bodies for a whole request range that straddles the cutoff: with
-		// the cutoff at least one request range above `last_store_block`, the lowest
-		// body-carrying range starts strictly above the stores, so they stay header-only.
+		// The cutoff is `warp_target - GAP_SYNC_BODY_WINDOW`, and `warp_target` lags the
+		// collator's finalized head (the sync node's relay chain is still catching up when
+		// the parachain warp target is fixed). The extra `WARP_TARGET_LAG_MARGIN` keeps the
+		// cutoff above `last_store_block` even under that lag; `--max-blocks-per-request=1`
+		// makes the cutoff sharp so no straddling request pulls a store body from below it.
 		let stores_below_window = snapshots.metadata.last_store_block +
 			GAP_SYNC_BODY_WINDOW +
-			SYNC_NODE_MAX_BLOCKS_PER_REQUEST;
+			WARP_TARGET_LAG_MARGIN;
 		collator
 			.wait_metric_with_timeout(
 				FINALIZED_BLOCK_METRIC,
@@ -299,6 +323,21 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 		.await
 		.context(format!("Node did not reach block height {warp_target}"))?;
 	verify_warp_sync_completed(sync_node).await?;
+
+	// Fail fast with an actionable message if the warp target lagged far enough that the
+	// body cutoff (`gap_target + 1 - GAP_SYNC_BODY_WINDOW`) did not clear the stores —
+	// otherwise this surfaces as a confusing `assert_missing` failure on an arbitrary entry.
+	if let Some(gap_target) = parse_gap_target(&sync_node.logs().await?) {
+		let cutoff = (gap_target + 1).saturating_sub(GAP_SYNC_BODY_WINDOW);
+		anyhow::ensure!(
+			cutoff >= snapshots.metadata.last_store_block,
+			"gap-sync body cutoff {cutoff} (warp target {gap_target}) is below the last store \
+			 block {}: the warp target lagged collator finality by more than \
+			 WARP_TARGET_LAG_MARGIN ({WARP_TARGET_LAG_MARGIN}); increase it so the cutoff clears \
+			 the stores",
+			snapshots.metadata.last_store_block,
+		);
+	}
 
 	let entries: Vec<Entry> =
 		(0..N_RENEW_EXERCISES).map(|i| (content_hash(i), algorithm(i))).collect();
