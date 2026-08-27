@@ -54,6 +54,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 	// Versioning replacements
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::declaration::ReviveRuntimeApiVersionDeclarations",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::tracer::TracerTypeV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TracerTypeV1>"
 	),
@@ -80,6 +84,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::traces::TraceV2",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::types::traces::TraceEntryV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::TraceEntryV1>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::types::traces::CallTraceV1",
@@ -256,6 +264,38 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockVersionedOutputPayload",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_hash::BlockHashInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockHashInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_hash::BlockHashVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockHashVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_hash::BlockHashOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockHashOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::block_hash::BlockHashVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockHashVersionedOutputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataInputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataInputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataVersionedInputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataVersionedInputPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataOutputPayloadV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataVersionedOutputPayload",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataVersionedOutputPayload>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::balance::BalanceInputPayloadV1",

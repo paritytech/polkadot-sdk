@@ -35,6 +35,7 @@ pub use crate::{
 	types::ProtocolName,
 };
 
+pub use litep2p::protocol::libp2p::bitswap::BitswapHandle as Litep2pBitswapHandle;
 pub use sc_network_types::{build_multiaddr, ed25519};
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
@@ -766,13 +767,25 @@ impl NetworkConfiguration {
 }
 
 /// IPFS server configuration.
-pub struct IpfsConfig<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
-	/// Network-backend-specific Bitswap configuration.
-	pub bitswap_config: N::BitswapConfig,
+pub struct IpfsConfig {
+	/// Litep2p Bitswap protocol config, consumed by the litep2p network backend.
+	pub litep2p_bitswap_config: litep2p::protocol::libp2p::bitswap::Config,
 	/// Indexed transactions provider.
 	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
 	/// IPFS bootstrap nodes.
 	pub bootnodes: Vec<MultiaddrWithPeerId>,
+}
+
+impl IpfsConfig {
+	/// Construct an [`IpfsConfig`] together with the litep2p transport-side Bitswap handle.
+	pub fn new(
+		block_provider: Box<dyn crate::IpfsBlockProvider>,
+		bootnodes: Vec<MultiaddrWithPeerId>,
+	) -> (Self, Litep2pBitswapHandle) {
+		let (litep2p_bitswap_config, litep2p_handle) =
+			litep2p::protocol::libp2p::bitswap::Config::new();
+		(Self { litep2p_bitswap_config, block_provider, bootnodes }, litep2p_handle)
+	}
 }
 
 /// Network initialization parameters.
@@ -803,7 +816,7 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub block_announce_config: N::NotificationProtocolConfig,
 
 	/// Bitswap configuration, if the server has been enabled.
-	pub ipfs_config: Option<IpfsConfig<Block, H, N>>,
+	pub ipfs_config: Option<IpfsConfig>,
 
 	/// Notification metrics.
 	pub notification_metrics: NotificationMetrics,
