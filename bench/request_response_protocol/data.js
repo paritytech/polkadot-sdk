@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787850444718,
+  "lastUpdate": 1787856073428,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -118907,6 +118907,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3106413605,
             "range": "± 47039188",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f32d520c591487ad3b867ef9f311953851711125",
+          "message": "Fix check-publish-compile: don't release sp-core/sp-keystore for the … (#13015)\n\n…arkworks bump\n\n`check-publish-compile` has been red on master since #12888 (\"Bump\narkworks to 0.6\"), and every PR branched off master since inherits the\nfailure:\n\n    error[E0277]: the trait bound `SpawnEssentialTaskHandle:\n      sp_core::traits::SpawnEssentialNamed` is not satisfied\n      --> polkadot/cli/src/command.rs:327:5\nnote: there are multiple different versions of crate `sp_core` in the\n      dependency graph\n\n`prdoc/pr_12888.prdoc` bumped `sp-core` (minor) and `sp-keystore`\n(patch), which puts both into the publish plan. `parity-publish apply\n--registry` then builds them from the local path (sp-core 43.1.0,\nsp-keystore 0.49.1) while every crate that is *not* in the plan —\n`sc-storage-monitor`, `sp-io`, `sp-runtime`, `sc-client-api`, ... — is\nstill pulled from crates.io carrying sp-core 43.0.0. `polkadot-cli` sees\nboth and fails to compile.\n\nNeither crate actually needs a release here:\n\n- `sp-keystore` has no change at all; `parity-publish` itself predicted\n`None` for it during the semver check on #12888.\n- `sp-core` has no source change. Its only manifest change is `ark-vrf`\nmoving from `0.5.0` to `0.5.3`, which the already published `^0.5.0`\nrequirement resolves to anyway.\n\n`sp-crypto-ec-utils` keeps its major bump.\n\nThis can be merged even if we'd release and use in our CI a\nparity-publish version that contains:\nhttps://github.com/paritytech/parity-publish/pull/96 (which addresses\nthe problem of two different dependencies and not being able to pick one\nas a dependant - e.g. same trait but pickable from multiple versions,\nwhile both being usable in a dependant).\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-08-27T17:06:57Z",
+          "tree_id": "c3388f66444cc5d410ebc3d6f89cf439ad8d117d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f32d520c591487ad3b867ef9f311953851711125"
+        },
+        "date": 1787856032221,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 24684329,
+            "range": "± 355570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 24955624,
+            "range": "± 480258",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 26925140,
+            "range": "± 824804",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 31900895,
+            "range": "± 758218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 66212043,
+            "range": "± 2323105",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 378640699,
+            "range": "± 12192880",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2899822661,
+            "range": "± 79318700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18513334,
+            "range": "± 467275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18490166,
+            "range": "± 443761",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19359136,
+            "range": "± 483186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23838775,
+            "range": "± 393806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66822197,
+            "range": "± 1318410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 384111958,
+            "range": "± 4715171",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3074322131,
+            "range": "± 104602592",
             "unit": "ns/iter"
           }
         ]
