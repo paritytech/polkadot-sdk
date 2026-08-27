@@ -342,6 +342,8 @@ enum ServiceStoreError {
     UnknownService,
     /// The Parachain Service is not its effective supervisor.
     NotSupervised,
+    /// A `forget` naming a preimage the target never requested.
+    NotRequested,
 }
 
 /// Why a `Service`-targeted `solicit` failed.

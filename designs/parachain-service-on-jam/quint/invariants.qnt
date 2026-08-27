@@ -9,6 +9,29 @@ module invariants {
   import state_balance.* from "./state_balance"
   import state_vars.* from "./state_vars"
   import head_commitment.* from "./head_commitment"
+  import foreign_services.* from "./foreign_services"
+
+  /// §6.5: every service this model created is supervised by the Parachain
+  /// Service, unless supervision was explicitly handed away, in which case the
+  /// service supervises itself. No third party ever appears, because only
+  /// `set_service_supervisor` can move the link and the model only ever names
+  /// the service itself.
+  val foreign_supervisor_is_us_or_self: bool =
+  foreignServices.keys().forall(s =>
+    effectiveSupervisor(foreignServices, s) == ParachainServiceId
+      or effectiveSupervisor(foreignServices, s) == s)
+
+  /// §6.5: created services land at or above the first public index, never in
+  /// the registrar's range, and never collide with a live one.
+  val foreign_ids_are_public: bool =
+  foreignServices.keys().forall(s =>
+    match s { | MkServiceId(i) => i >= MinPublicServiceIndex | _ => false })
+
+  /// The Parachain Service never appears among the services it supervises:
+  /// `create_service` allocates a fresh public id and `eject_service` refuses
+  /// to name self.
+  val foreign_excludes_self: bool =
+  not(foreignServices.keys().contains(ParachainServiceId))
 
   /// The hash `accumulate` returned is exactly the commitment over the heads
   /// that changed in the step (§5.5): `None` when none changed, the single
@@ -441,6 +464,9 @@ module invariants {
     code_activation_releases_old,
     head_state_matches_outcomes,
     head_commitment_matches_changed_heads,
+    foreign_supervisor_is_us_or_self,
+    foreign_ids_are_public,
+    foreign_excludes_self,
     parent_head_continuity,
     refine_error_logged,
     incoming_transfer_count_consistent,

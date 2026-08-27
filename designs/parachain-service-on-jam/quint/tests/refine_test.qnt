@@ -79,7 +79,7 @@ module refine_test {
     val otherLen = 999                    // != FixedCodeLen
     val baseAcc: AccumulateOutcome = {
       state: initialState, jamDesignate: None, jamSolicit: Set(),
-      jamForget: Set(), jamAssigns: List(), logs: List()
+      jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     val pi0 = initialState.paraInfo(para)
     // 1. Solicit at the code's OWN len: matches the active code, so it only
@@ -137,7 +137,7 @@ module refine_test {
       Some(headHash(0)), Some(1), List(), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
-      initialState, { result: panicked, authTrace: 7 }, Set(), None, FixedCodeLen, 5)
+      initialState, { result: panicked, authTrace: 7 }, Set(), None, FixedCodeLen, 5, Map())
     all {
       // Reporting is the only way a PVF records a reason.
       assert(reported == WorkOk(Err({ paraId: para, error: Opaque(42) }))),

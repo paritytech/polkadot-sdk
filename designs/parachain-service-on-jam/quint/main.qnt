@@ -63,6 +63,7 @@ module main {
     lastStepWorkResults' = List(),
     lastStepAssigns' = List(),
     lastHeadRoot' = None,
+    foreignServices' = Map(),
     logPrunedBelow' = Map()
   }
 
@@ -240,7 +241,8 @@ module main {
       else if (numPkgs == 1) List(wp1Wr)
       else List(wp1Wr, wp2Wr)
     val blockOut = accumulateBlock(
-      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages)
+      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
+      foreignServices)
 
     // Fold each candidate's `(para, lookup-anchor)` into the ghost
     // `logPrunedBelow`; a later package for the same para wins.
@@ -256,6 +258,7 @@ module main {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastHeadRoot' = blockOut.headRoot,
+      foreignServices' = blockOut.foreign,
       logPrunedBelow' = newLogPrunedBelow
     }
   }
@@ -276,6 +279,7 @@ module main {
       lastStepAssigns' = List(),
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
+      foreignServices' = foreignServices,
       logPrunedBelow' = logPrunedBelow
     }
   }
@@ -297,6 +301,7 @@ module main {
       lastStepAssigns' = List(),
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
+      foreignServices' = foreignServices,
       logPrunedBelow' = logPrunedBelow
     }
   }

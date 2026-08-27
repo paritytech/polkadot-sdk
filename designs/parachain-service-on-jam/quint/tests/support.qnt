@@ -10,6 +10,7 @@ module support {
   import types.* from "../types"
   import messages.* from "../messages"
   import state.* from "../state"
+  import foreign_services.* from "../foreign_services"
   import refine.* from "../refine"
   import accumulate.* from "../accumulate"
   import head_commitment.* from "../head_commitment"
@@ -56,7 +57,8 @@ module support {
     })
     // Run the exact per-block Accumulate pipeline the model step runs.
     val blockOut = accumulateBlock(
-      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages)
+      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
+      foreignServices)
     all {
       svc' = blockOut.state,
       now' = blockNow,
@@ -66,6 +68,7 @@ module support {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastHeadRoot' = blockOut.headRoot,
+      foreignServices' = blockOut.foreign,
       logPrunedBelow' =
         blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
     }
@@ -88,6 +91,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastHeadRoot' = lastHeadRoot,
+    foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
   }
 
@@ -101,6 +105,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastHeadRoot' = lastHeadRoot,
+    foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
   }
 
@@ -115,6 +120,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastHeadRoot' = lastHeadRoot,
+    foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
   }
 
@@ -172,7 +178,8 @@ module support {
     }
     val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val out = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow
+      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow,
+      foreignServices
     )
     all {
       svc' = out.state,
@@ -186,20 +193,32 @@ module support {
       lastStepWorkResults' = List(wr),
       lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
       lastHeadRoot' = headCommitment(svc, out.state),
+      foreignServices' = out.foreign,
       logPrunedBelow' = logPrunedBelow
     }
   }
 
   /// A fresh `AccumulateOutcome` over `s`, for replaying one upward message.
-  pure def accOver(s: ParachainServiceState): AccumulateOutcome = {
+  pure def accOverWith(
+    s: ParachainServiceState, fs: ForeignServices
+  ): AccumulateOutcome = {
     state: s, jamDesignate: None, jamSolicit: Set(),
-    jamForget: Set(), jamAssigns: List(), logs: List()
+    jamForget: Set(), jamAssigns: List(), logs: List(), foreign: fs
   }
+
+  pure def accOver(s: ParachainServiceState): AccumulateOutcome =
+    accOverWith(s, Map())
 
   pure def replay(
     s: ParachainServiceState, caller: ParaId, now: Timeslot, m: UpwardMessage
   ): AccumulateOutcome =
     applyUpwardMessage(accOver(s), caller, FixedCodeLen, now, now, m)
+
+  /// Replay one upward message against a given set of supervised services.
+  pure def replayForeign(
+    fs: ForeignServices, caller: ParaId, now: Timeslot, m: UpwardMessage
+  ): AccumulateOutcome =
+    applyUpwardMessage(accOverWith(initialState, fs), caller, FixedCodeLen, now, now, m)
 
   /// Refine one otherwise well-formed candidate for `caller`, carrying `msgs`.
   pure def refineWithMsgs(

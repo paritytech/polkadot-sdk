@@ -108,7 +108,7 @@ module accumulate_test {
       lookupAnchor: 500
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), None, FixedCodeLen, 500)
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), None, FixedCodeLen, 500, Map())
     all {
       assert(seeded.paraLog(para).length() == 1),
       // Nothing at all changed, and the old entry survived.

@@ -146,7 +146,7 @@ module transfers_test {
       lookupAnchor: at
     }
     val out = accumulateOnePackage(
-      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, at + 1)
+      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, at + 1, Map())
     all {
       // The reserved portion cost nothing beyond the baseline.
       assert(excessTransferFootprint(MaxIncomingTransfers) == 0),

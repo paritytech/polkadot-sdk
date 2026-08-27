@@ -71,6 +71,9 @@ module messages {
   type ServiceStoreError =
   | StoreUnknownService
   | StoreNotSupervised
+  // `forget` naming a preimage the target never requested: JAM's transition
+  // has no clause for an absent request, so it returns HUH.
+  | StoreNotRequested
 
   /// Why a `Service`-targeted `solicit` failed.
   type ServiceSolicitError =

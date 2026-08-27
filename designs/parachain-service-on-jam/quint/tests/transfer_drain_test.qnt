@@ -51,7 +51,7 @@ module transfer_drain_test {
       lookupAnchor: 5
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 10)
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 10, Map())
     all {
       assert(seeded.incomingTransfers.keys() == Set(1, 9)),
       // Clamped to 5: bucket 1 drained, bucket 9 survives.
@@ -92,7 +92,7 @@ module transfer_drain_test {
       lookupAnchor: 2
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 3)
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 3, Map())
     all {
       // The three extra entries were charged their per-bucket cost.
       assert(seeded.paraInfo(ah).usedStateBalance == used0 + 3 * big),
@@ -137,7 +137,7 @@ module transfer_drain_test {
     pure def replay(msgs: List[UpwardMessage]): ParachainServiceState =
       accumulateOnePackage(
         tight, { result: WorkOk(Ok(candidate(msgs))), authTrace: 0 },
-        Set(), None, FixedCodeLen, MaxIncomingTransfers + 1).state
+        Set(), None, FixedCodeLen, MaxIncomingTransfers + 1, Map()).state
     val consumeFirst =
       replay(List(ConsumeTransfersUpTo(MaxIncomingTransfers), Solicit({ target: Parachain(ah), hash: h, len: len })))
     val solicitFirst =

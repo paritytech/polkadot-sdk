@@ -266,7 +266,8 @@ module code_upgrades_test {
       jamSolicit: Set(),
       jamForget: Set(),
       jamAssigns: List(),
-      logs: List()
+      logs: List(),
+      foreign: Map()
     }
     val pinned = applyUpwardMessage(
       baseAcc, para, FixedCodeLen, 0, 0,

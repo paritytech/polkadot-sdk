@@ -53,6 +53,11 @@ module types {
   /// assigner, so applying a core's queue re-asserts this id as the assigner.
   pure val ParachainServiceId: ServiceId = MkServiceId(1)
 
+  /// Lowest service index a non-privileged service may be created at; below it
+  /// only the registrar may place one (gray paper `C_minpublicindex = 2^16`).
+  /// Services the Parachain Service creates therefore land at or above this.
+  pure val MinPublicServiceIndex: int = 65536
+
   type CoreIndex = int
   type Timeslot = int
   type Balance = int

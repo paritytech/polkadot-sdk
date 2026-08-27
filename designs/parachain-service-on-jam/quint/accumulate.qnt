@@ -19,6 +19,7 @@ module accumulate {
   import validator_keys.* from "./validator_keys"
   import management.* from "./management"
   import head_commitment.* from "./head_commitment"
+  import foreign_services.* from "./foreign_services"
 
   /// Per-work-package accumulate outcome.
   type AccumulateOutcome = {
@@ -31,7 +32,9 @@ module accumulate {
     // JAM `assign` host-function calls made while replaying upward messages.
     jamAssigns: List[AssignCall],
     // Log entries to append against the para's `parachain_log`.
-    logs: List[AccumulateLog]
+    logs: List[AccumulateLog],
+    // Supervised JAM services, which the §6.5 operations mutate.
+    foreign: ForeignServices
   }
 
   /// Result of accumulating ONE work package's `ParachainWorkDigest` against
@@ -45,7 +48,8 @@ module accumulate {
     // The `(para, lookup-anchor)` this package pruned its log against, if it
     // processed a candidate (`None` for a JAM-substituted `WorkErr`). The
     // caller folds it into the ghost `logPrunedBelow`.
-    logPruned: Option[(ParaId, Timeslot)]
+    logPruned: Option[(ParaId, Timeslot)],
+    foreign: ForeignServices
   }
 
   /// Result of accumulating ALL of a block's work packages in sequence.
@@ -57,7 +61,8 @@ module accumulate {
     jamAssigns: List[AssignCall],
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record, in
     // order; the caller folds these into the ghost `logPrunedBelow`.
-    logPruned: List[(ParaId, Timeslot)]
+    logPruned: List[(ParaId, Timeslot)],
+    foreign: ForeignServices
   }
 
   /// Outcome of a whole block's Accumulate (`accumulateBlock`): the new state
@@ -75,7 +80,8 @@ module accumulate {
     results: List[WorkResult],
     // The 32-byte value `accumulate` returns: the head commitment (§5.5).
     // `None` when no head changed and the service returns no hash.
-    headRoot: Option[MerkleHash]
+    headRoot: Option[MerkleHash],
+    foreign: ForeignServices
   }
 
   // ---- Replay a single upward message -----------------------------------
@@ -97,14 +103,14 @@ module accumulate {
           jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(d.log)
+          logs: acc.logs.appendOption(d.log),
+          foreign: acc.foreign
       }
       | Solicit(payload) =>
       match payload.target {
-      | Service(_) =>
-      // Undecided for the same reasons as a Service-targeted `Forget`, plus
-      // the target's own threshold, which is not modelled either.
-      acc
+      | Service(s) =>
+      val o = foreignSolicit(acc.foreign, s, payload.hash, payload.len, now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Parachain(target) =>
       val pi = acc.state.paraInfo(target)
       val activeVc = pi.validationCode
@@ -144,28 +150,27 @@ module accumulate {
           jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(d.log)
+          logs: acc.logs.appendOption(d.log),
+          foreign: acc.foreign
         }
       }
       }
-      | EjectService(_) =>
-      // Undecided: existence, supervision and the target's emptiness are all
-      // unmodelled.
-      acc
-      | CreateService(_) =>
-      // Undecided: whether this service can fund it, and the id JAM would
-      // assign, are both unmodelled.
-      acc
-      | SetServiceSupervisor(_) =>
-      // Undecided: existence of both services and supervision are unmodelled.
-      acc
+      | EjectService(payload) =>
+      val o = foreignEject(acc.foreign, payload.service, now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | CreateService(payload) =>
+      val o = foreignCreate(
+        acc.foreign, payload.codeHash, payload.len, payload.id, now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | SetServiceSupervisor(payload) =>
+      val o = foreignSetSupervisor(
+        acc.foreign, payload.service, payload.newSupervisor)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Forget(payload) =>
       match payload.target {
-      | Service(_) =>
-      // Outcome depends on whether the target exists and whom this service
-      // supervises, both abstracted here, as is the expunge state a success
-      // would turn on. Left undecided.
-      acc
+      | Service(s) =>
+      val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Parachain(target) =>
       if (not(acc.state.isLive(target))) acc
       else {
@@ -208,7 +213,8 @@ module accumulate {
             jamSolicit: acc.jamSolicit,
             jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
             jamAssigns: acc.jamAssigns,
-            logs: acc.logs.appendOption(d.log)
+            logs: acc.logs.appendOption(d.log),
+            foreign: acc.foreign
           }
         }
       }
@@ -225,7 +231,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.appendOption(o.log)
+        logs: acc.logs.appendOption(o.log),
+        foreign: acc.foreign
       }
       | ParachainSetStateBalance(payload) =>
       // §6.1: only legal from Coretime chain (rights check is in §6).
@@ -237,7 +244,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs)
+        logs: acc.logs.concat(o.logs),
+        foreign: acc.foreign
       }
       | ParachainSetHead(payload) =>
       val o = parachainSetHead(acc.state, payload.paraId, payload.newHead)
@@ -253,7 +261,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit.union(o.jamSolicit),
         jamForget: acc.jamForget.union(o.jamForget),
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs)
+        logs: acc.logs.concat(o.logs),
+        foreign: acc.foreign
       }
       | ParachainCleanUp(paraId) =>
       val o = parachainCleanUp(acc.state, paraId, now)
@@ -263,7 +272,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget.union(o.jamForget),
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs)
+        logs: acc.logs.concat(o.logs),
+        foreign: acc.foreign
       }
       | TransferOut(payload) =>
       if (payload.source.optionGetOr(ParachainServiceId) != ParachainServiceId)
@@ -350,9 +360,9 @@ module accumulate {
         state: d.state,
         logs: acc.logs.appendOption(d.log)
       }
-      | RemoveServiceStorage(_) =>
-      // Undecided for the same reasons as a Service-targeted `Forget`.
-      acc
+      | RemoveServiceStorage(payload) =>
+      val o = foreignRemoveStorage(acc.foreign, payload.service, payload.key)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | RemoveKV(payload) =>
       if (not(acc.state.isLive(payload.paraId))) acc
       else {
@@ -451,7 +461,8 @@ module accumulate {
     solicited: Set[(ParaId, Hash, int)],
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
-    now: Timeslot
+    now: Timeslot,
+    foreign: ForeignServices
   ): PerPackageOutcome = {
     match wr.result {
       // §3.3: gray paper `WorkExecResult::Error`: JAM substituted an
@@ -462,7 +473,8 @@ module accumulate {
           solicited: solicited,
           jamDesignate: prevDesignate,
           jamAssigns: List(),
-          logPruned: None
+          logPruned: None,
+          foreign: foreign
         }
       | WorkOk(digest) =>
         match digest {
@@ -479,7 +491,8 @@ module accumulate {
               solicited: solicited,
               jamDesignate: prevDesignate,
               jamAssigns: List(),
-              logPruned: None
+              logPruned: None,
+              foreign: foreign
             }
           | Ok(ok) =>
             val pre = accumulateOkPrefix(state, ok, codeLen, now)
@@ -495,7 +508,8 @@ module accumulate {
                 solicited: solicited,
                 jamDesignate: prevDesignate,
                 jamAssigns: List(),
-                logPruned: None
+                logPruned: None,
+                foreign: foreign
               }
             } else {
               val baseAcc = {
@@ -504,7 +518,8 @@ module accumulate {
                 jamSolicit: pre.jamSolicit,
                 jamForget: pre.jamForget,
                 jamAssigns: List(),
-                logs: pre.logs
+                logs: pre.logs,
+                foreign: foreign
               }
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
                 applyUpwardMessage(a, ok.paraId, codeLen, now, ok.lookupAnchor, m))
@@ -532,7 +547,8 @@ module accumulate {
                 solicited: newSolicited,
                 jamDesignate: acc.jamDesignate,
                 jamAssigns: acc.jamAssigns,
-                logPruned: Some((ok.paraId, ok.lookupAnchor))
+                logPruned: Some((ok.paraId, ok.lookupAnchor)),
+                foreign: acc.foreign
               }
             }
         }
@@ -546,22 +562,25 @@ module accumulate {
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
     now: Timeslot,
-    packages: List[WorkResult]
+    packages: List[WorkResult],
+    foreign: ForeignServices
   ): MultiPackageOutcome = {
     packages.foldl(
       { state: state,
         solicited: solicited,
         jamDesignate: prevDesignate,
         jamAssigns: List(),
-        logPruned: List() },
+        logPruned: List(),
+        foreign: foreign },
       (acc, p) => {
         val out = accumulateOnePackage(
-          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now)
+          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign)
         { state: out.state,
           solicited: out.solicited,
           jamDesignate: out.jamDesignate,
           jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
-          logPruned: acc.logPruned.appendOption(out.logPruned)
+          logPruned: acc.logPruned.appendOption(out.logPruned),
+          foreign: out.foreign
         }
       })
   }
@@ -659,10 +678,12 @@ module accumulate {
     staging: List[ValidatorKey],
     solicited: Set[(ParaId, Hash, int)],
     codeLen: int,
-    packages: List[WorkResult]
+    packages: List[WorkResult],
+    foreign: ForeignServices
   ): BlockOutcome = {
     val flushed = applyAlwaysAccumulate(state, now)
-    val acc = accumulateAll(flushed.state, solicited, None, codeLen, now, packages)
+    val acc =
+      accumulateAll(flushed.state, solicited, None, codeLen, now, packages, foreign)
     {
       state: acc.state,
       staging: match acc.jamDesignate {
@@ -673,7 +694,8 @@ module accumulate {
       assigns: flushed.assigns.concat(acc.jamAssigns),
       logPruned: acc.logPruned,
       results: packages,
-      headRoot: headCommitment(state, acc.state)
+      headRoot: headCommitment(state, acc.state),
+      foreign: acc.foreign
     }
   }
 }
