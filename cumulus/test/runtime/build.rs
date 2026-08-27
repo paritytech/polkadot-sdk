@@ -24,7 +24,8 @@ fn main() {
 	use substrate_wasm_builder::WasmBuilder;
 
 	// A runtime with 6s slot duration which only authors one block per slot.
-	WasmBuilder::init_with_defaults().build();
+	// PVM is enabled to test the validation path with the PolkaVM executor.
+	WasmBuilder::init_with_defaults().enable_pvm().build();
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("spec-version-3")

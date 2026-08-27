@@ -234,6 +234,9 @@ Linking error: import without a specified index: 'ext_storage_clear_prefix_versi
 Verified by bisection: baseline (all unindexed) links; adding `index = 100` breaks it; removing the
 index fixes it.
 
+This is not specific to logging: it applies to *any* indexed import, and therefore to the JAM
+`validate_block` entry itself — see 5.5.
+
 **Decision.** Keep `logging`/`misc::print_*` as native **no-ops** on riscv for now, and enable JAM
 logging later as part of a coordinated scheme that assigns explicit indices to *all* riscv host
 imports (storage, input, grow_heap included). Since JAM dispatches host calls by index, that scheme
@@ -275,6 +278,70 @@ known vectors *and* the overflowing R/S edge case).
   `#[polkavm_import(index = N)]` block for indices 0-29 matching the `HostCall` enum in
   `service-interface/src/host_call.rs`.
 
+**This requires a spec change, not just an implementation change.** The spec's §4.3 table assigns
+indices only to the parachain-service's own child-PVM calls. A parachain runtime built on `sp-io`
+additionally imports `ext_storage_*`, `ext_default_child_storage_*`, `ext_input_read_version_1` and
+`grow_heap`; because the linker forbids mixing, those must be assigned indices by the same
+authority. Resolving everything by *name* instead is not an option: JAM dispatches via `ecalli N`
+and the Gray Paper fixes indices for its own calls (`grow_heap` is `Ω_Gemini` index 1), so the
+indexed scheme is forced. Concretely the spec needs a table covering the ~20 Substrate host
+functions, chosen to avoid collisions with the existing 0-29 range, the GP-reserved indices, and
+the `log = 100` convention.
+
+**Nested-PVF stack size.** The PVF needs a stack far larger than PolkaVM's 8 KiB default (see 5.5);
+the spec should state that the child PVM honours the blob's `.polkavm_min_stack_size` section, or
+otherwise fix a minimum.
+
+### 5.5 A JAM blob and a Substrate-PolkaVM blob are separate builds
+
+`jam_implementation`'s child-PVM imports are explicitly indexed (2, 9, 12, 13, 14, 24 — spec §4.3),
+so by the 5.2 constraint they cannot be linked into the same blob as `sp-io`'s unindexed imports:
+
+```
+Linking error: import without a specified index: 'ext_storage_proof_size_storage_proof_size_version_1'
+```
+
+Confirmed by experiment: removing the JAM entry makes the same blob link.
+
+**Decision.** The JAM entry and the `jam_implementation` module are gated behind `--cfg jam_service`
+(registered in the workspace `check-cfg` list next to `substrate_runtime`). Without the flag a
+runtime builds a PolkaVM blob for Substrate's own executor, exporting only the polkadot
+`validate_block`; with it, the blob targets the parachain service. Both are verified to compile.
+The gate disappears once 5.4's index scheme exists, at which point one blob can serve both.
+
+### 5.6 `validate_block` needs a 2 MiB guest stack
+
+PolkaVM defaults to an 8 KiB stack; `validate_block` recurses through trie proof verification and
+block execution and overflows it. The failure surfaces as a bare `trap` with no message, because
+riscv logging is a no-op (5.2) — `RUST_LOG=polkavm=debug` is what identifies it:
+
+```
+Store of 8 bytes to 0xfffddfe8 failed: trap! (pc = 878335)
+Current stack range: 0xfffde000-0xfffe0000
+Hint: try increasing your stack size with: 'polkavm_derive::min_stack_size'
+```
+
+`cumulus-test-runtime` declares `polkavm_derive::min_stack_size!(2 * 1024 * 1024)`. Note that
+`rococo-runtime` pushes the `.polkavm_min_stack_size` section by hand with a TODO to use the macro;
+that TODO is stale — the macro works directly, it only needs the `polkavm-derive` dependency and a
+`#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]` gate on
+the invocation, since the macro *definition* is itself riscv-gated.
+
+Any parachain runtime on JAM will hit the same limit, hence the note in 5.4.
+
+### 5.7 PVM coverage of the validation path
+
+`enable_pvm()` on `cumulus-test-runtime`'s default build emits `PVM_BINARY` next to `WASM_BINARY`,
+and three tests in `cumulus/pallets/parachain-system/src/validate_block/tests.rs` run the real
+validation path through `sc-executor-polkavm`: `validate_block_works_on_pvm`,
+`validate_block_with_extra_extrinsics_on_pvm`, `validate_block_returns_custom_head_data_on_pvm`.
+
+They re-exec themselves in a subprocess with `SUBSTRATE_ENABLE_POLKAVM=1` (the executor reads it
+from the environment, which cannot be set in-process while other tests run in parallel).
+
+This covers the polkadot `validate_block` entry on PolkaVM. The JAM entry (`jam_validate_block`)
+still has no execution coverage — it needs 5.4.
+
 ## 6. Reproducing the builds
 
 ```bash
@@ -290,6 +357,15 @@ SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p minimal-template-runtime -p westen
 
 # riscv smoke test (executes the blob at build time for metadata hashing)
 SUBSTRATE_ENABLE_POLKAVM=1 SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p substrate-test-runtime
+
+# validate_block on PolkaVM (builds both blobs via enable_pvm, then executes the riscv one)
+SKIP_PALLET_REVIVE_FIXTURES=1 cargo test -p cumulus-pallet-parachain-system --lib _on_pvm
+
+# the JAM flavour of the same runtime (indexed child-PVM imports; see 5.5)
+RUSTC_BOOTSTRAP=1 RUSTFLAGS="--cfg substrate_runtime --cfg jam_service" \
+  cargo check -p cumulus-pallet-parachain-system --no-default-features \
+  --target ~/.cache/.polkavm-linker/0.35.0/1_91/riscv64emac-unknown-none-polkavm.json \
+  -Z build-std=core,alloc -Z json-target-spec
 
 # formatting (always scope with -p)
 cargo +nightly fmt -p sp-io

@@ -23,8 +23,9 @@ pub mod polkadot_implementation;
 #[doc(hidden)]
 pub use polkadot_implementation as implementation;
 
-// riscv (PolkaVM) implementation; never compiled on wasm.
-#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+// JAM (parachain-service) implementation; never compiled on wasm. Requires `--cfg jam_service`,
+// see the gate rationale in the `register_validate_block!` proc-macro.
+#[cfg(all(substrate_runtime, jam_service, any(target_arch = "riscv32", target_arch = "riscv64")))]
 #[doc(hidden)]
 pub mod jam_implementation;
 

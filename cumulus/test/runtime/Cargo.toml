@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+polkavm-derive = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
@@ -30,8 +31,8 @@ pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
-sp-api = { workspace = true }
 sp-additional-data = { workspace = true }
+sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -90,8 +91,8 @@ std = [
 	"polkadot-primitives/std",
 	"scale-info/std",
 	"serde_json/std",
-	"sp-api/std",
 	"sp-additional-data/std",
+	"sp-api/std",
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",

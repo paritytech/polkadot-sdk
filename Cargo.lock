@@ -5541,6 +5541,7 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "polkadot-primitives",
+ "polkavm-derive 0.35.0",
  "scale-info",
  "serde_json",
  "sp-additional-data",

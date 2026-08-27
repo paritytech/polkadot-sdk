@@ -22,6 +22,11 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+// `validate_block` recurses through trie proof verification and block execution, which overflows
+// PolkaVM's 8 KiB default stack.
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), target_feature = "e"))]
+polkavm_derive::min_stack_size!(2 * 1024 * 1024);
+
 mod features;
 mod flavors;
 mod genesis_config_presets;

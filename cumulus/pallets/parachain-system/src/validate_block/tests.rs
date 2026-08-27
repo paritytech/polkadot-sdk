@@ -26,7 +26,7 @@ use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
 		self as test_runtime, Block, Hash, Header, SudoCall, SystemCall, TestPalletCall,
-		UncheckedExtrinsic, WASM_BINARY,
+		UncheckedExtrinsic, PVM_BINARY, WASM_BINARY,
 	},
 	seal_block, transfer, BlockData, BlockOrigin, BuildBlockBuilder, BuildParachainBlockData,
 	Client, DefaultTestClientBuilderExt, HeadData,
@@ -76,6 +76,46 @@ fn call_validate_block(
 		relay_parent_storage_root,
 	)
 	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
+}
+
+/// Call `validate_block` in the PolkaVM blob of the runtime.
+///
+/// Requires `SUBSTRATE_ENABLE_POLKAVM=1` in the environment, otherwise the executor refuses to
+/// load a PolkaVM blob. Use [`run_pvm_test`] to run these in a subprocess.
+fn call_validate_block_pvm(
+	parent_head: Header,
+	block_data: ParachainBlockData<Block>,
+	relay_parent_storage_root: Hash,
+) -> cumulus_test_client::ExecutorResult<Header> {
+	call_validate_block_validation_result(
+		PVM_BINARY.expect("You need to build the PVM binary to run the tests!"),
+		parent_head,
+		block_data,
+		relay_parent_storage_root,
+	)
+	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
+}
+
+/// Re-run `test_name` in a subprocess with the PolkaVM executor enabled.
+///
+/// The executor reads `SUBSTRATE_ENABLE_POLKAVM` from the environment, which can not be set
+/// reliably in-process while other tests run in parallel.
+fn run_pvm_test(test_name: &str) {
+	let output = Command::new(env::current_exe().unwrap())
+		.args([test_name, "--", "--nocapture"])
+		.env("RUN_TEST", "1")
+		.env("SUBSTRATE_ENABLE_POLKAVM", "1")
+		.output()
+		.expect("Runs the test");
+
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	assert!(
+		output.status.success(),
+		"{test_name} failed:\n{}\n{stdout}",
+		String::from_utf8_lossy(&output.stderr)
+	);
+	// A filter matching no test also exits 0, which would make this a vacuous pass.
+	assert!(stdout.contains("1 passed"), "{test_name} did not run:\n{stdout}");
 }
 
 /// Call `validate_block` in the runtime with `elastic-scaling` activated.
@@ -295,6 +335,105 @@ fn validate_block_works() {
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
+}
+
+#[test]
+fn validate_block_works_on_pvm() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let TestBlockData { block, validation_data } = build_block_with_witness(
+			&client,
+			Vec::new(),
+			parent_head.clone(),
+			Default::default(),
+			Default::default(),
+		);
+
+		let header = block.blocks()[0].header().clone();
+		let res_header =
+			call_validate_block_pvm(parent_head, block, validation_data.relay_parent_storage_root)
+				.expect("Calls `validate_block`");
+		assert_eq!(header, res_header);
+	} else {
+		run_pvm_test("validate_block_works_on_pvm");
+	}
+}
+
+#[test]
+fn validate_block_with_extra_extrinsics_on_pvm() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let extra_extrinsics = vec![
+			transfer(&client, Alice, Bob, 69),
+			transfer(&client, Bob, Charlie, 100),
+			transfer(&client, Charlie, Alice, 500),
+		];
+
+		let TestBlockData { block, validation_data } = build_block_with_witness(
+			&client,
+			extra_extrinsics,
+			parent_head.clone(),
+			Default::default(),
+			Default::default(),
+		);
+
+		let header = block.blocks()[0].header().clone();
+		let res_header =
+			call_validate_block_pvm(parent_head, block, validation_data.relay_parent_storage_root)
+				.expect("Calls `validate_block`");
+		assert_eq!(header, res_header);
+	} else {
+		run_pvm_test("validate_block_with_extra_extrinsics_on_pvm");
+	}
+}
+
+#[test]
+fn validate_block_returns_custom_head_data_on_pvm() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let expected_header = vec![1, 3, 3, 7, 4, 5, 6];
+
+		let (client, parent_head) = create_test_client();
+		let extra_extrinsics = vec![
+			transfer(&client, Alice, Bob, 69),
+			generate_extrinsic(
+				&client,
+				Charlie,
+				TestPalletCall::set_custom_validation_head_data {
+					custom_header: expected_header.clone(),
+				},
+			),
+			transfer(&client, Bob, Charlie, 100),
+		];
+
+		let TestBlockData { block, validation_data } = build_block_with_witness(
+			&client,
+			extra_extrinsics,
+			parent_head.clone(),
+			Default::default(),
+			Default::default(),
+		);
+		let header = block.blocks()[0].header().clone();
+		assert_ne!(expected_header, header.encode());
+
+		let res_header = call_validate_block_validation_result(
+			PVM_BINARY.expect("You need to build the PVM binary to run the tests!"),
+			parent_head,
+			block,
+			validation_data.relay_parent_storage_root,
+		)
+		.expect("Calls `validate_block`")
+		.head_data
+		.0;
+		assert_eq!(expected_header, res_header);
+	} else {
+		run_pvm_test("validate_block_returns_custom_head_data_on_pvm");
+	}
 }
 
 #[test]

@@ -57,7 +57,8 @@ fn report_error(data: &[u8]) {
 /// function and the `ValidationResult` outputs are written via host side effects instead of
 /// returned.
 #[allow(clippy::unused_unit)]
-pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() where
+pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>()
+where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {

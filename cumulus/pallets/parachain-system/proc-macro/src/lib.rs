@@ -107,14 +107,13 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				use super::*;
 
 				// JAM (PolkaVM) entry point, per the parachain-service spec §4.2: zero-argument,
-				// reads/writes via child-PVM host functions (no `input::read`); riscv-only
-				// because it references the riscv-only `jam_implementation` module.
-				#[cfg(target_arch = "riscv64")]
-				#[doc(hidden)]
-				#[cfg_attr(
-					target_arch = "riscv64",
-					#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
-				)]
+				// reads/writes via child-PVM host functions (no `input::read`).
+				//
+				// `jam_service` gated: its child-PVM imports are explicitly indexed, and the
+				// PolkaVM linker rejects a blob mixing those with the unindexed imports
+				// `#[runtime_interface]` emits, so a JAM blob is a separate build.
+				#[cfg(all(target_arch = "riscv64", jam_service))]
+				#[#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)]
 				unsafe fn jam_validate_block() -> () {
 					#crate_::validate_block::jam_implementation::jam_validate_block::<
 						<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock,

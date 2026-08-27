@@ -153,8 +153,14 @@ where
 			.replace_implementation(host_default_child_storage_root),
 		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
+		// `misc`, `offchain_index` and `transaction_index` are host functions on wasm only; on
+		// PolkaVM/JAM the runtime uses the native in-blob implementations, so there is nothing
+		// to replace. Gate matches `sp_io::host_functions::wasm_only_host_functions!`.
+		#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 		sp_io::misc::host_last_cursor.replace_implementation(host_misc_last_cursor),
+		#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
+		#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
@@ -162,9 +168,15 @@ where
 			.replace_implementation(host_additional_data_push),
 		sp_additional_data::additional_data::host_finalize
 			.replace_implementation(host_additional_data_finalize),
-		#[cfg(feature = "transaction-index")]
+		#[cfg(all(
+			feature = "transaction-index",
+			any(not(substrate_runtime), target_family = "wasm")
+		))]
 		sp_io::transaction_index::host_index.replace_implementation(host_transaction_index_index),
-		#[cfg(feature = "transaction-index")]
+		#[cfg(all(
+			feature = "transaction-index",
+			any(not(substrate_runtime), target_family = "wasm")
+		))]
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
 
@@ -344,6 +356,7 @@ where
 					// up with mismatches in later blocks.
 					&mut execute_recorder,
 					&mut overlay,
+					state_version,
 					|| {
 						E::execute_verified_block(block);
 					},
@@ -824,6 +837,7 @@ fn host_default_child_storage_next_key(
 	})
 }
 
+#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 fn host_misc_last_cursor(out: &mut [u8]) -> Option<u32> {
 	with_externalities(|ext| {
 		let cursor = ext.take_last_cursor()?;
@@ -836,8 +850,10 @@ fn host_misc_last_cursor(out: &mut [u8]) -> Option<u32> {
 	})
 }
 
+#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 
+#[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 fn host_offchain_index_clear(_key: &[u8]) {}
 
 fn host_additional_data_push(item: Vec<u8>) {
