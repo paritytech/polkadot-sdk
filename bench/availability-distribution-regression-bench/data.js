@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787850403061,
+  "lastUpdate": 1787857450618,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "03ae1a76c77566c313736836d55ce50b16f5093e",
-          "message": "Bump pallet-staking-reward-fn (#10905)\n\nBump pallet-staking-reward-fn to patch. This forces it to use local path\nand the local sp-arithmetic instead of registry while running\n`parity-publish`.\nThis aims to fix the failure in `Check publish build` job (e.g.\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21359458014/job/61474963706?pr=10903#step:12:546)\nwhich started to appear since #10682 got merged.\n\nWhen parity-publish is used with --registry:\n- If the version exists on crates.io → remove path, use registry\n- If the version doesn't exist → keep path, use local\nThe issue is that --registry creates a hybrid state where some deps use\nregistry and some use local paths, causing version conflicts in case e.g\nof missing trait impl in on the two.\n\nExtended explanation, courtesy of @iulianbarbu : \nIn the parity-publish CI job example we have:\n- polkadot-runtime-common (crate A), depends on crate B indirectly &\ncrate C\n- sp-arithmetic (crate B), was bumped locally (due to #10682), but not\npublished on the registry yet\n- pallet-staking-reward-fn (crate C). depends on crate B.\n\npolkadot-runtime-common fails to compile due to a dependency graph using\ntwo versions of same type of crate B. What is an issue though is that\npallet-staking-reward-fn uses the previous crate B version (from the\nregistry), which misses a certain trait impl that is required by\npolkadot-runtime-common. If polkadot-runtime-common usage of\npallet-staking-reward-fn expects the new trait impl, it means that it is\nnot enough to just bump pallet-staking-reward-fn, but also\npolkadot-runtime-common, in this PR (to update it to depend on the new\nversion of pallet-staking-reward-fn). Everything compiles fine rn\nbecause polkadot-runtime-common is already bumped in a previous PR (e.g\n#10582 and maybe others), which did not make its way to a stable release\nyet.",
-          "timestamp": "2026-01-30T10:11:47Z",
-          "tree_id": "c324d8994cb2081f90929647158c15072033b701",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/03ae1a76c77566c313736836d55ce50b16f5093e"
-        },
-        "date": 1769771854543,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007288447739999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14583047754000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023346556373333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009824630813333313,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1426425987933334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f32d520c591487ad3b867ef9f311953851711125",
+          "message": "Fix check-publish-compile: don't release sp-core/sp-keystore for the … (#13015)\n\n…arkworks bump\n\n`check-publish-compile` has been red on master since #12888 (\"Bump\narkworks to 0.6\"), and every PR branched off master since inherits the\nfailure:\n\n    error[E0277]: the trait bound `SpawnEssentialTaskHandle:\n      sp_core::traits::SpawnEssentialNamed` is not satisfied\n      --> polkadot/cli/src/command.rs:327:5\nnote: there are multiple different versions of crate `sp_core` in the\n      dependency graph\n\n`prdoc/pr_12888.prdoc` bumped `sp-core` (minor) and `sp-keystore`\n(patch), which puts both into the publish plan. `parity-publish apply\n--registry` then builds them from the local path (sp-core 43.1.0,\nsp-keystore 0.49.1) while every crate that is *not* in the plan —\n`sc-storage-monitor`, `sp-io`, `sp-runtime`, `sc-client-api`, ... — is\nstill pulled from crates.io carrying sp-core 43.0.0. `polkadot-cli` sees\nboth and fails to compile.\n\nNeither crate actually needs a release here:\n\n- `sp-keystore` has no change at all; `parity-publish` itself predicted\n`None` for it during the semver check on #12888.\n- `sp-core` has no source change. Its only manifest change is `ark-vrf`\nmoving from `0.5.0` to `0.5.3`, which the already published `^0.5.0`\nrequirement resolves to anyway.\n\n`sp-crypto-ec-utils` keeps its major bump.\n\nThis can be merged even if we'd release and use in our CI a\nparity-publish version that contains:\nhttps://github.com/paritytech/parity-publish/pull/96 (which addresses\nthe problem of two different dependencies and not being able to pick one\nas a dependant - e.g. same trait but pickable from multiple versions,\nwhile both being usable in a dependant).\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-08-27T17:06:57Z",
+          "tree_id": "c3388f66444cc5d410ebc3d6f89cf439ad8d117d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f32d520c591487ad3b867ef9f311953851711125"
+        },
+        "date": 1787857410138,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1433160855733334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007758480846666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022906219073333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009750472806666667,
             "unit": "seconds"
           }
         ]
