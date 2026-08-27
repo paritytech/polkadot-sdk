@@ -28,6 +28,7 @@ JAM_RPC="${JAM_RPC:-ws://127.0.0.1:19800}"
 JAM_SERVICE_ID="${JAM_SERVICE_ID:-5}"
 JAM_CORE="${JAM_CORE:-0}"
 WORK_DIR="${WORK_DIR:-$(mktemp -d /tmp/jam-collator-demo.XXXXXX)}"
+mkdir -p "$WORK_DIR"
 
 OMNI_NODE="$ROOT/target/release/polkadot-omni-node"
 RUNTIME_WASM="$(ls "$ROOT"/target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm)"
@@ -49,7 +50,12 @@ json.dump(spec, open(path, "w"), indent=2)
 EOF
 echo "chain spec: $WORK_DIR/jam-parachain-spec.json"
 
-# 2. The collator. Watch the logs (target 'jam-collator' and 'jam-rpc-interface'):
+# 2. A stable node network key (a collator is an authority; it refuses to
+#    auto-generate one).
+"$OMNI_NODE" key generate-node-key --base-path "$WORK_DIR/collator" \
+	--chain "$WORK_DIR/jam-parachain-spec.json" 2>/dev/null
+
+# 3. The collator. Watch the logs (target 'jam-collator' and 'jam-rpc-interface'):
 #    JAM best/finalized blocks tick, blocks get built, work packages submitted,
 #    status reaches Reported, and the para head advances in JAM state.
 exec "$OMNI_NODE" \
