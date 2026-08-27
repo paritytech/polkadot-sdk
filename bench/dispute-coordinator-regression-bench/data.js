@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787844505615,
+  "lastUpdate": 1787850546649,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "df0500abc53f46111071ee3a1075f0da4f5541c0",
-          "message": "Remove failing assertion related to VoterList count mismatch (#10880)\n\nUpdated bags-list so that on_insert queues items into PendingRebag\ninstead of failing, and removed the invariant that required VoterList's\ncount to equal the combined number of Nominators and Validators. This is\nsafe while bags-list is locked. After unlocking, on_idle drains\nPendingRebag, and the counts converge back to consistency over time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
-          "timestamp": "2026-01-28T16:22:18Z",
-          "tree_id": "ca2ebf68f7dc48ff1cb353f693263fc115392586",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/df0500abc53f46111071ee3a1075f0da4f5541c0"
-        },
-        "date": 1769621998302,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00310383958,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006948736509999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009929213019999982,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009697875389999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c05f5093a189a1d8b09af7bf94c38b451d361ed9",
+          "message": "statement store: skip expired statements before sending (#13003)\n\n## Summary\n\n- skip expired statements while building initial-sync and propagation\nchunks\n- use the same expiry boundary as statement-store submission (`now >=\nexpiry`)\n- make network test fixtures explicitly live instead of relying on\nzero-expiry statements\n\n## Why\n\nExpiry cleanup is periodic and bounded, so an expired statement can\nremain in the store long enough to be selected for gossip. A receiving\npeer will reject it as `AlreadyExpired`; filtering at the send boundary\navoids sending data the receiver cannot accept.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-27T14:58:37Z",
+          "tree_id": "93d36a5390f32049b96b6c8df0b3b030db68891b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c05f5093a189a1d8b09af7bf94c38b451d361ed9"
+        },
+        "date": 1787850507863,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025530603400000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011658129310000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.010049362069999986,
             "unit": "seconds"
           }
         ]
