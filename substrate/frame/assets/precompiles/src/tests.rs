@@ -18,11 +18,12 @@
 use super::*;
 use crate::{
 	alloy::hex,
+	foreign_assets::pallet::Pallet as ForeignAssetsPallet,
 	mock::{new_test_ext, Assets, Balances, RuntimeOrigin, Test},
 	permit,
 	test_helpers::{
-		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix, ICaller,
-		PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
+		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix, token_address,
+		ICaller, PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 	},
 };
 use alloy::primitives::U256;
@@ -118,7 +119,6 @@ fn token_address_round_trips_through_extractor() {
 // id -> address -> id; an unregistered asset has no address, so `token_address` yields `None`.
 #[test]
 fn foreign_token_address_resolves_through_map() {
-	use crate::foreign_assets::pallet::Pallet as ForeignAssetsPallet;
 	new_test_ext().execute_with(|| {
 		let asset_id = 1337u32;
 		// Unregistered: no mapping, no address.
@@ -1073,13 +1073,10 @@ fn plain_asset_operations_emit_erc20_transfer_logs() {
 		let asset_id = 5u32;
 		let owner = 1u64;
 		let user = 2u64;
-		let mut token = set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX);
-		token[..4].copy_from_slice(&asset_id.to_be_bytes());
-		let token = H160::from(token);
+		let token = token_address(PRECOMPILE_ADDRESS_PREFIX, asset_id);
 		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
 		let user_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&user);
 
-		Balances::make_free_balance_be(&owner, 100);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 
 		// Mint: Transfer(0x0 -> owner).
@@ -1117,6 +1114,36 @@ fn plain_asset_operations_emit_erc20_transfer_logs() {
 	});
 }
 
+// The foreign wiring shape (`(ForeignAssetId, Erc20TransferLogsCallback<ForeignIdConfig>)`, as
+// Asset Hub Westend wires its foreign-assets instance): `created` allocates the id->index
+// mapping, and a balance change then mirrors `Transfer(0x0, owner)` at the address derived
+// through that mapping — the ordering the wiring depends on.
+#[test]
+fn foreign_wiring_emits_at_foreign_derived_address() {
+	use pallet_assets::AssetsCallback;
+	type ForeignWiring =
+		(ForeignAssetId<Test>, Erc20TransferLogsCallback<Test, ForeignIdConfig<0x0220, Test>>);
+	new_test_ext().execute_with(|| {
+		let asset_id = 7u32;
+		let owner = 1u64;
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+
+		assert_ok!(ForeignWiring::created(&asset_id, &owner));
+		let index = ForeignAssetsPallet::<Test>::asset_index_of(&asset_id)
+			.expect("`created` allocates the mapping");
+		ForeignWiring::issued(&asset_id, &owner, 55);
+
+		assert_contract_event(
+			token_address(PRECOMPILE_ADDRESS_PREFIX_FOREIGN, index),
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: alloy::primitives::Address::ZERO,
+				to: owner_addr.0.into(),
+				value: U256::from(55),
+			}),
+		);
+	});
+}
+
 // The `fungibles::Balanced` imbalance paths (e.g. paying tx fees in an asset) are mirrored too:
 // withdraw = Transfer(who -> 0x0), deposit = Transfer(0x0 -> who).
 #[test]
@@ -1129,9 +1156,7 @@ fn balanced_paths_emit_erc20_transfer_logs() {
 		let asset_id = 5u32;
 		let owner = 1u64;
 		let user = 2u64;
-		let mut token = set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX);
-		token[..4].copy_from_slice(&asset_id.to_be_bytes());
-		let token = H160::from(token);
+		let token = token_address(PRECOMPILE_ADDRESS_PREFIX, asset_id);
 		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
 		let user_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&user);
 

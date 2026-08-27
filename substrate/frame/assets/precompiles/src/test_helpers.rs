@@ -45,6 +45,14 @@ pub(crate) fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
 	addr
 }
 
+/// The token (precompile) address for `index` under `prefix`: the prefix address with the index
+/// inlined big-endian into the first four bytes.
+pub(crate) fn token_address(prefix: u16, index: u32) -> H160 {
+	let mut addr = set_prefix_in_address(prefix);
+	addr[..4].copy_from_slice(&index.to_be_bytes());
+	H160::from(addr)
+}
+
 /// Assert `event` was emitted from `contract` exactly once — duplicates (e.g. a precompile
 /// log next to the `Erc20TransferLogsCallback`-mirrored one) are a failure, not a pass.
 pub(crate) fn assert_contract_event(contract: H160, event: IERC20Events) {
