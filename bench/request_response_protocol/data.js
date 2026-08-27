@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787834005879,
+  "lastUpdate": 1787844315220,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -118691,6 +118691,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2662540094,
             "range": "± 25946854",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "15e20e2bf8d4ff1d0f6049b764b60e8b439165e8",
+          "message": "statement gossip: allocate the validation queue lazily (#12994)\n\n# Description\n\nStatementHandlerPrototype::build creates the validation queue with\nunbounded channel to not pre-allocate extra memory. The limit itself\nstill holds: on_statements checks MAX_PENDING_STATEMENTS before every\nenqueue. Also shrink pending_statements_peers on the propagation tick —\nHashMap keeps its high-water capacity, so a burst would otherwise pin it\npermanently.",
+          "timestamp": "2026-08-27T13:11:35Z",
+          "tree_id": "2036ebfa566ea3e8286623cab3ea7e335c9ab98e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/15e20e2bf8d4ff1d0f6049b764b60e8b439165e8"
+        },
+        "date": 1787844266003,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20449976,
+            "range": "± 153196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20574618,
+            "range": "± 95429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22098219,
+            "range": "± 68382",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27069600,
+            "range": "± 140934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61695967,
+            "range": "± 1130157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 392654314,
+            "range": "± 18146900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2882064904,
+            "range": "± 245628422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17396950,
+            "range": "± 179042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17432501,
+            "range": "± 250165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17945082,
+            "range": "± 131212",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22337572,
+            "range": "± 143348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64406814,
+            "range": "± 1159588",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 374004880,
+            "range": "± 5014108",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2730052821,
+            "range": "± 11417894",
             "unit": "ns/iter"
           }
         ]
