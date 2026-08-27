@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787819087989,
+  "lastUpdate": 1787830298782,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -211775,6 +211775,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2535902532,
             "range": "± 68987095",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "27e5022881702d5c8fe89457e3e7c01fcd536e07",
+          "message": "Fix 3 more flaky tests (#13011)\n\nThis fixes three more flaky tests.\n\n### 1. ensure_operation_limits_works (`sc-rpc-spec-v2`)\n\nAfter a storage operation completed, the test issued a second operation\nand required it to be accepted. But the permit is released by `Drop` on\nthe spawned task *after* it has emitted `OperationStorageDone`, so\nreceiving that event says nothing about when capacity is back. On a\nloaded runner the second call hit `LimitReached`.\n\nThe Semaphore release is already covered by other tests, so this tests\nscope was slimmed down. I had some other designs but all of them either\nrequired waiting or some extra test helper that kind of defeated the\npoint.\n\n### 2. recovers_from_only_chunks_if_pov_large::case_3\n(`polkadot-availability-recovery`)\n\nThe test harness answered every chunk request and `unwrap()`ed the\n`oneshot` send. Recovery fans requests out in parallel and drops the\nreceivers of the ones still outstanding as soon as it has enough chunks\nto reconstruct, so a late answer fails the send , which is ok.\n\n### 3. expiry_sweep_leaves_inconsistent_data_in_place\n(`sc-statement-store`)\n\nThe test submitted a statement and then overwrote its body with `0xFF`\nvia a raw `db.commit` to simulate corruption. `col::STATEMENTS` is a\nparity-db preimage column, where a `Set` on an existing key is skipped\n(\"Replace is not supported\"), so the write was never applied.\n\nThe test only passed while a read still caught it in the commit overlay,\nand failed once the log worker had processed the commit. The\ninconsistency is now planted directly: a due expiry row for a hash the\nstore never issued, whose stored body does not decode, plus an orphan\nexpiry row with no body at all. Both sweep paths (`Corrupt statement`,\n`Orphan\nexpiry index row`) are exercised.\n\n### Failed runs, 2026-07-12 → 2026-08-26\n\n| Test | Crate | Runs |\n|------|-------|-----:|\n| `chain_head::tests::ensure_operation_limits_works` | `sc-rpc-spec-v2`\n| 7 |\n| `tests::recovers_from_only_chunks_if_pov_large::case_3` |\n`polkadot-availability-recovery` | 6 |\n| `tests::expiry_sweep_leaves_inconsistent_data_in_place` |\n`sc-statement-store` | 5 |\n\nExample runs:\n\n- **`ensure_operation_limits_works`** — [2026-07-14\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/29372580523),\n[2026-08-08\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/31253233733),\n[2026-08-14\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/31802243774),\n[2026-08-23\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32646478557)\n- **`recovers_from_only_chunks_if_pov_large::case_3`** — [2026-07-16\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/29479000772),\n[2026-08-18 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32125030187),\n[2026-08-25 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32831443104),\n[2026-08-25\nmerge_group](https://github.com/paritytech/polkadot-sdk/actions/runs/32850678430)\n- **`expiry_sweep_leaves_inconsistent_data_in_place`** — [2026-08-14\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/31830449615),\n[2026-08-21\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32464186830),\n[2026-08-24\npull_request](https://github.com/paritytech/polkadot-sdk/actions/runs/32706187714),\n[2026-08-26 push\nmaster](https://github.com/paritytech/polkadot-sdk/actions/runs/32952133342)",
+          "timestamp": "2026-08-27T10:04:40Z",
+          "tree_id": "6972470b2c8a4e364218b53819bc952e5e98bda9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/27e5022881702d5c8fe89457e3e7c01fcd536e07"
+        },
+        "date": 1787830259731,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4690408,
+            "range": "± 124777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 297684,
+            "range": "± 4124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4941956,
+            "range": "± 111262",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 394768,
+            "range": "± 15640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5811499,
+            "range": "± 47172",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 948476,
+            "range": "± 12490",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11491923,
+            "range": "± 92219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5229310,
+            "range": "± 92476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 50982061,
+            "range": "± 2780839",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 42793515,
+            "range": "± 921248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 426834783,
+            "range": "± 4748251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 344247731,
+            "range": "± 6589979",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2948439389,
+            "range": "± 107205905",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 3074760993,
+            "range": "± 80472914",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3611738,
+            "range": "± 53884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1919207,
+            "range": "± 32901",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3867243,
+            "range": "± 45147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2036686,
+            "range": "± 36172",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4231082,
+            "range": "± 63163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2401146,
+            "range": "± 38012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8965911,
+            "range": "± 65442",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5729624,
+            "range": "± 59756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 40519066,
+            "range": "± 425549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 39292991,
+            "range": "± 605743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 336211087,
+            "range": "± 3041278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 289627705,
+            "range": "± 2532639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2727354923,
+            "range": "± 25230222",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2658669920,
+            "range": "± 46830456",
             "unit": "ns/iter"
           }
         ]
