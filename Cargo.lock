@@ -20169,7 +20169,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-beefy"
-version = "35.0.0"
+version = "35.0.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -20241,7 +20241,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.41.0"
+version = "0.41.1"
 dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
