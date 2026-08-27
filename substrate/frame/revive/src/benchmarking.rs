@@ -2014,10 +2014,12 @@ mod benchmarks {
 			slot: worst_case_slot(),
 			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
 		};
+
+		let touched = entry.clone();
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry.clone(), StorageOp::Write);
+			outcome = al.touch(touched, StorageOp::Write);
 		}
 		assert_eq!(
 			outcome,
