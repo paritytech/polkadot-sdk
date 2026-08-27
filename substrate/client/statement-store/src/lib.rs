@@ -69,9 +69,9 @@ use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed,
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
-	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
-	OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult, Statement,
-	StatementAllowance, StatementEvent, SubmitResult, Topic,
+	AccountId, AdmittedBatch, BlockHash, Channel, DecryptionKey, FilterDecision, Hash,
+	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
+	Statement, StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
@@ -571,7 +571,7 @@ struct QueryIndex {
 	// TODO: Remove counters; replace them with a merge-join/leapfrog1
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
-	recent: HashSet<Hash>,
+	recent: HashMap<Hash, u64>,
 }
 
 impl QueryIndex {
@@ -579,12 +579,13 @@ impl QueryIndex {
 		QueryIndex {
 			topic_counts: HashMap::new(),
 			dec_key_counts: HashMap::new(),
-			recent: HashSet::new(),
+			recent: HashMap::new(),
 		}
 	}
 
-	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent.
-	fn note_insert(&mut self, hash: Hash, statement: &Statement) {
+	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent
+	/// under its admission sequence number.
+	fn note_insert(&mut self, hash: Hash, statement: &Statement, seq: u64) {
 		let mut nt = 0;
 		while let Some(topic) = statement.topic(nt) {
 			*self.topic_counts.entry(topic).or_insert(0) += 1;
@@ -592,7 +593,7 @@ impl QueryIndex {
 		}
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
-		self.recent.insert(hash);
+		self.recent.insert(hash, seq);
 	}
 
 	/// Records a removed statement: decrements cardinalities and drops the hash from `recent`.
@@ -617,8 +618,8 @@ impl QueryIndex {
 		self.recent.remove(hash);
 	}
 
-	/// Takes and clears the set of recently added hashes.
-	fn take_recent(&mut self) -> HashSet<Hash> {
+	/// Takes and clears the set of recently added hashes with their admission sequence numbers.
+	fn take_recent(&mut self) -> HashMap<Hash, u64> {
 		std::mem::take(&mut self.recent)
 	}
 }
@@ -2225,17 +2226,17 @@ impl StatementStore for Store {
 		Ok(result)
 	}
 
-	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
+	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
 		let recent = self.query_index.write().take_recent();
 		let mut result = Vec::with_capacity(recent.len());
-		for hash in recent {
+		for (hash, seq) in recent {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
 				continue;
 			};
 			match Statement::decode(&mut encoded.as_slice()) {
-				Ok(statement) => result.push((hash, statement)),
+				Ok(statement) => result.push((seq, hash, statement)),
 				Err(_) => log::error!(
 					target: LOG_TARGET,
 					"Corrupt statement {:?}",
@@ -2243,7 +2244,105 @@ impl StatementStore for Store {
 				),
 			}
 		}
+		result.sort_unstable_by_key(|(seq, ..)| *seq);
 		Ok(result)
+	}
+
+	fn admission_watermark(&self) -> Result<u64> {
+		// Every admission commits its journal row under the submit-index write lock before
+		// releasing it, so a lock holder observes every sequence number below `next_seq`
+		// already persisted.
+		Ok(self.submit_index.read().next_seq)
+	}
+
+	fn admitted_statements(
+		&self,
+		mut cursor: u64,
+		watermark: u64,
+		scan_limit: usize,
+		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
+	) -> Result<AdmittedBatch> {
+		// A cursor past the watermark would snap back to it below, moving the caller's
+		// position backwards.
+		debug_assert!(
+			cursor <= watermark,
+			"admission cursor {cursor} must not exceed the watermark {watermark}"
+		);
+		debug_assert!(scan_limit > 0, "a zero scan limit cannot advance the cursor");
+		let mut statements = Vec::new();
+		let mut aborted = false;
+		let mut scanned = 0usize;
+		let mut iter = self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(&cursor.to_be_bytes()).map_err(|e| Error::Db(e.to_string()))?;
+
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let seq = u64::from_be_bytes(
+				key.try_into().map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
+			);
+			if seq >= watermark {
+				cursor = watermark;
+				break;
+			}
+			if scanned == scan_limit {
+				aborted = true;
+				break;
+			}
+			scanned += 1;
+			let hash: Hash = value
+				.as_slice()
+				.try_into()
+				.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
+			let next_cursor = seq.saturating_add(1);
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				cursor = next_cursor;
+				continue;
+			};
+			// The admission row is deleted atomically with the statement it admits, so re-reading
+			// it after the body confirms that this sequence number is still the statement's
+			// current admission (and not a stale row of an evicted-and-readmitted statement).
+			let is_current = self
+				.db
+				.get(col::ADMISSION_SEQ, &seq.to_be_bytes())
+				.map_err(|e| Error::Db(e.to_string()))?
+				.is_some_and(|current| current.as_slice() == hash.as_slice());
+			if !is_current {
+				cursor = next_cursor;
+				continue;
+			}
+			let statement = match Statement::decode(&mut encoded.as_slice()) {
+				Ok(statement) => statement,
+				Err(e) => {
+					log::error!(
+						target: LOG_TARGET,
+						"Could not decode statement {:?} while walking the admission journal: {:?}",
+						HexDisplay::from(&hash),
+						e
+					);
+					cursor = next_cursor;
+					continue;
+				},
+			};
+			match filter(&hash, &encoded, &statement) {
+				FilterDecision::Skip => cursor = next_cursor,
+				FilterDecision::Take => {
+					statements.push((hash, statement));
+					cursor = next_cursor;
+				},
+				FilterDecision::Abort => {
+					aborted = true;
+					break;
+				},
+			}
+		}
+
+		// The journal can end below the watermark when the newest admissions were removed;
+		// nothing is left to visit there, so the walk is complete.
+		if !aborted && cursor < watermark {
+			cursor = watermark;
+		}
+		Ok(AdmittedBatch { statements, cursor, done: cursor >= watermark })
 	}
 
 	/// Read a single statement directly from the `STATEMENTS` database column by hash and decode
@@ -2295,13 +2394,6 @@ impl StatementStore for Store {
 				false
 			},
 		}
-	}
-
-	fn statement_hashes(&self) -> Vec<Hash> {
-		self.enumerate_hashes().unwrap_or_else(|e| {
-			log::warn!(target: LOG_TARGET, "Error enumerating statement hashes: {:?}", e);
-			Vec::new()
-		})
 	}
 
 	fn statements_by_hashes(
@@ -2755,7 +2847,7 @@ impl StatementStore for Store {
 				for evicted_statement in &evicted_statements {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
-				query_index.note_insert(hash, &statement);
+				query_index.note_insert(hash, &statement, plan.seq);
 			}
 			seq
 		}; // Release submit index lock
@@ -3065,80 +3157,33 @@ impl Store {
 	fn replay_batch(
 		&self,
 		filter: &OptimizedTopicFilter,
-		mut cursor: u64,
+		cursor: u64,
 		watermark: u64,
 	) -> Result<ReplayBatch> {
 		let mut statements = Vec::new();
 		let mut chunk_bytes = 0usize;
-		let mut batch_limit_reached = false;
-		let mut iter = self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
-		iter.seek(&cursor.to_be_bytes()).map_err(|e| Error::Db(e.to_string()))?;
-
-		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
-			let seq = u64::from_be_bytes(
-				key.try_into().map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
-			);
-			if seq >= watermark {
-				cursor = watermark;
-				break;
-			}
-			let hash: Hash = value
-				.as_slice()
-				.try_into()
-				.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
-			let next_cursor = seq.saturating_add(1);
-			let Some(encoded) =
-				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
-			else {
-				cursor = next_cursor;
-				continue;
-			};
-			// The admission row is deleted atomically with the statement it admits, so re-reading
-			// it after the body confirms that this sequence number is still the statement's
-			// current admission (and not a stale row of an evicted-and-readmitted statement).
-			let is_current = self
-				.db
-				.get(col::ADMISSION_SEQ, &seq.to_be_bytes())
-				.map_err(|e| Error::Db(e.to_string()))?
-				.is_some_and(|current| current.as_slice() == hash.as_slice());
-			if !is_current {
-				cursor = next_cursor;
-				continue;
-			}
-			let statement = match Statement::decode(&mut encoded.as_slice()) {
-				Ok(statement) => statement,
-				Err(e) => {
-					log::error!(
-						target: LOG_TARGET,
-						"Could not decode statement {:?} while replaying it: {:?}",
-						HexDisplay::from(&hash),
-						e
-					);
-					cursor = next_cursor;
-					continue;
-				},
-			};
-			if !filter.matches(&statement) {
-				cursor = next_cursor;
-				continue;
-			}
-			if !statements.is_empty() && chunk_bytes + encoded.len() > REPLAY_CHUNK_RAW_BYTES {
-				batch_limit_reached = true;
-				break;
-			}
-			chunk_bytes += encoded.len();
-			statements.push(encoded);
-			cursor = next_cursor;
-			if chunk_bytes >= REPLAY_CHUNK_RAW_BYTES {
-				batch_limit_reached = true;
-				break;
-			}
-		}
-
-		if !batch_limit_reached && cursor < watermark {
-			cursor = watermark;
-		}
-		Ok(ReplayBatch { statements, cursor, done: cursor >= watermark })
+		// Replay batches are pulled by a local subscription task, not a remote peer, so the
+		// walk is not budgeted.
+		let batch = StatementStore::admitted_statements(
+			self,
+			cursor,
+			watermark,
+			usize::MAX,
+			&mut |_, encoded, statement| {
+				if !filter.matches(statement) {
+					return FilterDecision::Skip;
+				}
+				if !statements.is_empty() && chunk_bytes + encoded.len() > REPLAY_CHUNK_RAW_BYTES {
+					return FilterDecision::Abort;
+				}
+				chunk_bytes += encoded.len();
+				statements.push(encoded.to_vec());
+				// The encoded bytes are already captured above, so the statement is reported
+				// as skipped to keep the walk from cloning it into the returned batch too.
+				FilterDecision::Skip
+			},
+		)?;
+		Ok(ReplayBatch { statements, cursor: batch.cursor, done: batch.done })
 	}
 }
 
@@ -3242,7 +3287,7 @@ impl Store {
 		self.db.commit(commit).expect("failed to commit the statement");
 		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new() };
 		submit_index.apply_insert(&account, None, hash, statement, &plan);
-		self.query_index.write().note_insert(hash, statement);
+		self.query_index.write().note_insert(hash, statement, seq);
 	}
 }
 
@@ -3253,8 +3298,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, OptimizedTopicFilter, Proof,
-		RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
+		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -3805,6 +3850,113 @@ mod tests {
 	}
 
 	#[test]
+	fn admission_watermark_is_one_past_the_newest_admission() {
+		let (store, _temp) = test_store();
+		assert_eq!(store.admission_watermark().unwrap(), 0);
+
+		let first = signed_statement(1);
+		let second = signed_statement(2);
+		assert_eq!(store.submit(first.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(second, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.admission_watermark().unwrap(), 2);
+
+		// Sequence numbers are never reused, so a removal leaves the boundary in place.
+		store.remove(&first.hash()).unwrap();
+		assert_eq!(store.admission_watermark().unwrap(), 2);
+	}
+
+	#[test]
+	fn admitted_statements_walk_applies_filter_decisions_and_resumes() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=4).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		// Seq 1 goes dead, the walk must pass over it.
+		store.remove(&statements[1].hash()).unwrap();
+
+		let batch = store
+			.admitted_statements(0, 4, usize::MAX, &mut |hash, _encoded, _statement| {
+				if *hash == statements[0].hash() {
+					FilterDecision::Skip
+				} else if *hash == statements[3].hash() {
+					FilterDecision::Abort
+				} else {
+					FilterDecision::Take
+				}
+			})
+			.unwrap();
+		assert_eq!(batch.statements, vec![(statements[2].hash(), statements[2].clone())]);
+		// The aborted statement sits at seq 3; the cursor points back at it.
+		assert_eq!(batch.cursor, 3);
+		assert!(!batch.done);
+
+		// Resuming from the cursor visits the aborted statement first.
+		let batch = store
+			.admitted_statements(batch.cursor, 4, usize::MAX, &mut |_, _, _| FilterDecision::Take)
+			.unwrap();
+		assert_eq!(batch.statements, vec![(statements[3].hash(), statements[3].clone())]);
+		assert_eq!(batch.cursor, 4);
+		assert!(batch.done);
+	}
+
+	#[test]
+	fn admitted_statements_walk_stops_at_the_scan_limit() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=4).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+
+		// A filter that takes nothing must still visit no more than `scan_limit` entries.
+		let mut visited = 0;
+		let batch = store
+			.admitted_statements(0, 4, 3, &mut |_, _, _| {
+				visited += 1;
+				FilterDecision::Skip
+			})
+			.unwrap();
+		assert!(batch.statements.is_empty());
+		assert_eq!(visited, 3);
+		assert_eq!(batch.cursor, 3, "the cursor must sit after the last visited entry");
+		assert!(!batch.done);
+
+		// Resuming from the partial cursor completes the walk.
+		let batch = store
+			.admitted_statements(batch.cursor, 4, 3, &mut |_, _, _| FilterDecision::Skip)
+			.unwrap();
+		assert!(batch.statements.is_empty());
+		assert_eq!(batch.cursor, 4);
+		assert!(batch.done);
+	}
+
+	#[test]
+	fn take_recent_statements_are_ordered_by_admission() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=3).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+
+		let recent = store.take_recent_statements().unwrap();
+		let expected: Vec<_> = statements
+			.into_iter()
+			.enumerate()
+			.map(|(seq, statement)| (seq as u64, statement.hash(), statement))
+			.collect();
+		assert_eq!(recent, expected);
+	}
+
+	#[test]
 	fn migrates_v1_database_to_on_disk_index() {
 		sp_tracing::init_for_tests();
 		let temp = tempfile::Builder::new().tempdir().expect("Error creating test dir");
@@ -4222,7 +4374,8 @@ mod tests {
 		let _ = store.submit(statement2.clone(), StatementSource::Local);
 
 		let recent1 = store.take_recent_statements().unwrap();
-		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
+		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) =
+			recent1.into_iter().map(|(_seq, hash, statement)| (hash, statement)).unzip();
 		let expected1 = vec![statement0, statement1, statement2];
 		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
 		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
@@ -4234,7 +4387,8 @@ mod tests {
 		store.submit(statement3.clone(), StatementSource::Network);
 
 		let recent3 = store.take_recent_statements().unwrap();
-		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
+		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) =
+			recent3.into_iter().map(|(_seq, hash, statement)| (hash, statement)).unzip();
 		let expected3 = vec![statement3];
 		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
 		assert!(expected3.iter().all(|s| recent3_statements.contains(s)));
@@ -4937,33 +5091,36 @@ mod tests {
 		let (mut store, _temp) = test_store();
 		store.set_time(100);
 
-		// A statement whose body is then corrupted in place: it cannot be tied back to its
-		// index rows any more.
-		let mut stmt = unsigned_statement(1, 1, None, 100);
-		stmt.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt, 1);
-		let hash = stmt.hash();
-		let expiry = crate::Expiry(stmt.expiry());
-		assert_eq!(store.submit(stmt, StatementSource::Network), SubmitResult::New);
-		store.db.commit([(col::STATEMENTS, hash.to_vec(), Some(vec![0xFF]))]).unwrap();
-
-		let expiry_key = crate::expiry_index_key(expiry, &hash);
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+		let expiry = crate::Expiry(200u64 << 32 | 1);
+		let undecodable_hash = [0xAB_u8; 32];
+		let undecodable_key = crate::expiry_index_key(expiry, &undecodable_hash);
+		store
+			.db
+			.commit([
+				(col::STATEMENTS, undecodable_hash.to_vec(), Some(vec![0xFF])),
+				(col::INDEX_BY_EXPIRY, undecodable_key.clone(), Some(Vec::new())),
+			])
+			.unwrap();
 
 		// The sweep cannot remove the statement; the corruption is logged as an error and
 		// everything is left exactly as it is, on every pass.
 		store.set_time(300);
 		store.enforce_limits();
 		store.enforce_limits();
-		assert!(store.has_statement(&hash));
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+		assert!(store.has_statement(&undecodable_hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &undecodable_key).unwrap().is_some());
 
-		// Same for an expiry row orphaned by external interference: the sweep reports it and
-		// leaves it in place.
-		store.db.commit([(col::STATEMENTS, hash.to_vec(), None)]).unwrap();
+		// Same for an expiry row with no body behind it at all: the sweep reports it and leaves
+		// it in place.
+		let orphan_hash = [0xCD_u8; 32];
+		let orphan_key = crate::expiry_index_key(expiry, &orphan_hash);
+		store
+			.db
+			.commit([(col::INDEX_BY_EXPIRY, orphan_key.clone(), Some(Vec::new()))])
+			.unwrap();
 		store.enforce_limits();
-		assert!(!store.has_statement(&hash));
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+		assert!(!store.has_statement(&orphan_hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &orphan_key).unwrap().is_some());
 	}
 
 	#[test]
@@ -5044,7 +5201,7 @@ mod tests {
 			// Whatever the interleaving, the query-index bookkeeping must agree with the store.
 			let query_index = store.query_index.read();
 			let present = store.has_statement(&hash);
-			assert_eq!(query_index.recent.contains(&hash), present);
+			assert_eq!(query_index.recent.contains_key(&hash), present);
 			assert_eq!(
 				query_index.topic_counts.get(&topic(7)).copied().unwrap_or(0),
 				present as usize
