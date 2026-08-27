@@ -13,97 +13,95 @@ Therefore, we introduce on-chain settlement from the MVP. The sender `StreamsRoo
 the consumer `Requires` field (ie `(ParaId, StreamsRoot)`) is checked against the ring. The same
 mechanism handles settlement for all speculation tiers.
 
-The settlement ring is used for monitoring rollbacks. When a `parachain_set_head` overwrites a live
-head, it will also clear out the parachain's ring. Abandoned roots are no longer consumed and recovery
-(resetting the channels, compensate for delivered messages) is a `Coretime` runbook procedure, not
-a consensus mechanims Speculative Messaging or PS provides.
-
 ## Changes at MVP Tier
 
-We are releasing with the Enacted tier (HRMP parity) from day 0. The changes needed:
+We are releasing with the Enacted tier (HRMP parity) from day 0. The changes needed from PS:
 
-1. Sender header digest: `DigestItem::Consensus(SPMS_ENGINE_ID, enum SpmsDigest)`.
+## 1. `Provides` and `Requires` fields on the PS work digest
 
-For bundled PoV, only the candidate-boundary StreamsRoot is added to the settlement ring.
-Messages from inner blocks can still be consumed, but the receiver PoV must lift the stream state
-to the final root. Inner blocks cannot be settled directly.
-
-To ensure we can change the digest layout in the future while having coexisting versions, the `SpmsDigest` is a versioned enum.
-
-PS Refine decodes the candidate-boundary header. It rejects more than one SPMS digest or an
-unsupported version (PS support for the new version must be released before parachains use it).
+The Parachain Service work digest gains two fields:
 
 ```rust
-/// SCALE-encoded payload of `DigestItem::Consensus(SPMS_ENGINE_ID, ..)`
-/// Aproximately 39 bytes in its header.
-enum SpmsDigest {
-    /// Encodes to u8.
-    V0 {
-        /// The root of the sender's outbound message streams.
-        streams_root: H256
-    },
+struct ParachainWorkDigestOk {
+  /// ...
+  spec_msg_provides: Option<StreamsRoot>,
+  spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>,
 }
 ```
 
-2. `Provides` and `Requires` fields on the PS work digest
+### Producing Sender `Provides`
 
-```rust
-spec_msg_provides: Option<StreamsRoot>,
-spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>,
-```
+The sender runtime maintains its stream MMR frontiers and the commitment tree. After all inner blocks in
+a candidate have executed, the validation wrapper reports the final changed root through
+`set_provides_root`. It may do so once per `Refine`.
 
-The PS Refine wrapper derives `spec_msg_provides` from the candidate-boundary `SpmsDigest`.
-`Accumulate` consumes this field and never decodes the parachain header.
-
-The `spec_msg_requires` must not be chosen by the parachain block. Otherwise it can state any consumption.
-The block records what is consumed, then the PS Refine wrapper verifies the PoV carried lift,
-stitches bundle intervals and gap proofs, and synthesizes a `(ParaId, StreamsRoot)` per source.
-
-The PS Refine writes both fields after decoding the header and verifying the consumption records and PoV lifts.
-
-To ensure canonical encoding and uniqueness, the PS Refine wrapper produces unique entries sorted by `ParaId`.
-The Refine phase rejects malformed input.
-
-`spec_msg_provides` lets `Accumulate` update the sender's settlement ring and construct the dependency graph.
 It costs 33 bytes when present.
 
-`spec_msg_requires` is a digest field, because UMP signals are replayed after the head write (so it can't gate enactment).
+For a bundle, the wrapper carries the last changed root forward even when later inner blocks send nothing.
+Intermediate roots are not settlement entries. A consumer that used an intermediate boundary must lift
+its endpoint to the candidate-boundary root before it can settle.
+
+To ensure post MVP tiers work, we need a sender header digest as well. There can be at most one SPMS digest
+in the header. The PS remains header agnostic and never decodes it:
+
+```rust
+/// SCALE payload is 33 bytes: one enum byte and one hash.
+enum SpmsDigest { V0 { streams_root: H256 }, }
+DigestItem::Consensus(SPMS_ENGINE_ID, SpmsDigest::V0 { streams_root })
+```
+
+### Producing Receiver `Requires`
+
+Blocks record what they consumed, grouped by source and stream. They do not receive a `StreamsRoot` in
+the messaging inherent and do not emit the `Requires` directly. The record is declared by the collator.
+A false endpoint cannot bind to a valid lift, so lying provides no benefit.
+
+By contrast, `Requires` refers to another chain’s committed history and is always derived by PS Refine Wrapper.
+
+After executing a block, the guest reads its `ConsumptionOutbox`, just as it reads `UpwardMessages`,
+and submits the assembled record through one host call:
+
+```rust
+/// Records the messages consumed by the current block.
+/// May be called at most once per block.
+fn record_consumption(record: ConsumptionRecord) -> ();
+```
+
+The PoV contains one lift for each touched stream. PS Refine then:
+
+1. Collects block records in bundle order and applies each consumed interval to the receiver MMR state
+3. Stitches consescutive intervals and proves any gaps
+4. Extends each endpoint to a stream root
+5. Derives a `StreamsRoot` via stream tree proof
+6. Checks all streams from a single source derive the same root
+7. Emits `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>`
+
+The PoV’s generation is not trusted. Accumulate checks it against current Parachain Service state.
+
+> PS handles only ConsumptionRecord, Interval, and StreamId, which are common messaging types, and
+> never parses a header.
+
 At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
 
-3. Settlement: ring `spec_msg_recent_provides` and `Requires` check
+## 2. Settlement Ring
 
 The settlement ring represents the last `W` enacted roots per para, keyed at `0x09 ++ para_id`.
 
-The check and ring are delivered by the MVP implementation. When a work digest enacts, its
-`spec_msg_provides` root is pushed into the sender's ring only if present and different from the
-newest entry. The ring evicts the oldest entry beyond `W`.
-
-> `W` is no longer extra pipeline headroom. It is the window against which `Requires` must match.
-If a package `Requires` is not in the ring, that slot is lost. On polkadot, a stale candidate
-can retry for free. On JAM, each retry costs another slot.
-
-A forced `parachain_set_head` that overwrites a live head will also clear the ring.
-For a parachain with an existing head, a byte-identical `parachain_set_head` is a no op.
-While `is_deregistering`, the parachain cannot submit work but remains a valid Requires source.
-Its ring is removed only when clean-up completes and ParaInfo is dropped.
-
 ```rust
-/// Keyed `0x09 ++ SCALE(para_id)`.
-/// 
-/// Step 6 pushes `spec_msg_provides` at the head write iff present and != newest entry, evicts oldest.
-/// Cleared when a forced `parachain_set_head` overwrites a live head.
-/// Read by settlement, never proved.
-spec_msg_recent_provides: Map<ParaId, BoundedVec<StreamsRoot, W>>
+/// Keyed `0x09 ++ SCALE(para_id)`. Newest last, slot-ordered by construction.
+///
+/// Depth is dynamic: entries older than `D` (depth) slots are evicted, so a para pushing
+/// k roots per slot holds ~ k * D. Ensures elastic scaling adjusts the ring dynamically.
+spec_msg_recent_provides: Map<ParaId, BoundedVec<(StreamsRoot, Slot), W_MAX>>
+
+/// Number of slots between lift retarget and the accumulate phase 
+pub const D: u32 = 20;
+/// A parachain cannot exceed `MAX_CORES` cores. JAM supports max 341.
+pub const MAX_CORES: u32 = 20;
+pub const W_MAX: u32 = MAX_CORES * D;
 ```
 
-The ring reads are charged to the parachain. Every `Requires` source must exist and its root must be present in the ring.
-On the first missing entry, PS rejects the candidate and emits one bounded `AccumulateLog::RequiresUnmet { source, root }`
-allowing the receiver to identify a settlement miss and rebuild. Otherwise, the block builder cannot distinguish
-between a missing root from gas exhaustion, or queue expiry or parent-head failure. Logging only the first
-miss is bounded and the candidate has already passed authorization checks.
-
-Before processing a digest, PS charges its worst-case ring-read cost against that item’s declared accumulation gas. The
-`W` should be reasonable bounded and the scan reads the newest entries first stopping on the first match.
+Every `Requires` source must exist and its root must be present in the ring.
 
 > Note: A forced rollback (`ParachainSetHead` from the Coretime chain) isn't applied instantly. Its an upward message,
 replayed at step 7 when the Coretime chain's own package accumulates. Packages accumulate in order within a block,
