@@ -20,7 +20,7 @@
 
 pub(crate) mod api;
 pub(crate) mod enactment_state;
-pub(crate) mod error;
+pub mod error;
 pub(crate) mod metrics;
 pub(crate) mod sliding_stat;
 #[cfg(test)]
@@ -37,14 +37,13 @@ pub(crate) const STAT_SLIDING_WINDOW: u64 = 3;
 ///
 /// If `all_block_notifications` is `true`, the pool is informed about every imported block (all
 /// forks); otherwise it is only informed about blocks imported as the new best.
-pub async fn notification_future<Client, Pool, Block>(
+pub async fn notification_future<Client, Block>(
 	client: Arc<Client>,
-	txpool: Arc<Pool>,
+	txpool: Arc<sc_transaction_pool_api::TransactionPoolHandle<Block>>,
 	all_block_notifications: bool,
 ) where
 	Block: sp_runtime::traits::Block,
 	Client: sc_client_api::BlockchainEvents<Block>,
-	Pool: sc_transaction_pool_api::MaintainedTransactionPool<Block = Block> + ?Sized,
 {
 	let import_stream = client
 		.import_notification_stream()

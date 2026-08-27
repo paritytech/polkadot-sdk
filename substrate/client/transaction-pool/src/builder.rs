@@ -19,14 +19,12 @@
 //! Utility for building substrate transaction pool trait object.
 
 use crate::{
-	common::api::FullChainApi,
 	fork_aware_txpool::ForkAwareTxPool as ForkAwareFullPool,
-	graph::{base_pool::Transaction, ChainApi, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
+	graph::{IsValidator, Options},
 	single_state_txpool::BasicPool as SingleStateFullPool,
 	LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
-use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
@@ -122,15 +120,16 @@ impl TransactionPoolOptions {
 /// The client capabilities the transaction pool of a full node relies on.
 ///
 /// It is blanket implemented, so every client able to validate transactions against the runtime
-/// qualifies. Having it as a single bound keeps the client bounds readable at the places holding a
-/// [`TransactionPoolHandle`].
+/// qualifies. Only the code that actually builds a pool needs it: the [`Builder`] and the
+/// [`crate::FullChainApi`] it wires up. Holding a [`TransactionPoolHandle`] requires no client
+/// bound at all, since the handle is parameterized by the block type alone.
 pub trait ClientForTransactionPool<Block: BlockT>:
 	sp_api::ProvideRuntimeApi<
 		Block,
 		Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 	> + sc_client_api::BlockBackend<Block>
 	+ sc_client_api::blockchain::HeaderBackend<Block>
-	+ sp_runtime::traits::BlockIdTo<Block, Error = sp_blockchain::Error>
+	+ sp_runtime::traits::BlockIdTo<Block>
 	+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
 	+ 'static
 {
@@ -142,63 +141,19 @@ impl<Block: BlockT, T> ClientForTransactionPool<Block> for T where
 			Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 		> + sc_client_api::BlockBackend<Block>
 		+ sc_client_api::blockchain::HeaderBackend<Block>
-		+ sp_runtime::traits::BlockIdTo<Block, Error = sp_blockchain::Error>
+		+ sp_runtime::traits::BlockIdTo<Block>
 		+ sp_blockchain::HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ 'static
 {
 }
 
-/// `FullClientTransactionPool` is a trait that combines the functionality of
-/// `MaintainedTransactionPool` and `LocalTransactionPool` for a given `Client` and `Block`.
-///
-/// This trait defines the requirements for a full client transaction pool, ensuring
-/// that it can handle transactions submission and maintenance.
-pub trait FullClientTransactionPool<Block, Client>:
-	MaintainedTransactionPool<
-		Block = Block,
-		Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
-		InPoolTransaction = Transaction<
-			ExtrinsicHash<FullChainApi<Client, Block>>,
-			ExtrinsicFor<FullChainApi<Client, Block>>,
-		>,
-		Error = <FullChainApi<Client, Block> as ChainApi>::Error,
-	> + LocalTransactionPool<
-		Block = Block,
-		Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
-		Error = <FullChainApi<Client, Block> as ChainApi>::Error,
-	>
-where
-	Block: BlockT,
-	Client: ClientForTransactionPool<Block>,
-{
-}
-
-impl<Block, Client, P> FullClientTransactionPool<Block, Client> for P
-where
-	Block: BlockT,
-	Client: ClientForTransactionPool<Block>,
-	P: MaintainedTransactionPool<
-			Block = Block,
-			Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
-			InPoolTransaction = Transaction<
-				ExtrinsicHash<FullChainApi<Client, Block>>,
-				ExtrinsicFor<FullChainApi<Client, Block>>,
-			>,
-			Error = <FullChainApi<Client, Block> as ChainApi>::Error,
-		> + LocalTransactionPool<
-			Block = Block,
-			Hash = ExtrinsicHash<FullChainApi<Client, Block>>,
-			Error = <FullChainApi<Client, Block> as ChainApi>::Error,
-		>,
-{
-}
-
-/// The public type alias for the trait object providing the implementation of
-/// `FullClientTransactionPool` with the given `Client` and `Block` types.
-///
-/// This handle abstracts away the specific type of the transaction pool, e.g. fork-aware or
-/// single-state. It is unsized, so it is always used behind an `Arc`.
-pub type TransactionPoolHandle<Block, Client> = dyn FullClientTransactionPool<Block, Client>;
+/// The trait objects bundling the pool traits, and the handles naming them, all live in
+/// `sc-transaction-pool-api` so that a component can hold a pool without depending on this
+/// crate.
+pub use sc_transaction_pool_api::{
+	FullClientTransactionPool, FullTransactionPool, LocalTransactionPoolHandle,
+	TransactionPoolHandle,
+};
 
 /// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<'a, Block, Client> {
@@ -247,7 +202,7 @@ where
 	}
 
 	/// Creates an instance of transaction pool.
-	pub fn build(self) -> Arc<TransactionPoolHandle<Block, Client>> {
+	pub fn build(self) -> Arc<LocalTransactionPoolHandle<Block>> {
 		tracing::info!(
 			target: LOG_TARGET,
 			txpool_type = ?self.options.txpool_type,

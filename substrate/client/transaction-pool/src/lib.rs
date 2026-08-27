@@ -33,13 +33,13 @@ use std::sync::Arc;
 
 pub use api::FullChainApi;
 pub use builder::{
-	Builder, ClientForTransactionPool, FullClientTransactionPool, TransactionPoolHandle,
-	TransactionPoolOptions, TransactionPoolType,
+	Builder, ClientForTransactionPool, FullClientTransactionPool, FullTransactionPool,
+	LocalTransactionPoolHandle, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType,
 };
-pub use common::notification_future;
+pub use common::{error, notification_future};
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 pub use graph::{
-	base_pool::{Limit as PoolLimit, TimedTransactionSource},
+	base_pool::{Limit as PoolLimit, TimedTransactionSource, Transaction},
 	ChainApi, Options, Pool, ValidateTransactionPriority,
 };
 use single_state_txpool::prune_known_txs_for_block;

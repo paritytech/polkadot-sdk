@@ -83,8 +83,7 @@ use sc_rpc_spec_v2::{
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_tracing::block::TracingExecuteBlock;
-use sc_transaction_pool::{ClientForTransactionPool, TransactionPoolHandle};
-use sc_transaction_pool_api::MaintainedTransactionPool;
+use sc_transaction_pool_api::TransactionPoolHandle;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
@@ -446,8 +445,8 @@ where
 	)
 }
 
-/// Parameters to pass into `build`.
-pub struct SpawnTasksParams<'a, TBl: BlockT, TCl: ClientForTransactionPool<TBl>, TRpc, Backend> {
+/// Parameters to pass into [`spawn_tasks`].
+pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TRpc, Backend> {
 	/// The service configuration.
 	pub config: Configuration,
 	/// A shared client returned by `new_full_parts`.
@@ -459,7 +458,7 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl: ClientForTransactionPool<TBl>,
 	/// A shared keystore returned by `new_full_parts`.
 	pub keystore: KeystorePtr,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<TBl, TCl>>,
+	pub transaction_pool: Arc<TransactionPoolHandle<TBl>>,
 	/// Builds additional [`RpcModule`]s that should be added to the server
 	pub rpc_builder: Box<dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>>,
 	/// A shared network instance.
@@ -498,14 +497,19 @@ pub fn spawn_tasks<TBl, TBackend, TRpc, TCl>(
 	}: SpawnTasksParams<TBl, TCl, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
-	TCl: ClientForTransactionPool<TBl>
+	TCl: ProvideRuntimeApi<TBl>
+		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
 		+ Chain<TBl>
+		+ BlockBackend<TBl>
 		+ ProofProvider<TBl>
+		+ HeaderBackend<TBl>
 		+ BlockchainEvents<TBl>
 		+ ExecutorProvider<TBl>
 		+ UsageProvider<TBl>
 		+ StorageProvider<TBl, TBackend>
-		+ CallApiAt<TBl>,
+		+ CallApiAt<TBl>
+		+ Send
+		+ 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api:
 		sp_api::Metadata<TBl> + sp_session::SessionKeys<TBl> + sp_api::ApiExt<TBl>,
 	TBl: BlockT,
@@ -686,15 +690,14 @@ where
 }
 
 /// Returns a future that forwards imported transactions to the transaction networking protocol.
-pub async fn propagate_transaction_notifications<Block, ExPool>(
-	transaction_pool: Arc<ExPool>,
+pub async fn propagate_transaction_notifications<Block>(
+	transaction_pool: Arc<TransactionPoolHandle<Block>>,
 	tx_handler_controller: sc_network_transactions::TransactionsHandlerController<
 		<Block as BlockT>::Hash,
 	>,
 	telemetry: Option<TelemetryHandle>,
 ) where
 	Block: BlockT,
-	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized,
 {
 	const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -778,13 +781,13 @@ where
 }
 
 /// Parameters for [`gen_rpc_module`].
-pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl: ClientForTransactionPool<TBl>, TRpc> {
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc> {
 	/// The handle to spawn tasks on the RPC runtime.
 	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
 	pub client: Arc<TCl>,
 	/// The transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<TBl, TCl>>,
+	pub transaction_pool: Arc<TransactionPoolHandle<TBl>>,
 	/// Keystore handle.
 	pub keystore: KeystorePtr,
 	/// Sender for system requests.
@@ -835,12 +838,18 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc>(
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
-	TCl: ClientForTransactionPool<TBl>
+	TCl: ProvideRuntimeApi<TBl>
 		+ BlockchainEvents<TBl>
+		+ HeaderBackend<TBl>
+		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
 		+ ExecutorProvider<TBl>
 		+ CallApiAt<TBl>
 		+ ProofProvider<TBl>
-		+ StorageProvider<TBl, TBackend>,
+		+ StorageProvider<TBl, TBackend>
+		+ BlockBackend<TBl>
+		+ Send
+		+ Sync
+		+ 'static,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
 	TBl::Hash: Unpin,
@@ -966,7 +975,6 @@ pub struct BuildNetworkParams<'a, Block, Net, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Client: ClientForTransactionPool<Block>,
 {
 	/// The service configuration.
 	pub config: &'a Configuration,
@@ -975,7 +983,7 @@ where
 	/// A shared client returned by `new_full_parts`.
 	pub client: Arc<Client>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<Block, Client>>,
+	pub transaction_pool: Arc<TransactionPoolHandle<Block>>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// A handle for spawning essential tasks.
@@ -1010,10 +1018,14 @@ pub fn build_network<Block, Net, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ClientForTransactionPool<Block>
+	Client: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ Chain<Block>
+		+ BlockBackend<Block>
 		+ ProofProvider<Block>
-		+ BlockchainEvents<Block>,
+		+ HeaderBackend<Block>
+		+ BlockchainEvents<Block>
+		+ 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -1120,7 +1132,6 @@ pub struct BuildNetworkAdvancedParams<'a, Block, Net, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
-	Client: ClientForTransactionPool<Block>,
 {
 	/// Role of the local node.
 	pub role: Role,
@@ -1135,7 +1146,7 @@ where
 	/// A shared client returned by `new_full_parts`.
 	pub client: Arc<Client>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<Block, Client>>,
+	pub transaction_pool: Arc<TransactionPoolHandle<Block>>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// A handle for spawning essential tasks.
@@ -1173,10 +1184,14 @@ pub fn build_network_advanced<Block, Net, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ClientForTransactionPool<Block>
+	Client: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ Chain<Block>
+		+ BlockBackend<Block>
 		+ ProofProvider<Block>
-		+ BlockchainEvents<Block>,
+		+ HeaderBackend<Block>
+		+ BlockchainEvents<Block>
+		+ 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {

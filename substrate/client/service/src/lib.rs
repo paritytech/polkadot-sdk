@@ -92,7 +92,10 @@ pub use sc_network_transactions::config::{TransactionImport, TransactionImportFu
 pub use sc_rpc::{RandomIntegerSubscriptionId, RandomStringSubscriptionId};
 pub use sc_tracing::TracingReceiver;
 pub use sc_transaction_pool::TransactionPoolOptions;
-pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
+pub use sc_transaction_pool_api::{
+	error::IntoPoolError, InPoolTransaction, LocalTransactionPoolHandle, TransactionPool,
+	TransactionPoolHandle,
+};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
 pub use task_manager::{
@@ -154,14 +157,7 @@ impl RpcHandlers {
 }
 
 /// An incomplete set of chain components, but enough to run the chain ops subcommands.
-pub struct PartialComponents<
-	Client,
-	Backend,
-	SelectChain,
-	ImportQueue,
-	TransactionPool: ?Sized,
-	Other,
-> {
+pub struct PartialComponents<Client, Backend, SelectChain, ImportQueue, Block: BlockT, Other> {
 	/// A shared client instance.
 	pub client: Arc<Client>,
 	/// A shared backend instance.
@@ -175,7 +171,7 @@ pub struct PartialComponents<
 	/// An import queue.
 	pub import_queue: ImportQueue,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPool>,
+	pub transaction_pool: Arc<LocalTransactionPoolHandle<Block>>,
 	/// Everything else that needs to be passed into the main build function.
 	pub other: Other,
 }
@@ -462,14 +458,14 @@ pub fn start_rpc_servers(
 }
 
 /// Transaction pool adapter.
-pub struct TransactionPoolAdapter<C, P: ?Sized> {
-	pool: Arc<P>,
+pub struct TransactionPoolAdapter<C, Block: BlockT> {
+	pool: Arc<TransactionPoolHandle<Block>>,
 	client: Arc<C>,
 }
 
-impl<C, P: ?Sized> TransactionPoolAdapter<C, P> {
+impl<C, Block: BlockT> TransactionPoolAdapter<C, Block> {
 	/// Constructs a new instance of [`TransactionPoolAdapter`].
-	pub fn new(pool: Arc<P>, client: Arc<C>) -> Self {
+	pub fn new(pool: Arc<TransactionPoolHandle<Block>>, client: Arc<C>) -> Self {
 		Self { pool, client }
 	}
 }
@@ -477,13 +473,9 @@ impl<C, P: ?Sized> TransactionPoolAdapter<C, P> {
 /// Get transactions for propagation.
 ///
 /// Function extracted to simplify the test and prevent creating `ServiceFactory`.
-fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, Arc<B::Extrinsic>)>
-where
-	Pool: TransactionPool<Block = B, Hash = H, Error = E> + ?Sized,
-	B: BlockT,
-	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
-	E: IntoPoolError + From<sc_transaction_pool_api::error::Error>,
-{
+fn transactions_to_propagate<B: BlockT>(
+	pool: &TransactionPoolHandle<B>,
+) -> Vec<(B::Hash, Arc<B::Extrinsic>)> {
 	pool.ready()
 		.filter(|t| t.is_propagable())
 		.map(|t| {
@@ -494,8 +486,8 @@ where
 		.collect()
 }
 
-impl<B, H, C, Pool, E> sc_network_transactions::config::TransactionPool<H, B>
-	for TransactionPoolAdapter<C, Pool>
+impl<B, C> sc_network_transactions::config::TransactionPool<B::Hash, B>
+	for TransactionPoolAdapter<C, B>
 where
 	C: HeaderBackend<B>
 		+ BlockBackend<B>
@@ -504,16 +496,13 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Pool: 'static + TransactionPool<Block = B, Hash = H, Error = E> + ?Sized,
 	B: BlockT,
-	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
-	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
-	fn transactions(&self) -> Vec<(H, Arc<B::Extrinsic>)> {
+	fn transactions(&self) -> Vec<(B::Hash, Arc<B::Extrinsic>)> {
 		transactions_to_propagate(&*self.pool)
 	}
 
-	fn hash_of(&self, transaction: &B::Extrinsic) -> H {
+	fn hash_of(&self, transaction: &B::Extrinsic) -> B::Hash {
 		self.pool.hash_of(transaction)
 	}
 
@@ -559,11 +548,11 @@ where
 		})
 	}
 
-	fn on_broadcasted(&self, propagations: HashMap<H, Vec<String>>) {
+	fn on_broadcasted(&self, propagations: HashMap<B::Hash, Vec<String>>) {
 		self.pool.on_broadcasted(propagations)
 	}
 
-	fn transaction(&self, hash: &H) -> Option<Arc<B::Extrinsic>> {
+	fn transaction(&self, hash: &B::Hash) -> Option<Arc<B::Extrinsic>> {
 		self.pool.ready_transaction(hash).and_then(
 			// Only propagable transactions should be resolved for network service.
 			|tx| tx.is_propagable().then(|| tx.data().clone()),

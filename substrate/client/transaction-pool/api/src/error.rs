@@ -128,3 +128,45 @@ impl IntoMetricsLabel for Error {
 		self.as_ref().to_string()
 	}
 }
+
+/// The error type of a full node's transaction pool.
+///
+/// On top of the pool's own rejection reasons ([`Error`]) it carries the failures that only a pool
+/// backed by a client can hit, i.e. talking to the blockchain and to the runtime.
+///
+/// It lives here rather than next to the pool implementation so that
+/// [`crate::FullClientTransactionPool`] can name it as an associated type.
+#[derive(Debug, thiserror::Error, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
+#[allow(missing_docs)]
+pub enum FullPoolError {
+	#[error("Transaction pool error: {0}")]
+	Pool(#[from] Error),
+
+	#[error("Blockchain error: {0}")]
+	Blockchain(#[from] sp_blockchain::Error),
+
+	#[error("Block conversion error: {0}")]
+	BlockIdConversion(String),
+
+	#[error("Runtime error: {0}")]
+	RuntimeApi(String),
+}
+
+/// Result of a full node's transaction pool operation.
+pub type FullPoolResult<T> = std::result::Result<T, FullPoolError>;
+
+impl IntoPoolError for FullPoolError {
+	fn into_pool_error(self) -> std::result::Result<Error, Self> {
+		match self {
+			FullPoolError::Pool(e) => Ok(e),
+			e => Err(e),
+		}
+	}
+}
+
+impl IntoMetricsLabel for FullPoolError {
+	fn label(&self) -> String {
+		self.as_ref().to_string()
+	}
+}

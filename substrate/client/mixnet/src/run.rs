@@ -47,9 +47,7 @@ use sc_network::{
 	service::traits::{NetworkService, NotificationEvent, ValidationResult},
 	NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
 };
-use sc_transaction_pool_api::{
-	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
-};
+use sc_transaction_pool_api::{LocalTransactionPoolHandle, OffchainTransactionPoolFactory};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::SyncOracle;
 use sp_keystore::{KeystoreExt, KeystorePtr};
@@ -146,14 +144,14 @@ fn time_until(instant: Instant) -> Duration {
 
 /// Run the mixnet service. If `keystore` is `None`, the service will not attempt to register the
 /// local node as a mixnode, even if `config.register` is `true`.
-pub async fn run<B, C, S, P>(
+pub async fn run<B, C, S>(
 	config: Config,
 	mut api_backend: ApiBackend,
 	client: Arc<C>,
 	sync: Arc<S>,
 	network: Arc<dyn NetworkService>,
 	protocol_name: ProtocolName,
-	transaction_pool: Arc<P>,
+	transaction_pool: Arc<LocalTransactionPoolHandle<B>>,
 	keystore: Option<KeystorePtr>,
 	mut notification_service: Box<dyn NotificationService>,
 ) where
@@ -161,7 +159,6 @@ pub async fn run<B, C, S, P>(
 	C: BlockchainEvents<B> + ProvideRuntimeApi<B> + HeaderBackend<B>,
 	C::Api: MixnetApi<B>,
 	S: SyncOracle,
-	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static + ?Sized,
 {
 	let local_peer_id = network.local_peer_id();
 	let Some(local_peer_id) = to_core_peer_id(&local_peer_id) else {

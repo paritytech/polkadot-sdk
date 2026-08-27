@@ -52,7 +52,7 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 	FullBackend,
 	ChainSelection,
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+	Block,
 	(
 		Box<
 			dyn Fn(

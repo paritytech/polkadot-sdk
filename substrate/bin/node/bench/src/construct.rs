@@ -30,7 +30,9 @@ use async_trait::async_trait;
 use node_primitives::Block;
 use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_transaction_pool_api::{
-	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
+	error::FullPoolError, ChainEvent, ImportNotificationStream, LocalTransactionFor,
+	LocalTransactionPool, MaintainedTransactionPool, PoolStatus, ReadyTransactions,
+	TimedTransactionSource, TransactionFor, TransactionPoolHandle, TransactionSource,
 	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_consensus::{Environment, ProposeArgs, Proposer};
@@ -89,7 +91,7 @@ impl core::BenchmarkDescription for ConstructionBenchmarkDescription {
 
 		let content_type = self.block_type.to_content(self.size.transactions());
 		for transaction in bench_db.block_content(content_type, &client) {
-			extrinsics.push(Arc::new(transaction.into()));
+			extrinsics.push(Arc::new(pool_transaction(transaction)));
 		}
 
 		Box::new(ConstructionBenchmark {
@@ -124,7 +126,7 @@ impl core::Benchmark for ConstructionBenchmark {
 		let mut proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			context.spawn_handle.clone(),
 			context.client.clone(),
-			self.transactions.clone().into(),
+			Arc::new(self.transactions.clone()) as Arc<TransactionPoolHandle<Block>>,
 			None,
 			None,
 		);
@@ -167,48 +169,21 @@ impl core::Benchmark for ConstructionBenchmark {
 	}
 }
 
-#[derive(Clone, Debug)]
-pub struct PoolTransaction {
-	data: Arc<OpaqueExtrinsic>,
-	hash: node_primitives::Hash,
-}
+/// The in-pool transaction of a full node's pool, which is what the proposer expects to see.
+pub type PoolTransaction =
+	sc_transaction_pool_api::Transaction<node_primitives::Hash, Arc<OpaqueExtrinsic>>;
 
-impl From<OpaqueExtrinsic> for PoolTransaction {
-	fn from(e: OpaqueExtrinsic) -> Self {
-		PoolTransaction { data: Arc::from(e), hash: node_primitives::Hash::zero() }
-	}
-}
-
-impl sc_transaction_pool_api::InPoolTransaction for PoolTransaction {
-	type Transaction = Arc<OpaqueExtrinsic>;
-	type Hash = node_primitives::Hash;
-
-	fn data(&self) -> &Self::Transaction {
-		&self.data
-	}
-
-	fn hash(&self) -> &Self::Hash {
-		&self.hash
-	}
-
-	fn priority(&self) -> &u64 {
-		unimplemented!()
-	}
-
-	fn longevity(&self) -> &u64 {
-		unimplemented!()
-	}
-
-	fn requires(&self) -> &[Vec<u8>] {
-		unimplemented!()
-	}
-
-	fn provides(&self) -> &[Vec<u8>] {
-		unimplemented!()
-	}
-
-	fn is_propagable(&self) -> bool {
-		unimplemented!()
+fn pool_transaction(data: OpaqueExtrinsic) -> PoolTransaction {
+	PoolTransaction {
+		data: Arc::new(data),
+		bytes: 0,
+		hash: node_primitives::Hash::zero(),
+		priority: 0,
+		valid_till: 0,
+		requires: Vec::new(),
+		provides: Vec::new(),
+		propagate: true,
+		source: TimedTransactionSource::new_external(false),
 	}
 }
 
@@ -233,7 +208,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	type Block = Block;
 	type Hash = node_primitives::Hash;
 	type InPoolTransaction = PoolTransaction;
-	type Error = sc_transaction_pool_api::error::Error;
+	type Error = FullPoolError;
 
 	/// Asynchronously imports a bunch of unverified transactions to the pool.
 	async fn submit_at(
@@ -312,6 +287,25 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		_at: Self::Hash,
 		_timeout: std::time::Duration,
 	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+		unimplemented!()
+	}
+}
+
+#[async_trait]
+impl MaintainedTransactionPool for Transactions {
+	async fn maintain(&self, _event: ChainEvent<Self::Block>) {}
+}
+
+impl LocalTransactionPool for Transactions {
+	type Block = Block;
+	type Hash = node_primitives::Hash;
+	type Error = FullPoolError;
+
+	fn submit_local(
+		&self,
+		_at: <Self::Block as sp_runtime::traits::Block>::Hash,
+		_xt: LocalTransactionFor<Self>,
+	) -> Result<Self::Hash, Self::Error> {
 		unimplemented!()
 	}
 }

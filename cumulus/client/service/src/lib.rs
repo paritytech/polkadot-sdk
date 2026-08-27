@@ -23,7 +23,7 @@ use cumulus_client_cli::CollatorOptions;
 use cumulus_client_network::AssumeSybilResistance;
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_client_proof_size_recording::load_proof_size_recording;
-use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+use cumulus_primitives_core::ParaId;
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
@@ -52,7 +52,7 @@ use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
-use sp_blockchain::HeaderBackend;
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Decode};
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, Header},
@@ -265,7 +265,7 @@ pub async fn build_relay_chain_interface(
 pub struct BuildNetworkParams<
 	'a,
 	Block: BlockT,
-	Client: sc_transaction_pool::ClientForTransactionPool<Block>,
+	Client,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,
 	RCInterface,
 	IQ,
@@ -274,7 +274,7 @@ pub struct BuildNetworkParams<
 	pub net_config:
 		sc_network::config::FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
 	pub client: Arc<Client>,
-	pub transaction_pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>,
+	pub transaction_pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block>>,
 	pub para_id: ParaId,
 	pub relay_chain_interface: RCInterface,
 	pub spawn_handle: SpawnTaskHandle,
@@ -306,13 +306,14 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 )>
 where
 	Block: BlockT,
-	Client: sc_transaction_pool::ClientForTransactionPool<Block>
-		+ UsageProvider<Block>
+	Client: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ sp_consensus::block_validation::Chain<Block>
+		+ BlockBackend<Block>
+		+ ProofProvider<Block>
+		+ HeaderBackend<Block>
 		+ BlockchainEvents<Block>
-		+ ProofProvider<Block>,
-	Client::Api: CollectCollationInfo<Block>,
-	for<'b> &'b Client: BlockImport<Block>,
+		+ 'static,
 	RCInterface: RelayChainInterface + Clone + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Network: NetworkBackend<Block, <Block as BlockT>::Hash>,

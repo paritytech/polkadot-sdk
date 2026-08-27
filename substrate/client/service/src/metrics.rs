@@ -22,7 +22,7 @@ use sc_client_api::{ClientInfo, UsageProvider};
 use sc_network::{config::Role, NetworkStatus, NetworkStatusProvider};
 use sc_network_sync::{SyncStatus, SyncStatusProvider};
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
-use sc_transaction_pool_api::{MaintainedTransactionPool, PoolStatus};
+use sc_transaction_pool_api::{PoolStatus, TransactionPoolHandle};
 use sc_utils::metrics::register_globals;
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::{Block, NumberFor, SaturatedConversion, UniqueSaturatedInto};
@@ -170,16 +170,15 @@ impl MetricsService {
 	/// Returns a never-ending `Future` that performs the
 	/// metric and telemetry updates with information from
 	/// the given sources.
-	pub async fn run<TBl, TExPool, TCl, TNet, TSync>(
+	pub async fn run<TBl, TCl, TNet, TSync>(
 		mut self,
 		client: Arc<TCl>,
-		transactions: Arc<TExPool>,
+		transactions: Arc<TransactionPoolHandle<TBl>>,
 		network: TNet,
 		syncing: TSync,
 	) where
 		TBl: Block,
 		TCl: ProvideRuntimeApi<TBl> + UsageProvider<TBl>,
-		TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as Block>::Hash> + ?Sized,
 		TNet: NetworkStatusProvider,
 		TSync: SyncStatusProvider<TBl>,
 	{

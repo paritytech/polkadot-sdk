@@ -25,24 +25,24 @@
 use jsonrpsee::RpcModule;
 use minimal_template_runtime::interface::{AccountId, Nonce, OpaqueBlock};
 use polkadot_sdk::{
-	sc_transaction_pool_api::TransactionPool,
+	sc_transaction_pool_api::TransactionPoolHandle,
 	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
 	*,
 };
 use std::sync::Arc;
 
 /// Full client dependencies.
-pub struct FullDeps<C, P: ?Sized> {
+pub struct FullDeps<C> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: Arc<P>,
+	pub pool: Arc<TransactionPoolHandle<OpaqueBlock>>,
 }
 
 #[docify::export]
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P>(
-	deps: FullDeps<C, P>,
+pub fn create_full<C>(
+	deps: FullDeps<C>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	C: Send
@@ -54,7 +54,6 @@ where
 		+ 'static,
 	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
-	P: TransactionPool + 'static + ?Sized,
 {
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());

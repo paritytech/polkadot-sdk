@@ -188,3 +188,10 @@ impl TransactionPool for MiddlewarePool {
 		self.inner_pool.ready_at(at).await
 	}
 }
+
+#[async_trait]
+impl sc_transaction_pool_api::MaintainedTransactionPool for MiddlewarePool {
+	async fn maintain(&self, event: sc_transaction_pool_api::ChainEvent<Self::Block>) {
+		self.inner_pool.maintain(event).await
+	}
+}

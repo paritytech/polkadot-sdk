@@ -27,7 +27,7 @@ use fatp_common::{
 use futures::{executor::block_on, FutureExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
-	error::{Error as TxPoolError, IntoPoolError},
+	error::{Error as TxPoolError, FullPoolError, IntoPoolError},
 	MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
@@ -66,12 +66,12 @@ fn fatp_invalid_three_views_stale_gets_rejected() {
 	let result1 = block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone()));
 
 	assert!(matches!(
-		result0.as_ref().unwrap_err().0,
-		TxPoolError::InvalidTransaction(InvalidTransaction::Stale)
+		result0.as_ref().unwrap_err(),
+		FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Stale))
 	));
 	assert!(matches!(
-		result1.as_ref().unwrap_err().0,
-		TxPoolError::InvalidTransaction(InvalidTransaction::Stale)
+		result1.as_ref().unwrap_err(),
+		FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Stale))
 	));
 }
 
@@ -101,12 +101,12 @@ fn fatp_invalid_three_views_invalid_gets_rejected() {
 	let result1 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).map(|_| ());
 
 	assert!(matches!(
-		result0.as_ref().unwrap_err().0,
-		TxPoolError::InvalidTransaction(InvalidTransaction::Custom(_))
+		result0.as_ref().unwrap_err(),
+		FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Custom(_)))
 	));
 	assert!(matches!(
-		result1.as_ref().unwrap_err().0,
-		TxPoolError::InvalidTransaction(InvalidTransaction::Custom(_))
+		result1.as_ref().unwrap_err(),
+		FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Custom(_)))
 	));
 }
 

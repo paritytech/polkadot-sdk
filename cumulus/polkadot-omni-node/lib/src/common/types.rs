@@ -20,7 +20,6 @@ use sc_consensus::DefaultImportQueue;
 use sc_executor::WasmExecutor;
 use sc_service::{PartialComponents, TFullBackend, TFullClient};
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
-use sc_transaction_pool::TransactionPoolHandle;
 use sp_runtime::{generic, traits::BlakeTwo256};
 
 pub use parachains_common_types::{AccountId, Balance, Hash, Nonce};
@@ -54,7 +53,7 @@ pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialCo
 	ParachainBackend<Block>,
 	(),
 	DefaultImportQueue<Block>,
-	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+	Block,
 	(
 		ParachainBlockImport<Block, BI>,
 		Option<Telemetry>,

@@ -24,7 +24,7 @@ use codec::Encode;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
 use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool::{BasicPool, FullChainApi};
-use sc_transaction_pool_api::TransactionStatus;
+use sc_transaction_pool_api::{TransactionPool, TransactionStatus};
 use sp_core::{
 	bytes::to_hex,
 	crypto::{ByteArray, Pair},
@@ -78,7 +78,7 @@ impl Default for TestSetup {
 }
 
 impl TestSetup {
-	fn to_rpc(&self) -> RpcModule<Author<FullTransactionPool, Client<Backend>>> {
+	fn to_rpc(&self) -> RpcModule<Author<Block, Client<Backend>>> {
 		let mut module = Author {
 			client: self.client.clone(),
 			pool: self.pool.clone(),
@@ -90,7 +90,7 @@ impl TestSetup {
 		module
 	}
 
-	fn into_rpc() -> RpcModule<Author<FullTransactionPool, Client<Backend>>> {
+	fn into_rpc() -> RpcModule<Author<Block, Client<Backend>>> {
 		Self::default().to_rpc()
 	}
 }

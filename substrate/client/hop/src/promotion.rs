@@ -27,6 +27,7 @@
 //! - [`HopMaintenanceTask`] — background task combining promotion + cleanup.
 
 use crate::{pool::HopDataPool, runtime_api};
+use sc_transaction_pool_api::LocalTransactionPoolHandle;
 use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -67,29 +68,27 @@ pub trait HopPromoter: Send + Sync + 'static {
 /// Concrete [`HopPromoter`] that calls the HOP runtime API dynamically (see
 /// [`crate::runtime_api`]) to build a promotion extrinsic and submits it to
 /// the local transaction pool.
-pub struct RuntimeApiPromoter<Block: BlockT, C, P: ?Sized> {
+pub struct RuntimeApiPromoter<Block: BlockT, C> {
 	client: Arc<C>,
-	tx_pool: Arc<P>,
+	tx_pool: Arc<LocalTransactionPoolHandle<Block>>,
 	_phantom: PhantomData<Block>,
 }
 
-impl<Block, C, P> RuntimeApiPromoter<Block, C, P>
+impl<Block, C> RuntimeApiPromoter<Block, C>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
 	/// Create a new promoter.
-	pub fn new(client: Arc<C>, tx_pool: Arc<P>) -> Self {
+	pub fn new(client: Arc<C>, tx_pool: Arc<LocalTransactionPoolHandle<Block>>) -> Self {
 		Self { client, tx_pool, _phantom: PhantomData }
 	}
 }
 
-impl<Block, C, P> HopPromoter for RuntimeApiPromoter<Block, C, P>
+impl<Block, C> HopPromoter for RuntimeApiPromoter<Block, C>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
 	fn promote(
 		&self,
@@ -127,14 +126,13 @@ where
 ///
 /// Returns `Some(promoter)` if the runtime supports the API, or `None` with a
 /// warning log if it doesn't.
-pub fn try_build_promoter<Block, C, P>(
+pub fn try_build_promoter<Block, C>(
 	client: &Arc<C>,
-	tx_pool: &Arc<P>,
+	tx_pool: &Arc<LocalTransactionPoolHandle<Block>>,
 ) -> Option<Arc<dyn HopPromoter>>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
 	let best_hash = client.info().best_hash;
 	match client
@@ -168,9 +166,9 @@ where
 /// Detects `HopRuntimeApi` support at startup (see [`try_build_promoter`]) and captures
 /// a best-block closure over `client` so callers only need to spawn the returned
 /// task on their task manager.
-pub fn build_maintenance_task<Block, C, P>(
+pub fn build_maintenance_task<Block, C>(
 	client: &Arc<C>,
-	tx_pool: &Arc<P>,
+	tx_pool: &Arc<LocalTransactionPoolHandle<Block>>,
 	pool: Arc<HopDataPool>,
 	buffer_secs: u64,
 	check_interval_secs: u64,
@@ -178,9 +176,8 @@ pub fn build_maintenance_task<Block, C, P>(
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static + ?Sized,
 {
-	let promoter = try_build_promoter::<Block, _, _>(client, tx_pool);
+	let promoter = try_build_promoter::<Block, _>(client, tx_pool);
 	let best_block_client = client.clone();
 	let best_block: Arc<dyn Fn() -> u32 + Send + Sync> =
 		Arc::new(move || best_block_client.info().best_number.saturated_into::<u32>());

@@ -85,7 +85,7 @@ type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
 >;
 
 /// The transaction pool type definition.
-pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block, FullClient>;
+pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -191,7 +191,7 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+		Block,
 		(
 			impl Fn(
 				sc_rpc::SubscriptionTaskExecutor,
@@ -408,7 +408,7 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
+	pub transaction_pool: Arc<TransactionPoolHandle<Block>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
