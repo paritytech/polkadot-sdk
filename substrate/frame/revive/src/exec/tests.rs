@@ -3130,10 +3130,7 @@ fn delegatecall_tracer_reports_correct_addresses() {
 }
 
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
-	matches!(
-		ext.touch_storage_access(false, key, StorageOp::Read),
-		StorageAccessKind::Persistent(Warmth::Cold { .. })
-	)
+	matches!(ext.touch_storage_access(key, StorageOp::Read), Warmth::Cold { .. })
 }
 
 fn run_root_call(contract_addr: H160, input: Vec<u8>) {
@@ -3282,8 +3279,8 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
+			ctx.ext.touch_storage_access(&Key::Fix(SLOT), StorageOp::Read),
+			Warmth::Cold { revertible: true },
 			"a cold touch in a nested frame is revertible",
 		);
 
@@ -3294,13 +3291,13 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 			let mut slot = [0u8; 32];
 			slot[..4].copy_from_slice(&i.to_le_bytes());
 			assert_matches!(
-				ctx.ext.touch_storage_access(false, &Key::Fix(slot), StorageOp::Read),
-				StorageAccessKind::Persistent(Warmth::Cold { revertible: true })
+				ctx.ext.touch_storage_access(&Key::Fix(slot), StorageOp::Read),
+				Warmth::Cold { revertible: true }
 			);
 		}
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32]), StorageOp::Read),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			ctx.ext.touch_storage_access(&Key::Fix([0xFF; 32]), StorageOp::Read),
+			Warmth::Cold { revertible: false },
 			"past the cap even a nested frame's touch is not revertible",
 		);
 		exec_success()
@@ -3308,8 +3305,8 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
-			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
+			ctx.ext.touch_storage_access(&Key::Fix(SLOT), StorageOp::Read),
+			Warmth::Cold { revertible: false },
 			"a cold touch in the root frame is not revertible",
 		);
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
@@ -3324,27 +3321,38 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 }
 
 #[test]
-fn cold_hot_transient_skips_access_list() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let key = Key::Fix([42; 32]);
-
-		// `transient: true` classifies as `Transient` without touching the access list.
-		let kind = ctx.ext.touch_storage_access(true, &key, StorageOp::Read);
-		assert!(matches!(kind, StorageAccessKind::Transient));
-
-		// The same key is still cold in the persistent access list.
-		let persistent_kind = ctx.ext.peek_storage_access(false, &key);
-		assert!(
-			matches!(persistent_kind, StorageAccessKind::Persistent(Warmth::Cold { .. })),
-			"transient access must not warm the persistent access list",
+fn cold_hot_past_cap_touch_is_not_revertible() {
+	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
+		// Fill the access list to its cap with distinct slots. Each is below the
+		// cap when touched, so it journals and is revertible. The call that reached
+		// this frame already warmed the target's own entries, so only the rest is free.
+		let already_tracked = ctx.ext.access_list_metrics().size;
+		for i in 0..(MAX_ACCESS_LIST_ENTRIES - already_tracked) as u32 {
+			let mut slot = [0u8; 32];
+			slot[..4].copy_from_slice(&i.to_le_bytes());
+			assert_matches!(
+				ctx.ext.touch_storage_access(&Key::Fix(slot), StorageOp::Read),
+				Warmth::Cold { revertible: true }
+			);
+		}
+		// A further distinct slot is past the cap: cold but not revertible.
+		assert_matches!(
+			ctx.ext.touch_storage_access(&Key::Fix([0xFF; 32]), StorageOp::Read),
+			Warmth::Cold { revertible: false },
+			"past-cap touch is cold but not revertible",
 		);
+		exec_success()
+	});
 
+	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
+		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		exec_success()
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, code_hash);
-		run_root_call(BOB_ADDR, vec![]);
+		place_contract(&BOB, child_code_hash);
+		place_contract(&CHARLIE, root_code_hash);
+		run_root_call(CHARLIE_ADDR, vec![]);
 	});
 }
 
@@ -3355,17 +3363,17 @@ fn cold_hot_child_upgrade_follows_the_frame_outcome() {
 
 		match ctx.input_data.as_slice() {
 			[1] => {
-				ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
+				ctx.ext.touch_storage_access(&slot, StorageOp::Write);
 				return Err("revert after upgrading".into());
 			},
 			[2] => {
-				ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
+				ctx.ext.touch_storage_access(&slot, StorageOp::Write);
 				return exec_success();
 			},
 			_ => (),
 		}
 
-		ctx.ext.touch_storage_access(false, &slot, StorageOp::Read);
+		ctx.ext.touch_storage_access(&slot, StorageOp::Read);
 
 		assert_matches!(
 			run_child_call(ctx.ext, &BOB_ADDR, vec![1]),
@@ -3373,15 +3381,15 @@ fn cold_hot_child_upgrade_follows_the_frame_outcome() {
 			"the child must fail at its own revert",
 		);
 		assert_matches!(
-			ctx.ext.peek_storage_access(false, &slot),
-			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
+			ctx.ext.peek_storage_access(&slot),
+			Warmth::Hot { charged: StorageOp::Read },
 			"the reverted child's upgrade must roll back, leaving the write unpaid",
 		);
 
 		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![2]).is_ok(), "the child must succeed");
 		assert_matches!(
-			ctx.ext.peek_storage_access(false, &slot),
-			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
+			ctx.ext.peek_storage_access(&slot),
+			Warmth::Hot { charged: StorageOp::Write },
 			"the committed child's upgrade must stay",
 		);
 		exec_success()

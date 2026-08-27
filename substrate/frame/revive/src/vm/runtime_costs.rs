@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{CallWarmth, StorageAccessKind, StorageOp, TouchedKey, Warmth},
+	access_list::{CallWarmth, StorageOp, TouchedKey, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -175,6 +175,37 @@ pub enum RuntimeCosts {
 	Modexp(u64),
 }
 
+/// How a storage access is priced.
+#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone, Copy, Debug)]
+pub enum StorageAccessKind {
+	/// Persistent storage, priced by the slot's warmth and the operation
+	/// performed on it.
+	Persistent { warmth: Warmth, op: StorageOp },
+	/// Transient storage, every access costs the same.
+	Transient,
+}
+
+impl StorageAccessKind {
+	pub fn new(transient: bool, op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
+		if transient { Self::Transient } else { Self::persistent(op, warmth) }
+	}
+
+	pub fn persistent(op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
+		Self::Persistent { warmth: warmth(), op }
+	}
+
+	/// Debug check that the access was touched with the operation the cost
+	/// performs; a mismatch would price the access wrongly.
+	fn checked_against(self, op: StorageOp) -> Self {
+		debug_assert!(
+			!matches!(self, Self::Persistent { op: touched, .. } if touched != op),
+			"storage access touched with a different operation than it is priced for",
+		);
+		self
+	}
+}
+
 /// For functions that modify storage, benchmarks are performed with one item in the
 /// storage. To account for the worst-case scenario, the weight of the overhead of
 /// writing to or reading from full storage is included. For transient storage writes,
@@ -271,14 +302,13 @@ impl RuntimeCosts {
 
 	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
-		op: StorageOp,
 		kind: StorageAccessKind,
 		cold: impl FnOnce() -> Weight,
 		hot: impl FnOnce() -> Weight,
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match kind {
-			StorageAccessKind::Persistent(warmth) => {
+			StorageAccessKind::Persistent { warmth, op } => {
 				let surcharge = match warmth {
 					Warmth::Hot { charged } if !charged.covers(op) => {
 						Self::deferred_write_cost::<T>()
@@ -383,36 +413,31 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					0,
 				)),
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Write,
-				kind,
+				kind.checked_against(StorageOp::Write),
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
 				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
 			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Write,
-				kind,
+				kind.checked_against(StorageOp::Write),
 				|| cost_storage!(write_cold, clear_storage, len),
 				|| T::WeightInfo::clear_storage_hot(len),
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
 			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Read,
-				kind,
+				kind.checked_against(StorageOp::Read),
 				|| cost_storage!(read_cold, contains_storage, len),
 				|| T::WeightInfo::contains_storage_hot(len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
 			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Read,
-				kind,
+				kind.checked_against(StorageOp::Read),
 				|| cost_storage!(read_cold, seal_get_storage, len),
 				|| T::WeightInfo::seal_get_storage_hot(len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
 			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Write,
-				kind,
+				kind.checked_against(StorageOp::Write),
 				|| cost_storage!(write_cold, take_storage, len),
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
@@ -485,25 +510,28 @@ mod tests {
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
-		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
-		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot_kinds = [
-			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
-			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
-		];
+		let cold = Warmth::Cold { revertible: false };
+		let cold_revertible = Warmth::Cold { revertible: true };
+		let read_paid = Warmth::Hot { charged: StorageOp::Read };
+		let write_paid = Warmth::Hot { charged: StorageOp::Write };
 
-		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
+		// Each cost carries its own operation: a write cost priced with `op: Read` would skip
+		// the surcharge and assert a case that cannot occur.
+		let with_warmth = |warmth: Warmth| -> Vec<RuntimeCosts> {
+			let read_kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Read };
+			let write_kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Write };
 			vec![
-				RuntimeCosts::GetStorage { len, kind },
-				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },
-				RuntimeCosts::ClearStorage { len, kind },
-				RuntimeCosts::ContainsStorage { len, kind },
-				RuntimeCosts::TakeStorage { len, kind },
+				RuntimeCosts::GetStorage { len, kind: read_kind },
+				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind: write_kind },
+				RuntimeCosts::ClearStorage { len, kind: write_kind },
+				RuntimeCosts::ContainsStorage { len, kind: read_kind },
+				RuntimeCosts::TakeStorage { len, kind: write_kind },
 			]
 		};
 
-		for hot in hot_kinds {
-			for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
+		for paid_level in [read_paid, write_paid] {
+			for (cold_cost, hot_cost) in with_warmth(cold).into_iter().zip(with_warmth(paid_level))
+			{
 				let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
 				let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
 				assert!(
@@ -523,7 +551,8 @@ mod tests {
 			}
 		}
 
-		for (rev_cost, non_rev_cost) in with_kind(cold_revertible).into_iter().zip(with_kind(cold))
+		for (rev_cost, non_rev_cost) in
+			with_warmth(cold_revertible).into_iter().zip(with_warmth(cold))
 		{
 			let rev_weight = <RuntimeCosts as Token<Test>>::weight(&rev_cost);
 			let non_rev_weight = <RuntimeCosts as Token<Test>>::weight(&non_rev_cost);
@@ -645,10 +674,11 @@ mod tests {
 		let surcharge =
 			deferred_write.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
 
-		let read_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read });
-		let write_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
+		let read_paid = Warmth::Hot { charged: StorageOp::Read };
+		let write_paid = Warmth::Hot { charged: StorageOp::Write };
 
-		let write_costs = |kind: StorageAccessKind| {
+		let write_costs = |warmth: Warmth| {
+			let kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Write };
 			[
 				RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind },
 				RuntimeCosts::ClearStorage { len: LEN, kind },
@@ -666,7 +696,8 @@ mod tests {
 			);
 		}
 
-		let read_costs = |kind: StorageAccessKind| {
+		let read_costs = |warmth: Warmth| {
+			let kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Read };
 			[
 				RuntimeCosts::GetStorage { len: LEN, kind },
 				RuntimeCosts::ContainsStorage { len: LEN, kind },

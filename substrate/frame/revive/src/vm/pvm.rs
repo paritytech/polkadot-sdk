@@ -21,6 +21,7 @@ pub mod env;
 
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
+	StorageAccessKind,
 	access_list::{CallAccess, StorageOp},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
@@ -486,7 +487,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		if value_len > max_size {
 			// A peek registers nothing, so no rollback is owed.
-			let access_kind = self.ext.peek_storage_access(transient, &key).to_non_revertible();
+			let access_kind = StorageAccessKind::new(transient, StorageOp::Write, || {
+				self.ext.peek_storage_access(&key).to_non_revertible()
+			});
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
 				old_bytes: max_size,
@@ -495,7 +498,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = self.ext.touch_storage_access(transient, &key, StorageOp::Write);
+		let op = StorageOp::Write;
+		let access_kind =
+			StorageAccessKind::new(transient, op, || self.ext.touch_storage_access(&key, op));
 		let charged = self.charge_gas(RuntimeCosts::SetStorage {
 			new_bytes: value_len,
 			old_bytes: max_size,
@@ -532,7 +537,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access_kind = self.ext.touch_storage_access(transient, &key, StorageOp::Write);
+		let op = StorageOp::Write;
+		let access_kind =
+			StorageAccessKind::new(transient, op, || self.ext.touch_storage_access(&key, op));
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
 			kind: access_kind,
@@ -560,7 +567,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
-		let access_kind = self.ext.touch_storage_access(transient, &key, StorageOp::Read);
+		let op = StorageOp::Read;
+		let access_kind =
+			StorageAccessKind::new(transient, op, || self.ext.touch_storage_access(&key, op));
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,
 			kind: access_kind,

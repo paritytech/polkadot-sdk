@@ -5091,33 +5091,36 @@ mod tests {
 		let (mut store, _temp) = test_store();
 		store.set_time(100);
 
-		// A statement whose body is then corrupted in place: it cannot be tied back to its
-		// index rows any more.
-		let mut stmt = unsigned_statement(1, 1, None, 100);
-		stmt.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt, 1);
-		let hash = stmt.hash();
-		let expiry = crate::Expiry(stmt.expiry());
-		assert_eq!(store.submit(stmt, StatementSource::Network), SubmitResult::New);
-		store.db.commit([(col::STATEMENTS, hash.to_vec(), Some(vec![0xFF]))]).unwrap();
-
-		let expiry_key = crate::expiry_index_key(expiry, &hash);
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+		let expiry = crate::Expiry(200u64 << 32 | 1);
+		let undecodable_hash = [0xAB_u8; 32];
+		let undecodable_key = crate::expiry_index_key(expiry, &undecodable_hash);
+		store
+			.db
+			.commit([
+				(col::STATEMENTS, undecodable_hash.to_vec(), Some(vec![0xFF])),
+				(col::INDEX_BY_EXPIRY, undecodable_key.clone(), Some(Vec::new())),
+			])
+			.unwrap();
 
 		// The sweep cannot remove the statement; the corruption is logged as an error and
 		// everything is left exactly as it is, on every pass.
 		store.set_time(300);
 		store.enforce_limits();
 		store.enforce_limits();
-		assert!(store.has_statement(&hash));
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+		assert!(store.has_statement(&undecodable_hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &undecodable_key).unwrap().is_some());
 
-		// Same for an expiry row orphaned by external interference: the sweep reports it and
-		// leaves it in place.
-		store.db.commit([(col::STATEMENTS, hash.to_vec(), None)]).unwrap();
+		// Same for an expiry row with no body behind it at all: the sweep reports it and leaves
+		// it in place.
+		let orphan_hash = [0xCD_u8; 32];
+		let orphan_key = crate::expiry_index_key(expiry, &orphan_hash);
+		store
+			.db
+			.commit([(col::INDEX_BY_EXPIRY, orphan_key.clone(), Some(Vec::new()))])
+			.unwrap();
 		store.enforce_limits();
-		assert!(!store.has_statement(&hash));
-		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+		assert!(!store.has_statement(&orphan_hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &orphan_key).unwrap().is_some());
 	}
 
 	#[test]

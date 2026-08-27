@@ -187,27 +187,6 @@ impl Warmth {
 	}
 }
 
-/// How a storage access is priced. `Persistent` carries its access-list warmth;
-/// `Transient` has no warmth, so every access costs the same.
-#[cfg_attr(test, derive(PartialEq, Eq))]
-#[derive(Clone, Copy, Debug)]
-pub enum StorageAccessKind {
-	/// Persistent storage, priced by its access-list warmth.
-	Persistent(Warmth),
-	/// Transient storage, every access costs the same.
-	Transient,
-}
-
-impl StorageAccessKind {
-	/// See [`Warmth::to_non_revertible`].
-	pub fn to_non_revertible(self) -> Self {
-		match self {
-			Self::Persistent(warmth) => Self::Persistent(warmth.to_non_revertible()),
-			Self::Transient => Self::Transient,
-		}
-	}
-}
-
 /// A group of state reads that warm and price together.
 pub trait Access {
 	type Warmth;
