@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787831030213,
+  "lastUpdate": 1787835018199,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5fd7bb53b86f381ea42c67cf3da04622aa3a9953",
-          "message": "Version bumps 2512-1 (#10904)\n\nThis PR backports regular version bumps and prdocs reordering from after\npatch release `stable2512-1`\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-01-26T19:02:45Z",
-          "tree_id": "56edc347f7e5e81eadd2f81fd240956c902b01b6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fd7bb53b86f381ea42c67cf3da04622aa3a9953"
-        },
-        "date": 1769458407454,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027109824999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009276862139999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006462876489999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025425729499999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6113c0dca3f94f4a2102ebe0ab56f31b4284435",
+          "message": "pallet-revive: make the first hot write after a cold read pay the deferred cost (#12802)\n\n### Summary\nA slot warmed by a read and then written was charged only the\ntransaction-time work, while the extra cost a write has over a read was\nskipped: re-encoding and re-hashing the slot's trie path when the\nblock's storage root is computed.\n\nThe access list now tracks per slot whether the transaction has paid the\nread cost or the write cost. The first write to a read-paid slot pays\nthe write surcharge and upgrades the slot to write-paid. Upgrades are\njournaled per frame, like insertions, and roll back with a reverting\nframe since the reverted write leaves no root work behind.\n\n`AccessList` holds a `BoundedBTreeMap<AccessEntry, Paid>` in place of\nthe set (the 1-byte value fits in the B-tree nodes' spare space) plus a\nsecond journal for the upgrades. The worst-case per-entry memory\nconstant grows from 512 to 768 bytes to cover a slot's upgrade entry.\n\n### Pricing notes\n- The surcharge is ref_time-only; the root re-hash adds no proof.\n- The surcharge can be paid twice when a frame reverts: the reverted\nframe keeps its charge, the upgrade rolls back, and the slot's next\nwrite pays it again.\n- The rollback work of draining upgrades is not charged separately: the\nreverted write already paid a surcharge for block-end work that will\nnever happen.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-27T11:19:08Z",
+          "tree_id": "7bbc8a156912b0cd42826cc1754962d240493950",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6113c0dca3f94f4a2102ebe0ab56f31b4284435"
+        },
+        "date": 1787834979012,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00265867993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009826808329999978,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01046304434,
             "unit": "seconds"
           }
         ]
