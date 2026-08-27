@@ -506,17 +506,30 @@ impl StatementHandlerPrototype {
 		} else {
 			(format!("/{hex}/{STATEMENT_PROTOCOL_V2}"), format!("/{hex}/{STATEMENT_PROTOCOL_V1}"))
 		};
-		let (config, notification_service) = Net::notification_config(
-			protocol_name.clone().into(),
-			vec![fallback_name.into()],
-			MAX_STATEMENT_NOTIFICATION_SIZE,
-			None,
+		// The v2 DHT topology dials peers outside the sync set, so it needs non-reserved slots.
+		// The v1 path manages its peers exclusively through the reserved set: it must keep
+		// non-reserved slots closed, or sync recovery's forced disconnect stops disconnecting.
+		let set_config = if v2dht_enabled() {
 			SetConfig {
 				in_peers: 50,
 				out_peers: 50,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,
-			},
+			}
+		} else {
+			SetConfig {
+				in_peers: 0,
+				out_peers: 0,
+				reserved_nodes: Vec::new(),
+				non_reserved_mode: NonReservedPeerMode::Deny,
+			}
+		};
+		let (config, notification_service) = Net::notification_config(
+			protocol_name.clone().into(),
+			vec![fallback_name.into()],
+			MAX_STATEMENT_NOTIFICATION_SIZE,
+			None,
+			set_config,
 			metrics,
 			peer_store_handle,
 		);
