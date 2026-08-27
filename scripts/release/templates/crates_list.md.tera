@@ -1,27 +1,39 @@
 The following crates were updated to the corresponding versions:
 
-- sp-runtime-interface-proc-macro@21.0.1
-- staging-xcm@24.1.0
-- pallet-psm@0.5.0
-- staging-xcm-executor@28.0.1
-- staging-xcm-builder@29.0.1
-- pallet-xcm@29.1.0
-- pallet-xcm-precompiles@0.9.1
-- sc-consensus-beefy@37.0.1
-- polkadot-runtime-parachains@28.1.0
-- sc-consensus-beefy-rpc@38.0.1
-- parachains-common@32.1.0
-- rococo-runtime@34.0.1
-- westend-runtime@35.0.1
-- collectives-westend-runtime@30.0.1
-- coretime-westend-runtime@0.26.1
-- people-westend-runtime@0.26.1
-- asset-hub-rococo-runtime@0.37.1
-- asset-hub-westend-runtime@0.51.0
-- bridge-hub-rococo-runtime@0.32.1
-- bridge-hub-westend-runtime@0.29.1
-- polkadot-collator-protocol@32.1.0
-- sp-blockchain@46.0.1
-- sc-client-api@47.0.1
-- rame-benchmarking-cli@58.0.1
-- polkadot-sdk@2606.1.0
+<details>
+  <summary>Crates list</summary>
+
+  - sp-runtime-interface-proc-macro@21.0.1
+  - staging-xcm@24.1.0
+  - pallet-psm@0.5.0
+  - staging-xcm-executor@28.0.1
+  - staging-xcm-builder@29.0.1
+  - pallet-xcm@29.1.0
+  - pallet-xcm-precompiles@0.9.1
+  - sc-consensus-beefy@37.0.1
+  - polkadot-runtime-parachains@28.1.0
+  - sc-consensus-beefy-rpc@38.0.1
+  - parachains-common@32.1.0
+  - rococo-runtime@34.0.1
+  - westend-runtime@35.0.1
+  - collectives-westend-runtime@30.0.1
+  - coretime-westend-runtime@0.26.1
+  - people-westend-runtime@0.26.1
+  - asset-hub-rococo-runtime@0.37.1
+  - asset-hub-westend-runtime@0.51.0
+  - bridge-hub-rococo-runtime@0.32.1
+  - bridge-hub-westend-runtime@0.29.1
+  - polkadot-collator-protocol@32.1.0
+  - sp-blockchain@46.0.1
+  - sc-client-api@47.0.1
+  - rame-benchmarking-cli@58.0.1
+  - polkadot-sdk@2606.1.0
+  - pallet-revive-uapi@0.15.1
+  - pallet-revive-fixtures@0.15.1
+  - substrate-wasm-builder@34.0.1
+  - sc-hop@0.2.1
+  - pallet-revive@0.19.1
+  - asset-hub-westend-runtime@0.51.1
+  - polkadot-omni-node-lib@0.18.2
+
+</details>

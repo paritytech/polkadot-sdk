@@ -1724,7 +1724,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.51.0"
+version = "0.51.1"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -14225,7 +14225,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -14345,7 +14345,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "alloy-core",
  "anyhow",
@@ -14370,7 +14370,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-uapi"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "alloy-core",
  "bitflags 1.3.2",
@@ -17064,7 +17064,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_cmd",
@@ -21669,7 +21669,7 @@ dependencies = [
 
 [[package]]
 name = "sc-hop"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "futures-timer",
@@ -26910,7 +26910,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-wasm-builder"
-version = "34.0.0"
+version = "34.0.1"
 dependencies = [
  "array-bytes 6.2.2",
  "build-helper",
