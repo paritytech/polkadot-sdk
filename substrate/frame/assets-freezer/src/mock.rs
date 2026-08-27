@@ -151,6 +151,7 @@ pub fn new_test_ext(execute: impl FnOnce()) -> TestExternalities {
 			accounts: vec![(1, 1, 100)],
 			next_asset_id: None,
 			reserves: vec![],
+			categories: vec![],
 		},
 		system: Default::default(),
 		balances: Default::default(),

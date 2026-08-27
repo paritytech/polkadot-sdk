@@ -1349,3 +1349,140 @@ fn multiple_spend_periods_work() {
 		assert_eq!(LastSpendPeriod::<Test>::get(), Some(8));
 	});
 }
+
+#[test]
+fn migration_v1_translates_spends() {
+	use crate::migration::v1::{old, MigrateToV1Impl};
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let write_old = |index: SpendIndex, status: old::PaymentState<u64>| {
+			let old = old::SpendStatus {
+				asset_kind: 1u32,
+				amount: 10u64,
+				beneficiary: 2u128,
+				valid_from: 1u64,
+				expire_at: 5u64,
+				status,
+			};
+			frame_support::storage::unhashed::put(&Spends::<Test>::hashed_key_for(index), &old);
+		};
+
+		write_old(0, old::PaymentState::Pending);
+		write_old(1, old::PaymentState::Attempted { id: 42 });
+		write_old(2, old::PaymentState::Failed);
+
+		MigrateToV1Impl::<Test, ()>::on_runtime_upgrade();
+
+		for index in 0..3 {
+			let spend = Spends::<Test>::get(index).expect("spend was translated");
+			assert_eq!(spend.asset, SpendAsset::Specific(1));
+			assert_eq!(spend.amount, 10);
+			assert_eq!(spend.beneficiary, 2);
+			assert_eq!(spend.valid_from, 1);
+			assert_eq!(spend.expire_at, 5);
+		}
+
+		assert_eq!(Spends::<Test>::get(0).unwrap().status, PaymentState::Pending);
+		assert_eq!(
+			Spends::<Test>::get(1).unwrap().status,
+			PaymentState::Attempted {
+				executions: BoundedVec::truncate_from(vec![PaymentExecution {
+					asset_kind: 1,
+					amount: 10,
+					id: 42,
+				}]),
+				remaining: 0,
+			}
+		);
+		assert_eq!(Spends::<Test>::get(2).unwrap().status, PaymentState::Failed { unpaid: 10 });
+	});
+}
+
+#[test]
+fn migration_v1_keeps_a_failed_spend_retriable() {
+	use crate::migration::v1::{old, MigrateToV1Impl};
+	use frame_support::traits::UncheckedOnRuntimeUpgrade;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let old = old::SpendStatus {
+			asset_kind: 1u32,
+			amount: 10u64,
+			beneficiary: 2u128,
+			valid_from: 1u64,
+			expire_at: 5u64,
+			status: old::PaymentState::<u64>::Failed,
+		};
+		frame_support::storage::unhashed::put(&Spends::<Test>::hashed_key_for(0), &old);
+		SpendCount::<Test>::put(1);
+
+		MigrateToV1Impl::<Test, ()>::on_runtime_upgrade();
+
+		// Full amount still owed; payout can be retried.
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		let id = get_payment_id(0).expect("no payment attempt");
+		assert_eq!(get_executions(0), vec![PaymentExecution { asset_kind: 1, amount: 10, id }]);
+		assert_eq!(paid(2, 1), 10);
+	});
+}
+
+#[test]
+fn payout_weight_scales_with_executions() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		set_category(b"usd", vec![1, 2, 3]);
+		set_treasury_balance(1, 1);
+		set_treasury_balance(2, 1);
+		set_treasury_balance(3, 10);
+
+		let payout = <<Test as Config>::WeightInfo as WeightInfo>::payout();
+		let check_status = <<Test as Config>::WeightInfo as WeightInfo>::check_status();
+
+		// One payment per asset in the largest category is declared up front.
+		let max_assets =
+			<<TestCategories as AssetCategoryManager<u128>>::MaxAssets as Get<u32>>::get() as u64;
+		use frame_support::dispatch::GetDispatchInfo;
+		let call = crate::Call::<Test>::payout { index: 0 };
+		assert_eq!(call.get_dispatch_info().call_weight, payout.saturating_mul(max_assets));
+
+		// A single-asset spend refunds down to one payment.
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), specific(1), 1, Box::new(6), None));
+		let info = Treasury::payout(RuntimeOrigin::signed(1), 0).unwrap();
+		assert_eq!(info.actual_weight, Some(payout));
+
+		// A category spend is charged for the payments it actually made.
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(12),
+			category(b"usd"),
+			4,
+			Box::new(6),
+			None
+		));
+		let info = Treasury::payout(RuntimeOrigin::signed(1), 1).unwrap();
+		assert_eq!(get_executions(1).len(), 3);
+		assert_eq!(info.actual_weight, Some(payout.saturating_mul(3)));
+
+		for execution in get_executions(1) {
+			set_status(execution.id, PaymentStatus::Success);
+		}
+		let info = Treasury::check_status(RuntimeOrigin::signed(1), 1).unwrap();
+		assert_eq!(info.actual_weight, Some(check_status.saturating_mul(3)));
+	});
+}
+
+#[test]
+fn check_status_of_an_expired_spend_is_charged_for_one_payment() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), specific(1), 1, Box::new(6), None));
+
+		// Expire the spend without ever attempting a payout.
+		go_to_block(<Test as Config>::PayoutPeriod::get() + 2);
+		let info = Treasury::check_status(RuntimeOrigin::signed(1), 0).unwrap();
+		assert_eq!(info.pays_fee, Pays::No);
+		assert_eq!(
+			info.actual_weight,
+			Some(<<Test as Config>::WeightInfo as WeightInfo>::check_status())
+		);
+	});
+}

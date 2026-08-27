@@ -659,5 +659,36 @@ benchmarks_instance_pallet! {
 		assert_eq!(metadata.decimals, 12);
 	}
 
+	add_to_category {
+		let (asset_id, _, _) = create_default_asset::<T, I>(true);
+		let category = vec![0u8; T::StringLimit::get() as usize];
+
+		let origin =
+			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let call = Call::<T, I>::add_to_category { category: category.clone(), id: asset_id.clone() };
+	}: { call.dispatch_bypass_filter(origin)? }
+	verify {
+		assert_last_event::<T, I>(Event::CategoryMemberAdded {
+			category: category.try_into().unwrap(),
+			asset_id: asset_id.into(),
+		}.into());
+	}
+
+	remove_from_category {
+		let (asset_id, _, _) = create_default_asset::<T, I>(true);
+		let category = vec![0u8; T::StringLimit::get() as usize];
+
+		let origin =
+			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Assets::<T, I>::add_to_category(origin.clone(), category.clone(), asset_id.clone())?;
+		let call = Call::<T, I>::remove_from_category { category: category.clone(), id: asset_id.clone() };
+	}: { call.dispatch_bypass_filter(origin)? }
+	verify {
+		assert_last_event::<T, I>(Event::CategoryMemberRemoved {
+			category: category.try_into().unwrap(),
+			asset_id: asset_id.into(),
+		}.into());
+	}
+
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }

@@ -25,14 +25,14 @@ use frame_support::{
 	traits::{
 		fungibles::InspectEnumerable,
 		tokens::{Preservation::Protect, Provenance},
-		Currency, LockableCurrency, WithdrawReasons,
+		Currency, Get, LockableCurrency, WithdrawReasons,
 	},
 	BoundedVec,
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
 use sp_runtime::{
-	traits::{ConstU32, ConvertInto},
+	traits::{BadOrigin, ConstU32, ConvertInto},
 	TokenError,
 };
 
@@ -2293,5 +2293,72 @@ fn setting_too_many_reserves_fails() {
 			reserves.clone().try_into();
 		assert!(result.is_err());
 		assert_eq!(Reserves::<Test>::get(0), vec![]);
+	});
+}
+
+#[test]
+fn asset_categories_work() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1, 1, true, 1));
+
+		assert_noop!(
+			Assets::add_to_category(RuntimeOrigin::signed(1), b"usd".to_vec(), 0),
+			BadOrigin
+		);
+		assert_noop!(
+			Assets::add_to_category(
+				RuntimeOrigin::root(),
+				vec![0u8; <<Test as Config>::StringLimit as Get<u32>>::get() as usize + 1],
+				0
+			),
+			Error::<Test>::BadCategory
+		);
+
+		assert_ok!(Assets::add_to_category(RuntimeOrigin::root(), b"usd".to_vec(), 0));
+		assert_ok!(Assets::add_to_category(RuntimeOrigin::root(), b"usd".to_vec(), 1));
+		assert_noop!(
+			Assets::add_to_category(RuntimeOrigin::root(), b"usd".to_vec(), 0),
+			Error::<Test>::AlreadyInCategory
+		);
+
+		let mut members = Assets::assets_in_category(b"usd", 10);
+		members.sort();
+		assert_eq!(members, vec![0, 1]);
+		// A limit below the membership count bounds the read.
+		assert_eq!(Assets::assets_in_category(b"usd", 1).len(), 1);
+		assert_eq!(Assets::assets_in_category(b"eur", 10), Vec::<u32>::new());
+		// An over-long name resolves to nothing.
+		assert_eq!(
+			Assets::assets_in_category(
+				&vec![0u8; <<Test as Config>::StringLimit as Get<u32>>::get() as usize + 1],
+				10
+			),
+			Vec::<u32>::new()
+		);
+
+		assert_ok!(Assets::remove_from_category(RuntimeOrigin::root(), b"usd".to_vec(), 0));
+		assert_eq!(Assets::assets_in_category(b"usd", 10), vec![1]);
+		assert_noop!(
+			Assets::remove_from_category(RuntimeOrigin::root(), b"usd".to_vec(), 0),
+			Error::<Test>::NotInCategory
+		);
+	});
+}
+
+#[test]
+fn asset_category_membership_outlives_the_asset() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+		assert_ok!(Assets::add_to_category(RuntimeOrigin::root(), b"usd".to_vec(), 0));
+
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+		assert!(!Asset::<Test>::contains_key(0));
+
+		// Membership is not cleaned up with the asset; it must be removed explicitly.
+		assert_eq!(Assets::assets_in_category(b"usd", 10), vec![0]);
+		assert_ok!(Assets::remove_from_category(RuntimeOrigin::root(), b"usd".to_vec(), 0));
+		assert_eq!(Assets::assets_in_category(b"usd", 10), Vec::<u32>::new());
 	});
 }

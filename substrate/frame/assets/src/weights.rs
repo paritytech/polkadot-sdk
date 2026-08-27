@@ -110,6 +110,8 @@ pub trait WeightInfo {
 	fn allowance() -> Weight;
 	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight;
 	fn get_metadata() -> Weight;
+	fn add_to_category() -> Weight;
+	fn remove_from_category() -> Weight;
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
@@ -647,6 +649,28 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(10_699_000, 3605)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
+	/// Storage: `Assets::AssetCategories` (r:1 w:1)
+	/// Proof: `Assets::AssetCategories` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	fn add_to_category() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3555`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 3555)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Assets::AssetCategories` (r:1 w:1)
+	/// Proof: `Assets::AssetCategories` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	fn remove_from_category() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `48`
+		//  Estimated: `3555`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 3555)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1182,5 +1206,27 @@ impl WeightInfo for () {
 		// Minimum execution time: 10_101_000 picoseconds.
 		Weight::from_parts(10_699_000, 3605)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Assets::AssetCategories` (r:1 w:1)
+	/// Proof: `Assets::AssetCategories` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	fn add_to_category() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3555`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 3555)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Assets::AssetCategories` (r:1 w:1)
+	/// Proof: `Assets::AssetCategories` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	fn remove_from_category() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `48`
+		//  Estimated: `3555`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 3555)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

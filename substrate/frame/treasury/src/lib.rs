@@ -95,7 +95,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	dispatch::{DispatchResult, DispatchResultWithPostInfo, Pays, PostDispatchInfo},
 	ensure, print, stored,
 	traits::{
 		tokens::{AssetCategoryManager, ConversionFromAssetBalance, Pay},
@@ -282,7 +282,10 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -808,8 +811,8 @@ pub mod pallet {
 		///
 		/// Emits [`Event::Paid`] for each payment made.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::payout())]
-		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
+		#[pallet::weight(Pallet::<T, I>::max_payment_weight(T::WeightInfo::payout()))]
+		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			let now = T::BlockNumberProvider::current_block_number();
@@ -826,6 +829,7 @@ pub mod pallet {
 			let (executions, remaining) =
 				Self::execute_payments(&spend.asset, &spend.beneficiary, unpaid)?;
 
+			let paid = executions.len() as u64;
 			for execution in executions.iter() {
 				Self::deposit_event(Event::<T, I>::Paid { index, execution: execution.clone() });
 			}
@@ -833,7 +837,7 @@ pub mod pallet {
 			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
 			Spends::<T, I>::insert(index, spend);
 
-			Ok(())
+			Ok(Some(T::WeightInfo::payout().saturating_mul(paid)).into())
 		}
 
 		/// Check the status of the spend and remove it from the storage if processed.
@@ -856,7 +860,7 @@ pub mod pallet {
 		/// Emits [`Event::PaymentFailed`] for each failed payment.
 		/// Emits [`Event::SpendProcessed`] if the spend payout has succeed.
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::check_status())]
+		#[pallet::weight(Pallet::<T, I>::max_payment_weight(T::WeightInfo::check_status()))]
 		pub fn check_status(origin: OriginFor<T>, index: SpendIndex) -> DispatchResultWithPostInfo {
 			use PaymentStatus as Status;
 
@@ -868,7 +872,7 @@ pub mod pallet {
 				// spend has expired and no further status update is expected.
 				Spends::<T, I>::remove(index);
 				Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-				return Ok(Pays::No.into());
+				return Ok(Self::checked_weight(0, Pays::No));
 			}
 
 			let (executions, remaining) = match spend.status {
@@ -904,16 +908,16 @@ pub mod pallet {
 				spend.status =
 					PaymentState::Attempted { executions: in_progress, remaining: unpaid };
 				Spends::<T, I>::insert(index, spend);
-				return Ok(Pays::Yes.into());
+				return Ok(Self::checked_weight(executions_count, Pays::Yes));
 			}
 			if unpaid.is_zero() {
 				Spends::<T, I>::remove(index);
 				Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-				return Ok(Pays::No.into());
+				return Ok(Self::checked_weight(executions_count, Pays::No));
 			}
 			spend.status = PaymentState::Failed { unpaid };
 			Spends::<T, I>::insert(index, spend);
-			Ok(Pays::Yes.into())
+			Ok(Self::checked_weight(executions_count, Pays::Yes))
 		}
 
 		/// Void previously approved spend.
@@ -977,6 +981,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		};
 		LastSpendPeriod::<T, I>::put(last_spend_period);
 		last_spend_period
+	}
+
+	/// `base` scaled to one payment per category asset.
+	fn max_payment_weight(base: Weight) -> Weight {
+		base.saturating_mul(MaxCategoryAssetsOf::<T, I>::get().max(1).into())
+	}
+
+	/// Actual weight of a `check_status` that inspected `checked` payments, minimum one.
+	fn checked_weight(checked: usize, pays_fee: Pays) -> PostDispatchInfo {
+		let checked = checked.max(1) as u64;
+		PostDispatchInfo {
+			actual_weight: Some(T::WeightInfo::check_status().saturating_mul(checked)),
+			pays_fee,
+		}
 	}
 
 	/// Native value of `amount` for the spend origin permission check. For a category, the

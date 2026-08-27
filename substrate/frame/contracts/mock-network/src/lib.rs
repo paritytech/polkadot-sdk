@@ -115,6 +115,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 		],
 		next_asset_id: None,
 		reserves: vec![],
+		categories: vec![],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

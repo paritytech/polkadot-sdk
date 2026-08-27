@@ -529,6 +529,8 @@ pub mod pallet {
 		pub next_asset_id: Option<T::AssetId>,
 		/// Genesis assets and their reserves
 		pub reserves: Vec<(T::AssetId, Vec<T::ReserveData>)>,
+		/// Genesis category memberships: category name, member asset ids
+		pub categories: Vec<(Vec<u8>, Vec<T::AssetId>)>,
 	}
 
 	#[pallet::genesis_build]
@@ -599,6 +601,14 @@ pub mod pallet {
 				assert!(!Reserves::<T, I>::contains_key(id), "Asset id already in use");
 				let reserves = BoundedVec::try_from(reserves.clone()).expect("too many reserves");
 				Reserves::<T, I>::insert(id, reserves);
+			}
+
+			for (category, assets) in &self.categories {
+				let category: BoundedVec<u8, T::StringLimit> =
+					category.clone().try_into().expect("category name is too long");
+				for id in assets {
+					AssetCategories::<T, I>::insert(&category, id, ());
+				}
 			}
 		}
 	}
@@ -702,6 +712,10 @@ pub mod pallet {
 		IssuedDebt { asset_id: T::AssetId, amount: T::Balance },
 		/// Some assets Debt was destroyed (and assets issued).
 		BurnedDebt { asset_id: T::AssetId, amount: T::Balance },
+		/// An asset was registered as a member of a category.
+		CategoryMemberAdded { category: BoundedVec<u8, T::StringLimit>, asset_id: T::AssetId },
+		/// An asset was removed from a category.
+		CategoryMemberRemoved { category: BoundedVec<u8, T::StringLimit>, asset_id: T::AssetId },
 	}
 
 	#[pallet::error]
@@ -759,6 +773,12 @@ pub mod pallet {
 		TooManyReserves,
 		/// The asset deposit could not be fully moved due to a lock or freeze on the owner.
 		IncompleteDepositTransfer,
+		/// The category name is longer than `StringLimit`.
+		BadCategory,
+		/// The asset is already a member of the category.
+		AlreadyInCategory,
+		/// The asset is not a member of the category.
+		NotInCategory,
 	}
 
 	#[pallet::hooks]
@@ -1901,6 +1921,64 @@ pub mod pallet {
 			Self::unchecked_update_reserves(id, reserves)?;
 			Ok(())
 		}
+
+		/// Register asset `id` as a member of `category`.
+		///
+		/// Origin must be `ForceOrigin`. The asset need not exist.
+		///
+		/// - `category`: The category name. Limited in length by `StringLimit`.
+		/// - `id`: The identifier of the asset to add.
+		///
+		/// Emits `CategoryMemberAdded` event when successful.
+		#[pallet::call_index(34)]
+		pub fn add_to_category(
+			origin: OriginFor<T>,
+			category: Vec<u8>,
+			id: T::AssetIdParameter,
+		) -> DispatchResult {
+			T::ForceOrigin::ensure_origin(origin)?;
+			let id: T::AssetId = id.into();
+			let category: BoundedVec<u8, T::StringLimit> =
+				category.try_into().map_err(|_| Error::<T, I>::BadCategory)?;
+
+			ensure!(
+				!AssetCategories::<T, I>::contains_key(&category, &id),
+				Error::<T, I>::AlreadyInCategory
+			);
+			AssetCategories::<T, I>::insert(&category, &id, ());
+
+			Self::deposit_event(Event::CategoryMemberAdded { category, asset_id: id });
+			Ok(())
+		}
+
+		/// Remove asset `id` from `category`.
+		///
+		/// Origin must be `ForceOrigin`.
+		///
+		/// - `category`: The category name.
+		/// - `id`: The identifier of the asset to remove.
+		///
+		/// Emits `CategoryMemberRemoved` event when successful.
+		#[pallet::call_index(35)]
+		pub fn remove_from_category(
+			origin: OriginFor<T>,
+			category: Vec<u8>,
+			id: T::AssetIdParameter,
+		) -> DispatchResult {
+			T::ForceOrigin::ensure_origin(origin)?;
+			let id: T::AssetId = id.into();
+			let category: BoundedVec<u8, T::StringLimit> =
+				category.try_into().map_err(|_| Error::<T, I>::BadCategory)?;
+
+			ensure!(
+				AssetCategories::<T, I>::contains_key(&category, &id),
+				Error::<T, I>::NotInCategory
+			);
+			AssetCategories::<T, I>::remove(&category, &id);
+
+			Self::deposit_event(Event::CategoryMemberRemoved { category, asset_id: id });
+			Ok(())
+		}
 	}
 
 	#[pallet::view_functions]
@@ -1927,6 +2005,11 @@ pub mod pallet {
 		/// Provide the configured reserves data for asset `id`.
 		pub fn get_reserves_data(id: T::AssetId) -> Vec<T::ReserveData> {
 			Self::reserves(&id)
+		}
+
+		/// Provide the assets registered under `category`, reading at most `limit` entries.
+		pub fn get_category_members(category: Vec<u8>, limit: u32) -> Vec<T::AssetId> {
+			Self::assets_in_category(&category, limit)
 		}
 	}
 

@@ -2021,8 +2021,9 @@ parameter_types! {
 	pub const MaxAgentsToMigrate: u32 = 300;
 }
 
-/// No migrations needed for test runtime (always starts from fresh genesis).
-pub type Migrations = ();
+/// Test runtime always starts from fresh genesis; migrations here only keep storage versions
+/// aligned with the pallets.
+pub type Migrations = (pallet_treasury::migration::v1::MigrateToV1<Runtime, ()>,);
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
