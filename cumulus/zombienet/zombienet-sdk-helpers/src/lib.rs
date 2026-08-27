@@ -113,7 +113,7 @@ pub async fn assert_para_throughput(
 	let expected_number_of_blocks = expected_number_of_blocks.into();
 
 	let candidate_count =
-		collect_para_throughput(relay_client, stop_after, ranges, None, |_| Ok(true)).await?;
+		collect_para_throughput(relay_client, stop_after, ranges, |_| Ok(true)).await?;
 
 	assert_expected_number_of_blocks(candidate_count, expected_number_of_blocks).await
 }
@@ -127,28 +127,18 @@ pub async fn assert_para_throughput(
 /// - `Err(e)` to fail immediately.
 ///
 /// Only receipts for para IDs present in `expected_candidate_ranges` are passed to the closure.
-///
-/// `min_session_index`, when set, restricts counting and validation to candidates whose relay
-/// parent is at or past the given session (see `collect_para_throughput`).
 pub async fn assert_para_throughput_with<F>(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
-	min_session_index: Option<u32>,
 	validate: F,
 ) -> Result<(), anyhow::Error>
 where
 	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
 {
-	collect_para_throughput(
-		relay_client,
-		stop_after,
-		expected_candidate_ranges,
-		min_session_index,
-		validate,
-	)
-	.await
-	.map(|_| ())
+	collect_para_throughput(relay_client, stop_after, expected_candidate_ranges, validate)
+		.await
+		.map(|_| ())
 }
 
 /// Waits until every relaychain validator in `network` reports
@@ -200,7 +190,6 @@ async fn collect_para_throughput<F>(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
-	min_session_index: Option<u32>,
 	validate: F,
 ) -> Result<HashMap<ParaId, Vec<CandidateReceiptV2<H256>>>, anyhow::Error>
 where
@@ -234,20 +223,11 @@ where
 		}
 
 		let events = block.events().await?;
-		let mut receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
+		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
 			&events,
 			"ParaInclusion",
 			"CandidateBacked",
 		)?;
-
-		// A candidate's descriptor version is fixed by its relay-parent session, so around an
-		// enactment boundary the backed stream is a mix. When set, `min_session_index` drops
-		// stragglers built on pre-enactment relay parents.
-		if let Some(min_session) = min_session_index {
-			receipts.retain(|receipt| {
-				receipt.descriptor.session_index().is_some_and(|s| s >= min_session)
-			});
-		}
 
 		// Skip relay chain blocks until every tracked para has had at least one backed candidate.
 		// This avoids counting the initial warm-up period where the backing pipeline (PVF
@@ -386,21 +366,6 @@ fn find_relay_block_identifier(
 
 	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
 		.ok_or_else(|| anyhow!("Failed to find `RelayBlockIdentifier` digest"))
-}
-
-/// Reads the relay chain's current session index (`Session::CurrentIndex`) at the latest block.
-pub async fn current_session_index(
-	relay_client: &OnlineClient<PolkadotConfig>,
-) -> Result<u32, anyhow::Error> {
-	let query = subxt::dynamic::storage("Session", "CurrentIndex", Vec::<Value>::new());
-	let value = relay_client
-		.storage()
-		.at_latest()
-		.await?
-		.fetch(&query)
-		.await?
-		.ok_or_else(|| anyhow!("`Session::CurrentIndex` not found in storage"))?;
-	Ok(value.as_type::<u32>()?)
 }
 
 /// Wait for the first block with a session change.

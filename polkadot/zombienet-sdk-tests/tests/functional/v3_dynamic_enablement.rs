@@ -17,7 +17,7 @@ use crate::utils::{
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assign_cores, current_session_index, wait_for_pvf_prepare,
+	assert_finality_lag, assign_cores, wait_for_nth_session_change, wait_for_pvf_prepare,
 	wait_for_runtime_upgrade,
 };
 use polkadot_primitives::{node_features::FeatureIndex, CandidateDescriptorVersion, Id as ParaId};
@@ -214,16 +214,16 @@ async fn v3_dynamic_enablement_test(
 			(para_2902, para_2902_candidates()),
 		]),
 		10,
-		None,
 	)
 	.await?;
 
 	// off/off → on/off: enable the relay feature. Para 2902 still runs the V2 runtime
 	log::info!("state on/off (relay on, para off) → V2");
 	enable_node_features(&relay_client, &[4]).await?;
-	let enactment_session = current_session_index(&relay_client).await? + SESSION_DELAY;
-	// 2902 is still on the V2 runtime, so it stays V2 once the feature is enacted. Anchoring here
-	// also guarantees the feature is active before the on/on step upgrades the para to v3.
+
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut blocks_sub, SESSION_DELAY).await?;
+	// 2902 is still on the V2 runtime, so it stays V2 once the feature is enacted.
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
@@ -233,7 +233,6 @@ async fn v3_dynamic_enablement_test(
 			(para_2902, para_2902_candidates()),
 		]),
 		10,
-		Some(enactment_session),
 	)
 	.await?;
 
@@ -265,15 +264,14 @@ async fn v3_dynamic_enablement_test(
 		CandidateDescriptorVersion::V3,
 		HashMap::from([(para_2902, V3_CANDIDATES)]),
 		10,
-		None,
 	)
 	.await?;
 
 	// on/on → on/off: upgrade 2902 to a V3-disabled runtime while the node feature stays on, so the
 	// collator is still in V3 mode at the moment of the swap — the V3→V2 shape switch, not just a
 	// change of claim queue depth. Not session gated (the new runtime applies at the next para
-	// block), but anchor one session ahead anyway so V3 collations that were in flight when the
-	// code was swapped are not counted as a version violation.
+	// block), but wait a session out anyway so V3 collations that were in flight when the code was
+	// swapped are not counted as a version violation.
 	log::info!("state on/off (relay on, para rolled back off v3) → V2");
 	// Unchecked for both offsets: the offset-2 rollback target shares a spec_version with
 	// `v3_rpo_2`, which `System::set_code` would reject for not increasing the version.
@@ -302,7 +300,8 @@ async fn v3_dynamic_enablement_test(
 	// One session is enough here: this is not a session-gated config change, and
 	// `wait_for_runtime_upgrade` above has already seen the code-swap block finalized, so every
 	// relay parent from the next session on is past it.
-	let post_rollback_session = current_session_index(&relay_client).await? + 1;
+	blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_nth_session_change(&mut blocks_sub, 1).await?;
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
@@ -312,7 +311,6 @@ async fn v3_dynamic_enablement_test(
 			(para_2902, para_2902_candidates()),
 		]),
 		10,
-		Some(post_rollback_session),
 	)
 	.await?;
 

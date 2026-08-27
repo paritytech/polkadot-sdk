@@ -142,7 +142,6 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 			(para_v2, relay_blocks_count * 9 / 10..relay_blocks_count + 1),
 			(para_v3, expected_throughput_v3),
 		]),
-		None,
 		|receipt| {
 			let para_id = receipt.descriptor.para_id();
 			let version = receipt.descriptor.version();
@@ -271,7 +270,6 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 		CandidateDescriptorVersion::V3,
 		HashMap::from([(ParaId::from(2800), 40..61)]),
 		20,
-		None,
 	)
 	.await?;
 
