@@ -28,10 +28,10 @@ For bundled PoV, only the candidate-boundary StreamsRoot is added to the settlem
 Messages from inner blocks can still be consumed, but the receiver PoV must lift the stream state
 to the final root. Inner blocks cannot be settled directly.
 
-To ensure we can change the digest layout in the future while having coexisting versions, the `SpmsDigest` is a versioned enum. 
+To ensure we can change the digest layout in the future while having coexisting versions, the `SpmsDigest` is a versioned enum.
 
-Refine rejects a header containing more than one SPMS digest or an unsupported version. Step 6 must
-treat either case as an absent digest. PS support for a new version must be activated before parachains emit it.
+PS Refine decodes the candidate-boundary header. It rejects more than one SPMS digest or an
+unsupported version (PS support for the new version must be released before parachains use it).
 
 ```rust
 /// SCALE-encoded payload of `DigestItem::Consensus(SPMS_ENGINE_ID, ..)`
@@ -45,16 +45,27 @@ enum SpmsDigest {
 }
 ```
 
-2. Digest fields: `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>` on the PS work digest
+2. `Provides` and `Requires` fields on the PS work digest
+
+```rust
+spec_msg_provides: Option<StreamsRoot>,
+spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>,
+```
+
+The PS Refine wrapper derives `spec_msg_provides` from the candidate-boundary `SpmsDigest`.
+`Accumulate` consumes this field and never decodes the parachain header.
 
 The `spec_msg_requires` must not be chosen by the parachain block. Otherwise it can state any consumption.
 The block records what is consumed, then the PS Refine wrapper verifies the PoV carried lift,
 stitches bundle intervals and gap proofs, and synthesizes a `(ParaId, StreamsRoot)` per source.
 
-The PS Refine should write `spec_msg_requires` directly after verifying the consumption records and PoV lifts.
+The PS Refine writes both fields after decoding the header and verifying the consumption records and PoV lifts.
 
 To ensure canonical encoding and uniqueness, the PS Refine wrapper produces unique entries sorted by `ParaId`.
 The Refine phase rejects malformed input.
+
+`spec_msg_provides` lets `Accumulate` update the sender's settlement ring and construct the dependency graph.
+It costs 33 bytes when present.
 
 `spec_msg_requires` is a digest field, because UMP signals are replayed after the head write (so it can't gate enactment).
 At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
@@ -63,9 +74,9 @@ At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
 
 The settlement ring represents the last `W` enacted roots per para, keyed at `0x09 ++ para_id`.
 
-It is check and ring is delivered by the MVP implementation. If the enacted head carries an SPMS digest
-its root is pushed into the senders ring only if different from the newest entry. The ring evicts the
-oldest entry beyond `W`.
+The check and ring are delivered by the MVP implementation. When a work digest enacts, its
+`spec_msg_provides` root is pushed into the sender's ring only if present and different from the
+newest entry. The ring evicts the oldest entry beyond `W`.
 
 > `W` is no longer extra pipeline headroom. It is the window against which `Requires` must match.
 If a package `Requires` is not in the ring, that slot is lost. On polkadot, a stale candidate
@@ -79,7 +90,7 @@ Its ring is removed only when clean-up completes and ParaInfo is dropped.
 ```rust
 /// Keyed `0x09 ++ SCALE(para_id)`.
 /// 
-/// Step 6 pushes the enacted root at the head write iff != newest entry, evicts oldest.
+/// Step 6 pushes `spec_msg_provides` at the head write iff present and != newest entry, evicts oldest.
 /// Cleared when a forced `parachain_set_head` overwrites a live head.
 /// Read by settlement, never proved.
 spec_msg_recent_provides: Map<ParaId, BoundedVec<StreamsRoot, W>>
@@ -160,7 +171,8 @@ settlement check reads A's root before the update and B is rejected.
 
 1. Node side timed work package submission
 
-The receiver sees A's reportin the guarantees extrinsic and fetch the work package hash, core and `StreamsRoot` from the header digest.
+The receiver sees A's report in the guarantees extrinsic and reads the work package hash, core and
+`StreamsRoot` from `spec_msg_provides`.
 The payloads are immediately fetched from p2p layer and verified locally. The receiver `B` work package is created but not submitted.
 
 The `B` package is submitted once count assurance bits for A's core are near 2/3. This gives a higher chance for `A`'s report
@@ -178,9 +190,9 @@ If sender A and consumer B land in the same block, but B core is first, then B `
 To ensure we are not relying on JAM provided order, PS reorders the blocks's digest.
 The solution is to build a depedency graph based on the speculative `Provides` and `Requires`.
 
-If B digest contains `spec_msg_requires` towards `A` and `A` has the same `StreamsRoot` as B's `Requires`, the we have
-an edge from `A -> B`. Edges are created by `ParaID` only. Then we run topological sort on the edges. Everything
-unrelated to speculative messaging remains unchanged.
+If B's `spec_msg_requires` contains `(A, root)` and A's `spec_msg_provides` is `Some(root)`, add an
+edge from `A -> B`. The source `ParaId` selects A and root equality confirms the dependency. Then we
+run topological sort on the edges. Everything unrelated to speculative messaging remains unchanged.
 
 If a cycle is detected, PS continues with the original order from JAM. The ring will reject the candidates naturally.
 
@@ -300,12 +312,12 @@ drainability with it.
 1. **A:** runtime appends outbound messages to per-destination stream MMRs
 
    - Output: one `StreamsRoot`, committed as `SpmsDigest::V0 { streams_root }` in A's own header digest.
-   Nothing else — no host call, no work-digest field.
+   No host call is needed. PS Refine decodes the header and writes the root to `spec_msg_provides`.
 
    - PVF `export()`s payloads and node-side archives them.
 
 2. **JAM:** report guaranteed -> available -> accumulated
-    - step 6 writes A's head and pushes the enacted root into `ring[A]`.
+    - step 6 writes A's head and pushes its `spec_msg_provides` root into `ring[A]`.
 
 3. **B:** node follows A's enacted heads, fetches payloads (p2p exchange preferred for low latency, or DA)
 
@@ -378,7 +390,7 @@ Because of how it's designed, this loop works safely on JAM.
   Securing the link between A and B inside the core:
   - in core: We put B's header at a fixed offset. A reads and checks the `R_B` hash from the header digest. 
   - backup: Add a new digest field that carries A's claimed `(sibling, root)` and rely on Accumulate to double check it
-  against the SPMS digest in B's new head data.
+  against B's `spec_msg_provides`.
 
 - **Solution 1: Ordered pair**
   If a single core limit becomes an issue, we can separate them onto two cores but force synchronization by `prerequisites`.
