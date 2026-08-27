@@ -2645,9 +2645,11 @@ impl<T: Config> Pallet<T> {
 		Ok(maybe_value)
 	}
 
-	/// Emit an EVM log attributed to `contract`: traced, captured into the ethereum receipt
-	/// (inside an ethereum transaction), and deposited as [`Event::ContractEmitted`]. The
-	/// single emission path — used by contract execution and log-mirroring runtime components.
+	/// Emit an EVM log attributed to `contract` from outside any contract call frame: traced
+	/// via the outside-frame hook, captured into the ethereum receipt when inside an ethereum
+	/// transaction, and deposited as [`Event::ContractEmitted`]. For log-mirroring runtime
+	/// components. Contract execution keeps its own in-frame path (`Ext::deposit_event`),
+	/// which differs only in the tracer hook it calls.
 	pub fn emit_contract_log_outside_frame(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<T>::event_count();
