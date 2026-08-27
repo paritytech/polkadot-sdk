@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787844315220,
+  "lastUpdate": 1787850444718,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -118799,6 +118799,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2730052821,
             "range": "± 11417894",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c05f5093a189a1d8b09af7bf94c38b451d361ed9",
+          "message": "statement store: skip expired statements before sending (#13003)\n\n## Summary\n\n- skip expired statements while building initial-sync and propagation\nchunks\n- use the same expiry boundary as statement-store submission (`now >=\nexpiry`)\n- make network test fixtures explicitly live instead of relying on\nzero-expiry statements\n\n## Why\n\nExpiry cleanup is periodic and bounded, so an expired statement can\nremain in the store long enough to be selected for gossip. A receiving\npeer will reject it as `AlreadyExpired`; filtering at the send boundary\navoids sending data the receiver cannot accept.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-27T14:58:37Z",
+          "tree_id": "93d36a5390f32049b96b6c8df0b3b030db68891b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c05f5093a189a1d8b09af7bf94c38b451d361ed9"
+        },
+        "date": 1787850403983,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20141361,
+            "range": "± 234741",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20471085,
+            "range": "± 204251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21705568,
+            "range": "± 224352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26774833,
+            "range": "± 245708",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63731031,
+            "range": "± 705012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 364306719,
+            "range": "± 5794538",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3029947241,
+            "range": "± 178702590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19035979,
+            "range": "± 465006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17987717,
+            "range": "± 313503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20011355,
+            "range": "± 302329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 25058539,
+            "range": "± 1203695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 68166305,
+            "range": "± 838860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 398863543,
+            "range": "± 8342629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3106413605,
+            "range": "± 47039188",
             "unit": "ns/iter"
           }
         ]
