@@ -64,6 +64,7 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
 [dev-dependencies]
+cumulus-client-consensus-common = { workspace = true, features = ["test-helpers"] }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true }
 rstest = { workspace = true }

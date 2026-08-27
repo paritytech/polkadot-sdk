@@ -1,0 +1,21 @@
+title: 'cumulus: buffer session-based config items in RelayChainDataCache'
+
+doc:
+  - audience: Node Dev
+    description: |
+      The slot-based Aura collator previously re-queried relay-chain configuration items that are
+      constant within a session (`scheduling_lookahead`, `max_relay_parent_session_age`,
+      `node_features` and `max_pov_size`) on every block-building iteration, issuing one relay
+      runtime call per item per relay block — including for ancestor blocks that are only walked
+      while finding the relay parent.
+
+      These items are now buffered per session in `RelayChainDataCache`. A new `SessionData`
+      struct holds the session-constant configuration, cached keyed by `SessionIndex`, while the
+      per-relay-block `RelayChainData` keeps only genuinely per-block data (`relay_header`,
+      `claim_queue`, `session_index`). 
+
+crates:
+  - name: cumulus-client-consensus-aura
+    bump: minor
+  - name: cumulus-client-consensus-common
+    bump: major

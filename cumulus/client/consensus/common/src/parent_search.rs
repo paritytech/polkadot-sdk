@@ -15,18 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::relay_chain_data_cache::RelayChainDataCache;
 use codec::Decode;
-use cumulus_primitives_core::{
-	relay_chain::{BlockId as RelayBlockId, OccupiedCoreAssumption},
-	ParaId,
-};
+use cumulus_primitives_core::relay_chain::{BlockId as RelayBlockId, OccupiedCoreAssumption};
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use polkadot_primitives::{Block as RelayBlock, Hash as RelayHash, DEFAULT_SCHEDULING_LOOKAHEAD};
 use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus_babe::contains_epoch_change;
 use sp_blockchain::Backend as BlockchainBackend;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-use std::future::Future;
 
 const LOG_TARGET: &str = "consensus::common::parent_search";
 
@@ -89,14 +86,13 @@ fn get_para_header<Block: BlockT>(
 	Some(header)
 }
 
-async fn fetch_pvd_header<Block: BlockT>(
-	relay_client: &impl RelayChainInterface,
+async fn fetch_pvd_header<Block: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	at: RelayHash,
-	para_id: ParaId,
 	occupied_core_assumption: OccupiedCoreAssumption,
 ) -> RelayChainResult<Option<Block::Header>> {
-	let maybe_header = relay_client
-		.persisted_validation_data(at, para_id, occupied_core_assumption)
+	let maybe_header = relay_chain_data
+		.persisted_validation_data(at, occupied_core_assumption)
 		.await?
 		.and_then(|pvd| Block::Header::decode(&mut &pvd.parent_head.0[..]).ok());
 
@@ -104,17 +100,16 @@ async fn fetch_pvd_header<Block: BlockT>(
 }
 
 /// Fetch the included block from the relay chain.
-pub async fn fetch_included_from_relay_chain<B: BlockT>(
-	relay_client: &impl RelayChainInterface,
+pub async fn fetch_included_from_relay_chain<B: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	backend: &impl Backend<B>,
 	at: RelayHash,
-	para_id: ParaId,
 ) -> Result<Option<(B::Header, B::Hash)>, RelayChainError> {
 	// Fetch the pending header from the relay chain. We use `OccupiedCoreAssumption::TimedOut`
 	// so that even if there is a pending candidate, we assume it is timed out, and we get the
 	// included head.
 	let Some(included_header) =
-		fetch_pvd_header::<B>(relay_client, at, para_id, OccupiedCoreAssumption::TimedOut).await?
+		fetch_pvd_header::<B, RI>(relay_chain_data, at, OccupiedCoreAssumption::TimedOut).await?
 	else {
 		return Ok(None);
 	};
@@ -136,16 +131,18 @@ pub async fn fetch_included_from_relay_chain<B: BlockT>(
 ///
 /// On success, returns a vector of `(header_hash, state_root)` of the relevant relay chain
 /// ancestry blocks.
-async fn build_relay_parent_ancestry(
-	relay_client: &impl RelayChainInterface,
+async fn build_relay_parent_ancestry<RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	relay_parent: RelayHash,
 	ancestry_lookback: usize,
 ) -> Result<Vec<(RelayHash, RelayHash)>, RelayChainError> {
 	let mut ancestry = Vec::with_capacity(ancestry_lookback + 1);
 	let mut current_rp = relay_parent;
 	while ancestry.len() <= ancestry_lookback {
-		let Some(header) = relay_client.header(RelayBlockId::hash(current_rp)).await? else {
-			break;
+		let header = match relay_chain_data.header(current_rp).await {
+			Ok(Some(h)) => h,
+			Ok(None) => break,
+			Err(e) => return Err(e),
 		};
 
 		ancestry.push((current_rp, *header.state_root()));
@@ -183,16 +180,50 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 	})
 }
 
+/// How to decide whether a candidate parent block is valid to build on.
+enum ParentValidity {
+	/// V2: the block's relay parent must be within the precomputed relay-parent ancestry.
+	WithinAncestry(Vec<(RelayHash, RelayHash)>),
+	/// V3: the block's relay parent must be an allowed relay parent of `scheduling_parent`,
+	/// resolved (and cached) via the relay-chain `ancestor_relay_parent_info` API.
+	AllowedRelayParent { scheduling_parent: RelayHash },
+}
+
+impl ParentValidity {
+	/// Whether `header` is a valid parent to build on under this validity rule.
+	async fn is_valid<Block: BlockT, RI: RelayChainInterface + 'static>(
+		&self,
+		relay_chain_data: &mut RelayChainDataCache<RI>,
+		header: &Block::Header,
+	) -> bool {
+		match self {
+			ParentValidity::WithinAncestry(rp_ancestry) => {
+				is_relay_parent_in_ancestry::<Block>(header, rp_ancestry)
+			},
+			ParentValidity::AllowedRelayParent { scheduling_parent } => {
+				has_ancestor_relay_parent_info::<Block, RI>(
+					relay_chain_data,
+					*scheduling_parent,
+					header,
+				)
+				.await
+				.unwrap_or(false)
+			},
+		}
+	}
+}
+
 /// Find the deepest valid parent block starting from `start`.
 ///
 /// The `start` block (pending or included) is always valid by construction.
-/// This function explores its descendants via DFS, returning the deepest block
-/// whose relay-parent is within the allowed ancestry.
-async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
+/// This function explores its descendants via DFS, returning the deepest block whose relay parent
+/// is valid according to `validity`.
+async fn find_deepest_valid_parent<Block: BlockT, RI: RelayChainInterface + 'static>(
 	backend: &impl Backend<Block>,
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	start_header: Block::Header,
 	start_hash: Block::Hash,
-	is_valid: impl Fn(&Block::Header) -> Fut,
+	validity: ParentValidity,
 ) -> Block::Header {
 	let mut best = start_header;
 
@@ -209,7 +240,7 @@ async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 	while let Some(hash) = frontier.pop() {
 		let Ok(Some(header)) = backend.blockchain().header(hash) else { continue };
 
-		if !is_valid(&header).await {
+		if !validity.is_valid::<Block, RI>(relay_chain_data, &header).await {
 			continue;
 		}
 
@@ -250,24 +281,18 @@ async fn get_relay_parent<Block: BlockT>(
 	Ok(None)
 }
 
-async fn has_ancestor_relay_parent_info<Block: BlockT>(
-	relay_client: &impl RelayChainInterface,
+async fn has_ancestor_relay_parent_info<Block: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	scheduling_parent: RelayHash,
 	header: &Block::Header,
 ) -> RelayChainResult<bool> {
-	let Some(relay_parent) = get_relay_parent::<Block>(relay_client, header).await? else {
+	let Some(relay_parent) =
+		get_relay_parent::<Block>(relay_chain_data.relay_client(), header).await?
+	else {
 		return Ok(false);
 	};
 
-	if relay_parent == scheduling_parent {
-		return Ok(true);
-	}
-
-	let relay_parent_session = relay_client.session_index_for_child(relay_parent).await?;
-	let maybe_info = relay_client
-		.ancestor_relay_parent_info(scheduling_parent, relay_parent_session, relay_parent)
-		.await?;
-	Ok(maybe_info.is_some())
+	relay_chain_data.is_allowed_relay_parent(scheduling_parent, relay_parent).await
 }
 
 /// Find the best parent block to build on.
@@ -279,22 +304,20 @@ async fn has_ancestor_relay_parent_info<Block: BlockT>(
 /// and finds the deepest descendant whose relay-parent is within the allowed ancestry.
 ///
 /// Returns `None` if no suitable parent can be found (e.g., included block unknown locally).
-pub async fn find_parent_for_building<Block: BlockT>(
-	relay_client: &impl RelayChainInterface,
+pub async fn find_parent_for_building<Block: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data: &mut RelayChainDataCache<RI>,
 	backend: &impl Backend<Block>,
-	para_id: ParaId,
 	params: ParentSearchParams,
 ) -> RelayChainResult<Option<ParentSearchResult<Block>>> {
 	tracing::trace!(
 		target: LOG_TARGET,
-		?para_id,
 		?params,
 		"Parent search"
 	);
 
 	let scheduling_parent = *params.scheduling_parent();
 	let Some((included_header, included_hash)) =
-		fetch_included_from_relay_chain(relay_client, backend, scheduling_parent, para_id).await?
+		fetch_included_from_relay_chain(relay_chain_data, backend, scheduling_parent).await?
 	else {
 		return Ok(None);
 	};
@@ -304,10 +327,9 @@ pub async fn find_parent_for_building<Block: BlockT>(
 		// Fetch the most recent pending header from the relay chain. We use
 		// `OccupiedCoreAssumption::Included` so the candidate pending availability gets enacted
 		// before being returned to us.
-		let maybe_header = fetch_pvd_header::<Block>(
-			relay_client,
+		let maybe_header = fetch_pvd_header::<Block, RI>(
+			relay_chain_data,
 			scheduling_parent,
-			para_id,
 			OccupiedCoreAssumption::Included,
 		)
 		.await?
@@ -330,35 +352,33 @@ pub async fn find_parent_for_building<Block: BlockT>(
 
 	let best_parent_header = match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
-			let ancestry_lookback = relay_client
+			let ancestry_lookback = relay_chain_data
 				.scheduling_lookahead(relay_parent)
 				.await
 				.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
 				.saturating_sub(1) as usize;
 			// Build up the ancestry record of the relay chain to compare against.
 			let rp_ancestry =
-				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
+				build_relay_parent_ancestry(relay_chain_data, relay_parent, ancestry_lookback)
+					.await?;
 
-			// Search for the deepest valid parent starting from the pending/included block.
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
-				async move { is_valid }
-			})
+			find_deepest_valid_parent(
+				backend,
+				relay_chain_data,
+				start_header,
+				start_hash,
+				ParentValidity::WithinAncestry(rp_ancestry),
+			)
 			.await
 		},
 		ParentSearchParams::V3 { scheduling_parent } => {
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let header = header.clone();
-				async move {
-					has_ancestor_relay_parent_info::<Block>(
-						relay_client,
-						scheduling_parent,
-						&header,
-					)
-					.await
-					.unwrap_or(false)
-				}
-			})
+			find_deepest_valid_parent(
+				backend,
+				relay_chain_data,
+				start_header,
+				start_hash,
+				ParentValidity::AllowedRelayParent { scheduling_parent },
+			)
 			.await
 		},
 	};

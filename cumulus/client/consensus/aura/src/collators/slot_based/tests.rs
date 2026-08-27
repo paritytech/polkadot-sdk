@@ -15,16 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{
-	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
-	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
-};
+use super::block_builder_task::{determine_cores, offset_relay_parent_find_descendants};
 use async_trait::async_trait;
 use codec::Encode;
+use cumulus_client_consensus_common::{RelayChainData, RelayChainDataCache, SessionData};
 use cumulus_primitives_core::CoreSelector;
 use cumulus_relay_chain_interface::*;
 use futures::Stream;
-use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	vstaging::RelayParentInfo, CandidateEvent, CommittedCandidateReceiptV2, CoreIndex,
 	Hash as RelayHash, Header as RelayHeader, Id as ParaId, NodeFeatures,
@@ -38,7 +35,10 @@ use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	pin::Pin,
-	sync::{Arc, Mutex},
+	sync::{
+		atomic::{AtomicU32, Ordering},
+		Arc, Mutex,
+	},
 };
 
 fn header_numbers(headers: &Vec<RelayHeader>) -> Vec<BlockNumber> {
@@ -286,6 +286,14 @@ pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
 	best_hash: Arc<Mutex<Option<RelayHash>>>,
 	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
+	max_relay_parent_session_age_calls: Arc<AtomicU32>,
+	node_features_calls: Arc<AtomicU32>,
+	persisted_validation_data_calls: Arc<AtomicU32>,
+	session_index_for_child_calls: Arc<AtomicU32>,
+	claim_queue_calls: Arc<AtomicU32>,
+	/// Maps the hash passed to `session_index_for_child` to the session index it returns.
+	/// Hashes that are not present default to session `0`.
+	session_indices: Arc<Mutex<HashMap<RelayHash, SessionIndex>>>,
 }
 
 impl TestRelayClient {
@@ -294,15 +302,44 @@ impl TestRelayClient {
 			headers,
 			best_hash: Default::default(),
 			best_notifications: Arc::new(Mutex::new(None)),
+			max_relay_parent_session_age_calls: Arc::new(AtomicU32::new(0)),
+			node_features_calls: Arc::new(AtomicU32::new(0)),
+			persisted_validation_data_calls: Arc::new(AtomicU32::new(0)),
+			session_index_for_child_calls: Arc::new(AtomicU32::new(0)),
+			claim_queue_calls: Arc::new(AtomicU32::new(0)),
+			session_indices: Default::default(),
 		}
 	}
 
 	pub fn new_with_best(headers: HashMap<RelayHash, RelayHeader>, best_hash: RelayHash) -> Self {
-		Self {
-			headers,
-			best_hash: Arc::new(Mutex::new(Some(best_hash))),
-			best_notifications: Arc::new(Mutex::new(None)),
-		}
+		let mut client = Self::new(headers);
+		client.best_hash = Arc::new(Mutex::new(Some(best_hash)));
+		client
+	}
+
+	pub fn max_relay_parent_session_age_calls(&self) -> u32 {
+		self.max_relay_parent_session_age_calls.load(Ordering::Relaxed)
+	}
+
+	pub fn node_features_calls(&self) -> u32 {
+		self.node_features_calls.load(Ordering::Relaxed)
+	}
+
+	pub fn persisted_validation_data_calls(&self) -> u32 {
+		self.persisted_validation_data_calls.load(Ordering::Relaxed)
+	}
+
+	pub fn session_index_for_child_calls(&self) -> u32 {
+		self.session_index_for_child_calls.load(Ordering::Relaxed)
+	}
+
+	pub fn claim_queue_calls(&self) -> u32 {
+		self.claim_queue_calls.load(Ordering::Relaxed)
+	}
+
+	/// Configure the session index returned by `session_index_for_child` for the given hash.
+	pub fn set_session_index_for_child(&self, hash: RelayHash, session_index: SessionIndex) {
+		self.session_indices.lock().unwrap().insert(hash, session_index);
 	}
 
 	pub fn set_best_hash(&mut self, best_hash: Option<RelayHash>) {
@@ -357,6 +394,8 @@ impl RelayChainInterface for TestRelayClient {
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		use cumulus_primitives_core::PersistedValidationData;
 
+		self.persisted_validation_data_calls.fetch_add(1, Ordering::Relaxed);
+
 		if self.headers.get(&hash).is_none() {
 			return Ok(None);
 		}
@@ -394,8 +433,9 @@ impl RelayChainInterface for TestRelayClient {
 		unimplemented!("Not needed for test")
 	}
 
-	async fn session_index_for_child(&self, _: RelayHash) -> RelayChainResult<SessionIndex> {
-		unimplemented!("Not needed for test")
+	async fn session_index_for_child(&self, hash: RelayHash) -> RelayChainResult<SessionIndex> {
+		self.session_index_for_child_calls.fetch_add(1, Ordering::Relaxed);
+		Ok(self.session_indices.lock().unwrap().get(&hash).copied().unwrap_or(0))
 	}
 
 	async fn import_notification_stream(
@@ -481,6 +521,7 @@ impl RelayChainInterface for TestRelayClient {
 		&self,
 		_: RelayHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		self.claim_queue_calls.fetch_add(1, Ordering::Relaxed);
 		// Return empty claim queue for offset tests
 		Ok(BTreeMap::new())
 	}
@@ -495,7 +536,7 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn scheduling_lookahead(&self, _: RelayHash) -> RelayChainResult<u32> {
-		unimplemented!("Not needed for test")
+		Ok(5)
 	}
 
 	async fn candidate_events(&self, _: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
@@ -503,10 +544,12 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn max_relay_parent_session_age(&self, _at: RelayHash) -> RelayChainResult<u32> {
-		unimplemented!("Not needed for test")
+		self.max_relay_parent_session_age_calls.fetch_add(1, Ordering::Relaxed);
+		Ok(7)
 	}
 
 	async fn node_features(&self, _at: RelayHash) -> RelayChainResult<NodeFeatures> {
+		self.node_features_calls.fetch_add(1, Ordering::Relaxed);
 		Ok(NodeFeatures::default())
 	}
 
@@ -599,22 +642,46 @@ fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHeader) {
 	(headers, last_header)
 }
 
-// Test extension for RelayChainDataCache
-impl RelayChainDataCache<TestRelayClient> {
-	pub fn set_test_data(
+/// Test-only extension for seeding [`RelayChainDataCache`].
+pub trait RelayChainDataCacheTestExt {
+	fn set_test_data(
+		&mut self,
+		relay_parent_header: RelayHeader,
+		cores: Vec<CoreIndex>,
+		node_features: NodeFeatures,
+	);
+
+	fn set_test_data_for_session(
+		&mut self,
+		relay_parent_header: RelayHeader,
+		cores: Vec<CoreIndex>,
+		node_features: NodeFeatures,
+		session_index: SessionIndex,
+	);
+}
+
+impl RelayChainDataCacheTestExt for RelayChainDataCache<TestRelayClient> {
+	/// Seed the per-block `RelayChainData` (for `session_index == 0`) and the per-session
+	/// `SessionData` (carrying `node_features`) for the given relay header.
+	fn set_test_data(
 		&mut self,
 		relay_parent_header: RelayHeader,
 		cores: Vec<CoreIndex>,
 		node_features: NodeFeatures,
 	) {
-		self.set_test_data_with_last_selector(relay_parent_header, cores, node_features);
+		self.set_test_data_for_session(relay_parent_header, cores, node_features, 0);
 	}
 
-	fn set_test_data_with_last_selector(
+	/// Like [`Self::set_test_data`], but lets the caller pin the relay block (and its session
+	/// cache entry) to an explicit `session_index`. `node_features` now lives on the
+	/// per-session `SessionData`, so it is seeded into the session cache rather than onto the
+	/// per-block `RelayChainData`.
+	fn set_test_data_for_session(
 		&mut self,
 		relay_parent_header: RelayHeader,
 		cores: Vec<CoreIndex>,
 		node_features: NodeFeatures,
+		session_index: SessionIndex,
 	) {
 		let relay_parent_hash = relay_parent_header.hash();
 
@@ -623,16 +690,17 @@ impl RelayChainDataCache<TestRelayClient> {
 			claim_queue.insert(core_index, [ParaId::from(1)].into());
 		}
 
-		let claim_queue_snapshot = ClaimQueueSnapshot::from(claim_queue);
-
-		let data = RelayChainData {
-			relay_header: relay_parent_header,
-			claim_queue: claim_queue_snapshot,
-			max_pov_size: 1024 * 1024,
-			node_features,
-		};
+		let data = RelayChainData { relay_header: relay_parent_header, claim_queue, session_index };
 
 		self.insert_test_data(relay_parent_hash, data);
+		self.insert_test_session_data(
+			session_index,
+			SessionData {
+				max_relay_parent_session_age: 7,
+				node_features,
+				max_pov_size: 1024 * 1024,
+			},
+		);
 	}
 }
 
@@ -653,4 +721,75 @@ pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) ->
 		extrinsics_root: Default::default(),
 		digest,
 	}
+}
+
+/// Verify that `get_session_data` caches per session: for relay blocks belonging to the same
+/// session the relay runtime is only queried once, while crossing a session boundary triggers
+/// exactly one additional fetch and yields a distinct `SessionData`.
+#[tokio::test]
+async fn session_data_is_cached_per_session() {
+	// Three relay blocks: `header_a` and `header_b` belong to session 0, `header_c` to session 1.
+	let header_a = relay_header_with_slot(10, Default::default(), 10);
+	let header_b = relay_header_with_slot(11, header_a.hash(), 11);
+	let header_c = relay_header_with_slot(12, header_b.hash(), 12);
+
+	let mut headers = HashMap::new();
+	headers.insert(header_a.hash(), header_a.clone());
+	headers.insert(header_b.hash(), header_b.clone());
+	headers.insert(header_c.hash(), header_c.clone());
+
+	let client = TestRelayClient::new(headers);
+	// `RelayChainData::session_index` for header `H` is `session_index_for_child(H.parent_hash)`.
+	// Pin each block's session so `header_a`/`header_b` resolve to session 0 and `header_c` to
+	// session 1.
+	client.set_session_index_for_child(*header_a.parent_hash(), 0);
+	client.set_session_index_for_child(*header_b.parent_hash(), 0);
+	client.set_session_index_for_child(*header_c.parent_hash(), 1);
+
+	let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
+
+	// First call: fetches session data for session 0 and caches it (one query of each item).
+	assert_eq!(
+		cache.get_session_data(header_a.hash()).await.expect("first call must succeed"),
+		&SessionData {
+			max_relay_parent_session_age: 7,
+			node_features: NodeFeatures::default(),
+			max_pov_size: 1024 * 1024,
+		},
+		"get_session_data should return values from TestRelayClient"
+	);
+	assert_eq!(client.max_relay_parent_session_age_calls(), 1);
+	assert_eq!(client.node_features_calls(), 1);
+	assert_eq!(client.persisted_validation_data_calls(), 1);
+	assert_eq!(client.claim_queue_calls(), 1);
+	assert_eq!(client.session_index_for_child_calls(), 1);
+
+	// Second call for the same session (header_a again) and a different block in the same session
+	// (header_b): must reuse the cached `SessionData`, no new per-session queries.
+	let _ = cache.get_session_data(header_a.hash()).await.expect("second call must succeed");
+	let _ = cache.get_session_data(header_b.hash()).await.expect("third call must succeed");
+	assert_eq!(
+		client.max_relay_parent_session_age_calls(),
+		1,
+		"no re-query within the same session"
+	);
+	assert_eq!(client.node_features_calls(), 1, "no re-query within the same session");
+	assert_eq!(client.persisted_validation_data_calls(), 1, "no re-query within the same session");
+	assert_eq!(client.claim_queue_calls(), 2, "one extra per-block fetch for header_b");
+	assert_eq!(client.session_index_for_child_calls(), 2, "one extra per-block fetch for header_b");
+
+	// Crossing into session 1 (header_c) triggers exactly one additional fetch of each item.
+	let _ = cache
+		.get_session_data(header_c.hash())
+		.await
+		.expect("new-session call must succeed");
+	assert_eq!(
+		client.max_relay_parent_session_age_calls(),
+		2,
+		"one extra query for the new session"
+	);
+	assert_eq!(client.node_features_calls(), 2, "one extra query for the new session");
+	assert_eq!(client.persisted_validation_data_calls(), 2, "one extra query for the new session");
+	assert_eq!(client.claim_queue_calls(), 3, "one extra per-block fetch for header_c");
+	assert_eq!(client.session_index_for_child_calls(), 3, "one extra per-block fetch for header_c");
 }

@@ -4972,6 +4972,7 @@ dependencies = [
  "sp-version 29.0.0",
  "substrate-prometheus-endpoint 0.17.0",
  "substrate-test-runtime",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]

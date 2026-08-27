@@ -234,20 +234,19 @@ where
 ///
 /// If the best parent does not pass `filter_parent`, walks backwards through ancestors
 /// until finding one that does, or reaching the included block.
-async fn find_parent<Block>(
-	relay_client: &impl RelayChainInterface,
+async fn find_parent<Block, RI>(
+	relay_chain_data_cache: &mut consensus_common::RelayChainDataCache<RI>,
 	para_backend: &impl sc_client_api::Backend<Block>,
-	para_id: ParaId,
 	params: ParentSearchParams,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
+	RI: RelayChainInterface + 'static,
 {
-	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
-		relay_client,
+	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block, RI>(
+		relay_chain_data_cache,
 		para_backend,
-		para_id,
 		params.clone(),
 	)
 	.await

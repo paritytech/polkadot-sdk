@@ -21,7 +21,6 @@ use crate::{
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
-			relay_chain_data_cache::RelayChainDataCache,
 			scheduling::SchedulingInfo,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
@@ -33,7 +32,7 @@ use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
-	ParachainBlockImportMarker, ParentSearchParams,
+	ParachainBlockImportMarker, ParentSearchParams, RelayChainDataCache,
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
@@ -43,7 +42,7 @@ use cumulus_primitives_core::{
 	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
 	TargetBlockRate,
 };
-use cumulus_relay_chain_interface::RelayChainInterface;
+use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::prelude::*;
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
@@ -222,15 +221,30 @@ where
 		);
 
 		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
-		let maybe_best_relay_block_data = scheduling_info
+
+		let maybe_best_relay_hash = scheduling_info
 			.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
-			.await;
+			.await
+			.map(|data| data.relay_header.hash());
 
 		let (_para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&para_client);
-		let v3_enabled = SchedulingInfo::<RelayClient>::is_v3_enabled(
-			v3_enabled_on_para,
-			maybe_best_relay_block_data,
-		);
+		let v3_enabled = match maybe_best_relay_hash {
+			Some(best_relay_hash) => {
+				v3_enabled_on_para &&
+					relay_chain_data_cache
+						.relay_v3_enabled(best_relay_hash)
+						.await
+						.unwrap_or_else(|err| {
+							tracing::warn!(
+								target: LOG_TARGET,
+								?err,
+								"Falling back to V2 scheduling: could not determine if v3 is enabled on the relay chain."
+							);
+							false
+						})
+			},
+			None => false,
+		};
 		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
 
 		loop {
@@ -269,13 +283,15 @@ where
 				.runtime_api()
 				.relay_parent_offset(para_best_hash)
 				.unwrap_or_default();
-			let mut max_relay_parent_session_age = 0;
-			if v3_enabled {
-				max_relay_parent_session_age = relay_client
-					.max_relay_parent_session_age(scheduling_parent_hash)
+			let max_relay_parent_session_age = if v3_enabled {
+				relay_chain_data_cache
+					.get_session_data(scheduling_parent_hash)
 					.await
-					.unwrap_or(0);
-			}
+					.map(|data| data.max_relay_parent_session_age)
+					.unwrap_or(0)
+			} else {
+				0
+			};
 			let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				scheduling_parent_header.clone(),
@@ -294,9 +310,8 @@ where
 				true => ParentSearchParams::V3 { scheduling_parent: scheduling_parent_hash },
 			};
 			let Some(parent_search_result) = crate::collators::find_parent(
-				&relay_client,
+				&mut relay_chain_data_cache,
 				&*para_backend,
-				para_id,
 				parent_search_params,
 				|parent| {
 					// We never want to build on any "middle block" that isn't the last block in a
@@ -319,10 +334,9 @@ where
 				false => parent_search_result.included_at_scheduling,
 				true => {
 					match fetch_included_from_relay_chain(
-						&relay_client,
+						&mut relay_chain_data_cache,
 						&*para_backend,
 						relay_parent_hash,
-						para_id,
 					)
 					.await
 					{
@@ -370,9 +384,9 @@ where
 			};
 
 			let Ok(max_pov_size) = relay_chain_data_cache
-				.get_by_hash(relay_parent_hash)
+				.get_session_data(relay_parent_hash)
 				.await
-				.map(|d| d.max_pov_size)
+				.map(|data| data.max_pov_size)
 			else {
 				continue;
 			};
@@ -481,10 +495,11 @@ where
 					);
 					continue;
 				},
-				Err(()) => {
+				Err(err) => {
 					tracing::error!(
 						target: LOG_TARGET,
 						relay_parent = ?relay_parent_hash,
+						?err,
 						"Failed to determine cores."
 					);
 
@@ -1019,8 +1034,9 @@ fn adjust_para_to_relay_parent_slot(
 /// descendants.
 ///
 /// # Returns
-/// * `Ok(RelayParentData)` - Contains the target relay parent and its ordered list of descendants
-/// * `Err(())` - If any relay chain block header cannot be retrieved
+/// * `Ok(Some(RelayParentData))` - The target relay parent and its ordered list of descendants
+/// * `Ok(None)` - No suitable relay parent within the allowed session age
+/// * `Err(_)` - If a relay chain block header cannot be retrieved
 ///
 /// The function traverses backwards from the best block until it finds the block at the specified
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
@@ -1029,7 +1045,7 @@ pub async fn offset_relay_parent_find_descendants<RelayClient>(
 	scheduling_parent: RelayHeader,
 	relay_parent_offset: u32,
 	max_relay_parent_session_age: u32,
-) -> Result<Option<RelayParentData>, ()>
+) -> RelayChainResult<Option<RelayParentData>>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
@@ -1284,12 +1300,15 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	scheduling_parent: &RelayHeader,
 	para_id: ParaId,
 	relay_parent_offset: u32,
-) -> Result<Option<Cores>, ()> {
-	let claim_queue =
-		&relay_chain_data_cache.get_by_hash(scheduling_parent.hash()).await?.claim_queue;
-
-	let core_indices = claim_queue
-		.iter_claims_at_depth_for_para(relay_parent_offset as _, para_id)
+) -> RelayChainResult<Option<Cores>> {
+	let relay_data = relay_chain_data_cache.get_by_hash(scheduling_parent.hash()).await?;
+	let depth = relay_parent_offset as usize;
+	let core_indices = relay_data
+		.claim_queue
+		.iter()
+		.filter_map(|(core_index, ids)| {
+			ids.get(depth).filter(|id| **id == para_id).map(|_| *core_index)
+		})
 		.collect::<Vec<_>>();
 
 	Ok(if core_indices.is_empty() {
