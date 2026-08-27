@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787830877218,
+  "lastUpdate": 1787834881704,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ed9375f1c0462eb5cd24d7ed78732faa17af931b",
-          "message": "Update the resolc and retester versions (#10907)\n\n## Summary\n\nThis PR allows us to use nightly versions of the resolc compiler in the\ndifferential tests CI which include fixes not yet available in the\npublished version of the compiler. It also bumps the commit hash of\ndifferential tests used to a version that allows for gas limits to be\nspecified manually to circumvent the issue observed in\nhttps://github.com/paritytech/contract-issues/issues/259\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-29T14:26:44Z",
-          "tree_id": "6f78399931e3a9e257d74e1063e907544d44f23c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ed9375f1c0462eb5cd24d7ed78732faa17af931b"
-        },
-        "date": 1769701171609,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007047915046666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14474428622000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023037110946666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009664551833333306,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010167597193333327,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6113c0dca3f94f4a2102ebe0ab56f31b4284435",
+          "message": "pallet-revive: make the first hot write after a cold read pay the deferred cost (#12802)\n\n### Summary\nA slot warmed by a read and then written was charged only the\ntransaction-time work, while the extra cost a write has over a read was\nskipped: re-encoding and re-hashing the slot's trie path when the\nblock's storage root is computed.\n\nThe access list now tracks per slot whether the transaction has paid the\nread cost or the write cost. The first write to a read-paid slot pays\nthe write surcharge and upgrades the slot to write-paid. Upgrades are\njournaled per frame, like insertions, and roll back with a reverting\nframe since the reverted write leaves no root work behind.\n\n`AccessList` holds a `BoundedBTreeMap<AccessEntry, Paid>` in place of\nthe set (the 1-byte value fits in the B-tree nodes' spare space) plus a\nsecond journal for the upgrades. The worst-case per-entry memory\nconstant grows from 512 to 768 bytes to cover a slot's upgrade entry.\n\n### Pricing notes\n- The surcharge is ref_time-only; the root re-hash adds no proof.\n- The surcharge can be paid twice when a frame reverts: the reverted\nframe keeps its charge, the upgrade rolls back, and the slot's next\nwrite pays it again.\n- The rollback work of draining upgrades is not charged separately: the\nreverted write already paid a surcharge for block-end work that will\nnever happen.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-27T11:19:08Z",
+          "tree_id": "7bbc8a156912b0cd42826cc1754962d240493950",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6113c0dca3f94f4a2102ebe0ab56f31b4284435"
+        },
+        "date": 1787834842479,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00777652070666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022817877946666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01012363869333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14236701842000002,
             "unit": "seconds"
           }
         ]
