@@ -34,10 +34,19 @@ pub const MIN_ENCODED_STATEMENT_SIZE: usize = 108;
 pub const MAX_STATEMENTS_PER_NOTIFICATION: usize =
 	MAX_STATEMENT_NOTIFICATION_SIZE as usize / MIN_ENCODED_STATEMENT_SIZE;
 
-/// Soft limit on encoded initial-sync chunks held in flight across all peers. Since admission is
-/// checked before adding the next whole notification, it may be exceeded by less than one
-/// maximum-sized notification.
-pub const MAX_INITIAL_SYNC_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
+/// Soft limit on encoded statement chunks held in flight across all peers, shared by initial-sync
+/// and propagation sends. Since admission is checked before adding the next whole notification, it
+/// may be exceeded by less than one maximum-sized notification.
+pub const MAX_SEND_IN_FLIGHT_BYTES: u64 = 16 * MAX_STATEMENT_NOTIFICATION_SIZE;
+
+/// Part of [`MAX_SEND_IN_FLIGHT_BYTES`] withheld from propagation while initial syncs are
+/// pending. Freed budget is otherwise reclaimed synchronously by parked propagations, while
+/// sync bursts only check on a timer and would always find the budget full.
+pub const INITIAL_SYNC_RESERVED_BYTES: u64 = 4 * MAX_STATEMENT_NOTIFICATION_SIZE;
+
+/// Maximum number of statement hashes queued for propagation to one peer.
+/// On overflow the oldest hashes are dropped first.
+pub const MAX_PROPAGATION_OUTBOX_LEN: usize = 64 * 1024;
 
 /// Maximum number of statement validation request we keep at any moment.
 pub const MAX_PENDING_STATEMENTS: usize = 2 * 1024 * 1024;
