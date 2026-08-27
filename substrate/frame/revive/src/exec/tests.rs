@@ -25,7 +25,7 @@ use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
 		CallAccess, CallWarmth, CodeLoad, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES,
-		MAX_INLINE_KEY_LEN, Paid, StorageOp, Warmth,
+		MAX_INLINE_KEY_LEN, StorageOp, Warmth,
 	},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
@@ -3367,17 +3367,21 @@ fn cold_hot_child_upgrade_follows_the_frame_outcome() {
 
 		ctx.ext.touch_storage_access(false, &slot, StorageOp::Read);
 
-		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![1]).is_err(), "the child must revert");
+		assert_matches!(
+			run_child_call(ctx.ext, &BOB_ADDR, vec![1]),
+			Err(ExecError { error: DispatchError::Other("revert after upgrading"), .. }),
+			"the child must fail at its own revert",
+		);
 		assert_matches!(
 			ctx.ext.peek_storage_access(false, &slot),
-			StorageAccessKind::Persistent(Warmth::Hot(Paid::Read)),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
 			"the reverted child's upgrade must roll back, leaving the write unpaid",
 		);
 
 		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![2]).is_ok(), "the child must succeed");
 		assert_matches!(
 			ctx.ext.peek_storage_access(false, &slot),
-			StorageAccessKind::Persistent(Warmth::Hot(Paid::Write)),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
 			"the committed child's upgrade must stay",
 		);
 		exec_success()
@@ -3442,8 +3446,8 @@ fn cold_hot_call_target_warms_across_calls() {
 			ctx.ext.warmth_of(CallAccess::Plain { target: BOB_ADDR, transfers_value: true }),
 			CallWarmth::Plain {
 				account: Some(Warmth::Cold { .. }),
-				original_account: Warmth::Hot(_),
-				account_info: Warmth::Hot(_)
+				original_account: Warmth::Hot { .. },
+				account_info: Warmth::Hot { .. }
 			},
 			"a zero-value call warms the metadata but not the unread account state",
 		);
@@ -3532,8 +3536,8 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 			ctx.ext.warmth_of(CallAccess::Plain { target: BOB_ADDR, transfers_value: true }),
 			CallWarmth::Plain {
 				account: Some(Warmth::Cold { .. }),
-				original_account: Warmth::Hot(_),
-				account_info: Warmth::Hot(_)
+				original_account: Warmth::Hot { .. },
+				account_info: Warmth::Hot { .. }
 			},
 			"the caller's touch of B persists even though B reverted",
 		);
@@ -3580,8 +3584,8 @@ fn cold_hot_first_frame_warms_entry_target() {
 			ctx.ext.warmth_of(CallAccess::Plain { target: BOB_ADDR, transfers_value: true }),
 			CallWarmth::Plain {
 				account: Some(Warmth::Cold { .. }),
-				original_account: Warmth::Hot(_),
-				account_info: Warmth::Hot(_)
+				original_account: Warmth::Hot { .. },
+				account_info: Warmth::Hot { .. }
 			},
 			"the entry target's metadata is pre-warmed by the first frame",
 		);
@@ -3619,8 +3623,8 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 				.warmth_of(CallAccess::Plain { target: DJANGO_ADDR, transfers_value: true }),
 			CallWarmth::Plain {
 				account: Some(Warmth::Cold { .. }),
-				original_account: Warmth::Hot(_),
-				account_info: Warmth::Hot(_)
+				original_account: Warmth::Hot { .. },
+				account_info: Warmth::Hot { .. }
 			},
 			"a zero-value call to a plain account warms only its metadata",
 		);
@@ -3650,7 +3654,10 @@ fn cold_hot_code_paid_level_matches_the_operation() {
 			MockLoader::code_hashes().into_iter().find(|hash| *hash != dummy_ch).unwrap();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoad { hash: own_hash, code_info_op: StorageOp::Read }),
-			CodeLoadWarmth { info: Warmth::Hot(Paid::Read), blob: Warmth::Hot(Paid::Read) },
+			CodeLoadWarmth {
+				info: Warmth::Hot { charged: StorageOp::Read },
+				blob: Warmth::Hot { charged: StorageOp::Read }
+			},
 			"a call loads code without touching the refcount",
 		);
 
@@ -3667,7 +3674,10 @@ fn cold_hot_code_paid_level_matches_the_operation() {
 			.unwrap();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoad { hash: dummy_ch, code_info_op: StorageOp::Read }),
-			CodeLoadWarmth { info: Warmth::Hot(Paid::Write), blob: Warmth::Hot(Paid::Read) },
+			CodeLoadWarmth {
+				info: Warmth::Hot { charged: StorageOp::Write },
+				blob: Warmth::Hot { charged: StorageOp::Read }
+			},
 			"instantiating bumps the refcount: metadata write-paid, blob only read",
 		);
 		exec_success()

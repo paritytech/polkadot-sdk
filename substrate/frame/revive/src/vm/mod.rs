@@ -141,7 +141,7 @@ impl<T: Config> Token<T> for CodeInfoLoadToken {
 		let bumps_refcount = self.code_info_op == StorageOp::Write;
 		let surcharge = match self.warmth.info {
 			// Upgrading a tracked entry to `Write` also journals the upgrade.
-			Warmth::Hot(paid) if bumps_refcount && !paid.covers(StorageOp::Write) => {
+			Warmth::Hot { charged } if bumps_refcount && !charged.covers(StorageOp::Write) => {
 				RuntimeCosts::deferred_write_cost::<T>()
 					.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<T>())
 			},
@@ -457,10 +457,7 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		access_list::{Paid, Warmth},
-		tests::Test,
-	};
+	use crate::{access_list::Warmth, tests::Test};
 
 	#[test]
 	fn the_refcount_write_is_charged_exactly_when_owed() {
@@ -479,8 +476,8 @@ mod tests {
 			"a cold bump inserts the entry at `Write`, so it owes the re-hash but no upgrade",
 		);
 		assert_eq!(
-			load(Warmth::Hot(Paid::Read), StorageOp::Write)
-				.saturating_sub(load(Warmth::Hot(Paid::Write), StorageOp::Write)),
+			load(Warmth::Hot { charged: StorageOp::Read }, StorageOp::Write)
+				.saturating_sub(load(Warmth::Hot { charged: StorageOp::Write }, StorageOp::Write)),
 			deferred.saturating_add(journaled_upgrade),
 			"the bump that finds the key read-paid owes the re-hash and journals the upgrade",
 		);
@@ -500,7 +497,10 @@ mod tests {
 			let cold = weight_of(code_type, CodeLoadWarmth::cold_non_revertible());
 			let hot = weight_of(
 				code_type,
-				CodeLoadWarmth { info: Warmth::Hot(Paid::Read), blob: Warmth::Hot(Paid::Read) },
+				CodeLoadWarmth {
+					info: Warmth::Hot { charged: StorageOp::Read },
+					blob: Warmth::Hot { charged: StorageOp::Read },
+				},
 			);
 			let cold_revertible = weight_of(
 				code_type,
@@ -527,7 +527,7 @@ mod tests {
 			let hot_info_cold_blob = weight_of(
 				code_type,
 				CodeLoadWarmth {
-					info: Warmth::Hot(Paid::Read),
+					info: Warmth::Hot { charged: StorageOp::Read },
 					blob: Warmth::cold_non_revertible(),
 				},
 			);

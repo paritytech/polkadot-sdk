@@ -246,7 +246,7 @@ impl RuntimeCosts {
 					cost
 				}
 			},
-			Warmth::Hot(_) => {
+			Warmth::Hot { .. } => {
 				let full = match key {
 					TouchedKey::Slot => T::WeightInfo::access_list_touch_hot_full,
 					TouchedKey::Address => T::WeightInfo::access_list_touch_hot_account_full,
@@ -280,8 +280,10 @@ impl RuntimeCosts {
 		match kind {
 			StorageAccessKind::Persistent(warmth) => {
 				let surcharge = match warmth {
-					Warmth::Hot(paid) if !paid.covers(op) => Self::deferred_write_cost::<T>()
-						.saturating_add(Self::access_list_upgrade_overhead::<T>()),
+					Warmth::Hot { charged } if !charged.covers(op) => {
+						Self::deferred_write_cost::<T>()
+							.saturating_add(Self::access_list_upgrade_overhead::<T>())
+					},
 					_ => Weight::zero(),
 				};
 				weight_by_warmth::<T, _>([warmth], TouchedKey::Slot, cold, hot)
@@ -478,14 +480,17 @@ impl<T: Config> Token<T> for RuntimeCosts {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{access_list::Paid, tests::Test};
+	use crate::tests::Test;
 
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot = StorageAccessKind::Persistent(Warmth::Hot(Paid::Write));
+		let hot_kinds = [
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
+		];
 
 		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
@@ -497,15 +502,25 @@ mod tests {
 			]
 		};
 
-		for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
-			let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
-			let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
-			assert!(
-				cold_weight.ref_time() > hot_weight.ref_time(),
-				"expected cold > hot ref_time for {cold_cost:?}: cold={cold_weight:?} hot={hot_weight:?}",
-			);
-			assert_eq!(hot_weight.proof_size(), 0, "hot proof_size {hot_cost:?}: {hot_weight:?}");
-			assert!(cold_weight.proof_size() > 0, "cold proof_size {cold_cost:?}: {cold_weight:?}",);
+		for hot in hot_kinds {
+			for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
+				let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
+				let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
+				assert!(
+					cold_weight.ref_time() > hot_weight.ref_time(),
+					"expected cold > hot ref_time for {cold_cost:?}: \
+					 cold={cold_weight:?} hot={hot_weight:?}",
+				);
+				assert_eq!(
+					hot_weight.proof_size(),
+					0,
+					"hot proof_size {hot_cost:?}: {hot_weight:?}"
+				);
+				assert!(
+					cold_weight.proof_size() > 0,
+					"cold proof_size {cold_cost:?}: {cold_weight:?}",
+				);
+			}
 		}
 
 		for (rev_cost, non_rev_cost) in with_kind(cold_revertible).into_iter().zip(with_kind(cold))
@@ -530,9 +545,9 @@ mod tests {
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
 
 		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
-			account: Some(Warmth::Hot(Paid::Read)),
-			original_account: Warmth::Hot(Paid::Read),
-			account_info: Warmth::Hot(Paid::Read),
+			account: Some(Warmth::Hot { charged: StorageOp::Read }),
+			original_account: Warmth::Hot { charged: StorageOp::Read },
+			account_info: Warmth::Hot { charged: StorageOp::Read },
 		}));
 		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_non_revertible()),
@@ -541,8 +556,8 @@ mod tests {
 		}));
 		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_non_revertible()),
-			original_account: Warmth::Hot(Paid::Read),
-			account_info: Warmth::Hot(Paid::Read),
+			original_account: Warmth::Hot { charged: StorageOp::Read },
+			account_info: Warmth::Hot { charged: StorageOp::Read },
 		}));
 
 		assert!(
@@ -573,7 +588,7 @@ mod tests {
 		);
 
 		let delegate_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
-			account_info: Warmth::Hot(Paid::Read),
+			account_info: Warmth::Hot { charged: StorageOp::Read },
 		}));
 		let delegate_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
 			account_info: Warmth::cold_non_revertible(),
@@ -587,8 +602,8 @@ mod tests {
 
 		let zero_value_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: None,
-			original_account: Warmth::Hot(Paid::Read),
-			account_info: Warmth::Hot(Paid::Read),
+			original_account: Warmth::Hot { charged: StorageOp::Read },
+			account_info: Warmth::Hot { charged: StorageOp::Read },
 		}));
 		assert!(
 			zero_value_hot.ref_time() < all_hot.ref_time(),
@@ -600,7 +615,7 @@ mod tests {
 		);
 		let zero_value_mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: None,
-			original_account: Warmth::Hot(Paid::Read),
+			original_account: Warmth::Hot { charged: StorageOp::Read },
 			account_info: Warmth::cold_non_revertible(),
 		}));
 		assert_eq!(
@@ -630,8 +645,8 @@ mod tests {
 		let surcharge =
 			deferred_write.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
 
-		let read_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Read));
-		let write_paid = StorageAccessKind::Persistent(Warmth::Hot(Paid::Write));
+		let read_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read });
+		let write_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
 
 		let write_costs = |kind: StorageAccessKind| {
 			[
@@ -671,7 +686,7 @@ mod tests {
 	#[test]
 	fn derived_overheads_stay_positive() {
 		let cold = Warmth::cold_non_revertible();
-		let hot = Warmth::Hot(Paid::Read);
+		let hot = Warmth::Hot { charged: StorageOp::Read };
 		let overlay = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
 		let derived = [
 			("cold slot touch", RuntimeCosts::access_list_overhead::<Test>(cold, TouchedKey::Slot)),

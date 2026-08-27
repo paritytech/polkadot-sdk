@@ -555,8 +555,8 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Checks if `key` was already accessed in this transaction and inserts it
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the slot's [`StorageAccessKind`]. `op` is the paid level this access
-	/// sets: a write upgrades a slot that had only paid for a read. When
+	/// the slot's [`StorageAccessKind`]. `op` is the operation being performed:
+	/// a write upgrades a slot that had only paid for a read. When
 	/// `transient` is true, skips the access list and returns the `Transient`
 	/// variant.
 	fn touch_storage_access(
@@ -1368,6 +1368,7 @@ where
 			transient_storage.start_transaction();
 		});
 		let is_first_frame = self.frames.is_empty();
+		let access_list_checkpoints_len = self.access_list.frame_depth();
 		// Open an access-list frame for nested CALL/CREATE. The first frame
 		// is skipped; its touches land in the bare journal and persist
 		// for the whole transaction.
@@ -1641,6 +1642,11 @@ where
 		} else {
 			self.access_list.rollback_frame();
 		}
+		debug_assert_eq!(
+			self.access_list.frame_depth(),
+			access_list_checkpoints_len,
+			"this frame closed exactly the checkpoint it opened",
+		);
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
