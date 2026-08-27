@@ -348,7 +348,7 @@ fn max_storage_deposit_reported_for_unfunded_dry_run(
 					weight_limit: <Test as frame_system::Config>::BlockWeights::get().max_block,
 					deposit_limit: u128::MAX,
 				})
-				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(Default::default()))
+				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
 				.build()
 		});
 
@@ -940,7 +940,9 @@ fn catch_constructor_test() {
 					.into(),
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 
 		assert_ok!(first_estimate.as_ref());
@@ -955,7 +957,9 @@ fn catch_constructor_test() {
 					.into(),
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 
 		assert_ok!(second_estimate);
@@ -1012,7 +1016,9 @@ fn dry_run_bounded_execution_runs_out_of_gas() {
 				input: Fibonacci::fibCall { n: 100u64 }.abi_encode().into(),
 				..Default::default()
 			},
-			Default::default(),
+			None,
+			true,
+			None,
 		);
 
 		let err = result.expect_err("fib(100) should run out of gas");

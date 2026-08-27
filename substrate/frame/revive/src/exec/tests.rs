@@ -23,7 +23,7 @@
 use super::*;
 use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
-	access_list::{MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, Warmth},
+	access_list::{MAX_ACCESS_LIST_ENTRIES, MAX_INLINE_KEY_LEN, StorageOp, Warmth},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
 	test_utils::*,
@@ -1263,6 +1263,88 @@ fn instantiation_from_contract() {
 			assert_eq!(
 				ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).unwrap(),
 				dummy_ch
+			);
+		});
+}
+
+#[test]
+fn reentrant_instantiate_at_same_address_is_rejected() {
+	// EIP-684: while `B1` constructs at address `X`, its constructor re-enters the deployer to
+	// instantiate the same code+salt. That resolves to `X` again and must be rejected rather
+	// than run a second constructor for one account.
+	let salt = [42u8; 32];
+
+	let constructor_ch = MockLoader::insert(Constructor, |ctx, _| {
+		// Re-enter the deployer (BOB) while we are still being constructed.
+		ctx.ext
+			.call(
+				&CallResources::NoLimits,
+				&BOB_ADDR,
+				U256::zero(),
+				vec![],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
+			.unwrap();
+		exec_success()
+	});
+
+	let invocations = Rc::new(RefCell::new(0u32));
+	let second_instantiate_error = Rc::new(RefCell::new(None::<DispatchError>));
+	let factory_ch = MockLoader::insert(Call, {
+		let invocations = Rc::clone(&invocations);
+		let second_instantiate_error = Rc::clone(&second_instantiate_error);
+		move |ctx, _| {
+			*invocations.borrow_mut() += 1;
+			let n = *invocations.borrow();
+			// Bound the recursion in case the guard fails to reject the collision.
+			if n <= 2 {
+				let min_balance = <Test as Config>::Currency::minimum_balance();
+				let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+				let result = ctx.ext.instantiate(
+					&CallResources::NoLimits,
+					Code::Existing(constructor_ch),
+					value,
+					vec![],
+					Some(&salt),
+				);
+				if n == 2 {
+					if let Err(err) = &result {
+						*second_instantiate_error.borrow_mut() = Some(err.error);
+					}
+				}
+			}
+			exec_success()
+		}
+	});
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.existential_deposit(15)
+		.build()
+		.execute_with(|| {
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			set_balance(&ALICE, min_balance * 1000);
+			place_contract(&BOB, factory_ch);
+			let origin = Origin::from_account_id(ALICE);
+			let mut meter =
+				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
+
+			// `B1` still constructs; only the colliding re-entrant instantiate fails.
+			assert_ok!(MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut meter,
+				Pallet::<Test>::convert_native_to_evm(min_balance * 100),
+				vec![],
+				&ExecConfig::new_substrate_tx(),
+			));
+
+			// Initial call plus one re-entry; without the guard it would recurse further.
+			assert_eq!(*invocations.borrow(), 2);
+			assert_eq!(
+				*second_instantiate_error.borrow(),
+				Some(<Error<Test>>::DuplicateContract.into())
 			);
 		});
 }
@@ -3036,7 +3118,7 @@ fn delegatecall_tracer_reports_correct_addresses() {
 
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
 	matches!(
-		ext.touch_storage_access(false, key),
+		ext.touch_storage_access(false, key, StorageOp::Read),
 		StorageAccessKind::Persistent(Warmth::Cold { .. })
 	)
 }
@@ -3185,7 +3267,7 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let child_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
+			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
 			StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
 			"a cold touch in a nested frame is revertible",
 		);
@@ -3194,7 +3276,7 @@ fn cold_hot_revertible_only_inside_nested_frame() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT)),
+			ctx.ext.touch_storage_access(false, &Key::Fix(SLOT), StorageOp::Read),
 			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
 			"a cold touch in the root frame is not revertible",
 		);
@@ -3218,13 +3300,13 @@ fn cold_hot_past_cap_touch_is_not_revertible() {
 			let mut slot = [0u8; 32];
 			slot[..4].copy_from_slice(&i.to_le_bytes());
 			assert_matches!(
-				ctx.ext.touch_storage_access(false, &Key::Fix(slot)),
+				ctx.ext.touch_storage_access(false, &Key::Fix(slot), StorageOp::Read),
 				StorageAccessKind::Persistent(Warmth::Cold { revertible: true })
 			);
 		}
 		// A further distinct slot is past the cap: cold but not revertible.
 		assert_matches!(
-			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32])),
+			ctx.ext.touch_storage_access(false, &Key::Fix([0xFF; 32]), StorageOp::Read),
 			StorageAccessKind::Persistent(Warmth::Cold { revertible: false }),
 			"past-cap touch is cold but not revertible",
 		);
@@ -3249,7 +3331,7 @@ fn cold_hot_transient_skips_access_list() {
 		let key = Key::Fix([42; 32]);
 
 		// `transient: true` classifies as `Transient` without touching the access list.
-		let kind = ctx.ext.touch_storage_access(true, &key);
+		let kind = ctx.ext.touch_storage_access(true, &key, StorageOp::Read);
 		assert!(matches!(kind, StorageAccessKind::Transient));
 
 		// The same key is still cold in the persistent access list.
@@ -3259,6 +3341,51 @@ fn cold_hot_transient_skips_access_list() {
 			"transient access must not warm the persistent access list",
 		);
 
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, code_hash);
+		run_root_call(BOB_ADDR, vec![]);
+	});
+}
+
+#[test]
+fn cold_hot_child_upgrade_follows_the_frame_outcome() {
+	let code_hash = MockLoader::insert(Call, |ctx, _| {
+		let slot = Key::Fix([1; 32]);
+
+		match ctx.input_data.as_slice() {
+			[1] => {
+				ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
+				return Err("revert after upgrading".into());
+			},
+			[2] => {
+				ctx.ext.touch_storage_access(false, &slot, StorageOp::Write);
+				return exec_success();
+			},
+			_ => (),
+		}
+
+		ctx.ext.touch_storage_access(false, &slot, StorageOp::Read);
+
+		assert_matches!(
+			run_child_call(ctx.ext, &BOB_ADDR, vec![1]),
+			Err(ExecError { error: DispatchError::Other("revert after upgrading"), .. }),
+			"the child must fail at its own revert",
+		);
+		assert_matches!(
+			ctx.ext.peek_storage_access(false, &slot),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
+			"the reverted child's upgrade must roll back, leaving the write unpaid",
+		);
+
+		assert!(run_child_call(ctx.ext, &BOB_ADDR, vec![2]).is_ok(), "the child must succeed");
+		assert_matches!(
+			ctx.ext.peek_storage_access(false, &slot),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
+			"the committed child's upgrade must stay",
+		);
 		exec_success()
 	});
 

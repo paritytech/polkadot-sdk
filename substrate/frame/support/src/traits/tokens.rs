@@ -30,7 +30,6 @@ pub mod nonfungibles;
 pub mod nonfungibles_v2;
 pub use imbalance::Imbalance;
 pub mod pay;
-pub mod stable;
 pub mod transfer;
 pub use asset_category::{AssetCategoryManager, NoAssetCategories};
 pub use misc::{

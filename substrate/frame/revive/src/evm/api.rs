@@ -16,19 +16,16 @@
 // limitations under the License.
 //! JSON-RPC methods and types, for Ethereum.
 
-pub use pallet_revive_types::common::{Byte, Bytes, Bytes8, Bytes32, Bytes256};
+pub use pallet_revive_types::common::{
+	Byte, Bytes, Bytes8, Bytes32, Bytes256, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
+	TYPE_LEGACY, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy,
+};
 
 mod rlp_codec;
 pub use rlp;
 
-mod type_id;
-pub use type_id::*;
-
 mod debug_rpc_types;
 pub use debug_rpc_types::*;
-
-mod rpc_types;
-pub use rpc_types::{DryRunConfig, TracingConfig};
 
 mod block;
 pub use block::*;
