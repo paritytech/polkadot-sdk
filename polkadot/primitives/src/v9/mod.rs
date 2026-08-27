@@ -628,11 +628,12 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 		return Err(());
 	}
 
-	if validity_votes.len() > group_len {
+	let signed_indices = validator_indices.count_ones();
+	if signed_indices != validity_votes.len() {
 		log::debug!(
 			target: LOG_TARGET,
-			"Check candidate backing: Too many votes, expected: {}, found: {}",
-			group_len,
+			"Check candidate backing: vote count mismatch: indices = {}, votes = {}",
+			signed_indices,
 			validity_votes.len(),
 		);
 		return Err(());
@@ -660,16 +661,6 @@ pub fn check_candidate_backing<H: AsRef<[u8]> + Clone + Encode + core::fmt::Debu
 			);
 			return Err(());
 		}
-	}
-
-	if signed != validity_votes.len() {
-		log::error!(
-			target: LOG_TARGET,
-			"Check candidate backing: Too many signatures, expected = {}, found = {}",
-			validity_votes.len(),
-			signed,
-		);
-		return Err(());
 	}
 
 	Ok(signed)
@@ -3335,6 +3326,25 @@ pub mod tests {
 		assert_eq!(supermajority_threshold(5), 4);
 		assert_eq!(supermajority_threshold(6), 5);
 		assert_eq!(supermajority_threshold(7), 5);
+	}
+
+	#[test]
+	fn check_candidate_backing_rejects_more_indices_than_votes() {
+		let validator_indices = bitvec![u8, Lsb0; 1, 1, 1];
+		let signing_context: SigningContext = SigningContext::default();
+
+		assert_eq!(
+			check_candidate_backing(
+				CandidateHash(Hash::repeat_byte(1)),
+				&[],
+				validator_indices.as_bitslice(),
+				&signing_context,
+				3,
+				|_| None,
+			),
+			Err(()),
+			"validator indices and validity votes must have matching cardinality",
+		);
 	}
 
 	#[test]
