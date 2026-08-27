@@ -1,0 +1,15 @@
+title: 'pallet-revive: separate slot warmth from storage access pricing'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ### Summary
+    The access list only tracks persistent storage, but `touch_storage_access` and `peek_storage_access` took a `transient` flag anyway and returned a pricing value rather than slot warmth. The two concerns are now separated: the access list reports slot warmth, and the pricing value is built by the storage operation itself.
+
+    ### Changes
+    1. The access list reports slot warmth only; it no longer knows about transient storage.
+    2. The pricing value lives next to the pricing code and carries both inputs it needs: the slot's warmth and the operation being performed.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
