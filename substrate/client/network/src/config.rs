@@ -172,31 +172,39 @@ fn check_and_strip_identity(
 	let configured_address = address.clone();
 
 	// `/p2p/<peer id>` comes last, whatever the transport, and `/certhash/<hash>` sits before it.
-	let configured_peer_id = match address.pop() {
-		Some(multiaddr::Protocol::P2p(peer_id)) => Some(peer_id),
-		// Not a peer id, so it belongs to the address proper.
-		Some(other) => {
-			address.push(other);
-			None
+	let configured_peer_id = match address.iter().last() {
+		Some(multiaddr::Protocol::P2p(peer_id)) => {
+			address.pop();
+			Some(peer_id)
 		},
-		None => None,
+		// Not a peer id, so it belongs to the address.
+		_ => None,
 	};
 
-	let configured_certhash = match address.pop() {
-		Some(multiaddr::Protocol::Certhash(hash)) => Some(hash),
-		Some(other) => {
-			address.push(other);
-			None
+	let configured_certhash = match address.iter().last() {
+		Some(multiaddr::Protocol::Certhash(hash)) => {
+			address.pop();
+			Some(hash)
 		},
-		None => None,
+		_ => None,
 	};
 
-	// What is left is the address proper: one of each at most, at the end, in that order.
-	if let Some(stray) = configured_identity(address) {
+	// If an identity is still present within the address it must be a malformed one.
+	if let Some(identity) = configured_identity(address) {
 		return Err(crate::error::Error::MalformedAddressIdentity {
-			component: stray.to_string(),
+			component: identity.to_string(),
 			address: configured_address,
 		});
+	}
+
+	// Nothing left once stripped: the address named an identity and no socket to reach it at.
+	if address.iter().next().is_none() {
+		if let Some(identity) = configured_identity(&configured_address) {
+			return Err(crate::error::Error::MalformedAddressIdentity {
+				component: identity.to_string(),
+				address: configured_address,
+			});
+		}
 	}
 
 	// A certificate to hash is something only a `webrtc-direct` address presents.
@@ -448,9 +456,10 @@ impl NodeKeyConfig {
 	fn source(&self) -> String {
 		match self {
 			Self::Ed25519(Secret::Input(_)) => "the node key given with `--node-key`".into(),
+			Self::Ed25519(Secret::File(path)) if !path.exists() => {
+				format!("the node key file `{}`, generated on this start", path.display())
+			},
 			Self::Ed25519(Secret::File(path)) => format!("the node key file `{}`", path.display()),
-			// Contradictory with an address that names an identity: nothing can match a key
-			// minted anew on each start, so say so rather than report a different key every run.
 			Self::Ed25519(Secret::New) => "the node key generated anew on each start".into(),
 		}
 	}
@@ -861,21 +870,25 @@ impl NetworkConfiguration {
 	/// Validate this node's listen addresses against its node key, and append its WebRTC
 	/// `/certhash` to the public `webrtc-direct` ones.
 	///
-	/// A listen address may carry `/p2p/<peer id>`, and a `webrtc-direct` one `/certhash/<hash>`,
-	/// a public address may carry `/p2p/<peer id>`. All are checked against the node key and
-	/// removed.
+	/// A listen or public address may carry `/p2p/<peer id>`, and a `webrtc-direct` one
+	/// `/certhash/<hash>`. Both are checked against the node key and removed.
 	pub fn validate_and_complete_addresses(&mut self) -> Result<(), crate::error::Error> {
-		let has_webrtc_addr = |addrs: &[Multiaddr]| addrs.iter().any(webrtc::is_webrtc_address);
-		let names_identity =
-			|addrs: &[Multiaddr]| addrs.iter().any(|addr| configured_identity(addr).is_some());
+		let listen_webrtc = self.listen_addresses.iter().any(webrtc::is_webrtc_address);
+		let public_webrtc = self.public_addresses.iter().any(webrtc::is_webrtc_address);
+		let addresses = || self.listen_addresses.iter().chain(&self.public_addresses);
 
-		let listen_webrtc = has_webrtc_addr(&self.listen_addresses);
-		let public_webrtc = has_webrtc_addr(&self.public_addresses);
+		// WebRTC is a litep2p-only transport.
+		let asks_for_webrtc = |address: &Multiaddr| {
+			address.iter().any(|protocol| {
+				matches!(
+					protocol,
+					multiaddr::Protocol::WebRTCDirect | multiaddr::Protocol::Certhash(_)
+				)
+			})
+		};
 
-		// WebRTC is a litep2p-only transport. Rejected before the node key is resolved, so a
-		// configuration that will not start leaves no key file behind.
 		if matches!(self.network_backend, NetworkBackendType::Libp2p) &&
-			(listen_webrtc || public_webrtc)
+			addresses().any(asks_for_webrtc)
 		{
 			return Err(crate::error::Error::WebRtcNotSupportedByBackend);
 		}
@@ -889,18 +902,14 @@ impl NetworkConfiguration {
 		// Resolving the node key can write its file, so only do it for a configuration that names
 		// an identity to check or needs a certificate to present.
 		if !listen_webrtc &&
-			!names_identity(&self.listen_addresses) &&
-			!names_identity(&self.public_addresses)
+			!addresses().any(|address: &Multiaddr| configured_identity(address).is_some())
 		{
 			return Ok(());
 		}
 
-		// Take the source before pinning, otherwise every key would look like a `--node-key`.
+		// Take the source before resolving, otherwise every key would look like a `--node-key`.
 		let node_key_origin = self.node_key.source();
 		let keypair = self.node_key.clone().into_keypair()?;
-		// Pin the resolved key, so that each following `into_keypair()`
-		// returns the same secret key.
-		self.node_key = NodeKeyConfig::Ed25519(Secret::Input(keypair.secret()));
 		let local_peer_id = keypair.public().to_peer_id();
 
 		let certhash = listen_webrtc
@@ -909,12 +918,17 @@ impl NetworkConfiguration {
 			.map_err(crate::error::Error::Litep2p)?
 			.map(|certificate| certificate.certhash().into());
 
+		// Pin the resolved key, so that each following `into_keypair()`
+		// returns the same secret key.
+		self.node_key = NodeKeyConfig::Ed25519(Secret::Input(keypair.secret()));
+
 		for address in self.listen_addresses.iter_mut() {
 			check_and_strip_identity(address, local_peer_id, certhash, &node_key_origin)?;
 		}
 
+		// A `/certhash` the node agrees with is stripped here and put back by the completion below.
 		for address in self.public_addresses.iter_mut() {
-			check_and_strip_identity(address, local_peer_id, None, &node_key_origin)?;
+			check_and_strip_identity(address, local_peer_id, certhash, &node_key_origin)?;
 		}
 
 		// The listen addresses are bare now, shape check applies,

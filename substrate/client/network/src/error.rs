@@ -77,7 +77,7 @@ pub enum Error {
 		node_key_origin: String,
 	},
 	/// A configured address carries an identity component where none belongs.
-	#[error("Address `{address}` is malformed: `{component}` does not belong there.")]
+	#[error("Address `{address}` is malformed at `{component}`.")]
 	MalformedAddressIdentity {
 		/// The address as configured.
 		address: Multiaddr,
