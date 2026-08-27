@@ -669,6 +669,7 @@ where
 						proposer_factory,
 						keystore,
 						para_id,
+						service_id: jam_params.service_id,
 						jam: jam.clone(),
 						message_sender,
 						rebuild_receiver,

@@ -26,24 +26,28 @@
 //! `set_validation_data`); the fake relay slot is a pure function of the JAM anchor's timeslot,
 //! so importers re-execute it deterministically.
 
-use super::{JamCollatorMessage, LOG_TARGET, jam_slot_as_relay_slot, jam_slot_timestamp};
+use super::{
+	JamCollatorMessage, LOG_TARGET, fetch_anchor_state_proof, jam_slot_as_relay_slot,
+	jam_slot_timestamp,
+};
 use crate::common::{
 	ConstructNodeRuntimeApi, NodeBlock,
 	aura::{AuraIdT, AuraRuntimeApi},
 	types::ParachainClient,
 };
-use codec::Encode;
+use codec::{Decode, Encode};
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
 use futures::{StreamExt, channel::mpsc};
-use jam_interface::{BlockDesc, JamChainSource};
+use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
+use jam_interface::{BlockDesc, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot};
 use jam_types::RefineContext;
 use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
-use sc_client_api::UsageProvider;
 use sc_consensus::{BlockImport, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
+use sp_blockchain::HeaderBackend;
 use sp_consensus::{Environment, ProposeArgs, Proposer};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_externalities::Extensions;
@@ -57,6 +61,11 @@ const PROPOSAL_DURATION: Duration = Duration::from_millis(2000);
 /// Phase-1 PoV budget; generous for a mostly-empty test chain, small enough for any JAM
 /// work-package size limit.
 const MAX_POV_SIZE: usize = 3 * 1024 * 1024;
+/// How long to leave an authored block alone before authoring on its parent again.
+///
+/// One block per included head is the rule; a head that has not moved after this many JAM slots
+/// means the package presumably never landed, and the only way out is to author again.
+const RETRY_AFTER_SLOTS: JamSlot = 5;
 
 pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -64,9 +73,52 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub proposer_factory: PF,
 	pub keystore: KeystorePtr,
 	pub para_id: ParaId,
+	pub service_id: ServiceId,
 	pub jam: Arc<Jam>,
 	pub message_sender: mpsc::Sender<JamCollatorMessage<Block>>,
 	pub rebuild_receiver: mpsc::Receiver<()>,
+}
+
+/// What the builder remembers between iterations.
+struct BuilderState<Hash> {
+	/// Aura guard: the parachain slot last claimed.
+	last_claimed_slot: Option<Slot>,
+	/// The parent the last block was built on, and the JAM slot it was built at.
+	last_built: Option<(Hash, JamSlot)>,
+	/// The parent chosen on the previous iteration, so an unchanged choice logs quietly.
+	last_selected_parent: Option<Hash>,
+}
+
+/// Whether to author on the selected parent now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BuildDecision {
+	/// The parent moved (or this is the first block): author.
+	Build,
+	/// The same parent as last time, but long enough ago that the package is presumed lost.
+	Retry,
+	/// Already authored on this parent; wait for it to be included.
+	Skip,
+}
+
+/// One block per included head, with a retry once the included head has visibly stalled.
+///
+/// Without the retry a single dropped work package would stall the para forever: the head never
+/// moves, so the parent never changes, so nothing is ever authored again.
+fn pacing_decision<Hash: PartialEq>(
+	last_built: Option<&(Hash, JamSlot)>,
+	parent: &Hash,
+	slot: JamSlot,
+) -> BuildDecision {
+	match last_built {
+		Some((last_parent, last_slot)) if last_parent == parent => {
+			if slot.saturating_sub(*last_slot) >= RETRY_AFTER_SLOTS {
+				BuildDecision::Retry
+			} else {
+				BuildDecision::Skip
+			}
+		},
+		_ => BuildDecision::Build,
+	}
 }
 
 /// Run the builder task. Ends (taking the node down, it is an essential task) only if the JAM
@@ -80,7 +132,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	AuraId: AuraIdT + Sync,
 	BI: BlockImport<Block> + Send + Sync,
 	PF: Environment<Block>,
-	Jam: JamChainSource,
+	Jam: JamChainSource + JamStateSource,
 {
 	let BuilderTaskParams {
 		para_client,
@@ -88,6 +140,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		mut proposer_factory,
 		keystore,
 		para_id,
+		service_id,
 		jam,
 		mut message_sender,
 		mut rebuild_receiver,
@@ -120,7 +173,8 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		"JAM builder task started; building one block per JAM best block.",
 	);
 
-	let mut last_claimed_slot: Option<Slot> = None;
+	let mut state =
+		BuilderState { last_claimed_slot: None, last_built: None, last_selected_parent: None };
 	loop {
 		let jam_best = futures::select! {
 			jam_best = best_blocks.next() => match jam_best {
@@ -147,10 +201,11 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			&mut proposer_factory,
 			&keystore,
 			para_id,
+			service_id,
 			&*jam,
 			slot_duration,
 			jam_best,
-			&mut last_claimed_slot,
+			&mut state,
 		)
 		.await
 		{
@@ -190,10 +245,11 @@ async fn build_one_block<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	proposer_factory: &mut PF,
 	keystore: &KeystorePtr,
 	para_id: ParaId,
+	service_id: ServiceId,
 	jam: &Jam,
 	slot_duration: sp_consensus_aura::SlotDuration,
 	jam_best: BlockDesc,
-	last_claimed_slot: &mut Option<Slot>,
+	state: &mut BuilderState<Block::Hash>,
 ) -> Result<Option<JamCollatorMessage<Block>>, String>
 where
 	Block: NodeBlock,
@@ -202,7 +258,7 @@ where
 	AuraId: AuraIdT + Sync,
 	BI: BlockImport<Block> + Send + Sync,
 	PF: Environment<Block>,
-	Jam: JamChainSource,
+	Jam: JamChainSource + JamStateSource,
 {
 	// Anchor selection (polkajam's `create_refine_context`): anchor = parent of best (other
 	// nodes may not have seen best yet), lookup anchor = parent of finalized.
@@ -232,22 +288,114 @@ where
 	// The anchor's timeslot decides the slot claim and the (deterministic) timestamp.
 	let timestamp = jam_slot_timestamp(anchor.slot);
 	let para_slot = Slot::from_timestamp(timestamp, slot_duration);
-	if last_claimed_slot.is_some_and(|last| para_slot <= last) {
+	if state.last_claimed_slot.is_some_and(|last| para_slot <= last) {
 		tracing::debug!(
 			target: LOG_TARGET,
 			?para_slot,
-			last_claimed_slot = ?*last_claimed_slot,
+			last_claimed_slot = ?state.last_claimed_slot,
 			anchor_slot = anchor.slot,
 			"Parachain slot not advanced yet; skipping this JAM block.",
 		);
 		return Ok(None);
 	}
 
-	let parent_hash = para_client.usage_info().chain.best_hash;
-	let parent_header = para_client
-		.header(parent_hash)
-		.map_err(|e| format!("parent header: {e}"))?
-		.ok_or_else(|| format!("parent header {parent_hash:?} not found"))?;
+	// Build on the head JAM has *included*, not on local best: a block chained onto anything else
+	// is one the parachain service will refuse, and a package that stalls heals only if the
+	// builder keeps returning to the stalled head.
+	let para_id_u32: u32 = para_id.into();
+	let included = jam
+		.service_value(anchor.header_hash, service_id, &para_info_key(para_id_u32.into()))
+		.await
+		.map_err(|e| format!("included head: {e}"))?;
+	let included_head = match &included {
+		Some(bytes) => {
+			let info =
+				ParaInfo::decode(&mut &bytes[..]).map_err(|e| format!("included ParaInfo: {e}"))?;
+			let head = info.head_data.into_inner();
+			Some(
+				<Block::Header as Decode>::decode(&mut &head[..])
+					.map_err(|e| format!("included head data: {e}"))?,
+			)
+		},
+		None => None,
+	};
+
+	let parent_header = match &included_head {
+		Some(header) => {
+			let hash = header.hash();
+			if para_client.header(hash).map_err(|e| format!("included head: {e}"))?.is_none() {
+				tracing::warn!(
+					target: LOG_TARGET,
+					included_head = ?hash,
+					included_number = %header.number(),
+					"Included head is not known locally; waiting for import/sync.",
+				);
+				return Ok(None);
+			}
+			header.clone()
+		},
+		None => {
+			// Nothing included for this para yet, so the next block is its first one.
+			let genesis_hash = para_client.info().genesis_hash;
+			para_client
+				.header(genesis_hash)
+				.map_err(|e| format!("genesis header: {e}"))?
+				.ok_or_else(|| format!("genesis header {genesis_hash:?} not found"))?
+		},
+	};
+	let parent_hash = parent_header.hash();
+
+	if state.last_selected_parent.replace(parent_hash) == Some(parent_hash) {
+		tracing::debug!(target: LOG_TARGET, parent = ?parent_hash, "Parent unchanged.");
+	} else {
+		tracing::info!(
+			target: LOG_TARGET,
+			included = included_head.is_some(),
+			parent = ?parent_hash,
+			parent_number = %parent_header.number(),
+			anchor_slot = anchor.slot,
+			"Parent selected from the para head included in JAM state.",
+		);
+	}
+
+	match pacing_decision(state.last_built.as_ref(), &parent_hash, anchor.slot) {
+		BuildDecision::Build => {},
+		BuildDecision::Retry => tracing::warn!(
+			target: LOG_TARGET,
+			parent = ?parent_hash,
+			anchor_slot = anchor.slot,
+			retry_after_slots = RETRY_AFTER_SLOTS,
+			"The included head has not moved since the last build; the work package presumably \
+			 never landed. Authoring on the same parent again.",
+		),
+		BuildDecision::Skip => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				parent = ?parent_hash,
+				anchor_slot = anchor.slot,
+				"Already authored on this parent; waiting for it to be included.",
+			);
+			return Ok(None);
+		},
+	}
+
+	let (anchor_state_proof, proved_head) =
+		fetch_anchor_state_proof(jam, anchor.header_hash, &state_root, service_id, para_id_u32)
+			.await?;
+	// The proof and the head read above describe the same key at the same anchor, so anything
+	// but equality means one of the two reads is stale — shipping it would only earn a refine
+	// rejection.
+	if proved_head != included {
+		tracing::error!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			proved_head = proved_head.is_some(),
+			read_head = included.is_some(),
+			"The anchor state proof disagrees with the para head read at the same anchor; \
+			 skipping this JAM block.",
+		);
+		return Ok(None);
+	}
 
 	let authorities = para_client
 		.runtime_api()
@@ -340,17 +488,27 @@ where
 		.await
 		.map_err(|e| format!("import: {e}"))?;
 
-	*last_claimed_slot = Some(para_slot);
+	state.last_claimed_slot = Some(para_slot);
+	state.last_built = Some((parent_hash, anchor.slot));
 	tracing::info!(
 		target: LOG_TARGET,
 		block_hash = ?block.hash(),
 		block_number = %block.header().number(),
 		extrinsics = block.extrinsics().len(),
 		proof_nodes = proof.iter_nodes().count(),
+		anchor_proof_nodes = anchor_state_proof.nodes.len(),
 		"Built and imported a parachain block.",
 	);
 
-	Ok(Some(JamCollatorMessage { parent_header, block, proof, context, triggered_by: jam_best }))
+	Ok(Some(JamCollatorMessage {
+		parent_header,
+		block,
+		proof,
+		context,
+		anchor_state_root: *state_root,
+		anchor_state_proof,
+		triggered_by: jam_best,
+	}))
 }
 
 /// Timestamp + mocked parachain inherent, both derived from the JAM anchor's timeslot.
@@ -430,4 +588,38 @@ where
 		.map_err(|e| format!("mocked parachain inherent: {e}"))?;
 
 	Ok(inherent_data)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// A head that has just moved is authored on immediately — that is the normal case, one
+	/// parachain block per included head.
+	#[test]
+	fn a_new_parent_is_built_on_at_once() {
+		assert_eq!(pacing_decision::<u8>(None, &1, 100), BuildDecision::Build);
+		assert_eq!(pacing_decision(Some(&(1u8, 100)), &2, 101), BuildDecision::Build);
+	}
+
+	/// Authoring twice on the same parent would orphan the first block, so the builder waits
+	/// for the head to move instead.
+	#[test]
+	fn the_same_parent_is_not_built_on_twice() {
+		assert_eq!(pacing_decision(Some(&(1u8, 100)), &1, 100), BuildDecision::Skip);
+		assert_eq!(
+			pacing_decision(Some(&(1u8, 100)), &1, 100 + RETRY_AFTER_SLOTS - 1),
+			BuildDecision::Skip
+		);
+	}
+
+	/// ...but not forever: a dropped work package leaves the head where it is, and only a
+	/// rebuild on that same parent can heal the chain.
+	#[test]
+	fn a_stalled_parent_is_retried() {
+		assert_eq!(
+			pacing_decision(Some(&(1u8, 100)), &1, 100 + RETRY_AFTER_SLOTS),
+			BuildDecision::Retry
+		);
+	}
 }

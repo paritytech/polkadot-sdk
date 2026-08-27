@@ -9621,6 +9621,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jam-state-helpers"
+version = "0.1.0"
+dependencies = [
+ "blake2b_simd",
+ "parity-scale-codec",
+]
+
+[[package]]
 name = "jam-std-common"
 version = "0.1.28"
 dependencies = [
@@ -17533,6 +17541,7 @@ dependencies = [
  "jam-codec",
  "jam-interface",
  "jam-rpc-interface",
+ "jam-state-helpers",
  "jam-types",
  "jsonrpsee 0.24.11",
  "log",

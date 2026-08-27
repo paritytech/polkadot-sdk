@@ -238,7 +238,16 @@ fn handle_new_block<Block, RuntimeApi, Jam>(
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	Jam: JamChainSource + JamStateSource + JamWorkPackageSubmission + 'static,
 {
-	let JamCollatorMessage { parent_header, block, proof, context, triggered_by } = message;
+	// The anchor state proof is carried into the PoV by component 4.5.
+	let JamCollatorMessage {
+		parent_header,
+		block,
+		proof,
+		context,
+		anchor_state_root: _,
+		anchor_state_proof: _,
+		triggered_by,
+	} = message;
 	let block_hash = block.hash();
 	let block_number = *block.header().number();
 

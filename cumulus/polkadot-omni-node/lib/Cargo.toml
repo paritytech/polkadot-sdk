@@ -33,6 +33,7 @@ url = { workspace = true }
 jam-interface = { path = "../../../../parachain-service/cumulus/jam-interface" }
 jam-rpc-interface = { path = "../../../../parachain-service/cumulus/jam-rpc-interface" }
 jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-service/cumulus" }
+jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", features = ["std"] }
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = ["std"] }
 jam-codec = { version = "0.1.1", features = ["std", "derive"] }
 

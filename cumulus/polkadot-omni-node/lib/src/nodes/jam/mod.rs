@@ -36,7 +36,10 @@ pub(crate) mod resubmission;
 use codec::Decode;
 use futures::{Stream, StreamExt};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
-use jam_interface::{BlockDesc, JamStateSource, ServiceId, Slot as JamSlot};
+use jam_interface::{
+	BlockDesc, HeaderHash, JamStateSource, ServiceId, Slot as JamSlot, StateRootHash, StorageKey,
+};
+use jam_state_helpers::{StateKey, StateProof};
 use jam_types::RefineContext;
 use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
@@ -44,6 +47,10 @@ use sp_timestamp::Timestamp;
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 const JAM_SLOT_DURATION_MS: u64 = 6000;
+
+/// Soft bound on the state proof the node returns. One key's proof is bounded by the trie depth,
+/// so this only has to be comfortably large.
+const PROOF_SIZE_LIMIT: u32 = 64 * 1024;
 
 /// Message from the builder task to the collation task: one built parachain block plus the JAM
 /// context it was built against.
@@ -54,8 +61,51 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// The refine context captured at build time; the anchor inside it decides the submission
 	/// window.
 	pub context: RefineContext,
+	/// The anchor's state root, repeated here because it also has to travel inside the PoV: the
+	/// service checks that the proof was built against the same state its refine context names.
+	pub anchor_state_root: [u8; 32],
+	/// Proof of the para's included head at the anchor, already verified against
+	/// `anchor_state_root`.
+	pub anchor_state_proof: StateProof,
 	/// The JAM best block that triggered this build (for logging).
 	pub triggered_by: BlockDesc,
+}
+
+/// The 31-octet JAM state key of a para's head entry in the parachain service's storage.
+///
+/// Three parties must derive this identically — the collator asking for a proof, the node
+/// serving it and the service verifying it in-core — so both halves come from shared code:
+/// the service-local key from the facade, the state-key merklization from `jam-state-helpers`.
+pub(crate) fn para_head_state_key(service_id: ServiceId, para_id: u32) -> StateKey {
+	jam_state_helpers::service_value_state_key(service_id, &para_info_key(para_id.into()))
+}
+
+/// Fetch a proof of the para's head at `anchor` and check it against that anchor's state root.
+///
+/// Returns the proof to ship inside the PoV together with the value it proves; `None` means the
+/// proof shows the para has no head yet, which is how a first block is recognised. Verifying
+/// with the very code the service runs means a proof refine would reject never leaves the node.
+pub(crate) async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
+	jam: &Jam,
+	anchor: HeaderHash,
+	state_root: &StateRootHash,
+	service_id: ServiceId,
+	para_id: u32,
+) -> Result<(StateProof, Option<Vec<u8>>), String> {
+	let key = para_head_state_key(service_id, para_id);
+	let range_proof = jam
+		.state_proof(anchor, StorageKey(key), StorageKey(key), PROOF_SIZE_LIMIT)
+		.await
+		.map_err(|error| format!("state proof: {error}"))?;
+	// polkajam's `RangeProof` is a host-side JSON type with no SCALE codec at all, so the form
+	// that travels in the PoV is `jam-state-helpers`' own; converting is the host's job.
+	let proof = StateProof {
+		nodes: range_proof.nodes.iter().map(|node| **node).collect(),
+		values: range_proof.values.iter().map(|(key, value)| (**key, value.to_vec())).collect(),
+	};
+	let proved = jam_state_helpers::verify(&proof, state_root, &key)
+		.map_err(|error| format!("the node's own state proof does not verify: {error:?}"))?;
+	Ok((proof, proved))
 }
 
 /// The wall-clock timestamp of a JAM timeslot: slots are 6 s, counted from the JAM common era.
