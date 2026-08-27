@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787830928407,
+  "lastUpdate": 1787834926766,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "21df44e5de8ed530e0a8c6832e66cb51ea3db7af",
-          "message": "statement-store: make encode/hash faster (#10882)\n\nBy reserving the memory in advance we halve the encoding speed which\nultimately speeds up the statement.hash() function which gets called in\na lot of places.\n\nMore importantly, when we start being connected to more nodes the hash\nfunction gets called a lot for the same statement because we might\nreceive the same statement from all peers we are connected to.\n\nFor example on versi on_statements ate a lot of time when running with\n15 nodes, see\nhttps://github.com/paritytech/polkadot-sdk/issues/10814#issuecomment-3773797276.\n\nModified the statement_network benchmark to also be parameterizable by\nthe number of times we might receive a statement and if we receive it\nfrom 16 peers, we notice a speed up with this PR of ~16%, which I\nconsider not negligible, so I consider this an worthy improvement.\n```\non_statements/statements_2000/peers_16/threads_8/blocking\n                        time:   [22.099 ms 22.641 ms 23.175 ms]\n                        change: [-18.841% -16.637% -14.429%] (p = 0.00 < 0.05)\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-01-28T17:12:42Z",
-          "tree_id": "ded5c3e49741efffb9e31f40b3b4bb9308c30d90",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/21df44e5de8ed530e0a8c6832e66cb51ea3db7af"
-        },
-        "date": 1769625173241,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63636.280000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.801081906259989,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021301089999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.611736429470001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.608825159462889,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005183443400000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021301089999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6238687245300003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6554229951500012,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022243600000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3182191317500096,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022243600000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.66813370045,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6526210698899986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.7852380533199583,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6113c0dca3f94f4a2102ebe0ab56f31b4284435",
+          "message": "pallet-revive: make the first hot write after a cold read pay the deferred cost (#12802)\n\n### Summary\nA slot warmed by a read and then written was charged only the\ntransaction-time work, while the extra cost a write has over a read was\nskipped: re-encoding and re-hashing the slot's trie path when the\nblock's storage root is computed.\n\nThe access list now tracks per slot whether the transaction has paid the\nread cost or the write cost. The first write to a read-paid slot pays\nthe write surcharge and upgrades the slot to write-paid. Upgrades are\njournaled per frame, like insertions, and roll back with a reverting\nframe since the reverted write leaves no root work behind.\n\n`AccessList` holds a `BoundedBTreeMap<AccessEntry, Paid>` in place of\nthe set (the 1-byte value fits in the B-tree nodes' spare space) plus a\nsecond journal for the upgrades. The worst-case per-entry memory\nconstant grows from 512 to 768 bytes to cover a slot's upgrade entry.\n\n### Pricing notes\n- The surcharge is ref_time-only; the root re-hash adds no proof.\n- The surcharge can be paid twice when a frame reverts: the reverted\nframe keeps its charge, the upgrade rolls back, and the slot's next\nwrite pays it again.\n- The rollback work of draining upgrades is not charged separately: the\nreverted write already paid a surcharge for block-end work that will\nnever happen.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-08-27T11:19:08Z",
+          "tree_id": "7bbc8a156912b0cd42826cc1754962d240493950",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6113c0dca3f94f4a2102ebe0ab56f31b4284435"
+        },
+        "date": 1787834887622,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.25,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6705471984100013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005517876130000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019112359999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7303187336900008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6852007577399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3793785159900054,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019112359999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.719937660582939,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6920568584999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.062528518629955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8995085781699469,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000017824489999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000017824489999999998,
             "unit": "seconds"
           }
         ]
