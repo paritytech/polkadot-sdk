@@ -17242,6 +17242,7 @@ dependencies = [
  "sp-consensus-slots",
  "sp-keystore 0.34.0",
  "sp-maybe-compressed-blob 11.0.0",
+ "sp-runtime 31.0.1",
  "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
