@@ -16,71 +16,83 @@
 
 //! The pluggable work-package resubmission policy.
 //!
-//! The collation task owns the mechanics (submission, status stream, re-contexting); the policy
-//! is a small pure strategy that decides what to do next, so smarter variants (early soft
-//! resubmit, congestion awareness) can plug in later and be unit-tested without a network.
+//! The collation manager owns the mechanics (submission, status streams, the chain of in-flight
+//! packages); the policy is a small pure strategy that decides what to do next, so smarter
+//! variants (congestion awareness, a solo-collator tail rebuild) can plug in later and be
+//! unit-tested without a network.
+//!
+//! The policy is stateless: every package's own counters live in the manager's chain entry and
+//! are handed in. There is nowhere else they could live — a chain of packages fails as a chain,
+//! and the decision for one entry depends on where it sits in that chain.
 
-use jam_interface::WorkPackageStatus;
+use jam_interface::{Slot as JamSlot, WorkPackageStatus};
 
-/// What the collation task should do with the in-flight work package.
+/// How long a package may go without a `Reported` before it is submitted again.
+///
+/// With several packages in flight at once, a package that never reached its guarantors is not
+/// visible any other way: nothing fails, the status stream simply stays quiet, and every
+/// descendant waits behind it.
+pub(crate) const RESUBMIT_AFTER_SLOTS: JamSlot = 2;
+
+/// What the collation manager should do with an in-flight work package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PolicyAction {
 	/// Keep waiting for further status updates.
 	Wait,
-	/// The package landed (`Reported` or later); stop tracking it.
+	/// The package was reported; stop watching the clock on it. It stays in the chain until the
+	/// para head shows it accumulated.
 	Done,
-	/// Build a fresh refine context around the same block and submit again.
+	/// Submit the identical bundle again — same bytes, same hash, so every child's links stay
+	/// valid.
 	Resubmit,
-	/// Give up on this package.
-	Abandon,
+	/// The package cannot be reported any more: drop it and every package chained onto it.
+	DropTail,
 }
 
 pub(crate) trait ResubmissionPolicy: Send {
-	fn on_status(&mut self, status: &WorkPackageStatus) -> PolicyAction;
+	fn on_status(&self, status: &WorkPackageStatus) -> PolicyAction;
 
-	/// The status stream closed without a final verdict (e.g. connection loss).
-	fn on_stream_closed(&mut self) -> PolicyAction;
+	/// No status has said `Reported` yet: `waiting_slots` JAM slots have passed since the
+	/// package was last submitted, and it has been resubmitted `resubmits` times.
+	fn on_silence(&self, waiting_slots: JamSlot, resubmits: u32) -> PolicyAction;
 }
 
-/// The phase-1 policy: wait until the package is reported; on `Failed` (or a dead status
-/// stream) re-context and resubmit the same block, up to `max_resubmits` times.
+/// The phase-5 policy: wait for a report, resubmit the same bundle when one is late, and drop
+/// the tail when the package fails or the resubmit budget runs out.
 ///
-/// Soft resubmission (same anchor, no `Reported` within ~2 blocks) is deliberately not
-/// implemented yet; in phases 1–3 nothing ties a block to its anchor, so re-contexting is
-/// always safe and rebuilds are never needed.
-pub(crate) struct RecontextOnFailure {
+/// Re-contexting is deliberately not a policy action any more. It rewrites a package's bytes and
+/// therefore its hash, which every chained child has already named in its prerequisite and its
+/// import — so it is a decision only the manager can make, and only for a package with no
+/// children at all.
+pub(crate) struct DropTailOnFailure {
 	max_resubmits: u32,
-	resubmits: u32,
 }
 
-impl RecontextOnFailure {
+impl DropTailOnFailure {
 	pub(crate) fn new(max_resubmits: u32) -> Self {
-		Self { max_resubmits, resubmits: 0 }
-	}
-
-	fn try_resubmit(&mut self) -> PolicyAction {
-		if self.resubmits < self.max_resubmits {
-			self.resubmits += 1;
-			PolicyAction::Resubmit
-		} else {
-			PolicyAction::Abandon
-		}
+		Self { max_resubmits }
 	}
 }
 
-impl ResubmissionPolicy for RecontextOnFailure {
-	fn on_status(&mut self, status: &WorkPackageStatus) -> PolicyAction {
+impl ResubmissionPolicy for DropTailOnFailure {
+	fn on_status(&self, status: &WorkPackageStatus) -> PolicyAction {
 		match status {
 			WorkPackageStatus::Reportable { .. } => PolicyAction::Wait,
 			WorkPackageStatus::Reported { .. } | WorkPackageStatus::Ready { .. } => {
 				PolicyAction::Done
 			},
-			WorkPackageStatus::Failed(_) => self.try_resubmit(),
+			WorkPackageStatus::Failed(_) => PolicyAction::DropTail,
 		}
 	}
 
-	fn on_stream_closed(&mut self) -> PolicyAction {
-		self.try_resubmit()
+	fn on_silence(&self, waiting_slots: JamSlot, resubmits: u32) -> PolicyAction {
+		if waiting_slots < RESUBMIT_AFTER_SLOTS {
+			PolicyAction::Wait
+		} else if resubmits < self.max_resubmits {
+			PolicyAction::Resubmit
+		} else {
+			PolicyAction::DropTail
+		}
 	}
 }
 
@@ -104,26 +116,38 @@ mod tests {
 
 	#[test]
 	fn waits_while_reportable_and_finishes_on_reported() {
-		let mut policy = RecontextOnFailure::new(2);
+		let policy = DropTailOnFailure::new(2);
 		assert_eq!(policy.on_status(&reportable(8)), PolicyAction::Wait);
 		assert_eq!(policy.on_status(&reportable(3)), PolicyAction::Wait);
 		assert_eq!(policy.on_status(&reported()), PolicyAction::Done);
 	}
 
+	/// A failed package takes its descendants with it: their prerequisite and their import both
+	/// name a package that will never be reported, so there is nothing to wait for.
 	#[test]
-	fn failure_resubmits_until_the_budget_is_spent() {
-		let mut policy = RecontextOnFailure::new(2);
+	fn a_failure_drops_the_tail_rather_than_retrying() {
+		let policy = DropTailOnFailure::new(2);
 		let failed = WorkPackageStatus::Failed("anchor expired".into());
-		assert_eq!(policy.on_status(&failed), PolicyAction::Resubmit);
-		assert_eq!(policy.on_status(&failed), PolicyAction::Resubmit);
-		assert_eq!(policy.on_status(&failed), PolicyAction::Abandon);
+		assert_eq!(policy.on_status(&failed), PolicyAction::DropTail);
 	}
 
+	/// Silence is given a couple of slots' grace — a package normally reports within one — and
+	/// only then repeated.
 	#[test]
-	fn stream_loss_counts_against_the_same_budget() {
-		let mut policy = RecontextOnFailure::new(1);
-		assert_eq!(policy.on_stream_closed(), PolicyAction::Resubmit);
-		let failed = WorkPackageStatus::Failed("anchor expired".into());
-		assert_eq!(policy.on_status(&failed), PolicyAction::Abandon);
+	fn silence_is_tolerated_until_the_resubmit_window_passes() {
+		let policy = DropTailOnFailure::new(2);
+		assert_eq!(policy.on_silence(0, 0), PolicyAction::Wait);
+		assert_eq!(policy.on_silence(RESUBMIT_AFTER_SLOTS - 1, 0), PolicyAction::Wait);
+		assert_eq!(policy.on_silence(RESUBMIT_AFTER_SLOTS, 0), PolicyAction::Resubmit);
+	}
+
+	/// The budget is spent on resubmissions of the same bundle; once it is gone the package is
+	/// treated as lost, because nothing else will ever move it.
+	#[test]
+	fn a_silent_package_is_dropped_once_the_budget_is_spent() {
+		let policy = DropTailOnFailure::new(2);
+		assert_eq!(policy.on_silence(4, 0), PolicyAction::Resubmit);
+		assert_eq!(policy.on_silence(4, 1), PolicyAction::Resubmit);
+		assert_eq!(policy.on_silence(4, 2), PolicyAction::DropTail);
 	}
 }

@@ -584,7 +584,6 @@ where
 			let client = client.clone();
 			let keystore = keystore_container.keystore();
 			let spawn_essential = task_manager.spawn_essential_handle();
-			let spawner = task_manager.spawn_handle();
 			let announce_block = announce_block.clone();
 			let block_import = block_import.clone();
 			async move {
@@ -688,7 +687,6 @@ where
 							message_receiver,
 							rebuild_sender,
 							announce_block,
-							spawner: Box::new(spawner),
 							max_resubmits: 3,
 						},
 					)),
