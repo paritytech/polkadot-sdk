@@ -130,15 +130,34 @@ pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
 		MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) => {
 			genesis_head.len() as u32
 		},
+		MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { head, .. }) => head.len() as u32,
 		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) |
 		MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
-		MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) => 0,
+		MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
+		MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) => 0,
 	}
 }
 
 /// [`PendingRegistration`] as this pallet stores it.
 pub type PendingRegistrationOf<T> =
 	PendingRegistration<<T as frame_system::Config>::AccountId, <T as Config>::MaxHeadDataSize>;
+
+/// A code upgrade waiting on its validation code.
+///
+/// The same two-phase commitment [`PendingRegistration`] uses, for the same reason: the blob is
+/// too big to travel through the messaging layer, so the parachain commits to
+/// `(code_hash, code_len)` and anybody may then upload bytes that match.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub struct PendingCodeUpgrade {
+	/// The id of the [`MessageToRelayV1::AuthorizeCodeUpgrade`] that created this entry.
+	pub message_id: u64,
+	/// Blake2-256 hash the validation code must have.
+	pub code_hash: H256,
+	/// Exact length the validation code must have.
+	pub code_len: u32,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -200,6 +219,14 @@ pub mod pallet {
 	pub type PendingRegistrations<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingRegistrationOf<T>>;
 
+	/// Code upgrades waiting on their validation code, by para id.
+	///
+	/// Shares [`Config::MaxPendingRegistrations`] as its bound: both maps hold relay-chain state
+	/// that no deposit here pays for, and one para can occupy at most one slot in each.
+	#[pallet::storage]
+	pub type PendingCodeUpgrades<T: Config> =
+		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingCodeUpgrade>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -226,6 +253,21 @@ pub mod pallet {
 		/// The relay chain's own state is already correct; the parachain is now out of step and
 		/// will need its manager to ask again.
 		ReportFailed { para_id: ParaId, message_id: u64 },
+		/// A code upgrade was authorized and is waiting on its validation code.
+		CodeUpgradePending { para_id: ParaId, message_id: u64, code_hash: H256 },
+		/// A code upgrade request was refused.
+		///
+		/// Unlike a registration, nothing is staked on the parachain for an upgrade, so the
+		/// refusal is reported here rather than costing a round trip.
+		CodeUpgradeRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A para's validation code was upgraded.
+		CodeUpgraded { para_id: ParaId, message_id: u64 },
+		/// A para's head data was set.
+		HeadSet { para_id: ParaId, message_id: u64 },
+		/// A request to set head data was refused.
+		HeadRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// Governance dropped a pending entry that nobody was going to complete.
+		PendingDropped { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -240,6 +282,8 @@ pub mod pallet {
 		CodeTooLarge,
 		/// The message is not one this call serves.
 		UnexpectedMessage,
+		/// No code upgrade is waiting on code for this para id.
+		NothingPendingUpgrade,
 	}
 
 	#[pallet::call]
@@ -370,12 +414,8 @@ pub mod pallet {
 			T::ParaOrigin::ensure_origin_or_root(origin)?;
 
 			match message {
-				MessageToRelay::V1(MessageToRelayV1::Deregister {
-					para_id,
-					message_id,
-					manager,
-				}) => {
-					Self::on_deregister_request(para_id, message_id, manager);
+				MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id }) => {
+					Self::on_deregister_request(para_id, message_id);
 					Ok(())
 				},
 				_ => Err(Error::<T>::UnexpectedMessage.into()),
@@ -406,6 +446,125 @@ pub mod pallet {
 				},
 				_ => Err(Error::<T>::UnexpectedMessage.into()),
 			}
+		}
+
+		/// Authorize the validation code of an upgrade, at the parachain's request.
+		///
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. The
+		/// blob follows in [`Pallet::apply_authorized_code_upgrade`], exactly as a registration's
+		/// code does.
+		///
+		/// No deposit is involved. A registration is priced at the largest code the relay chain
+		/// will accept, so an upgrade to any acceptable code is already paid for and needs no
+		/// top-up message. A refusal is therefore reported as an event here rather than sent back.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::authorize_code_upgrade())]
+		pub fn authorize_code_upgrade(
+			origin: OriginFor<T>,
+			message: MessageToRelay<T::AccountId>,
+		) -> DispatchResult {
+			T::ParaOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+					para_id,
+					message_id,
+					code_hash,
+					code_len,
+				}) => {
+					Self::on_code_upgrade_request(para_id, message_id, code_hash, code_len);
+					Ok(())
+				},
+				_ => Err(Error::<T>::UnexpectedMessage.into()),
+			}
+		}
+
+		/// Upload the validation code for an authorized upgrade, applying it.
+		///
+		/// Needs no signature and pays no fee, on the same argument as
+		/// [`Pallet::apply_authorized_code`]: the pending entry already fixes the exact bytes that
+		/// will be accepted.
+		#[pallet::call_index(6)]
+		#[pallet::authorize(Self::authorize_apply_authorized_code_upgrade)]
+		#[pallet::weight_of_authorize(
+			T::WeightInfo::authorize_apply_authorized_code_upgrade(validation_code.len() as u32)
+		)]
+		#[pallet::weight(T::WeightInfo::apply_authorized_code_upgrade(validation_code.len() as u32))]
+		pub fn apply_authorized_code_upgrade(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			validation_code: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			ensure_authorized(origin)?;
+
+			let pending = Self::validate_pending_upgrade(para_id, &validation_code)?;
+
+			// The registry may fail after writing storage, so isolate the attempt and report the
+			// refusal instead of unwinding: the parachain is not waiting on an answer, and
+			// leaving the entry behind would let the manager simply try different bytes.
+			let outcome = frame_support::storage::with_storage_layer::<
+				(),
+				sp_runtime::DispatchError,
+				_,
+			>(|| T::Registrar::schedule_code_upgrade(para_id, validation_code));
+
+			PendingCodeUpgrades::<T>::remove(para_id);
+			let message_id = pending.message_id;
+			match outcome {
+				Ok(()) => Self::deposit_event(Event::CodeUpgraded { para_id, message_id }),
+				Err(_) => Self::deposit_event(Event::CodeUpgradeRejected {
+					para_id,
+					message_id,
+					reason: FailureReason::CannotUpgrade,
+				}),
+			}
+			Ok(Pays::No.into())
+		}
+
+		/// Set a para's head data, at the parachain's request.
+		///
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. Head
+		/// data is small enough to travel inline, so unlike validation code this needs no upload
+		/// step. Unanswered, like [`Pallet::authorize_code_upgrade`].
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::set_current_head(head_data_len(&message)))]
+		pub fn set_current_head(
+			origin: OriginFor<T>,
+			message: MessageToRelay<T::AccountId>,
+		) -> DispatchResult {
+			T::ParaOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+					para_id,
+					message_id,
+					head,
+				}) => {
+					Self::on_set_head_request(para_id, message_id, head);
+					Ok(())
+				},
+				_ => Err(Error::<T>::UnexpectedMessage.into()),
+			}
+		}
+
+		/// Drop a pending registration or code upgrade that nobody is going to complete.
+		///
+		/// Root only. Nothing here expires on its own, so an entry whose manager never uploads the
+		/// code and never cancels would otherwise occupy relay-chain state, and a slot against
+		/// [`Config::MaxPendingRegistrations`], forever.
+		///
+		/// Deliberately blunt: it sends nothing back, so a parachain still holding a deposit
+		/// against a dropped registration must cancel it there to be made whole.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::force_drop_pending())]
+		pub fn force_drop_pending(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			ensure_root(origin)?;
+
+			PendingRegistrations::<T>::remove(para_id);
+			PendingCodeUpgrades::<T>::remove(para_id);
+
+			Self::deposit_event(Event::PendingDropped { para_id });
+			Ok(())
 		}
 	}
 
@@ -505,29 +664,17 @@ pub mod pallet {
 		}
 
 		/// Apply a deregistration request from the parachain.
-		fn on_deregister_request(para_id: ParaId, message_id: u64, manager: T::AccountId) {
-			let registered_manager = match T::Registrar::manager_of(para_id) {
-				Some(registered_manager) => registered_manager,
-				// Unknown id: nothing to remove, confirm so the parachain can release deposits.
-				None if !T::Registrar::is_registered(para_id) => {
-					Self::report_deregistration(para_id, message_id, Ok(()));
-					return Self::deposit_event(Event::Deregistered { para_id, message_id });
-				},
-				// Registered outside the registry (e.g. a system para): not ours to remove.
-				None => {
-					return Self::reject_deregistration(
-						para_id,
-						message_id,
-						FailureReason::CannotDeregister,
-					)
-				},
-			};
-
-			if registered_manager != manager {
-				return Self::reject_deregistration(para_id, message_id, FailureReason::NotManager);
-			}
-			if T::Registrar::is_locked(para_id) {
-				return Self::reject_deregistration(para_id, message_id, FailureReason::Locked);
+		///
+		/// The manager and the lock are *not* checked here. The parachain holds the deposits and
+		/// is the control plane, so it is the authority on both, and it has already checked them.
+		/// Checking again would mean reading registry state this chain does not reliably keep:
+		/// once the registry is drained in favour of the parachain's, `manager_of` answers `None`
+		/// for every para that predates the move, and re-checking would refuse them all forever.
+		fn on_deregister_request(para_id: ParaId, message_id: u64) {
+			// Unknown id: nothing to remove, confirm so the parachain can release deposits.
+			if !T::Registrar::is_registered(para_id) {
+				Self::report_deregistration(para_id, message_id, Ok(()));
+				return Self::deposit_event(Event::Deregistered { para_id, message_id });
 			}
 
 			// The registry may fail after writing storage, so isolate the attempt in its own
@@ -594,6 +741,106 @@ pub mod pallet {
 			Ok(pending)
 		}
 
+		/// Check an uploaded blob against the upgrade authorization held for `para_id`.
+		///
+		/// Same ordering as [`Self::validate_pending_code`], and for the same reason: bound the
+		/// work before hashing so a junk blob costs an attacker bandwidth rather than CPU.
+		fn validate_pending_upgrade(
+			para_id: ParaId,
+			validation_code: &[u8],
+		) -> Result<PendingCodeUpgrade, Error<T>> {
+			let code_len =
+				u32::try_from(validation_code.len()).map_err(|_| Error::<T>::CodeTooLarge)?;
+			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+
+			let pending = PendingCodeUpgrades::<T>::get(para_id)
+				.ok_or(Error::<T>::NothingPendingUpgrade)?;
+			ensure!(code_len == pending.code_len, Error::<T>::CodeLenMismatch);
+			ensure!(
+				BlakeTwo256::hash(validation_code) == pending.code_hash,
+				Error::<T>::CodeHashMismatch
+			);
+
+			Ok(pending)
+		}
+
+		/// Decide whether an unsigned [`Pallet::apply_authorized_code_upgrade`] may enter the pool.
+		#[allow(clippy::ptr_arg)]
+		pub fn authorize_apply_authorized_code_upgrade(
+			_source: TransactionSource,
+			para_id: &ParaId,
+			validation_code: &Vec<u8>,
+		) -> TransactionValidityWithRefund {
+			let pending = Self::validate_pending_upgrade(*para_id, validation_code)
+				.map_err(|e| InvalidTransaction::Custom(Self::err_to_code(e)))?;
+
+			let validity = ValidTransaction::with_tag_prefix("RegistrarApplyAuthorizedCodeUpgrade")
+				.priority(T::UnsignedPriority::get())
+				.and_provides((*para_id, pending.code_hash))
+				.propagate(true)
+				.build()?;
+
+			Ok((validity, Weight::zero()))
+		}
+
+		/// Accept or refuse an upgrade authorization from the parachain.
+		fn on_code_upgrade_request(
+			para_id: ParaId,
+			message_id: u64,
+			code_hash: H256,
+			code_len: u32,
+		) {
+			let reject = |reason| {
+				Self::deposit_event(Event::CodeUpgradeRejected { para_id, message_id, reason });
+			};
+
+			// An upgrade is only meaningful for a para this chain actually knows.
+			if !T::Registrar::is_registered(para_id) {
+				return reject(FailureReason::NotRegistered);
+			}
+			// One slot per para in each map, so an upgrade cannot be used to grow this state.
+			if PendingCodeUpgrades::<T>::contains_key(para_id) {
+				return reject(FailureReason::AlreadyRegistered);
+			}
+			if PendingCodeUpgrades::<T>::count() >= T::MaxPendingRegistrations::get() {
+				return reject(FailureReason::TooManyPending);
+			}
+			// Head data is not part of an upgrade, so only the code side is checked.
+			if code_len > T::MaxCodeSize::get() ||
+				T::Registrar::check_onboarding(0, code_len).is_err()
+			{
+				return reject(FailureReason::InvalidOnboardingData);
+			}
+
+			PendingCodeUpgrades::<T>::insert(
+				para_id,
+				PendingCodeUpgrade { message_id, code_hash, code_len },
+			);
+			Self::deposit_event(Event::CodeUpgradePending { para_id, message_id, code_hash });
+		}
+
+		/// Apply a head-data change from the parachain.
+		fn on_set_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
+			if !T::Registrar::is_registered(para_id) {
+				return Self::deposit_event(Event::HeadRejected {
+					para_id,
+					message_id,
+					reason: FailureReason::NotRegistered,
+				});
+			}
+
+			match frame_support::storage::with_storage_layer::<(), sp_runtime::DispatchError, _>(
+				|| T::Registrar::set_current_head(para_id, head),
+			) {
+				Ok(()) => Self::deposit_event(Event::HeadSet { para_id, message_id }),
+				Err(_) => Self::deposit_event(Event::HeadRejected {
+					para_id,
+					message_id,
+					reason: FailureReason::InvalidOnboardingData,
+				}),
+			}
+		}
+
 		/// Map a validation failure onto the `InvalidTransaction::Custom` code it reports.
 		pub fn err_to_code(error: Error<T>) -> u8 {
 			match error {
@@ -602,6 +849,7 @@ pub mod pallet {
 				Error::<T>::CodeLenMismatch => 2,
 				Error::<T>::CodeTooLarge => 3,
 				Error::<T>::UnexpectedMessage => 4,
+				Error::<T>::NothingPendingUpgrade => 5,
 			}
 		}
 

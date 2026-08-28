@@ -19,7 +19,7 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Get;
+use frame_support::{pallet_prelude::TransactionSource, traits::Get};
 use frame_system::RawOrigin;
 use registrar_primitives::{MessageToRelay, MessageToRelayV1};
 use sp_runtime::traits::{BlakeTwo256, Hash};
@@ -49,6 +49,20 @@ fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 
 	PendingRegistrations::<T>::insert(PARA_ID, pending);
 	Ok(())
+}
+
+/// Park a pending code upgrade for `PARA_ID` expecting exactly `code`.
+///
+/// Written straight to storage for the same reason [`park`] is.
+fn park_upgrade<T: Config>(code: &[u8]) {
+	PendingCodeUpgrades::<T>::insert(
+		PARA_ID,
+		PendingCodeUpgrade {
+			message_id: 0,
+			code_hash: BlakeTwo256::hash(code),
+			code_len: code.len() as u32,
+		},
+	);
 }
 
 #[benchmarks]
@@ -139,7 +153,6 @@ mod benchmarks {
 		let message = MessageToRelay::V1(MessageToRelayV1::Deregister {
 			para_id: PARA_ID,
 			message_id: 0,
-			manager,
 		});
 
 		#[extrinsic_call]
@@ -164,6 +177,94 @@ mod benchmarks {
 		_(RawOrigin::Root, message);
 
 		assert!(T::Registrar::manager_of(PARA_ID).is_some());
+		Ok(())
+	}
+
+	/// Accepting an upgrade authorization: bounds checks plus one write, no head data.
+	#[benchmark]
+	fn authorize_code_upgrade() -> Result<(), BenchmarkError> {
+		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
+		let message = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+			para_id: PARA_ID,
+			message_id: 0,
+			code_hash: BlakeTwo256::hash(&code_of(T::MaxCodeSize::get())),
+			code_len: T::MaxCodeSize::get(),
+		});
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, message);
+
+		assert!(PendingCodeUpgrades::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Uploading an upgrade's code. Dominated by hashing the blob.
+	#[benchmark]
+	fn apply_authorized_code_upgrade(
+		c: Linear<0, { T::MaxCodeSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
+		let code = code_of(c);
+		park_upgrade::<T>(&code);
+
+		#[extrinsic_call]
+		_(RawOrigin::Authorized, PARA_ID, code);
+
+		assert!(!PendingCodeUpgrades::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// The pool-side twin of the call above: it runs the same validation, hashing included.
+	#[benchmark]
+	fn authorize_apply_authorized_code_upgrade(
+		c: Linear<0, { T::MaxCodeSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let code = code_of(c);
+		park_upgrade::<T>(&code);
+
+		#[block]
+		{
+			Pallet::<T>::authorize_apply_authorized_code_upgrade(
+				TransactionSource::External,
+				&PARA_ID,
+				&code,
+			)
+			.map_err(|_| BenchmarkError::Stop("authorization refused"))?;
+		}
+
+		Ok(())
+	}
+
+	/// Setting head data. Dominated by the head arriving inline in the message.
+	#[benchmark]
+	fn set_current_head(
+		h: Linear<0, { T::MaxHeadDataSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
+		let message = MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+			para_id: PARA_ID,
+			message_id: 0,
+			head: alloc::vec![3u8; h as usize],
+		});
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, message);
+
+		Ok(())
+	}
+
+	/// Governance dropping both pending entries. Two removals, worst case both present.
+	#[benchmark]
+	fn force_drop_pending() -> Result<(), BenchmarkError> {
+		let code = code_of(T::MaxCodeSize::get());
+		park::<T>(&code)?;
+		park_upgrade::<T>(&code);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, PARA_ID);
+
+		assert!(!PendingRegistrations::<T>::contains_key(PARA_ID));
+		assert!(!PendingCodeUpgrades::<T>::contains_key(PARA_ID));
 		Ok(())
 	}
 

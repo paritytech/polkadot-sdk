@@ -19,7 +19,7 @@
 
 use crate::*;
 use frame_support::{
-	assert_ok,
+	assert_noop, assert_ok,
 	traits::{fungible::InspectHold, EnsureOrigin},
 };
 use pallet_registrar_para::{HoldReason, RegistrationState};
@@ -85,6 +85,30 @@ fn request_registration(
 		));
 	});
 	blob
+}
+
+/// Submit an *upgrade's* validation code the way an unsigned transaction would.
+///
+/// Same two-step shape as [`submit_code`]: the pool check and the dispatch run the same
+/// validation, so a test that goes through here proves both agree.
+fn submit_upgrade_code(para_id: u32, blob: Vec<u8>) -> sp_runtime::DispatchResult {
+	use pallet_registrar_relay::Pallet as RelayRegistrar;
+	use sp_runtime::transaction_validity::TransactionSource;
+
+	RelayRegistrar::<relay::Runtime>::authorize_apply_authorized_code_upgrade(
+		TransactionSource::External,
+		&para_id,
+		&blob,
+	)
+	.map_err(|_| sp_runtime::DispatchError::Other("not authorized"))?;
+
+	RelayRegistrar::<relay::Runtime>::apply_authorized_code_upgrade(
+		frame_system::RawOrigin::Authorized.into(),
+		para_id,
+		blob,
+	)
+	.map(|_| ())
+	.map_err(|e| e.error)
 }
 
 /// Submit the validation code to the relay chain the way an unsigned transaction would: authorize
@@ -170,9 +194,10 @@ fn a_registration_travels_from_the_parachain_to_the_relay_chain_and_onboards_a_p
 	});
 
 	let blob = request_registration(ALICE, para_id, head_len, code_len);
-	let expected_deposit = para::PER_BYTE * (head_len as u128 + code_len as u128);
+	// Priced at the largest code the relay chain accepts, not the code declared.
+	let expected_deposit = para::PER_BYTE * (head_len as u128 + MAX_CODE_SIZE as u128);
 
-	// The parachain is holding for head data plus the declared code length, and is waiting.
+	// The parachain is holding for head data plus the maximum code size, and is waiting.
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + expected_deposit);
 		assert!(matches!(para_state(para_id), Some(RegistrationState::Pending { .. })));
@@ -302,7 +327,7 @@ fn a_manager_who_gives_up_drives_the_cancellation_and_gets_the_deposit_back() {
 		));
 
 		// The deposit is still held: the relay chain has not answered yet.
-		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64));
+		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128));
 	});
 
 	// The relay chain drops the authorization, so the code can no longer be pushed through.
@@ -408,7 +433,8 @@ fn a_deregistration_travels_to_the_relay_chain_and_offboards_the_para() {
 	let head_len = 32;
 	let code_len = 64;
 	let para_id = onboard(ALICE, head_len, code_len);
-	let expected_deposit = para::PER_BYTE * (head_len as u128 + code_len as u128);
+	// Priced at the largest code the relay chain accepts, not the code declared.
+	let expected_deposit = para::PER_BYTE * (head_len as u128 + MAX_CODE_SIZE as u128);
 
 	RegistrarPara::execute_with(|| {
 		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + expected_deposit);
@@ -467,23 +493,23 @@ fn deregistering_a_reserved_id_never_touches_the_relay_chain() {
 }
 
 #[test]
-fn a_locked_para_cannot_be_deregistered_from_the_parachain() {
+fn a_lock_on_the_parachain_keeps_the_manager_out_without_involving_the_relay_chain() {
 	MockNet::reset();
 
 	let para_id = onboard(ALICE, 32, 64);
 
-	Relay::execute_with(|| {
-		use polkadot_runtime_common::traits::Registrar as _;
-		polkadot_runtime_common::paras_registrar::Pallet::<relay::Runtime>::apply_lock(
-			para_id.into(),
-		);
-	});
-
+	// The lock lives entirely on the control plane. Nothing crosses to the relay chain, and the
+	// manager is stopped before a message is ever built.
 	RegistrarPara::execute_with(|| {
-		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+		assert_ok!(para::Registrar::add_lock(para::RuntimeOrigin::signed(ALICE), para_id));
+		assert_noop!(
+			para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id),
+			pallet_registrar_para::Error::<para::Runtime>::ParaLocked
+		);
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
 	});
 
-	// The relay chain refused and still has the para.
+	// The relay chain still has the para, and never heard about the attempt.
 	Relay::execute_with(|| {
 		assert!(relay_registry_entry(para_id).is_some());
 		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::is_parathread(
@@ -491,19 +517,25 @@ fn a_locked_para_cannot_be_deregistered_from_the_parachain() {
 		));
 	});
 
-	// The refusal put the para back to registered, with both deposits still held.
 	RegistrarPara::execute_with(|| {
-		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
-		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64));
+		// The manager may lock but may not unlock: that asymmetry is the whole point of a lock.
+		assert_noop!(
+			para::Registrar::remove_lock(para::RuntimeOrigin::signed(ALICE), para_id),
+			sp_runtime::DispatchError::BadOrigin
+		);
+		assert_ok!(para::Registrar::remove_lock(para::RuntimeOrigin::root(), para_id));
 
-		let events = para::System::events();
-		assert!(events.iter().any(|e| matches!(
-			&e.event,
-			para::RuntimeEvent::Registrar(pallet_registrar_para::Event::DeregistrationFailed {
-				reason: FailureReason::Locked,
-				..
-			})
-		)));
+		// Unlocked, the ordinary path works again.
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+
+	// And this time it really did travel: the registry entry is gone and the deposits came back.
+	Relay::execute_with(|| {
+		assert!(relay_registry_entry(para_id).is_none());
+	});
+	RegistrarPara::execute_with(|| {
+		assert!(para_state(para_id).is_none());
+		assert_eq!(para_held(&ALICE), 0);
 	});
 }
 
@@ -542,7 +574,7 @@ fn a_live_parachain_is_refused_until_downgraded() {
 
 	RegistrarPara::execute_with(|| {
 		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
-		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64));
+		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128));
 
 		let events = para::System::events();
 		assert!(events.iter().any(|e| matches!(
@@ -593,5 +625,77 @@ fn a_cancellation_racing_its_own_deregistration_settles_exactly_once() {
 
 	Relay::execute_with(|| {
 		assert!(relay_registry_entry(para_id).is_none());
+	});
+}
+
+#[test]
+fn a_code_upgrade_travels_to_the_relay_chain_and_is_applied() {
+	MockNet::reset();
+
+	let para_id = onboard(ALICE, 32, 64);
+	let new_blob = code(128);
+	let held_before = RegistrarPara::execute_with(|| para_held(&ALICE));
+
+	// The manager commits to the new code on the parachain. Only the hash crosses.
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::schedule_code_upgrade(
+			para::RuntimeOrigin::signed(ALICE),
+			para_id,
+			new_blob.len() as u32,
+			hash_of(&new_blob),
+		));
+
+		// Upgrades are free: the registration was priced at the largest allowed code, so there
+		// is nothing left to top up.
+		assert_eq!(para_held(&ALICE), held_before);
+	});
+
+	// The relay chain parked the authorization and is waiting on the blob.
+	Relay::execute_with(|| {
+		let pending =
+			pallet_registrar_relay::PendingCodeUpgrades::<relay::Runtime>::get(para_id).unwrap();
+		assert_eq!(pending.code_hash, hash_of(&new_blob));
+		assert_eq!(pending.code_len, new_blob.len() as u32);
+	});
+
+	// Anybody uploads the bytes, and the upgrade is scheduled.
+	Relay::execute_with(|| {
+		assert_ok!(submit_upgrade_code(para_id, new_blob.clone()));
+
+		assert!(
+			pallet_registrar_relay::PendingCodeUpgrades::<relay::Runtime>::get(para_id).is_none()
+		);
+		assert_eq!(
+			polkadot_runtime_parachains::paras::FutureCodeHash::<relay::Runtime>::get(
+				polkadot_primitives::Id::from(para_id)
+			),
+			Some(ValidationCode(new_blob.clone()).hash()),
+		);
+	});
+}
+
+#[test]
+fn head_data_travels_inline_and_lands_on_the_relay_chain() {
+	MockNet::reset();
+
+	let para_id = onboard(ALICE, 32, 64);
+	let new_head = head(MAX_HEAD_SIZE as usize);
+
+	// Head data is small enough to ride inside the message, so there is no upload step.
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::set_current_head(
+			para::RuntimeOrigin::signed(ALICE),
+			para_id,
+			new_head.clone(),
+		));
+	});
+
+	Relay::execute_with(|| {
+		assert_eq!(
+			polkadot_runtime_parachains::paras::Heads::<relay::Runtime>::get(
+				polkadot_primitives::Id::from(para_id)
+			),
+			Some(polkadot_primitives::HeadData(new_head)),
+		);
 	});
 }

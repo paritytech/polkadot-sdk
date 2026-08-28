@@ -68,7 +68,8 @@ fn request_registration(who: AccountId, para_id: u32, head_len: usize, code_len:
 
 /// Reserve, register and confirm a para for `who` (message id 0), leaving the logs clean.
 ///
-/// Head and code sizes are 20 and 300, so the registration deposit is `PER_BYTE * 320`.
+/// Head is 20 bytes; the code side is always priced at `MAX_CODE_SIZE`, so the registration
+/// deposit is `PER_BYTE * (20 + MAX_CODE_SIZE)` whatever code length is declared.
 fn registered_para(who: AccountId) -> u32 {
 	let para_id = reserve_for(who);
 	request_registration(who, para_id, 20, 300);
@@ -129,6 +130,24 @@ mod reserve {
 	}
 
 	#[test]
+	fn steps_over_an_id_the_counter_and_the_map_disagree_about() {
+		new_test_ext().execute_with(|| {
+			// GIVEN the counter points at an id this pallet already knows. The two can drift:
+			// ids may arrive from elsewhere, or the counter may be restored from another chain.
+			let alice_id = reserve_for(ALICE); // manager of the id in the way
+			crate::NextFreeParaId::<Test>::put(alice_id);
+
+			// WHEN Bob reserves.
+			let bob_id = reserve_for(BOB); // next manager in line
+
+			// THEN he is handed the next id up, and the counter is past both. Failing instead
+			// would brick `reserve` for every account, permanently.
+			assert_eq!(bob_id, alice_id + 1);
+			assert_eq!(crate::NextFreeParaId::<Test>::get(), alice_id + 2);
+		});
+	}
+
+	#[test]
 	fn fails_without_the_deposit() {
 		new_test_ext().execute_with(|| {
 			// Alice keeps only enough to stay alive, well short of the deposit.
@@ -158,8 +177,9 @@ mod register {
 
 			let blob = request_registration(ALICE, para_id, head_len, code_len);
 
-			// Deposit covers head data plus the *declared* code length.
-			let expected = PER_BYTE * (head_len as Balance + code_len as Balance);
+			// Deposit covers head data plus the largest code the relay chain would accept, not
+			// the code actually declared. That is what makes an upgrade need no top-up.
+			let expected = PER_BYTE * (head_len as Balance + MAX_CODE_SIZE as Balance);
 			assert_eq!(held(ALICE), PARA_DEPOSIT + expected);
 
 			let expected_at = System::block_number() + PENDING_DEADLINE;
@@ -317,7 +337,7 @@ mod receive {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
@@ -404,7 +424,7 @@ mod receive {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			// The code landed on the relay chain after all and the success report was lost, so the
 			// cancellation comes back refused and the deposit is owed. The event echoes the
@@ -431,7 +451,7 @@ mod receive {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			// A verdict already in flight settles the registration first.
 			assert_ok!(Registrar::receive(
@@ -497,7 +517,7 @@ mod receive {
 	fn a_refused_deregistration_flips_back_to_registered_and_keeps_the_deposits() {
 		new_test_ext().execute_with(|| {
 			let para_id = deregistering_para(ALICE);
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
@@ -588,7 +608,7 @@ mod receive {
 	fn a_chase_up_answer_for_a_registered_para_is_dropped_quietly() {
 		new_test_ext().execute_with(|| {
 			let para_id = deregistering_para(ALICE);
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			// The verdict was a refusal, so the para is registered again by the time the
 			// chase-up's answer arrives.
@@ -680,7 +700,7 @@ mod cancel_registration {
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
 			let _ = take_sent();
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
@@ -757,7 +777,7 @@ mod cancel_registration {
 				Paras::<Test>::get(para_id).unwrap().state,
 				RegistrationState::Pending { cancellable_at: at, .. } if at == cancellable_at
 			));
-			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + 300));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance));
 			SendFails::set(false);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 		});
@@ -808,7 +828,7 @@ mod deregister {
 	fn a_registered_para_asks_the_relay_chain_and_releases_nothing() {
 		new_test_ext().execute_with(|| {
 			let para_id = registered_para(ALICE);
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
 
@@ -826,7 +846,6 @@ mod deregister {
 				vec![MessageToRelay::V1(MessageToRelayV1::Deregister {
 					para_id,
 					message_id: 1,
-					manager: ALICE,
 				})]
 			);
 			assert_eq!(
@@ -923,7 +942,6 @@ mod deregister {
 				vec![MessageToRelay::V1(MessageToRelayV1::Deregister {
 					para_id,
 					message_id: 1,
-					manager: ALICE,
 				})]
 			);
 		});
@@ -984,7 +1002,7 @@ mod cancel_deregistration {
 	fn asks_the_relay_chain_and_only_the_answer_settles_it() {
 		new_test_ext().execute_with(|| {
 			let para_id = deregistering_para(ALICE);
-			let deposit = PER_BYTE * (20 + 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
@@ -1145,6 +1163,350 @@ mod cancel_deregistration {
 				Registrar::cancel_deregistration(RuntimeOrigin::signed(BOB), para_id),
 				Error::<Test>::NotOwner
 			);
+		});
+	}
+}
+
+mod locking {
+	use super::*;
+
+	#[test]
+	fn the_manager_the_para_and_root_may_all_lock() {
+		new_test_ext().execute_with(|| {
+			// GIVEN three registered paras under three managers.
+			let alice_para = registered_para(ALICE); // locked by its manager
+			let bob_para = registered_para(BOB); // locked by the para itself
+			let root_para = registered_para(ALICE); // second para of Alice's, locked by root
+
+			// WHEN each is locked through a different origin.
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), alice_para));
+			assert_ok!(Registrar::add_lock(para_origin(bob_para), bob_para));
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::root(), root_para));
+
+			// THEN all three are locked, and nothing was sent anywhere: the lock is local state.
+			assert!(Paras::<Test>::get(alice_para).unwrap().locked);
+			assert!(Paras::<Test>::get(bob_para).unwrap().locked);
+			assert!(Paras::<Test>::get(root_para).unwrap().locked);
+			assert_eq!(take_sent(), vec![]);
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::Locked { para_id: alice_para },
+					Event::Locked { para_id: bob_para },
+					Event::Locked { para_id: root_para },
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn locking_twice_is_not_an_error_and_says_nothing_the_second_time() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE); // manager races its own lock
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
+
+			// A manager who is already locked out may still lock: the call is about the state it
+			// leaves behind, not about who is allowed to reach it.
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(registrar_events(), vec![]);
+		});
+	}
+
+	#[test]
+	fn only_the_para_and_root_may_unlock() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a locked para.
+			let para_id = registered_para(ALICE); // manager, locked out below
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+
+			// WHEN its manager tries to lift the lock. THEN they cannot: a lock exists to
+			// protect the para from whoever manages it.
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::signed(ALICE), para_id),
+				DispatchError::BadOrigin
+			);
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+
+			// WHEN the para itself asks. THEN it is unlocked.
+			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
+			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+
+			// And root may do the same.
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
+			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+		});
+	}
+
+	#[test]
+	fn a_lock_shuts_the_manager_out_of_every_call_it_gates() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a locked, registered para.
+			let para_id = registered_para(ALICE); // manager, locked out
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = take_sent();
+
+			// THEN the manager reaches none of the three calls the lock gates, and no message is
+			// built for any of them.
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					MIN_CODE_SIZE,
+					hash_of(&code(MIN_CODE_SIZE as usize)),
+				),
+				Error::<Test>::ParaLocked
+			);
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
+				Error::<Test>::ParaLocked
+			);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_lock_does_not_shut_out_the_para_or_root() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a locked para.
+			let para_id = registered_para(ALICE);
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = take_sent();
+
+			// THEN the para itself still gets through: the lock is aimed at the manager alone.
+			assert_ok!(Registrar::set_current_head(para_origin(para_id), para_id, head(4)));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id));
+
+			assert_eq!(take_sent().len(), 2);
+		});
+	}
+
+	#[test]
+	fn a_fresh_registration_starts_unlocked() {
+		new_test_ext().execute_with(|| {
+			// A manager who has just made a mistake can undo it. What protects a para that is
+			// actually in use is the assignment check, not this flag.
+			let para_id = registered_para(ALICE);
+
+			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+		});
+	}
+}
+
+mod schedule_code_upgrade {
+	use super::*;
+
+	#[test]
+	fn asks_the_relay_chain_and_takes_no_deposit() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a registered para whose deposit already covers the largest allowed code.
+			let para_id = registered_para(ALICE); // manager
+			let held_before = held(ALICE);
+			let blob = code(MAX_CODE_SIZE as usize);
+
+			// WHEN the manager upgrades to the largest code the relay chain would accept.
+			assert_ok!(Registrar::schedule_code_upgrade(
+				RuntimeOrigin::signed(ALICE),
+				para_id,
+				MAX_CODE_SIZE,
+				hash_of(&blob),
+			));
+
+			// THEN nothing more is held: pricing at MaxCodeSize is what makes upgrades free.
+			assert_eq!(held(ALICE), held_before);
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+					para_id,
+					message_id: 1,
+					code_hash: hash_of(&blob),
+					code_len: MAX_CODE_SIZE,
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeRequested {
+					para_id,
+					message_id: 1,
+					code_hash: hash_of(&blob)
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn refuses_code_outside_the_relay_chains_bounds() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE); // manager
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					MIN_CODE_SIZE - 1,
+					hash_of(&code(1)),
+				),
+				Error::<Test>::CodeTooSmall
+			);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					MAX_CODE_SIZE + 1,
+					hash_of(&code(1)),
+				),
+				Error::<Test>::CodeTooLarge
+			);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn refuses_a_para_that_is_not_registered_yet() {
+		new_test_ext().execute_with(|| {
+			// GIVEN an id that is only reserved: there is nothing on the relay chain to upgrade.
+			let para_id = reserve_for(ALICE); // manager
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					MIN_CODE_SIZE,
+					hash_of(&code(MIN_CODE_SIZE as usize)),
+				),
+				Error::<Test>::NotRegistered
+			);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn refuses_anybody_but_the_manager_the_para_and_root() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE); // manager
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(BOB), // not the manager
+					para_id,
+					MIN_CODE_SIZE,
+					hash_of(&code(MIN_CODE_SIZE as usize)),
+				),
+				Error::<Test>::NotOwner
+			);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_rolls_the_whole_call_back() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE); // manager
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					MIN_CODE_SIZE,
+					hash_of(&code(MIN_CODE_SIZE as usize)),
+				),
+				Error::<Test>::SendFailed
+			);
+			// The message id was consumed inside the rolled-back call, so it is not spent.
+			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
+		});
+	}
+}
+
+mod set_current_head {
+	use super::*;
+
+	#[test]
+	fn sends_the_head_inline() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE); // manager
+			let new_head = head(MAX_HEAD_SIZE as usize);
+
+			assert_ok!(Registrar::set_current_head(
+				RuntimeOrigin::signed(ALICE),
+				para_id,
+				new_head.clone()
+			));
+
+			// Head data is small enough to travel whole, so there is no upload step.
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+					para_id,
+					message_id: 1,
+					head: new_head,
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRequested { para_id, message_id: 1 }]
+			);
+		});
+	}
+
+	#[test]
+	fn refuses_head_data_the_relay_chain_would_not_take() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE); // manager
+
+			assert_noop!(
+				Registrar::set_current_head(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					head(MAX_HEAD_SIZE as usize + 1)
+				),
+				Error::<Test>::HeadDataTooLarge
+			);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn refuses_a_para_that_is_not_registered_yet() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE); // manager
+
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
+				Error::<Test>::NotRegistered
+			);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+}
+
+mod force_set_next_free_para_id {
+	use super::*;
+
+	#[test]
+	fn root_moves_the_counter_and_nobody_else_can() {
+		new_test_ext().execute_with(|| {
+			let target = FIRST_PARA_ID + 400;
+
+			assert_noop!(
+				Registrar::force_set_next_free_para_id(RuntimeOrigin::signed(ALICE), target),
+				DispatchError::BadOrigin
+			);
+
+			assert_ok!(Registrar::force_set_next_free_para_id(RuntimeOrigin::root(), target));
+
+			assert_eq!(crate::NextFreeParaId::<Test>::get(), target);
+			assert_eq!(registrar_events(), vec![Event::NextFreeParaIdSet { para_id: target }]);
+			// And the next reservation picks up from there.
+			assert_eq!(reserve_for(ALICE), target);
 		});
 	}
 }

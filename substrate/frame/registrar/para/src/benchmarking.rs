@@ -29,7 +29,7 @@ fn funded_manager<T: Config>() -> T::AccountId {
 	T::ReservationConsideration::ensure_successful(&who, Footprint::from_parts(1, 0));
 	T::RegistrationConsideration::ensure_successful(
 		&who,
-		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get(), T::MaxCodeSize::get()),
+		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get()),
 	);
 	who
 }
@@ -203,6 +203,77 @@ mod benchmarks {
 			Paras::<T>::get(para_id).map(|i| i.state),
 			Some(RegistrationState::Deregistering { .. })
 		));
+		Ok(())
+	}
+
+	/// Locking. One read, one write, no message.
+	#[benchmark]
+	fn add_lock() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id);
+
+		assert!(Paras::<T>::get(para_id).is_some_and(|i| i.locked));
+		Ok(())
+	}
+
+	/// Unlocking. Root only, so the origin check is cheaper than `add_lock`'s, but the storage
+	/// access is the same.
+	#[benchmark]
+	fn remove_lock() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+		Pallet::<T>::add_lock(RawOrigin::Signed(who).into(), para_id)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id);
+
+		assert!(Paras::<T>::get(para_id).is_some_and(|i| !i.locked));
+		Ok(())
+	}
+
+	/// Requesting a code upgrade: no deposit moves, so this is the read plus the message.
+	#[benchmark]
+	fn schedule_code_upgrade() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(who),
+			para_id,
+			T::MaxCodeSize::get(),
+			sp_core::H256::repeat_byte(2),
+		);
+
+		Ok(())
+	}
+
+	/// Sending head data. Dominated by the head travelling inline in the message.
+	#[benchmark]
+	fn set_current_head(
+		h: Linear<0, { T::MaxHeadDataSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id, alloc::vec![3u8; h as usize]);
+
+		Ok(())
+	}
+
+	/// Moving the id counter. A single write.
+	#[benchmark]
+	fn force_set_next_free_para_id() -> Result<(), BenchmarkError> {
+		let para_id = T::FirstPublicParaId::get().saturating_add(500);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id);
+
+		assert_eq!(NextFreeParaId::<T>::get(), para_id);
 		Ok(())
 	}
 

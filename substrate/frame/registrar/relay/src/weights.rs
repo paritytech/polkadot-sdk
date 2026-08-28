@@ -77,6 +77,11 @@ pub trait WeightInfo {
 	fn cancel_authorization() -> Weight;
 	fn deregister() -> Weight;
 	fn cancel_deregistration() -> Weight;
+	fn authorize_code_upgrade() -> Weight;
+	fn apply_authorized_code_upgrade(c: u32, ) -> Weight;
+	fn authorize_apply_authorized_code_upgrade(c: u32, ) -> Weight;
+	fn set_current_head(h: u32, ) -> Weight;
+	fn force_drop_pending() -> Weight;
 }
 
 /// Weights for `pallet_registrar_relay` using the Substrate node and recommended hardware.
@@ -161,6 +166,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(4_000_000, 3471)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
+
+	// Placeholders, pending a benchmark run. Each reuses the measured weight of the closest
+	// existing call, which is the pattern the repo already accepts for calls whose storage
+	// access matches one that is benchmarked. Regenerating this file with `--extrinsic=*`
+	// replaces them with real numbers; the benchmarks exist for exactly that.
+	fn authorize_code_upgrade() -> Weight {
+		Self::cancel_authorization()
+	}
+	fn apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		Self::apply_authorized_code(c)
+	}
+	fn authorize_apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		Self::authorize_apply_authorized_code(c)
+	}
+	fn set_current_head(h: u32, ) -> Weight {
+		Self::authorize_code(h)
+	}
+	fn force_drop_pending() -> Weight {
+		Self::cancel_authorization()
+	}
+
 }
 
 // For backwards compatibility and tests.
@@ -244,4 +270,25 @@ impl WeightInfo for () {
 		Weight::from_parts(4_000_000, 3471)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
+
+	// Placeholders, pending a benchmark run. Each reuses the measured weight of the closest
+	// existing call, which is the pattern the repo already accepts for calls whose storage
+	// access matches one that is benchmarked. Regenerating this file with `--extrinsic=*`
+	// replaces them with real numbers; the benchmarks exist for exactly that.
+	fn authorize_code_upgrade() -> Weight {
+		Self::cancel_authorization()
+	}
+	fn apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		Self::apply_authorized_code(c)
+	}
+	fn authorize_apply_authorized_code_upgrade(c: u32, ) -> Weight {
+		Self::authorize_apply_authorized_code(c)
+	}
+	fn set_current_head(h: u32, ) -> Weight {
+		Self::authorize_code(h)
+	}
+	fn force_drop_pending() -> Weight {
+		Self::cancel_authorization()
+	}
+
 }

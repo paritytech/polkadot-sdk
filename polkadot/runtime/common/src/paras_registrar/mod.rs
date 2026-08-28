@@ -278,7 +278,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(who, None, id, genesis_head, validation_code, true)?;
+			Self::do_register(who, None, id, genesis_head, validation_code, true, false)?;
 			Ok(())
 		}
 
@@ -299,7 +299,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false)
+			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false, false)
 		}
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
@@ -514,7 +514,7 @@ impl<T: Config> Registrar for Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 	) -> DispatchResult {
-		Self::do_register(manager, None, id, genesis_head, validation_code, false)
+		Self::do_register(manager, None, id, genesis_head, validation_code, false, false)
 	}
 
 	// Deregister a Para ID, free any data, and return any deposits.
@@ -615,6 +615,10 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			HeadData(genesis_head),
 			ValidationCode(validation_code),
 			false,
+			// The chain that took the deposit is the control plane. Locking here closes this
+			// chain's manager-facing calls for good, rather than leaving them open until the
+			// para's first head.
+			true,
 		)
 	}
 
@@ -633,6 +637,19 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 
 		PendingSwap::<T>::remove(id);
 		Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(para_id: u32, new_code: Vec<u8>) -> DispatchResult {
+		polkadot_runtime_parachains::schedule_code_upgrade::<T>(
+			ParaId::from(para_id),
+			ValidationCode(new_code),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		)
+	}
+
+	fn set_current_head(para_id: u32, head: Vec<u8>) -> DispatchResult {
+		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
 		Ok(())
 	}
 
@@ -701,6 +718,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Attempt to register a new Para Id under management of `who` in the
 	/// system with the given information.
+	/// Register `id` under `who`.
+	///
+	/// `lock` decides whether the new registration is closed to its manager immediately. A
+	/// registration driven from another chain sets it: that chain is the control plane, so the
+	/// relay chain's own manager-facing calls must not offer a second way in. A locally driven
+	/// registration leaves it open and is locked later, at the para's first head, by
+	/// [`OnNewHead`].
 	fn do_register(
 		who: T::AccountId,
 		deposit_override: Option<BalanceOf<T>>,
@@ -708,6 +732,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		ensure_reserved: bool,
+		lock: bool,
 	) -> DispatchResult {
 		let deposited = if let Some(para_data) = Paras::<T>::get(id) {
 			ensure!(para_data.manager == who, Error::<T>::NotOwner);

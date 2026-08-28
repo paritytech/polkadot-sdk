@@ -93,18 +93,15 @@ pub enum MessageToRelayV1<AccountId> {
 	},
 	/// Ask the relay chain to deregister `para_id`.
 	///
-	/// `manager` is who holds the deposits on the parachain; the relay chain refuses the request
-	/// unless it matches the manager in its own registry (or the registry never knew the id at
-	/// all, in which case there is nothing to remove and the request succeeds). Answered with
-	/// [`MessageToParaV1::DeregisterResponse`].
+	/// Carries no manager: the parachain holds the deposits and is the authority on who may ask,
+	/// and it has already checked. The relay chain removes the para or reports why it cannot.
+	/// Answered with [`MessageToParaV1::DeregisterResponse`].
 	#[codec(index = 2)]
 	Deregister {
 		/// The para id to deregister.
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
-		/// The account managing this para on the parachain.
-		manager: AccountId,
 	},
 	/// Ask the relay chain whether a deregistration whose verdict never arrived went through.
 	///
@@ -117,6 +114,39 @@ pub enum MessageToRelayV1<AccountId> {
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
+	},
+	/// Ask the relay chain to accept a validation code upgrade for `para_id`.
+	///
+	/// Carries only the hash and length, for the same reason
+	/// [`MessageToRelayV1::Register`] does; the blob is uploaded to the relay chain separately.
+	/// No deposit changes hands: a registration is priced at the largest code the relay chain
+	/// will accept, so an upgrade is always already paid for.
+	///
+	/// Unanswered. Nothing on the parachain is staked on the outcome, so a refusal is reported
+	/// as a relay-chain event rather than costing a round trip.
+	#[codec(index = 4)]
+	AuthorizeCodeUpgrade {
+		/// The para id being upgraded.
+		para_id: ParaId,
+		/// The parachain's id for this message, for tying the two chains' events together.
+		message_id: u64,
+		/// Blake2-256 hash of the validation code that will be uploaded.
+		code_hash: H256,
+		/// Length of the validation code that will be uploaded, in bytes.
+		code_len: u32,
+	},
+	/// Ask the relay chain to set `para_id`'s head data.
+	///
+	/// Head data is small enough in practice to travel inline, so this needs no upload step.
+	/// Unanswered, for the same reason as [`MessageToRelayV1::AuthorizeCodeUpgrade`].
+	#[codec(index = 5)]
+	SetCurrentHead {
+		/// The para id whose head is being set.
+		para_id: ParaId,
+		/// The parachain's id for this message, for tying the two chains' events together.
+		message_id: u64,
+		/// The new head data.
+		head: Vec<u8>,
 	},
 }
 
@@ -236,6 +266,10 @@ pub enum FailureReason {
 	/// no longer registered, so the deregistration went through.
 	#[codec(index = 7)]
 	NotRegistered,
+	/// The registry refused the code upgrade: the para is mid-upgrade, or the code is not
+	/// acceptable to the relay chain's live configuration.
+	#[codec(index = 8)]
+	CannotUpgrade,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -281,6 +315,16 @@ pub trait ParachainRegistrar {
 	/// No deposit is released here for the same reason [`Self::register`] takes none. Not
 	/// required to be atomic on failure: the caller runs it under a storage layer.
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
+
+	/// Schedule `new_code` as `para_id`'s validation code.
+	///
+	/// No deposit is taken or topped up: a registration already paid for the largest code the
+	/// relay chain accepts. Not required to be atomic on failure; the caller runs it under a
+	/// storage layer.
+	fn schedule_code_upgrade(para_id: ParaId, new_code: Vec<u8>) -> sp_runtime::DispatchResult;
+
+	/// Set `para_id`'s current head data.
+	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> sp_runtime::DispatchResult;
 
 	/// Arrange for `para_id` to be registered under `manager`, unlocked and deregisterable, so
 	/// the deregistration path can be benchmarked.

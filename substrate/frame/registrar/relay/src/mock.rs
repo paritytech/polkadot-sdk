@@ -88,6 +88,14 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// Code upgrades `MockRegistrar` has applied, in order.
+	pub static Upgraded: Vec<(ParaId, Vec<u8>)> = Vec::new();
+	/// When true, `MockRegistrar::schedule_code_upgrade` fails.
+	pub static UpgradeFails: bool = false;
+	/// Head data `MockRegistrar` has set, in order.
+	pub static HeadsSet: Vec<(ParaId, Vec<u8>)> = Vec::new();
+	/// When true, `MockRegistrar::set_current_head` fails.
+	pub static SetHeadFails: bool = false;
 }
 
 /// A raw storage key `MockRegistrar::deregister` writes before it can fail.
@@ -139,7 +147,29 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
+	fn schedule_code_upgrade(para_id: ParaId, new_code: Vec<u8>) -> sp_runtime::DispatchResult {
+		if UpgradeFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused the upgrade"));
+		}
+		Upgraded::mutate(|v| v.push((para_id, new_code)));
+		Ok(())
+	}
+
+	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> sp_runtime::DispatchResult {
+		if SetHeadFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused the head"));
+		}
+		HeadsSet::mutate(|v| v.push((para_id, head)));
+		Ok(())
+	}
+
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		// The real registry refuses anything that is not an idle parathread, which is what stops
+		// a system chain or a live parachain being removed. Modelled here so the relay pallet is
+		// tested against a registry that has its own opinions, not a rubber stamp.
+		if AlreadyKnown::get().contains(&para_id) {
+			return Err(sp_runtime::DispatchError::Other("not the registry's to remove"));
+		}
 		frame_support::storage::unhashed::put(PARTIAL_WRITE_KEY, &para_id);
 		if DeregisterFails::get() {
 			// Left set on purpose: the real registry also fails only after having written.

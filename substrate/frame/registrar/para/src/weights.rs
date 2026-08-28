@@ -78,6 +78,11 @@ pub trait WeightInfo {
 	fn deregister_reserved() -> Weight;
 	fn deregister_registered() -> Weight;
 	fn cancel_deregistration() -> Weight;
+	fn add_lock() -> Weight;
+	fn remove_lock() -> Weight;
+	fn schedule_code_upgrade() -> Weight;
+	fn set_current_head(h: u32, ) -> Weight;
+	fn force_set_next_free_para_id() -> Weight;
 }
 
 /// Weights for `pallet_registrar_para` using the Substrate node and recommended hardware.
@@ -189,6 +194,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+
+	// Placeholders, pending a benchmark run. Each reuses the measured weight of the closest
+	// existing call, which is the pattern the repo already accepts for calls whose storage
+	// access matches one that is benchmarked. Regenerating this file with `--extrinsic=*`
+	// replaces them with real numbers; the benchmarks exist for exactly that.
+	fn add_lock() -> Weight {
+		Self::cancel_registration()
+	}
+	fn remove_lock() -> Weight {
+		Self::cancel_registration()
+	}
+	fn schedule_code_upgrade() -> Weight {
+		Self::cancel_registration()
+	}
+	fn set_current_head(h: u32, ) -> Weight {
+		Self::register(h)
+	}
+	fn force_set_next_free_para_id() -> Weight {
+		Self::cancel_registration()
+	}
+
 }
 
 // For backwards compatibility and tests.
@@ -299,4 +325,25 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
+
+	// Placeholders, pending a benchmark run. Each reuses the measured weight of the closest
+	// existing call, which is the pattern the repo already accepts for calls whose storage
+	// access matches one that is benchmarked. Regenerating this file with `--extrinsic=*`
+	// replaces them with real numbers; the benchmarks exist for exactly that.
+	fn add_lock() -> Weight {
+		Self::cancel_registration()
+	}
+	fn remove_lock() -> Weight {
+		Self::cancel_registration()
+	}
+	fn schedule_code_upgrade() -> Weight {
+		Self::cancel_registration()
+	}
+	fn set_current_head(h: u32, ) -> Weight {
+		Self::register(h)
+	}
+	fn force_set_next_free_para_id() -> Weight {
+		Self::cancel_registration()
+	}
+
 }
