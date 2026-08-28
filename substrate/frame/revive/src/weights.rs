@@ -168,7 +168,6 @@ pub trait WeightInfo {
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_delegate_call_hot() -> Weight;
-	fn code_load() -> Weight;
 	fn seal_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
 	fn evm_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
 	fn sha2_256(n: u32, ) -> Weight;
@@ -1372,18 +1371,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 22_017_000 picoseconds.
 		Weight::from_parts(23_985_000, 0)
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
-	/// Storage: `Revive::PristineCode` (r:1 w:0)
-	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn code_load() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `883`
-		//  Estimated: `4348`
-		// Minimum execution time: 12_569_000 picoseconds.
-		Weight::from_parts(13_745_000, 4348)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -2971,18 +2958,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 22_017_000 picoseconds.
 		Weight::from_parts(23_985_000, 0)
-	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
-	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
-	/// Storage: `Revive::PristineCode` (r:1 w:0)
-	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn code_load() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `883`
-		//  Estimated: `4348`
-		// Minimum execution time: 12_569_000 picoseconds.
-		Weight::from_parts(13_745_000, 4348)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

@@ -18,20 +18,21 @@
 //! This module provides a means for executing contracts
 //! represented in vm bytecode.
 
-mod code_load;
 pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use code_load::CodeLoadPricing;
 pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, deposit_payment,
+	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	access_list::{CodeLoadWarmth, Warmth},
+	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
-	metering::{ResourceMeter, State},
+	metering::{ResourceMeter, State, Token},
+	weights::WeightInfo,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -116,6 +117,52 @@ impl ExportedFunction {
 			Self::Call => "call",
 		}
 	}
+}
+
+/// Cost of loading the code blob (`PristineCode`): its bytes at its warmth, plus PVM compilation.
+/// Reading the two code keys is in the caller's benchmark; only the bytes depend on the code.
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Clone, Copy)]
+struct CodeBlobLoadToken {
+	code_len: u32,
+	code_type: BytecodeType,
+	warmth: Warmth,
+}
+
+impl<T: Config> Token<T> for CodeBlobLoadToken {
+	fn weight(&self) -> Weight {
+		let blob_cost_of =
+			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
+		let (cold_weight, hot_weight, compilation_weight) = match self.code_type {
+			BytecodeType::Pvm => (
+				blob_cost_of(T::WeightInfo::call_with_pvm_code_per_byte),
+				blob_cost_of(T::WeightInfo::call_with_pvm_code_per_byte_hot),
+				// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so
+				// the compilation term drops its proof. It double-charges the first
+				// BASIC_BLOCK_SIZE instructions; we keep that as a safety margin.
+				T::WeightInfo::basic_block_compilation(1)
+					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
+					.set_proof_size(0),
+			),
+			BytecodeType::Evm => (
+				blob_cost_of(T::WeightInfo::call_with_evm_code_per_byte),
+				blob_cost_of(T::WeightInfo::call_with_evm_code_per_byte_hot),
+				Weight::zero(),
+			),
+		};
+		let bytes_weight = if self.warmth.is_hot() { hot_weight } else { cold_weight };
+		bytes_weight.saturating_add(compilation_weight)
+	}
+}
+
+/// The weight a load of `code_len` bytes is charged.
+#[cfg(test)]
+pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoadWarmth) -> Weight {
+	Token::<crate::tests::Test>::weight(&CodeBlobLoadToken {
+		code_len,
+		code_type,
+		warmth: warmth.blob,
+	})
 }
 
 impl<T: Config> ContractBlob<T> {
@@ -289,9 +336,15 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		pricing: CodeLoadPricing,
+		warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError> {
-		let (code_info, code) = code_load::charge_and_read(code_hash, meter, pricing)?;
+		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
+		meter.charge_weight_token(CodeBlobLoadToken {
+			code_len: code_info.code_len,
+			code_type: code_info.code_type,
+			warmth: warmth.blob,
+		})?;
+		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}
 
@@ -355,5 +408,108 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 		(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 		(_, Callee) => Ok(CalleeTrapped),
 		(err, _) => Err(err),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		access_list::StorageOp,
+		metering::TransactionMeter,
+		test_utils::ALICE,
+		tests::{ExtBuilder, Test},
+	};
+
+	fn warmth(blob: Warmth) -> CodeLoadWarmth {
+		CodeLoadWarmth { info: blob, blob }
+	}
+
+	#[test]
+	fn code_load_cold_hot_pricing() {
+		let code_len = 1024_u32;
+		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {
+			let cold = code_load_weight(code_len, code_type, warmth(Warmth::cold_non_revertible()));
+			let hot = code_load_weight(
+				code_len,
+				code_type,
+				warmth(Warmth::Hot { charged: StorageOp::Read }),
+			);
+			assert!(
+				cold.ref_time() > hot.ref_time(),
+				"expected cold > hot ref_time for {code_type:?}: cold={cold:?} hot={hot:?}",
+			);
+			assert_eq!(hot.proof_size(), 0, "a hot blob is already in the proof: {hot:?}");
+			assert!(
+				cold.proof_size() >= u64::from(code_len),
+				"a cold blob adds at least its {code_len} bytes of proof: {cold:?}",
+			);
+
+			let twice_as_long =
+				code_load_weight(code_len * 2, code_type, warmth(Warmth::cold_non_revertible()));
+			assert!(
+				twice_as_long.proof_size().saturating_sub(cold.proof_size()) >= u64::from(code_len),
+				"doubling the code adds at least {code_len} bytes of proof: \
+				 twice={twice_as_long:?} cold={cold:?}",
+			);
+
+			let cold_info_hot_blob = CodeLoadWarmth {
+				info: Warmth::cold_non_revertible(),
+				blob: Warmth::Hot { charged: StorageOp::Read },
+			};
+			assert_eq!(
+				code_load_weight(code_len, code_type, cold_info_hot_blob),
+				hot,
+				"only the blob's warmth prices the bytes; the metadata read is in the caller's \
+				 bench",
+			);
+		}
+		for blob in [Warmth::cold_non_revertible(), Warmth::Hot { charged: StorageOp::Read }] {
+			assert_eq!(
+				code_load_weight(0, BytecodeType::Evm, warmth(blob)),
+				Weight::zero(),
+				"an empty blob costs nothing: the two key reads are in the caller's bench, {blob:?}",
+			);
+		}
+	}
+
+	#[test]
+	fn a_load_charges_the_blob_before_reading_it() {
+		ExtBuilder::default().build().execute_with(|| {
+			let code = vec![0u8; 1024];
+			let code_len = code.len() as u32;
+			let mut code_info = CodeInfo::<Test>::new(ALICE);
+			code_info.code_len = code_len;
+			let stored = H256::repeat_byte(1);
+			<CodeInfoOf<Test>>::insert(stored, code_info.clone());
+			<PristineCode<Test>>::insert(stored, code.clone());
+			// Metadata without a blob: a load that read the blob before paying for it would fail
+			// with `CodeNotFound` instead of running out of weight.
+			let blob_missing = H256::repeat_byte(2);
+			<CodeInfoOf<Test>>::insert(blob_missing, code_info);
+
+			let cold = warmth(Warmth::cold_non_revertible());
+			let new_meter = |weight_limit| {
+				TransactionMeter::<Test>::new_from_limits(weight_limit, u128::MAX)
+					.expect("a weight-and-deposit meter always builds")
+			};
+
+			let mut meter = new_meter(Weight::MAX);
+			let loaded = ContractBlob::<Test>::from_storage(stored, &mut meter, cold)
+				.expect("the load fits");
+			assert_eq!(loaded.code(), &code[..], "the blob read back is the stored one");
+			assert_eq!(
+				meter.weight_consumed(),
+				code_load_weight(code_len, BytecodeType::Pvm, cold),
+				"a load consumes exactly the blob's weight",
+			);
+
+			let mut meter = new_meter(Weight::zero());
+			assert_eq!(
+				ContractBlob::<Test>::from_storage(blob_missing, &mut meter, cold).map(|_| ()),
+				Err(Error::<Test>::OutOfGas.into()),
+				"without weight for the blob, the charge fails before the blob is read",
+			);
+		});
 	}
 }

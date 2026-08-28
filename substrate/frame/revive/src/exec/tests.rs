@@ -34,7 +34,6 @@ use crate::{
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
 		test_utils::{get_balance, place_contract, set_balance},
 	},
-	vm::CodeLoadPricing,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};
@@ -146,7 +145,7 @@ impl Executable<Test> for MockExecutable {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
-		_pricing: CodeLoadPricing,
+		_warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -209,11 +208,7 @@ fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
 ) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(
-		code_hash,
-		meter,
-		CodeLoadPricing::new(CodeLoadWarmth::cold_non_revertible(), StorageOp::Read),
-	)
+	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_non_revertible())
 }
 
 #[test]
@@ -3654,18 +3649,18 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 }
 
 #[test]
-fn cold_hot_code_paid_level_matches_the_operation() {
+fn cold_hot_a_load_warms_both_code_entries() {
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		let own_hash =
 			MockLoader::code_hashes().into_iter().find(|hash| *hash != dummy_ch).unwrap();
 		assert_eq!(
-			ctx.ext.warmth_of(CodeLoad { hash: own_hash, code_info_op: StorageOp::Read }),
+			ctx.ext.warmth_of(CodeLoad { hash: own_hash }),
 			CodeLoadWarmth {
 				info: Warmth::Hot { charged: StorageOp::Read },
 				blob: Warmth::Hot { charged: StorageOp::Read }
 			},
-			"a call loads code without touching the refcount",
+			"a call warms the code it loads",
 		);
 
 		let value =
@@ -3680,12 +3675,12 @@ fn cold_hot_code_paid_level_matches_the_operation() {
 			)
 			.unwrap();
 		assert_eq!(
-			ctx.ext.warmth_of(CodeLoad { hash: dummy_ch, code_info_op: StorageOp::Read }),
+			ctx.ext.warmth_of(CodeLoad { hash: dummy_ch }),
 			CodeLoadWarmth {
-				info: Warmth::Hot { charged: StorageOp::Write },
+				info: Warmth::Hot { charged: StorageOp::Read },
 				blob: Warmth::Hot { charged: StorageOp::Read }
 			},
-			"instantiating bumps the refcount: metadata write-paid, blob only read",
+			"an instantiate warms the code it loads the same way",
 		);
 		exec_success()
 	});

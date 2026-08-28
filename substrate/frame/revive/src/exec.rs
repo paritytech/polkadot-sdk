@@ -19,7 +19,9 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{self, Access, AccessEntry, AccessList, CallAccess, StorageOp, Warmth},
+	access_list::{
+		self, Access, AccessEntry, AccessList, CallAccess, CodeLoadWarmth, StorageOp, Warmth,
+	},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -31,7 +33,6 @@ use crate::{
 	storage::{AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	vm::CodeLoadPricing,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -603,7 +604,7 @@ pub trait Executable<T: Config>: Sized {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		pricing: CodeLoadPricing,
+		warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1086,9 +1087,7 @@ where
 		meter: &mut ResourceMeter<T, S>,
 		code_load: access_list::CodeLoad,
 	) -> Result<E, DispatchError> {
-		let pricing =
-			CodeLoadPricing::new(access_list.warmth_of(code_load), code_load.code_info_op);
-		let executable = E::from_storage(code_load.hash, meter, pricing)?;
+		let executable = E::from_storage(code_load.hash, meter, access_list.warmth_of(code_load))?;
 		access_list.warm(code_load);
 		Ok(executable)
 	}
@@ -1158,10 +1157,7 @@ where
 						let executable = Self::load_code(
 							access_list,
 							meter,
-							access_list::CodeLoad {
-								hash: info.code_hash,
-								code_info_op: StorageOp::Read,
-							},
+							access_list::CodeLoad { hash: info.code_hash },
 						)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1175,7 +1171,7 @@ where
 					let executable = Self::load_code(
 						access_list,
 						meter,
-						access_list::CodeLoad { hash: code_hash, code_info_op: StorageOp::Read },
+						access_list::CodeLoad { hash: code_hash },
 					)?;
 					ExecutableOrPrecompile::Executable(executable)
 				};
@@ -2179,11 +2175,10 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					// Instantiating bumps the loaded code's refcount.
 					let executable = Self::load_code(
 						&mut self.access_list,
 						&mut top_frame_mut!(self).frame_meter,
-						access_list::CodeLoad { hash: *hash, code_info_op: StorageOp::Write },
+						access_list::CodeLoad { hash: *hash },
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

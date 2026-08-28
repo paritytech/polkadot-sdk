@@ -186,32 +186,6 @@ impl Warmth {
 	}
 }
 
-#[cfg(test)]
-impl Warmth {
-	/// Every warmth an entry can have.
-	pub const ALL: [Warmth; 4] = [
-		Warmth::Cold { revertible: false },
-		Warmth::Cold { revertible: true },
-		Warmth::Hot { charged: StorageOp::Read },
-		Warmth::Hot { charged: StorageOp::Write },
-	];
-}
-
-// Exhaustive on purpose: a new variant fails to compile until `Warmth::ALL` lists it in order.
-#[cfg(test)]
-const _: () = {
-	let mut index = 0;
-	while index < Warmth::ALL.len() {
-		match Warmth::ALL[index] {
-			Warmth::Cold { revertible: false } => assert!(index == 0),
-			Warmth::Cold { revertible: true } => assert!(index == 1),
-			Warmth::Hot { charged: StorageOp::Read } => assert!(index == 2),
-			Warmth::Hot { charged: StorageOp::Write } => assert!(index == 3),
-		}
-		index += 1;
-	}
-};
-
 /// A group of state reads that warm and price together.
 pub trait Access {
 	type Warmth;
@@ -292,7 +266,6 @@ impl CodeLoadWarmth {
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLoad {
 	pub hash: H256,
-	pub code_info_op: StorageOp,
 }
 
 impl Access for CodeLoad {
@@ -300,8 +273,7 @@ impl Access for CodeLoad {
 
 	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
-			info: resolve(AccessEntry::CodeInfo { hash: self.hash }, self.code_info_op),
-			// Loads only read the blob; code uploads and removals are not supported on this path.
+			info: resolve(AccessEntry::CodeInfo { hash: self.hash }, StorageOp::Read),
 			blob: resolve(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
 		}
 	}

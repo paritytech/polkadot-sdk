@@ -64,7 +64,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, CodeLoadPricing, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
+	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -1889,15 +1889,11 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				Code::Existing(code_hash) => {
-					// The code load of an instantiation is always billed cold and it bumps the
-					// loaded code's refcount.
+					// A root instantiate has no access list yet, so its blob is billed cold.
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,
-						CodeLoadPricing::new(
-							CodeLoadWarmth::cold_non_revertible(),
-							StorageOp::Write,
-						),
+						CodeLoadWarmth::cold_non_revertible(),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

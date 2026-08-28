@@ -38,7 +38,7 @@ use crate::{
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{
 	AccountInfoOf,
-	access_list::{Access, AccessEntry, CodeLoad, StorageOp, Warmth},
+	access_list::{Access, AccessEntry, Warmth},
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -413,16 +413,6 @@ where
 	/// Get the `ContractInfo` of this contract or an error if it no longer exists.
 	pub fn info(&self) -> Result<ContractInfo<T>, &'static str> {
 		Self::address_info(&self.account_id)
-	}
-
-	/// Whitelist this contract's code keys; `code_load` prices those reads.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn whitelist_code(&self) -> Result<(), &'static str> {
-		whitelist_access::<T>(CodeLoad {
-			hash: self.info()?.code_hash,
-			code_info_op: StorageOp::Read,
-		});
-		Ok(())
 	}
 
 	/// Set the balance of the contract to the supplied amount.
