@@ -1174,7 +1174,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_589_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench: the bench now touches a code-hash key. Minimum execution time: 1_589_000 picoseconds.
 		Weight::from_parts(1_669_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
@@ -1182,7 +1182,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 893_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench: the bench now touches a code-hash key. Minimum execution time: 893_000 picoseconds.
 		Weight::from_parts(976_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
@@ -1338,6 +1338,19 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// PLACEHOLDER, needs /cmd bench: `t` and `d` copied from `seal_call`.
 			.saturating_add(Weight::from_parts(18_744_318, 0).saturating_mul(t.into()))
 			.saturating_add(Weight::from_parts(25_268_869, 0).saturating_mul(d.into()))
+	}
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn code_load() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `980`
+		//  Estimated: `4445`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 12_326_000 picoseconds.
+		Weight::from_parts(13_424_000, 0)
+			.saturating_add(Weight::from_parts(0, 4445))
+			.saturating_add(T::DbWeight::get().reads(2))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

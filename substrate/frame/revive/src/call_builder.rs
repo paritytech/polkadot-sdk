@@ -38,7 +38,7 @@ use crate::{
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{
 	AccountInfoOf,
-	access_list::{Access, AccessEntry, Warmth},
+	access_list::{Access, AccessEntry, CodeLoad, Warmth},
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -421,6 +421,13 @@ where
 		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
 			account.as_mut().map(|a| a.dust = dust);
 		});
+	}
+
+	/// Whitelist this contract's code keys; `code_load` prices those reads.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn whitelist_code(&self) -> Result<(), &'static str> {
+		whitelist_access::<T>(CodeLoad { hash: self.info()?.code_hash });
+		Ok(())
 	}
 
 	/// Returns `true` iff all storage entries related to code storage exist.

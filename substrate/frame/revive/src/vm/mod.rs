@@ -119,25 +119,37 @@ impl ExportedFunction {
 	}
 }
 
-/// Cost of code loading from storage.
+/// The two charges of a code load, one per read: the trie path both reads share, then the code's
+/// bytes, whose length only the first read reveals.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
-struct CodeLoadToken {
-	code_len: u32,
-	code_type: BytecodeType,
-	warmth: CodeLoadWarmth,
+enum CodeLoadToken {
+	Flat(CodeLoadWarmth),
+	Blob { warmth: CodeLoadWarmth, code_len: u32, code_type: BytecodeType },
 }
 
-impl<T: Config> Token<T> for CodeLoadToken {
-	fn weight(&self) -> Weight {
-		let per_byte: fn(u32) -> Weight = match (self.code_type, self.warmth.blob.is_hot()) {
+impl CodeLoadToken {
+	/// Both reads, at the warmth of the code's own keys, never the calling frame's.
+	fn flat<T: Config>(warmth: CodeLoadWarmth) -> Weight {
+		runtime_costs::weight_by_warmth::<T, _>(
+			[warmth.info, warmth.blob],
+			CodeLoad::KEY_FAMILY,
+			T::WeightInfo::code_load,
+			// A hot read pays only the overlay lookup `weight_by_warmth` adds per item.
+			Weight::zero,
+		)
+	}
+
+	/// The code's bytes at the blob's warmth, plus PVM compilation.
+	fn blob<T: Config>(warmth: CodeLoadWarmth, code_len: u32, code_type: BytecodeType) -> Weight {
+		let per_byte: fn(u32) -> Weight = match (code_type, warmth.blob.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
 			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
 			(BytecodeType::Evm, false) => T::WeightInfo::call_with_evm_code_per_byte,
 			(BytecodeType::Evm, true) => T::WeightInfo::call_with_evm_code_per_byte_hot,
 		};
-		let bytes_weight = per_byte(self.code_len).saturating_sub(per_byte(0));
-		let compilation_weight = match self.code_type {
+		let bytes_weight = per_byte(code_len).saturating_sub(per_byte(0));
+		let compilation_weight = match code_type {
 			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so the
 			// compilation term drops its proof. It double-charges the first BASIC_BLOCK_SIZE
 			// instructions; we keep that as a safety margin.
@@ -146,20 +158,28 @@ impl<T: Config> Token<T> for CodeLoadToken {
 				.set_proof_size(0),
 			BytecodeType::Evm => Weight::zero(),
 		};
-		let touches =
-			RuntimeCosts::access_list_overhead::<T>(self.warmth.info, CodeLoad::KEY_FAMILY)
-				.saturating_add(RuntimeCosts::access_list_overhead::<T>(
-					self.warmth.blob,
-					CodeLoad::KEY_FAMILY,
-				));
-		bytes_weight.saturating_add(compilation_weight).saturating_add(touches)
+		bytes_weight.saturating_add(compilation_weight)
+	}
+}
+
+impl<T: Config> Token<T> for CodeLoadToken {
+	fn weight(&self) -> Weight {
+		match *self {
+			Self::Flat(warmth) => Self::flat::<T>(warmth),
+			Self::Blob { warmth, code_len, code_type } => {
+				Self::blob::<T>(warmth, code_len, code_type)
+			},
+		}
 	}
 }
 
 /// The weight a load of `code_len` bytes is charged.
 #[cfg(test)]
 pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoadWarmth) -> Weight {
-	Token::<crate::tests::Test>::weight(&CodeLoadToken { code_len, code_type, warmth })
+	let flat = Token::<crate::tests::Test>::weight(&CodeLoadToken::Flat(warmth));
+	let blob =
+		Token::<crate::tests::Test>::weight(&CodeLoadToken::Blob { warmth, code_len, code_type });
+	flat.saturating_add(blob)
 }
 
 impl<T: Config> ContractBlob<T> {
@@ -335,11 +355,12 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		meter: &mut ResourceMeter<T, S>,
 		warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError> {
+		meter.charge_weight_token(CodeLoadToken::Flat(warmth))?;
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		meter.charge_weight_token(CodeLoadToken {
+		meter.charge_weight_token(CodeLoadToken::Blob {
+			warmth,
 			code_len: code_info.code_len,
 			code_type: code_info.code_type,
-			warmth,
 		})?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
@@ -437,9 +458,23 @@ mod tests {
 				"expected cold > hot ref_time for {code_type:?}: cold={cold:?} hot={hot:?}",
 			);
 			assert_eq!(hot.proof_size(), 0, "a hot blob is already in the proof: {hot:?}");
+			let both_reads_proof = <Test as Config>::WeightInfo::code_load().proof_size();
 			assert!(
-				cold.proof_size() >= u64::from(code_len),
-				"a cold blob adds at least its {code_len} bytes of proof: {cold:?}",
+				cold.proof_size() >= both_reads_proof + u64::from(code_len),
+				"a cold load proves both reads and the blob's {code_len} bytes: {cold:?}",
+			);
+			let hot_info_cold_blob = code_load_weight(
+				code_len,
+				code_type,
+				CodeLoadWarmth {
+					info: Warmth::Hot { charged: StorageOp::Read },
+					blob: Warmth::cold_non_revertible(),
+				},
+			);
+			assert!(
+				hot_info_cold_blob.proof_size() >= both_reads_proof + u64::from(code_len),
+				"a cold blob walks its trie path even when the info is hot: \
+				 {hot_info_cold_blob:?}",
 			);
 
 			let twice_as_long =
@@ -465,6 +500,23 @@ mod tests {
 				bytes_of(warmth(hot_blob)).ref_time() > 0,
 				"a hot blob still pays for its bytes: {code_type:?}",
 			);
+			let empty_blob = Token::<Test>::weight(&CodeLoadToken::Blob {
+				warmth: warmth(hot_blob),
+				code_len: 0,
+				code_type,
+			});
+			assert_eq!(
+				empty_blob.proof_size(),
+				0,
+				"the two reads' proof lives in `Flat`, not in `Blob`: {code_type:?}",
+			);
+			if matches!(code_type, BytecodeType::Evm) {
+				assert_eq!(
+					empty_blob,
+					Weight::zero(),
+					"the trie path and the entries' touches live in `Flat`, not in `Blob`",
+				);
+			}
 		}
 
 		// One rollback prepay per entry.
@@ -479,7 +531,7 @@ mod tests {
 	}
 
 	#[test]
-	fn a_load_charges_the_blob_before_reading_it() {
+	fn a_load_charges_each_read_before_making_it() {
 		ExtBuilder::default().build().execute_with(|| {
 			let code = vec![0u8; 1024];
 			let code_len = code.len() as u32;
@@ -509,11 +561,20 @@ mod tests {
 				"a load consumes exactly the blob's weight",
 			);
 
-			let mut meter = new_meter(Weight::zero());
+			let flat = Token::<Test>::weight(&CodeLoadToken::Flat(cold));
+			let mut meter = new_meter(flat);
 			assert_eq!(
 				ContractBlob::<Test>::from_storage(blob_missing, &mut meter, cold).map(|_| ()),
 				Err(Error::<Test>::OutOfGas.into()),
-				"without weight for the blob, the charge fails before the blob is read",
+				"with weight for the two reads only, the blob's charge fails before the blob is read",
+			);
+			assert_eq!(meter.weight_consumed(), flat, "only the first charge landed");
+
+			let mut meter = new_meter(Weight::zero());
+			assert_eq!(
+				ContractBlob::<Test>::from_storage(stored, &mut meter, cold).map(|_| ()),
+				Err(Error::<Test>::OutOfGas.into()),
+				"with no weight at all, the load pays for its reads before making the first",
 			);
 		});
 	}

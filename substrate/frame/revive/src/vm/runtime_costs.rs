@@ -466,8 +466,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					sender_account_info,
 					dust,
 				} => {
-					// The transfer rides in the bench the warmth picks, so it prices at that
-					// warmth.
+					// The transfer rides in the bench the warmth picks.
 					let balance_transfer = u32::from(account.is_some());
 					let dust_transfer = u32::from(dust);
 					let info_op = Transfer::info_op(dust);
@@ -482,8 +481,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 						|| T::WeightInfo::seal_call(balance_transfer, dust_transfer, 0),
 						|| T::WeightInfo::seal_call_hot(balance_transfer, dust_transfer),
 					);
-					// The hot bench whitelists these keys, which drops their writes with their
-					// reads, so each one owes its own commit. Same rule as a storage write.
+					// The hot bench whitelists these keys, so each written one owes its commit.
 					let writes = [
 						(account, StorageOp::Write),
 						(sender_account, StorageOp::Write),
@@ -777,47 +775,6 @@ mod tests {
 	}
 
 	#[test]
-	fn a_hot_transfer_pays_the_write_the_bench_whitelisted() {
-		let weight_of = |account, sender_account| {
-			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
-				account: Some(account),
-				sender_account: Some(sender_account),
-				sender_account_info: Some(Warmth::Hot { charged: StorageOp::Write }),
-				dust: false,
-				original_account: Warmth::Hot { charged: StorageOp::Read },
-				account_info: Warmth::Hot { charged: StorageOp::Read },
-			}))
-		};
-		let read_paid = Warmth::Hot { charged: StorageOp::Read };
-		let write_paid = Warmth::Hot { charged: StorageOp::Write };
-		let owed = RuntimeCosts::deferred_write_cost::<Test>()
-			.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
-
-		assert_eq!(
-			weight_of(read_paid, write_paid).saturating_sub(weight_of(write_paid, write_paid)),
-			owed,
-			"a transfer to an account that only paid for a read owes the write's re-hash",
-		);
-		assert_eq!(
-			weight_of(read_paid, read_paid).saturating_sub(weight_of(write_paid, write_paid)),
-			owed.saturating_mul(2),
-			"both accounts owe it independently",
-		);
-		assert_eq!(
-			weight_of(write_paid, write_paid),
-			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
-				account: Some(write_paid),
-				sender_account: Some(write_paid),
-				sender_account_info: Some(write_paid),
-				dust: false,
-				original_account: Warmth::Hot { charged: StorageOp::Read },
-				account_info: Warmth::Hot { charged: StorageOp::Read },
-			})),
-			"a key the transaction already wrote is re-hashed once, so it owes nothing",
-		);
-	}
-
-	#[test]
 	fn a_value_call_prices_the_transfer_at_its_own_warmth() {
 		let write_paid = Warmth::Hot { charged: StorageOp::Write };
 		// Every written key already paid for a write, so nothing is owed on top of the bench.
@@ -861,14 +818,14 @@ mod tests {
 	}
 
 	#[test]
-	fn a_dust_transfer_pays_the_contract_info_writes() {
+	fn every_written_key_that_only_paid_a_read_owes_the_write_commit() {
 		let read_paid = Warmth::Hot { charged: StorageOp::Read };
 		let write_paid = Warmth::Hot { charged: StorageOp::Write };
-		// Both infos at the same paid level, so the difference is what the writes owe.
-		let weight_of = |dust, infos| {
+		// Each pair at the same paid level, so a difference is only what the writes owe.
+		let weight_of = |dust, accounts, infos| {
 			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
-				account: Some(write_paid),
-				sender_account: Some(write_paid),
+				account: Some(accounts),
+				sender_account: Some(accounts),
 				sender_account_info: Some(infos),
 				dust,
 				original_account: read_paid,
@@ -877,17 +834,23 @@ mod tests {
 		};
 		let owed = RuntimeCosts::deferred_write_cost::<Test>()
 			.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
+		let nothing_owed = weight_of(true, write_paid, write_paid);
 
 		assert_eq!(
-			weight_of(true, read_paid).saturating_sub(weight_of(true, write_paid)),
+			weight_of(true, write_paid, read_paid).saturating_sub(nothing_owed),
 			owed.saturating_mul(2),
 			"a dust transfer writes both parties' contract info, so each one that only paid for a \
 			 read owes the write's re-hash",
 		);
 		assert_eq!(
-			weight_of(false, read_paid),
-			weight_of(false, write_paid),
+			weight_of(false, write_paid, read_paid),
+			weight_of(false, write_paid, write_paid),
 			"without dust the infos are only read, so what they paid for makes no difference",
+		);
+		assert_eq!(
+			weight_of(true, read_paid, write_paid).saturating_sub(nothing_owed),
+			owed.saturating_mul(2),
+			"the rule is per written key: the two accounts owe it the same way, once each",
 		);
 	}
 

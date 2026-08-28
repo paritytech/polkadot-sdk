@@ -167,6 +167,7 @@ pub trait WeightInfo {
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
 	fn seal_call(t: u32, d: u32, i: u32, ) -> Weight;
 	fn seal_call_hot(t: u32, d: u32, ) -> Weight;
+	fn code_load() -> Weight;
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_delegate_call_hot() -> Weight;
@@ -1207,14 +1208,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_599_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench: the bench now touches a code-hash key. Minimum execution time: 1_599_000 picoseconds.
 		Weight::from_parts(1_683_000, 0)
 	}
 	fn access_list_touch_hot_account_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 901_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench: the bench now touches a code-hash key. Minimum execution time: 901_000 picoseconds.
 		Weight::from_parts(981_000, 0)
 	}
 	fn access_list_touch_hot_upgrade() -> Weight {
@@ -1355,6 +1356,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// PLACEHOLDER, needs /cmd bench: `t` and `d` copied from `seal_call`.
 			.saturating_add(Weight::from_parts(19_727_690, 0).saturating_mul(t.into()))
 			.saturating_add(Weight::from_parts(25_957_453, 0).saturating_mul(d.into()))
+	}
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn code_load() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `883`
+		//  Estimated: `4348`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 12_569_000 picoseconds.
+		Weight::from_parts(13_745_000, 4348)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -2813,14 +2826,14 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_599_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench: the bench now touches a code-hash key. Minimum execution time: 1_599_000 picoseconds.
 		Weight::from_parts(1_683_000, 0)
 	}
 	fn access_list_touch_hot_account_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 901_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench: the bench now touches a code-hash key. Minimum execution time: 901_000 picoseconds.
 		Weight::from_parts(981_000, 0)
 	}
 	fn access_list_touch_hot_upgrade() -> Weight {
@@ -2961,6 +2974,18 @@ impl WeightInfo for () {
 			// PLACEHOLDER, needs /cmd bench: `t` and `d` copied from `seal_call`.
 			.saturating_add(Weight::from_parts(19_727_690, 0).saturating_mul(t.into()))
 			.saturating_add(Weight::from_parts(25_957_453, 0).saturating_mul(d.into()))
+	}
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn code_load() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `883`
+		//  Estimated: `4348`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 12_569_000 picoseconds.
+		Weight::from_parts(13_745_000, 4348)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

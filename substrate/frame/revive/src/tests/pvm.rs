@@ -3383,7 +3383,7 @@ fn cold_hot_top_level_value_call_warms_the_account() {
 
 		assert_eq!(
 			with_value.cold - zero_value.cold,
-			CallAccess::value_call_entries(false) - CallAccess::plain_entries(),
+			CallAccess::value_call_entries() - CallAccess::plain_entries(),
 			"a value transfer warms both accounts on top of a zero-value call's entries",
 		);
 	});

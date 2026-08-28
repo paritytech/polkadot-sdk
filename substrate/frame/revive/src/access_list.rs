@@ -231,8 +231,8 @@ pub trait Access {
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
 	/// A normal call reads the target's address mapping and contract info, and both parties'
-	/// account state only when it transfers value (`None` otherwise). `dust` says the transferred
-	/// value carries dust, which both prices the transfer and writes the contract infos.
+	/// account state only when it transfers value (`None` otherwise). `dust` prices the transfer
+	/// and writes the contract infos.
 	Plain {
 		account: Option<Warmth>,
 		sender_account: Option<Warmth>,
@@ -248,14 +248,8 @@ pub enum CallWarmth {
 /// A call opcode's access, one variant per call kind.
 #[derive(Clone, Copy, Debug)]
 pub enum CallAccess {
-	/// `transfer` is set when the call moves value, which touches keys a bare call does not.
-	Plain {
-		target: H160,
-		transfer: Option<Transfer>,
-	},
-	Delegate {
-		target: H160,
-	},
+	Plain { target: H160, transfer: Option<Transfer> },
+	Delegate { target: H160 },
 }
 
 /// The value transfer a call performs. It reads and writes both parties' `System::Account`, and a
@@ -289,9 +283,9 @@ impl CallAccess {
 	}
 
 	/// Entries a value-bearing plain call touches: a zero-value call's, plus both parties' account
-	/// state and, when the value carries dust, the sender's contract info.
-	pub(crate) fn value_call_entries(dust: bool) -> u32 {
-		let transfer = Transfer { from: H160::repeat_byte(1), dust };
+	/// state and the sender's contract info.
+	pub(crate) fn value_call_entries() -> u32 {
+		let transfer = Transfer { from: H160::repeat_byte(1), dust: false };
 		Self::Plain { target: H160::zero(), transfer: Some(transfer) }.entry_count() +
 			CodeLoad { hash: H256::zero() }.entry_count()
 	}
@@ -631,6 +625,7 @@ mod tests {
 			let entry = AccessEntry::Storage { address, slot: Slot::Fix([0; 32]) };
 			assert!(!al.touch(entry, StorageOp::Read).is_hot(), "fill entries must be new");
 		}
+		assert_eq!(al.metrics().size, target_size, "the map reached the requested size");
 	}
 
 	#[test]

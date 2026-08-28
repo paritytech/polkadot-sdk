@@ -200,7 +200,7 @@ mod benchmarks {
 
 	/// Shared setup of the hot call benches: deploys `$module` as the callee,
 	/// makes it hot (access list warmed, keys whitelisted), and binds
-	/// `$do_call` to a call forwarding `$t` times a value carrying `$d` times some dust (or, with
+	/// `$do_call` to a call that forwards value when `$t` is 1 and dust when `$d` is 1 (or, with
 	/// the `delegate` prefix, to a delegate call, which cannot transfer).
 	macro_rules! hot_call_setup {
 		($do_call:ident, $module:expr) => {
@@ -564,6 +564,8 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		instance.whitelist_code()?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -599,6 +601,8 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		instance.whitelist_code()?;
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
@@ -2558,8 +2562,12 @@ mod benchmarks {
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, address: callee_addr, .. } =
+		let callee_contract =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		let Contract { account_id: callee, address: callee_addr, .. } = callee_contract.clone();
+
+		// The code read is priced by `code_load`.
+		callee_contract.whitelist_code().unwrap();
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -2686,8 +2694,12 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let Contract { account_id: address, .. } =
+		let callee_contract =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		let Contract { account_id: address, .. } = callee_contract.clone();
+
+		// The code read is priced by `code_load`.
+		callee_contract.whitelist_code()?;
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
@@ -2732,6 +2744,22 @@ mod benchmarks {
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
+	/// Both reads of a code load in one block, so the trie path they share is paid for once.
+	#[benchmark(pov_mode = Measured)]
+	fn code_load() -> Result<(), BenchmarkError> {
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let code_hash = contract.info()?.code_hash;
+		let code_info;
+		let code;
+		#[block]
+		{
+			code_info = <CodeInfoOf<T>>::get(code_hash);
+			code = <PristineCode<T>>::get(&code_hash);
+		}
+		assert!(code_info.is_some() && code.is_some(), "an existing contract must have both");
 		Ok(())
 	}
 

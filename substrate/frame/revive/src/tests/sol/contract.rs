@@ -383,7 +383,7 @@ fn cold_hot_value_transfer_warms_the_account(fixture_type: FixtureType) {
 
 		assert_eq!(
 			(with_value.cold - zero_value.cold) + (with_value.hot - zero_value.hot),
-			CallAccess::value_call_entries(false) - CallAccess::plain_entries(),
+			CallAccess::value_call_entries() - CallAccess::plain_entries(),
 			"the value transfer additionally touches both parties' account state",
 		);
 		assert_eq!(
