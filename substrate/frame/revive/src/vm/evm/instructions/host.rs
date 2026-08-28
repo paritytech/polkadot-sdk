@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256, limits,
+	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256,
+	access_list::StorageOp,
+	limits,
 	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
@@ -122,7 +124,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let key = Key::Fix(index.to_big_endian());
-	let access_kind = interpreter.ext.touch_storage_access(false, &key);
+	let access_kind = interpreter.ext.touch_storage_access(false, &key, StorageOp::Read);
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
 		len: limits::STORAGE_BYTES,
 		kind: access_kind,
@@ -164,7 +166,7 @@ fn store_helper<'ext, E: Ext>(
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 
-	let access_kind = interpreter.ext.touch_storage_access(transient, &key);
+	let access_kind = interpreter.ext.touch_storage_access(transient, &key, StorageOp::Write);
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
 		new_bytes: 32,
 		old_bytes: limits::STORAGE_BYTES,
@@ -213,7 +215,7 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let ([], index) = interpreter.stack.popn_top()?;
 
 	let key = Key::Fix(index.to_big_endian());
-	let access_kind = interpreter.ext.touch_storage_access(true, &key);
+	let access_kind = interpreter.ext.touch_storage_access(true, &key, StorageOp::Read);
 	// Transient values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
