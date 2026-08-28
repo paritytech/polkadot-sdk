@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787910738463,
+  "lastUpdate": 1787929643980,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c3487a54579dbfb96cde4168b012bf60438c93ef",
-          "message": "Enforce stricter rustfmt rules to prevent style ambiguity (#10939)\n\nby default rustfmt preserve local style, and Claude loves to add semi or\nbracket where there were none before,\nWe should make the formatting more strict as this is a bit annoying to\nremind it constantly not to make unnecessary diff.\n\n## Summary\n\nThe PR is just updating\nhttps://github.com/paritytech/polkadot-sdk/blob/pg/stricter-rustfmt-rules/.rustfmt.toml\nevery other changes are just the result of running the linter\n\n\n- Change `match_arm_leading_pipes` from \"Preserve\" to \"Never\" to enforce\na single style\n- Change `trailing_semicolon` from false to true to enforce `return 42;`\nfalse unfortunately preserve the local style\n- Add `normalize_comments = true` to normalize comment spacing (e.g.,\n`// comment` not `//comment`)\n- Add `normalize_doc_attributes = true` to enforce `///` over `#[doc =\n\"\"]`\n\nThese changes ensure only one valid formatting style exists, reducing\nunnecessary diffs in pull requests caused by different but equally valid\nformatting styles.\n\n## Not changed (for now)\nThe following options also default to \"Preserve\" but were intentionally\nnot changed due to (even) larger diff impact:\n\n- `group_imports` - Would enforce import grouping order (std → external\n→ crate) but causes massive import reordering across the codebase\n- `hex_literal_case` - Would enforce `0xABCD` vs `0xabcd` consistency\n- edition 2024 - not sure what that change but it also probably create a\nbig diff\n\nThese could be considered in a future PR if the one-time diff cost is\nacceptable.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T12:58:02Z",
-          "tree_id": "272f1c9365f5d242b76d092585582773f220dbba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3487a54579dbfb96cde4168b012bf60438c93ef"
-        },
-        "date": 1769781896617,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14558349343333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007074149473333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02307181664666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009729223213333325,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009815603599999967,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2cc7937afe9324b248d92a8ddb5373c0eba80b9c",
+          "message": "Don't use expensive aliasers in `ExplicitUnpaidExecutionFrom` (#12831)\n\nThe `ExplicitUnpaidExecutionFrom` barrier runs `AliasOrigin`\ninstructions first so we should only run the cheap ones. There's no\nvalid use-case for `AuthorizedAliasers` as well\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>",
+          "timestamp": "2026-08-28T13:19:01Z",
+          "tree_id": "6284bf0f74d0c2771b6933010a53252ccd83be01",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cc7937afe9324b248d92a8ddb5373c0eba80b9c"
+        },
+        "date": 1787929603400,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009942956993333309,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14448805772,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007897549446666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023844055333333333,
             "unit": "seconds"
           }
         ]
