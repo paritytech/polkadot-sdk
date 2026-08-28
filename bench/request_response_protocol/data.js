@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787928721308,
+  "lastUpdate": 1787933716100,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -119231,6 +119231,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2719407038,
             "range": "± 14924120",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "de9b0827e2ba77478239b54695692aec82e436c0",
+          "message": "ci: add AI review action (#13018)\n\nAdds a workflow that sends PR diff to gemini for review.\nAfter it's merged it can be invoked by `/aireview` comment.\n\ncc https://github.com/paritytech/devops/issues/5505",
+          "timestamp": "2026-08-28T14:17:38Z",
+          "tree_id": "943f29e3e445cbf96b746dd20234fc5e9f139410",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de9b0827e2ba77478239b54695692aec82e436c0"
+        },
+        "date": 1787933674328,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20022261,
+            "range": "± 375321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20114153,
+            "range": "± 203619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21571798,
+            "range": "± 163897",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26477778,
+            "range": "± 125488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61682907,
+            "range": "± 1157415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377631289,
+            "range": "± 7599551",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2839192543,
+            "range": "± 181711689",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17253142,
+            "range": "± 159084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17289147,
+            "range": "± 132225",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17890546,
+            "range": "± 226564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22550109,
+            "range": "± 195694",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63208980,
+            "range": "± 822093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367064167,
+            "range": "± 5835071",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2707735783,
+            "range": "± 12801191",
             "unit": "ns/iter"
           }
         ]
