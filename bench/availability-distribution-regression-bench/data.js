@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787857450618,
+  "lastUpdate": 1787910738463,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "02f16b7f9e9b5d5c889051286da6d2a36eb79e7a",
-          "message": "[pallet-revive] added trybuild test for precompile compile-time checks (#10698)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8364\n\nThis PR adds compile-time tests using try_build to validate invariants\nenforced on registered precompiles. The tests ensure collision detection\nand related compile-time checks are correctly triggered and remain\nenforced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2026-01-30T11:43:34Z",
-          "tree_id": "f226a0b4b0136dc84a597a278f932d31a55fc684",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/02f16b7f9e9b5d5c889051286da6d2a36eb79e7a"
-        },
-        "date": 1769777360363,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00971231708666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007078951126666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02348576531333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14660447099333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009750472806666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0413284779a1d30969d82c7ed0087a8d78758926",
+          "message": "network: Enable WebRTC by default on full nodes (#12870)\n\nAccept WebRTC connections on the same UDP `--port` as used for TCP/WS\nconnections. Enabled by default on full nodes, can be force-enabled with\n`--force-enable-webrtc` on validators & collators, or disabled by\nexplicitly passing listen addresses. Only supported with litep2p network\nbackend.\n\n---------\n\nCo-authored-by: gab <gabriele@parity.io>",
+          "timestamp": "2026-08-28T07:02:42Z",
+          "tree_id": "60cff1edb168eac349847133edd496c478f3f6e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0413284779a1d30969d82c7ed0087a8d78758926"
+        },
+        "date": 1787910700286,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0073604389933333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14769576700666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023423067833333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009815603599999967,
             "unit": "seconds"
           }
         ]
