@@ -25,7 +25,11 @@
 //! chain ([`decide_link`]): the first one anchors on the head JAM has accumulated, every later
 //! one names its parent's package as a prerequisite *and* imports that package's segment 0 (the
 //! parent's header), which is how the service learns in-core which unaccumulated block this one
-//! builds on. The package goes out as a bundle carrying that segment inline.
+//! builds on. The package goes out as a bundle carrying that segment inline. A parent whose
+//! package this task never submitted — another collator's block, or one of ours from before a
+//! restart — is *adopted* instead ([`decide_reported_link`]): the builder found its package hash
+//! in JAM's in-flight reports, and the parent's export is reproduced from its header and checked
+//! against the segment root that report commits to before anything is linked onto it.
 //!
 //! Failure handling is drop-tail: a package that can no longer be reported takes every
 //! descendant with it (their links name a package that will never exist), and the builder is
@@ -43,7 +47,7 @@
 //! compression).
 
 use super::{
-	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET,
+	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET, ParentLink,
 	fetch_anchor_state_proof, jam_slot_at, para_head_stream,
 	resubmission::*,
 	segments::{Export, export_of},
@@ -61,8 +65,8 @@ use jam_interface::{
 use jam_state_helpers::StateProof;
 use jam_std_common::{ImportData, build_encoded_bundle};
 use jam_types::{
-	Authorization, CodeHash, ImportSpec, RefineContext, RootIdentifier, UnsignedGas, WorkItem,
-	WorkPayload,
+	Authorization, CodeHash, ImportSpec, RefineContext, RootIdentifier, SegmentTreeRoot,
+	UnsignedGas, WorkItem, WorkPayload,
 };
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
@@ -187,9 +191,11 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		"JAM collation task started.",
 	);
 
-	// The chain starts empty. Rebuilding what is already in flight — after a restart, or when
-	// another collator's packages are the ones in the air — comes from JAM's availability
-	// assignments and ready queue in 5.4; this is the seam it plugs into.
+	// The chain starts empty after a restart, and stays empty until the builder hands over a
+	// block: the builder is the side that reads JAM's availability assignments and ready queue,
+	// so the first message re-roots the chain here, on the accumulated head
+	// (`ParentLink::Included`) or on a package only JAM state knows about
+	// (`ParentLink::Reported`).
 	let mut manager = Manager {
 		para_client,
 		jam,
@@ -289,6 +295,12 @@ impl<Block: BlockT> InFlightChain<Block> {
 		self.tip().map(|tip| (tip.block_hash, tip.wp_hash))
 	}
 
+	/// The block the whole chain hangs off: the accumulated head for a chain rooted here, another
+	/// collator's in-flight block for one adopted from JAM's reports.
+	fn root_parent(&self) -> Option<Block::Hash> {
+		self.entries.front().map(|entry| entry.parent_hash)
+	}
+
 	fn position_of_block(&self, block_hash: Block::Hash) -> Option<usize> {
 		self.entries.iter().position(|entry| entry.block_hash == block_hash)
 	}
@@ -326,6 +338,10 @@ enum Link<Hash> {
 	/// The block's parent is the chain tip's block: name the tip's package as the prerequisite
 	/// and import its exported header.
 	Chain(WorkPackageHash),
+	/// The block's parent is in flight but its package was never submitted from here — another
+	/// collator's, or ours from before a restart. Start a new chain segment on that package,
+	/// whose export has to be reproduced from the parent's header.
+	Adopt { wp_hash: WorkPackageHash, segroot: SegmentTreeRoot },
 	/// The block builds on something this task is not tracking. Builder and manager disagree
 	/// about the chain, which is a bug on one of the two sides.
 	Mismatch { expected: Option<Hash> },
@@ -351,6 +367,49 @@ fn decide_link<Hash: Copy + PartialEq>(
 			_ => Link::Root,
 		},
 	}
+}
+
+/// Decide the link for a parent whose package the builder knows only from JAM's in-flight
+/// reports — another collator's block, or one of ours from before a restart.
+///
+/// Our own ledger still wins wherever it has an opinion: if that parent is the chain tip then we
+/// submitted its package ourselves and know its hash first-hand, so the reported hash is only a
+/// confirmation. A chain that ends anywhere else is the same disagreement any other mismatch is,
+/// and resynchronising both sides is what resolves it.
+fn decide_reported_link<Hash: Copy + PartialEq>(
+	tip: Option<(Hash, WorkPackageHash)>,
+	parent_hash: Hash,
+	wp_hash: WorkPackageHash,
+	segroot: SegmentTreeRoot,
+) -> Link<Hash> {
+	match tip {
+		Some((tip_block, tip_package)) if tip_block == parent_hash => Link::Chain(tip_package),
+		Some((tip_block, _)) => Link::Mismatch { expected: Some(tip_block) },
+		None => Link::Adopt { wp_hash, segroot },
+	}
+}
+
+/// The parent's export, recomputed from its header and cross-checked against the segment root the
+/// on-chain report for its package commits to.
+///
+/// The recomputation is what makes adopting a package we did not submit possible at all: the
+/// collator never decodes the report's work output, it reproduces the bytes the parent's package
+/// must have exported and checks they hash to the root the chain has already authenticated. A
+/// mismatch means the byte contract and the on-chain reality disagree, and nothing built on that
+/// assumption — least of all the child's import proof — would verify.
+fn adopted_parent_export<Header: HeaderT>(
+	parent_header: &Header,
+	segroot: SegmentTreeRoot,
+) -> Result<Export, String> {
+	let export = export_of(&parent_header.encode())?;
+	if export.segroot != segroot {
+		return Err(format!(
+			"the parent's export root recomputed from its header is {:?}, but its work report \
+			 commits to {segroot:?}",
+			export.segroot,
+		));
+	}
+	Ok(export)
 }
 
 struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
@@ -397,7 +456,12 @@ where
 		let block_number = *block.header().number();
 		let parent_hash = parent_header.hash();
 
-		let link = decide_link(self.chain.tip_link(), self.included_head, parent_hash);
+		let link = match parent_link {
+			ParentLink::Reported { wp_hash, segroot } =>
+				decide_reported_link(self.chain.tip_link(), parent_hash, wp_hash, segroot),
+			ParentLink::Included | ParentLink::Tip =>
+				decide_link(self.chain.tip_link(), self.included_head, parent_hash),
+		};
 		tracing::debug!(
 			target: LOG_TARGET,
 			?block_hash,
@@ -411,9 +475,30 @@ where
 			?triggered_by,
 			"Linking a new block into the in-flight chain.",
 		);
-		let prerequisite = match link {
-			Link::Root => None,
-			Link::Chain(parent_package) => Some(parent_package),
+		// The parent's export travels inline with the child's bundle, so it is needed here as
+		// well as its package hash: held for a parent we submitted, recomputed for one we are
+		// adopting on the strength of its report.
+		let (prerequisite, parent_export) = match link {
+			Link::Root => (None, None),
+			Link::Chain(parent_package) =>
+				(Some(parent_package), self.chain.tip().map(|tip| tip.export.clone())),
+			Link::Adopt { wp_hash, segroot } => match adopted_parent_export(&parent_header, segroot)
+			{
+				Ok(export) => (Some(wp_hash), Some(export)),
+				Err(error) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						?block_hash,
+						?parent_hash,
+						?wp_hash,
+						error,
+						"The parent's export cannot be reproduced from the header we hold; \
+						 dropping the block rather than submitting a package whose import no \
+						 guarantor could verify.",
+					);
+					return;
+				},
+			},
 			Link::Mismatch { expected } => {
 				tracing::error!(
 					target: LOG_TARGET,
@@ -496,12 +581,8 @@ where
 		// that holds it (we built the parent block), so it travels in the bundle. No trust is
 		// added: guarantors verify the segment's proof against the segment root the `Indirect`
 		// import resolves to, which the chain itself authenticates through srlookup.
-		let parent_import = prerequisite
-			.and_then(|_| self.chain.tip())
-			.map(|parent| ImportData {
-				segment: parent.export.segment.to_vec(),
-				proof: parent.export.proof.clone(),
-			});
+		let parent_import = parent_export
+			.map(|export| ImportData { segment: export.segment.to_vec(), proof: export.proof });
 		let package = source.package(&anchored);
 		let (wp_hash, bundle) = build_encoded_bundle(
 			&package,
@@ -816,6 +897,16 @@ where
 					"Para head advanced in JAM state; our packages accumulated.",
 				);
 			},
+			// The block our chain hangs off, accumulating exactly as it should. It is not one of
+			// ours — we adopted its package from JAM's in-flight reports — but everything we
+			// have in flight was waiting for precisely this and is still perfectly live.
+			None if self.chain.root_parent() == Some(hash) => tracing::info!(
+				target: LOG_TARGET,
+				block_hash = ?hash,
+				block_number = %header.number(),
+				chain_depth = self.chain.depth(),
+				"Para head advanced to the block our in-flight chain is rooted on.",
+			),
 			// Ours, but no longer tracked — a package we dropped the tail around still made it,
 			// or the chain was reset under it. Nothing to heal: the builder is already authoring
 			// from the accumulated head.
@@ -1196,6 +1287,76 @@ mod tests {
 			decide_link(None, Some(head), stranger),
 			Link::Mismatch { expected: Some(head) },
 		);
+	}
+
+	/// After a restart, or when another collator authored the parent, the chain is empty and the
+	/// only thing naming the parent's package is JAM's in-flight report. Adopting it is what lets
+	/// the collator keep the pipeline going instead of re-rooting on the accumulated head.
+	#[test]
+	fn a_parent_known_only_from_a_report_starts_a_new_chain_segment() {
+		let parent = H256::repeat_byte(4);
+		let segroot = SegmentTreeRoot::from([5u8; 32]);
+
+		assert_eq!(
+			decide_reported_link(None, parent, wp_hash(6), segroot),
+			Link::Adopt { wp_hash: wp_hash(6), segroot },
+		);
+	}
+
+	/// A reported parent we submitted ourselves is not adopted: we know that package's hash
+	/// first-hand, and going through the report would drop the entry the chain already holds.
+	#[test]
+	fn a_reported_parent_we_already_track_stays_on_the_chain_path() {
+		let tip_block = H256::repeat_byte(2);
+		let segroot = SegmentTreeRoot::from([5u8; 32]);
+
+		assert_eq!(
+			decide_reported_link(Some((tip_block, wp_hash(7))), tip_block, wp_hash(6), segroot),
+			Link::Chain(wp_hash(7)),
+		);
+		assert_eq!(
+			decide_reported_link(
+				Some((tip_block, wp_hash(7))),
+				H256::repeat_byte(3),
+				wp_hash(6),
+				segroot,
+			),
+			Link::Mismatch { expected: Some(tip_block) },
+			"a chain that ends somewhere else is the usual disagreement, not an adoption",
+		);
+	}
+
+	/// Adopting a package means trusting that the parent's header is what that package exported.
+	/// Recomputing the export root from the header we hold and comparing it with the root the
+	/// chain authenticated is the whole check, so it has to accept the real header...
+	#[test]
+	fn the_adopted_parents_export_is_accepted_when_it_reproduces_the_reported_root() {
+		let parent_header = header(4, H256::repeat_byte(7));
+		let export = export_of(&parent_header.encode()).expect("a header fits a segment");
+
+		assert_eq!(adopted_parent_export(&parent_header, export.segroot), Ok(export));
+	}
+
+	/// ...and reject anything else. A mismatch means the byte contract and the on-chain reality
+	/// disagree; the block is dropped because the import proof it would carry could not verify
+	/// against the segment root the `Indirect` import resolves to.
+	#[test]
+	fn an_adopted_parents_export_that_misses_the_reported_root_is_rejected() {
+		let parent_header = header(4, H256::repeat_byte(7));
+
+		assert!(adopted_parent_export(&parent_header, SegmentTreeRoot::from([0xaa; 32])).is_err());
+	}
+
+	/// A chain adopted onto another collator's block is waiting for exactly that block to
+	/// accumulate. Treating its arrival as a foreign head would drop packages that are still in
+	/// flight and perfectly able to accumulate next.
+	#[test]
+	fn the_block_an_adopted_chain_is_rooted_on_is_not_a_foreign_head() {
+		let chain = test_chain(2);
+		let root_parent = chain.entries[0].parent_hash;
+
+		assert_eq!(chain.position_of_block(root_parent), None);
+		assert_eq!(chain.root_parent(), Some(root_parent));
 	}
 
 	/// A chained package carries both halves of the link, and the hash the bundle builder
