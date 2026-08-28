@@ -125,31 +125,27 @@ module support {
   }
 
   /// `incoming_transfers` at capacity, maximally fragmented: one transfer per
-  /// slot in slots `0 .. MaxIncomingTransfers`, chained head to tail.
-  pure val fullIncomingTransfersFixture: Timeslot -> {
-    transfers: List[{ from: ServiceId, amount: Balance, memo: Memo }],
-    nextSlot: Option[Timeslot]
-  } =
+  /// bucket in ids `0 .. MaxIncomingTransfers`, which is what one transfer per
+  /// accumulate invocation produces.
+  pure val fullIncomingTransfersFixture:
+    BucketId -> List[{ from: ServiceId, amount: Balance, memo: Memo }] =
     range(0, MaxIncomingTransfers).foldl(Map(), (acc, i) =>
-      acc.put(i, {
-        transfers: List({ from: MkServiceId(0), amount: 1000 + i, memo: 0 }),
-        nextSlot: if (i == MaxIncomingTransfers - 1) None else Some(i + 1)
-      }))
+      acc.put(i, List({ from: MkServiceId(0), amount: 1000 + i, memo: 0 })))
 
   pure val fullTransferQueue: ParachainServiceState = {
     ...initialState,
     incomingTransfers: fullIncomingTransfersFixture,
-    incomingTransferChain:
-      Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 1,
+    incomingTransferBuckets:
+      Some({ firstBucket: 0, lastBucket: MaxIncomingTransfers - 1,
              count: MaxIncomingTransfers })
   }
 
-  /// One slot short of the reservation: the queue can still hold one more.
+  /// One bucket short of the reservation: the queue can still hold one more.
   pure val almostFullTransferQueue: ParachainServiceState = {
     ...fullTransferQueue,
     incomingTransfers: fullTransferQueue.incomingTransfers.mapRemove(MaxIncomingTransfers - 1),
-    incomingTransferChain:
-      Some({ firstSlot: 0, lastSlot: MaxIncomingTransfers - 2,
+    incomingTransferBuckets:
+      Some({ firstBucket: 0, lastBucket: MaxIncomingTransfers - 2,
              count: MaxIncomingTransfers - 1 })
   }
 
@@ -242,30 +238,30 @@ module support {
   pure def activeCodePinned(pi: ParaInfo): bool =
     match pi.validationCode { | Some(vc) => vc.pinned | None => false }
 
-  /// The chain invariant itself must reject a bucket no predecessor points at.
-  /// Buckets 1 and 2 both link to 3, so walking from `firstSlot` goes 1 -> 3 and
-  /// never visits 2, leaving it charged for but unreachable by
-  /// `consume_transfers_up_to`. Every per-bucket conjunct still holds (endpoints
-  /// present, keys in range, only the tail terminating, successors later and
-  /// occupied), so only the successor-coverage conjunct catches it.
+  /// The endpoint invariant itself must reject a hole in the bucket ids. Asset
+  /// Hub reads the queue by walking `firstBucket ..= lastBucket`, so a missing id
+  /// is a hole in that walk, and it leaves bucket 3's transfer charged for but
+  /// unreachable. The endpoint checks alone do not catch it: both endpoints are
+  /// present and every id lies between them, so only the contiguity conjunct
+  /// rules it out.
   pure val oneTransfer: List[{ from: ServiceId, amount: Balance, memo: Memo }] =
     List({ from: MkServiceId(0), amount: 1, memo: 0 })
 
-  pure val skippingChainState: ParachainServiceState = {
+  pure val gappedBucketsState: ParachainServiceState = {
     ...initialState,
     incomingTransfers: Map(
-      1 -> { transfers: oneTransfer, nextSlot: Some(3) },
-      2 -> { transfers: oneTransfer, nextSlot: Some(3) },
-      3 -> { transfers: oneTransfer, nextSlot: None }),
-    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3, count: 3 })
+      1 -> oneTransfer,
+      2 -> oneTransfer,
+      4 -> oneTransfer),
+    incomingTransferBuckets: Some({ firstBucket: 1, lastBucket: 4, count: 3 })
   }
 
-  pure val linkedChainState: ParachainServiceState = {
+  pure val contiguousBucketsState: ParachainServiceState = {
     ...initialState,
     incomingTransfers: Map(
-      1 -> { transfers: oneTransfer, nextSlot: Some(2) },
-      2 -> { transfers: oneTransfer, nextSlot: Some(3) },
-      3 -> { transfers: oneTransfer, nextSlot: None }),
-    incomingTransferChain: Some({ firstSlot: 1, lastSlot: 3, count: 3 })
+      1 -> oneTransfer,
+      2 -> oneTransfer,
+      3 -> oneTransfer),
+    incomingTransferBuckets: Some({ firstBucket: 1, lastBucket: 3, count: 3 })
   }
 }

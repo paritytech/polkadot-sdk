@@ -330,16 +330,15 @@ module accumulate {
               acc.state.pendingAssignCores.put(payload.core, payload.jamSlot)
           }
         }
-      | ConsumeTransfersUpTo(slot) =>
-      // Asset Hub drains whole buckets up to and including `slot`, clamped to the
-      // candidate's lookup-anchor inside `dropBucketsUpTo`. Both Refine and
-      // `accumulateOkPrefix`'s service-restriction check (§4.3) reject
-      // non-Asset-Hub origins before we reach this branch.
+      | CleanUpBucketsUpTo(bucketId) =>
+      // Asset Hub removes whole buckets up to and including `bucketId`. Both
+      // Refine and `accumulateOkPrefix`'s service-restriction check (§4.3)
+      // reject non-Asset-Hub origins before we reach this branch.
       {
         val before = queuedTransferCount(acc.state)
-        val drained = dropBucketsUpTo(acc.state, slot, lookupAnchor)
+        val cleaned = cleanUpBucketsUpTo(acc.state, bucketId)
         { ...acc,
-          state: reattributeTransferQueue(drained, before, queuedTransferCount(drained)) }
+          state: reattributeTransferQueue(cleaned, before, queuedTransferCount(cleaned)) }
       }
       | UpgradeService(payload) =>
       // §5.4: Asset Hub-initiated service code upgrade. Accumulate verifies
@@ -627,49 +626,70 @@ module accumulate {
     )
   }
 
-  /// §5.1 incoming-transfer processing.
-  pure def applyIncomingTransfer(
+  /// §5.1: admit one transfer into `open`, the bucket the current accumulate
+  /// invocation is filling (`None` before it has opened one). Returns the new
+  /// state paired with the bucket left open for the next arrival.
+  pure def admitIncomingTransfer(
     s: ParachainServiceState,
-    now: Timeslot,
+    open: Option[BucketId],
     t: { from: ServiceId, amount: Balance, memo: Memo }
-  ): ParachainServiceState = {
+  ): (ParachainServiceState, Option[BucketId]) = {
     val count = queuedTransferCount(s)
     // §5.1: inside the reservation the entry is already paid for.
     val reserved = count < MaxIncomingTransfers
     val admitted = reserved or t.amount >= IncomingTransferEntryFootprint
-    if (not(admitted)) s
+    if (not(admitted)) (s, open)
     else {
-      val queued =
-      match s.incomingTransferChain {
-        // Empty queue: `now` becomes the only bucket, so both endpoints.
-        | None =>
-          { ...s,
-            incomingTransfers:
-              s.incomingTransfers.put(now, { transfers: List(t), nextSlot: None }),
-            incomingTransferChain: Some({ firstSlot: now, lastSlot: now, count: 1 }) }
-        | Some(chain) =>
-          if (chain.lastSlot == now) {
-            // Same slot as the tail: append in place, no new storage item.
-            val bucket = s.incomingTransfers.get(now)
-            { ...s,
-              incomingTransfers: s.incomingTransfers.put(
-                now, { ...bucket, transfers: bucket.transfers.append(t) }),
-              incomingTransferChain: Some({ ...chain, count: chain.count + 1 }) }
-          } else {
-            // New bucket at `now`; link the old tail to it and move `lastSlot`.
-            val oldTail = s.incomingTransfers.get(chain.lastSlot)
-            { ...s,
-              incomingTransfers: s.incomingTransfers
-                .put(chain.lastSlot, { ...oldTail, nextSlot: Some(now) })
-                .put(now, { transfers: List(t), nextSlot: None }),
-              incomingTransferChain:
-                Some({ ...chain, lastSlot: now, count: chain.count + 1 }) }
-          }
+      // The invocation's own bucket takes it while below capacity; filling it
+      // closes it, so the next arrival opens the following id. Buckets left by
+      // earlier invocations are already closed and never reopened.
+      val target =
+        match open {
+          | Some(b) =>
+            if (s.incomingTransfers.get(b).length() < MaxTransfersPerBucket) b
+            else nextBucketId(s)
+          | None => nextBucketId(s)
+        }
+      val bucket =
+        if (s.incomingTransfers.keys().contains(target)) s.incomingTransfers.get(target)
+        else List()
+      // `target` is always the tail: either the bucket this invocation opened
+      // last, or the fresh id one past it.
+      val queued = {
+        ...s,
+        incomingTransfers: s.incomingTransfers.put(target, bucket.append(t)),
+        incomingTransferBuckets: Some({
+          firstBucket:
+            match s.incomingTransferBuckets {
+              | None => target
+              | Some(bk) => bk.firstBucket
+            },
+          lastBucket: target,
+          count: count + 1
+        })
       }
-      if (reserved) queued
-      else queued.reattributeTransferQueue(count, count + 1)
+      val charged =
+        if (reserved) queued
+        else queued.reattributeTransferQueue(count, count + 1)
+      (charged, Some(target))
     }
   }
+
+  /// §5.1 incoming-transfer processing for ONE accumulate invocation: admit `ts`
+  /// in order, packing the admitted ones into buckets this invocation opens.
+  pure def applyIncomingTransfers(
+    s: ParachainServiceState,
+    ts: List[{ from: ServiceId, amount: Balance, memo: Memo }]
+  ): ParachainServiceState = {
+    val start: (ParachainServiceState, Option[BucketId]) = (s, None)
+    ts.foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t))._1
+  }
+
+  /// One transfer arriving on its own, i.e. an invocation carrying just it.
+  pure def applyIncomingTransfer(
+    s: ParachainServiceState,
+    t: { from: ServiceId, amount: Balance, memo: Memo }
+  ): ParachainServiceState = applyIncomingTransfers(s, List(t))
 
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
   /// (flush due authorizer queues), then accumulate the block's work packages.

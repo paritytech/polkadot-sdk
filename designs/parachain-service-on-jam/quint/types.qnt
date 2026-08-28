@@ -62,6 +62,10 @@ module types {
   type Timeslot = int
   type Balance = int
 
+  /// Key of one `incoming_transfers` bucket: a `u64` the service allocates by
+  /// incrementing, deliberately unrelated to the arrival timeslot (§3.1).
+  type BucketId = int
+
   /// Head data is opaque to the service; the design caps it at 4 KiB but
   /// we only model equality and a derived hash.
   type HeadData = int
@@ -134,16 +138,23 @@ module types {
   /// footprint is computed from this constant, so changing it moves that too.
   pure val MaxIncomingTransfers: int = 1000
 
+  /// §3.1 cap on the transfers one `incoming_transfers` bucket may hold, so
+  /// Asset Hub can bound the read of any single bucket regardless of how many
+  /// transfers arrive at once. A bucket that reaches this many is closed and the
+  /// next arrival opens a fresh id (§5.1).
+  pure val MaxTransfersPerBucket: int = 512
+
   /// Value octets of one `incoming_transfers` entry:
   /// `ServiceId 4 + Amount (Compact<u64> worst case 9) + Memo 128`.
   pure val IncomingTransferValueOctets: int = 4 + 9 + 128
 
   /// Octets of one worst-case `incoming_transfers` bucket: a bucket holding a
   /// single transfer (maximal fragmentation, §6.1): JAM's per-entry overhead (34),
-  /// the key (1 B tag + 4 B `Timeslot`), the `Vec` length prefix (1), the transfer
-  /// itself, and `Some(next_slot)` (5).
+  /// the key (1 B tag + 8 B `BucketId`), the `Vec` length prefix (1), and the
+  /// transfer itself. `MaxTransfersPerBucket` bounds how much a bucket may hold,
+  /// not how little, so it does not move this figure.
   pure val IncomingTransferBucketOctets: int =
-    34 + 5 + 1 + IncomingTransferValueOctets + 5
+    34 + 9 + 1 + IncomingTransferValueOctets
 
   /// Full balance-unit cost of one worst-case bucket (§6.1): its octets plus the
   /// one storage item it occupies.

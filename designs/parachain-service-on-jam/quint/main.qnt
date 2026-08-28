@@ -28,7 +28,7 @@ module main {
   /// every state mutation in the model flows through `stepRefineAccumulate`
   /// Coretime and Asset Hub act as ordinary parachains whose PVFs emit
   /// privileged upward messages (Coretime: `ParachainSet*`, Asset Hub:
-  /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `ConsumeTransfersUpTo`).
+  /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `CleanUpBucketsUpTo`).
   /// Per-para balance budget at init: baseline + headroom for the active
   /// code preimage + headroom for one pending-upgrade code preimage + a
   /// small buffer for other state (solicited preimages used by tests, etc.).
@@ -264,13 +264,19 @@ module main {
   }
 
   // --- Step (b): another service sends an OnTransfer into Asset Hub ----
+  // One step is one accumulate invocation, so the transfers it carries share the
+  // buckets it opens; a later step's arrivals can never reopen them (§5.1).
   action stepIncomingTransfer = {
     val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
     nondet senderId = oneOf(senderPool)
     nondet amount = oneOf(Set(0, 100, 10000))
     nondet memo = oneOf(Set(0, 1, 2))
+    // Batch sizes above one exercise the in-invocation packing.
+    nondet extra = oneOf(Set(0, 1))
+    val t = { from: senderId, amount: amount, memo: memo }
     all {
-      svc' = applyIncomingTransfer(svc, now, { from: senderId, amount: amount, memo: memo }),
+      svc' = applyIncomingTransfers(
+        svc, if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 })),
       now' = now,
       jamStagingSet' = jamStagingSet,
       solicitedSet' = solicitedSet,
@@ -396,7 +402,10 @@ module main {
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),
-      ConsumeTransfersUpTo(0),
+      // Clean up just the head bucket, and a cut deep enough to reach mid-queue
+      // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
+      CleanUpBucketsUpTo(0),
+      CleanUpBucketsUpTo(2),
       UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
       UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
       // Assignments of every kind: tiles directly (1), kept and rotated (3),

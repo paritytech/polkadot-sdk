@@ -247,8 +247,8 @@ module messages {
   })
   // set_validator_keys(chunk, is_last): Asset Hub only.
   | SetValidatorKeys({ keys: List[ValidatorKey], isLast: bool })
-  // consume_transfers_up_to(index): Asset Hub only.
-  | ConsumeTransfersUpTo(int)
+  // clean_up_buckets_up_to(bucket_id): Asset Hub only.
+  | CleanUpBucketsUpTo(BucketId)
   // parachain_set_head(para_id, new_head): Coretime only.
   | ParachainSetHead({ paraId: ParaId, newHead: HeadData })
   // parachain_set_validation_code(para_id, new_hash, new_len): Coretime only.
@@ -328,7 +328,7 @@ module messages {
   match m {
     | TransferOut(_) => true
     | SetValidatorKeys(_) => true
-    | ConsumeTransfersUpTo(_) => true
+    | CleanUpBucketsUpTo(_) => true
     | UpgradeService(_) => true
     | RemoveServiceStorage(_) => true
     | EjectService(_) => true

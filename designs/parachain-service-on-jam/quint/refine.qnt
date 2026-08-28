@@ -115,7 +115,8 @@ module refine {
     // Vec<ValidatorKey> (compact len + 336 per key) + isLast 1.
     | SetValidatorKeys(p) =>
       1 + compactLen(p.keys.length()) + p.keys.length() * 336
-    | ConsumeTransfersUpTo(_) => 4
+    // bucket_id u64.
+    | CleanUpBucketsUpTo(_) => 8
     | ParachainSetHead(_) => 4102
     // paraId 4 + hash 32 + Compact<u32> len.
     | ParachainSetValidationCode(p) => 36 + compactLen(p.newValidationCodeLen)

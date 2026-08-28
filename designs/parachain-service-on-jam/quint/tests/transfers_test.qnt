@@ -1,5 +1,5 @@
 // Incoming-transfer admission and bucketing, outgoing transfer
-// supervision, and incoming-transfer chain integrity (design 5.1).
+// supervision, and incoming-transfer bucket integrity (design 5.1).
 module transfers_test {
   import types.* from "../types"
   import messages.* from "../messages"
@@ -12,52 +12,82 @@ module transfers_test {
   import support.* from "./support"
 
   /// `MaxIncomingTransfers` is a reservation, not a cap (§5.1). Below it a
-  /// transfer is recorded whatever it carries. At it the slot is unreserved, so
+  /// transfer is recorded whatever it carries. At it the entry is unreserved, so
   /// only a transfer covering its own entry cost is recorded, and the queue then
   /// grows past the bound.
   run reservedPortionThenSelfFundedTest = {
     val full = fullTransferQueue
-    val at = MaxIncomingTransfers   // a fresh slot past the fixture's tail
+    // The fixture holds ids 0 .. MaxIncomingTransfers - 1, so a fresh arrival
+    // opens exactly this id.
+    val fresh = MaxIncomingTransfers
     // One short of the reservation: still inside it, so the entry is free and
     // fills it exactly.
-    val edge = applyIncomingTransfer(almostFullTransferQueue, MaxIncomingTransfers - 1,
+    val edge = applyIncomingTransfer(almostFullTransferQueue,
       { from: MkServiceId(0), amount: 0, memo: 0 })
     // Below the bound: a zero-amount transfer is still recorded.
-    val below = applyIncomingTransfer(initialState, 7,
+    val below = applyIncomingTransfer(initialState,
       { from: MkServiceId(0), amount: 0, memo: 0 })
-    // At the bound: too little to pay for its own slot, so not recorded.
-    val short = applyIncomingTransfer(full, at,
+    // At the bound: too little to pay for its own entry, so not recorded.
+    val short = applyIncomingTransfer(full,
       { from: MkServiceId(0), amount: IncomingTransferEntryFootprint - 1, memo: 0 })
-    // At the bound: exactly covers its slot, so recorded past the reserved portion.
-    val paid = applyIncomingTransfer(full, at,
+    // At the bound: exactly covers its entry, so recorded past the reserved portion.
+    val paid = applyIncomingTransfer(full,
       { from: MkServiceId(0), amount: IncomingTransferEntryFootprint, memo: 0 })
     all {
       // One short of the reservation the entry is free, filling it exactly.
       assert(queuedTransferCount(edge) == MaxIncomingTransfers),
-      // Empty queue: the new bucket is both endpoints.
-      assert(below.incomingTransferChain == Some({ firstSlot: 7, lastSlot: 7, count: 1 })),
+      // Empty queue: ids restart at 0, and the new bucket is both endpoints.
+      assert(below.incomingTransferBuckets ==
+        Some({ firstBucket: 0, lastBucket: 0, count: 1 })),
       assert(queuedTransferCount(below) == 1),
       assert(short == full),
-      // Past the bound: a new bucket, chained from the old tail.
+      // Past the bound: the next id past the old tail.
       assert(queuedTransferCount(paid) == MaxIncomingTransfers + 1),
-      assert(paid.incomingTransferChain ==
-        Some({ firstSlot: 0, lastSlot: at, count: MaxIncomingTransfers + 1 })),
-      assert(paid.incomingTransfers.get(at - 1).nextSlot == Some(at)),
-      assert(paid.incomingTransfers.get(at).nextSlot == None),
+      assert(paid.incomingTransferBuckets ==
+        Some({ firstBucket: 0, lastBucket: fresh, count: MaxIncomingTransfers + 1 })),
+      assert(paid.incomingTransfers.get(fresh).length() == 1),
       init
     }
   }
 
-  /// Arrivals sharing a slot append to the same bucket, adding no storage item.
-  run sameSlotSharesBucketTest = {
-    val a = applyIncomingTransfer(initialState, 5,
-      { from: MkServiceId(0), amount: 500, memo: 0 })
-    val b = applyIncomingTransfer(a, 5, { from: MkServiceId(3), amount: 600, memo: 0 })
+  /// Transfers arriving in ONE accumulate invocation share the bucket it opens,
+  /// adding no storage item. A later invocation cannot reopen that bucket, so its
+  /// arrivals get a fresh id: that is what closes a bucket and makes clean-up safe.
+  run oneInvocationSharesBucketTest = {
+    val t1 = { from: MkServiceId(0), amount: 500, memo: 0 }
+    val t2 = { from: MkServiceId(3), amount: 600, memo: 0 }
+    // One invocation carrying both.
+    val together = applyIncomingTransfers(initialState, List(t1, t2))
+    // Two invocations carrying one each.
+    val apart = applyIncomingTransfer(applyIncomingTransfer(initialState, t1), t2)
     all {
-      assert(b.incomingTransfers.keys() == Set(5)),
-      assert(b.incomingTransfers.get(5).transfers.length() == 2),
-      assert(b.incomingTransferChain == Some({ firstSlot: 5, lastSlot: 5, count: 2 })),
-      assert(queuedTransferCount(b) == 2),
+      assert(together.incomingTransfers == Map(0 -> List(t1, t2))),
+      assert(together.incomingTransferBuckets ==
+        Some({ firstBucket: 0, lastBucket: 0, count: 2 })),
+      assert(queuedTransferCount(together) == 2),
+      // Closed by the invocation boundary, so `t2` lands in bucket 1.
+      assert(apart.incomingTransfers == Map(0 -> List(t1), 1 -> List(t2))),
+      assert(apart.incomingTransferBuckets ==
+        Some({ firstBucket: 0, lastBucket: 1, count: 2 })),
+      init
+    }
+  }
+
+  /// §3.1: a bucket never holds more than `MaxTransfersPerBucket`, so a single
+  /// invocation delivering more than that spills into fresh ids. This is what
+  /// bounds the cost of reading any one bucket, and why a bucket id cannot be the
+  /// arrival timeslot.
+  run bucketSpillsAtCapacityTest = {
+    val batch = range(0, MaxTransfersPerBucket + 1).foldl(List(), (acc, i) =>
+      acc.append({ from: MkServiceId(0), amount: 500, memo: i }))
+    val filled = applyIncomingTransfers(initialState, batch)
+    all {
+      // One past capacity in a single invocation: two buckets.
+      assert(filled.incomingTransfers.keys() == Set(0, 1)),
+      assert(filled.incomingTransfers.get(0).length() == MaxTransfersPerBucket),
+      assert(filled.incomingTransfers.get(1).length() == 1),
+      assert(filled.incomingTransferBuckets ==
+        Some({ firstBucket: 0, lastBucket: 1, count: MaxTransfersPerBucket + 1 })),
       init
     }
   }
@@ -123,37 +153,40 @@ module transfers_test {
         { id: 82, error: DestinationNotSupervised })))
   }
 
-  /// §5.1: draining refunds exactly what admission charged, so an unreserved
+  /// §5.1: cleaning up refunds exactly what admission charged, so an unreserved
   /// entry cannot ratchet `used_state_balance` upward over time.
   run unreservedTransfersAreSelfFundedTest = {
     val ah = AssetHubParaId
     val ahCode: ValidationCodeHash = { vchBytes: 2 }
     val big = IncomingTransferEntryFootprint
     val full = fullTransferQueue
-    val at = MaxIncomingTransfers
+    // The fixture holds ids 0 .. MaxIncomingTransfers - 1, so the arrival below
+    // opens this id and cleaning up to it empties the queue.
+    val fresh = MaxIncomingTransfers
     val used0 = full.paraInfo(ah).usedStateBalance
     val total0 = full.paraInfo(ah).totalStateBalance
     // Deliberately far more than one entry costs, to pin that the surplus is not
     // credited to the allowance.
-    val paid = applyIncomingTransfer(full, at, { from: MkServiceId(3), amount: big * 100, memo: 0 })
-    // Drain the whole queue back out through the real accumulate path.
+    val paid = applyIncomingTransfer(full, { from: MkServiceId(3), amount: big * 100, memo: 0 })
+    // Clean the whole queue back out through the real accumulate path.
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
       validationCode: { hash: ahCode, len: FixedCodeLen },
       parentHeadHash: headHash(paid.paraInfo(ah).headData),
       headData: paid.paraInfo(ah).headData + 1,
-      upwardMessages: List(ConsumeTransfersUpTo(at)),
-      lookupAnchor: at
+      upwardMessages: List(CleanUpBucketsUpTo(fresh)),
+      lookupAnchor: fresh
     }
     val out = accumulateOnePackage(
-      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, at + 1, Map())
+      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen,
+      fresh + 1, Map())
     all {
       // The reserved portion cost nothing beyond the baseline.
       assert(excessTransferFootprint(MaxIncomingTransfers) == 0),
       // Both move by the per-bucket cost, never by the transfer's `amount`.
       assert(paid.paraInfo(ah).usedStateBalance == used0 + big),
       assert(paid.paraInfo(ah).totalStateBalance == total0 + big),
-      // Draining refunds exactly the charge on both, leaving no residue.
+      // Cleaning up refunds exactly the charge on both, leaving no residue.
       assert(queuedTransferCount(out.state) == 0),
       assert(out.state.paraInfo(ah).usedStateBalance == used0),
       assert(out.state.paraInfo(ah).totalStateBalance == total0),
@@ -161,22 +194,19 @@ module transfers_test {
     }
   }
 
-  run chainMustNotSkipBucketTest =
+  run bucketIdsMustBeContiguousTest =
     init
-      // The skipping chain satisfies every per-bucket check...
-      .then(setSvc(skippingChainState))
+      // The gapped queue satisfies every endpoint check...
+      .then(setSvc(gappedBucketsState))
       .then(expectThat(all {
-        svc.incomingTransfers.keys().forall(k =>
-          (k == 3) == (svc.incomingTransfers.get(k).nextSlot == None)),
-        svc.incomingTransfers.keys().forall(k =>
-          match svc.incomingTransfers.get(k).nextSlot {
-            | None => true
-            | Some(nxt) => nxt > k and svc.incomingTransfers.keys().contains(nxt)
-          }),
-        // ...but the invariant rejects it, because bucket 2 is unreachable.
-        not(incoming_transfers_chain_consistent)
+        svc.incomingTransfers.keys().contains(1),
+        svc.incomingTransfers.keys().contains(4),
+        svc.incomingTransfers.keys().forall(k => k >= 1 and k <= 4),
+        // ...but the invariant rejects it: bucket 3 is missing, so a walk of
+        // `firstBucket ..= lastBucket` would hit a hole.
+        not(incoming_transfers_buckets_consistent)
       }))
-      // A properly linked chain over the same buckets is accepted.
-      .then(setSvc(linkedChainState))
-      .then(expectThat(incoming_transfers_chain_consistent))
+      // A contiguous queue over the same endpoints is accepted.
+      .then(setSvc(contiguousBucketsState))
+      .then(expectThat(incoming_transfers_buckets_consistent))
 }
