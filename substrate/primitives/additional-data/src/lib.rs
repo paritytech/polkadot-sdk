@@ -157,6 +157,7 @@ pub trait AdditionalData {
 	/// # Panics
 	///
 	/// If [`AdditionalDataExt`] is not registered in the externalities.
+	#[polkavm_index(242)]
 	#[raw_api]
 	fn read_relay_chain_state_into(
 		&mut self,
@@ -214,6 +215,7 @@ pub trait AdditionalData {
 	/// no extension means no relay state was read and there is nothing to commit. This runs in
 	/// `on_finalize` on every block — including blocks and test contexts that never read relay
 	/// state — so it must not panic on a missing extension.
+	#[polkavm_index(243)]
 	#[raw_api]
 	fn finalize_into(&mut self, hash_out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.0.finalize()) {
