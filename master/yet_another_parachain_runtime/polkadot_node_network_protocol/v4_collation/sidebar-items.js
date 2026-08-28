@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_SEGMENT_LEN"],"struct":["AdvertiseSegment","CandidateFingerprint"],"type":["CollationProtocol"]};

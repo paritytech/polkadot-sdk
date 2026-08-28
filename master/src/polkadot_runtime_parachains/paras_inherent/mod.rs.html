@@ -1100,7 +1100,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#950 id=950 data-nosnippet>950</a>	<span class="kw">let </span>current_session_index = shared::CurrentSessionIndex::&lt;T&gt;::get();
 <a href=#951 id=951 data-nosnippet>951</a>	<span class="kw">let </span>descriptor_version = candidate.descriptor().version();
 <a href=#952 id=952 data-nosnippet>952</a>
-<a href=#953 id=953 data-nosnippet>953</a>	<span class="kw">if </span>descriptor_version == CandidateDescriptorVersion::Unknown {
+<a href=#953 id=953 data-nosnippet>953</a>	<span class="kw">if </span><span class="macro">matches!</span>(descriptor_version, CandidateDescriptorVersion::Unknown(<span class="kw">_</span>)) {
 <a href=#954 id=954 data-nosnippet>954</a>		<span class="macro">log::debug!</span>(
 <a href=#955 id=955 data-nosnippet>955</a>			target: LOG_TARGET,
 <a href=#956 id=956 data-nosnippet>956</a>			<span class="string">"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}."</span>,

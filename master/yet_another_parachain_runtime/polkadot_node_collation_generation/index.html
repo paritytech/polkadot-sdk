@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate polkadot_node_collation_generation</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#two-modes-of-operation" title="Two Modes of Operation">Two Modes of Operation</a><ul><li><a href="#1-collatorfn-callback-legacysimple-interface" title="1. `CollatorFn` callback (legacy/simple interface)">1. <code>CollatorFn</code> callback (legacy/simple interface)</a></li><li><a href="#2-submitcollation-message-full-featured-interface" title="2. `SubmitCollation` message (full-featured interface)">2. <code>SubmitCollation</code> message (full-featured interface)</a></li></ul></li><li><a href="#candidate-descriptor-versions" title="Candidate Descriptor Versions">Candidate Descriptor Versions</a></li><li><a href="#protocol-details" title="Protocol Details">Protocol Details</a></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>polkadot_<wbr>node_<wbr>collation_<wbr>generation</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The collation generation subsystem is the interface between polkadot and the collators.</p>
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate polkadot_node_collation_generation</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../yet_another_parachain_runtime/index.html">yet_<wbr>another_<wbr>parachain_<wbr>runtime</a><span class="version">0.6.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#two-modes-of-operation" title="Two Modes of Operation">Two Modes of Operation</a><ul><li><a href="#1-collatorfn-callback-legacysimple-interface" title="1. `CollatorFn` callback (legacy/simple interface)">1. <code>CollatorFn</code> callback (legacy/simple interface)</a></li><li><a href="#2-submitsegment-message-full-featured-interface" title="2. `SubmitSegment` message (full-featured interface)">2. <code>SubmitSegment</code> message (full-featured interface)</a></li></ul></li><li><a href="#candidate-descriptor-versions" title="Candidate Descriptor Versions">Candidate Descriptor Versions</a></li><li><a href="#protocol-details" title="Protocol Details">Protocol Details</a></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">yet_another_parachain_runtime</a></div><h1>Crate <span>polkadot_<wbr>node_<wbr>collation_<wbr>generation</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The collation generation subsystem is the interface between polkadot and the collators.</p>
 <h2 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h2>
 <p>On every <code>ActiveLeavesUpdate</code>:</p>
 <h2 id="two-modes-of-operation"><a class="doc-anchor" href="#two-modes-of-operation">§</a>Two Modes of Operation</h2>
@@ -164,28 +164,34 @@ specify a <code>scheduling_parent</code>. The <code>scheduling_parent</code> is 
 V2 descriptors where <code>relay_parent == scheduling_parent</code>.</li>
 <li><strong>Used by</strong>: Test collators (adder, undying)</li>
 </ul>
-<h3 id="2-submitcollation-message-full-featured-interface"><a class="doc-anchor" href="#2-submitcollation-message-full-featured-interface">§</a>2. <code>SubmitCollation</code> message (full-featured interface)</h3>
-<p>Collations are submitted directly via <a href="../polkadot_node_subsystem/messages/enum.CollationGenerationMessage.html#variant.SubmitCollation" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollationGenerationMessage::SubmitCollation"><code>CollationGenerationMessage::SubmitCollation</code></a>.
-The collator is responsible for building the collation and deciding when to submit.</p>
+<h3 id="2-submitsegment-message-full-featured-interface"><a class="doc-anchor" href="#2-submitsegment-message-full-featured-interface">§</a>2. <code>SubmitSegment</code> message (full-featured interface)</h3>
+<p>Collations are submitted directly via <a href="../polkadot_node_subsystem/messages/enum.CollationGenerationMessage.html#variant.SubmitSegment" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollationGenerationMessage::SubmitSegment"><code>CollationGenerationMessage::SubmitSegment</code></a>. A segment
+is one or more collations that share a scheduling parent and target core; the collator builds
+them and decides when to submit.</p>
 <ul>
-<li><strong>Trigger</strong>: Explicit <code>SubmitCollation</code> message from the collator</li>
-<li><strong>Flow</strong>: Collator builds collation externally → sends <code>SubmitCollationParams</code> → subsystem
-constructs receipt</li>
-<li><strong>V3 support</strong>: Can specify <code>scheduling_parent</code> in <a href="../polkadot_node_primitives/struct.SubmitCollationParams.html" title="struct yet_another_parachain_runtime::polkadot_node_primitives::SubmitCollationParams"><code>SubmitCollationParams</code></a> to create V3
-candidate descriptors. This enables low-latency collation where the scheduling context (which
+<li><strong>Trigger</strong>: Explicit <code>SubmitSegment</code> message from the collator</li>
+<li><strong>Flow</strong>: Collator builds collations externally → sends <code>SubmitSegmentParams</code> → subsystem
+constructs one <a href="../polkadot_node_subsystem/messages/struct.SegmentEntry.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::SegmentEntry"><code>SegmentEntry</code></a> per collation and distributes them in order as a <a href="../polkadot_node_subsystem/messages/enum.Segment.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::Segment"><code>Segment</code></a>.
+The collator protocol assembles the candidate receipts from the entry fields and the
+segment-level commons.</li>
+<li><strong>Descriptor version</strong>: Selected explicitly via <code>candidates_descriptor_version</code> and reflected
+in the <a href="../polkadot_node_subsystem/messages/enum.Segment.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::Segment"><code>Segment</code></a> arm. <code>V3</code> enables low-latency collation where the scheduling context (which
 relay block determined core assignment) differs from the relay parent (the block the parablock
 actually builds on).</li>
 <li><strong>Used by</strong>: Production collators (cumulus slot-based, lookahead)</li>
 </ul>
 <h2 id="candidate-descriptor-versions"><a class="doc-anchor" href="#candidate-descriptor-versions">§</a>Candidate Descriptor Versions</h2>
-<p>The subsystem creates different descriptor versions based on input:</p>
+<p>The descriptor version is selected via <code>candidates_descriptor_version</code> and is reflected in
+the <a href="../polkadot_node_subsystem/messages/enum.Segment.html" title="enum yet_another_parachain_runtime::polkadot_node_subsystem::messages::Segment"><code>Segment</code></a> arm:</p>
 <ul>
-<li><strong>V2</strong>: <code>scheduling_parent</code> is <code>None</code>. The descriptor has <code>version=0</code> and <code>scheduling_parent</code>
-field is zeroed. Scheduling context implicitly equals relay parent.</li>
-<li><strong>V3</strong>: <code>scheduling_parent</code> is <code>Some(hash)</code>. The descriptor has <code>version=1</code> and includes an
-explicit <code>scheduling_parent</code> field. V3 candidates require UMP signals to be present. Requires
-<code>CandidateReceiptV3</code> node feature to be enabled.</li>
+<li><strong>V2</strong>: <a href="../polkadot_node_subsystem/messages/enum.Segment.html#variant.V2" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::Segment::V2"><code>Segment::V2</code></a>, exactly one collation. The scheduling context implicitly equals the
+relay parent. The <code>CollatorFn</code> path only produces these.</li>
+<li><strong>V3</strong>: <a href="../polkadot_node_subsystem/messages/enum.Segment.html#variant.V3" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::Segment::V3"><code>Segment::V3</code></a>, one or more collations sharing a scheduling parent. V3 candidates
+require UMP signals to be present. Requires the <code>CandidateReceiptV3</code> node feature to be
+enabled.</li>
 </ul>
+<p>UMP-signal checks run on the commitments and descriptor fields directly
+(<a href="../cumulus_primitives_core/relay_chain/v9/fn.parse_ump_signals_for_commitments.html" title="fn yet_another_parachain_runtime::cumulus_primitives_core::relay_chain::v9::parse_ump_signals_for_commitments"><code>parse_ump_signals_for_commitments</code></a>);</p>
 <h2 id="protocol-details"><a class="doc-anchor" href="#protocol-details">§</a>Protocol Details</h2>
 <p>On <code>ActiveLeavesUpdate</code> (only relevant for <code>CollatorFn</code> mode):</p>
 <ol>
@@ -195,17 +201,17 @@ explicit <code>scheduling_parent</code> field. V3 candidates require UMP signals
 <li>Fetch claim queue to determine core assignments</li>
 <li>Fetch validation data and code hash</li>
 <li>Invoke <code>CollatorFn</code> for each assigned core</li>
-<li>Construct candidate receipt and distribute via
-<a href="../polkadot_node_subsystem/messages/enum.CollatorProtocolMessage.html#variant.DistributeCollation" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollatorProtocolMessage::DistributeCollation"><code>CollatorProtocolMessage::DistributeCollation</code></a></li>
+<li>Construct a <a href="../polkadot_node_subsystem/messages/struct.SegmentEntry.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::SegmentEntry"><code>SegmentEntry</code></a> and distribute it as a V2 segment via
+<a href="../polkadot_node_subsystem/messages/enum.CollatorProtocolMessage.html#variant.DistributeSegment" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollatorProtocolMessage::DistributeSegment"><code>CollatorProtocolMessage::DistributeSegment</code></a></li>
 </ul>
 </li>
 </ol>
-<p>On <code>SubmitCollation</code>:</p>
+<p>On <code>SubmitSegment</code>:</p>
 <ol>
 <li>Validate the subsystem is initialized</li>
-<li>Fetch validation data, claim queue, session info</li>
-<li>Construct candidate receipt (V2 or V3 based on <code>scheduling_parent</code>)</li>
-<li>Distribute via <a href="../polkadot_node_subsystem/messages/enum.CollatorProtocolMessage.html#variant.DistributeCollation" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollatorProtocolMessage::DistributeCollation"><code>CollatorProtocolMessage::DistributeCollation</code></a></li>
+<li>Fetch claim queue and session info for the scheduling parent</li>
+<li>Construct one <a href="../polkadot_node_subsystem/messages/struct.SegmentEntry.html" title="struct yet_another_parachain_runtime::polkadot_node_subsystem::messages::SegmentEntry"><code>SegmentEntry</code></a> per collation</li>
+<li>Distribute the segment via <a href="../polkadot_node_subsystem/messages/enum.CollatorProtocolMessage.html#variant.DistributeSegment" title="variant yet_another_parachain_runtime::polkadot_node_subsystem::messages::CollatorProtocolMessage::DistributeSegment"><code>CollatorProtocolMessage::DistributeSegment</code></a></li>
 </ol>
 </div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CollationGenerationSubsystem.html" title="struct yet_another_parachain_runtime::polkadot_node_collation_generation::CollationGenerationSubsystem">Collation<wbr>Generation<wbr>Subsystem</a></dt><dd>Collation Generation Subsystem</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

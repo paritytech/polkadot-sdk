@@ -231,7 +231,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#81 id=81 data-nosnippet>81</a><span class="kw">use </span>sp_keystore::KeystorePtr;
 <a href=#82 id=82 data-nosnippet>82</a>
 <a href=#83 id=83 data-nosnippet>83</a><span class="kw">use </span>polkadot_node_network_protocol::{
-<a href=#84 id=84 data-nosnippet>84</a>	request_response::{v2 <span class="kw">as </span>protocol_v2, IncomingRequestReceiver},
+<a href=#84 id=84 data-nosnippet>84</a>	request_response::{v2 <span class="kw">as </span>protocol_v2, v3 <span class="kw">as </span>protocol_v3, IncomingRequestReceiver},
 <a href=#85 id=85 data-nosnippet>85</a>	PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
 <a href=#86 id=86 data-nosnippet>86</a>};
 <a href=#87 id=87 data-nosnippet>87</a><span class="kw">use </span>polkadot_node_subsystem::{
@@ -313,229 +313,238 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#163 id=163 data-nosnippet>163</a>		</span>collator_pair: CollatorPair,
 <a href=#164 id=164 data-nosnippet>164</a>		<span class="doccomment">/// Receiver for v2 collation fetching requests.
 <a href=#165 id=165 data-nosnippet>165</a>		</span>request_receiver_v2: IncomingRequestReceiver&lt;protocol_v2::CollationFetchingRequest&gt;,
-<a href=#166 id=166 data-nosnippet>166</a>		<span class="doccomment">/// Metrics.
-<a href=#167 id=167 data-nosnippet>167</a>		</span>metrics: collator_side::Metrics,
-<a href=#168 id=168 data-nosnippet>168</a>		<span class="doccomment">/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
-<a href=#169 id=169 data-nosnippet>169</a>		/// tests inject a mock.
-<a href=#170 id=170 data-nosnippet>170</a>		</span>clock: Arc&lt;<span class="kw">dyn </span>Clock&gt;,
-<a href=#171 id=171 data-nosnippet>171</a>	},
-<a href=#172 id=172 data-nosnippet>172</a>	<span class="doccomment">/// No protocol side, just disable it.
-<a href=#173 id=173 data-nosnippet>173</a>	</span><span class="prelude-val">None</span>,
-<a href=#174 id=174 data-nosnippet>174</a>}
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a><span class="doccomment">/// The collator protocol subsystem.
-<a href=#177 id=177 data-nosnippet>177</a></span><span class="kw">pub struct </span>CollatorProtocolSubsystem {
-<a href=#178 id=178 data-nosnippet>178</a>	protocol_side: ProtocolSide,
-<a href=#179 id=179 data-nosnippet>179</a>}
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a><span class="attr">#[overseer::contextbounds(CollatorProtocol, prefix = <span class="self">self</span>::overseer)]
-<a href=#182 id=182 data-nosnippet>182</a></span><span class="kw">impl </span>CollatorProtocolSubsystem {
-<a href=#183 id=183 data-nosnippet>183</a>	<span class="doccomment">/// Start the collator protocol.
-<a href=#184 id=184 data-nosnippet>184</a>	</span><span class="kw">pub fn </span>new(protocol_side: ProtocolSide) -&gt; <span class="self">Self </span>{
-<a href=#185 id=185 data-nosnippet>185</a>		<span class="self">Self </span>{ protocol_side }
-<a href=#186 id=186 data-nosnippet>186</a>	}
-<a href=#187 id=187 data-nosnippet>187</a>}
-<a href=#188 id=188 data-nosnippet>188</a>
-<a href=#189 id=189 data-nosnippet>189</a><span class="attr">#[overseer::subsystem(CollatorProtocol, error=SubsystemError, prefix=<span class="self">self</span>::overseer)]
-<a href=#190 id=190 data-nosnippet>190</a></span><span class="kw">impl</span>&lt;Context&gt; CollatorProtocolSubsystem {
-<a href=#191 id=191 data-nosnippet>191</a>	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
-<a href=#192 id=192 data-nosnippet>192</a>		<span class="kw">let </span>future = <span class="kw">match </span><span class="self">self</span>.protocol_side {
-<a href=#193 id=193 data-nosnippet>193</a>			ProtocolSide::Validator {
-<a href=#194 id=194 data-nosnippet>194</a>				keystore,
-<a href=#195 id=195 data-nosnippet>195</a>				eviction_policy,
-<a href=#196 id=196 data-nosnippet>196</a>				metrics,
-<a href=#197 id=197 data-nosnippet>197</a>				invulnerables,
-<a href=#198 id=198 data-nosnippet>198</a>				collator_protocol_hold_off,
-<a href=#199 id=199 data-nosnippet>199</a>				clock,
-<a href=#200 id=200 data-nosnippet>200</a>			} =&gt; {
-<a href=#201 id=201 data-nosnippet>201</a>				<span class="macro">gum::trace!</span>(
-<a href=#202 id=202 data-nosnippet>202</a>					target: LOG_TARGET,
-<a href=#203 id=203 data-nosnippet>203</a>					<span class="question-mark">?</span>invulnerables,
-<a href=#204 id=204 data-nosnippet>204</a>					<span class="question-mark">?</span>collator_protocol_hold_off,
-<a href=#205 id=205 data-nosnippet>205</a>					<span class="string">"AH collator protocol params"</span>,
-<a href=#206 id=206 data-nosnippet>206</a>				);
-<a href=#207 id=207 data-nosnippet>207</a>				validator_side::run(
-<a href=#208 id=208 data-nosnippet>208</a>					ctx,
-<a href=#209 id=209 data-nosnippet>209</a>					keystore,
-<a href=#210 id=210 data-nosnippet>210</a>					eviction_policy,
-<a href=#211 id=211 data-nosnippet>211</a>					metrics,
-<a href=#212 id=212 data-nosnippet>212</a>					invulnerables,
-<a href=#213 id=213 data-nosnippet>213</a>					collator_protocol_hold_off,
-<a href=#214 id=214 data-nosnippet>214</a>					clock,
-<a href=#215 id=215 data-nosnippet>215</a>				)
-<a href=#216 id=216 data-nosnippet>216</a>				.map_err(|e| SubsystemError::with_origin(<span class="string">"collator-protocol"</span>, e))
-<a href=#217 id=217 data-nosnippet>217</a>				.boxed()
-<a href=#218 id=218 data-nosnippet>218</a>			},
-<a href=#219 id=219 data-nosnippet>219</a>			ProtocolSide::ValidatorExperimental {
-<a href=#220 id=220 data-nosnippet>220</a>				keystore,
-<a href=#221 id=221 data-nosnippet>221</a>				metrics,
-<a href=#222 id=222 data-nosnippet>222</a>				db,
-<a href=#223 id=223 data-nosnippet>223</a>				reputation_config,
-<a href=#224 id=224 data-nosnippet>224</a>				clock,
-<a href=#225 id=225 data-nosnippet>225</a>			} =&gt; validator_side_experimental::run(
-<a href=#226 id=226 data-nosnippet>226</a>				ctx,
-<a href=#227 id=227 data-nosnippet>227</a>				keystore,
-<a href=#228 id=228 data-nosnippet>228</a>				metrics,
-<a href=#229 id=229 data-nosnippet>229</a>				db,
-<a href=#230 id=230 data-nosnippet>230</a>				reputation_config,
-<a href=#231 id=231 data-nosnippet>231</a>				clock,
-<a href=#232 id=232 data-nosnippet>232</a>			)
-<a href=#233 id=233 data-nosnippet>233</a>			.map_err(|e| SubsystemError::with_origin(<span class="string">"collator-protocol"</span>, e))
-<a href=#234 id=234 data-nosnippet>234</a>			.boxed(),
-<a href=#235 id=235 data-nosnippet>235</a>			ProtocolSide::Collator {
-<a href=#236 id=236 data-nosnippet>236</a>				peer_id,
-<a href=#237 id=237 data-nosnippet>237</a>				collator_pair,
-<a href=#238 id=238 data-nosnippet>238</a>				request_receiver_v2,
-<a href=#239 id=239 data-nosnippet>239</a>				metrics,
-<a href=#240 id=240 data-nosnippet>240</a>				clock,
-<a href=#241 id=241 data-nosnippet>241</a>			} =&gt; {
-<a href=#242 id=242 data-nosnippet>242</a>				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics, clock)
-<a href=#243 id=243 data-nosnippet>243</a>					.map_err(|e| SubsystemError::with_origin(<span class="string">"collator-protocol"</span>, e))
-<a href=#244 id=244 data-nosnippet>244</a>					.boxed()
-<a href=#245 id=245 data-nosnippet>245</a>			},
-<a href=#246 id=246 data-nosnippet>246</a>			ProtocolSide::None =&gt; <span class="kw">return </span>DummySubsystem.start(ctx),
-<a href=#247 id=247 data-nosnippet>247</a>		};
-<a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a>		SpawnedSubsystem { name: <span class="string">"collator-protocol-subsystem"</span>, future }
-<a href=#250 id=250 data-nosnippet>250</a>	}
-<a href=#251 id=251 data-nosnippet>251</a>}
-<a href=#252 id=252 data-nosnippet>252</a>
-<a href=#253 id=253 data-nosnippet>253</a><span class="doccomment">/// Modify the reputation of a peer based on its behavior.
-<a href=#254 id=254 data-nosnippet>254</a></span><span class="kw">async fn </span>modify_reputation(
-<a href=#255 id=255 data-nosnippet>255</a>	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
-<a href=#256 id=256 data-nosnippet>256</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::CollatorProtocolSenderTrait,
-<a href=#257 id=257 data-nosnippet>257</a>	peer: PeerId,
-<a href=#258 id=258 data-nosnippet>258</a>	rep: Rep,
-<a href=#259 id=259 data-nosnippet>259</a>) {
-<a href=#260 id=260 data-nosnippet>260</a>	<span class="macro">gum::trace!</span>(
-<a href=#261 id=261 data-nosnippet>261</a>		target: LOG_TARGET,
-<a href=#262 id=262 data-nosnippet>262</a>		rep = <span class="question-mark">?</span>rep,
-<a href=#263 id=263 data-nosnippet>263</a>		peer_id = %peer,
-<a href=#264 id=264 data-nosnippet>264</a>		<span class="string">"reputation change for peer"</span>,
-<a href=#265 id=265 data-nosnippet>265</a>	);
-<a href=#266 id=266 data-nosnippet>266</a>
-<a href=#267 id=267 data-nosnippet>267</a>	reputation.modify(sender, peer, rep).<span class="kw">await</span>;
-<a href=#268 id=268 data-nosnippet>268</a>}
-<a href=#269 id=269 data-nosnippet>269</a>
-<a href=#270 id=270 data-nosnippet>270</a><span class="doccomment">/// Wait until tick and return the timestamp for the following one.
-<a href=#271 id=271 data-nosnippet>271</a></span><span class="kw">async fn </span>wait_until_next_tick(clock: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Clock, last_poll: Instant, period: Duration) -&gt; Instant {
-<a href=#272 id=272 data-nosnippet>272</a>	<span class="kw">let </span>now = clock.now();
-<a href=#273 id=273 data-nosnippet>273</a>	<span class="kw">let </span>next_poll = last_poll + period;
-<a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a>	<span class="kw">if </span>next_poll &gt; now {
-<a href=#276 id=276 data-nosnippet>276</a>		clock.delay(next_poll - now).<span class="kw">await
-<a href=#277 id=277 data-nosnippet>277</a>	</span>}
+<a href=#166 id=166 data-nosnippet>166</a>		<span class="doccomment">/// Receiver for v3 collation fetching requests.
+<a href=#167 id=167 data-nosnippet>167</a>		</span>request_receiver_v3: IncomingRequestReceiver&lt;protocol_v3::CollationFetchingRequest&gt;,
+<a href=#168 id=168 data-nosnippet>168</a>		<span class="doccomment">/// Metrics.
+<a href=#169 id=169 data-nosnippet>169</a>		</span>metrics: collator_side::Metrics,
+<a href=#170 id=170 data-nosnippet>170</a>		<span class="doccomment">/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
+<a href=#171 id=171 data-nosnippet>171</a>		/// tests inject a mock.
+<a href=#172 id=172 data-nosnippet>172</a>		</span>clock: Arc&lt;<span class="kw">dyn </span>Clock&gt;,
+<a href=#173 id=173 data-nosnippet>173</a>	},
+<a href=#174 id=174 data-nosnippet>174</a>	<span class="doccomment">/// No protocol side, just disable it.
+<a href=#175 id=175 data-nosnippet>175</a>	</span><span class="prelude-val">None</span>,
+<a href=#176 id=176 data-nosnippet>176</a>}
+<a href=#177 id=177 data-nosnippet>177</a>
+<a href=#178 id=178 data-nosnippet>178</a><span class="doccomment">/// The collator protocol subsystem.
+<a href=#179 id=179 data-nosnippet>179</a></span><span class="kw">pub struct </span>CollatorProtocolSubsystem {
+<a href=#180 id=180 data-nosnippet>180</a>	protocol_side: ProtocolSide,
+<a href=#181 id=181 data-nosnippet>181</a>}
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a><span class="attr">#[overseer::contextbounds(CollatorProtocol, prefix = <span class="self">self</span>::overseer)]
+<a href=#184 id=184 data-nosnippet>184</a></span><span class="kw">impl </span>CollatorProtocolSubsystem {
+<a href=#185 id=185 data-nosnippet>185</a>	<span class="doccomment">/// Start the collator protocol.
+<a href=#186 id=186 data-nosnippet>186</a>	</span><span class="kw">pub fn </span>new(protocol_side: ProtocolSide) -&gt; <span class="self">Self </span>{
+<a href=#187 id=187 data-nosnippet>187</a>		<span class="self">Self </span>{ protocol_side }
+<a href=#188 id=188 data-nosnippet>188</a>	}
+<a href=#189 id=189 data-nosnippet>189</a>}
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a><span class="attr">#[overseer::subsystem(CollatorProtocol, error=SubsystemError, prefix=<span class="self">self</span>::overseer)]
+<a href=#192 id=192 data-nosnippet>192</a></span><span class="kw">impl</span>&lt;Context&gt; CollatorProtocolSubsystem {
+<a href=#193 id=193 data-nosnippet>193</a>	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
+<a href=#194 id=194 data-nosnippet>194</a>		<span class="kw">let </span>future = <span class="kw">match </span><span class="self">self</span>.protocol_side {
+<a href=#195 id=195 data-nosnippet>195</a>			ProtocolSide::Validator {
+<a href=#196 id=196 data-nosnippet>196</a>				keystore,
+<a href=#197 id=197 data-nosnippet>197</a>				eviction_policy,
+<a href=#198 id=198 data-nosnippet>198</a>				metrics,
+<a href=#199 id=199 data-nosnippet>199</a>				invulnerables,
+<a href=#200 id=200 data-nosnippet>200</a>				collator_protocol_hold_off,
+<a href=#201 id=201 data-nosnippet>201</a>				clock,
+<a href=#202 id=202 data-nosnippet>202</a>			} =&gt; {
+<a href=#203 id=203 data-nosnippet>203</a>				<span class="macro">gum::trace!</span>(
+<a href=#204 id=204 data-nosnippet>204</a>					target: LOG_TARGET,
+<a href=#205 id=205 data-nosnippet>205</a>					<span class="question-mark">?</span>invulnerables,
+<a href=#206 id=206 data-nosnippet>206</a>					<span class="question-mark">?</span>collator_protocol_hold_off,
+<a href=#207 id=207 data-nosnippet>207</a>					<span class="string">"AH collator protocol params"</span>,
+<a href=#208 id=208 data-nosnippet>208</a>				);
+<a href=#209 id=209 data-nosnippet>209</a>				validator_side::run(
+<a href=#210 id=210 data-nosnippet>210</a>					ctx,
+<a href=#211 id=211 data-nosnippet>211</a>					keystore,
+<a href=#212 id=212 data-nosnippet>212</a>					eviction_policy,
+<a href=#213 id=213 data-nosnippet>213</a>					metrics,
+<a href=#214 id=214 data-nosnippet>214</a>					invulnerables,
+<a href=#215 id=215 data-nosnippet>215</a>					collator_protocol_hold_off,
+<a href=#216 id=216 data-nosnippet>216</a>					clock,
+<a href=#217 id=217 data-nosnippet>217</a>				)
+<a href=#218 id=218 data-nosnippet>218</a>				.map_err(|e| SubsystemError::with_origin(<span class="string">"collator-protocol"</span>, e))
+<a href=#219 id=219 data-nosnippet>219</a>				.boxed()
+<a href=#220 id=220 data-nosnippet>220</a>			},
+<a href=#221 id=221 data-nosnippet>221</a>			ProtocolSide::ValidatorExperimental {
+<a href=#222 id=222 data-nosnippet>222</a>				keystore,
+<a href=#223 id=223 data-nosnippet>223</a>				metrics,
+<a href=#224 id=224 data-nosnippet>224</a>				db,
+<a href=#225 id=225 data-nosnippet>225</a>				reputation_config,
+<a href=#226 id=226 data-nosnippet>226</a>				clock,
+<a href=#227 id=227 data-nosnippet>227</a>			} =&gt; validator_side_experimental::run(
+<a href=#228 id=228 data-nosnippet>228</a>				ctx,
+<a href=#229 id=229 data-nosnippet>229</a>				keystore,
+<a href=#230 id=230 data-nosnippet>230</a>				metrics,
+<a href=#231 id=231 data-nosnippet>231</a>				db,
+<a href=#232 id=232 data-nosnippet>232</a>				reputation_config,
+<a href=#233 id=233 data-nosnippet>233</a>				clock,
+<a href=#234 id=234 data-nosnippet>234</a>			)
+<a href=#235 id=235 data-nosnippet>235</a>			.map_err(|e| SubsystemError::with_origin(<span class="string">"collator-protocol"</span>, e))
+<a href=#236 id=236 data-nosnippet>236</a>			.boxed(),
+<a href=#237 id=237 data-nosnippet>237</a>			ProtocolSide::Collator {
+<a href=#238 id=238 data-nosnippet>238</a>				peer_id,
+<a href=#239 id=239 data-nosnippet>239</a>				collator_pair,
+<a href=#240 id=240 data-nosnippet>240</a>				request_receiver_v2,
+<a href=#241 id=241 data-nosnippet>241</a>				request_receiver_v3,
+<a href=#242 id=242 data-nosnippet>242</a>				metrics,
+<a href=#243 id=243 data-nosnippet>243</a>				clock,
+<a href=#244 id=244 data-nosnippet>244</a>			} =&gt; collator_side::run(
+<a href=#245 id=245 data-nosnippet>245</a>				ctx,
+<a href=#246 id=246 data-nosnippet>246</a>				peer_id,
+<a href=#247 id=247 data-nosnippet>247</a>				collator_pair,
+<a href=#248 id=248 data-nosnippet>248</a>				request_receiver_v2,
+<a href=#249 id=249 data-nosnippet>249</a>				request_receiver_v3,
+<a href=#250 id=250 data-nosnippet>250</a>				metrics,
+<a href=#251 id=251 data-nosnippet>251</a>				clock,
+<a href=#252 id=252 data-nosnippet>252</a>			)
+<a href=#253 id=253 data-nosnippet>253</a>			.map_err(|e| SubsystemError::with_origin(<span class="string">"collator-protocol"</span>, e))
+<a href=#254 id=254 data-nosnippet>254</a>			.boxed(),
+<a href=#255 id=255 data-nosnippet>255</a>			ProtocolSide::None =&gt; <span class="kw">return </span>DummySubsystem.start(ctx),
+<a href=#256 id=256 data-nosnippet>256</a>		};
+<a href=#257 id=257 data-nosnippet>257</a>
+<a href=#258 id=258 data-nosnippet>258</a>		SpawnedSubsystem { name: <span class="string">"collator-protocol-subsystem"</span>, future }
+<a href=#259 id=259 data-nosnippet>259</a>	}
+<a href=#260 id=260 data-nosnippet>260</a>}
+<a href=#261 id=261 data-nosnippet>261</a>
+<a href=#262 id=262 data-nosnippet>262</a><span class="doccomment">/// Modify the reputation of a peer based on its behavior.
+<a href=#263 id=263 data-nosnippet>263</a></span><span class="kw">async fn </span>modify_reputation(
+<a href=#264 id=264 data-nosnippet>264</a>	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
+<a href=#265 id=265 data-nosnippet>265</a>	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::CollatorProtocolSenderTrait,
+<a href=#266 id=266 data-nosnippet>266</a>	peer: PeerId,
+<a href=#267 id=267 data-nosnippet>267</a>	rep: Rep,
+<a href=#268 id=268 data-nosnippet>268</a>) {
+<a href=#269 id=269 data-nosnippet>269</a>	<span class="macro">gum::trace!</span>(
+<a href=#270 id=270 data-nosnippet>270</a>		target: LOG_TARGET,
+<a href=#271 id=271 data-nosnippet>271</a>		rep = <span class="question-mark">?</span>rep,
+<a href=#272 id=272 data-nosnippet>272</a>		peer_id = %peer,
+<a href=#273 id=273 data-nosnippet>273</a>		<span class="string">"reputation change for peer"</span>,
+<a href=#274 id=274 data-nosnippet>274</a>	);
+<a href=#275 id=275 data-nosnippet>275</a>
+<a href=#276 id=276 data-nosnippet>276</a>	reputation.modify(sender, peer, rep).<span class="kw">await</span>;
+<a href=#277 id=277 data-nosnippet>277</a>}
 <a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a>	clock.now()
-<a href=#280 id=280 data-nosnippet>280</a>}
-<a href=#281 id=281 data-nosnippet>281</a>
-<a href=#282 id=282 data-nosnippet>282</a><span class="doccomment">/// Returns an infinite stream that yields with an interval of `period`.
-<a href=#283 id=283 data-nosnippet>283</a></span><span class="kw">fn </span>tick_stream(clock: Arc&lt;<span class="kw">dyn </span>Clock&gt;, period: Duration) -&gt; <span class="kw">impl </span>FusedStream&lt;Item = ()&gt; {
-<a href=#284 id=284 data-nosnippet>284</a>	futures::stream::unfold(clock.now(), <span class="kw">move </span>|next_check| {
-<a href=#285 id=285 data-nosnippet>285</a>		<span class="kw">let </span>clock = clock.clone();
-<a href=#286 id=286 data-nosnippet>286</a>		<span class="kw">async move </span>{ <span class="prelude-val">Some</span>(((), wait_until_next_tick(<span class="kw-2">&amp;*</span>clock, next_check, period).<span class="kw">await</span>)) }
-<a href=#287 id=287 data-nosnippet>287</a>	})
-<a href=#288 id=288 data-nosnippet>288</a>	.fuse()
+<a href=#279 id=279 data-nosnippet>279</a><span class="doccomment">/// Wait until tick and return the timestamp for the following one.
+<a href=#280 id=280 data-nosnippet>280</a></span><span class="kw">async fn </span>wait_until_next_tick(clock: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Clock, last_poll: Instant, period: Duration) -&gt; Instant {
+<a href=#281 id=281 data-nosnippet>281</a>	<span class="kw">let </span>now = clock.now();
+<a href=#282 id=282 data-nosnippet>282</a>	<span class="kw">let </span>next_poll = last_poll + period;
+<a href=#283 id=283 data-nosnippet>283</a>
+<a href=#284 id=284 data-nosnippet>284</a>	<span class="kw">if </span>next_poll &gt; now {
+<a href=#285 id=285 data-nosnippet>285</a>		clock.delay(next_poll - now).<span class="kw">await
+<a href=#286 id=286 data-nosnippet>286</a>	</span>}
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>	clock.now()
 <a href=#289 id=289 data-nosnippet>289</a>}
 <a href=#290 id=290 data-nosnippet>290</a>
-<a href=#291 id=291 data-nosnippet>291</a><span class="doccomment">/// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
-<a href=#292 id=292 data-nosnippet>292</a>/// Stores the leaf's BABE slot and parent hash so the validator can determine whether
-<a href=#293 id=293 data-nosnippet>293</a>/// the scheduling parent corresponds to the last finished relay chain slot.
-<a href=#294 id=294 data-nosnippet>294</a></span><span class="kw">struct </span>LeafSchedulingInfo {
-<a href=#295 id=295 data-nosnippet>295</a>	<span class="doccomment">/// The parent hash of the leaf block.
-<a href=#296 id=296 data-nosnippet>296</a>	</span>parent_hash: Hash,
-<a href=#297 id=297 data-nosnippet>297</a>	<span class="doccomment">/// The BABE slot of the leaf block.
-<a href=#298 id=298 data-nosnippet>298</a>	</span>slot: sp_consensus_slots::Slot,
-<a href=#299 id=299 data-nosnippet>299</a>}
-<a href=#300 id=300 data-nosnippet>300</a>
-<a href=#301 id=301 data-nosnippet>301</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>extract_leaf_scheduling_info&lt;Sender: CollatorProtocolSenderTrait&gt;(
-<a href=#302 id=302 data-nosnippet>302</a>	sender: <span class="kw-2">&amp;mut </span>Sender,
-<a href=#303 id=303 data-nosnippet>303</a>	leaf: H256,
-<a href=#304 id=304 data-nosnippet>304</a>) -&gt; <span class="prelude-ty">Option</span>&lt;LeafSchedulingInfo&gt; {
-<a href=#305 id=305 data-nosnippet>305</a>	<span class="comment">// Fetch leaf header to extract BABE slot for V3 scheduling parent validation.
-<a href=#306 id=306 data-nosnippet>306</a>	// Without this info, V3 advertisements referencing this leaf will be rejected.
-<a href=#307 id=307 data-nosnippet>307</a>	</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
-<a href=#308 id=308 data-nosnippet>308</a>	sender.send_message(ChainApiMessage::BlockHeader(leaf, tx)).<span class="kw">await</span>;
-<a href=#309 id=309 data-nosnippet>309</a>	<span class="kw">let </span>header = rx.<span class="kw">await</span>.ok().and_then(|r| r.ok().flatten());
-<a href=#310 id=310 data-nosnippet>310</a>	header.and_then(|header| {
-<a href=#311 id=311 data-nosnippet>311</a>		<span class="kw">let </span>slot = header.digest.logs().iter().find_map(|log| log.as_babe_pre_digest())<span class="question-mark">?</span>.slot();
-<a href=#312 id=312 data-nosnippet>312</a>		<span class="prelude-val">Some</span>(LeafSchedulingInfo { parent_hash: header.parent_hash, slot })
-<a href=#313 id=313 data-nosnippet>313</a>	})
-<a href=#314 id=314 data-nosnippet>314</a>}
-<a href=#315 id=315 data-nosnippet>315</a>
-<a href=#316 id=316 data-nosnippet>316</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_scheduling_parent_valid(
-<a href=#317 id=317 data-nosnippet>317</a>	clock: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Clock,
-<a href=#318 id=318 data-nosnippet>318</a>	scheduling_parent: <span class="kw-2">&amp;</span>Hash,
-<a href=#319 id=319 data-nosnippet>319</a>	leaf_scheduling_info: <span class="kw-2">&amp;</span>HashMap&lt;Hash, LeafSchedulingInfo&gt;,
-<a href=#320 id=320 data-nosnippet>320</a>) -&gt; bool {
-<a href=#321 id=321 data-nosnippet>321</a>	<span class="kw">let </span>slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
-<a href=#322 id=322 data-nosnippet>322</a>	<span class="kw">let </span>current_slot = sp_consensus_slots::Slot::from_timestamp(
-<a href=#323 id=323 data-nosnippet>323</a>		sp_timestamp::Timestamp::new(clock.duration_since_epoch().as_millis() <span class="kw">as </span>u64),
-<a href=#324 id=324 data-nosnippet>324</a>		slot_duration,
-<a href=#325 id=325 data-nosnippet>325</a>	);
-<a href=#326 id=326 data-nosnippet>326</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = leaf_scheduling_info.get(scheduling_parent) {
-<a href=#327 id=327 data-nosnippet>327</a>		<span class="comment">// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
-<a href=#328 id=328 data-nosnippet>328</a>		// the previous slot.
-<a href=#329 id=329 data-nosnippet>329</a>		</span><span class="kw-2">*</span>current_slot == <span class="kw-2">*</span>info.slot + <span class="number">1
-<a href=#330 id=330 data-nosnippet>330</a>	</span>} <span class="kw">else </span>{
-<a href=#331 id=331 data-nosnippet>331</a>		<span class="comment">// scheduling_parent is not a leaf. This is allowed only if the sp is the parent of
-<a href=#332 id=332 data-nosnippet>332</a>		// any leaf whose slot is still in progress.
-<a href=#333 id=333 data-nosnippet>333</a>		</span>leaf_scheduling_info
-<a href=#334 id=334 data-nosnippet>334</a>			.iter()
-<a href=#335 id=335 data-nosnippet>335</a>			.any(|(<span class="kw">_</span>, info)| <span class="kw-2">*</span>current_slot == <span class="kw-2">*</span>info.slot &amp;&amp; <span class="kw-2">*</span>scheduling_parent == info.parent_hash)
-<a href=#336 id=336 data-nosnippet>336</a>	}
-<a href=#337 id=337 data-nosnippet>337</a>}
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a><span class="doccomment">/// The per-core claim queues for one active leaf, together with the runtime scheduling lookahead
-<a href=#340 id=340 data-nosnippet>340</a>/// that bounds them.
-<a href=#341 id=341 data-nosnippet>341</a>///
-<a href=#342 id=342 data-nosnippet>342</a>/// Experimental (`validator_side_experimental`) goes through the [`Self::slots`] / [`Self::window`]
-<a href=#343 id=343 data-nosnippet>343</a>/// helpers, which own the lookahead arithmetic. Legacy (`validator_side`) has its own
-<a href=#344 id=344 data-nosnippet>344</a>/// bitfield-based allocation and reads the fields directly — a properly factored legacy would go
-<a href=#345 id=345 data-nosnippet>345</a>/// through the helpers too, but legacy is on its way out so we don't invest in that.
-<a href=#346 id=346 data-nosnippet>346</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>LeafClaimQueues {
-<a href=#347 id=347 data-nosnippet>347</a>	claim_queues: BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;,
-<a href=#348 id=348 data-nosnippet>348</a>	scheduling_lookahead: usize,
-<a href=#349 id=349 data-nosnippet>349</a>}
-<a href=#350 id=350 data-nosnippet>350</a>
-<a href=#351 id=351 data-nosnippet>351</a><span class="kw">impl </span>LeafClaimQueues {
-<a href=#352 id=352 data-nosnippet>352</a>	<span class="doccomment">/// Fetch the per-core claim queues and the scheduling lookahead for `leaf` from the runtime.
-<a href=#353 id=353 data-nosnippet>353</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch&lt;Sender: CollatorProtocolSenderTrait&gt;(
-<a href=#354 id=354 data-nosnippet>354</a>		leaf: Hash,
-<a href=#355 id=355 data-nosnippet>355</a>		session_index: SessionIndex,
-<a href=#356 id=356 data-nosnippet>356</a>		sender: <span class="kw-2">&amp;mut </span>Sender,
-<a href=#357 id=357 data-nosnippet>357</a>	) -&gt; std::result::Result&lt;<span class="self">Self</span>, runtime::Error&gt; {
-<a href=#358 id=358 data-nosnippet>358</a>		<span class="kw">let </span>scheduling_lookahead =
-<a href=#359 id=359 data-nosnippet>359</a>			fetch_scheduling_lookahead(leaf, session_index, sender).<span class="kw">await</span><span class="question-mark">? </span><span class="kw">as </span>usize;
-<a href=#360 id=360 data-nosnippet>360</a>		<span class="kw">let </span>claim_queues = recv_runtime(request_claim_queue(leaf, sender).<span class="kw">await</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#361 id=361 data-nosnippet>361</a>		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ claim_queues, scheduling_lookahead })
-<a href=#362 id=362 data-nosnippet>362</a>	}
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>	<span class="doccomment">/// The core's claim queue padded to the scheduling lookahead: slot `i` is `Some(para)` where
-<a href=#365 id=365 data-nosnippet>365</a>	/// scheduled, `None` for positions within the lookahead the runtime left unscheduled. Length
-<a href=#366 id=366 data-nosnippet>366</a>	/// is always the lookahead. `None` if the core has no claim queue at this leaf.
-<a href=#367 id=367 data-nosnippet>367</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>slots(<span class="kw-2">&amp;</span><span class="self">self</span>, core: CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;ParaId&gt;&gt;&gt; {
-<a href=#368 id=368 data-nosnippet>368</a>		<span class="kw">let </span>cq = <span class="self">self</span>.claim_queues.get(<span class="kw-2">&amp;</span>core)<span class="question-mark">?</span>;
-<a href=#369 id=369 data-nosnippet>369</a>		<span class="prelude-val">Some</span>(
-<a href=#370 id=370 data-nosnippet>370</a>			cq.iter()
-<a href=#371 id=371 data-nosnippet>371</a>				.copied()
-<a href=#372 id=372 data-nosnippet>372</a>				.map(<span class="prelude-val">Some</span>)
-<a href=#373 id=373 data-nosnippet>373</a>				.chain(std::iter::repeat(<span class="prelude-val">None</span>))
-<a href=#374 id=374 data-nosnippet>374</a>				.take(<span class="self">self</span>.scheduling_lookahead)
-<a href=#375 id=375 data-nosnippet>375</a>				.collect(),
-<a href=#376 id=376 data-nosnippet>376</a>		)
-<a href=#377 id=377 data-nosnippet>377</a>	}
-<a href=#378 id=378 data-nosnippet>378</a>
-<a href=#379 id=379 data-nosnippet>379</a>	<span class="doccomment">/// Claim-queue positions on `core` reachable from a scheduling parent at `depth` from this
-<a href=#380 id=380 data-nosnippet>380</a>	/// leaf (leaf = depth 0). A depth-`d` SP can host advertisements landing at leaf-CQ positions
-<a href=#381 id=381 data-nosnippet>381</a>	/// `i` with `i + d &lt; lookahead`, so the window is `cq[0 .. lookahead - d]` capped to the
-<a href=#382 id=382 data-nosnippet>382</a>	/// scheduled entries.
-<a href=#383 id=383 data-nosnippet>383</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>window(<span class="kw-2">&amp;</span><span class="self">self</span>, core: CoreIndex, depth: usize) -&gt; Vec&lt;ParaId&gt; {
-<a href=#384 id=384 data-nosnippet>384</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(cq) = <span class="self">self</span>.claim_queues.get(<span class="kw-2">&amp;</span>core) <span class="kw">else </span>{ <span class="kw">return </span>Vec::new() };
-<a href=#385 id=385 data-nosnippet>385</a>		<span class="kw">let </span>valid_len = <span class="self">self</span>.scheduling_lookahead.saturating_sub(depth).min(cq.len());
-<a href=#386 id=386 data-nosnippet>386</a>		cq.iter().take(valid_len).copied().collect()
-<a href=#387 id=387 data-nosnippet>387</a>	}
-<a href=#388 id=388 data-nosnippet>388</a>}
+<a href=#291 id=291 data-nosnippet>291</a><span class="doccomment">/// Returns an infinite stream that yields with an interval of `period`.
+<a href=#292 id=292 data-nosnippet>292</a></span><span class="kw">fn </span>tick_stream(clock: Arc&lt;<span class="kw">dyn </span>Clock&gt;, period: Duration) -&gt; <span class="kw">impl </span>FusedStream&lt;Item = ()&gt; {
+<a href=#293 id=293 data-nosnippet>293</a>	futures::stream::unfold(clock.now(), <span class="kw">move </span>|next_check| {
+<a href=#294 id=294 data-nosnippet>294</a>		<span class="kw">let </span>clock = clock.clone();
+<a href=#295 id=295 data-nosnippet>295</a>		<span class="kw">async move </span>{ <span class="prelude-val">Some</span>(((), wait_until_next_tick(<span class="kw-2">&amp;*</span>clock, next_check, period).<span class="kw">await</span>)) }
+<a href=#296 id=296 data-nosnippet>296</a>	})
+<a href=#297 id=297 data-nosnippet>297</a>	.fuse()
+<a href=#298 id=298 data-nosnippet>298</a>}
+<a href=#299 id=299 data-nosnippet>299</a>
+<a href=#300 id=300 data-nosnippet>300</a><span class="doccomment">/// Scheduling info tracked per active leaf, used for V3 scheduling parent validation.
+<a href=#301 id=301 data-nosnippet>301</a>/// Stores the leaf's BABE slot and parent hash so the validator can determine whether
+<a href=#302 id=302 data-nosnippet>302</a>/// the scheduling parent corresponds to the last finished relay chain slot.
+<a href=#303 id=303 data-nosnippet>303</a></span><span class="kw">struct </span>LeafSchedulingInfo {
+<a href=#304 id=304 data-nosnippet>304</a>	<span class="doccomment">/// The parent hash of the leaf block.
+<a href=#305 id=305 data-nosnippet>305</a>	</span>parent_hash: Hash,
+<a href=#306 id=306 data-nosnippet>306</a>	<span class="doccomment">/// The BABE slot of the leaf block.
+<a href=#307 id=307 data-nosnippet>307</a>	</span>slot: sp_consensus_slots::Slot,
+<a href=#308 id=308 data-nosnippet>308</a>}
+<a href=#309 id=309 data-nosnippet>309</a>
+<a href=#310 id=310 data-nosnippet>310</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>extract_leaf_scheduling_info&lt;Sender: CollatorProtocolSenderTrait&gt;(
+<a href=#311 id=311 data-nosnippet>311</a>	sender: <span class="kw-2">&amp;mut </span>Sender,
+<a href=#312 id=312 data-nosnippet>312</a>	leaf: H256,
+<a href=#313 id=313 data-nosnippet>313</a>) -&gt; <span class="prelude-ty">Option</span>&lt;LeafSchedulingInfo&gt; {
+<a href=#314 id=314 data-nosnippet>314</a>	<span class="comment">// Fetch leaf header to extract BABE slot for V3 scheduling parent validation.
+<a href=#315 id=315 data-nosnippet>315</a>	// Without this info, V3 advertisements referencing this leaf will be rejected.
+<a href=#316 id=316 data-nosnippet>316</a>	</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
+<a href=#317 id=317 data-nosnippet>317</a>	sender.send_message(ChainApiMessage::BlockHeader(leaf, tx)).<span class="kw">await</span>;
+<a href=#318 id=318 data-nosnippet>318</a>	<span class="kw">let </span>header = rx.<span class="kw">await</span>.ok().and_then(|r| r.ok().flatten());
+<a href=#319 id=319 data-nosnippet>319</a>	header.and_then(|header| {
+<a href=#320 id=320 data-nosnippet>320</a>		<span class="kw">let </span>slot = header.digest.logs().iter().find_map(|log| log.as_babe_pre_digest())<span class="question-mark">?</span>.slot();
+<a href=#321 id=321 data-nosnippet>321</a>		<span class="prelude-val">Some</span>(LeafSchedulingInfo { parent_hash: header.parent_hash, slot })
+<a href=#322 id=322 data-nosnippet>322</a>	})
+<a href=#323 id=323 data-nosnippet>323</a>}
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_scheduling_parent_valid(
+<a href=#326 id=326 data-nosnippet>326</a>	clock: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Clock,
+<a href=#327 id=327 data-nosnippet>327</a>	scheduling_parent: <span class="kw-2">&amp;</span>Hash,
+<a href=#328 id=328 data-nosnippet>328</a>	leaf_scheduling_info: <span class="kw-2">&amp;</span>HashMap&lt;Hash, LeafSchedulingInfo&gt;,
+<a href=#329 id=329 data-nosnippet>329</a>) -&gt; bool {
+<a href=#330 id=330 data-nosnippet>330</a>	<span class="kw">let </span>slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
+<a href=#331 id=331 data-nosnippet>331</a>	<span class="kw">let </span>current_slot = sp_consensus_slots::Slot::from_timestamp(
+<a href=#332 id=332 data-nosnippet>332</a>		sp_timestamp::Timestamp::new(clock.duration_since_epoch().as_millis() <span class="kw">as </span>u64),
+<a href=#333 id=333 data-nosnippet>333</a>		slot_duration,
+<a href=#334 id=334 data-nosnippet>334</a>	);
+<a href=#335 id=335 data-nosnippet>335</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = leaf_scheduling_info.get(scheduling_parent) {
+<a href=#336 id=336 data-nosnippet>336</a>		<span class="comment">// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
+<a href=#337 id=337 data-nosnippet>337</a>		// the previous slot.
+<a href=#338 id=338 data-nosnippet>338</a>		</span><span class="kw-2">*</span>current_slot == <span class="kw-2">*</span>info.slot + <span class="number">1
+<a href=#339 id=339 data-nosnippet>339</a>	</span>} <span class="kw">else </span>{
+<a href=#340 id=340 data-nosnippet>340</a>		<span class="comment">// scheduling_parent is not a leaf. This is allowed only if the sp is the parent of
+<a href=#341 id=341 data-nosnippet>341</a>		// any leaf whose slot is still in progress.
+<a href=#342 id=342 data-nosnippet>342</a>		</span>leaf_scheduling_info
+<a href=#343 id=343 data-nosnippet>343</a>			.iter()
+<a href=#344 id=344 data-nosnippet>344</a>			.any(|(<span class="kw">_</span>, info)| <span class="kw-2">*</span>current_slot == <span class="kw-2">*</span>info.slot &amp;&amp; <span class="kw-2">*</span>scheduling_parent == info.parent_hash)
+<a href=#345 id=345 data-nosnippet>345</a>	}
+<a href=#346 id=346 data-nosnippet>346</a>}
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a><span class="doccomment">/// The per-core claim queues for one active leaf, together with the runtime scheduling lookahead
+<a href=#349 id=349 data-nosnippet>349</a>/// that bounds them.
+<a href=#350 id=350 data-nosnippet>350</a>///
+<a href=#351 id=351 data-nosnippet>351</a>/// Experimental (`validator_side_experimental`) goes through the [`Self::slots`] / [`Self::window`]
+<a href=#352 id=352 data-nosnippet>352</a>/// helpers, which own the lookahead arithmetic. Legacy (`validator_side`) has its own
+<a href=#353 id=353 data-nosnippet>353</a>/// bitfield-based allocation and reads the fields directly — a properly factored legacy would go
+<a href=#354 id=354 data-nosnippet>354</a>/// through the helpers too, but legacy is on its way out so we don't invest in that.
+<a href=#355 id=355 data-nosnippet>355</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>LeafClaimQueues {
+<a href=#356 id=356 data-nosnippet>356</a>	claim_queues: BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;,
+<a href=#357 id=357 data-nosnippet>357</a>	scheduling_lookahead: usize,
+<a href=#358 id=358 data-nosnippet>358</a>}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a><span class="kw">impl </span>LeafClaimQueues {
+<a href=#361 id=361 data-nosnippet>361</a>	<span class="doccomment">/// Fetch the per-core claim queues and the scheduling lookahead for `leaf` from the runtime.
+<a href=#362 id=362 data-nosnippet>362</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch&lt;Sender: CollatorProtocolSenderTrait&gt;(
+<a href=#363 id=363 data-nosnippet>363</a>		leaf: Hash,
+<a href=#364 id=364 data-nosnippet>364</a>		session_index: SessionIndex,
+<a href=#365 id=365 data-nosnippet>365</a>		sender: <span class="kw-2">&amp;mut </span>Sender,
+<a href=#366 id=366 data-nosnippet>366</a>	) -&gt; std::result::Result&lt;<span class="self">Self</span>, runtime::Error&gt; {
+<a href=#367 id=367 data-nosnippet>367</a>		<span class="kw">let </span>scheduling_lookahead =
+<a href=#368 id=368 data-nosnippet>368</a>			fetch_scheduling_lookahead(leaf, session_index, sender).<span class="kw">await</span><span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href=#369 id=369 data-nosnippet>369</a>		<span class="kw">let </span>claim_queues = recv_runtime(request_claim_queue(leaf, sender).<span class="kw">await</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#370 id=370 data-nosnippet>370</a>		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ claim_queues, scheduling_lookahead })
+<a href=#371 id=371 data-nosnippet>371</a>	}
+<a href=#372 id=372 data-nosnippet>372</a>
+<a href=#373 id=373 data-nosnippet>373</a>	<span class="doccomment">/// The core's claim queue padded to the scheduling lookahead: slot `i` is `Some(para)` where
+<a href=#374 id=374 data-nosnippet>374</a>	/// scheduled, `None` for positions within the lookahead the runtime left unscheduled. Length
+<a href=#375 id=375 data-nosnippet>375</a>	/// is always the lookahead. `None` if the core has no claim queue at this leaf.
+<a href=#376 id=376 data-nosnippet>376</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>slots(<span class="kw-2">&amp;</span><span class="self">self</span>, core: CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;ParaId&gt;&gt;&gt; {
+<a href=#377 id=377 data-nosnippet>377</a>		<span class="kw">let </span>cq = <span class="self">self</span>.claim_queues.get(<span class="kw-2">&amp;</span>core)<span class="question-mark">?</span>;
+<a href=#378 id=378 data-nosnippet>378</a>		<span class="prelude-val">Some</span>(
+<a href=#379 id=379 data-nosnippet>379</a>			cq.iter()
+<a href=#380 id=380 data-nosnippet>380</a>				.copied()
+<a href=#381 id=381 data-nosnippet>381</a>				.map(<span class="prelude-val">Some</span>)
+<a href=#382 id=382 data-nosnippet>382</a>				.chain(std::iter::repeat(<span class="prelude-val">None</span>))
+<a href=#383 id=383 data-nosnippet>383</a>				.take(<span class="self">self</span>.scheduling_lookahead)
+<a href=#384 id=384 data-nosnippet>384</a>				.collect(),
+<a href=#385 id=385 data-nosnippet>385</a>		)
+<a href=#386 id=386 data-nosnippet>386</a>	}
+<a href=#387 id=387 data-nosnippet>387</a>
+<a href=#388 id=388 data-nosnippet>388</a>	<span class="doccomment">/// Claim-queue positions on `core` reachable from a scheduling parent at `depth` from this
+<a href=#389 id=389 data-nosnippet>389</a>	/// leaf (leaf = depth 0). A depth-`d` SP can host advertisements landing at leaf-CQ positions
+<a href=#390 id=390 data-nosnippet>390</a>	/// `i` with `i + d &lt; lookahead`, so the window is `cq[0 .. lookahead - d]` capped to the
+<a href=#391 id=391 data-nosnippet>391</a>	/// scheduled entries.
+<a href=#392 id=392 data-nosnippet>392</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>window(<span class="kw-2">&amp;</span><span class="self">self</span>, core: CoreIndex, depth: usize) -&gt; Vec&lt;ParaId&gt; {
+<a href=#393 id=393 data-nosnippet>393</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(cq) = <span class="self">self</span>.claim_queues.get(<span class="kw-2">&amp;</span>core) <span class="kw">else </span>{ <span class="kw">return </span>Vec::new() };
+<a href=#394 id=394 data-nosnippet>394</a>		<span class="kw">let </span>valid_len = <span class="self">self</span>.scheduling_lookahead.saturating_sub(depth).min(cq.len());
+<a href=#395 id=395 data-nosnippet>395</a>		cq.iter().take(valid_len).copied().collect()
+<a href=#396 id=396 data-nosnippet>396</a>	}
+<a href=#397 id=397 data-nosnippet>397</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
