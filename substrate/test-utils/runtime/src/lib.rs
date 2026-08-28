@@ -43,16 +43,16 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
-		Weight,
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+		Weight,
 	},
 };
 use frame_system::{
-	CheckNonce, CheckWeight,
 	limits::{BlockLength, BlockWeights},
+	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_application_crypto::{RuntimeAppPublic, Ss58Codec, ecdsa, ed25519, sr25519};
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
 
 #[cfg(feature = "bls-experimental")]
@@ -60,8 +60,8 @@ use sp_application_crypto::{bls381, ecdsa_bls381};
 
 use sp_core::OpaqueMetadata;
 use sp_trie::{
-	PrefixedMemoryDB, StorageProof,
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
+	PrefixedMemoryDB, StorageProof,
 };
 use trie_db::{Trie, TrieMut};
 
@@ -71,11 +71,12 @@ pub use sp_core::hash::H256;
 use sp_genesis_builder::PresetId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill, impl_opaque_keys, impl_tx_ext_default,
+	impl_opaque_keys, impl_tx_ext_default,
 	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 use sp_version::RuntimeVersion;
 
@@ -832,8 +833,8 @@ impl_runtime_apis! {
 	}
 }
 
-fn test_ed25519_crypto()
--> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
+fn test_ed25519_crypto(
+) -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
 	let mut public0 = ed25519::AppPublic::generate_pair(None);
 	let public1 = ed25519::AppPublic::generate_pair(None);
 	let public2 = ed25519::AppPublic::generate_pair(None);
@@ -853,8 +854,8 @@ fn test_ed25519_crypto()
 	(signature, public0, proof_of_possession)
 }
 
-fn test_sr25519_crypto()
--> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
+fn test_sr25519_crypto(
+) -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
 	let mut public0 = sr25519::AppPublic::generate_pair(None);
 	let public1 = sr25519::AppPublic::generate_pair(None);
 	let public2 = sr25519::AppPublic::generate_pair(None);
@@ -1163,7 +1164,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
-		DefaultTestClientBuilderExt, TestClientBuilder, prelude::*, runtime::TestAPI,
+		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
 	};
 
 	#[test]
@@ -1358,7 +1359,7 @@ mod tests {
 		use super::*;
 		use crate::genesismap::GenesisStorageBuilder;
 		use pretty_assertions::assert_eq;
-		use sc_executor::{WasmExecutor, error::Result};
+		use sc_executor::{error::Result, WasmExecutor};
 		use sc_executor_common::runtime_blob::RuntimeBlob;
 		use serde_json::json;
 		use sp_application_crypto::Ss58Codec;
@@ -1653,7 +1654,7 @@ mod tests {
 	#[test]
 	fn additional_data_digest_deposited_when_pushed() {
 		use sp_additional_data::{
-			AdditionalDataExt, RecordingAdditionalDataProvider, encode_items, hash_blob,
+			encode_items, hash_blob, AdditionalDataExt, RecordingAdditionalDataProvider,
 		};
 
 		let provider = RecordingAdditionalDataProvider::new();
@@ -1680,7 +1681,11 @@ mod tests {
 				.logs
 				.iter()
 				.filter_map(|log| {
-					if let DigestItem::AdditionalData(hash) = log { Some(*hash) } else { None }
+					if let DigestItem::AdditionalData(hash) = log {
+						Some(*hash)
+					} else {
+						None
+					}
 				})
 				.collect();
 

@@ -146,10 +146,10 @@ fn call_validate_block_v3(
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
 ) -> cumulus_test_client::ExecutorResult<Header> {
-	// A V3 candidate's validation params carry a trailing `ValidationParamsExtension::V3` (the relay
-	// chain appends it). For an initial submission (`RelayParentOffset == 0`), `relay_parent ==
-	// scheduling_parent == the internal scheduling parent header` carried in the block's scheduling
-	// proof, so we derive it from the candidate itself.
+	// A V3 candidate's validation params carry a trailing `ValidationParamsExtension::V3` (the
+	// relay chain appends it). For an initial submission (`RelayParentOffset == 0`), `relay_parent
+	// == scheduling_parent == the internal scheduling parent header` carried in the block's
+	// scheduling proof, so we derive it from the candidate itself.
 	let scheduling_parent = block_data
 		.scheduling_proof()
 		.expect("V3 candidate carries a scheduling proof")

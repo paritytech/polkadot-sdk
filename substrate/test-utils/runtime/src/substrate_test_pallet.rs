@@ -41,7 +41,7 @@ pub mod pallet {
 	use crate::TransferData;
 	use frame_system::pallet_prelude::*;
 	use sp_core::storage::well_known_keys;
-	use sp_runtime::{Perbill, traits::BlakeTwo256, transaction_validity::TransactionPriority};
+	use sp_runtime::{traits::BlakeTwo256, transaction_validity::TransactionPriority, Perbill};
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -189,7 +189,6 @@ pub mod pallet {
 		pub fn read_and_panic(_origin: OriginFor<T>, count: u32) -> DispatchResult {
 			Self::execute_read(count, true)
 		}
-
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -211,7 +210,11 @@ pub mod pallet {
 				}
 			}
 
-			if panic_at_end { panic!("BYE") } else { Ok(()) }
+			if panic_at_end {
+				panic!("BYE")
+			} else {
+				Ok(())
+			}
 		}
 	}
 

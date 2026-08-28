@@ -318,7 +318,6 @@ pub mod pallet {
 			frame_system::Pallet::<T>::deposit_log(CumulusDigestItem::UseFullCore.to_digest_item());
 			Ok(())
 		}
-
 	}
 
 	#[pallet::inherent]

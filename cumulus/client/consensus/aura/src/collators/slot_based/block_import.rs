@@ -29,11 +29,11 @@ use sc_client_api::{
 };
 use sc_consensus::{BlockImport, StateAction};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sp_additional_data::AdditionalDataExt;
 use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
 	ProvideRuntimeApi, StorageProof,
 };
-use sp_additional_data::AdditionalDataExt;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT, HashingFor, Header as _};
@@ -265,10 +265,10 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		if let Some(blob) = params.additional_data.as_ref() {
 			let provider = VerifyingAdditionalDataProvider::<BlakeTwo256>::from_map(blob.clone())
 				.ok_or_else(|| {
-					sp_consensus::Error::Other(
-						"additional_data map could not be built into a relay-read provider".into(),
-					)
-				})?;
+				sp_consensus::Error::Other(
+					"additional_data map could not be built into a relay-read provider".into(),
+				)
+			})?;
 			runtime_api.register_extension(AdditionalDataExt(Box::new(provider)));
 		}
 

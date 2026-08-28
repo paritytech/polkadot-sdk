@@ -187,10 +187,7 @@ impl RelayChainStateProof {
 	}
 
 	/// Read an optional entry. Returns `None` for a (provably) absent key.
-	fn read_optional_entry_inner<T: Decode>(
-		&self,
-		key: &[u8],
-	) -> Result<Option<T>, ReadEntryErr> {
+	fn read_optional_entry_inner<T: Decode>(&self, key: &[u8]) -> Result<Option<T>, ReadEntryErr> {
 		match self.read_entry_inner(key, None) {
 			Ok(v) => Ok(Some(v)),
 			Err(ReadEntryErr::Absent) => Ok(None),
@@ -205,18 +202,20 @@ impl RelayChainStateProof {
 		&self,
 		host_config: &AbridgedHostConfiguration,
 	) -> Result<MessagingStateSnapshot, Error> {
-		let dmq_mqc_head: relay_chain::Hash = self.read_entry_inner(
-			&relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
-			Some(Default::default()),
-		)
-		.map_err(Error::DmqMqcHead)?;
+		let dmq_mqc_head: relay_chain::Hash = self
+			.read_entry_inner(
+				&relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
+				Some(Default::default()),
+			)
+			.map_err(Error::DmqMqcHead)?;
 
-		let relay_dispatch_queue_remaining_capacity = self.read_optional_entry_inner::<
-			RelayDispatchQueueRemainingCapacity,
-		>(
-			&relay_chain::well_known_keys::relay_dispatch_queue_remaining_capacity(self.para_id)
+		let relay_dispatch_queue_remaining_capacity = self
+			.read_optional_entry_inner::<RelayDispatchQueueRemainingCapacity>(
+				&relay_chain::well_known_keys::relay_dispatch_queue_remaining_capacity(
+					self.para_id,
+				)
 				.key,
-		);
+			);
 
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
 		//
@@ -228,12 +227,13 @@ impl RelayChainStateProof {
 		{
 			Ok(Some(r)) => r,
 			Ok(None) => {
-				let res = self.read_entry_inner::<(u32, u32)>(
-					#[allow(deprecated)]
-					&relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
-					Some((0, 0)),
-				)
-				.map_err(Error::RelayDispatchQueueRemainingCapacity)?;
+				let res = self
+					.read_entry_inner::<(u32, u32)>(
+						#[allow(deprecated)]
+						&relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
+						Some((0, 0)),
+					)
+					.map_err(Error::RelayDispatchQueueRemainingCapacity)?;
 
 				let remaining_count = host_config.max_upward_queue_count.saturating_sub(res.0);
 				let remaining_size = host_config.max_upward_queue_size.saturating_sub(res.1);
@@ -242,33 +242,35 @@ impl RelayChainStateProof {
 			Err(e) => return Err(Error::RelayDispatchQueueRemainingCapacity(e)),
 		};
 
-		let ingress_channel_index: Vec<ParaId> = self.read_entry_inner(
-			&relay_chain::well_known_keys::hrmp_ingress_channel_index(self.para_id),
-			Some(Vec::new()),
-		)
-		.map_err(Error::HrmpIngressChannelIndex)?;
+		let ingress_channel_index: Vec<ParaId> = self
+			.read_entry_inner(
+				&relay_chain::well_known_keys::hrmp_ingress_channel_index(self.para_id),
+				Some(Vec::new()),
+			)
+			.map_err(Error::HrmpIngressChannelIndex)?;
 
-		let egress_channel_index: Vec<ParaId> = self.read_entry_inner(
-			&relay_chain::well_known_keys::hrmp_egress_channel_index(self.para_id),
-			Some(Vec::new()),
-		)
-		.map_err(Error::HrmpEgressChannelIndex)?;
+		let egress_channel_index: Vec<ParaId> = self
+			.read_entry_inner(
+				&relay_chain::well_known_keys::hrmp_egress_channel_index(self.para_id),
+				Some(Vec::new()),
+			)
+			.map_err(Error::HrmpEgressChannelIndex)?;
 
 		let mut ingress_channels = Vec::with_capacity(ingress_channel_index.len());
 		for sender in ingress_channel_index {
 			let channel_id = relay_chain::HrmpChannelId { sender, recipient: self.para_id };
-			let hrmp_channel: AbridgedHrmpChannel =
-				self.read_entry_inner(&relay_chain::well_known_keys::hrmp_channels(channel_id), None)
-					.map_err(|read_err| Error::HrmpChannel(sender, self.para_id, read_err))?;
+			let hrmp_channel: AbridgedHrmpChannel = self
+				.read_entry_inner(&relay_chain::well_known_keys::hrmp_channels(channel_id), None)
+				.map_err(|read_err| Error::HrmpChannel(sender, self.para_id, read_err))?;
 			ingress_channels.push((sender, hrmp_channel));
 		}
 
 		let mut egress_channels = Vec::with_capacity(egress_channel_index.len());
 		for recipient in egress_channel_index {
 			let channel_id = relay_chain::HrmpChannelId { sender: self.para_id, recipient };
-			let hrmp_channel: AbridgedHrmpChannel =
-				self.read_entry_inner(&relay_chain::well_known_keys::hrmp_channels(channel_id), None)
-					.map_err(|read_err| Error::HrmpChannel(self.para_id, recipient, read_err))?;
+			let hrmp_channel: AbridgedHrmpChannel = self
+				.read_entry_inner(&relay_chain::well_known_keys::hrmp_channels(channel_id), None)
+				.map_err(|read_err| Error::HrmpChannel(self.para_id, recipient, read_err))?;
 			egress_channels.push((recipient, hrmp_channel));
 		}
 
@@ -285,7 +287,8 @@ impl RelayChainStateProof {
 
 	/// Read the [`AbridgedHostConfiguration`] from the relay chain state.
 	pub fn read_abridged_host_configuration(&self) -> Result<AbridgedHostConfiguration, Error> {
-		self.read_entry_inner(relay_chain::well_known_keys::ACTIVE_CONFIG, None).map_err(Error::Config)
+		self.read_entry_inner(relay_chain::well_known_keys::ACTIVE_CONFIG, None)
+			.map_err(Error::Config)
 	}
 
 	/// Read latest included parachain [head data](`relay_chain::HeadData`) from the relay chain
@@ -317,7 +320,8 @@ impl RelayChainStateProof {
 
 	/// Read the [`Slot`](relay_chain::Slot) of the relay chain block this state was read from.
 	pub fn read_slot(&self) -> Result<relay_chain::Slot, Error> {
-		self.read_entry_inner(relay_chain::well_known_keys::CURRENT_SLOT, None).map_err(Error::Slot)
+		self.read_entry_inner(relay_chain::well_known_keys::CURRENT_SLOT, None)
+			.map_err(Error::Slot)
 	}
 
 	/// Read the go-ahead signal for a pending code upgrade.

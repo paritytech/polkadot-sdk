@@ -30,8 +30,8 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Codec, Encode};
-use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_additional_data::RecordingAdditionalDataProvider;
+use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
 	ParachainBlockImportMarker, ParentSearchParams,

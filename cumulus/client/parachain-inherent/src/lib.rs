@@ -22,10 +22,7 @@ use std::collections::{HashMap, HashSet};
 
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain::{
-		self, ApprovedPeerId, Hash as PHash, Header as RelayHeader,
-		HrmpChannelId,
-	},
+	relay_chain::{self, ApprovedPeerId, Hash as PHash, Header as RelayHeader, HrmpChannelId},
 	ParaId, PersistedValidationData, RelayProofRequest, RelayStorageKey,
 };
 pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
@@ -258,19 +255,22 @@ impl ParachainInherentDataProvider {
 		// given — the legacy V2 path, where the runtime reads relay state from it in
 		// `set_validation_data` (the request also names any extra keys the runtime declares). V3
 		// parachains read relay state dynamically via the `read_relay_chain_state` host function
-		// (recorded into the block's additional data, verified in `validate_block`) and pass `None`.
+		// (recorded into the block's additional data, verified in `validate_block`) and pass
+		// `None`.
 		let relay_chain_state = match relay_proof_request {
-			Some(request) => collect_relay_storage_proof(
-				relay_chain_interface,
-				para_id,
-				relay_parent,
-				// The runtime reads relay authorities for relay-parent-offset descendant validation
-				// on the V2 path.
-				true,
-				true,
-				request,
-			)
-			.await?,
+			Some(request) => {
+				collect_relay_storage_proof(
+					relay_chain_interface,
+					para_id,
+					relay_parent,
+					// The runtime reads relay authorities for relay-parent-offset descendant
+					// validation on the V2 path.
+					true,
+					true,
+					request,
+				)
+				.await?
+			},
 			None => StorageProof::empty(),
 		};
 

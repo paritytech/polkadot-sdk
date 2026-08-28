@@ -66,22 +66,23 @@ pub trait RelayStateProver: Send {
 	/// The relay state root the reads are proven against (the `relay_parent_storage_root`).
 	fn root(&self) -> PHash;
 
-	/// A `Send`, backend-free snapshot function returning the minimal [`StorageProof`] of everything
-	/// read so far. It shares only the recorder (not the state backend, which may be `!Sync`), so it
-	/// stays callable after this prover has been moved into an externalities extension.
+	/// A `Send`, backend-free snapshot function returning the minimal [`StorageProof`] of
+	/// everything read so far. It shares only the recorder (not the state backend, which may be
+	/// `!Sync`), so it stays callable after this prover has been moved into an externalities
+	/// extension.
 	fn proof_snapshot(&self) -> Box<dyn Fn() -> StorageProof + Send>;
 
-	/// Estimated encoded size of the proof recorded so far — the additional-data contribution to the
-	/// PoV. Same per-node metric as the verify-side recorder, so build and validate agree (this is
-	/// summed into `storage_proof_size`, which feeds weight-reclaim → the state root).
+	/// Estimated encoded size of the proof recorded so far — the additional-data contribution to
+	/// the PoV. Same per-node metric as the verify-side recorder, so build and validate agree
+	/// (this is summed into `storage_proof_size`, which feeds weight-reclaim → the state root).
 	fn proof_size(&self) -> usize;
 }
 
 /// A [`RelayStateProver`] over any trie-backed relay state (`S: AsTrieBackend`) — e.g. the
-/// in-process relay client's live state, or a proof-check backend in tests. Holds the backend plus a
-/// shared [`Recorder`](sp_trie::recorder::Recorder); each [`read`](RelayStateProver::read) records
-/// into it, and [`proof_snapshot`](RelayStateProver::proof_snapshot) hands out a backend-free view of
-/// the accumulated nodes.
+/// in-process relay client's live state, or a proof-check backend in tests. Holds the backend plus
+/// a shared [`Recorder`](sp_trie::recorder::Recorder); each [`read`](RelayStateProver::read)
+/// records into it, and [`proof_snapshot`](RelayStateProver::proof_snapshot) hands out a
+/// backend-free view of the accumulated nodes.
 pub struct TrieBackendProver<S> {
 	state: S,
 	recorder: sp_trie::recorder::Recorder<HashingFor<RelayBlock>>,

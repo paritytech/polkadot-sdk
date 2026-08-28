@@ -18,8 +18,8 @@
 //! Provides utils for building the `Extrinsic` instances used with `substrate-test-runtime`.
 
 use crate::{
-	AccountId, Balance, BalancesCall, CheckSubstrateCall, Extrinsic, Nonce, Pair, RuntimeCall,
-	SignedPayload, TransferData, substrate_test_pallet::pallet::Call as PalletCall,
+	substrate_test_pallet::pallet::Call as PalletCall, AccountId, Balance, BalancesCall,
+	CheckSubstrateCall, Extrinsic, Nonce, Pair, RuntimeCall, SignedPayload, TransferData,
 };
 use codec::Encode;
 use frame_metadata_hash_extension::CheckMetadataHash;
@@ -27,8 +27,8 @@ use frame_system::{CheckNonce, CheckWeight};
 use sp_core::crypto::Pair as TraitPair;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
-	Perbill, generic::Preamble, traits::TransactionExtension,
-	transaction_validity::TransactionPriority,
+	generic::Preamble, traits::TransactionExtension, transaction_validity::TransactionPriority,
+	Perbill,
 };
 
 /// Transfer used in test substrate pallet. Extrinsic is created and signed using this data.
