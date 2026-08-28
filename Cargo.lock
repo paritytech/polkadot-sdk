@@ -17554,6 +17554,7 @@ dependencies = [
  "jam-interface",
  "jam-rpc-interface",
  "jam-state-helpers",
+ "jam-std-common",
  "jam-types",
  "jsonrpsee 0.24.11",
  "log",

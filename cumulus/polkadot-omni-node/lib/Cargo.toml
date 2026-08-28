@@ -36,6 +36,7 @@ jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-servic
 jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", features = ["std"] }
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = ["std"] }
 jam-codec = { version = "0.1.1", features = ["std", "derive"] }
+jam-std-common = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-std-common" }
 
 # Local
 frame-metadata = { workspace = true, default-features = true }
