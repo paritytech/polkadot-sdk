@@ -24,7 +24,7 @@ mod pvm;
 mod sol;
 mod stipends;
 
-use std::{cell::Cell, collections::HashMap};
+use std::collections::HashMap;
 
 use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
@@ -60,18 +60,13 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
 };
 
-thread_local! {
-	static LAST_ACCESS_LIST_METRICS: Cell<Option<AccessListMetrics>> =
-		const { Cell::new(None) };
-}
-
-pub(crate) fn record_access_list_metrics(metrics: AccessListMetrics) {
-	LAST_ACCESS_LIST_METRICS.with(|cell| cell.set(Some(metrics)));
+parameter_types! {
+	/// The metrics of the last transaction that ran a first frame, recorded by `Stack::run`.
+	pub static LastAccessListMetrics: Option<AccessListMetrics> = None;
 }
 
 pub(crate) fn last_access_list_metrics() -> AccessListMetrics {
-	LAST_ACCESS_LIST_METRICS
-		.with(|cell| cell.take())
+	LastAccessListMetrics::take()
 		.expect("the call under test ran a first frame and recorded metrics")
 }
 

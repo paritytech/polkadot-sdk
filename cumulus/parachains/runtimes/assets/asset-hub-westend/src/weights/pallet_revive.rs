@@ -1130,11 +1130,27 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(583_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn access_list_touch_cold_account_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 486_000 picoseconds.
+		Weight::from_parts(583_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 	fn access_list_touch_hot_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 422_000 picoseconds.
+		Weight::from_parts(515_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
+	fn access_list_touch_hot_account_single_element() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 422_000 picoseconds.
 		Weight::from_parts(515_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}

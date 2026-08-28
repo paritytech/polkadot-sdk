@@ -24,6 +24,7 @@ use super::{
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
 	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
+	access_list::CallAccess,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -3350,14 +3351,18 @@ fn cold_hot_repeated_call_target_stays_hot() {
 		};
 
 		// A fresh access list per call, so these snapshots are independent.
-		const TARGET_ENTRIES: u32 = 4; // OriginalAccount, AccountInfo, CodeInfo and CodeBlob
 		for recursions in [0u32, 1, 5] {
-			let m = metrics_after(recursions);
+			let metrics = metrics_after(recursions);
 			assert_eq!(
-				m.cold, TARGET_ENTRIES,
+				metrics.cold,
+				CallAccess::plain_entries(),
 				"the target is warmed cold once, whatever the depth"
 			);
-			assert_eq!(m.hot, TARGET_ENTRIES * recursions, "each self-call re-reads the four hot");
+			assert_eq!(
+				metrics.hot,
+				CallAccess::plain_entries() * recursions,
+				"each self-call re-reads the target's entries hot",
+			);
 		}
 	});
 }
@@ -3400,11 +3405,10 @@ fn cold_hot_depth_denied_call_warms_before_the_denial() {
 		let at_limit = metrics_after(limits::CALL_STACK_DEPTH);
 		let past_limit = metrics_after(limits::CALL_STACK_DEPTH + 1);
 
-		const TARGET_ENTRIES: u32 = 4;
 		assert_eq!(
 			at_limit.hot,
-			TARGET_ENTRIES * limits::CALL_STACK_DEPTH,
-			"every call up to the limit re-reads the target's four entries hot",
+			CallAccess::plain_entries() * limits::CALL_STACK_DEPTH,
+			"every call up to the limit re-reads the target's entries hot",
 		);
 
 		assert_eq!(

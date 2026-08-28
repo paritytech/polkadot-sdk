@@ -146,7 +146,9 @@ pub trait WeightInfo {
 	fn take_storage(n: u32, ) -> Weight;
 	fn take_storage_hot(n: u32, ) -> Weight;
 	fn access_list_touch_cold_empty() -> Weight;
+	fn access_list_touch_cold_account_empty() -> Weight;
 	fn access_list_touch_hot_single_element() -> Weight;
+	fn access_list_touch_hot_account_single_element() -> Weight;
 	fn access_list_touch_cold_full() -> Weight;
 	fn access_list_touch_hot_full() -> Weight;
 	fn access_list_touch_cold_account_full() -> Weight;
@@ -1166,11 +1168,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 491_000 picoseconds.
 		Weight::from_parts(596_000, 0)
 	}
+	fn access_list_touch_cold_account_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 491_000 picoseconds.
+		Weight::from_parts(596_000, 0)
+	}
 	fn access_list_touch_hot_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 413_000 picoseconds.
+		Weight::from_parts(505_000, 0)
+	}
+	fn access_list_touch_hot_account_single_element() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 413_000 picoseconds.
 		Weight::from_parts(505_000, 0)
 	}
 	fn access_list_touch_cold_full() -> Weight {
@@ -2753,11 +2769,25 @@ impl WeightInfo for () {
 		// Minimum execution time: 491_000 picoseconds.
 		Weight::from_parts(596_000, 0)
 	}
+	fn access_list_touch_cold_account_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 491_000 picoseconds.
+		Weight::from_parts(596_000, 0)
+	}
 	fn access_list_touch_hot_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 413_000 picoseconds.
+		Weight::from_parts(505_000, 0)
+	}
+	fn access_list_touch_hot_account_single_element() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 413_000 picoseconds.
 		Weight::from_parts(505_000, 0)
 	}
 	fn access_list_touch_cold_full() -> Weight {

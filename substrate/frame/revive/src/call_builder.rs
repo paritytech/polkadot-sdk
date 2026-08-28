@@ -259,8 +259,7 @@ fn whitelist_entry<T: Config>(entry: &AccessEntry) {
 	}
 }
 
-/// Whitelists every entry the access reads. Deriving the set from
-/// [`Access::expand`] keeps it from drifting from what warming touches.
+/// Whitelists every entry the access reads.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn whitelist_access<T: Config>(access: impl Access) {
 	access.expand(|entry, _op| {

@@ -21,8 +21,8 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CallAccess, CodeLoad, MAX_ACCESS_LIST_ENTRIES, StorageOp,
-		TouchedKey,
+		AccessEntry, AccessList, CallAccess, CodeLoad, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
+		StorageOp,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -256,7 +256,8 @@ mod benchmarks {
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 
 			let (mut ext, _) = setup.ext();
-			ext.warm_call_target(call_access, code_access);
+			ext.warm(call_access);
+			ext.warm(code_access);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 		};
@@ -2074,11 +2075,11 @@ mod benchmarks {
 
 	/// Entry number `i`, a storage slot or an account depending on `key`. Only the trailing
 	/// bytes carry `i`, so a comparison runs the whole shared prefix before it can decide.
-	fn access_entry(key: TouchedKey, i: u32) -> AccessEntry {
+	fn access_entry(key: KeyFamily, i: u32) -> AccessEntry {
 		match key {
 			// One slot, at the maximum length, shared by every entry, so each comparison
 			// runs its full length before the address can decide.
-			TouchedKey::Slot => {
+			KeyFamily::Slot => {
 				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
 					.expect("key fits STORAGE_KEY_BYTES bound; qed");
 				AccessEntry::Storage {
@@ -2086,7 +2087,7 @@ mod benchmarks {
 					address: H160::from_low_u64_be(i as u64),
 				}
 			},
-			TouchedKey::Address => {
+			KeyFamily::Address => {
 				let mut hash = [0xFFu8; 32];
 				hash[30] = (i >> 8) as u8;
 				hash[31] = i as u8;
@@ -2099,7 +2100,7 @@ mod benchmarks {
 	/// with the last entry inserted, so touching that is hot, or cold when `entries` is zero.
 	fn access_list_with(
 		entries: u32,
-		key: TouchedKey,
+		key: KeyFamily,
 	) -> (crate::access_list::AccessList, AccessEntry) {
 		let mut al = AccessList::new();
 		for i in 0..entries {
@@ -2116,7 +2117,20 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
 		// Empty, so the entry it hands back is absent and the touch is cold.
-		let (mut al, entry) = access_list_with(0, TouchedKey::Slot);
+		let (mut al, entry) = access_list_with(0, KeyFamily::Slot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_account_empty() -> Result<(), BenchmarkError> {
+		// The address family needs its own baseline: its keys are shorter and never on the heap.
+		let (mut al, entry) = access_list_with(0, KeyFamily::Address);
 		let outcome;
 		#[block]
 		{
@@ -2129,7 +2143,18 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
 		// One entry, and it is the one handed back, so the touch is hot.
-		let (mut al, entry) = access_list_with(1, TouchedKey::Slot);
+		let (mut al, entry) = access_list_with(1, KeyFamily::Slot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot());
+		Ok(())
+	}
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_account_single_element() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(1, KeyFamily::Address);
 		let outcome;
 		#[block]
 		{
@@ -2141,8 +2166,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
-		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, TouchedKey::Slot);
-		let entry = access_entry(TouchedKey::Slot, MAX_ACCESS_LIST_ENTRIES as u32);
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Slot);
+		let entry = access_entry(KeyFamily::Slot, MAX_ACCESS_LIST_ENTRIES as u32);
 		let outcome;
 		#[block]
 		{
@@ -2154,7 +2179,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
-		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, TouchedKey::Slot);
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Slot);
 		let outcome;
 		#[block]
 		{
@@ -2166,8 +2191,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_account_full() -> Result<(), BenchmarkError> {
-		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, TouchedKey::Address);
-		let entry = access_entry(TouchedKey::Address, MAX_ACCESS_LIST_ENTRIES as u32);
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Address);
+		let entry = access_entry(KeyFamily::Address, MAX_ACCESS_LIST_ENTRIES as u32);
 		let outcome;
 		#[block]
 		{
@@ -2179,7 +2204,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_account_full() -> Result<(), BenchmarkError> {
-		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, TouchedKey::Address);
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Address);
 		let outcome;
 		#[block]
 		{
@@ -2191,7 +2216,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
-		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, TouchedKey::Slot);
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Slot);
 		let outcome;
 		#[block]
 		{
@@ -2203,9 +2228,9 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, TouchedKey::Slot);
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Slot);
 		al.enter_frame();
-		al.touch(access_entry(TouchedKey::Slot, MAX_ACCESS_LIST_ENTRIES as u32), StorageOp::Read);
+		al.touch(access_entry(KeyFamily::Slot, MAX_ACCESS_LIST_ENTRIES as u32), StorageOp::Read);
 		#[block]
 		{
 			al.rollback_frame();
@@ -2523,9 +2548,8 @@ mod benchmarks {
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let callee_contract =
+		let Contract { account_id: callee, address: callee_addr, .. } =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
-		let Contract { account_id: callee, address: callee_addr, .. } = callee_contract.clone();
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -2652,9 +2676,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let callee_contract =
+		let Contract { account_id: address, .. } =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
-		let Contract { account_id: address, .. } = callee_contract.clone();
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;

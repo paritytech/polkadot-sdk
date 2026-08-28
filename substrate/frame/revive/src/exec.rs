@@ -1081,13 +1081,14 @@ where
 		Ok(Some((stack, executable)))
 	}
 
-	/// Loads code, warming the metadata and blob entries only if the load succeeds.
+	/// Loads code, warming the code info and blob on success.
 	fn load_code<S: State>(
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
-		code_load: access_list::CodeLoad,
+		code_hash: H256,
 	) -> Result<E, DispatchError> {
-		let executable = E::from_storage(code_load.hash, meter, access_list.warmth_of(code_load))?;
+		let code_load = access_list::CodeLoad { hash: code_hash };
+		let executable = E::from_storage(code_hash, meter, access_list.warmth_of(code_load))?;
 		access_list.warm(code_load);
 		Ok(executable)
 	}
@@ -1154,11 +1155,7 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable = Self::load_code(
-							access_list,
-							meter,
-							access_list::CodeLoad { hash: info.code_hash },
-						)?;
+						let executable = Self::load_code(access_list, meter, info.code_hash)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else if let Some(instance) = precompile {
@@ -1168,11 +1165,7 @@ where
 						.as_contract()
 						.expect("When not a precompile the contract was loaded above; qed")
 						.code_hash;
-					let executable = Self::load_code(
-						access_list,
-						meter,
-						access_list::CodeLoad { hash: code_hash },
-					)?;
+					let executable = Self::load_code(access_list, meter, code_hash)?;
 					ExecutableOrPrecompile::Executable(executable)
 				};
 
@@ -1624,7 +1617,7 @@ where
 		if is_first_frame {
 			let m = self.access_list.metrics();
 			#[cfg(test)]
-			crate::tests::record_access_list_metrics(m);
+			crate::tests::LastAccessListMetrics::set(Some(m));
 			log::trace!(
 				target: LOG_TARGET,
 				"access list metrics: size={size} cold={cold} hot={hot}",
@@ -1959,13 +1952,6 @@ where
 		self.block_number = block_number;
 	}
 
-	/// Warms everything a call to the target reads.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub(crate) fn warm_call_target(&mut self, call: CallAccess, code: access_list::CodeLoad) {
-		self.access_list.warm(call);
-		self.access_list.warm(code);
-	}
-
 	#[cfg(test)]
 	pub(crate) fn access_list_metrics(&self) -> crate::access_list::AccessListMetrics {
 		self.access_list.metrics()
@@ -2178,7 +2164,7 @@ where
 					let executable = Self::load_code(
 						&mut self.access_list,
 						&mut top_frame_mut!(self).frame_meter,
-						access_list::CodeLoad { hash: *hash },
+						*hash,
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

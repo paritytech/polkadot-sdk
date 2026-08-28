@@ -27,7 +27,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{CodeLoadWarmth, Warmth},
+	access_list::{Access, CodeLoad, CodeLoadWarmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -119,50 +119,47 @@ impl ExportedFunction {
 	}
 }
 
-/// Cost of loading the code blob (`PristineCode`): its bytes at its warmth, plus PVM compilation.
-/// Reading the two code keys is in the caller's benchmark; only the bytes depend on the code.
+/// Cost of code loading from storage.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
-struct CodeBlobLoadToken {
+struct CodeLoadToken {
 	code_len: u32,
 	code_type: BytecodeType,
-	warmth: Warmth,
+	warmth: CodeLoadWarmth,
 }
 
-impl<T: Config> Token<T> for CodeBlobLoadToken {
+impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		let blob_cost_of =
-			|weight_fn: fn(u32) -> Weight| weight_fn(self.code_len).saturating_sub(weight_fn(0));
-		let (cold_weight, hot_weight, compilation_weight) = match self.code_type {
-			BytecodeType::Pvm => (
-				blob_cost_of(T::WeightInfo::call_with_pvm_code_per_byte),
-				blob_cost_of(T::WeightInfo::call_with_pvm_code_per_byte_hot),
-				// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so
-				// the compilation term drops its proof. It double-charges the first
-				// BASIC_BLOCK_SIZE instructions; we keep that as a safety margin.
-				T::WeightInfo::basic_block_compilation(1)
-					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
-					.set_proof_size(0),
-			),
-			BytecodeType::Evm => (
-				blob_cost_of(T::WeightInfo::call_with_evm_code_per_byte),
-				blob_cost_of(T::WeightInfo::call_with_evm_code_per_byte_hot),
-				Weight::zero(),
-			),
+		let per_byte: fn(u32) -> Weight = match (self.code_type, self.warmth.blob.is_hot()) {
+			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
+			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
+			(BytecodeType::Evm, false) => T::WeightInfo::call_with_evm_code_per_byte,
+			(BytecodeType::Evm, true) => T::WeightInfo::call_with_evm_code_per_byte_hot,
 		};
-		let bytes_weight = if self.warmth.is_hot() { hot_weight } else { cold_weight };
-		bytes_weight.saturating_add(compilation_weight)
+		let bytes_weight = per_byte(self.code_len).saturating_sub(per_byte(0));
+		let compilation_weight = match self.code_type {
+			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`, so the
+			// compilation term drops its proof. It double-charges the first BASIC_BLOCK_SIZE
+			// instructions; we keep that as a safety margin.
+			BytecodeType::Pvm => T::WeightInfo::basic_block_compilation(1)
+				.saturating_sub(T::WeightInfo::basic_block_compilation(0))
+				.set_proof_size(0),
+			BytecodeType::Evm => Weight::zero(),
+		};
+		let touches =
+			RuntimeCosts::access_list_overhead::<T>(self.warmth.info, CodeLoad::KEY_FAMILY)
+				.saturating_add(RuntimeCosts::access_list_overhead::<T>(
+					self.warmth.blob,
+					CodeLoad::KEY_FAMILY,
+				));
+		bytes_weight.saturating_add(compilation_weight).saturating_add(touches)
 	}
 }
 
 /// The weight a load of `code_len` bytes is charged.
 #[cfg(test)]
 pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoadWarmth) -> Weight {
-	Token::<crate::tests::Test>::weight(&CodeBlobLoadToken {
-		code_len,
-		code_type,
-		warmth: warmth.blob,
-	})
+	Token::<crate::tests::Test>::weight(&CodeLoadToken { code_len, code_type, warmth })
 }
 
 impl<T: Config> ContractBlob<T> {
@@ -339,10 +336,10 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		warmth: CodeLoadWarmth,
 	) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		meter.charge_weight_token(CodeBlobLoadToken {
+		meter.charge_weight_token(CodeLoadToken {
 			code_len: code_info.code_len,
 			code_type: code_info.code_type,
-			warmth: warmth.blob,
+			warmth,
 		})?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
@@ -415,7 +412,7 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 mod tests {
 	use super::*;
 	use crate::{
-		access_list::StorageOp,
+		access_list::{StorageOp, Warmth},
 		metering::TransactionMeter,
 		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
@@ -453,24 +450,32 @@ mod tests {
 				 twice={twice_as_long:?} cold={cold:?}",
 			);
 
-			let cold_info_hot_blob = CodeLoadWarmth {
-				info: Warmth::cold_non_revertible(),
-				blob: Warmth::Hot { charged: StorageOp::Read },
+			// The bytes alone, with the entries' touches subtracted out.
+			let bytes_of = |load: CodeLoadWarmth| {
+				code_load_weight(code_len, code_type, load)
+					.saturating_sub(code_load_weight(0, code_type, load))
 			};
+			let hot_blob = Warmth::Hot { charged: StorageOp::Read };
 			assert_eq!(
-				code_load_weight(code_len, code_type, cold_info_hot_blob),
-				hot,
-				"only the blob's warmth prices the bytes; the metadata read is in the caller's \
-				 bench",
+				bytes_of(CodeLoadWarmth { info: Warmth::cold_non_revertible(), blob: hot_blob }),
+				bytes_of(warmth(hot_blob)),
+				"the metadata's warmth does not price the bytes: only the blob is read by length",
+			);
+			assert!(
+				bytes_of(warmth(hot_blob)).ref_time() > 0,
+				"a hot blob still pays for its bytes: {code_type:?}",
 			);
 		}
-		for blob in [Warmth::cold_non_revertible(), Warmth::Hot { charged: StorageOp::Read }] {
-			assert_eq!(
-				code_load_weight(0, BytecodeType::Evm, warmth(blob)),
-				Weight::zero(),
-				"an empty blob costs nothing: the two key reads are in the caller's bench, {blob:?}",
-			);
-		}
+
+		// One rollback prepay per entry.
+		let rollback = <Test as Config>::WeightInfo::access_list_rollback_amortization();
+		let empty_blob = |load| code_load_weight(0, BytecodeType::Evm, load);
+		assert_eq!(
+			empty_blob(warmth(Warmth::cold_revertible()))
+				.saturating_sub(empty_blob(warmth(Warmth::cold_non_revertible()))),
+			rollback.saturating_mul(2),
+			"one rollback prepay per code entry",
+		);
 	}
 
 	#[test]

@@ -125,10 +125,24 @@ pub enum AccessEntry {
 	CodeBlob { hash: H256 },
 }
 
-/// The key of the touched entry. Slots are much longer than addresses, so each has its
-/// own benchmark.
+impl AccessEntry {
+	/// Which bench family prices a touch of this entry.
+	pub fn key_family(&self) -> KeyFamily {
+		match self {
+			Self::Storage { .. } => KeyFamily::Slot,
+			Self::Account { .. } |
+			Self::OriginalAccount { .. } |
+			Self::AccountInfo { .. } |
+			Self::CodeInfo { .. } |
+			Self::CodeBlob { .. } => KeyFamily::Address,
+		}
+	}
+}
+
+/// The kind of key an entry carries. Slots are much longer than addresses, so each family has
+/// its own benchmarks.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum TouchedKey {
+pub enum KeyFamily {
 	/// A storage slot.
 	Slot,
 	/// An address or a code hash.
@@ -190,9 +204,26 @@ impl Warmth {
 pub trait Access {
 	type Warmth;
 
+	/// The family every entry this access reads belongs to.
+	const KEY_FAMILY: KeyFamily;
+
 	/// Maps `resolve` over each state item this access reads, with the
 	/// operation it performs on that item.
 	fn expand(self, resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Self::Warmth;
+
+	/// How many entries this access reads, as `expand` yields them.
+	#[cfg(test)]
+	fn entry_count(self) -> u32
+	where
+		Self: Sized,
+	{
+		let mut entries = 0;
+		self.expand(|_entry, _op| {
+			entries += 1;
+			Warmth::cold_non_revertible()
+		});
+		entries
+	}
 }
 
 /// Warmth of the entries a [`CallAccess`] reads, one variant per call kind.
@@ -220,8 +251,24 @@ impl CallAccess {
 	}
 }
 
+#[cfg(test)]
+impl CallAccess {
+	/// Entries a plain call to a contract touches: its own, plus the callee's code.
+	pub(crate) fn plain_entries() -> u32 {
+		Self::Plain { target: H160::zero(), transfers_value: false }.entry_count() +
+			CodeLoad { hash: H256::zero() }.entry_count()
+	}
+
+	/// Same for a delegate call, which reads no address mapping.
+	pub(crate) fn delegate_entries() -> u32 {
+		Self::Delegate { target: H160::zero() }.entry_count() +
+			CodeLoad { hash: H256::zero() }.entry_count()
+	}
+}
+
 impl Access for CallAccess {
 	type Warmth = CallWarmth;
+	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
 
 	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
 		match self {
@@ -270,6 +317,7 @@ pub struct CodeLoad {
 
 impl Access for CodeLoad {
 	type Warmth = CodeLoadWarmth;
+	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
 
 	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
@@ -381,8 +429,7 @@ impl AccessList {
 		}
 	}
 
-	/// Non-mutating sibling of [`Self::touch`]. The two agree on an entry's warmth,
-	/// so an access priced from a peek never disagrees with one priced from a touch.
+	/// Non-mutating sibling of [`Self::touch`], reporting the same warmth it would.
 	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
 		match self.accessed.get(entry) {
 			Some(charged) => Warmth::Hot { charged: *charged },
@@ -443,8 +490,7 @@ impl AccessList {
 		access.expand(|entry, op| self.touch(entry, op))
 	}
 
-	/// Non-mutating sibling of [`Self::warm`]. Cold entries count down the free
-	/// slots in touch order, so a multi-entry peek prices the cap edge exactly.
+	/// Non-mutating sibling of [`Self::warm`].
 	pub fn warmth_of<A: Access>(&self, access: A) -> A::Warmth {
 		let mut free_slots = MAX_ACCESS_LIST_ENTRIES.saturating_sub(self.accessed.len());
 		access.expand(|entry, _op| match self.peek(&entry) {
@@ -542,6 +588,36 @@ mod tests {
 	}
 
 	#[test]
+	fn each_access_prices_its_own_key_family() {
+		fn families_of<A: Access>(access: A) -> Vec<KeyFamily> {
+			let mut families = Vec::new();
+			access.expand(|entry, _op| {
+				families.push(entry.key_family());
+				Warmth::cold_non_revertible()
+			});
+			families
+		}
+		let calls = [
+			families_of(CallAccess::Plain { target: H160::zero(), transfers_value: true }),
+			families_of(CallAccess::Delegate { target: H160::zero() }),
+		];
+		for family in calls.iter().flatten() {
+			assert_eq!(
+				*family,
+				CallAccess::KEY_FAMILY,
+				"every call entry must match `CallAccess::KEY_FAMILY`"
+			);
+		}
+		for family in families_of(CodeLoad { hash: H256::zero() }) {
+			assert_eq!(
+				family,
+				CodeLoad::KEY_FAMILY,
+				"every code entry must match `CodeLoad::KEY_FAMILY`"
+			);
+		}
+	}
+
+	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
 		fill_to(&mut al, MAX_ACCESS_LIST_ENTRIES);
@@ -599,8 +675,6 @@ mod tests {
 		// Nested frame, so a journaled cold touch would be revertible.
 		al.enter_frame();
 
-		// One slot is free and the call touches three entries: the peek counts
-		// the fills down, so only the first is priced revertible.
 		let expected = CallWarmth::Plain {
 			account: Some(Warmth::cold_revertible()),
 			original_account: Warmth::cold_non_revertible(),

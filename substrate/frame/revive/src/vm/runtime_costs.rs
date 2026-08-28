@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{CallWarmth, StorageOp, TouchedKey, Warmth},
+	access_list::{Access, CallAccess, CallWarmth, KeyFamily, StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -187,6 +187,9 @@ pub enum StorageAccessKind {
 }
 
 impl StorageAccessKind {
+	/// Storage is keyed by slot.
+	pub(crate) const KEY_FAMILY: KeyFamily = KeyFamily::Slot;
+
 	pub fn new(transient: bool, op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
 		if transient { Self::Transient } else { Self::persistent(op, warmth) }
 	}
@@ -258,37 +261,45 @@ impl RuntimeCosts {
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
-	/// Weight of one access-list touch, plus the prepaid rollback for a revertible cold
-	/// insert. A lookup only compares against entries of its own variant, so the key an
-	/// access carries decides how long those comparisons run and which bench prices it.
-	fn access_list_overhead<T: Config>(warmth: Warmth, key: TouchedKey) -> Weight {
-		let touch_cost =
-			|bench: fn() -> Weight, base: fn() -> Weight| bench().saturating_sub(base());
+	/// The overhead the access list adds to one touch.
+	pub(crate) fn access_list_overhead<T: Config>(warmth: Warmth, key: KeyFamily) -> Weight {
+		let touch_cost = |bench: Weight, base: Weight| bench.saturating_sub(base);
+		// Both terms come from the touched key's own family: a slot key is longer than an address
+		// and lives on the heap, so one family's baseline is no floor for the other's.
 		match warmth {
 			Warmth::Cold { revertible } => {
-				let full = match key {
-					TouchedKey::Slot => T::WeightInfo::access_list_touch_cold_full,
-					TouchedKey::Address => T::WeightInfo::access_list_touch_cold_account_full,
+				let cost = match key {
+					KeyFamily::Slot => touch_cost(
+						T::WeightInfo::access_list_touch_cold_full(),
+						T::WeightInfo::access_list_touch_cold_empty(),
+					),
+					KeyFamily::Address => touch_cost(
+						T::WeightInfo::access_list_touch_cold_account_full(),
+						T::WeightInfo::access_list_touch_cold_account_empty(),
+					),
 				};
-				let cost = touch_cost(full, T::WeightInfo::access_list_touch_cold_empty);
 				if revertible {
 					cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
 				} else {
 					cost
 				}
 			},
-			Warmth::Hot { .. } => {
-				let full = match key {
-					TouchedKey::Slot => T::WeightInfo::access_list_touch_hot_full,
-					TouchedKey::Address => T::WeightInfo::access_list_touch_hot_account_full,
-				};
-				touch_cost(full, T::WeightInfo::access_list_touch_hot_single_element)
+			Warmth::Hot { .. } => match key {
+				KeyFamily::Slot => touch_cost(
+					T::WeightInfo::access_list_touch_hot_full(),
+					T::WeightInfo::access_list_touch_hot_single_element(),
+				),
+				KeyFamily::Address => touch_cost(
+					T::WeightInfo::access_list_touch_hot_account_full(),
+					T::WeightInfo::access_list_touch_hot_account_single_element(),
+				),
 			},
 		}
 	}
 
 	/// What journaling a `Read` to `Write` upgrade costs, on top of the touch itself.
 	pub(crate) fn access_list_upgrade_overhead<T: Config>() -> Weight {
+		// `access_list_touch_hot_upgrade` is benched on a full list of slots.
 		T::WeightInfo::access_list_touch_hot_upgrade()
 			.saturating_sub(T::WeightInfo::access_list_touch_hot_full())
 	}
@@ -316,7 +327,7 @@ impl RuntimeCosts {
 					},
 					_ => Weight::zero(),
 				};
-				weight_by_warmth::<T, _>([warmth], TouchedKey::Slot, cold, hot)
+				weight_by_warmth::<T, _>([warmth], StorageAccessKind::KEY_FAMILY, cold, hot)
 					.saturating_add(surcharge)
 			},
 			StorageAccessKind::Transient => transient(),
@@ -328,7 +339,7 @@ impl RuntimeCosts {
 /// Prices hot only if every item is hot.
 pub(crate) fn weight_by_warmth<T: Config, I: IntoIterator<Item = Warmth>>(
 	items: I,
-	key: TouchedKey,
+	key: KeyFamily,
 	cold: impl FnOnce() -> Weight,
 	hot: impl FnOnce() -> Weight,
 ) -> Weight {
@@ -447,14 +458,14 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					let items = account.into_iter().chain([original_account, account_info]);
 					weight_by_warmth::<T, _>(
 						items,
-						TouchedKey::Address,
+						CallAccess::KEY_FAMILY,
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
 					)
 				},
 				CallWarmth::Delegate { account_info } => weight_by_warmth::<T, _>(
 					[account_info],
-					TouchedKey::Address,
+					CallAccess::KEY_FAMILY,
 					T::WeightInfo::seal_delegate_call,
 					T::WeightInfo::seal_delegate_call_hot,
 				),
@@ -720,15 +731,15 @@ mod tests {
 		let hot = Warmth::Hot { charged: StorageOp::Read };
 		let overlay = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
 		let derived = [
-			("cold slot touch", RuntimeCosts::access_list_overhead::<Test>(cold, TouchedKey::Slot)),
+			("cold slot touch", RuntimeCosts::access_list_overhead::<Test>(cold, KeyFamily::Slot)),
 			(
 				"cold address touch",
-				RuntimeCosts::access_list_overhead::<Test>(cold, TouchedKey::Address),
+				RuntimeCosts::access_list_overhead::<Test>(cold, KeyFamily::Address),
 			),
-			("hot slot touch", RuntimeCosts::access_list_overhead::<Test>(hot, TouchedKey::Slot)),
+			("hot slot touch", RuntimeCosts::access_list_overhead::<Test>(hot, KeyFamily::Slot)),
 			(
 				"hot address touch",
-				RuntimeCosts::access_list_overhead::<Test>(hot, TouchedKey::Address),
+				RuntimeCosts::access_list_overhead::<Test>(hot, KeyFamily::Address),
 			),
 			("journaled upgrade", RuntimeCosts::access_list_upgrade_overhead::<Test>()),
 			("deferred write", RuntimeCosts::deferred_write_cost::<Test>()),

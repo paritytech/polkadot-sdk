@@ -22,6 +22,7 @@ use core::iter;
 use crate::{
 	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
 	ExecReturnValue, Weight,
+	access_list::CallAccess,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
 	metering::TransactionLimits,
@@ -329,8 +330,6 @@ fn cold_hot_call_and_delegate_reuse_target_warmth(
 				.abi_encode(),
 		);
 
-		const PLAIN_REREADS: u32 = 4; // OriginalAccount, AccountInfo, CodeInfo and CodeBlob
-		const DELEGATE_REREADS: u32 = 3; // AccountInfo, CodeInfo and CodeBlob
 		assert_eq!(
 			plain_then_call.cold, plain_only.cold,
 			"a warm plain re-call adds no new cold touch",
@@ -341,12 +340,12 @@ fn cold_hot_call_and_delegate_reuse_target_warmth(
 		);
 		assert_eq!(
 			plain_then_call.hot,
-			plain_only.hot + PLAIN_REREADS,
+			plain_only.hot + CallAccess::plain_entries(),
 			"the plain re-call re-reads the target's account and code hot",
 		);
 		assert_eq!(
 			plain_then_delegate.hot,
-			plain_only.hot + DELEGATE_REREADS,
+			plain_only.hot + CallAccess::delegate_entries(),
 			"the delegate re-reads account info and code hot, but not the original account",
 		);
 	});
