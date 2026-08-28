@@ -67,9 +67,24 @@ mod tests {
 	#[test]
 	fn min_encoded_statement_size_matches_encoder() {
 		// The smallest statement admission accepts: a proof and an expiry.
-		let mut statement = Statement::new();
-		statement.set_proof(Proof::Sr25519 { signature: [0u8; 64], signer: [0u8; 32] });
-		statement.set_expiry(0);
-		assert_eq!(statement.encode().len(), MIN_ENCODED_STATEMENT_SIZE);
+		let min = [
+			Proof::Sr25519 { signature: [0u8; 64], signer: [0u8; 32] },
+			Proof::Ed25519 { signature: [0u8; 64], signer: [0u8; 32] },
+			Proof::Secp256k1Ecdsa { signature: [0u8; 65], signer: [0u8; 33] },
+		]
+		.into_iter()
+		.map(|proof| {
+			// Stops compiling when a `Proof` variant is added, so the list above stays complete.
+			match proof {
+				Proof::Sr25519 { .. } | Proof::Ed25519 { .. } | Proof::Secp256k1Ecdsa { .. } => (),
+			}
+			let mut statement = Statement::new();
+			statement.set_proof(proof);
+			statement.set_expiry(0);
+			statement.encode().len()
+		})
+		.min()
+		.expect("the proof list is nonempty");
+		assert_eq!(min, MIN_ENCODED_STATEMENT_SIZE);
 	}
 }
