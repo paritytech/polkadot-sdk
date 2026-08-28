@@ -287,7 +287,7 @@ pub mod pallet {
 		type SpendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = BalanceOf<Self, I>>;
 
 		/// Type parameter representing the asset kinds to be spent from the treasury.
-		type AssetKind: Parameter + MaxEncodedLen + Clone;
+		type AssetKind: Parameter + MaxEncodedLen;
 
 		/// Type parameter used to identify the beneficiaries eligible to receive treasury spends.
 		type Beneficiary: Parameter + MaxEncodedLen;
@@ -956,7 +956,6 @@ pub mod pallet {
 				Error::<T, I>::AlreadyAttempted
 			);
 
-			// let asset_kind = spend.asset_kind.clone();
 			Self::remove_from_queue(&spend.asset_kind, index);
 			Spends::<T, I>::remove(index);
 			Self::deposit_event(Event::<T, I>::AssetSpendVoided { index });
@@ -1097,8 +1096,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Check what to promote BEFORE removing
 				if let Some(&(new_next_index, order_key)) = queue.first() {
 					// Promote to NextPayout. The order only starts counting down once the
-					// promoted spend is mature (its order key is `valid_from` for fresh entries
-					// and is never in the future for rotated ones).
+					// promoted spend is mature (its order key is `max(now, valid_from)` for
+					// fresh entries and is never in the future for rotated ones).
 					let now = T::BlockNumberProvider::current_block_number();
 					let new_expire_at =
 						now.max(order_key).saturating_add(T::OrderExpirationPeriod::get());
@@ -1341,8 +1340,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// 1. The length of each [`PayoutQueue`] must not exceed [`Config::MaxQueuedSpends`].
 	// 2. No duplicate spend indices in any [`PayoutQueue`].
 	// 3. The queue for each asset kind must be sorted by order key. The order key is
-	// `valid_from` for newly inserted spends and the block number of the rotation for rotated
-	// spends, so the sort order always holds.
+	// `max(now, valid_from)` for newly inserted spends and the block number of the rotation for
+	// rotated spends, so the sort order always holds.
 	// 4. If [`NextPayout`] for an asset kind is Some, its spend index must not also be present
 	// in the [`PayoutQueue`] for that asset kind.
 	// 5. All spend indices in [`PayoutQueue`] for an asset kind must exist in [`Spends`] with
