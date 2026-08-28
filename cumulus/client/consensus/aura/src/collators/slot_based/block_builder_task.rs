@@ -154,7 +154,7 @@ where
 /// re-assigned), forking away a still-resubmittable segment. Accumulating the gap only while the
 /// para is scheduled would avoid that. It is a niche case though: what matters for parachains that
 /// plan to disturb the chain this way is that building cleanly resumes, even if some txs are lost.
-const MAX_RELAY_GAP_BEFORE_FORK: u32 = 50;
+const MAX_RELAY_GAP_BEFORE_FORK: u32 = 1200;
 
 /// Pick the parent to build on and the unincluded segment to re-advertise: the deepest parent
 /// from the search with its segment, or — when the parent's relay parent lags the scheduling
