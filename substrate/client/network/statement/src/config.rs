@@ -29,10 +29,11 @@ pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
 /// Minimum wire size of a valid statement: field-count prefix, `AuthenticityProof` and `Expiry`.
 pub const MIN_ENCODED_STATEMENT_SIZE: usize = 108;
 
-/// Most statements a full [`MAX_STATEMENT_NOTIFICATION_SIZE`] notification can carry. A batch
-/// declaring more is rejected before decoding.
-pub const MAX_STATEMENTS_PER_NOTIFICATION: usize =
-	MAX_STATEMENT_NOTIFICATION_SIZE as usize / MIN_ENCODED_STATEMENT_SIZE;
+/// Most statements a sender can pack into a full [`MAX_STATEMENT_NOTIFICATION_SIZE`]
+/// notification. A batch declaring more is rejected before decoding.
+pub const MAX_STATEMENTS_PER_NOTIFICATION: usize = (MAX_STATEMENT_NOTIFICATION_SIZE as usize -
+	crate::V1_ENVELOPE_OVERHEAD) /
+	MIN_ENCODED_STATEMENT_SIZE;
 
 /// Soft limit on encoded statement chunks held in flight across all peers, shared by initial-sync
 /// and propagation sends. Since admission is checked before adding the next whole notification, it
