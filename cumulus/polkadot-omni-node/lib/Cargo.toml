@@ -136,6 +136,8 @@ tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+# The mocked parachain inherent is checked with the pallet's own state-proof reader.
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 # The consumer of the JAM PoV, so the wire contract is tested against the real reader.
 parasim-service = { path = "../../../../parachain-service/testing/parasim-service" }

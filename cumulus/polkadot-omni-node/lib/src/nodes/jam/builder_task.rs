@@ -28,7 +28,9 @@
 //! accumulates them, so authoring no longer waits for inclusion.
 //!
 //! Phases 1–5 inject a **mocked** parachain inherent (the runtime still requires
-//! `set_validation_data`); its fake relay slot follows the wall-clock JAM slot. Both the mocked
+//! `set_validation_data`); its fake relay slot follows the wall-clock JAM slot, and it advertises
+//! the head JAM has accumulated as the relay chain's included para head — that is what makes the
+//! runtime's own segment tracking, and therefore its capacity limit, real. Both the mocked
 //! validation data and the timestamp travel *inside* the block, so importers validate them
 //! instead of recomputing them from their own clock — exactly as in relay mode.
 
@@ -41,7 +43,7 @@ use crate::common::{
 	aura::{AuraIdT, AuraRuntimeApi},
 	types::{ParachainBackend, ParachainClient},
 };
-use codec::{Decode, Encode};
+use codec::Decode;
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
@@ -857,8 +859,18 @@ where
 	}
 
 	let genesis_hash = para_client.info().genesis_hash;
-	let included_hash =
-		state.segment.included.as_ref().map(|header| header.hash()).unwrap_or(genesis_hash);
+	// The whole header, not just its hash: the mocked inherent advertises it to the runtime as
+	// the relay chain's included para head, which is what `parachain-system` prunes its own
+	// unincluded segment against.
+	let included_header = match state.segment.included.clone() {
+		Some(header) => header,
+		// Nothing accumulated yet, so the para's included head is still its genesis block.
+		None => para_client
+			.header(genesis_hash)
+			.map_err(|e| format!("genesis header: {e}"))?
+			.ok_or_else(|| format!("genesis header {genesis_hash:?} not found"))?,
+	};
+	let included_hash = included_header.hash();
 	let candidates = known_descendants::<Block>(para_backend, included_hash);
 	let correlation = correlate(&reports, &candidates, included_hash);
 	for report in &correlation.unmatched {
@@ -908,10 +920,7 @@ where
 	let parent_header = match state.segment.tip() {
 		Some(header) => header.clone(),
 		// Nothing accumulated and nothing in flight, so the next block is the para's first one.
-		None => para_client
-			.header(genesis_hash)
-			.map_err(|e| format!("genesis header: {e}"))?
-			.ok_or_else(|| format!("genesis header {genesis_hash:?} not found"))?,
+		None => included_header.clone(),
 	};
 	let parent_hash = parent_header.hash();
 	let parent_link = state.segment.parent_link();
@@ -1017,6 +1026,7 @@ where
 		para_client,
 		para_id,
 		&parent_header,
+		&included_header,
 		wall_jam_slot,
 		now,
 		slot_duration,
@@ -1215,6 +1225,50 @@ where
 		.map_err(|e| format!("can_build_upon: {e}"))
 }
 
+/// The mocked relay state one block is built against.
+///
+/// `current_para_block_head` is what the mock puts under the relay chain's para-head key, and
+/// therefore what `parachain-system` reads as the *included* head and prunes its own unincluded
+/// segment against. It has to be the head JAM has accumulated: advertising the parent — which is
+/// what a dev-mode collator does, having no notion of inclusion at all — tells the runtime that
+/// every block is included the moment it is authored, so its segment never grows and the
+/// `size_after_included >= C` half of `can_build_upon` can never refuse anything.
+///
+/// The mocked relay parent number stays a pure function of the wall-clock JAM slot.
+/// `FixedVelocityConsensusHook::on_state_proof` derives the block's Aura slot from it and panics
+/// on a mismatch, so it must not move with the included head.
+fn mocked_relay_state<Header: HeaderT>(
+	para_id: ParaId,
+	parent_header: &Header,
+	included_header: &Header,
+	wall_jam_slot: JamSlot,
+	slot_duration: SlotDuration,
+	relay_parent_offset: u32,
+	upgrade_go_ahead: Option<UpgradeGoAhead>,
+) -> MockValidationDataInherentDataProvider<()> {
+	const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
+	let current_para_block =
+		UniqueSaturatedInto::<u32>::unique_saturated_into(*parent_header.number()) + 1;
+	let relay_blocks_per_para_block =
+		(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
+	let target_relay_slot = jam_slot_as_relay_slot(wall_jam_slot);
+	let relay_offset =
+		(target_relay_slot as u32).saturating_sub(relay_blocks_per_para_block * current_para_block);
+
+	MockValidationDataInherentDataProvider::<()> {
+		current_para_block,
+		para_id,
+		current_para_block_head: Some(HeadData(included_header.encode())),
+		relay_blocks_per_para_block,
+		relay_offset,
+		relay_parent_offset,
+		para_blocks_per_relay_epoch: 10,
+		upgrade_go_ahead,
+		..Default::default()
+	}
+}
+
 /// Timestamp + mocked parachain inherent, both derived from the wall clock.
 ///
 /// Mirrors omni-node's relay-less dev mode, except the fake relay slot is the wall-clock JAM
@@ -1225,6 +1279,7 @@ async fn create_inherent_data<Block, RuntimeApi>(
 	para_client: &Arc<ParachainClient<Block, RuntimeApi>>,
 	para_id: ParaId,
 	parent_header: &Block::Header,
+	included_header: &Block::Header,
 	wall_jam_slot: JamSlot,
 	timestamp: Timestamp,
 	slot_duration: SlotDuration,
@@ -1234,50 +1289,39 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: CollectCollationInfo<Block> + RelayParentOffsetApi<Block>,
 {
-	const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
-
 	let parent_hash = parent_header.hash();
 	let should_send_go_ahead = para_client
 		.runtime_api()
 		.collect_collation_info(parent_hash, parent_header)
 		.map(|info| info.new_validation_code.is_some())
 		.unwrap_or_default();
-
-	let current_para_block =
-		UniqueSaturatedInto::<u32>::unique_saturated_into(*parent_header.number()) + 1;
 	let relay_parent_offset =
 		para_client.runtime_api().relay_parent_offset(parent_hash).unwrap_or_default();
-	let relay_blocks_per_para_block =
-		(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
-	let target_relay_slot = jam_slot_as_relay_slot(wall_jam_slot);
-	let relay_offset =
-		(target_relay_slot as u32).saturating_sub(relay_blocks_per_para_block * current_para_block);
 
-	let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
-		current_para_block,
+	let mocked_parachain = mocked_relay_state(
 		para_id,
-		current_para_block_head: Some(HeadData(parent_header.encode())),
-		relay_blocks_per_para_block,
-		relay_offset,
+		parent_header,
+		included_header,
+		wall_jam_slot,
+		slot_duration,
 		relay_parent_offset,
-		para_blocks_per_relay_epoch: 10,
-		upgrade_go_ahead: should_send_go_ahead.then(|| {
+		should_send_go_ahead.then(|| {
 			tracing::info!(
 				target: LOG_TARGET,
 				"Detected pending validation code, sending go-ahead signal."
 			);
 			UpgradeGoAhead::GoAhead
 		}),
-		..Default::default()
-	};
+	);
 
 	tracing::debug!(
 		target: LOG_TARGET,
-		current_para_block,
-		target_relay_slot,
-		relay_offset,
-		relay_blocks_per_para_block,
+		current_para_block = mocked_parachain.current_para_block,
+		target_relay_slot = jam_slot_as_relay_slot(wall_jam_slot),
+		relay_offset = mocked_parachain.relay_offset,
+		relay_blocks_per_para_block = mocked_parachain.relay_blocks_per_para_block,
 		relay_parent_offset,
+		included_head = ?included_header.hash(),
 		"Mocked parachain inherent parameters.",
 	);
 
@@ -1299,10 +1343,15 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::Encode;
+	use cumulus_client_parachain_inherent::{INHERENT_IDENTIFIER, ParachainInherentData};
+	use cumulus_pallet_parachain_system::RelayChainStateProof;
 	use sp_core::H256;
-	use sp_runtime::traits::BlakeTwo256;
+	use sp_runtime::traits::{BlakeTwo256, Hash as _};
 
 	type TestHeader = sp_runtime::generic::Header<u32, BlakeTwo256>;
+
+	const TEST_PARA_ID: u32 = 1000;
 
 	/// A chain of headers, each one the child of its predecessor — the shape the segment holds.
 	fn chain(length: u32) -> Vec<TestHeader> {
@@ -1335,6 +1384,52 @@ mod tests {
 				.map(|header| SegmentEntry { header, reported: None })
 				.collect(),
 		}
+	}
+
+	/// The mocked provider the builder hands to the block proposer.
+	fn provider_for(
+		parent: &TestHeader,
+		included: &TestHeader,
+		now: Timestamp,
+	) -> MockValidationDataInherentDataProvider<()> {
+		mocked_relay_state(
+			ParaId::from(TEST_PARA_ID),
+			parent,
+			included,
+			jam_slot_at(now),
+			SlotDuration::from_millis(6000),
+			0,
+			None,
+		)
+	}
+
+	/// The validation data the mocked provider actually produces — what travels inside the block
+	/// and what `set_validation_data` is handed.
+	async fn produced_by(
+		provider: MockValidationDataInherentDataProvider<()>,
+	) -> ParachainInherentData {
+		let mut inherent_data = InherentData::new();
+		provider
+			.provide_inherent_data(&mut inherent_data)
+			.await
+			.expect("the mocked provider cannot fail");
+		inherent_data
+			.get_data(&INHERENT_IDENTIFIER)
+			.expect("the parachain inherent data decodes")
+			.expect("the mocked provider always supplies it")
+	}
+
+	/// The included para head read back the way `parachain-system` reads it before pruning its
+	/// unincluded segment against it.
+	fn included_head_of(data: &ParachainInherentData) -> HeadData {
+		RelayChainStateProof::new(
+			ParaId::from(TEST_PARA_ID),
+			data.validation_data.relay_parent_storage_root,
+			data.relay_chain_state.clone(),
+		)
+		.expect("the mocked relay state proof is well formed")
+		.read_included_para_head()
+		.expect("the mocked relay state carries an included para head")
 	}
 
 	fn reported_package(byte: u8, header: &TestHeader) -> ReportedPackage {
@@ -1723,6 +1818,52 @@ mod tests {
 			ParentLink::Tip,
 			"a block we authored outranks anything read from state",
 		);
+	}
+
+	/// The mocked relay state is the only thing telling `parachain-system` what has been
+	/// included, and the pallet prunes its own unincluded segment against it. It must name the
+	/// head JAM accumulated: naming the parent — what a dev-mode collator advertises, having no
+	/// notion of inclusion — makes the runtime drop its whole segment every block, so the segment
+	/// never grows and the capacity half of `can_build_upon` can never refuse a block.
+	#[tokio::test]
+	async fn the_mocked_relay_state_advertises_the_accumulated_head_as_included() {
+		let blocks = chain(4);
+		let (included, parent) = (&blocks[0], &blocks[3]);
+		let now = Timestamp::new(jam_types::JAM_COMMON_ERA * 1000);
+
+		let provider = provider_for(parent, included, now);
+		// Only what counts as included moved; the block being authored is still the parent's
+		// child, which is what the mocked relay parent number is computed for.
+		assert_eq!(provider.current_para_block, parent.number() + 1);
+
+		let head = included_head_of(&produced_by(provider).await);
+		// The pallet hashes those bytes and compares the result to its segment entries, which
+		// hold block hashes — so this is the comparison the runtime will actually make.
+		assert_eq!(BlakeTwo256::hash(&head.0), included.hash());
+		assert_ne!(BlakeTwo256::hash(&head.0), parent.hash());
+	}
+
+	/// `FixedVelocityConsensusHook::on_state_proof` derives the block's Aura slot from the relay
+	/// parent number the mock advertises and panics unless the two agree, so that number has to
+	/// stay a pure function of the wall clock. Advertising a lagging included head must not shift
+	/// it, whichever block is included.
+	#[tokio::test]
+	async fn the_mocked_relay_parent_number_does_not_move_with_the_included_head() {
+		let blocks = chain(4);
+		let slot_duration = SlotDuration::from_millis(6000);
+
+		for offset_ms in [0, 1, 5999, 6000, 123_456] {
+			let now = Timestamp::new(jam_types::JAM_COMMON_ERA * 1000 + offset_ms);
+			for included in [&blocks[0], &blocks[2], &blocks[3]] {
+				let data = produced_by(provider_for(&blocks[3], included, now)).await;
+				assert_eq!(
+					u64::from(data.validation_data.relay_parent_number),
+					*Slot::from_timestamp(now, slot_duration),
+					"included {:?}, {offset_ms} ms into the JAM common era",
+					included.hash(),
+				);
+			}
+		}
 	}
 
 	/// The consensus hook panics unless the block's Aura slot equals the slot it derives from the
