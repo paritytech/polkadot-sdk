@@ -184,7 +184,7 @@ impl DisputeCoordinatorSubsystem {
 		let (participations, votes, first_leaf, initialized, backend) = match res {
 			// Concluded:
 			None => {
-				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
+				gum::debug!(target: LOG_TARGET, "received `Conclude` signal, exiting");
 				return Ok(());
 			},
 			Some(r) => r,
