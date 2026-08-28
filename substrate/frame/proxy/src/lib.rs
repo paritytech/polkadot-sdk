@@ -1114,22 +1114,22 @@ impl<T: Config> Pallet<T> {
 		for delegator in Proxies::<T>::iter_keys() {
 			let (proxies, deposit) = Proxies::<T>::get(&delegator);
 
-			// Non-empty delegate list.
+			// 1. Non-empty delegate list.
 			ensure!(!proxies.is_empty(), "Proxies entry must never be empty");
 
-			// Strictly sorted, hence duplicate-free.
+			// 2. Strictly sorted, hence duplicate-free.
 			ensure!(
 				proxies.windows(2).all(|w| w[0] < w[1]),
 				"Proxies must be strictly sorted and duplicate-free"
 			);
 
-			// No self-delegation.
+			// 3. No self-delegation.
 			ensure!(
 				proxies.iter().all(|p| p.delegate != delegator),
 				"Proxies entry must not list the key account as its own delegate"
 			);
 
-			// (warn) The deposit is covered by the key account's reserve, unless it is a pure
+			// 4. (warn) The deposit is covered by the key account's reserve, unless it is a pure
 			// proxy whose deposit sits on the spawner.
 			let reserved = T::Currency::reserved_balance(&delegator);
 			if !deposit.is_zero() && reserved < deposit {
@@ -1144,7 +1144,7 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 
-			// (warn, hard error under `fuzzing`) The deposit matches what the current parameters
+			// 5. (warn, hard error under `fuzzing`) The deposit matches what the current parameters
 			// price the entry at, unless a parameter change left it stale.
 			let expected_deposit = Self::deposit(proxies.len() as u32);
 			if deposit != expected_deposit {
@@ -1168,35 +1168,35 @@ impl<T: Config> Pallet<T> {
 		for delegate in Announcements::<T>::iter_keys() {
 			let (pending, deposit) = Announcements::<T>::get(&delegate);
 
-			// Non-empty pending list.
+			// 6. Non-empty pending list.
 			ensure!(!pending.is_empty(), "Announcements entry must never be empty");
 
-			// Non-decreasing heights.
+			// 7. Non-decreasing heights.
 			ensure!(
 				pending.windows(2).all(|w| w[0].height <= w[1].height),
 				"Announcements heights must be non-decreasing"
 			);
 
-			// No self-announcement.
+			// 8. No self-announcement.
 			ensure!(
 				pending.iter().all(|a| a.real != delegate),
 				"Announcements entry must not name the key account as `real`"
 			);
 
-			// No announcement from the future.
+			// 9. No announcement from the future.
 			ensure!(
 				pending.iter().all(|a| a.height <= now),
 				"Announcements entry has a height later than the current block"
 			);
 
-			// The deposit is covered by the key account's reserve.
+			// 10. The deposit is covered by the key account's reserve.
 			ensure!(
 				T::Currency::reserved_balance(&delegate) >= deposit,
 				"Announcements deposit exceeds the key account's reserved balance"
 			);
 
-			// (warn, hard error under `fuzzing`) The deposit matches what the current parameters
-			// price the entry at, unless a parameter change left it stale.
+			// 11. (warn, hard error under `fuzzing`) The deposit matches what the current
+			// parameters price the entry at, unless a parameter change left it stale.
 			let expected_deposit = T::AnnouncementDepositBase::get() +
 				T::AnnouncementDepositFactor::get() * (pending.len() as u32).into();
 			if deposit != expected_deposit {
@@ -1218,8 +1218,8 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// The reserve covers the sum of both deposits, not just each one on its own: 4 and 10 read
-		// one map each, so the same units can satisfy both. Accounts in only one map need no
+		// 12. The reserve covers the sum of both deposits, not just each one on its own: 4 and 10
+		// read one map each, so the same units can satisfy both. Accounts in only one map need no
 		// check, their sum being that single deposit, so walking `Announcements` alone suffices.
 		for delegate in Announcements::<T>::iter_keys() {
 			let announcements_deposit = Announcements::<T>::get(&delegate).1;
