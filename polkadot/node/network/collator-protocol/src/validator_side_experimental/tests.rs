@@ -731,7 +731,7 @@ impl TestState {
 			&mut sender,
 			state,
 			peer_id,
-			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+			CollationProtocols::V4(protocol_v4::AdvertiseSegment {
 				scheduling_parent,
 				candidates_descriptor_version: CandidateDescriptorVersion::V3,
 				candidates: fingerprints.try_into().unwrap(),
@@ -3497,7 +3497,7 @@ async fn v4_advertise_segment_len_one_is_accepted() {
 		&mut sender,
 		&mut state,
 		peer_id,
-		CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
+		CollationProtocols::V4(protocol_v4::AdvertiseSegment {
 			scheduling_parent,
 			candidates_descriptor_version: CandidateDescriptorVersion::V3,
 			candidates,
