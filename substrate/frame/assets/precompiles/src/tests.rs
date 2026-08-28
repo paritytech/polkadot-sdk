@@ -1160,7 +1160,6 @@ fn balanced_paths_emit_erc20_transfer_logs() {
 		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
 		let user_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&user);
 
-		Balances::make_free_balance_be(&owner, 100);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
