@@ -174,8 +174,10 @@ struct ParachainServiceState {
     /// allocated bucket id. Maintained in §5.1.
     incoming_transfers: Map<BucketId, IncomingTransfers>,
 
-    /// First and last bucket id of the `incoming_transfers` queue.
-    incoming_transfer_buckets: Option<IncomingTransferBuckets>,
+    /// First and last bucket id of the `incoming_transfers` queue. Its storage
+    /// key is absent while the queue is empty, which is how "no queue" is
+    /// represented.
+    incoming_transfer_buckets: IncomingTransferBuckets,
 
     /// Per-parachain log, keyed only by ParaId. Each entry carries its
     /// Timeslot inline; multiple entries may share a timeslot (e.g. several
@@ -436,7 +438,7 @@ type IncomingTransfers =
     BoundedVec<(ServiceId, Amount, Memo), MAX_TRANSFERS_PER_BUCKET>;
 
 /// Endpoints of the `incoming_transfers` queue. The occupied ids are exactly
-/// `first_bucket ..= last_bucket`.
+/// `first_bucket ..= last_bucket`. Absent from state while the queue is empty.
 struct IncomingTransferBuckets {
     first_bucket: BucketId,
     last_bucket: BucketId,
@@ -857,8 +859,8 @@ the cap bounds what reading any one bucket can cost.
 
 `clean_up_buckets_up_to(bucket_id)` removes whole buckets from `first_bucket` up to and
 including `bucket_id` and points `first_bucket` at the first survivor. Once nothing
-remains, `incoming_transfer_buckets` is cleared, so ids restart from `0` rather than
-increasing forever.
+remains, the `incoming_transfer_buckets` entry is removed, so ids restart from `0` rather
+than increasing forever.
 
 As long as the JAM block the parachain references only ever advances, this is safe: it can
 only ever name buckets it has actually seen, so nothing it has not read is removed.
@@ -1376,7 +1378,7 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
 Asset Hub additionally owns the service-global state items as privileged caller. Its
 `total_state_balance` must cover them, provisioned at genesis. Each is billed as a
 general-storage entry (§6.1), so a `Map` costs one entry per key it holds while a
-`BoundedVec` or `Option` costs one entry in total.
+`BoundedVec` or a singleton costs one entry in total.
 
 Of these only `incoming_transfers` grows with the transfer bound. Taking
 `CoreCount = 341`, `AuthorizerHash = 32 B`, `ServiceId = 4 B`, `Memo = 128 B`,
@@ -1390,12 +1392,12 @@ pending_assigns: Map<CoreIndex, PendingAssign>  · 341 items
   341 × (34 + 3 (key) + 2 + 79 × 32 + 5 (Option<ServiceId>))  octets    877 052
 pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  · 1 item
   34 + 1 (key) + 2 + 341 × (2 + 4)                         octets      2 083
-incoming_transfer_buckets: Option<IncomingTransferBuckets>  · 1 item
-  34 + 1 (key) + 1 + 8 + 8 + 4 (count)                     octets         56
-                                                  octets subtotal   1 222 956
+incoming_transfer_buckets: IncomingTransferBuckets  · 1 item
+  34 + 1 (key) + 8 + 8 + 4 (count)                         octets         55
+                                                  octets subtotal   1 222 955
                                                     344 items × 10      3 440
                                                                     ---------
-                                                                    1 226 396
+                                                                    1 226 395
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
@@ -1415,13 +1417,13 @@ incoming_transfers: Map<BucketId, IncomingTransfers>  — worst case N items
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 226 396 + 195 × N
+asset_hub_global_items = 1 226 395 + 195 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation: each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 226 396 + 195 000 = 1 421 396`, or
+(§5.1). At `N = 1000` the reservation is `1 226 395 + 195 000 = 1 421 395`, or
 **≈ 1.36 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint

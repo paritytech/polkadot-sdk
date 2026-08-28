@@ -35,9 +35,8 @@ module state_balance {
       CoreCount * (34 + 3 + 2 + AuthorizerQueueLength * 32 + 5)
     // (u16 CoreIndex 2 + Timeslot 4) per core.
     val pendingAssignCores = VecEntryOverhead + CoreCount * 6
-    // Endpoint pointer: 34 + 1 (key) + 1 (Option tag) + first_bucket 8
-    // + last_bucket 8 + count 4.
-    val transferBuckets = 34 + 1 + 1 + 8 + 8 + 4
+    // Endpoint pointer: 34 + 1 (key) + first_bucket 8 + last_bucket 8 + count 4.
+    val transferBuckets = 34 + 1 + 8 + 8 + 4
     // Fixed storage items: the two BoundedVecs, the endpoint pointer, and one per
     // core for pendingAssigns. The transfer buckets are counted per transfer below.
     val fixedItems = 3 + CoreCount

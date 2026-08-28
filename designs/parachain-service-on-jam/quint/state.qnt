@@ -78,8 +78,9 @@ module state {
     // JAM storage could not substitute for anyway: it has no prefix iteration.
     incomingTransfers:
       BucketId -> List[{ from: ServiceId, amount: Balance, memo: Memo }],
-    // First and last bucket id, `None` when the queue is empty. Ids restart at
-    // 0 once a clean-up empties the queue, so they stay small in practice.
+    // First and last bucket id, `None` when the queue is empty — in real state
+    // that is the storage key being absent, not an encoded `Option` tag. Ids
+    // restart at 0 once a clean-up empties the queue, so they stay small.
     // `count` is the total number of queued transfers across every bucket. It is
     // maintained on append and clean-up so the §5.1 admission bound is an O(1)
     // read; deriving it would mean reading every bucket, defeating the bucketing.
