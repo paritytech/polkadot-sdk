@@ -335,9 +335,7 @@ impl pallet_message_queue::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl dmp::Config for Runtime {
-	type WeightInfo = ();
-}
+impl dmp::Config for Runtime {}
 
 parameter_types! {
 	/// Matches the mock parachain's own mirrors, so a request that passes there passes here.
