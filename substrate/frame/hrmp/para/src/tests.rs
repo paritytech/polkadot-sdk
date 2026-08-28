@@ -1177,3 +1177,101 @@ mod force_remove_from_every_state {
 		});
 	}
 }
+
+mod receiving_a_migration {
+	use super::*;
+	use hrmp_primitives::{MigratedChannel, ReceiveMigratedChannels};
+
+	#[test]
+	fn a_confirmed_channel_arrives_open_holding_both_deposits() {
+		build_and_execute(|| {
+			// GIVEN a channel opened here the ordinary way, for comparison.
+			let native = open_channel(PARA_A, PARA_B);
+			let native_info = Channels::<Test>::get(native).unwrap();
+
+			// WHEN the equivalent arrives from a migration.
+			assert_ok!(Hrmp::receive_channel(MigratedChannel {
+				channel: chan(PARA_B, PARA_C),
+				confirmed: true,
+			}));
+
+			// THEN it is in the same state and holds the same deposits. Nothing downstream can
+			// tell the two apart, which is the point.
+			let arrived = Channels::<Test>::get(chan(PARA_B, PARA_C)).unwrap();
+			assert_eq!(arrived.state, native_info.state);
+			assert!(arrived.sender_ticket.is_some() && arrived.recipient_ticket.is_some());
+			assert_eq!(held(PARA_C), CHANNEL_DEPOSIT);
+			assert_eq!(held(PARA_B), 2 * CHANNEL_DEPOSIT);
+		});
+	}
+
+	#[test]
+	fn an_unconfirmed_request_arrives_pending_holding_only_the_senders_deposit() {
+		build_and_execute(|| {
+			// The relay chain has the request but the recipient never accepted, so only the
+			// sender is owed. Getting this wrong would hold a deposit nobody paid.
+			assert_ok!(Hrmp::receive_channel(MigratedChannel {
+				channel: chan(PARA_A, PARA_B),
+				confirmed: false,
+			}));
+
+			assert_eq!(state_of(chan(PARA_A, PARA_B)), Some(ChannelState::Pending));
+			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
+			assert_eq!(held(PARA_B), 0);
+
+			// And it carries on from there like any other pending request.
+			assert_ok!(Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B));
+			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
+		});
+	}
+
+	#[test]
+	fn a_migrated_system_channel_holds_nothing() {
+		build_and_execute(|| {
+			assert_ok!(Hrmp::receive_channel(MigratedChannel {
+				channel: chan(SYSTEM_PARA, PARA_A),
+				confirmed: true,
+			}));
+
+			assert_eq!(state_of(chan(SYSTEM_PARA, PARA_A)), Some(ChannelState::Open));
+			assert_eq!(held(PARA_A), 0);
+			assert_eq!(held(SYSTEM_PARA), 0);
+		});
+	}
+
+	#[test]
+	fn a_channel_this_chain_already_knows_is_refused_rather_than_overwritten() {
+		build_and_execute(|| {
+			let channel = open_channel(PARA_A, PARA_B);
+			let before_a = held(PARA_A);
+
+			assert_noop!(
+				Hrmp::receive_channel(MigratedChannel { channel, confirmed: true }),
+				Error::<Test>::AlreadyExists
+			);
+			// Overwriting would drop the existing tickets and strand both deposits.
+			assert_eq!(held(PARA_A), before_a);
+		});
+	}
+
+	#[test]
+	fn a_sovereign_account_that_cannot_pay_leaves_nothing_half_taken() {
+		build_and_execute(|| {
+			// GIVEN a recipient whose migrated balance does not cover this chain's price.
+			let recipient = SovereignOf::convert(PARA_C);
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), recipient, 1));
+
+			assert_noop!(
+				Hrmp::receive_channel(MigratedChannel {
+					channel: chan(PARA_A, PARA_C),
+					confirmed: true,
+				}),
+				sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable)
+			);
+
+			// The sender's half was taken before the recipient's failed, and must not survive it.
+			assert_eq!(held(PARA_A), 0);
+			assert!(state_of(chan(PARA_A, PARA_C)).is_none());
+		});
+	}
+}

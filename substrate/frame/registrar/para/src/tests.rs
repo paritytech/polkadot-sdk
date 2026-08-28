@@ -1928,3 +1928,140 @@ mod integrity {
 		assert!(!<<Test as crate::Config>::AssignmentChecker as AssignmentChecker>::NEVER_ASSIGNS);
 	}
 }
+
+mod receiving_a_migration {
+	use super::*;
+	use registrar_primitives::{MigratedPara, MigratedParaState, ReceiveMigratedParas};
+
+	fn migrated(para_id: u32, state: MigratedParaState, locked: bool) -> MigratedPara<AccountId> {
+		MigratedPara { para_id, manager: ALICE, state, locked }
+	}
+
+	#[test]
+	fn a_migrated_para_is_indistinguishable_from_one_registered_here() {
+		build_and_execute(|| {
+			// GIVEN a para registered the ordinary way, for comparison.
+			let native = registered_para(ALICE);
+			let native_info = Paras::<Test>::get(native).unwrap();
+			let held_for_one = held(ALICE);
+
+			// WHEN an equivalent para arrives from a migration, with the same head length the
+			// ordinary path used.
+			assert_ok!(Registrar::receive_para(migrated(
+				FIRST_PARA_ID + 500,
+				MigratedParaState::Registered { head_len: 20 },
+				false,
+			)));
+
+			// THEN it holds exactly the same deposits and sits in the same state. Nothing about
+			// it says "migrated", which is the point: no code downstream has to care.
+			let arrived = Paras::<Test>::get(FIRST_PARA_ID + 500).unwrap();
+			assert_eq!(arrived.manager, native_info.manager);
+			assert_eq!(arrived.locked, native_info.locked);
+			assert!(matches!(arrived.state, RegistrationState::Registered { .. }));
+			assert_eq!(held(ALICE), 2 * held_for_one);
+		});
+	}
+
+	#[test]
+	fn a_live_para_arrives_locked_and_its_manager_stays_out() {
+		build_and_execute(|| {
+			// Every live Polkadot para is locked today, so this is the normal case, not an edge.
+			let para_id = FIRST_PARA_ID + 501;
+			assert_ok!(Registrar::receive_para(migrated(
+				para_id,
+				MigratedParaState::Registered { head_len: 20 },
+				true,
+			)));
+
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+			// And only somebody who is not the manager can lift it, exactly as for a native para.
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::signed(ALICE), para_id),
+				DispatchError::BadOrigin
+			);
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+		});
+	}
+
+	#[test]
+	fn a_reserved_id_arrives_with_only_the_reservation_deposit() {
+		build_and_execute(|| {
+			let para_id = FIRST_PARA_ID + 502;
+			assert_ok!(Registrar::receive_para(migrated(
+				para_id,
+				MigratedParaState::Reserved,
+				false,
+			)));
+
+			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+
+			// And it behaves like any other reserved id: registrable, and droppable for a refund.
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+			assert_eq!(held(ALICE), 0);
+		});
+	}
+
+	#[test]
+	fn an_id_this_chain_already_knows_is_refused_rather_than_overwritten() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+			let before = held(ALICE);
+
+			assert_noop!(
+				Registrar::receive_para(migrated(
+					para_id,
+					MigratedParaState::Registered { head_len: 20 },
+					true,
+				)),
+				Error::<Test>::AlreadyRegistered
+			);
+			// Overwriting would drop the existing tickets on the floor and strand the deposits.
+			assert_eq!(held(ALICE), before);
+		});
+	}
+
+	#[test]
+	fn a_manager_who_cannot_pay_the_new_price_is_refused_whole() {
+		build_and_execute(|| {
+			// GIVEN a manager whose migrated balance does not cover this chain's prices. The
+			// caller is expected to park the record; what matters here is that nothing is left
+			// half-taken.
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), BOB, PARA_DEPOSIT + 1));
+
+			assert_noop!(
+				Registrar::receive_para(MigratedPara {
+					para_id: FIRST_PARA_ID + 503,
+					manager: BOB,
+					state: MigratedParaState::Registered { head_len: 20 },
+					locked: true,
+				}),
+				sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable)
+			);
+
+			// The reservation half was taken before the registration half failed, and must not
+			// survive the failure.
+			assert_eq!(held(BOB), 0);
+			assert!(Paras::<Test>::get(FIRST_PARA_ID + 503).is_none());
+		});
+	}
+
+	#[test]
+	fn the_id_counter_comes_across_and_allocation_continues_from_it() {
+		build_and_execute(|| {
+			Registrar::receive_next_free_para_id(FIRST_PARA_ID + 700);
+			assert_eq!(reserve_for(ALICE), FIRST_PARA_ID + 700);
+
+			// A counter that arrives pointing at an id already taken is survivable: `reserve`
+			// steps over rather than failing, which is what stops a bad migration bricking it.
+			Registrar::receive_next_free_para_id(FIRST_PARA_ID + 700);
+			assert_eq!(reserve_for(BOB), FIRST_PARA_ID + 701);
+		});
+	}
+}

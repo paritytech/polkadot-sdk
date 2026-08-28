@@ -72,6 +72,9 @@ use frame_support::{
 };
 use hrmp_primitives::{OnParaRegistered, ParaManager};
 use registrar_primitives::{
+	MigratedPara, MigratedParaState, ReceiveMigratedParas,
+};
+use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
 	ParaId,
 };
@@ -1327,5 +1330,54 @@ impl<T: Config> ParaManager for Pallet<T> {
 
 	fn manager_of(para_id: ParaId) -> Option<T::AccountId> {
 		Paras::<T>::get(para_id).map(|info| info.manager)
+	}
+}
+
+/// Takes registrations handed over by a migration.
+///
+/// The deposits are re-taken here at this chain's prices, from funds that arrived earlier — the
+/// old chain's recorded amounts are deliberately not carried, because the only thing this chain
+/// could do with them is charge the wrong number. A manager whose migrated balance does not cover
+/// the new price fails, and the caller parks the record rather than losing it.
+impl<T: Config> ReceiveMigratedParas for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn receive_para(para: MigratedPara<T::AccountId>) -> DispatchResult {
+		// A migrator calls this as a plain function, so unlike an extrinsic it gets no storage
+		// layer of its own. Without one, a reservation taken before a failing registration would
+		// survive the failure as a hold against nothing.
+		frame_support::storage::with_storage_layer(|| Self::do_receive_para(para))
+	}
+
+	fn receive_next_free_para_id(para_id: ParaId) {
+		// `reserve` floors at `FirstPublicParaId` and steps over ids it already knows, so a
+		// counter that arrives too low or lands on a taken id is survivable rather than fatal.
+		NextFreeParaId::<T>::put(para_id);
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	fn do_receive_para(para: MigratedPara<T::AccountId>) -> DispatchResult {
+		let MigratedPara { para_id, manager, state, locked } = para;
+		ensure!(!Paras::<T>::contains_key(para_id), Error::<T>::AlreadyRegistered);
+
+		let reservation = T::ReservationConsideration::new(&manager, Footprint::from_parts(1, 0))?;
+
+		// Priced exactly the way a fresh registration is, from the head length the sending chain
+		// measured. Anything else would leave migrated and new paras holding different amounts
+		// for the same thing.
+		let state = match state {
+			MigratedParaState::Reserved => RegistrationState::Reserved,
+			MigratedParaState::Registered { head_len } => {
+				let ticket = T::RegistrationConsideration::new(
+					&manager,
+					Self::registration_footprint(head_len),
+				)?;
+				RegistrationState::Registered { ticket }
+			},
+		};
+
+		Paras::<T>::insert(para_id, ParaInfo { manager, reservation, state, locked });
+		Ok(())
 	}
 }

@@ -353,3 +353,56 @@ pub trait ParachainRegistrar {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_deregisterable(manager: Self::AccountId, para_id: ParaId);
 }
+
+/// Where a migrated para sits, as the chain it is arriving from saw it.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum MigratedParaState {
+	/// The id is held by its manager and nothing is onboarded against it.
+	Reserved,
+	/// The para is onboarded.
+	Registered {
+		/// Length of the para's current head data.
+		///
+		/// Carried so the arriving registration can be priced exactly the way a fresh one is,
+		/// rather than at some worst case. The chain sending it can read this; the chain
+		/// receiving it cannot.
+		head_len: u32,
+	},
+}
+
+/// One para, as it arrives from the chain that used to own the registry.
+///
+/// Deliberately carries no deposit. The deposits are re-taken at the receiving chain's own prices
+/// from funds that arrived earlier, so a recorded amount from the old chain would only be
+/// something to get wrong.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct MigratedPara<AccountId> {
+	/// The para id.
+	pub para_id: ParaId,
+	/// Who manages it, and who the deposits are taken from.
+	pub manager: AccountId,
+	/// Reserved, or registered and how big its head is.
+	pub state: MigratedParaState,
+	/// Whether the manager is locked out. Every live para arrives locked.
+	pub locked: bool,
+}
+
+/// Takes migrated registrations into the pallet that will own them.
+///
+/// A migrator *could* write the storage itself — the maps and `Consideration::new` are both
+/// public. It should not: the state machine and the rule about which deposit is held in which
+/// state live in the pallet, and rebuilding them outside it is how they drift. This is the seam
+/// that keeps them in one place.
+pub trait ReceiveMigratedParas {
+	/// The account a manager is identified by.
+	type AccountId;
+
+	/// Take one para, charging its deposits at this chain's prices.
+	///
+	/// Fails if the id is already known here, or if the manager cannot pay. Either way the caller
+	/// is expected to park the record rather than lose it.
+	fn receive_para(para: MigratedPara<Self::AccountId>) -> sp_runtime::DispatchResult;
+
+	/// Adopt the id counter from the chain the paras came from.
+	fn receive_next_free_para_id(para_id: ParaId);
+}

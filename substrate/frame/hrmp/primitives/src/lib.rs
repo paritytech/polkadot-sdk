@@ -342,3 +342,31 @@ pub trait OnParaRegistered {
 impl OnParaRegistered for () {
 	fn on_registered(_para_id: ParaId) {}
 }
+
+/// One channel, as it arrives from the chain that used to hold its deposits.
+///
+/// Carries no deposit, for the same reason [`MigratedPara`]-style records do not: the deposits are
+/// re-taken here at this chain's prices, from the sovereign accounts the money already arrived on.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct MigratedChannel {
+	/// Which channel.
+	pub channel: ChannelId,
+	/// Whether the relay chain has the channel itself, or only an unconfirmed request for it.
+	///
+	/// The difference decides how many deposits are owed: a request that the recipient has not
+	/// accepted is the sender's alone.
+	pub confirmed: bool,
+}
+
+/// Takes migrated channels into the pallet that will own them.
+///
+/// Same reasoning as `registrar-primitives`' equivalent: which deposits a channel holds is a
+/// function of its state, that rule is enforced inside the pallet, and a migrator rebuilding it
+/// from outside is how it gets broken.
+pub trait ReceiveMigratedChannels {
+	/// Take one channel, charging its deposits at this chain's prices.
+	///
+	/// Fails if the channel is already known here, or if a sovereign account cannot pay. Either
+	/// way the caller is expected to park the record rather than lose it.
+	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
+}

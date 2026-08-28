@@ -65,7 +65,7 @@ use frame_support::{
 };
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	OnParaRegistered, Outcome, ParaId, ParaManager,
+	MigratedChannel, OnParaRegistered, Outcome, ParaId, ParaManager, ReceiveMigratedChannels,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -926,5 +926,41 @@ impl<T: Config> OnParaRegistered for Pallet<T> {
 				Self::deposit_event(Event::SystemChannelOpened { channel, message_id }),
 			Err(_) => Self::deposit_event(Event::SystemChannelFailed { channel }),
 		}
+	}
+}
+
+/// Takes channels handed over by a migration.
+///
+/// Deposits are re-taken here at this chain's prices, from the sovereign accounts the money
+/// already arrived on — the same accounts a fresh channel would be charged against, which is why a
+/// migrated channel and a new one are indistinguishable afterwards.
+///
+/// A channel the relay chain has not confirmed arrives as `Pending`, holding the sender's deposit
+/// alone. That is not a detail: it is the pallet's invariant about which deposits a state holds,
+/// and putting the mapping here rather than in the migrator is what keeps the two from drifting.
+impl<T: Config> ReceiveMigratedChannels for Pallet<T> {
+	fn receive_channel(migrated: MigratedChannel) -> DispatchResult {
+		// A migrator calls this as a plain function, so unlike an extrinsic it gets no storage
+		// layer of its own. Without one, a sender's deposit taken before a failing recipient
+		// deposit would survive the failure as a hold against nothing.
+		frame_support::storage::with_storage_layer(|| Self::do_receive_channel(migrated))
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	fn do_receive_channel(migrated: MigratedChannel) -> DispatchResult {
+		let MigratedChannel { channel, confirmed } = migrated;
+		ensure!(channel.sender != channel.recipient, Error::<T>::ToSelf);
+		ensure!(!Channels::<T>::contains_key(channel), Error::<T>::AlreadyExists);
+
+		let sender_ticket = Self::take_deposit(channel, channel.sender)?;
+		let (recipient_ticket, state) = if confirmed {
+			(Self::take_deposit(channel, channel.recipient)?, ChannelState::Open)
+		} else {
+			(None, ChannelState::Pending)
+		};
+
+		Channels::<T>::insert(channel, ChannelInfo { sender_ticket, recipient_ticket, state });
+		Ok(())
 	}
 }
