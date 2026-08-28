@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787929743870,
+  "lastUpdate": 1787937628640,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2",
-          "message": "Make some BEEFY keystore logic more generic (#10763)\n\nThis PR:\n1. makes some BEEFY keystore methods more generic:\n- `sign()`\n- `public_keys()`\nThis is done by implementing the specific logic in the\n`BeefyAuthorityId`.\n2. Removes the `BeefyAuthorityId::SignatureHasher` since for some\nalgorithms it doesn't make sense to have a hasher.\n\nAlso since now the `BeefyAuthorityId` implements both the signing and\nthe verification logic, we should have better consistency.\n\nRelated to\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-29T17:10:38Z",
-          "tree_id": "110d53e0e67de85770f7f7a662d7e9c98ef8764e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2"
-        },
-        "date": 1769711199900,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.03400000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06713493985799994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03856228233799999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09137336073599991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "de9b0827e2ba77478239b54695692aec82e436c0",
+          "message": "ci: add AI review action (#13018)\n\nAdds a workflow that sends PR diff to gemini for review.\nAfter it's merged it can be invoked by `/aireview` comment.\n\ncc https://github.com/paritytech/devops/issues/5505",
+          "timestamp": "2026-08-28T14:17:38Z",
+          "tree_id": "943f29e3e445cbf96b746dd20234fc5e9f139410",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de9b0827e2ba77478239b54695692aec82e436c0"
+        },
+        "date": 1787937587453,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12599999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038810562720000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0935720151939999,
             "unit": "seconds"
           }
         ]
