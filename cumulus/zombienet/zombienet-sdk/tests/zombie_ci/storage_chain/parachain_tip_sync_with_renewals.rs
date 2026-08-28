@@ -255,9 +255,8 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 		// warp target and would serve stores inside that window via bitswap. Wait until
 		// finality has moved every store below the window (plus lag margin), so the
 		// warp-synced node provably lacks the data and renewals must arrive via bitswap.
-		let stores_below_window = snapshots.metadata.last_store_block +
-			GAP_SYNC_BODY_WINDOW +
-			WARP_TARGET_LAG_MARGIN;
+		let stores_below_window =
+			snapshots.metadata.last_store_block + GAP_SYNC_BODY_WINDOW + WARP_TARGET_LAG_MARGIN;
 		collator
 			.wait_metric_with_timeout(
 				FINALIZED_BLOCK_METRIC,
