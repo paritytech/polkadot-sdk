@@ -1343,6 +1343,27 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Drop `para`'s upgrade cooldown without charging for it.
+		///
+		/// For a caller that has already taken payment somewhere else — the chain that holds the
+		/// money once registration moves off this one. Returns whether there was a cooldown to
+		/// remove, so "there was nothing to do" can be told apart from "done".
+		pub fn remove_upgrade_cooldown_without_charge(para: ParaId) -> bool {
+			let removed = UpgradeCooldowns::<T>::mutate(|cooldowns| {
+				let Some(pos) = cooldowns.iter().position(|(p, _)| p == &para) else {
+					return false;
+				};
+				cooldowns.remove(pos);
+				true
+			});
+
+			if removed {
+				UpgradeRestrictionSignal::<T>::remove(para);
+				Self::deposit_event(Event::UpgradeCooldownRemoved { para_id: para });
+			}
+			removed
+		}
+
 		pub(crate) fn calculate_remove_upgrade_cooldown_cost(
 			cooldown_until: BlockNumberFor<T>,
 		) -> BalanceOf<T> {

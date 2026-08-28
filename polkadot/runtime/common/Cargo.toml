@@ -55,6 +55,7 @@ pallet-babe = { optional = true, workspace = true }
 libsecp256k1 = { workspace = true }
 polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
+registrar-primitives = { workspace = true }
 
 slot-range-helper = { workspace = true }
 xcm = { workspace = true }
@@ -100,6 +101,7 @@ std = [
 	"pallet-vesting/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
+	"registrar-primitives/std",
 	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
@@ -139,6 +141,7 @@ runtime-benchmarks = [
 	"pallet-vesting/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
+	"registrar-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

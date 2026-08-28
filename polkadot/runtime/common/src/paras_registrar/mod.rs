@@ -16,6 +16,10 @@
 
 //! Pallet to handle parachain registration and related fund management.
 //! In essence this is a simple wrapper around `paras`.
+//!
+//! Registration is either local, with the deposit reserved here, or driven by a remote control
+//! plane that holds the deposit itself — see the [`registrar_primitives::ParachainRegistrar`]
+//! impl.
 
 pub mod migration;
 
@@ -27,7 +31,7 @@ use frame_support::{
 	pallet_prelude::Weight,
 	traits::{Currency, Get, ReservableCurrency},
 };
-use frame_system::{self, ensure_root, ensure_signed};
+use frame_system::{self, ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
 use polkadot_primitives::{
 	HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE,
 };
@@ -43,7 +47,7 @@ pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedSub, Saturating},
+	traits::{CheckedSub, Saturating, Zero},
 	Debug,
 };
 
@@ -274,7 +278,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(who, None, id, genesis_head, validation_code, true)?;
+			Self::do_register(who, None, id, genesis_head, validation_code, true, false)?;
 			Ok(())
 		}
 
@@ -295,7 +299,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false)
+			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false, false)
 		}
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
@@ -510,7 +514,7 @@ impl<T: Config> Registrar for Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 	) -> DispatchResult {
-		Self::do_register(manager, None, id, genesis_head, validation_code, false)
+		Self::do_register(manager, None, id, genesis_head, validation_code, false, false)
 	}
 
 	// Deregister a Para ID, free any data, and return any deposits.
@@ -563,6 +567,104 @@ impl<T: Config> Registrar for Pallet<T> {
 		use polkadot_runtime_parachains::shared;
 		shared::Pallet::<T>::set_session_index(shared::Pallet::<T>::scheduled_session());
 		paras::Pallet::<T>::test_on_new_session();
+	}
+}
+
+/// Exposes this pallet's registry to a remote registration control plane.
+///
+/// Registration can be driven by another pallet — typically on another trusted chain — that
+/// owns the manager relationship and holds the deposit. This impl is the seam: it does the
+/// registry work and nothing else, so where the deposit lives and how the request arrived
+/// are outside this pallet's concern.
+///
+/// The trait is stated in plain `u32`/`Vec<u8>` so its definition carries no dependency on
+/// Polkadot's parachain primitives; conversion to [`ParaId`], [`HeadData`] and [`ValidationCode`]
+/// happens here.
+impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
+		let config = configuration::ActiveConfig::<T>::get();
+		Self::validate_onboarding_sizes(&config, head_len as usize, code_len as usize)
+			.map_err(|_| ())
+	}
+
+	fn is_registered(para_id: u32) -> bool {
+		let id = ParaId::from(para_id);
+		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
+	}
+
+	fn manager_of(para_id: u32) -> Option<T::AccountId> {
+		Paras::<T>::get(ParaId::from(para_id)).map(|info| info.manager)
+	}
+
+	fn is_locked(para_id: u32) -> bool {
+		Paras::<T>::get(ParaId::from(para_id)).is_some_and(|info| info.is_locked())
+	}
+
+	fn register(
+		manager: T::AccountId,
+		para_id: u32,
+		genesis_head: Vec<u8>,
+		validation_code: Vec<u8>,
+	) -> DispatchResult {
+		Self::do_register(
+			manager,
+			Some(BalanceOf::<T>::zero()),
+			ParaId::from(para_id),
+			HeadData(genesis_head),
+			ValidationCode(validation_code),
+			false,
+			// The chain that took the deposit is the control plane. Locking here closes this
+			// chain's manager-facing calls for good, rather than leaving them open until the
+			// para's first head.
+			true,
+		)
+	}
+
+	/// Deregister a Para Id, freeing all data.
+	fn deregister(para_id: u32) -> DispatchResult {
+		let id = ParaId::from(para_id);
+		match paras::Pallet::<T>::lifecycle(id) {
+			// Para must be a parathread (on-demand parachain), or not exist at all.
+			Some(ParaLifecycle::Parathread) | None => {},
+			_ => return Err(Error::<T>::NotParathread.into()),
+		}
+		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
+			.map_err(|_| Error::<T>::CannotDeregister)?;
+
+		Paras::<T>::remove(id);
+
+		PendingSwap::<T>::remove(id);
+		Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(para_id: u32, new_code: Vec<u8>) -> DispatchResult {
+		polkadot_runtime_parachains::schedule_code_upgrade::<T>(
+			ParaId::from(para_id),
+			ValidationCode(new_code),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		)
+	}
+
+	fn remove_upgrade_cooldown(para_id: u32) -> bool {
+		paras::Pallet::<T>::remove_upgrade_cooldown_without_charge(ParaId::from(para_id))
+	}
+
+	fn set_current_head(para_id: u32, head: Vec<u8>) -> DispatchResult {
+		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_deregisterable(manager: T::AccountId, para_id: u32) {
+		// A registry entry with no paras lifecycle: `manager_of` finds it, it is unlocked, and
+		// `do_deregister` succeeds because `schedule_para_cleanup` ignores an unknown para.
+		Paras::<T>::insert(
+			ParaId::from(para_id),
+			ParaInfo { manager, deposit: BalanceOf::<T>::zero(), locked: None },
+		);
 	}
 }
 
@@ -620,6 +722,13 @@ impl<T: Config> Pallet<T> {
 
 	/// Attempt to register a new Para Id under management of `who` in the
 	/// system with the given information.
+	/// Register `id` under `who`.
+	///
+	/// `lock` decides whether the new registration is closed to its manager immediately. A
+	/// registration driven from another chain sets it: that chain is the control plane, so the
+	/// relay chain's own manager-facing calls must not offer a second way in. A locally driven
+	/// registration leaves it open and is locked later, at the para's first head, by
+	/// [`OnNewHead`].
 	fn do_register(
 		who: T::AccountId,
 		deposit_override: Option<BalanceOf<T>>,
@@ -627,6 +736,7 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		ensure_reserved: bool,
+		lock: bool,
 	) -> DispatchResult {
 		let deposited = if let Some(para_data) = Paras::<T>::get(id) {
 			ensure!(para_data.manager == who, Error::<T>::NotOwner);
@@ -646,7 +756,7 @@ impl<T: Config> Pallet<T> {
 		} else if let Some(rebate) = deposited.checked_sub(&deposit) {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
-		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
+		let info = ParaInfo { manager: who.clone(), deposit, locked: lock.then_some(true) };
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.
@@ -684,12 +794,7 @@ impl<T: Config> Pallet<T> {
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::ActiveConfig::<T>::get();
-		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
-		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
-		ensure!(
-			genesis_head.0.len() <= config.max_head_data_size as usize,
-			Error::<T>::HeadDataTooLarge
-		);
+		Self::validate_onboarding_sizes(&config, genesis_head.0.len(), validation_code.0.len())?;
 
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let deposit = T::ParaDeposit::get()
@@ -697,6 +802,18 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul(config.max_code_size.into()));
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
+	}
+
+	/// Check onboarding head and code sizes against the given configuration.
+	fn validate_onboarding_sizes(
+		config: &configuration::HostConfiguration<BlockNumberFor<T>>,
+		head_len: usize,
+		code_len: usize,
+	) -> DispatchResult {
+		ensure!(code_len >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
+		ensure!(code_len <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
+		ensure!(head_len <= config.max_head_data_size as usize, Error::<T>::HeadDataTooLarge);
+		Ok(())
 	}
 
 	/// Swap a lease holding parachain and parathread (on-demand parachain), which involves

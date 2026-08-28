@@ -383,6 +383,13 @@ members = [
 	"substrate/frame/executive",
 	"substrate/frame/fast-unstake",
 	"substrate/frame/glutton",
+	"substrate/frame/hrmp/para",
+	"substrate/frame/hrmp/primitives",
+	"substrate/frame/hrmp/relay",
+	"substrate/frame/registrar/integration-tests",
+	"substrate/frame/registrar/para",
+	"substrate/frame/registrar/primitives",
+	"substrate/frame/registrar/relay",
 	"substrate/frame/grandpa",
 	"substrate/frame/honzon/oracle",
 	"substrate/frame/honzon/oracle/runtime-api",
@@ -1018,6 +1025,12 @@ pallet-example-view-functions = { path = "substrate/frame/examples/view-function
 pallet-examples = { path = "substrate/frame/examples" }
 pallet-fast-unstake = { path = "substrate/frame/fast-unstake", default-features = false }
 pallet-glutton = { path = "substrate/frame/glutton", default-features = false }
+hrmp-primitives = { path = "substrate/frame/hrmp/primitives", default-features = false }
+pallet-hrmp-para = { path = "substrate/frame/hrmp/para", default-features = false }
+pallet-hrmp-relay = { path = "substrate/frame/hrmp/relay", default-features = false }
+pallet-registrar-para = { path = "substrate/frame/registrar/para", default-features = false }
+pallet-registrar-relay = { path = "substrate/frame/registrar/relay", default-features = false }
+registrar-primitives = { path = "substrate/frame/registrar/primitives", default-features = false }
 pallet-grandpa = { path = "substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "substrate/frame/identity", default-features = false }
 pallet-im-online = { path = "substrate/frame/im-online", default-features = false }
