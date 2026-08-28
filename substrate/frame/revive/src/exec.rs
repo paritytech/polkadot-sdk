@@ -1036,7 +1036,14 @@ where
 		if let FrameArgs::Call { dest, delegated_call: None, .. } = &args {
 			let address = T::AddressMapper::to_address(dest);
 			if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_none() {
-				access_list.warm(CallAccess::new(address, false, !value.is_zero()));
+				let transfer =
+					origin.account_id().ok().filter(|_| !value.is_zero()).map(|account| {
+						access_list::Transfer {
+							from: T::AddressMapper::to_address(account),
+							dust: Contracts::<T>::has_dust(value),
+						}
+					});
+				access_list.warm(CallAccess::new(address, false, transfer));
 			}
 		}
 		let Some((first_frame, executable)) = Self::new_frame(

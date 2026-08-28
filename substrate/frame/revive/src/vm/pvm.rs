@@ -22,7 +22,7 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{CallAccess, StorageOp},
+	access_list::{CallAccess, StorageOp, Transfer},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -651,11 +651,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => {
-				let state_access = CallAccess::new(
-					callee,
-					matches!(&call_type, CallType::DelegateCall),
-					!value.is_zero(),
-				);
+				let transfer = (!value.is_zero()).then(|| Transfer {
+					from: self.ext.address(),
+					dust: Pallet::<E::T>::has_dust(value),
+				});
+				let state_access =
+					CallAccess::new(callee, matches!(&call_type, CallType::DelegateCall), transfer);
 				let warmth = self.ext.warm(state_access);
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?
 			},

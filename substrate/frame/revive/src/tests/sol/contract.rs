@@ -382,9 +382,15 @@ fn cold_hot_value_transfer_warms_the_account(fixture_type: FixtureType) {
 		let with_value = call_with_value(1_000_000);
 
 		assert_eq!(
-			with_value.cold,
-			zero_value.cold + 1,
-			"the value transfer additionally warms the target's account (its balance)",
+			(with_value.cold - zero_value.cold) + (with_value.hot - zero_value.hot),
+			CallAccess::value_call_entries(false) - CallAccess::plain_entries(),
+			"the value transfer additionally touches both parties' account state",
+		);
+		assert_eq!(
+			with_value.hot - zero_value.hot,
+			1,
+			"of those, only the sender's contract info is already warm: the sender is the \
+			 contract making the call",
 		);
 	});
 }

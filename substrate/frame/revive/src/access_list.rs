@@ -230,9 +230,17 @@ pub trait Access {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
-	/// A normal call reads the target's address mapping and contract info,
-	/// and its account state only when it transfers value (`None` otherwise).
-	Plain { account: Option<Warmth>, original_account: Warmth, account_info: Warmth },
+	/// A normal call reads the target's address mapping and contract info, and both parties'
+	/// account state only when it transfers value (`None` otherwise). `info_op` is what the call
+	/// does to the contract infos: a dust transfer writes them.
+	Plain {
+		account: Option<Warmth>,
+		sender_account: Option<Warmth>,
+		original_account: Warmth,
+		account_info: Warmth,
+		sender_account_info: Option<Warmth>,
+		info_op: StorageOp,
+	},
 	/// A delegate call reads only the target's contract info.
 	Delegate { account_info: Warmth },
 }
@@ -240,14 +248,35 @@ pub enum CallWarmth {
 /// A call opcode's access, one variant per call kind.
 #[derive(Clone, Copy, Debug)]
 pub enum CallAccess {
-	Plain { target: H160, transfers_value: bool },
-	Delegate { target: H160 },
+	/// `transfer` is set when the call moves value, which touches keys a bare call does not.
+	Plain {
+		target: H160,
+		transfer: Option<Transfer>,
+	},
+	Delegate {
+		target: H160,
+	},
+}
+
+/// The value transfer a call performs. It reads and writes both parties' `System::Account`, and a
+/// value carrying dust writes both parties' `AccountInfoOf` as well.
+#[derive(Clone, Copy, Debug)]
+pub struct Transfer {
+	pub from: H160,
+	pub dust: bool,
+}
+
+impl Transfer {
+	/// What a transfer does to the two contract infos.
+	fn info_op(dust: bool) -> StorageOp {
+		if dust { StorageOp::Write } else { StorageOp::Read }
+	}
 }
 
 impl CallAccess {
 	/// Builds the call variant matching the `delegate` flag.
-	pub fn new(target: H160, delegate: bool, transfers_value: bool) -> Self {
-		if delegate { Self::Delegate { target } } else { Self::Plain { target, transfers_value } }
+	pub fn new(target: H160, delegate: bool, transfer: Option<Transfer>) -> Self {
+		if delegate { Self::Delegate { target } } else { Self::Plain { target, transfer } }
 	}
 }
 
@@ -255,7 +284,15 @@ impl CallAccess {
 impl CallAccess {
 	/// Entries a plain call to a contract touches: its own, plus the callee's code.
 	pub(crate) fn plain_entries() -> u32 {
-		Self::Plain { target: H160::zero(), transfers_value: false }.entry_count() +
+		Self::Plain { target: H160::zero(), transfer: None }.entry_count() +
+			CodeLoad { hash: H256::zero() }.entry_count()
+	}
+
+	/// Entries a value-bearing plain call touches: a zero-value call's, plus both parties' account
+	/// state and, when the value carries dust, the sender's contract info.
+	pub(crate) fn value_call_entries(dust: bool) -> u32 {
+		let transfer = Transfer { from: H160::repeat_byte(1), dust };
+		Self::Plain { target: H160::zero(), transfer: Some(transfer) }.entry_count() +
 			CodeLoad { hash: H256::zero() }.entry_count()
 	}
 
@@ -272,17 +309,25 @@ impl Access for CallAccess {
 
 	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
 		match self {
-			Self::Plain { target, transfers_value } => CallWarmth::Plain {
-				account: transfers_value
-					.then(|| resolve(AccessEntry::Account { address: target }, StorageOp::Read)),
-				original_account: resolve(
-					AccessEntry::OriginalAccount { address: target },
-					StorageOp::Read,
-				),
-				account_info: resolve(
-					AccessEntry::AccountInfo { address: target },
-					StorageOp::Read,
-				),
+			Self::Plain { target, transfer } => {
+				let info_op = Transfer::info_op(transfer.is_some_and(|transfer| transfer.dust));
+				CallWarmth::Plain {
+					account: transfer.map(|_| {
+						resolve(AccessEntry::Account { address: target }, StorageOp::Write)
+					}),
+					sender_account: transfer.map(|transfer| {
+						resolve(AccessEntry::Account { address: transfer.from }, StorageOp::Write)
+					}),
+					original_account: resolve(
+						AccessEntry::OriginalAccount { address: target },
+						StorageOp::Read,
+					),
+					account_info: resolve(AccessEntry::AccountInfo { address: target }, info_op),
+					sender_account_info: transfer.map(|transfer| {
+						resolve(AccessEntry::AccountInfo { address: transfer.from }, info_op)
+					}),
+					info_op,
+				}
 			},
 			Self::Delegate { target } => CallWarmth::Delegate {
 				account_info: resolve(
@@ -598,7 +643,10 @@ mod tests {
 			families
 		}
 		let calls = [
-			families_of(CallAccess::Plain { target: H160::zero(), transfers_value: true }),
+			families_of(CallAccess::Plain {
+				target: H160::zero(),
+				transfer: Some(Transfer { from: H160::zero(), dust: false }),
+			}),
 			families_of(CallAccess::Delegate { target: H160::zero() }),
 		];
 		for family in calls.iter().flatten() {
@@ -615,6 +663,33 @@ mod tests {
 				"every code entry must match `CodeLoad::KEY_FAMILY`"
 			);
 		}
+	}
+
+	#[test]
+	fn only_a_dust_transfer_writes_the_contract_infos() {
+		let ops_of = |dust| {
+			let transfer = Transfer { from: H160::repeat_byte(1), dust };
+			let mut ops = Vec::new();
+			CallAccess::Plain { target: H160::zero(), transfer: Some(transfer) }.expand(
+				|entry, op| {
+					if matches!(entry, AccessEntry::AccountInfo { .. }) {
+						ops.push(op);
+					}
+					Warmth::cold_non_revertible()
+				},
+			);
+			ops
+		};
+		assert_eq!(
+			ops_of(true),
+			vec![StorageOp::Write; 2],
+			"a dust transfer writes both parties' contract info",
+		);
+		assert_eq!(
+			ops_of(false),
+			vec![StorageOp::Read; 2],
+			"a transfer without dust only reads them",
+		);
 	}
 
 	#[test]
@@ -675,18 +750,24 @@ mod tests {
 		// Nested frame, so a journaled cold touch would be revertible.
 		al.enter_frame();
 
+		let sender = H160::from_low_u64_be(0xcafe);
+		let access =
+			CallAccess::Plain { target, transfer: Some(Transfer { from: sender, dust: false }) };
 		let expected = CallWarmth::Plain {
 			account: Some(Warmth::cold_revertible()),
+			sender_account: Some(Warmth::cold_non_revertible()),
+			sender_account_info: Some(Warmth::cold_non_revertible()),
+			info_op: StorageOp::Read,
 			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		};
 		assert_eq!(
-			al.warmth_of(CallAccess::Plain { target, transfers_value: true }),
+			al.warmth_of(access),
 			expected,
 			"peek prices the cap edge like touch records it",
 		);
 		assert_eq!(
-			al.warm(CallAccess::Plain { target, transfers_value: true }),
+			al.warm(access),
 			expected,
 			"touch journals only the first entry before the cap fills",
 		);

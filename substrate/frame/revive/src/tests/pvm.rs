@@ -3382,9 +3382,9 @@ fn cold_hot_top_level_value_call_warms_the_account() {
 		let with_value = last_access_list_metrics();
 
 		assert_eq!(
-			with_value.cold,
-			zero_value.cold + 1,
-			"the entry call that sends value also warms the target's account",
+			with_value.cold - zero_value.cold,
+			CallAccess::value_call_entries(false) - CallAccess::plain_entries(),
+			"a value transfer warms both accounts on top of a zero-value call's entries",
 		);
 	});
 }

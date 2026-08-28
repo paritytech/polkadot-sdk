@@ -304,6 +304,16 @@ impl RuntimeCosts {
 			.saturating_sub(T::WeightInfo::access_list_touch_hot_full())
 	}
 
+	/// What `op` owes on a hot key: nothing if the transaction already paid for it, since the trie
+	/// re-hashes a dirty key once, otherwise the re-hash plus the journal push of the upgrade.
+	fn write_commit_owed<T: Config>(warmth: Warmth, op: StorageOp) -> Weight {
+		match warmth {
+			Warmth::Hot { charged } if !charged.covers(op) => Self::deferred_write_cost::<T>()
+				.saturating_add(Self::access_list_upgrade_overhead::<T>()),
+			_ => Weight::zero(),
+		}
+	}
+
 	/// What a hot write pays on top of the cold read that warmed the key:
 	/// re-hashing its trie path when the block's storage root is computed.
 	pub(crate) fn deferred_write_cost<T: Config>() -> Weight {
@@ -320,13 +330,7 @@ impl RuntimeCosts {
 	) -> Weight {
 		match kind {
 			StorageAccessKind::Persistent { warmth, op } => {
-				let surcharge = match warmth {
-					Warmth::Hot { charged } if !charged.covers(op) => {
-						Self::deferred_write_cost::<T>()
-							.saturating_add(Self::access_list_upgrade_overhead::<T>())
-					},
-					_ => Weight::zero(),
-				};
+				let surcharge = Self::write_commit_owed::<T>(warmth, op);
 				weight_by_warmth::<T, _>([warmth], StorageAccessKind::KEY_FAMILY, cold, hot)
 					.saturating_add(surcharge)
 			},
@@ -454,14 +458,38 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				CallWarmth::Plain { account, original_account, account_info } => {
-					let items = account.into_iter().chain([original_account, account_info]);
-					weight_by_warmth::<T, _>(
+				CallWarmth::Plain {
+					account,
+					sender_account,
+					original_account,
+					account_info,
+					sender_account_info,
+					info_op,
+				} => {
+					let items = account
+						.into_iter()
+						.chain(sender_account)
+						.chain(sender_account_info)
+						.chain([original_account, account_info]);
+					let base = weight_by_warmth::<T, _>(
 						items,
 						CallAccess::KEY_FAMILY,
 						|| T::WeightInfo::seal_call(0, 0, 0),
 						T::WeightInfo::seal_call_hot,
-					)
+					);
+					// The hot bench whitelists these keys, which drops their writes with their
+					// reads, so each one owes its own commit. Same rule as a storage write.
+					let writes = [
+						(account, StorageOp::Write),
+						(sender_account, StorageOp::Write),
+						(Some(account_info), info_op),
+						(sender_account_info, info_op),
+					]
+					.into_iter()
+					.filter_map(|(warmth, op)| warmth.map(|warmth| (warmth, op)))
+					.map(|(warmth, op)| Self::write_commit_owed::<T>(warmth, op))
+					.fold(Weight::zero(), |sum, owed| sum.saturating_add(owed));
+					base.saturating_add(writes)
 				},
 				CallWarmth::Delegate { account_info } => weight_by_warmth::<T, _>(
 					[account_info],
@@ -586,16 +614,25 @@ mod tests {
 
 		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::Hot { charged: StorageOp::Read }),
+			sender_account: Some(Warmth::Hot { charged: StorageOp::Read }),
+			sender_account_info: Some(Warmth::Hot { charged: StorageOp::Read }),
+			info_op: StorageOp::Read,
 			original_account: Warmth::Hot { charged: StorageOp::Read },
 			account_info: Warmth::Hot { charged: StorageOp::Read },
 		}));
 		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_non_revertible()),
+			sender_account: Some(Warmth::cold_non_revertible()),
+			sender_account_info: Some(Warmth::cold_non_revertible()),
+			info_op: StorageOp::Read,
 			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		}));
 		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_non_revertible()),
+			sender_account: Some(Warmth::Hot { charged: StorageOp::Read }),
+			sender_account_info: Some(Warmth::Hot { charged: StorageOp::Read }),
+			info_op: StorageOp::Read,
 			original_account: Warmth::Hot { charged: StorageOp::Read },
 			account_info: Warmth::Hot { charged: StorageOp::Read },
 		}));
@@ -614,6 +651,9 @@ mod tests {
 
 		let revertible = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: Some(Warmth::cold_revertible()),
+			sender_account: Some(Warmth::cold_revertible()),
+			sender_account_info: Some(Warmth::cold_non_revertible()),
+			info_op: StorageOp::Read,
 			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		}));
@@ -642,6 +682,9 @@ mod tests {
 
 		let zero_value_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: None,
+			sender_account: None,
+			sender_account_info: None,
+			info_op: StorageOp::Read,
 			original_account: Warmth::Hot { charged: StorageOp::Read },
 			account_info: Warmth::Hot { charged: StorageOp::Read },
 		}));
@@ -655,6 +698,9 @@ mod tests {
 		);
 		let zero_value_mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
 			account: None,
+			sender_account: None,
+			sender_account_info: None,
+			info_op: StorageOp::Read,
 			original_account: Warmth::Hot { charged: StorageOp::Read },
 			account_info: Warmth::cold_non_revertible(),
 		}));
@@ -723,6 +769,72 @@ mod tests {
 				"a read is covered at either paid level: {read_of_read_paid_slot:?}",
 			);
 		}
+	}
+
+	#[test]
+	fn a_hot_transfer_pays_the_write_the_bench_whitelisted() {
+		let weight_of = |account, sender_account| {
+			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
+				account: Some(account),
+				sender_account: Some(sender_account),
+				sender_account_info: Some(Warmth::Hot { charged: StorageOp::Write }),
+				info_op: StorageOp::Read,
+				original_account: Warmth::Hot { charged: StorageOp::Read },
+				account_info: Warmth::Hot { charged: StorageOp::Read },
+			}))
+		};
+		let read_paid = Warmth::Hot { charged: StorageOp::Read };
+		let write_paid = Warmth::Hot { charged: StorageOp::Write };
+		let owed = RuntimeCosts::deferred_write_cost::<Test>()
+			.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
+
+		assert_eq!(
+			weight_of(read_paid, write_paid).saturating_sub(weight_of(write_paid, write_paid)),
+			owed,
+			"a transfer to an account that only paid for a read owes the write's re-hash",
+		);
+		assert_eq!(
+			weight_of(read_paid, read_paid).saturating_sub(weight_of(write_paid, write_paid)),
+			owed.saturating_mul(2),
+			"both accounts owe it independently",
+		);
+		assert_eq!(
+			weight_of(write_paid, write_paid),
+			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
+				account: Some(write_paid),
+				sender_account: Some(write_paid),
+				sender_account_info: Some(write_paid),
+				info_op: StorageOp::Read,
+				original_account: Warmth::Hot { charged: StorageOp::Read },
+				account_info: Warmth::Hot { charged: StorageOp::Read },
+			})),
+			"a key the transaction already wrote is re-hashed once, so it owes nothing",
+		);
+	}
+
+	#[test]
+	fn a_dust_transfer_pays_the_contract_info_writes() {
+		let read_paid = Warmth::Hot { charged: StorageOp::Read };
+		let write_paid = Warmth::Hot { charged: StorageOp::Write };
+		let weight_of = |info_op| {
+			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
+				account: Some(write_paid),
+				sender_account: Some(write_paid),
+				sender_account_info: Some(read_paid),
+				info_op,
+				original_account: read_paid,
+				account_info: read_paid,
+			}))
+		};
+		let owed = RuntimeCosts::deferred_write_cost::<Test>()
+			.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
+
+		assert_eq!(
+			weight_of(StorageOp::Write).saturating_sub(weight_of(StorageOp::Read)),
+			owed.saturating_mul(2),
+			"a dust transfer writes both parties' contract info, so each one that only paid for a \
+			 read owes the write's re-hash",
+		);
 	}
 
 	#[test]

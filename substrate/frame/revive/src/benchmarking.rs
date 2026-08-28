@@ -237,7 +237,7 @@ mod benchmarks {
 			let callee = callee_contract.account_id.clone();
 			let code_hash = callee_contract.info()?.code_hash;
 
-			let call_access = CallAccess::new(callee_contract.address, $delegate, false);
+			let call_access = CallAccess::new(callee_contract.address, $delegate, None);
 			let code_access = CodeLoad { hash: code_hash };
 			whitelist_access::<T>(call_access);
 			whitelist_access::<T>(code_access);
