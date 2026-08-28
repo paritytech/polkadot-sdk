@@ -64,18 +64,6 @@ fn verify_metadata(metadata: &super::fixture::SnapshotMetadata) -> Result<()> {
 	Ok(())
 }
 
-/// Extracts the gap-sync target from a node's logs (the `#N` in
-/// `Starting gap sync #1 - #N`), taking the highest if it appears more than once.
-fn parse_gap_target(logs: &str) -> Option<u64> {
-	logs.lines()
-		.filter_map(|line| {
-			let rest = &line[line.find("Starting gap sync #")?..];
-			let after = rest.split(" - #").nth(1)?;
-			after.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok()
-		})
-		.max()
-}
-
 async fn add_sync_node(
 	network: &mut zombienet_sdk::Network<zombienet_sdk::LocalFileSystem>,
 ) -> Result<()> {
@@ -309,20 +297,6 @@ async fn parachain_tip_sync_with_renewals_test() -> Result<()> {
 		.await
 		.context(format!("Node did not reach block height {warp_target}"))?;
 	verify_warp_sync_completed(sync_node).await?;
-
-	// Fail fast if the warp target lagged enough that the body cutoff did not clear the
-	// stores — otherwise this surfaces as a confusing `assert_missing` failure.
-	if let Some(gap_target) = parse_gap_target(&sync_node.logs().await?) {
-		let cutoff = (gap_target + 1).saturating_sub(GAP_SYNC_BODY_WINDOW);
-		anyhow::ensure!(
-			cutoff >= snapshots.metadata.last_store_block,
-			"gap-sync body cutoff {cutoff} (warp target {gap_target}) is below the last store \
-			 block {}: the warp target lagged collator finality by more than \
-			 WARP_TARGET_LAG_MARGIN ({WARP_TARGET_LAG_MARGIN}); increase it so the cutoff clears \
-			 the stores",
-			snapshots.metadata.last_store_block,
-		);
-	}
 
 	let entries: Vec<Entry> =
 		(0..N_RENEW_EXERCISES).map(|i| (content_hash(i), algorithm(i))).collect();
