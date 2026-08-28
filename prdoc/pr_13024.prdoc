@@ -1,0 +1,27 @@
+title: 'feat: check configured address identity against the node key'
+doc:
+- audience: Todo
+  description: |-
+    #### Description
+
+    `--listen-addr` and `--public-addr` can now carry the identity components an operator is likely to
+    paste back from an advertised or published address, either  `/p2p/<peer id>` on any address or `/certhash/<hash>` on a `webrtc-direct` address.
+
+    Both are checked against the node key and then stripped.
+
+    #### Integration
+
+    `NetworkConfiguration::validate_and_complete_webrtc_addresses` now is no longer WebRTC-specific.
+
+    Two new `sc_network::error::Error` variants: `MismatchedAddressIdentity` and `MalformedAddressIdentity`.
+
+    #### Review Notes
+
+    - check is part of `sc_network::config`, it applies to both litep2p and libp2p.
+    - `check_and_strip_identity` pops a trailing /p2p, then a /certhash, and rejects the address if anything identity-shaped remains inside it.
+    - addrs tests moved from `webrtc.rs` to a new `substrate/client/network/src/address_tests.rs`.
+crates:
+- name: sc-cli
+  bump: major
+- name: sc-network
+  bump: major
