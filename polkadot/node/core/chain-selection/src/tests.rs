@@ -1863,7 +1863,8 @@ fn prune_only_stagnant_waits_for_the_prune_delay() {
 
 			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
 
-			// The clock has not reached STAGNANT_PRUNE_DELAY yet; ensure the cutoff saturates to 0 without pruning.
+			// The clock has not reached STAGNANT_PRUNE_DELAY yet; ensure the cutoff saturates to 0
+			// without pruning.
 			futures_timer::Delay::new(TEST_STAGNANT_INTERVAL * 5).await;
 
 			backend.assert_stagnant_at_state(vec![(STAGNANT_TIMEOUT, vec![a1_hash])]);
