@@ -205,37 +205,6 @@ impl StatementMessage {
 	}
 }
 
-enum BatchError {
-	TooMany(u32),
-	Malformed,
-}
-
-fn decode_v1_message(bytes: &[u8]) -> Result<StatementMessage, BatchError> {
-	<StatementBatch as Decode>::decode(&mut &*bytes)
-		.map(StatementMessage::Statements)
-		.map_err(|_| classify_v1_batch_error(bytes))
-}
-
-fn decode_v2_message(bytes: &[u8]) -> Result<StatementMessage, BatchError> {
-	StatementMessage::decode(&mut &*bytes).map_err(|_| classify_v2_batch_error(bytes))
-}
-
-fn classify_v1_batch_error(mut bytes: &[u8]) -> BatchError {
-	match <Compact<u32>>::decode(&mut bytes) {
-		Ok(Compact(count)) if count as usize > MAX_STATEMENTS_PER_NOTIFICATION => {
-			BatchError::TooMany(count)
-		},
-		_ => BatchError::Malformed,
-	}
-}
-
-fn classify_v2_batch_error(mut bytes: &[u8]) -> BatchError {
-	match u8::decode(&mut bytes) {
-		Ok(STATEMENTS_VARIANT_INDEX) => classify_v1_batch_error(bytes),
-		_ => BatchError::Malformed,
-	}
-}
-
 /// Future resolving to statement import result.
 pub type StatementImportFuture = oneshot::Receiver<SubmitResult>;
 
@@ -256,8 +225,6 @@ mod rep {
 	pub const DUPLICATE_STATEMENT: Rep = Rep::new(-(1 << 7), "Duplicate statement");
 	/// Reputation change when a peer floods us with statements.
 	pub const STATEMENT_FLOODING: Rep = Rep::new_fatal("Statement flooding");
-	/// Reputation change when a peer declares more statements than a notification can hold.
-	pub const EXCESSIVE_STATEMENTS: Rep = Rep::new_fatal("Oversized statement batch");
 	/// Reputation change when a peer sends us a message we can't decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad statement message");
 }
@@ -1385,71 +1352,60 @@ where
 					log::error!(target: LOG_TARGET, "Received notification from unknown peer {peer}");
 					return;
 				};
-				let version = peer_data.protocol_version;
 
-				let message = match version {
-					// V1 peers send raw Vec<Statement>.
-					PeerProtocolVersion::V1 => decode_v1_message(notification.as_ref()),
-					// V2 peers send StatementMessage enum.
-					PeerProtocolVersion::V2 => decode_v2_message(notification.as_ref()),
-				};
-				match message {
-					Ok(StatementMessage::Statements(statements)) => {
-						self.on_statements(peer, statements.into_inner())
-					},
-					Ok(StatementMessage::ExplicitTopicAffinity(filter)) => {
-						if let Some(peer_data) = self.peers.get_mut(&peer) {
-							if peer_data.rate_limiter.is_flooding(1) {
-								log::debug!(
-									target: LOG_TARGET,
-									"Rate-limiting ExplicitTopicAffinity from {peer}"
-								);
-								self.network.report_peer(peer, rep::BAD_MESSAGE);
-							} else {
-								log::debug!(
-									target: LOG_TARGET,
-									"Received topic affinity filter from {peer}"
-								);
-								// Defer both the affinity update and sync scheduling
-								// to the main loop tick.
-								peer_data.pending_topic_affinity = Some(filter);
-							}
+				match peer_data.protocol_version {
+					PeerProtocolVersion::V1 => {
+						// V1 peers send raw Vec<Statement>.
+						if let Ok(statements) =
+							<StatementBatch as Decode>::decode(&mut notification.as_ref())
+						{
+							self.on_statements(peer, statements.into_inner());
+						} else {
+							log::debug!(
+								target: LOG_TARGET,
+								"Failed to decode v1 statement list from {peer}"
+							);
+							self.network.report_peer(peer, rep::BAD_MESSAGE);
 						}
 					},
-					Err(error) => self.report_batch_error(peer, error, version),
+					PeerProtocolVersion::V2 => {
+						// V2 peers send StatementMessage enum.
+						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
+							match message {
+								StatementMessage::Statements(statements) => {
+									self.on_statements(peer, statements.into_inner())
+								},
+								StatementMessage::ExplicitTopicAffinity(filter) => {
+									if let Some(peer_data) = self.peers.get_mut(&peer) {
+										if peer_data.rate_limiter.is_flooding(1) {
+											log::debug!(
+												target: LOG_TARGET,
+												"Rate-limiting ExplicitTopicAffinity from {peer}"
+											);
+											self.network.report_peer(peer, rep::BAD_MESSAGE);
+										} else {
+											log::debug!(
+												target: LOG_TARGET,
+												"Received topic affinity filter from {peer}"
+											);
+											// Defer both the affinity update and sync scheduling
+											// to the main loop tick.
+											peer_data.pending_topic_affinity = Some(filter);
+										}
+									}
+								},
+							}
+						} else {
+							log::debug!(
+								target: LOG_TARGET,
+								"Failed to decode v2 statement message from {peer}"
+							);
+							self.network.report_peer(peer, rep::BAD_MESSAGE);
+						}
+					},
 				}
 			},
 		}
-	}
-
-	fn report_batch_error(&self, peer: PeerId, error: BatchError, version: PeerProtocolVersion) {
-		match error {
-			BatchError::TooMany(declared) => self.report_oversized_batch(peer, declared),
-			BatchError::Malformed => self.report_malformed_batch(
-				peer,
-				match version {
-					PeerProtocolVersion::V1 => "v1 statement list",
-					PeerProtocolVersion::V2 => "v2 statement message",
-				},
-			),
-		}
-	}
-
-	/// Report and disconnect a peer whose statement batch declared too many statements.
-	fn report_oversized_batch(&self, peer: PeerId, declared: u32) {
-		log::warn!(
-			target: LOG_TARGET,
-			"Peer {peer} declared {declared} statements in one batch \
-			 (limit {MAX_STATEMENTS_PER_NOTIFICATION}). Disconnecting."
-		);
-		self.network.report_peer(peer, rep::EXCESSIVE_STATEMENTS);
-		self.network.disconnect_peer(peer, self.protocol_name.clone());
-	}
-
-	/// Report a peer whose statement notification could not be decoded.
-	fn report_malformed_batch(&self, peer: PeerId, context: &str) {
-		log::debug!(target: LOG_TARGET, "Failed to decode {context} from {peer}");
-		self.network.report_peer(peer, rep::BAD_MESSAGE);
 	}
 
 	/// Handle a batch of statements received from a peer.
@@ -6019,13 +5975,17 @@ mod tests {
 		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
 	}
 
-	// A `Vec<Statement>` length prefix declaring more statements than a notification can hold.
+	// A batch of one more empty statement (a single `0x00` field-count byte each) than a
+	// notification can hold. An unbounded `Vec<Statement>` would decode it in full.
 	fn oversized_statement_batch() -> Vec<u8> {
-		Compact((MAX_STATEMENTS_PER_NOTIFICATION + 1) as u32).encode()
+		let count = MAX_STATEMENTS_PER_NOTIFICATION + 1;
+		let mut batch = Compact(count as u32).encode();
+		batch.extend(iter::repeat_n(0u8, count));
+		batch
 	}
 
 	#[tokio::test]
-	async fn test_v1_oversized_batch_disconnects_peer() {
+	async fn test_v1_oversized_batch_reported_as_bad_message() {
 		let (mut handler, _statement_store, network, _notification_service) =
 			build_handler_no_peers();
 
@@ -6049,19 +6009,17 @@ mod tests {
 
 		let reports = network.get_reports();
 		assert!(
-			reports
-				.iter()
-				.any(|(id, rep)| *id == peer_id && *rep == rep::EXCESSIVE_STATEMENTS),
-			"Expected EXCESSIVE_STATEMENTS reputation change, but got: {reports:?}"
+			reports.iter().any(|(id, rep)| *id == peer_id && *rep == rep::BAD_MESSAGE),
+			"Expected BAD_MESSAGE reputation change, but got: {reports:?}"
 		);
 		assert!(
-			network.get_disconnected_peers().contains(&peer_id),
-			"Expected oversized-batch peer to be disconnected"
+			!network.get_disconnected_peers().contains(&peer_id),
+			"Expected oversized-batch peer to stay connected"
 		);
 	}
 
 	#[tokio::test]
-	async fn test_v2_oversized_batch_disconnects_peer() {
+	async fn test_v2_oversized_batch_reported_as_bad_message() {
 		let (mut handler, _statement_store, network, _notification_service) =
 			build_handler_no_peers();
 
@@ -6089,14 +6047,12 @@ mod tests {
 
 		let reports = network.get_reports();
 		assert!(
-			reports
-				.iter()
-				.any(|(id, rep)| *id == peer_id && *rep == rep::EXCESSIVE_STATEMENTS),
-			"Expected EXCESSIVE_STATEMENTS reputation change, but got: {reports:?}"
+			reports.iter().any(|(id, rep)| *id == peer_id && *rep == rep::BAD_MESSAGE),
+			"Expected BAD_MESSAGE reputation change, but got: {reports:?}"
 		);
 		assert!(
-			network.get_disconnected_peers().contains(&peer_id),
-			"Expected oversized-batch peer to be disconnected"
+			!network.get_disconnected_peers().contains(&peer_id),
+			"Expected oversized-batch peer to stay connected"
 		);
 	}
 
