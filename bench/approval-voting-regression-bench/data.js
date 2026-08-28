@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787857500247,
+  "lastUpdate": 1787910786818,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "03ae1a76c77566c313736836d55ce50b16f5093e",
-          "message": "Bump pallet-staking-reward-fn (#10905)\n\nBump pallet-staking-reward-fn to patch. This forces it to use local path\nand the local sp-arithmetic instead of registry while running\n`parity-publish`.\nThis aims to fix the failure in `Check publish build` job (e.g.\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21359458014/job/61474963706?pr=10903#step:12:546)\nwhich started to appear since #10682 got merged.\n\nWhen parity-publish is used with --registry:\n- If the version exists on crates.io → remove path, use registry\n- If the version doesn't exist → keep path, use local\nThe issue is that --registry creates a hybrid state where some deps use\nregistry and some use local paths, causing version conflicts in case e.g\nof missing trait impl in on the two.\n\nExtended explanation, courtesy of @iulianbarbu : \nIn the parity-publish CI job example we have:\n- polkadot-runtime-common (crate A), depends on crate B indirectly &\ncrate C\n- sp-arithmetic (crate B), was bumped locally (due to #10682), but not\npublished on the registry yet\n- pallet-staking-reward-fn (crate C). depends on crate B.\n\npolkadot-runtime-common fails to compile due to a dependency graph using\ntwo versions of same type of crate B. What is an issue though is that\npallet-staking-reward-fn uses the previous crate B version (from the\nregistry), which misses a certain trait impl that is required by\npolkadot-runtime-common. If polkadot-runtime-common usage of\npallet-staking-reward-fn expects the new trait impl, it means that it is\nnot enough to just bump pallet-staking-reward-fn, but also\npolkadot-runtime-common, in this PR (to update it to depend on the new\nversion of pallet-staking-reward-fn). Everything compiles fine rn\nbecause polkadot-runtime-common is already bumped in a previous PR (e.g\n#10582 and maybe others), which did not make its way to a stable release\nyet.",
-          "timestamp": "2026-01-30T10:11:47Z",
-          "tree_id": "c324d8994cb2081f90929647158c15072033b701",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/03ae1a76c77566c313736836d55ce50b16f5093e"
-        },
-        "date": 1769771887312,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63619.29999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6841146323600023,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6561391801000016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002144043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022612470000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6316446921099987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3325621582499974,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7834910621799804,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002144043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.73990714709998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022612470000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005365708680000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6465897134200005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.596946205432959,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000018842320000000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0413284779a1d30969d82c7ed0087a8d78758926",
+          "message": "network: Enable WebRTC by default on full nodes (#12870)\n\nAccept WebRTC connections on the same UDP `--port` as used for TCP/WS\nconnections. Enabled by default on full nodes, can be force-enabled with\n`--force-enable-webrtc` on validators & collators, or disabled by\nexplicitly passing listen addresses. Only supported with litep2p network\nbackend.\n\n---------\n\nCo-authored-by: gab <gabriele@parity.io>",
+          "timestamp": "2026-08-28T07:02:42Z",
+          "tree_id": "60cff1edb168eac349847133edd496c478f3f6e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0413284779a1d30969d82c7ed0087a8d78758926"
+        },
+        "date": 1787910747730,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.69,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.76905655416,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005643291000000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.205396864339965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3533512959599996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019659310000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002158463,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.73818092703,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7889175086000013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7411688438100015,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.415605516352715,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002158463,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019659310000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8090784437799646,
             "unit": "seconds"
           }
         ]
