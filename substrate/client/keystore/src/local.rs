@@ -39,6 +39,9 @@ const MAX_FILENAME_LEN: usize = 255;
 /// Length in bytes of the binary key-type prefix stored in every filename.
 const KEY_TYPE_PREFIX_LEN: usize = 4;
 
+/// Suffix of filenames that carry `blake2_256(public_key)` instead of the public key itself.
+const HASHED_FILENAME_SUFFIX: &str = ".hashed";
+
 sp_keystore::bandersnatch_experimental_enabled! {
 use sp_core::bandersnatch;
 }
@@ -466,16 +469,6 @@ struct KeystoreInner {
 	password: Option<SecretString>,
 }
 
-/// A key entry decoded from a keystore file on disk.
-struct StoredKeypair {
-	/// The seed/phrase the key was generated from (or the SURI for inserted keys).
-	phrase: String,
-	/// The public key, recovered from the filename (flat format) or the file body (hashed format).
-	public_key: Vec<u8>,
-	/// The key type, recovered from the filename prefix.
-	key_type: KeyTypeId,
-}
-
 impl KeystoreInner {
 	/// Open the store at the given path.
 	///
@@ -521,7 +514,7 @@ impl KeystoreInner {
 	/// Places it into the file system store, if a path is configured.
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<()> {
 		if let Some(path) = self.key_file_path(public, key_type) {
-			Self::write_key_file(path, public, suri)?;
+			Self::write_to_file(path, suri)?;
 		}
 
 		Ok(())
@@ -533,9 +526,8 @@ impl KeystoreInner {
 	/// it into the memory cache only.
 	fn generate_by_type<Pair: CorePair>(&mut self, key_type: KeyTypeId) -> Result<Pair> {
 		let (pair, phrase, _) = Pair::generate_with_phrase(self.password());
-		let public = pair.public();
-		if let Some(path) = self.key_file_path(public.as_slice(), key_type) {
-			Self::write_key_file(path, public.as_slice(), &phrase)?;
+		if let Some(path) = self.key_file_path(pair.public().as_slice(), key_type) {
+			Self::write_to_file(path, &phrase)?;
 		} else {
 			self.insert_ephemeral_pair(&pair, &phrase, key_type);
 		}
@@ -543,17 +535,8 @@ impl KeystoreInner {
 		Ok(pair)
 	}
 
-	/// Write a key entry to disk.
-	///
-	/// Two on-disk formats are supported:
-	///
-	/// * **Flat** (default and backwards-compatible): the filename embeds the hex of `(key_type ||
-	///   public_key)` and the file contents are a JSON-encoded phrase string.
-	/// * **Hashed**: used when the flat filename would exceed [`MAX_FILENAME_LEN`] (notably for
-	///   BLS381 / ECDSA_BLS381 public keys). The filename embeds the hex of `(key_type ||
-	///   blake2_256(public_key))`, and the file contents are a JSON object `{"public_key": <hex>,
-	///   "phrase": <string>}` so the original public key is recoverable from disk.
-	fn write_key_file(path: PathBuf, public: &[u8], phrase: &str) -> Result<()> {
+	/// Write the given `data` to `file`.
+	fn write_to_file(file: PathBuf, data: &str) -> Result<()> {
 		#[cfg(target_family = "unix")]
 		let mut file = {
 			use std::os::unix::fs::OpenOptionsExt;
@@ -562,26 +545,17 @@ impl KeystoreInner {
 				.create(true)
 				.truncate(true)
 				.mode(0o600)
-				.open(path)?
+				.open(file)?
 		};
 		#[cfg(not(target_family = "unix"))]
-		let mut file = File::create(path)?;
+		let mut file = File::create(file)?;
 
-		if Self::requires_hashed_filename(public) {
-			let public_hex = array_bytes::bytes2hex("", public);
-			let value = serde_json::json!({
-				"public_key": public_hex,
-				"phrase": phrase,
-			});
-			serde_json::to_writer(&file, &value)?;
-		} else {
-			serde_json::to_writer(&file, phrase)?;
-		}
+		serde_json::to_writer(&file, data)?;
 		file.flush()?;
 		Ok(())
 	}
 
-	/// Returns `true` if the flat hex-encoded filename for `public` would exceed the
+	/// Returns `true` if the plain hex-encoded filename for `public` would exceed the
 	/// filesystem's filename-length limit, requiring the hashed-filename fallback.
 	///
 	/// The key-type prefix is always [`KEY_TYPE_PREFIX_LEN`] bytes regardless of the
@@ -591,49 +565,40 @@ impl KeystoreInner {
 		(KEY_TYPE_PREFIX_LEN + public.len()) * 2 > MAX_FILENAME_LEN
 	}
 
-	/// Read a key file from disk, handling both the flat (legacy) and hashed-filename
-	/// formats written by [`Self::write_key_file`].
-	///
-	/// The key type and public key are recovered from the filename; for the hashed format
-	/// the public key stored in the file body is verified against the filename hash.
-	fn read_key_file(path: &Path) -> Result<StoredKeypair> {
-		let name = path.file_name().and_then(|n| n.to_str()).ok_or(Error::InvalidPhrase)?;
-		let name_bytes = array_bytes::hex2bytes(name).map_err(|_| Error::InvalidPhrase)?;
-		if name_bytes.len() <= KEY_TYPE_PREFIX_LEN {
-			return Err(Error::InvalidPhrase);
-		}
-		let key_type = KeyTypeId(
-			name_bytes[..KEY_TYPE_PREFIX_LEN]
-				.try_into()
-				.expect("name_bytes has more than KEY_TYPE_PREFIX_LEN elements; qed"),
-		);
-
+	/// Read the phrase stored in the key file at `path`.
+	fn read_phrase(path: &Path) -> Result<String> {
 		let file = File::open(path)?;
-		let value: serde_json::Value = serde_json::from_reader(&file)?;
-		match value {
-			serde_json::Value::String(phrase) => {
-				let public_key = name_bytes[KEY_TYPE_PREFIX_LEN..].to_vec();
-				Ok(StoredKeypair { phrase, public_key, key_type })
-			},
-			serde_json::Value::Object(map) => {
-				let phrase = map
-					.get("phrase")
-					.and_then(|v| v.as_str())
-					.ok_or(Error::InvalidPhrase)?
-					.to_string();
-				let public_hex =
-					map.get("public_key").and_then(|v| v.as_str()).ok_or(Error::InvalidPhrase)?;
-				let public_key =
-					array_bytes::hex2bytes(public_hex).map_err(|_| Error::InvalidPhrase)?;
-				if sp_core::hashing::blake2_256(&public_key).as_slice() !=
-					&name_bytes[KEY_TYPE_PREFIX_LEN..]
-				{
-					return Err(Error::InvalidPhrase);
-				}
-				Ok(StoredKeypair { phrase, public_key, key_type })
-			},
-			_ => Err(Error::InvalidPhrase),
+		serde_json::from_reader(&file).map_err(Into::into)
+	}
+
+	sp_keystore::bls_experimental_enabled! {
+		/// Recover the public key of a key file with a hashed name.
+		///
+		/// The name only carries `blake2_256(public_key)`, so the key is re-derived from the
+		/// stored `phrase` with every scheme whose public key is long enough to need a hashed
+		/// name, and the derivation hashing to `hash` wins. Returns `None` if none does, e.g.
+		/// because the file wasn't written by this keystore or the password is wrong.
+		fn recover_hashed_public(&self, phrase: &str, hash: &[u8]) -> Option<Vec<u8>> {
+			self.public_matching_hash::<bls381::Pair>(phrase, hash)
+				.or_else(|| self.public_matching_hash::<ecdsa_bls381::Pair>(phrase, hash))
 		}
+
+		/// Derive a `Pair` from `phrase` and return its public key if it hashes to `hash`.
+		fn public_matching_hash<Pair: CorePair>(
+			&self,
+			phrase: &str,
+			hash: &[u8],
+		) -> Option<Vec<u8>> {
+			let public = Pair::from_string(phrase, self.password()).ok()?.public().to_raw_vec();
+			(sp_crypto_hashing::blake2_256(&public) == hash).then_some(public)
+		}
+	}
+
+	/// Without a scheme whose public key needs a hashed name compiled in, nothing can be
+	/// recovered: such entries stay usable through lookups by public key but aren't enumerated.
+	#[cfg(not(feature = "bls-experimental"))]
+	fn recover_hashed_public(&self, _phrase: &str, _hash: &[u8]) -> Option<Vec<u8>> {
+		None
 	}
 
 	/// Create a new key from seed.
@@ -662,7 +627,7 @@ impl KeystoreInner {
 		};
 
 		if path.exists() {
-			Self::read_key_file(&path).map(|entry| Some(entry.phrase))
+			Self::read_phrase(&path).map(Some)
 		} else {
 			Ok(None)
 		}
@@ -692,17 +657,24 @@ impl KeystoreInner {
 	/// Get the file path for the given public key and key type.
 	///
 	/// Returns `None` if the keystore only exists in-memory and there isn't any path to provide.
+	///
+	/// Two file naming schemes are used, the file body being the JSON-encoded phrase in both:
+	///
+	/// * **Plain** (default and backwards-compatible): `hex(key_type || public_key)`.
+	/// * **Hashed**: used when the plain name would exceed [`MAX_FILENAME_LEN`] (notably for BLS381
+	///   / ECDSA_BLS381 public keys): `hex(key_type || blake2_256(public_key))` followed by
+	///   [`HASHED_FILENAME_SUFFIX`]. The public key is re-derived from the phrase when needed, see
+	///   [`Self::recover_hashed_public`].
 	fn key_file_path(&self, public: &[u8], key_type: KeyTypeId) -> Option<PathBuf> {
 		let mut buf = self.path.as_ref()?.clone();
-		let key_type_hex = array_bytes::bytes2hex("", &key_type.0);
-		if Self::requires_hashed_filename(public) {
-			let hash = sp_core::hashing::blake2_256(public);
-			let hash_hex = array_bytes::bytes2hex("", &hash);
-			buf.push(key_type_hex + hash_hex.as_str());
+		let key_type = array_bytes::bytes2hex("", &key_type.0);
+		let name = if Self::requires_hashed_filename(public) {
+			let hash = array_bytes::bytes2hex("", sp_crypto_hashing::blake2_256(public));
+			key_type + &hash + HASHED_FILENAME_SUFFIX
 		} else {
-			let key_hex = array_bytes::bytes2hex("", public);
-			buf.push(key_type_hex + key_hex.as_str());
-		}
+			key_type + &array_bytes::bytes2hex("", public)
+		};
+		buf.push(name);
 		Some(buf)
 	}
 
@@ -719,11 +691,35 @@ impl KeystoreInner {
 			for entry in fs::read_dir(&path)? {
 				let path = entry?.path();
 
-				// Skip directories and any file that isn't a valid entry for this key type.
-				match Self::read_key_file(&path) {
-					Ok(entry) if entry.key_type == key_type => public_keys.push(entry.public_key),
+				// skip directories and non-unicode file names
+				let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
+				let (hex, hashed) = match name.strip_suffix(HASHED_FILENAME_SUFFIX) {
+					Some(hex) => (hex, true),
+					None => (name, false),
+				};
+				// skip files that don't name a key of the requested type
+				let payload = match array_bytes::hex2bytes(hex) {
+					Ok(bytes)
+						if bytes.len() > KEY_TYPE_PREFIX_LEN &&
+							bytes[..KEY_TYPE_PREFIX_LEN] == key_type.0 =>
+					{
+						bytes[KEY_TYPE_PREFIX_LEN..].to_vec()
+					},
 					_ => continue,
-				}
+				};
+				let public = if hashed {
+					// The name only carries a hash of the public key: re-derive it from the phrase.
+					match Self::read_phrase(&path)
+						.ok()
+						.and_then(|phrase| self.recover_hashed_public(&phrase, &payload))
+					{
+						Some(public) => public,
+						None => continue,
+					}
+				} else {
+					payload
+				};
+				public_keys.push(public);
 			}
 		}
 
@@ -1108,8 +1104,7 @@ mod tests {
 		assert_eq!(store.bls381_public_keys(BLS381), vec![bls381]);
 		assert_eq!(store.ecdsa_bls381_public_keys(ECDSA_BLS381), vec![ecdsa_bls381]);
 
-		// The seed must be recoverable from the hashed-filename file format so that
-		// signing succeeds after a reopen.
+		// Signing after a reopen must work from the on-disk phrase of a hashed-name entry.
 		assert!(store.bls381_sign(BLS381, &bls381, b"message").unwrap().is_some());
 		assert!(store
 			.ecdsa_bls381_sign(ECDSA_BLS381, &ecdsa_bls381, b"message")
@@ -1119,36 +1114,28 @@ mod tests {
 
 	#[test]
 	#[cfg(feature = "bls-experimental")]
-	fn forged_hashed_entry_is_rejected_during_enumeration() {
+	fn hashed_entries_are_verified_during_enumeration() {
 		use sp_core::testing::BLS381;
 
-		// An attacker with disk-write access could drop a hashed-format file into the
-		// keystore directory whose embedded `public_key` differs from the hash in the
-		// filename, attempting to poison `bls381_public_keys` enumeration with a
-		// fabricated key. `raw_public_keys` must reject such files.
 		let temp_dir = TempDir::new().unwrap();
 		let store = LocalKeystore::open(temp_dir.path(), None).unwrap();
 		let legit = store.bls381_generate_new(BLS381, None).unwrap();
-		assert_eq!(store.bls381_public_keys(BLS381).len(), 1);
 
-		// Forge a hashed-format file whose filename hashes a different public key.
-		let real_hash = sp_core::hashing::blake2_256(&legit.to_raw_vec());
-		let forged_pubkey = vec![0xAB; legit.to_raw_vec().len()];
-		// Sanity: forged pubkey must hash to something different.
-		assert_ne!(sp_core::hashing::blake2_256(&forged_pubkey), real_hash);
-		let fake_hash = sp_core::hashing::blake2_256(b"unrelated");
-		let key_type_hex = array_bytes::bytes2hex("", &BLS381.0);
-		let fake_hash_hex = array_bytes::bytes2hex("", &fake_hash);
-		let forged_path = temp_dir.path().join(format!("{}{}", key_type_hex, fake_hash_hex));
-		let forged_body = serde_json::json!({
-			"public_key": array_bytes::bytes2hex("", &forged_pubkey),
-			"phrase": "//Eve",
-		});
-		std::fs::write(&forged_path, serde_json::to_vec(&forged_body).unwrap()).unwrap();
+		// A hashed name is tied to its key only through the hash, so a file dropped into the
+		// keystore directory whose phrase doesn't derive to the hashed public key must not be
+		// enumerated as a key.
+		let forged_name = format!(
+			"{}{}{}",
+			array_bytes::bytes2hex("", &BLS381.0),
+			array_bytes::bytes2hex("", sp_crypto_hashing::blake2_256(b"unrelated")),
+			HASHED_FILENAME_SUFFIX,
+		);
+		fs::write(temp_dir.path().join(forged_name), serde_json::to_vec("//Eve").unwrap()).unwrap();
 
-		// Enumeration must drop the forged entry and still surface the legit one.
-		let keys = store.bls381_public_keys(BLS381);
-		assert_eq!(keys.len(), 1, "forged hashed entry must not appear in enumeration");
-		assert_eq!(keys[0], legit);
+		// Nor must a hashed name be mistaken for the plain name of a 32-byte public key.
+		let sr25519 = store.sr25519_generate_new(BLS381, None).unwrap();
+
+		assert_eq!(store.bls381_public_keys(BLS381), vec![legit]);
+		assert_eq!(store.sr25519_public_keys(BLS381), vec![sr25519]);
 	}
 }

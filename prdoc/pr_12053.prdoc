@@ -10,8 +10,10 @@ doc:
       generated seed is now looked up through `key_phrase_by_type`, which handles the
       on-disk path.
     - BLS key filenames that would exceed the 255-byte filesystem limit fall back to a
-      hashed filename, storing the public key inside the file so it stays recoverable.
-      Short keys keep the legacy format; existing keystores are unaffected.
+      hashed filename (`hex(key_type || blake2_256(public_key))` with a `.hashed` suffix).
+      The file body stays the JSON-encoded phrase; the public key is re-derived from it
+      when listing keys. Short keys keep the plain filename, so existing keystores are
+      unaffected.
 
 crates:
 - name: sc-keystore
