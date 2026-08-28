@@ -19,9 +19,10 @@
 //!
 //! Two tasks form the collator loop:
 //!
-//! - the [builder task](builder_task) decides when to build (one block per new JAM best block,
-//!   gated by the Aura slot), selects the JAM anchor, builds the parachain block with the shared
-//!   authoring primitives and a *mocked* parachain inherent (phases 1–3), and feeds the channel;
+//! - the [builder task](builder_task) authors on a wall-clock parachain-slot timer, anchoring at
+//!   the JAM tip it caches, extending its unincluded segment rather than waiting for inclusion,
+//!   with the shared authoring primitives and a *mocked* parachain inherent, and feeds the
+//!   channel;
 //! - the [collation task](collation_task) assembles the work package (payload =
 //!   `ParachainCandidate`), submits it, follows `workPackageStatus`, and drives resubmission behind
 //!   a pluggable [policy](resubmission).
@@ -124,6 +125,18 @@ pub(crate) fn jam_slot_timestamp(slot: JamSlot) -> Timestamp {
 	Timestamp::new((jam_types::JAM_COMMON_ERA + u64::from(slot) * 6) * 1000)
 }
 
+/// The JAM timeslot a wall-clock timestamp falls into — the inverse of [`jam_slot_timestamp`].
+///
+/// The builder is driven by the wall clock, so it has to know which JAM slot it is in: that is
+/// what tells it whether the JAM tip it caches is current, and it is the slot the mocked
+/// parachain inherent advertises.
+pub(crate) fn jam_slot_at(timestamp: Timestamp) -> JamSlot {
+	(timestamp
+		.as_millis()
+		.saturating_sub(jam_types::JAM_COMMON_ERA * 1000)
+		/ JAM_SLOT_DURATION_MS) as JamSlot
+}
+
 /// The fake relay slot the mocked parachain inherent advertises for a JAM timeslot (both are
 /// 6 s, so this is the timestamp expressed in relay slots).
 pub(crate) fn jam_slot_as_relay_slot(slot: JamSlot) -> u64 {
@@ -195,5 +208,29 @@ mod tests {
 	#[test]
 	fn relay_slot_advances_once_per_jam_slot() {
 		assert_eq!(jam_slot_as_relay_slot(1), jam_slot_as_relay_slot(0) + 1);
+	}
+
+	/// The wall-clock-driven builder derives its JAM slot from the clock and its timestamp from
+	/// that slot, so the two conversions have to be exact inverses.
+	#[test]
+	fn jam_slot_at_inverts_jam_slot_timestamp() {
+		for slot in [0, 1, 12_345] {
+			assert_eq!(jam_slot_at(jam_slot_timestamp(slot)), slot);
+		}
+	}
+
+	/// Anything inside a slot belongs to that slot; only the next boundary moves it on.
+	#[test]
+	fn jam_slot_at_floors_to_the_slot_start() {
+		let slot_start = jam_slot_timestamp(7).as_millis();
+		assert_eq!(jam_slot_at(Timestamp::new(slot_start + JAM_SLOT_DURATION_MS - 1)), 7);
+		assert_eq!(jam_slot_at(Timestamp::new(slot_start + JAM_SLOT_DURATION_MS)), 8);
+	}
+
+	/// Before the common era there are no slots; clamping to slot 0 keeps a badly-set clock from
+	/// wrapping the subtraction.
+	#[test]
+	fn jam_slot_at_clamps_before_the_common_era() {
+		assert_eq!(jam_slot_at(Timestamp::new(0)), 0);
 	}
 }
