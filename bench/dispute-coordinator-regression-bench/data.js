@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787910880481,
+  "lastUpdate": 1787929793517,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f87563a37d5ef6ad6153d9462e2aa70a027584f0",
-          "message": "[Release|CI/CD] Add `eth-rpc` binary to release draft artifacts (#10934)\n\nAddress: https://github.com/paritytech/release-engineering/issues/281",
-          "timestamp": "2026-01-29T16:39:29Z",
-          "tree_id": "be3a5043a67e8b7b2589056a48eada95cb8c472f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f87563a37d5ef6ad6153d9462e2aa70a027584f0"
-        },
-        "date": 1769708833389,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006283721560000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00909090707999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026851994700000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025259107400000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2cc7937afe9324b248d92a8ddb5373c0eba80b9c",
+          "message": "Don't use expensive aliasers in `ExplicitUnpaidExecutionFrom` (#12831)\n\nThe `ExplicitUnpaidExecutionFrom` barrier runs `AliasOrigin`\ninstructions first so we should only run the cheap ones. There's no\nvalid use-case for `AuthorizedAliasers` as well\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>",
+          "timestamp": "2026-08-28T13:19:01Z",
+          "tree_id": "6284bf0f74d0c2771b6933010a53252ccd83be01",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cc7937afe9324b248d92a8ddb5373c0eba80b9c"
+        },
+        "date": 1787929752938,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025389262500000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009196818069999991,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01017207317999999,
             "unit": "seconds"
           }
         ]
