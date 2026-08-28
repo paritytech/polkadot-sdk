@@ -158,7 +158,7 @@ active syncing strategy.</p>
     client: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;,
     max_parallel_downloads: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
     max_blocks_per_request: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
-    state_request_protocol_name: ProtocolName,
+    state_request_protocol_name: <a class="enum" href="../../../sc_network/types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
     block_downloader: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn <a class="trait" href="../../block_relay_protocol/trait.BlockDownloader.html" title="trait sc_network_sync::block_relay_protocol::BlockDownloader">BlockDownloader</a>&lt;B&gt;&gt;,
     gap_sync_body_policy: <a class="enum" href="enum.GapSyncBodyPolicy.html" title="enum sc_network_sync::strategy::chain_sync::GapSyncBodyPolicy">GapSyncBodyPolicy</a>,
     metrics_registry: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Registry&gt;,
@@ -191,7 +191,7 @@ stale fork missing. <a href="../trait.SyncingStrategy.html#tymethod.set_sync_for
     &amp;mut self,
     peer_id: &amp;<a class="struct" href="../../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
     key: <a class="struct" href="../struct.StrategyKey.html" title="struct sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
-    protocol_name: ProtocolName,
+    protocol_name: <a class="enum" href="../../../sc_network/types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
     response: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;,
 )</h4></section></summary><div class='docblock'>Process generic response. <a href="../trait.SyncingStrategy.html#tymethod.on_generic_response">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.on_blocks_processed" class="method trait-impl"><a class="src rightside" href="../../../src/sc_network_sync/strategy/chain_sync.rs.html#811-942">Source</a><a href="#method.on_blocks_processed" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.SyncingStrategy.html#tymethod.on_blocks_processed" class="fn">on_blocks_processed</a>(
     &amp;mut self,

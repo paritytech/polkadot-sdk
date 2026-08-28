@@ -296,159 +296,171 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#146 id=146 data-nosnippet>146</a>					</span>AllowTopLevelPaidExecutionFrom&lt;Everything&gt;,
 <a href=#147 id=147 data-nosnippet>147</a>					<span class="comment">// Parent, its pluralities (i.e. governance bodies), relay treasury pallet
 <a href=#148 id=148 data-nosnippet>148</a>					// and sibling People get free execution.
-<a href=#149 id=149 data-nosnippet>149</a>					</span>AllowExplicitUnpaidExecutionFrom&lt;(
-<a href=#150 id=150 data-nosnippet>150</a>						ParentOrParentsPlurality,
-<a href=#151 id=151 data-nosnippet>151</a>						Equals&lt;RelayTreasuryLocation&gt;,
-<a href=#152 id=152 data-nosnippet>152</a>						Equals&lt;SiblingPeople&gt;,
-<a href=#153 id=153 data-nosnippet>153</a>						Equals&lt;AssetHubRococoLocation&gt;,
-<a href=#154 id=154 data-nosnippet>154</a>					)&gt;,
-<a href=#155 id=155 data-nosnippet>155</a>					<span class="comment">// Subscriptions for version tracking are OK.
-<a href=#156 id=156 data-nosnippet>156</a>					</span>AllowSubscriptionsFrom&lt;ParentRelayOrSiblingParachains&gt;,
-<a href=#157 id=157 data-nosnippet>157</a>					<span class="comment">// HRMP notifications from the relay chain are OK.
-<a href=#158 id=158 data-nosnippet>158</a>					</span>AllowHrmpNotificationsFromRelayChain,
-<a href=#159 id=159 data-nosnippet>159</a>				),
-<a href=#160 id=160 data-nosnippet>160</a>				UniversalLocation,
-<a href=#161 id=161 data-nosnippet>161</a>				ConstU32&lt;<span class="number">8</span>&gt;,
-<a href=#162 id=162 data-nosnippet>162</a>			&gt;,
-<a href=#163 id=163 data-nosnippet>163</a>		),
-<a href=#164 id=164 data-nosnippet>164</a>	&gt;,
-<a href=#165 id=165 data-nosnippet>165</a>&gt;;
-<a href=#166 id=166 data-nosnippet>166</a>
-<a href=#167 id=167 data-nosnippet>167</a><span class="doccomment">/// Locations that will not be charged fees in the executor,
-<a href=#168 id=168 data-nosnippet>168</a>/// either execution or delivery.
-<a href=#169 id=169 data-nosnippet>169</a>/// We only waive fees for system functions, which these locations represent.
-<a href=#170 id=170 data-nosnippet>170</a></span><span class="kw">pub type </span>WaivedLocations = (
-<a href=#171 id=171 data-nosnippet>171</a>	Equals&lt;RootLocation&gt;,
-<a href=#172 id=172 data-nosnippet>172</a>	RelayOrOtherSystemParachains&lt;AllSiblingSystemParachains, Runtime&gt;,
-<a href=#173 id=173 data-nosnippet>173</a>	Equals&lt;RelayTreasuryLocation&gt;,
-<a href=#174 id=174 data-nosnippet>174</a>);
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a><span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
-<a href=#177 id=177 data-nosnippet>177</a>/// - NativeToken with the parent Relay Chain and sibling parachains.
-<a href=#178 id=178 data-nosnippet>178</a></span><span class="kw">pub type </span>TrustedTeleporters = ConcreteAssetFromSystem&lt;TokenLocation&gt;;
-<a href=#179 id=179 data-nosnippet>179</a>
-<a href=#180 id=180 data-nosnippet>180</a><span class="doccomment">/// Defines origin aliasing rules for this chain.
-<a href=#181 id=181 data-nosnippet>181</a>///
-<a href=#182 id=182 data-nosnippet>182</a>/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
-<a href=#183 id=183 data-nosnippet>183</a>/// - Allow origins explicitly authorized by the alias target location.
-<a href=#184 id=184 data-nosnippet>184</a></span><span class="kw">pub type </span>TrustedAliasers = (AliasChildLocation, AuthorizedAliasers&lt;Runtime&gt;);
-<a href=#185 id=185 data-nosnippet>185</a>
-<a href=#186 id=186 data-nosnippet>186</a><span class="kw">pub struct </span>XcmConfig;
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a><span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
-<a href=#189 id=189 data-nosnippet>189</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-<a href=#190 id=190 data-nosnippet>190</a>	<span class="kw">type </span>XcmSender = XcmRouter;
-<a href=#191 id=191 data-nosnippet>191</a>	<span class="kw">type </span>XcmEventEmitter = PolkadotXcm;
-<a href=#192 id=192 data-nosnippet>192</a>	<span class="kw">type </span>AssetTransactor = FungibleTransactor;
-<a href=#193 id=193 data-nosnippet>193</a>	<span class="kw">type </span>OriginConverter = XcmOriginToTransactDispatchOrigin;
-<a href=#194 id=194 data-nosnippet>194</a>	<span class="comment">// BridgeHub does not recognize a reserve location for any asset. Users must teleport Native
-<a href=#195 id=195 data-nosnippet>195</a>	// token where allowed (e.g. with the Relay Chain).
-<a href=#196 id=196 data-nosnippet>196</a>	</span><span class="kw">type </span>IsReserve = ();
-<a href=#197 id=197 data-nosnippet>197</a>	<span class="kw">type </span>IsTeleporter = TrustedTeleporters;
-<a href=#198 id=198 data-nosnippet>198</a>	<span class="kw">type </span>UniversalLocation = UniversalLocation;
-<a href=#199 id=199 data-nosnippet>199</a>	<span class="kw">type </span>Barrier = Barrier;
-<a href=#200 id=200 data-nosnippet>200</a>	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
-<a href=#201 id=201 data-nosnippet>201</a>		<span class="kw">crate</span>::weights::xcm::BridgeHubRococoXcmWeight&lt;RuntimeCall&gt;,
-<a href=#202 id=202 data-nosnippet>202</a>		RuntimeCall,
-<a href=#203 id=203 data-nosnippet>203</a>		MaxInstructions,
-<a href=#204 id=204 data-nosnippet>204</a>	&gt;;
-<a href=#205 id=205 data-nosnippet>205</a>	<span class="kw">type </span>Trader = UsingComponents&lt;
-<a href=#206 id=206 data-nosnippet>206</a>		WeightToFee,
-<a href=#207 id=207 data-nosnippet>207</a>		TokenLocation,
-<a href=#208 id=208 data-nosnippet>208</a>		AccountId,
-<a href=#209 id=209 data-nosnippet>209</a>		Balances,
-<a href=#210 id=210 data-nosnippet>210</a>		ResolveTo&lt;StakingPotAccountId&lt;Runtime&gt;, Balances&gt;,
-<a href=#211 id=211 data-nosnippet>211</a>	&gt;;
-<a href=#212 id=212 data-nosnippet>212</a>	<span class="kw">type </span>ResponseHandler = PolkadotXcm;
-<a href=#213 id=213 data-nosnippet>213</a>	<span class="kw">type </span>AssetTrap = PolkadotXcm;
-<a href=#214 id=214 data-nosnippet>214</a>	<span class="kw">type </span>AssetLocker = ();
-<a href=#215 id=215 data-nosnippet>215</a>	<span class="kw">type </span>AssetExchanger = ();
-<a href=#216 id=216 data-nosnippet>216</a>	<span class="kw">type </span>SubscriptionService = PolkadotXcm;
-<a href=#217 id=217 data-nosnippet>217</a>	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
-<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-<a href=#219 id=219 data-nosnippet>219</a>	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
-<a href=#220 id=220 data-nosnippet>220</a>		WaivedLocations,
-<a href=#221 id=221 data-nosnippet>221</a>		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,
-<a href=#222 id=222 data-nosnippet>222</a>	&gt;;
-<a href=#223 id=223 data-nosnippet>223</a>	<span class="kw">type </span>MessageExporter =
-<a href=#224 id=224 data-nosnippet>224</a>		(XcmOverBridgeHubWestend, <span class="kw">crate</span>::bridge_to_ethereum_config::SnowbridgeExporter);
-<a href=#225 id=225 data-nosnippet>225</a>	<span class="kw">type </span>UniversalAliases = Nothing;
-<a href=#226 id=226 data-nosnippet>226</a>	<span class="kw">type </span>CallDispatcher = RuntimeCall;
-<a href=#227 id=227 data-nosnippet>227</a>	<span class="kw">type </span>SafeCallFilter = Everything;
-<a href=#228 id=228 data-nosnippet>228</a>	<span class="kw">type </span>Aliasers = TrustedAliasers;
-<a href=#229 id=229 data-nosnippet>229</a>	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
-<a href=#230 id=230 data-nosnippet>230</a>	<span class="kw">type </span>HrmpNewChannelOpenRequestHandler = ();
-<a href=#231 id=231 data-nosnippet>231</a>	<span class="kw">type </span>HrmpChannelAcceptedHandler = ();
-<a href=#232 id=232 data-nosnippet>232</a>	<span class="kw">type </span>HrmpChannelClosingHandler = ();
-<a href=#233 id=233 data-nosnippet>233</a>	<span class="kw">type </span>XcmRecorder = PolkadotXcm;
-<a href=#234 id=234 data-nosnippet>234</a>}
-<a href=#235 id=235 data-nosnippet>235</a>
-<a href=#236 id=236 data-nosnippet>236</a><span class="kw">pub type </span>PriceForParentDelivery =
-<a href=#237 id=237 data-nosnippet>237</a>	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem&gt;;
-<a href=#238 id=238 data-nosnippet>238</a>
-<a href=#239 id=239 data-nosnippet>239</a><span class="doccomment">/// Converts a local signed origin into an XCM location. Forms the basis for local origins
-<a href=#240 id=240 data-nosnippet>240</a>/// sending/executing XCMs.
-<a href=#241 id=241 data-nosnippet>241</a></span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a><span class="doccomment">/// The means for routing XCM messages which are not for local execution into the right message
-<a href=#244 id=244 data-nosnippet>244</a>/// queues.
-<a href=#245 id=245 data-nosnippet>245</a></span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;(
-<a href=#246 id=246 data-nosnippet>246</a>	<span class="comment">// Two routers - use UMP to communicate with the relay chain:
-<a href=#247 id=247 data-nosnippet>247</a>	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, PriceForParentDelivery&gt;,
-<a href=#248 id=248 data-nosnippet>248</a>	<span class="comment">// ..and XCMP to communicate with the sibling chains.
-<a href=#249 id=249 data-nosnippet>249</a>	</span>XcmpQueue,
-<a href=#250 id=250 data-nosnippet>250</a>)&gt;;
-<a href=#251 id=251 data-nosnippet>251</a>
-<a href=#252 id=252 data-nosnippet>252</a><span class="macro">parameter_types!</span> {
-<a href=#253 id=253 data-nosnippet>253</a>	<span class="kw">pub const </span>DepositPerItem: Balance = <span class="kw">crate</span>::deposit(<span class="number">1</span>, <span class="number">0</span>);
-<a href=#254 id=254 data-nosnippet>254</a>	<span class="kw">pub const </span>DepositPerByte: Balance = <span class="kw">crate</span>::deposit(<span class="number">0</span>, <span class="number">1</span>);
-<a href=#255 id=255 data-nosnippet>255</a>	<span class="kw">pub const </span>AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
-<a href=#256 id=256 data-nosnippet>256</a>}
-<a href=#257 id=257 data-nosnippet>257</a>
-<a href=#258 id=258 data-nosnippet>258</a><span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span>Runtime {
-<a href=#259 id=259 data-nosnippet>259</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#260 id=260 data-nosnippet>260</a>	<span class="kw">type </span>XcmRouter = XcmRouter;
-<a href=#261 id=261 data-nosnippet>261</a>	<span class="comment">// We want to disallow users sending (arbitrary) XCMs from this chain.
-<a href=#262 id=262 data-nosnippet>262</a>	</span><span class="kw">type </span>SendXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, ()&gt;;
-<a href=#263 id=263 data-nosnippet>263</a>	<span class="comment">// We support local origins dispatching XCM executions.
-<a href=#264 id=264 data-nosnippet>264</a>	</span><span class="kw">type </span>ExecuteXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
-<a href=#265 id=265 data-nosnippet>265</a>	<span class="kw">type </span>XcmExecuteFilter = Everything;
-<a href=#266 id=266 data-nosnippet>266</a>	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
-<a href=#267 id=267 data-nosnippet>267</a>	<span class="kw">type </span>XcmTeleportFilter = Everything;
-<a href=#268 id=268 data-nosnippet>268</a>	<span class="comment">// This parachain is not meant as a reserve location.
-<a href=#269 id=269 data-nosnippet>269</a>	</span><span class="kw">type </span>XcmReserveTransferFilter = Nothing;
-<a href=#270 id=270 data-nosnippet>270</a>	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
-<a href=#271 id=271 data-nosnippet>271</a>		<span class="kw">crate</span>::weights::xcm::BridgeHubRococoXcmWeight&lt;RuntimeCall&gt;,
-<a href=#272 id=272 data-nosnippet>272</a>		RuntimeCall,
-<a href=#273 id=273 data-nosnippet>273</a>		MaxInstructions,
-<a href=#274 id=274 data-nosnippet>274</a>	&gt;;
-<a href=#275 id=275 data-nosnippet>275</a>	<span class="kw">type </span>UniversalLocation = UniversalLocation;
-<a href=#276 id=276 data-nosnippet>276</a>	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-<a href=#277 id=277 data-nosnippet>277</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-<a href=#278 id=278 data-nosnippet>278</a>	<span class="kw">const </span>VERSION_DISCOVERY_QUEUE_SIZE: u32 = <span class="number">100</span>;
-<a href=#279 id=279 data-nosnippet>279</a>	<span class="kw">type </span>AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
-<a href=#280 id=280 data-nosnippet>280</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#281 id=281 data-nosnippet>281</a>	<span class="kw">type </span>CurrencyMatcher = ();
-<a href=#282 id=282 data-nosnippet>282</a>	<span class="kw">type </span>TrustedLockers = ();
-<a href=#283 id=283 data-nosnippet>283</a>	<span class="kw">type </span>SovereignAccountOf = LocationToAccountId;
-<a href=#284 id=284 data-nosnippet>284</a>	<span class="kw">type </span>MaxLockers = ConstU32&lt;<span class="number">8</span>&gt;;
-<a href=#285 id=285 data-nosnippet>285</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::pallet_xcm::WeightInfo&lt;Runtime&gt;;
-<a href=#286 id=286 data-nosnippet>286</a>	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
-<a href=#287 id=287 data-nosnippet>287</a>	<span class="kw">type </span>MaxRemoteLockConsumers = ConstU32&lt;<span class="number">0</span>&gt;;
-<a href=#288 id=288 data-nosnippet>288</a>	<span class="kw">type </span>RemoteLockConsumerIdentifier = ();
-<a href=#289 id=289 data-nosnippet>289</a>	<span class="comment">// xcm_executor::Config::Aliasers also uses pallet_xcm::AuthorizedAliasers.
-<a href=#290 id=290 data-nosnippet>290</a>	</span><span class="kw">type </span>AuthorizedAliasConsideration = HoldConsideration&lt;
-<a href=#291 id=291 data-nosnippet>291</a>		AccountId,
-<a href=#292 id=292 data-nosnippet>292</a>		Balances,
-<a href=#293 id=293 data-nosnippet>293</a>		AuthorizeAliasHoldReason,
-<a href=#294 id=294 data-nosnippet>294</a>		LinearStoragePrice&lt;DepositPerItem, DepositPerByte, Balance&gt;,
-<a href=#295 id=295 data-nosnippet>295</a>	&gt;;
-<a href=#296 id=296 data-nosnippet>296</a>}
-<a href=#297 id=297 data-nosnippet>297</a>
-<a href=#298 id=298 data-nosnippet>298</a><span class="kw">impl </span>cumulus_pallet_xcm::Config <span class="kw">for </span>Runtime {
-<a href=#299 id=299 data-nosnippet>299</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#300 id=300 data-nosnippet>300</a>	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
-<a href=#301 id=301 data-nosnippet>301</a>}
+<a href=#149 id=149 data-nosnippet>149</a>					</span>AllowExplicitUnpaidExecutionFrom&lt;
+<a href=#150 id=150 data-nosnippet>150</a>						(
+<a href=#151 id=151 data-nosnippet>151</a>							ParentOrParentsPlurality,
+<a href=#152 id=152 data-nosnippet>152</a>							Equals&lt;RelayTreasuryLocation&gt;,
+<a href=#153 id=153 data-nosnippet>153</a>							Equals&lt;SiblingPeople&gt;,
+<a href=#154 id=154 data-nosnippet>154</a>							Equals&lt;AssetHubRococoLocation&gt;,
+<a href=#155 id=155 data-nosnippet>155</a>						),
+<a href=#156 id=156 data-nosnippet>156</a>						CheapTrustedAliasers,
+<a href=#157 id=157 data-nosnippet>157</a>					&gt;,
+<a href=#158 id=158 data-nosnippet>158</a>					<span class="comment">// Subscriptions for version tracking are OK.
+<a href=#159 id=159 data-nosnippet>159</a>					</span>AllowSubscriptionsFrom&lt;ParentRelayOrSiblingParachains&gt;,
+<a href=#160 id=160 data-nosnippet>160</a>					<span class="comment">// HRMP notifications from the relay chain are OK.
+<a href=#161 id=161 data-nosnippet>161</a>					</span>AllowHrmpNotificationsFromRelayChain,
+<a href=#162 id=162 data-nosnippet>162</a>				),
+<a href=#163 id=163 data-nosnippet>163</a>				UniversalLocation,
+<a href=#164 id=164 data-nosnippet>164</a>				ConstU32&lt;<span class="number">8</span>&gt;,
+<a href=#165 id=165 data-nosnippet>165</a>			&gt;,
+<a href=#166 id=166 data-nosnippet>166</a>		),
+<a href=#167 id=167 data-nosnippet>167</a>	&gt;,
+<a href=#168 id=168 data-nosnippet>168</a>&gt;;
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a><span class="doccomment">/// Locations that will not be charged fees in the executor,
+<a href=#171 id=171 data-nosnippet>171</a>/// either execution or delivery.
+<a href=#172 id=172 data-nosnippet>172</a>/// We only waive fees for system functions, which these locations represent.
+<a href=#173 id=173 data-nosnippet>173</a></span><span class="kw">pub type </span>WaivedLocations = (
+<a href=#174 id=174 data-nosnippet>174</a>	Equals&lt;RootLocation&gt;,
+<a href=#175 id=175 data-nosnippet>175</a>	RelayOrOtherSystemParachains&lt;AllSiblingSystemParachains, Runtime&gt;,
+<a href=#176 id=176 data-nosnippet>176</a>	Equals&lt;RelayTreasuryLocation&gt;,
+<a href=#177 id=177 data-nosnippet>177</a>);
+<a href=#178 id=178 data-nosnippet>178</a>
+<a href=#179 id=179 data-nosnippet>179</a><span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+<a href=#180 id=180 data-nosnippet>180</a>/// - NativeToken with the parent Relay Chain and sibling parachains.
+<a href=#181 id=181 data-nosnippet>181</a></span><span class="kw">pub type </span>TrustedTeleporters = ConcreteAssetFromSystem&lt;TokenLocation&gt;;
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a><span class="doccomment">/// Aliasing rules that are pure computation and thus cheap enough to also be evaluated by
+<a href=#184 id=184 data-nosnippet>184</a>/// barriers, before any payment is taken.
+<a href=#185 id=185 data-nosnippet>185</a>///
+<a href=#186 id=186 data-nosnippet>186</a>/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin).
+<a href=#187 id=187 data-nosnippet>187</a>///
+<a href=#188 id=188 data-nosnippet>188</a>/// `AuthorizedAliasers` is deliberately NOT part of this: it reads storage, which is more than a
+<a href=#189 id=189 data-nosnippet>189</a>/// barrier is allowed to cost.
+<a href=#190 id=190 data-nosnippet>190</a></span><span class="kw">pub type </span>CheapTrustedAliasers = (AliasChildLocation,);
+<a href=#191 id=191 data-nosnippet>191</a>
+<a href=#192 id=192 data-nosnippet>192</a><span class="doccomment">/// Defines origin aliasing rules for this chain. Used by the executor.
+<a href=#193 id=193 data-nosnippet>193</a>///
+<a href=#194 id=194 data-nosnippet>194</a>/// - Allow all the cheap aliasing rules also used by the barriers,
+<a href=#195 id=195 data-nosnippet>195</a>/// - Allow origins explicitly authorized by the alias target location.
+<a href=#196 id=196 data-nosnippet>196</a></span><span class="kw">pub type </span>TrustedAliasers = (CheapTrustedAliasers, AuthorizedAliasers&lt;Runtime&gt;);
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a><span class="kw">pub struct </span>XcmConfig;
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a><span class="kw">impl </span>xcm_executor::Config <span class="kw">for </span>XcmConfig {
+<a href=#201 id=201 data-nosnippet>201</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
+<a href=#202 id=202 data-nosnippet>202</a>	<span class="kw">type </span>XcmSender = XcmRouter;
+<a href=#203 id=203 data-nosnippet>203</a>	<span class="kw">type </span>XcmEventEmitter = PolkadotXcm;
+<a href=#204 id=204 data-nosnippet>204</a>	<span class="kw">type </span>AssetTransactor = FungibleTransactor;
+<a href=#205 id=205 data-nosnippet>205</a>	<span class="kw">type </span>OriginConverter = XcmOriginToTransactDispatchOrigin;
+<a href=#206 id=206 data-nosnippet>206</a>	<span class="comment">// BridgeHub does not recognize a reserve location for any asset. Users must teleport Native
+<a href=#207 id=207 data-nosnippet>207</a>	// token where allowed (e.g. with the Relay Chain).
+<a href=#208 id=208 data-nosnippet>208</a>	</span><span class="kw">type </span>IsReserve = ();
+<a href=#209 id=209 data-nosnippet>209</a>	<span class="kw">type </span>IsTeleporter = TrustedTeleporters;
+<a href=#210 id=210 data-nosnippet>210</a>	<span class="kw">type </span>UniversalLocation = UniversalLocation;
+<a href=#211 id=211 data-nosnippet>211</a>	<span class="kw">type </span>Barrier = Barrier;
+<a href=#212 id=212 data-nosnippet>212</a>	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
+<a href=#213 id=213 data-nosnippet>213</a>		<span class="kw">crate</span>::weights::xcm::BridgeHubRococoXcmWeight&lt;RuntimeCall&gt;,
+<a href=#214 id=214 data-nosnippet>214</a>		RuntimeCall,
+<a href=#215 id=215 data-nosnippet>215</a>		MaxInstructions,
+<a href=#216 id=216 data-nosnippet>216</a>	&gt;;
+<a href=#217 id=217 data-nosnippet>217</a>	<span class="kw">type </span>Trader = UsingComponents&lt;
+<a href=#218 id=218 data-nosnippet>218</a>		WeightToFee,
+<a href=#219 id=219 data-nosnippet>219</a>		TokenLocation,
+<a href=#220 id=220 data-nosnippet>220</a>		AccountId,
+<a href=#221 id=221 data-nosnippet>221</a>		Balances,
+<a href=#222 id=222 data-nosnippet>222</a>		ResolveTo&lt;StakingPotAccountId&lt;Runtime&gt;, Balances&gt;,
+<a href=#223 id=223 data-nosnippet>223</a>	&gt;;
+<a href=#224 id=224 data-nosnippet>224</a>	<span class="kw">type </span>ResponseHandler = PolkadotXcm;
+<a href=#225 id=225 data-nosnippet>225</a>	<span class="kw">type </span>AssetTrap = PolkadotXcm;
+<a href=#226 id=226 data-nosnippet>226</a>	<span class="kw">type </span>AssetLocker = ();
+<a href=#227 id=227 data-nosnippet>227</a>	<span class="kw">type </span>AssetExchanger = ();
+<a href=#228 id=228 data-nosnippet>228</a>	<span class="kw">type </span>SubscriptionService = PolkadotXcm;
+<a href=#229 id=229 data-nosnippet>229</a>	<span class="kw">type </span>PalletInstancesInfo = AllPalletsWithSystem;
+<a href=#230 id=230 data-nosnippet>230</a>	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+<a href=#231 id=231 data-nosnippet>231</a>	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
+<a href=#232 id=232 data-nosnippet>232</a>		WaivedLocations,
+<a href=#233 id=233 data-nosnippet>233</a>		SendXcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, TreasuryAccount&gt;,
+<a href=#234 id=234 data-nosnippet>234</a>	&gt;;
+<a href=#235 id=235 data-nosnippet>235</a>	<span class="kw">type </span>MessageExporter =
+<a href=#236 id=236 data-nosnippet>236</a>		(XcmOverBridgeHubWestend, <span class="kw">crate</span>::bridge_to_ethereum_config::SnowbridgeExporter);
+<a href=#237 id=237 data-nosnippet>237</a>	<span class="kw">type </span>UniversalAliases = Nothing;
+<a href=#238 id=238 data-nosnippet>238</a>	<span class="kw">type </span>CallDispatcher = RuntimeCall;
+<a href=#239 id=239 data-nosnippet>239</a>	<span class="kw">type </span>SafeCallFilter = Everything;
+<a href=#240 id=240 data-nosnippet>240</a>	<span class="kw">type </span>Aliasers = TrustedAliasers;
+<a href=#241 id=241 data-nosnippet>241</a>	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
+<a href=#242 id=242 data-nosnippet>242</a>	<span class="kw">type </span>HrmpNewChannelOpenRequestHandler = ();
+<a href=#243 id=243 data-nosnippet>243</a>	<span class="kw">type </span>HrmpChannelAcceptedHandler = ();
+<a href=#244 id=244 data-nosnippet>244</a>	<span class="kw">type </span>HrmpChannelClosingHandler = ();
+<a href=#245 id=245 data-nosnippet>245</a>	<span class="kw">type </span>XcmRecorder = PolkadotXcm;
+<a href=#246 id=246 data-nosnippet>246</a>}
+<a href=#247 id=247 data-nosnippet>247</a>
+<a href=#248 id=248 data-nosnippet>248</a><span class="kw">pub type </span>PriceForParentDelivery =
+<a href=#249 id=249 data-nosnippet>249</a>	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem&gt;;
+<a href=#250 id=250 data-nosnippet>250</a>
+<a href=#251 id=251 data-nosnippet>251</a><span class="doccomment">/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+<a href=#252 id=252 data-nosnippet>252</a>/// sending/executing XCMs.
+<a href=#253 id=253 data-nosnippet>253</a></span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
+<a href=#254 id=254 data-nosnippet>254</a>
+<a href=#255 id=255 data-nosnippet>255</a><span class="doccomment">/// The means for routing XCM messages which are not for local execution into the right message
+<a href=#256 id=256 data-nosnippet>256</a>/// queues.
+<a href=#257 id=257 data-nosnippet>257</a></span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;(
+<a href=#258 id=258 data-nosnippet>258</a>	<span class="comment">// Two routers - use UMP to communicate with the relay chain:
+<a href=#259 id=259 data-nosnippet>259</a>	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, PriceForParentDelivery&gt;,
+<a href=#260 id=260 data-nosnippet>260</a>	<span class="comment">// ..and XCMP to communicate with the sibling chains.
+<a href=#261 id=261 data-nosnippet>261</a>	</span>XcmpQueue,
+<a href=#262 id=262 data-nosnippet>262</a>)&gt;;
+<a href=#263 id=263 data-nosnippet>263</a>
+<a href=#264 id=264 data-nosnippet>264</a><span class="macro">parameter_types!</span> {
+<a href=#265 id=265 data-nosnippet>265</a>	<span class="kw">pub const </span>DepositPerItem: Balance = <span class="kw">crate</span>::deposit(<span class="number">1</span>, <span class="number">0</span>);
+<a href=#266 id=266 data-nosnippet>266</a>	<span class="kw">pub const </span>DepositPerByte: Balance = <span class="kw">crate</span>::deposit(<span class="number">0</span>, <span class="number">1</span>);
+<a href=#267 id=267 data-nosnippet>267</a>	<span class="kw">pub const </span>AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::PolkadotXcm(pallet_xcm::HoldReason::AuthorizeAlias);
+<a href=#268 id=268 data-nosnippet>268</a>}
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a><span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span>Runtime {
+<a href=#271 id=271 data-nosnippet>271</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#272 id=272 data-nosnippet>272</a>	<span class="kw">type </span>XcmRouter = XcmRouter;
+<a href=#273 id=273 data-nosnippet>273</a>	<span class="comment">// We want to disallow users sending (arbitrary) XCMs from this chain.
+<a href=#274 id=274 data-nosnippet>274</a>	</span><span class="kw">type </span>SendXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, ()&gt;;
+<a href=#275 id=275 data-nosnippet>275</a>	<span class="comment">// We support local origins dispatching XCM executions.
+<a href=#276 id=276 data-nosnippet>276</a>	</span><span class="kw">type </span>ExecuteXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
+<a href=#277 id=277 data-nosnippet>277</a>	<span class="kw">type </span>XcmExecuteFilter = Everything;
+<a href=#278 id=278 data-nosnippet>278</a>	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
+<a href=#279 id=279 data-nosnippet>279</a>	<span class="kw">type </span>XcmTeleportFilter = Everything;
+<a href=#280 id=280 data-nosnippet>280</a>	<span class="comment">// This parachain is not meant as a reserve location.
+<a href=#281 id=281 data-nosnippet>281</a>	</span><span class="kw">type </span>XcmReserveTransferFilter = Nothing;
+<a href=#282 id=282 data-nosnippet>282</a>	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;
+<a href=#283 id=283 data-nosnippet>283</a>		<span class="kw">crate</span>::weights::xcm::BridgeHubRococoXcmWeight&lt;RuntimeCall&gt;,
+<a href=#284 id=284 data-nosnippet>284</a>		RuntimeCall,
+<a href=#285 id=285 data-nosnippet>285</a>		MaxInstructions,
+<a href=#286 id=286 data-nosnippet>286</a>	&gt;;
+<a href=#287 id=287 data-nosnippet>287</a>	<span class="kw">type </span>UniversalLocation = UniversalLocation;
+<a href=#288 id=288 data-nosnippet>288</a>	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
+<a href=#289 id=289 data-nosnippet>289</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
+<a href=#290 id=290 data-nosnippet>290</a>	<span class="kw">const </span>VERSION_DISCOVERY_QUEUE_SIZE: u32 = <span class="number">100</span>;
+<a href=#291 id=291 data-nosnippet>291</a>	<span class="kw">type </span>AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
+<a href=#292 id=292 data-nosnippet>292</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#293 id=293 data-nosnippet>293</a>	<span class="kw">type </span>CurrencyMatcher = ();
+<a href=#294 id=294 data-nosnippet>294</a>	<span class="kw">type </span>TrustedLockers = ();
+<a href=#295 id=295 data-nosnippet>295</a>	<span class="kw">type </span>SovereignAccountOf = LocationToAccountId;
+<a href=#296 id=296 data-nosnippet>296</a>	<span class="kw">type </span>MaxLockers = ConstU32&lt;<span class="number">8</span>&gt;;
+<a href=#297 id=297 data-nosnippet>297</a>	<span class="kw">type </span>WeightInfo = <span class="kw">crate</span>::weights::pallet_xcm::WeightInfo&lt;Runtime&gt;;
+<a href=#298 id=298 data-nosnippet>298</a>	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
+<a href=#299 id=299 data-nosnippet>299</a>	<span class="kw">type </span>MaxRemoteLockConsumers = ConstU32&lt;<span class="number">0</span>&gt;;
+<a href=#300 id=300 data-nosnippet>300</a>	<span class="kw">type </span>RemoteLockConsumerIdentifier = ();
+<a href=#301 id=301 data-nosnippet>301</a>	<span class="comment">// xcm_executor::Config::Aliasers also uses pallet_xcm::AuthorizedAliasers.
+<a href=#302 id=302 data-nosnippet>302</a>	</span><span class="kw">type </span>AuthorizedAliasConsideration = HoldConsideration&lt;
+<a href=#303 id=303 data-nosnippet>303</a>		AccountId,
+<a href=#304 id=304 data-nosnippet>304</a>		Balances,
+<a href=#305 id=305 data-nosnippet>305</a>		AuthorizeAliasHoldReason,
+<a href=#306 id=306 data-nosnippet>306</a>		LinearStoragePrice&lt;DepositPerItem, DepositPerByte, Balance&gt;,
+<a href=#307 id=307 data-nosnippet>307</a>	&gt;;
+<a href=#308 id=308 data-nosnippet>308</a>}
+<a href=#309 id=309 data-nosnippet>309</a>
+<a href=#310 id=310 data-nosnippet>310</a><span class="kw">impl </span>cumulus_pallet_xcm::Config <span class="kw">for </span>Runtime {
+<a href=#311 id=311 data-nosnippet>311</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#312 id=312 data-nosnippet>312</a>	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
+<a href=#313 id=313 data-nosnippet>313</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
