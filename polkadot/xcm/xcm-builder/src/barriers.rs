@@ -618,7 +618,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 		recursion_count::using_once(&mut 1, || {
 			// Prevent stack overflow by enforcing a recursion depth limit.
 			recursion_count::with(|count| {
-				if *count > xcm_executor::RECURSION_LIMIT {
+				if *count > xcm::RECURSION_LIMIT {
 					tracing::debug!(
                     	target: "xcm::barriers",
                     	"Recursion limit exceeded (count: {count}), origin: {:?}, xcm: {:?}, max_weight: {:?}, properties: {:?}",
