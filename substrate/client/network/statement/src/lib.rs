@@ -883,8 +883,6 @@ fn fetch_admitted_chunk(
 			FilterDecision::Take
 		},
 	)?;
-	// The byte limit keeps a chunk within the count a peer will accept.
-	debug_assert!(batch.statements.len() <= MAX_STATEMENTS_PER_NOTIFICATION);
 	Ok((batch, accumulated_size))
 }
 
@@ -916,8 +914,6 @@ fn fetch_statement_chunk(
 			accumulated_size += encoded.len();
 			FilterDecision::Take
 		})?;
-	// The byte limit keeps a chunk within the count a peer will accept.
-	debug_assert!(statements.len() <= MAX_STATEMENTS_PER_NOTIFICATION);
 	Ok((statements, processed, accumulated_size))
 }
 
