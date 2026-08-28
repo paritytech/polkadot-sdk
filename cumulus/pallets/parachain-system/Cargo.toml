@@ -78,6 +78,7 @@ sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-additional-data = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
@@ -101,6 +102,7 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
+	"sp-additional-data/std",
 	"sp-api/std",
 	"sp-consensus-babe/std",
 	"sp-core/std",

@@ -1359,7 +1359,7 @@ where
 										import_existing: true,
 										skip_execution: true,
 										state: None,
-										additional_data: None,
+										additional_data: block_data.block.additional_data,
 									}
 								})
 								.collect();
@@ -1410,7 +1410,7 @@ where
 									import_existing: self.import_existing,
 									skip_execution: self.skip_execution(),
 									state: None,
-									additional_data: None,
+									additional_data: b.additional_data,
 								}
 							})
 							.collect()

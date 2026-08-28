@@ -20,7 +20,7 @@
 //! [`SizeOnlyRecorderProvider`]. They are used to track the current
 //! proof-size without actually recording the accessed nodes themselves.
 
-use alloc::rc::Rc;
+use alloc::{rc::Rc, vec::Vec};
 use codec::Encode;
 use core::cell::{RefCell, RefMut};
 use hashbrown::{HashMap, HashSet};
@@ -144,6 +144,117 @@ impl<H: trie_db::Hasher> ProofSizeProvider for SizeOnlyRecorderProvider<H> {
 unsafe impl<H: Hasher> Send for SizeOnlyRecorderProvider<H> {}
 unsafe impl<H: Hasher> Sync for SizeOnlyRecorderProvider<H> {}
 
+/// A trie recorder that captures the encoded bytes of every accessed node, so a minimal
+/// [`StorageProof`] of exactly what was read can be reassembled.
+///
+/// The recording arms mirror [`sp_trie::recorder::Recorder`] one-for-one. This is
+/// consensus-critical: the validation side reconstructs the "requested" additional-data map from
+/// this proof and hashes it, and that hash must be byte-identical to the one the collator committed
+/// (produced on the build side by the std `Recorder`). The `proof_recorder_equivalence` test guards
+/// this.
+pub struct ProofRecorder<'a, H: Hasher> {
+	accessed_nodes: RefMut<'a, HashMap<H::Out, Vec<u8>, RandomState>>,
+	recorded_keys: RefMut<'a, HashMap<Rc<[u8]>, RecordedForKey, RandomState>>,
+}
+
+impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for ProofRecorder<'a, H> {
+	fn record(&mut self, access: TrieAccess<'_, H::Out>) {
+		match access {
+			TrieAccess::NodeOwned { hash, node_owned } => {
+				self.accessed_nodes
+					.entry(hash)
+					.or_insert_with(|| node_owned.to_encoded::<NodeCodec<H>>());
+			},
+			TrieAccess::EncodedNode { hash, encoded_node } => {
+				self.accessed_nodes.entry(hash).or_insert_with(|| encoded_node.into_owned());
+			},
+			TrieAccess::Value { hash, value, full_key } => {
+				// A value is also just a node.
+				self.accessed_nodes.entry(hash).or_insert_with(|| value.into_owned());
+				self.recorded_keys
+					.entry(full_key.into())
+					.and_modify(|e| *e = RecordedForKey::Value)
+					.or_insert(RecordedForKey::Value);
+			},
+			TrieAccess::Hash { full_key } => {
+				self.recorded_keys.entry(full_key.into()).or_insert(RecordedForKey::Hash);
+			},
+			TrieAccess::NonExisting { full_key } => {
+				self.recorded_keys
+					.entry(full_key.into())
+					.and_modify(|e| *e = RecordedForKey::Value)
+					.or_insert(RecordedForKey::Value);
+			},
+			TrieAccess::InlineValue { full_key } => {
+				self.recorded_keys
+					.entry(full_key.into())
+					.and_modify(|e| *e = RecordedForKey::Value)
+					.or_insert(RecordedForKey::Value);
+			},
+		};
+	}
+
+	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {
+		self.recorded_keys.get(key).copied().unwrap_or(RecordedForKey::None)
+	}
+}
+
+/// Provider for [`ProofRecorder`]. Clones share the recording buffers (like
+/// [`sp_trie::recorder::Recorder`]), so a recorder handed to a wrapped backend records into the
+/// same buffer this provider later drains.
+#[derive(Clone)]
+pub struct ProofRecorderProvider<H: Hasher> {
+	accessed_nodes: Rc<RefCell<HashMap<H::Out, Vec<u8>, RandomState>>>,
+	recorded_keys: Rc<RefCell<HashMap<Rc<[u8]>, RecordedForKey, RandomState>>>,
+}
+
+impl<H: Hasher> Default for ProofRecorderProvider<H> {
+	fn default() -> Self {
+		Self { accessed_nodes: Default::default(), recorded_keys: Default::default() }
+	}
+}
+
+impl<H: Hasher> ProofRecorderProvider<H> {
+	/// Reassemble the [`StorageProof`] of exactly the nodes accessed so far, without consuming the
+	/// recorder. Mirrors [`sp_trie::recorder::Recorder::to_storage_proof`].
+	pub fn to_storage_proof(&self) -> StorageProof {
+		StorageProof::new(self.accessed_nodes.borrow().values().cloned())
+	}
+}
+
+impl<H: trie_db::Hasher> ProofSizeProvider for ProofRecorderProvider<H> {
+	fn estimate_encoded_size(&self) -> usize {
+		// Sum of each captured node's SCALE-encoded size over the unique accessed-node set — the
+		// SAME metric as `sp_trie::recorder::Recorder` / `SizeOnlyRecorder`, so the additional-data
+		// proof size agrees byte-for-byte with the build side. This feeds `storage_proof_size` →
+		// weight-reclaim → `System::BlockWeight` → the state root, so any divergence would break
+		// validation.
+		self.accessed_nodes.borrow().values().map(|n| n.encoded_size()).sum()
+	}
+}
+
+impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for ProofRecorderProvider<H> {
+	type Recorder<'a>
+		= ProofRecorder<'a, H>
+	where
+		H: 'a;
+
+	fn drain_storage_proof(self) -> Option<StorageProof> {
+		Some(StorageProof::new(self.accessed_nodes.borrow().values().cloned()))
+	}
+
+	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
+		ProofRecorder {
+			accessed_nodes: self.accessed_nodes.borrow_mut(),
+			recorded_keys: self.recorded_keys.borrow_mut(),
+		}
+	}
+}
+
+// This is safe here since we are single-threaded in WASM
+unsafe impl<H: Hasher> Send for ProofRecorderProvider<H> {}
+unsafe impl<H: Hasher> Sync for ProofRecorderProvider<H> {}
+
 #[cfg(test)]
 mod tests {
 	use rand::Rng;
@@ -248,6 +359,52 @@ mod tests {
 			assert_eq!(
 				reference_recorder.estimate_encoded_size(),
 				recorder_for_test.estimate_encoded_size()
+			);
+		}
+	}
+
+	// Consensus-critical: the `StorageProof` reassembled by `ProofRecorderProvider` (used on the
+	// no_std validation side) must be byte-identical to the one the std `Recorder` produces on the
+	// build side for the same reads. Otherwise `hash(requested)` differs between build and validate
+	// and every honest candidate is rejected.
+	#[test]
+	fn proof_recorder_equivalence_no_cache() {
+		let (db, root, test_data) = create_trie();
+
+		let mut rng = rand::thread_rng();
+		for _ in 1..10 {
+			let reference_recorder = Recorder::default();
+			let recorder_for_test: ProofRecorderProvider<sp_core::Blake2Hasher> =
+				ProofRecorderProvider::default();
+			{
+				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
+				let reference_trie =
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+						.with_recorder(&mut reference_trie_recorder)
+						.build();
+
+				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
+				let test_trie =
+					TrieDBBuilder::<sp_trie::LayoutV1<sp_core::Blake2Hasher>>::new(&db, &root)
+						.with_recorder(&mut trie_recorder_under_test)
+						.build();
+
+				// Access random values from the test data with both recorders.
+				for _ in 0..100 {
+					let index: usize = rng.gen_range(0..test_data.len());
+					test_trie.get(&test_data[index].0).unwrap().unwrap();
+					reference_trie.get(&test_data[index].0).unwrap().unwrap();
+				}
+			}
+
+			assert_eq!(reference_recorder.to_storage_proof(), recorder_for_test.to_storage_proof(),);
+			// Also consensus-critical: the estimated proof size must match the std recorder's,
+			// since it is summed into `storage_proof_size` → weight-reclaim →
+			// `System::BlockWeight` → the state root. Any divergence build↔validate would break
+			// validation.
+			assert_eq!(
+				reference_recorder.estimate_encoded_size(),
+				recorder_for_test.estimate_encoded_size(),
 			);
 		}
 	}

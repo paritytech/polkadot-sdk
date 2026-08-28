@@ -19,11 +19,11 @@
 //! A set of APIs supported by the client along with their primitives.
 
 use sp_consensus::BlockOrigin;
-use sp_core::{H256, storage::StorageKey};
+use sp_core::{storage::StorageKey, H256};
 use sp_runtime::{
-	Justifications,
 	generic::SignedBlock,
 	traits::{Block as BlockT, NumberFor},
+	Justifications,
 };
 use std::{
 	collections::HashSet,
@@ -32,11 +32,12 @@ use std::{
 };
 
 use crate::{
-	FinalizeSummary, ImportSummary, StaleBlock, blockchain::Info, notifications::StorageEventStream,
+	blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary, StaleBlock,
 };
 
 use sc_transaction_pool_api::ChainEvent;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
+use sp_additional_data::AdditionalData;
 use sp_blockchain;
 
 /// Type that implements `futures::Stream` of block import events.
@@ -174,7 +175,10 @@ pub trait BlockBackend<Block: BlockT> {
 	/// Get additional data stored for this block, if any.
 	///
 	/// Default returns `None`; backends that store additional data override this.
-	fn block_additional_data(&self, _hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn block_additional_data(
+		&self,
+		_hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<AdditionalData>> {
 		Ok(None)
 	}
 }

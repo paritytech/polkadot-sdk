@@ -24,6 +24,8 @@ use sp_externalities::ExternalitiesExt;
 use sp_runtime_interface::runtime_interface;
 
 #[cfg(feature = "std")]
+use sp_additional_data::AdditionalDataExt;
+#[cfg(feature = "std")]
 use sp_trie::proof_size_extension::ProofSizeExt;
 
 pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
@@ -37,8 +39,16 @@ pub trait StorageProofSize {
 	/// Returns the current storage proof size.
 	#[polkavm_index(241)]
 	fn storage_proof_size(&mut self) -> u64 {
-		self.extension::<ProofSizeExt>()
-			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
+		let para = match self.extension::<ProofSizeExt>() {
+			Some(e) => e.storage_proof_size(),
+			None => return PROOF_RECORDING_DISABLED,
+		};
+		// The relay-read proof (additional data) rides in the PoV outside the block body; include
+		// its size so the runtime's proof-size accounting budgets for the full PoV. `0` when no
+		// `AdditionalDataExt` is registered (chains not using the relay-read channel). Symmetric
+		// with the PVF's `host_storage_proof_size`.
+		let relay = self.extension::<AdditionalDataExt>().map_or(0, |e| e.0.proof_size() as u64);
+		para + relay
 	}
 }
 

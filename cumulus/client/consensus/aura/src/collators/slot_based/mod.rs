@@ -92,6 +92,7 @@ use sc_client_api::{
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
 use sc_utils::mpsc::tracing_unbounded;
+use sp_additional_data::AdditionalData;
 use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
@@ -303,5 +304,5 @@ struct CollatorMessage<Block: BlockT> {
 	///
 	/// One slot per block in `blocks`. `Some(blob)` when data was pushed via the
 	/// additional-data host function for that block; `None` when nothing was pushed.
-	pub additional_data: Vec<Option<Vec<u8>>>,
+	pub additional_data: Vec<Option<AdditionalData>>,
 }

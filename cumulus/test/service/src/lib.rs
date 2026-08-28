@@ -62,6 +62,7 @@ use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 
 use cumulus_test_runtime::{Hash, NodeBlock as Block, RuntimeApi};
 
+use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
@@ -83,11 +84,12 @@ use sc_service::{
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
 };
+use sp_additional_data::{AdditionalData, AdditionalDataProvider, AdditionalDataProviderFactory};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic, MultiAddress};
+use sp_runtime::{codec::Encode, generic, traits::BlakeTwo256, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
 use substrate_test_client::{
@@ -200,6 +202,10 @@ pub fn new_partial(
 			executor,
 			enable_import_proof_record,
 			Default::default(),
+			Some(AdditionalDataProviderFactory(Arc::new(|map: &AdditionalData| {
+				VerifyingAdditionalDataProvider::<BlakeTwo256>::from_map(map.clone())
+					.map(|p| Box::new(p) as Box<dyn AdditionalDataProvider>)
+			}))),
 		)?;
 	let client = Arc::new(client);
 

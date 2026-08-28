@@ -85,6 +85,7 @@ use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUB
 use sc_tracing::block::TracingExecuteBlock;
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
+use sp_additional_data::AdditionalDataProviderFactory;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::block_validation::{
@@ -168,6 +169,7 @@ pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	executor: TExec,
 	enable_import_proof_recording: bool,
 	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
+	additional_data_provider_factory: Option<AdditionalDataProviderFactory>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
@@ -191,6 +193,7 @@ where
 		backend,
 		genesis_block_builder,
 		enable_import_proof_recording,
+		additional_data_provider_factory,
 	)
 }
 
@@ -208,7 +211,7 @@ where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import(config, telemetry, executor, false, pruning_filters)
+	new_full_parts_record_import(config, telemetry, executor, false, pruning_filters, None)
 }
 
 /// Create the initial parts of a full node.
@@ -219,6 +222,7 @@ pub fn new_full_parts_with_genesis_builder<TBl, TRtApi, TExec, TBuildGenesisBloc
 	backend: Arc<TFullBackend<TBl>>,
 	genesis_block_builder: TBuildGenesisBlock,
 	enable_import_proof_recording: bool,
+	additional_data_provider_factory: Option<AdditionalDataProviderFactory>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
@@ -281,6 +285,7 @@ where
 				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,
 				enable_import_proof_recording,
+				additional_data_provider_factory,
 			},
 		)?;
 

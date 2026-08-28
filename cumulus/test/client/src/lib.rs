@@ -204,6 +204,13 @@ pub fn validate_block(
 	validation_params: ValidationParams,
 	wasm_blob: &[u8],
 ) -> ExecutorResult<ValidationResult> {
+	validate_block_raw(&validation_params.encode(), wasm_blob)
+}
+
+/// Like [`validate_block`], but takes the already-SCALE-encoded validation params, so callers can
+/// append a trailing `ValidationParamsExtension` — the way the relay chain passes the V3 scheduling
+/// extension for V3 candidates.
+pub fn validate_block_raw(encoded_params: &[u8], wasm_blob: &[u8]) -> ExecutorResult<ValidationResult> {
 	let mut ext = TestExternalities::default();
 	let mut ext_ext = ext.ext();
 
@@ -226,7 +233,7 @@ pub fn validate_block(
 			&mut ext_ext,
 			false,
 			"validate_block",
-			&validation_params.encode(),
+			encoded_params,
 		)
 		.map(|v| ValidationResult::decode(&mut &v[..]).expect("Decode `ValidationResult`."))
 }

@@ -113,59 +113,43 @@ pub enum ReadEntryErr {
 	/// The value is expected to be present on the relay chain, but it doesn't exist.
 	Absent,
 }
+/// Trie backend over a relay-state proof carried in the parachain inherent (the legacy V2 path).
+type RelayStateBackend =
+	TrieBackend<MemoryDB<HashingFor<relay_chain::Block>>, HashingFor<relay_chain::Block>>;
 
-/// Read an entry given by the key and try to decode it. If the value specified by the key according
-/// to the proof is empty, the `fallback` value will be returned.
+/// Reader for the relay chain state.
 ///
-/// Returns `Err` in case the backend can't return the value under the specific key (likely due to
-/// a malformed proof), in case the decoding fails, or in case where the value is empty in the relay
-/// chain state and no fallback was provided.
-fn read_entry<T, B>(backend: &B, key: &[u8], fallback: Option<T>) -> Result<T, ReadEntryErr>
-where
-	T: Decode,
-	B: Backend<HashingFor<relay_chain::Block>>,
-{
-	backend
-		.storage(key)
-		.map_err(|_| ReadEntryErr::Proof)?
-		.map(|raw_entry| T::decode(&mut &raw_entry[..]).map_err(|_| ReadEntryErr::Decode))
-		.transpose()?
-		.or(fallback)
-		.ok_or(ReadEntryErr::Absent)
-}
-
-/// Read an optional entry given by the key and try to decode it.
-/// Returns `None` if the value specified by the key according to the proof is empty.
+/// Serves reads one of two ways, chosen at construction:
 ///
-/// Returns `Err` in case the backend can't return the value under the specific key (likely due to
-/// a malformed proof) or if the value couldn't be decoded.
-fn read_optional_entry<T, B>(backend: &B, key: &[u8]) -> Result<Option<T>, ReadEntryErr>
-where
-	T: Decode,
-	B: Backend<HashingFor<relay_chain::Block>>,
-{
-	match read_entry(backend, key, None) {
-		Ok(v) => Ok(Some(v)),
-		Err(ReadEntryErr::Absent) => Ok(None),
-		Err(err) => Err(err),
-	}
-}
-
-/// A state proof extracted from the relay chain.
+/// - **Dynamic (V3):** [`new`](Self::new) — every read goes through the `read_relay_chain_state`
+///   host function. On block building it reads the live relay state and records a minimal proof
+///   into the block's additional data; on validation/import it reads back from — and is verified
+///   against — that recorded proof. Requires the `AdditionalDataExt` externalities extension (the
+///   host function panics otherwise, as the read is consensus-critical).
 ///
-/// This state proof is extracted from the relay chain block we are building on top of.
+/// - **Fixed inherent proof (legacy V2):** [`from_inherent_proof`](Self::from_inherent_proof) —
+///   reads are served from a fixed relay-state proof carried in the parachain inherent, verified
+///   against `relay_parent_storage_root`. Used by parachains that have not enabled V3 scheduling,
+///   where the additional-data channel (and its V3 candidate) is unavailable.
 pub struct RelayChainStateProof {
 	para_id: ParaId,
-	trie_backend:
-		TrieBackend<MemoryDB<HashingFor<relay_chain::Block>>, HashingFor<relay_chain::Block>>,
+	/// `None` => read dynamically via the host function (V3); `Some` => read from the fixed
+	/// inherent-carried proof (legacy V2).
+	backend: Option<RelayStateBackend>,
 }
 
 impl RelayChainStateProof {
-	/// Create a new instance of `Self`.
+	/// Create a reader that serves reads dynamically via the `read_relay_chain_state` host
+	/// function (V3 scheduling).
+	pub fn new(para_id: ParaId) -> Self {
+		Self { para_id, backend: None }
+	}
+
+	/// Create a reader backed by a fixed relay-state `proof` carried in the parachain inherent
+	/// (legacy V2 path), verified against `relay_parent_storage_root`.
 	///
-	/// Returns an error if the given `relay_parent_storage_root` is not the root of the given
-	/// `proof`.
-	pub fn new(
+	/// Returns [`Error::RootMismatch`] if `relay_parent_storage_root` is not the root of `proof`.
+	pub fn from_inherent_proof(
 		para_id: ParaId,
 		relay_parent_storage_root: relay_chain::Hash,
 		proof: StorageProof,
@@ -174,30 +158,62 @@ impl RelayChainStateProof {
 		if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
 			return Err(Error::RootMismatch);
 		}
-		let trie_backend = TrieBackendBuilder::new(db, relay_parent_storage_root).build();
-
-		Ok(Self { para_id, trie_backend })
+		let backend = TrieBackendBuilder::new(db, relay_parent_storage_root).build();
+		Ok(Self { para_id, backend: Some(backend) })
 	}
 
-	/// Read the [`MessagingStateSnapshot`] from the relay chain state proof.
+	/// Read the raw stored bytes under `key`. Served from the fixed inherent proof when present
+	/// (V2), otherwise via the `read_relay_chain_state` host function (V3). `Ok(None)` for a
+	/// (proven) absent key.
+	fn read_raw_inner(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ReadEntryErr> {
+		match &self.backend {
+			Some(backend) => backend.storage(key).map_err(|_| ReadEntryErr::Proof),
+			None => Ok(sp_additional_data::additional_data::read_relay_chain_state(key)),
+		}
+	}
+
+	/// Read an entry and try to decode it, falling back to `fallback` when the key is (provably)
+	/// absent.
+	fn read_entry_inner<T: Decode>(
+		&self,
+		key: &[u8],
+		fallback: Option<T>,
+	) -> Result<T, ReadEntryErr> {
+		self.read_raw_inner(key)?
+			.map(|raw| T::decode(&mut &raw[..]).map_err(|_| ReadEntryErr::Decode))
+			.transpose()?
+			.or(fallback)
+			.ok_or(ReadEntryErr::Absent)
+	}
+
+	/// Read an optional entry. Returns `None` for a (provably) absent key.
+	fn read_optional_entry_inner<T: Decode>(
+		&self,
+		key: &[u8],
+	) -> Result<Option<T>, ReadEntryErr> {
+		match self.read_entry_inner(key, None) {
+			Ok(v) => Ok(Some(v)),
+			Err(ReadEntryErr::Absent) => Ok(None),
+			Err(err) => Err(err),
+		}
+	}
+
+	/// Read the [`MessagingStateSnapshot`] from the relay chain state.
 	///
 	/// Returns an error if anything failed at reading or decoding.
 	pub fn read_messaging_state_snapshot(
 		&self,
 		host_config: &AbridgedHostConfiguration,
 	) -> Result<MessagingStateSnapshot, Error> {
-		let dmq_mqc_head: relay_chain::Hash = read_entry(
-			&self.trie_backend,
+		let dmq_mqc_head: relay_chain::Hash = self.read_entry_inner(
 			&relay_chain::well_known_keys::dmq_mqc_head(self.para_id),
 			Some(Default::default()),
 		)
 		.map_err(Error::DmqMqcHead)?;
 
-		let relay_dispatch_queue_remaining_capacity = read_optional_entry::<
+		let relay_dispatch_queue_remaining_capacity = self.read_optional_entry_inner::<
 			RelayDispatchQueueRemainingCapacity,
-			_,
 		>(
-			&self.trie_backend,
 			&relay_chain::well_known_keys::relay_dispatch_queue_remaining_capacity(self.para_id)
 				.key,
 		);
@@ -206,18 +222,13 @@ impl RelayChainStateProof {
 		//
 		// When the relay chain and all parachains support
 		// `relay_dispatch_queue_remaining_capacity`, this code here needs to be removed and above
-		// needs to be changed to `read_entry` that returns an error if
+		// needs to be changed to `host_read_entry` that returns an error if
 		// `relay_dispatch_queue_remaining_capacity` can not be found/decoded.
-		//
-		// For now we just fallback to the old dispatch queue size on `ReadEntryErr::Absent`.
-		// `ReadEntryErr::Decode` and `ReadEntryErr::Proof` are potentially subject to meddling
-		// by malicious collators, so we reject the block in those cases.
 		let relay_dispatch_queue_remaining_capacity = match relay_dispatch_queue_remaining_capacity
 		{
 			Ok(Some(r)) => r,
 			Ok(None) => {
-				let res = read_entry::<(u32, u32), _>(
-					&self.trie_backend,
+				let res = self.read_entry_inner::<(u32, u32)>(
 					#[allow(deprecated)]
 					&relay_chain::well_known_keys::relay_dispatch_queue_size(self.para_id),
 					Some((0, 0)),
@@ -231,15 +242,13 @@ impl RelayChainStateProof {
 			Err(e) => return Err(Error::RelayDispatchQueueRemainingCapacity(e)),
 		};
 
-		let ingress_channel_index: Vec<ParaId> = read_entry(
-			&self.trie_backend,
+		let ingress_channel_index: Vec<ParaId> = self.read_entry_inner(
 			&relay_chain::well_known_keys::hrmp_ingress_channel_index(self.para_id),
 			Some(Vec::new()),
 		)
 		.map_err(Error::HrmpIngressChannelIndex)?;
 
-		let egress_channel_index: Vec<ParaId> = read_entry(
-			&self.trie_backend,
+		let egress_channel_index: Vec<ParaId> = self.read_entry_inner(
 			&relay_chain::well_known_keys::hrmp_egress_channel_index(self.para_id),
 			Some(Vec::new()),
 		)
@@ -248,24 +257,18 @@ impl RelayChainStateProof {
 		let mut ingress_channels = Vec::with_capacity(ingress_channel_index.len());
 		for sender in ingress_channel_index {
 			let channel_id = relay_chain::HrmpChannelId { sender, recipient: self.para_id };
-			let hrmp_channel: AbridgedHrmpChannel = read_entry(
-				&self.trie_backend,
-				&relay_chain::well_known_keys::hrmp_channels(channel_id),
-				None,
-			)
-			.map_err(|read_err| Error::HrmpChannel(sender, self.para_id, read_err))?;
+			let hrmp_channel: AbridgedHrmpChannel =
+				self.read_entry_inner(&relay_chain::well_known_keys::hrmp_channels(channel_id), None)
+					.map_err(|read_err| Error::HrmpChannel(sender, self.para_id, read_err))?;
 			ingress_channels.push((sender, hrmp_channel));
 		}
 
 		let mut egress_channels = Vec::with_capacity(egress_channel_index.len());
 		for recipient in egress_channel_index {
 			let channel_id = relay_chain::HrmpChannelId { sender: self.para_id, recipient };
-			let hrmp_channel: AbridgedHrmpChannel = read_entry(
-				&self.trie_backend,
-				&relay_chain::well_known_keys::hrmp_channels(channel_id),
-				None,
-			)
-			.map_err(|read_err| Error::HrmpChannel(self.para_id, recipient, read_err))?;
+			let hrmp_channel: AbridgedHrmpChannel =
+				self.read_entry_inner(&relay_chain::well_known_keys::hrmp_channels(channel_id), None)
+					.map_err(|read_err| Error::HrmpChannel(self.para_id, recipient, read_err))?;
 			egress_channels.push((recipient, hrmp_channel));
 		}
 
@@ -280,20 +283,15 @@ impl RelayChainStateProof {
 		})
 	}
 
-	/// Read the [`AbridgedHostConfiguration`] from the relay chain state proof.
-	///
-	/// Returns an error if anything failed at reading or decoding.
+	/// Read the [`AbridgedHostConfiguration`] from the relay chain state.
 	pub fn read_abridged_host_configuration(&self) -> Result<AbridgedHostConfiguration, Error> {
-		read_entry(&self.trie_backend, relay_chain::well_known_keys::ACTIVE_CONFIG, None)
-			.map_err(Error::Config)
+		self.read_entry_inner(relay_chain::well_known_keys::ACTIVE_CONFIG, None).map_err(Error::Config)
 	}
 
 	/// Read latest included parachain [head data](`relay_chain::HeadData`) from the relay chain
-	/// state proof.
-	///
-	/// Returns an error if anything failed at reading or decoding.
+	/// state.
 	pub fn read_included_para_head(&self) -> Result<relay_chain::HeadData, Error> {
-		read_entry(&self.trie_backend, &relay_chain::well_known_keys::para_head(self.para_id), None)
+		self.read_entry_inner(&relay_chain::well_known_keys::para_head(self.para_id), None)
 			.map_err(Error::ParaHead)
 	}
 
@@ -302,7 +300,7 @@ impl RelayChainStateProof {
 		&self,
 	) -> Result<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>, Error>
 	{
-		read_entry(&self.trie_backend, &relay_chain::well_known_keys::AUTHORITIES, None)
+		self.read_entry_inner(&relay_chain::well_known_keys::AUTHORITIES, None)
 			.map_err(Error::Authorities)
 	}
 
@@ -313,90 +311,54 @@ impl RelayChainStateProof {
 		Option<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>>,
 		Error,
 	> {
-		read_optional_entry(&self.trie_backend, &relay_chain::well_known_keys::NEXT_AUTHORITIES)
+		self.read_optional_entry_inner(&relay_chain::well_known_keys::NEXT_AUTHORITIES)
 			.map_err(Error::NextAuthorities)
 	}
 
-	/// Read the [`Slot`](relay_chain::Slot) from the relay chain state proof.
-	///
-	/// The slot is slot of the relay chain block this state proof was extracted from.
-	///
-	/// Returns an error if anything failed at reading or decoding.
+	/// Read the [`Slot`](relay_chain::Slot) of the relay chain block this state was read from.
 	pub fn read_slot(&self) -> Result<relay_chain::Slot, Error> {
-		read_entry(&self.trie_backend, relay_chain::well_known_keys::CURRENT_SLOT, None)
-			.map_err(Error::Slot)
+		self.read_entry_inner(relay_chain::well_known_keys::CURRENT_SLOT, None).map_err(Error::Slot)
 	}
 
-	/// Read the go-ahead signal for the upgrade from the relay chain state proof.
-	///
-	/// The go-ahead specifies whether the parachain can apply the upgrade or should abort it. If
-	/// the value is absent then there is either no judgment by the relay chain yet or no upgrade
-	/// is pending.
-	///
-	/// Returns an error if anything failed at reading or decoding.
+	/// Read the go-ahead signal for a pending code upgrade.
 	pub fn read_upgrade_go_ahead_signal(
 		&self,
 	) -> Result<Option<relay_chain::UpgradeGoAhead>, Error> {
-		read_optional_entry(
-			&self.trie_backend,
-			&relay_chain::well_known_keys::upgrade_go_ahead_signal(self.para_id),
-		)
+		self.read_optional_entry_inner(&relay_chain::well_known_keys::upgrade_go_ahead_signal(
+			self.para_id,
+		))
 		.map_err(Error::UpgradeGoAhead)
 	}
 
-	/// Read the upgrade restriction signal for the upgrade from the relay chain state proof.
-	///
-	/// If the upgrade restriction is not `None`, then the parachain cannot signal an upgrade at
-	/// this block.
-	///
-	/// Returns an error if anything failed at reading or decoding.
+	/// Read the upgrade restriction signal.
 	pub fn read_upgrade_restriction_signal(
 		&self,
 	) -> Result<Option<relay_chain::UpgradeRestriction>, Error> {
-		read_optional_entry(
-			&self.trie_backend,
-			&relay_chain::well_known_keys::upgrade_restriction_signal(self.para_id),
-		)
+		self.read_optional_entry_inner(&relay_chain::well_known_keys::upgrade_restriction_signal(
+			self.para_id,
+		))
 		.map_err(Error::UpgradeRestriction)
 	}
 
-	/// Read an entry given by the key and try to decode it. If the value specified by the key
-	/// according to the proof is empty, the `fallback` value will be returned.
-	///
-	/// Returns `Err` in case the backend can't return the value under the specific key (likely due
-	/// to a malformed proof), in case the decoding fails, or in case where the value is empty in
-	/// the relay chain state and no fallback was provided.
+	/// Read an entry given by the key and try to decode it, falling back to `fallback` when the key
+	/// is (provably) absent.
 	pub fn read_entry<T>(&self, key: &[u8], fallback: Option<T>) -> Result<T, Error>
 	where
 		T: Decode,
 	{
-		read_entry(&self.trie_backend, key, fallback).map_err(Error::ReadEntry)
+		self.read_entry_inner(key, fallback).map_err(Error::ReadEntry)
 	}
 
 	/// Read an optional entry given by the key and try to decode it.
-	///
-	/// Returns `Err` in case the backend can't return the value under the specific key (likely due
-	/// to a malformed proof) or if the value couldn't be decoded.
 	pub fn read_optional_entry<T>(&self, key: &[u8]) -> Result<Option<T>, Error>
 	where
 		T: Decode,
 	{
-		read_optional_entry(&self.trie_backend, key).map_err(Error::ReadOptionalEntry)
+		self.read_optional_entry_inner(key).map_err(Error::ReadOptionalEntry)
 	}
 
-	/// Read a value from a child trie in the relay chain state proof.
-	///
-	/// Returns `Ok(Some(value))` if the key exists in the child trie,
-	/// `Ok(None)` if the key doesn't exist,
-	/// or `Err` if there was a proof error.
-	pub fn read_child_storage(
-		&self,
-		child_info: &sp_core::storage::ChildInfo,
-		key: &[u8],
-	) -> Result<Option<Vec<u8>>, Error> {
-		use sp_state_machine::Backend;
-		self.trie_backend
-			.child_storage(child_info, key)
-			.map_err(|_| Error::ReadEntry(ReadEntryErr::Proof))
+	/// Read the raw stored bytes under `key` (proven absence returns `Ok(None)`).
+	pub fn read_raw(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+		self.read_raw_inner(key).map_err(Error::ReadOptionalEntry)
 	}
 }

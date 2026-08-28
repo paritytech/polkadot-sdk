@@ -71,6 +71,7 @@ polkadot-service = { workspace = true, default-features = true }
 polkadot-test-service = { workspace = true }
 
 # Cumulus
+cumulus-client-additional-data = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-collator-discovery = { workspace = true, default-features = true }

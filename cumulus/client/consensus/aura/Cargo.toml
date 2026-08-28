@@ -48,6 +48,7 @@ sp-trie = { workspace = true, default-features = true }
 sp-additional-data = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-additional-data = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }

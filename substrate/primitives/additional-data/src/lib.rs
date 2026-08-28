@@ -15,369 +15,225 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Host functions and extension for per-block additional data collection.
+//! A block's "additional data": a generic, keyed, minimality-checked channel for data produced
+//! during block execution and carried alongside the block.
 //!
-//! # Overview
+//! # Model
 //!
-//! This crate provides the primitives for chains that want to attach arbitrary opaque data to a
-//! block header in a consensus-critical way. The pattern mirrors
-//! `cumulus-primitives-proof-size-hostfunction` and the `RecordingProofSizeProvider` /
-//! `ReplayProofSizeProvider` pair in `sp-trie`.
+//! Each block carries an [`AdditionalData`] — a `BTreeMap<String, Vec<u8>>` mapping a namespaced
+//! producer key to that producer's opaque bytes. Today the only producer is the relay/JAM state
+//! reader, under [`RELAY_PROOF_KEY`], whose value is the SCALE-encoding of `(root, StorageProof)`.
 //!
-//! ## Canonical encoding
+//! A parachain runtime reads relay/JAM storage *dynamically during block execution* via
+//! [`additional_data::read_relay_chain_state`]; each read collects the touched proof nodes into the
+//! `relay_proof` entry (the read *is* the "push"). [`additional_data::finalize`] returns the blake2
+//! hash of the map assembled from **exactly what was requested**, which the runtime deposits as
+//! `DigestItem::AdditionalData`.
 //!
-//! All layers of the stack (runtime, node, sync, database, PoV) agree on the same byte sequence:
+//! # Minimality
 //!
-//! ```text
-//! blob := items.encode()          // SCALE-encoding of Vec<Vec<u8>>
-//! hash := blake2_256(&blob)       // deposited into the block header digest
-//! ```
+//! Because `finalize` hashes the *requested* map (not some externally-supplied blob) symmetrically
+//! on build and validate, and the carried map is separately checked to hash to the same digest, the
+//! carried map must equal the requested one: no unrequested entry, and no proof node that wasn't
+//! read, can survive. The map (`BTreeMap`) and [`sp_trie::StorageProof`] (`BTreeSet`) both encode
+//! canonically, so the hash is well-defined regardless of insertion order.
 //!
-//! [`encode_items`] and [`hash_blob`] implement these two steps.
-//!
-//! ## Host functions
-//!
-//! [`additional_data::push`] and [`additional_data::finalize`] are the runtime-interface host
-//! functions called by the runtime during block execution. Both **panic** (never silently no-op)
-//! when the [`AdditionalDataExt`] extension is absent, because the resulting hash is
-//! consensus-critical and silent divergence is unacceptable.
-//!
-//! ## Providers
-//!
-//! - [`RecordingAdditionalDataProvider`]: used during **block building**. A **new instance must be
-//!   constructed for every block-building attempt** — instances are never reused across blocks.
-//!   After the block is built, [`RecordingAdditionalDataProvider::take_data`] returns the cached
-//!   blob.
-//! - [`ReplayAdditionalDataProvider`]: used during **block import / validation**. Constructed
-//!   directly from the authoritative blob received from the network; `push` is a discarding no-op
-//!   and `finalize` always returns `Some(hash_blob(&blob))`.
+//! [`additional_data::read_relay_chain_state`] **panics** when [`AdditionalDataExt`] is absent: a
+//! consensus-critical read that cannot be served must fail loudly, not diverge silently.
+//! [`additional_data::finalize`] instead returns `None` when the extension is absent — it runs from
+//! `on_finalize` on every block (including contexts that never read relay state), so a missing
+//! extension there means "nothing was recorded", not an error.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
-use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap, string::String, vec::Vec};
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
-use sp_externalities::ExternalitiesExt;
 use sp_runtime_interface::{
-	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	pass_by::{PassFatPointerAndRead, PassFatPointerAndWrite},
 	runtime_interface,
 };
 
-/// Encode a slice of items into the canonical additional-data blob.
+#[cfg(feature = "std")]
+use sp_externalities::ExternalitiesExt;
+
+/// A block's additional data: a map from a namespaced producer key to that producer's opaque bytes.
 ///
-/// `blob := items.encode()` — one SCALE encoding of the whole `Vec<Vec<u8>>`.
-/// This is the single encoding agreed on by all layers of the stack.
-pub fn encode_items(items: &[Vec<u8>]) -> Vec<u8> {
-	items.encode()
+/// Carried per block through sync/DB/import; at the PoV level a `Vec` of these (one per bundled
+/// block). `BTreeMap` gives a canonical (sorted-key) encoding, so hashing it is deterministic.
+pub type AdditionalData = BTreeMap<String, Vec<u8>>;
+
+/// Key under which the relay/JAM state read-proof lives in [`AdditionalData`].
+///
+/// The value is the SCALE-encoding of `(root, sp_trie::StorageProof)`.
+pub const RELAY_PROOF_KEY: &str = "polkadot/relay_proof";
+
+/// blake2-256 of a block's [`AdditionalData`] (its canonical SCALE encoding).
+///
+/// This is the 32-byte value deposited into the block header as `DigestItem::AdditionalData`.
+pub fn hash(data: &AdditionalData) -> [u8; 32] {
+	blake2_256(&data.encode())
 }
 
-/// Hash a blob with blake2-256.
+/// Provider backing the [`AdditionalDataExt`] externalities extension.
 ///
-/// `hash := blake2_256(blob)` — the 32-byte value deposited into the block header digest.
-pub fn hash_blob(blob: &[u8]) -> [u8; 32] {
-	blake2_256(blob)
-}
+/// A single provider answers both the read and the finalize; the read collects into the same map
+/// that finalize hashes (and that the build-side [`AdditionalDataGetter`] later retrieves).
+pub trait AdditionalDataProvider: Send {
+	/// Read a relay/JAM storage `key`, returning its value or `None` when (provably) absent.
+	///
+	/// On build it reads the value live and collects the touched proof; on validation/import it
+	/// reads the value back from the collected proof, authenticated against the trusted root.
+	fn read(&self, key: &[u8]) -> Option<Vec<u8>>;
 
-/// Provider trait for additional-data accumulation and finalization.
-///
-/// Two implementations are provided:
-/// - [`RecordingAdditionalDataProvider`] for block building.
-/// - [`ReplayAdditionalDataProvider`] for block import / validation.
-pub trait AdditionalDataProvider: Send + Sync {
-	/// Append an item to the accumulator.
-	///
-	/// # Panics
-	///
-	/// Implementations MUST panic if called after [`Self::finalize`] has been called with at
-	/// least one item previously pushed (i.e., once the accumulator is frozen).
-	fn push(&self, item: Vec<u8>);
-
-	/// Finalize the accumulator and return the hash of all pushed items.
-	///
-	/// Returns `None` when no items were ever pushed — a legitimate per-block state meaning this
-	/// block carries no additional data, distinct from "extension missing entirely".
-	/// Returns `Some(hash)` when at least one item was pushed. MUST be idempotent.
+	/// Finalize and return the blake2 [`hash`] of the map assembled from exactly what was requested
+	/// this block, or `None` when nothing was requested. MUST be idempotent.
 	fn finalize(&self) -> Option<[u8; 32]>;
+
+	/// Estimated encoded size of the proof recorded so far — the additional-data contribution to
+	/// the PoV, summed into `storage_proof_size` so the runtime budgets for it. `0` when nothing
+	/// was recorded.
+	fn proof_size(&self) -> usize;
 }
 
+/// A getter for the additional-data map recorded while building a block.
+///
+/// The build-side recorder is moved into the [`AdditionalDataExt`] extension and consumed by the
+/// proposer, so the collator keeps one of these — a closure sharing the same recorder — to retrieve
+/// the recorded map after the block is built. Backend-free (hence `Send`) and idempotent.
+#[cfg(feature = "std")]
+pub type AdditionalDataGetter = alloc::boxed::Box<dyn Fn() -> Option<AdditionalData> + Send>;
+
+#[cfg(feature = "std")]
 sp_externalities::decl_extension! {
-	/// Externalities extension that wraps an [`AdditionalDataProvider`].
+	/// Externalities extension wrapping an [`AdditionalDataProvider`].
 	///
-	/// Register this extension in the externalities before executing a block that calls
-	/// [`additional_data::push`] or [`additional_data::finalize`].
+	/// Register this before executing a block that calls
+	/// [`additional_data::read_relay_chain_state`] — on build, on `validate_block`, and on the
+	/// generic block-import path.
 	pub struct AdditionalDataExt(Box<dyn AdditionalDataProvider>);
 }
 
-/// Runtime interface for per-block additional data collection.
+/// Builds an [`AdditionalDataProvider`] from a block's carried [`AdditionalData`].
 ///
-/// Both methods **panic** when [`AdditionalDataExt`] is not registered in the externalities.
-/// Unlike `storage_proof_size`'s graceful fallback, this hash is consensus-critical (deposited
-/// into the header digest), so a missing extension must fail loudly rather than silently diverge.
+/// Injected into the block importer (via `ClientConfig`) so the concrete, producer-specific
+/// verifier (e.g. the relay-state reader) can live outside substrate: the importer registers
+/// whatever this factory returns instead of naming a concrete provider. Returns `None` when the
+/// carried data is malformed / cannot be turned into a provider.
+#[cfg(feature = "std")]
+#[derive(Clone)]
+pub struct AdditionalDataProviderFactory(
+	pub  alloc::sync::Arc<
+		dyn Fn(&AdditionalData) -> Option<Box<dyn AdditionalDataProvider>> + Send + Sync,
+	>,
+);
+
+#[cfg(feature = "std")]
+impl core::fmt::Debug for AdditionalDataProviderFactory {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.write_str("AdditionalDataProviderFactory")
+	}
+}
+
+/// Runtime interface for reading relay/JAM chain state into a block's additional data.
+///
+/// `read_relay_chain_state` **panics** when [`AdditionalDataExt`] is not registered — the read is
+/// consensus-critical (its proof feeds the header digest), so a missing extension must fail loudly
+/// rather than silently diverge. `finalize` runs from `on_finalize` on every block and instead
+/// returns `None` when the extension is absent (nothing was recorded).
 #[runtime_interface]
 pub trait AdditionalData {
-	/// Append `item` to the per-block accumulator.
+	/// Read `key` from the relay/JAM chain state, writing the value into `value_out` and returning
+	/// its full length, or `-1` when the key is (provably) absent.
 	///
-	/// # Panics
-	///
-	/// - If [`AdditionalDataExt`] is not registered in the externalities.
-	/// - If [`finalize`](Self::finalize) has already been called on the underlying provider.
-	#[polkavm_index(242)]
-	fn push(&mut self, item: PassFatPointerAndRead<Vec<u8>>) {
-		self.extension::<AdditionalDataExt>()
-			.expect(
-				"AdditionalDataExt extension not registered; \
-				 this host function is consensus-critical and cannot silently diverge",
-			)
-			.0
-			.push(item);
-	}
-
-	/// Finalize the accumulator and return the hash of all items pushed so far.
-	///
-	/// Returns `None` when the extension is registered but no items were ever pushed.
-	/// Returns `Some(hash)` when at least one item was pushed. Idempotent.
+	/// Runtime-side-allocation compatible: the runtime owns `value_out`; this host function never
+	/// allocates guest memory. Prefer the [`read_relay_chain_state`] wrapper, which reconstructs an
+	/// `Option<Vec<u8>>` (resizing its buffer if the value is larger than `value_out`). On build
+	/// the value is read live and its proof collected; on validation/import it is read back from —
+	/// and verified against — the carried proof and the trusted root.
 	///
 	/// # Panics
 	///
 	/// If [`AdditionalDataExt`] is not registered in the externalities.
-	#[polkavm_index(243)]
-	fn finalize(&mut self) -> AllocateAndReturnByCodec<Option<[u8; 32]>> {
-		self.extension::<AdditionalDataExt>()
+	#[raw_api]
+	fn read_relay_chain_state_into(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> i64 {
+		let value = self
+			.extension::<AdditionalDataExt>()
 			.expect(
 				"AdditionalDataExt extension not registered; \
 				 this host function is consensus-critical and cannot silently diverge",
 			)
 			.0
-			.finalize()
-	}
-}
-
-// ── std-only provider implementations ──────────────────────────────────────────────────────────
-
-#[cfg(feature = "std")]
-mod std_impl {
-	use super::{encode_items, hash_blob, AdditionalDataProvider};
-	use parking_lot::Mutex;
-	use std::sync::Arc;
-
-	struct RecordingInner {
-		items: Vec<Vec<u8>>,
-		/// Cached `(blob, hash)` set on the first call to `finalize` with ≥1 items.
-		cached: Option<(Vec<u8>, [u8; 32])>,
+			.read(key);
+		match value {
+			Some(v) => {
+				let n = core::cmp::min(v.len(), value_out.len());
+				value_out[..n].copy_from_slice(&v[..n]);
+				v.len() as i64
+			},
+			None => -1,
+		}
 	}
 
-	/// Block-building provider: collects items pushed during execution and exposes the final blob.
+	/// Read `key` from the relay/JAM chain state, returning its value or `None` when (provably)
+	/// absent.
 	///
-	/// # Lifecycle
+	/// Ergonomic wrapper over [`read_relay_chain_state_into`] that owns the destination buffer
+	/// runtime-side, resizing once if the value is larger than the initial guess.
+	#[wrapper]
+	fn read_relay_chain_state(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut buf = Vec::new();
+		buf.resize(256, 0u8);
+		let len = read_relay_chain_state_into__raw(key.as_ref(), &mut buf[..]);
+		if len < 0 {
+			return None;
+		}
+		let len = len as usize;
+		if len > buf.len() {
+			buf.resize(len, 0u8);
+			read_relay_chain_state_into__raw(key.as_ref(), &mut buf[..]);
+		}
+		buf.truncate(len);
+		Some(buf)
+	}
+
+	/// Finalize this block's additional data, writing the 32-byte digest hash into `hash_out` and
+	/// returning `1`, or `0` when there is nothing to commit.
 	///
-	/// **A new instance MUST be constructed for every block-building attempt.** Instances are
-	/// never reused across blocks. After the block is sealed, call
-	/// [`RecordingAdditionalDataProvider::take_data`] to retrieve the cached blob, then discard
-	/// the instance.
-	#[derive(Clone)]
-	pub struct RecordingAdditionalDataProvider {
-		inner: Arc<Mutex<RecordingInner>>,
-	}
-
-	impl RecordingAdditionalDataProvider {
-		/// Create a fresh recorder for a new block-building attempt.
-		pub fn new() -> Self {
-			Self { inner: Arc::new(Mutex::new(RecordingInner { items: Vec::new(), cached: None })) }
-		}
-
-		/// Return the cached blob from `finalize`, or `None` if finalize has not been called yet
-		/// or no items were ever pushed.
-		pub fn take_data(&self) -> Option<Vec<u8>> {
-			self.inner.lock().cached.as_ref().map(|(blob, _)| blob.clone())
-		}
-	}
-
-	impl Default for RecordingAdditionalDataProvider {
-		fn default() -> Self {
-			Self::new()
-		}
-	}
-
-	impl AdditionalDataProvider for RecordingAdditionalDataProvider {
-		fn push(&self, item: Vec<u8>) {
-			let mut inner = self.inner.lock();
-			if inner.cached.is_some() {
-				panic!("cannot push additional data after finalize");
-			}
-			inner.items.push(item);
-		}
-
-		fn finalize(&self) -> Option<[u8; 32]> {
-			let mut inner = self.inner.lock();
-			// Idempotent: return cached hash on repeated calls.
-			if let Some((_, hash)) = inner.cached {
-				return Some(hash);
-			}
-			if inner.items.is_empty() {
-				return None;
-			}
-			let blob = encode_items(&inner.items);
-			let hash = hash_blob(&blob);
-			inner.cached = Some((blob, hash));
-			Some(hash)
-		}
-	}
-
-	/// Block-import / validation provider: re-hashes from the authoritative blob.
+	/// Runtime-side-allocation compatible (no guest allocation). Prefer the [`finalize`] wrapper,
+	/// which reconstructs an `Option<[u8; 32]>`.
 	///
-	/// Constructed directly from the blob bytes received from the network or database. `push`
-	/// calls are discarding no-ops — correctness is guaranteed by the pre-loaded blob, not by
-	/// re-accumulation. `finalize` always returns `Some(hash_blob(&blob))`.
-	pub struct ReplayAdditionalDataProvider(Vec<u8>);
-
-	impl ReplayAdditionalDataProvider {
-		/// Construct from the authoritative blob (as received from the network or the database).
-		pub fn new(blob: Vec<u8>) -> Self {
-			Self(blob)
+	/// A missing extension is treated as "no reads": any relay read would have failed loudly in
+	/// `read_relay_chain_state` (which *does* require the extension), so reaching `finalize` with
+	/// no extension means no relay state was read and there is nothing to commit. This runs in
+	/// `on_finalize` on every block — including blocks and test contexts that never read relay
+	/// state — so it must not panic on a missing extension.
+	#[raw_api]
+	fn finalize_into(&mut self, hash_out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
+		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.0.finalize()) {
+			Some(h) => {
+				hash_out[..32].copy_from_slice(&h);
+				1
+			},
+			None => 0,
 		}
 	}
 
-	impl AdditionalDataProvider for ReplayAdditionalDataProvider {
-		fn push(&self, _item: Vec<u8>) {
-			// No-op: replay ignores pushed items; correctness is guaranteed by the
-			// pre-loaded authoritative blob, not by re-accumulation.
+	/// Finalize and return the hash of the map assembled from everything requested this block, or
+	/// `None` when nothing was requested. Idempotent. Ergonomic wrapper over [`finalize_into`].
+	#[wrapper]
+	fn finalize() -> Option<[u8; 32]> {
+		let mut out = [0u8; 32];
+		if finalize_into__raw(&mut out[..]) == 1 {
+			Some(out)
+		} else {
+			None
 		}
-
-		fn finalize(&self) -> Option<[u8; 32]> {
-			Some(hash_blob(&self.0))
-		}
-	}
-}
-
-#[cfg(feature = "std")]
-pub use std_impl::{RecordingAdditionalDataProvider, ReplayAdditionalDataProvider};
-
-// ── Tests ───────────────────────────────────────────────────────────────────────────────────────
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use sp_io::TestExternalities;
-
-	fn recording_ext() -> (TestExternalities, RecordingAdditionalDataProvider) {
-		let provider = RecordingAdditionalDataProvider::new();
-		let mut ext = TestExternalities::default();
-		ext.register_extension(AdditionalDataExt(Box::new(provider.clone())));
-		(ext, provider)
-	}
-
-	/// (a) Two `push` calls then `finalize` returns `Some(hash_blob(&encode_items(&items)))`.
-	#[test]
-	fn push_twice_then_finalize_returns_correct_hash() {
-		let (mut ext, _) = recording_ext();
-		ext.execute_with(|| {
-			additional_data::push(vec![1u8, 2, 3]);
-			additional_data::push(vec![4u8, 5, 6]);
-			let hash = additional_data::finalize();
-
-			let items: Vec<Vec<u8>> = vec![vec![1, 2, 3], vec![4, 5, 6]];
-			assert_eq!(hash, Some(hash_blob(&encode_items(&items))));
-		});
-	}
-
-	/// (b) `finalize` called twice returns the identical `Some(hash)`.
-	#[test]
-	fn finalize_is_idempotent() {
-		let (mut ext, _) = recording_ext();
-		ext.execute_with(|| {
-			additional_data::push(vec![42u8]);
-			let hash1 = additional_data::finalize();
-			let hash2 = additional_data::finalize();
-			assert!(hash1.is_some());
-			assert_eq!(hash1, hash2);
-		});
-	}
-
-	/// (c) `push` after `finalize` panics.
-	#[test]
-	#[should_panic(expected = "cannot push additional data after finalize")]
-	fn push_after_finalize_panics() {
-		let (mut ext, _) = recording_ext();
-		ext.execute_with(|| {
-			additional_data::push(vec![1u8]);
-			let _ = additional_data::finalize();
-			additional_data::push(vec![2u8]); // must panic
-		});
-	}
-
-	/// (d1) `push` with no extension registered panics.
-	#[test]
-	#[should_panic(expected = "AdditionalDataExt extension not registered")]
-	fn push_without_extension_panics() {
-		TestExternalities::default().execute_with(|| {
-			additional_data::push(vec![1u8]);
-		});
-	}
-
-	/// (d2) `finalize` with no extension registered panics.
-	#[test]
-	#[should_panic(expected = "AdditionalDataExt extension not registered")]
-	fn finalize_without_extension_panics() {
-		TestExternalities::default().execute_with(|| {
-			let _ = additional_data::finalize();
-		});
-	}
-
-	/// (e) `finalize` with extension registered but nothing pushed returns `None`.
-	#[test]
-	fn finalize_with_no_items_returns_none() {
-		let (mut ext, _) = recording_ext();
-		ext.execute_with(|| {
-			assert_eq!(additional_data::finalize(), None);
-		});
-	}
-
-	/// (f) `ReplayAdditionalDataProvider::new(blob)` returns `Some(hash_blob(&blob))` matching
-	///     what a `RecordingAdditionalDataProvider` fed the same items produces.
-	#[test]
-	fn replay_matches_recording() {
-		let items: Vec<Vec<u8>> = vec![vec![10u8, 20], vec![30u8, 40]];
-		let blob = encode_items(&items);
-
-		// Recording side.
-		let (mut ext1, _) = recording_ext();
-		let recording_hash = ext1.execute_with(|| {
-			for item in &items {
-				additional_data::push(item.clone());
-			}
-			additional_data::finalize()
-		});
-
-		// Replay side.
-		let replay = ReplayAdditionalDataProvider::new(blob.clone());
-		let mut ext2 = TestExternalities::default();
-		ext2.register_extension(AdditionalDataExt(Box::new(replay)));
-		let replay_hash = ext2.execute_with(|| additional_data::finalize());
-
-		assert_eq!(recording_hash, Some(hash_blob(&blob)));
-		assert_eq!(recording_hash, replay_hash);
-	}
-
-	/// (g) A freshly-constructed `RecordingAdditionalDataProvider` after a prior instance was
-	///     finalized does NOT panic on its first `push` (lifecycle isolation).
-	#[test]
-	fn fresh_recording_provider_does_not_panic_after_prior_finalize() {
-		// First instance: push + finalize.
-		let (mut ext1, _) = recording_ext();
-		ext1.execute_with(|| {
-			additional_data::push(vec![1u8]);
-			let _ = additional_data::finalize();
-		});
-
-		// Second instance: completely fresh — must NOT panic.
-		let (mut ext2, _) = recording_ext();
-		ext2.execute_with(|| {
-			additional_data::push(vec![2u8]);
-			assert!(additional_data::finalize().is_some());
-		});
 	}
 }

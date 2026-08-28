@@ -114,6 +114,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	let cumulus_test_client::BlockBuilderAndSupportData {
 		mut block_builder,
 		persisted_validation_data,
+		additional_data_recorder,
 		..
 	} = client
 		.init_block_builder_builder()
@@ -125,7 +126,8 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		block_builder.push(extrinsic).unwrap();
 	}
 
-	let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
+	let parachain_block =
+		block_builder.build_parachain_block(*parent_header.state_root(), additional_data_recorder);
 
 	// The block builder produces unsealed blocks, while `validate_block` requires an AuRa seal.
 	let (blocks, proof) = parachain_block.into_inner();

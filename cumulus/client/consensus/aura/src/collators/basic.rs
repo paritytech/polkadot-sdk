@@ -247,7 +247,9 @@ where
 						&validation_data,
 						parent_hash,
 						claim.timestamp(),
-						Default::default(),
+						// The basic collator does not support V3 scheduling / the additional-data
+						// channel, so it always carries the legacy inherent relay-state proof.
+						Some(Default::default()),
 						params.collator_peer_id,
 					)
 					.await

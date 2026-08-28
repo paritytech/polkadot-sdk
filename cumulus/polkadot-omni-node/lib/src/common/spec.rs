@@ -277,6 +277,7 @@ pub(crate) trait BaseNodeSpec {
 				executor,
 				true,
 				Default::default(),
+				None,
 			)?;
 		let client = Arc::new(client);
 

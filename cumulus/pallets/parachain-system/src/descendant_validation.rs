@@ -216,6 +216,7 @@ mod tests {
 	use cumulus_primitives_core::relay_chain;
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use rstest::rstest;
+	use sp_additional_data::{AdditionalData, AdditionalDataExt};
 	use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest, PrimaryPreDigest},
 		AuthorityId, AuthorityPair, BabeAuthorityWeight, ConsensusLog, BABE_ENGINE_ID,
@@ -237,15 +238,17 @@ mod tests {
 	) {
 		let (relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(num_headers, num_authorities, None);
-		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
+		let (relay_read_root, relay_read_proof) =
+			build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_relay_parent_descendants(
-			&relay_state_proof,
+		assert!(verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -257,7 +260,8 @@ mod tests {
 	fn test_verify_relay_parent_broken_state_root() {
 		let (relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, None);
-		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
+		let (relay_read_root, relay_read_proof) =
+			build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Set a erroneous state root
 		let relay_parent_state_root = H256::repeat_byte(0x9);
@@ -265,8 +269,9 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_relay_parent_descendants(
-			&relay_state_proof,
+		let result = verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -290,13 +295,15 @@ mod tests {
 	fn test_incorrect_number_of_headers(#[case] expected_number_of_descendants: u32) {
 		let (relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, None);
-		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
+		let (relay_read_root, relay_read_proof) =
+			build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 
-		let result = verify_relay_parent_descendants(
-			&relay_state_proof,
+		let result = verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -315,15 +322,16 @@ mod tests {
 	fn test_authorities_missing() {
 		let (relay_parent_descendants, _, _) = build_relay_parent_descendants(10, 10, None);
 		// No authorities, this is bad!
-		let relay_state_proof = build_relay_chain_storage_proof(None, None);
+		let (relay_read_root, relay_read_proof) = build_relay_chain_storage_proof(None, None);
 
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_relay_parent_descendants(
-			&relay_state_proof,
+		let result = verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -340,15 +348,17 @@ mod tests {
 		let expected_hash = header_to_modify.parent_hash;
 		// Parent hash does not point to the proper parent, incomplete chain
 		header_to_modify.parent_hash = H256::repeat_byte(0x9);
-		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
+		let (relay_read_root, relay_read_proof) =
+			build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_relay_parent_descendants(
-			&relay_state_proof,
+		let result = verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -377,15 +387,17 @@ mod tests {
 		rp_to_modify.digest_mut().push(DigestItem::babe_seal(invalid_signature.into()));
 		let expected_hash = rp_to_modify.hash();
 
-		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
+		let (relay_read_root, relay_read_proof) =
+			build_relay_chain_storage_proof(Some(authorities), None);
 
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_relay_parent_descendants(
-			&relay_state_proof,
+		let result = verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -405,7 +417,8 @@ mod tests {
 		sp_tracing::try_init_simple();
 		let (relay_parent_descendants, authorities, _) =
 			build_relay_parent_descendants(10, 10, Some(5));
-		let relay_state_proof = build_relay_chain_storage_proof(Some(authorities), None);
+		let (relay_read_root, relay_read_proof) =
+			build_relay_chain_storage_proof(Some(authorities), None);
 
 		let expected_hash = relay_parent_descendants[5].hash();
 		// Make sure that the first relay parent has the correct state root set
@@ -413,8 +426,9 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_relay_parent_descendants(
-			&relay_state_proof,
+		let result = verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -436,7 +450,7 @@ mod tests {
 		sp_tracing::try_init_simple();
 		let (relay_parent_descendants, authorities, next_authorities) =
 			build_relay_parent_descendants(num_headers, num_authorities, Some(5));
-		let relay_state_proof =
+		let (relay_read_root, relay_read_proof) =
 			build_relay_chain_storage_proof(Some(authorities), Some(next_authorities));
 
 		// Make sure that the first relay parent has the correct state root set
@@ -444,8 +458,9 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_relay_parent_descendants(
-			&relay_state_proof,
+		assert!(verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -462,7 +477,7 @@ mod tests {
 		sp_tracing::try_init_simple();
 		let (relay_parent_descendants, authorities, next_authorities) =
 			build_relay_parent_descendants(10, 10, Some(epoch_change_position));
-		let relay_state_proof =
+		let (relay_read_root, relay_read_proof) =
 			build_relay_chain_storage_proof(Some(authorities), Some(next_authorities));
 
 		// Make sure that the first relay parent has the correct state root set
@@ -470,8 +485,9 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_relay_parent_descendants(
-			&relay_state_proof,
+		assert!(verify_with_relay_reads(
+			relay_read_root,
+			relay_read_proof,
 			relay_parent_descendants,
 			relay_parent_state_root,
 			expected_number_of_descendants,
@@ -483,7 +499,7 @@ mod tests {
 	fn build_relay_chain_storage_proof(
 		authorities: Option<Vec<(AuthorityId, BabeAuthorityWeight)>>,
 		next_authorities: Option<Vec<(AuthorityId, BabeAuthorityWeight)>>,
-	) -> RelayChainStateProof {
+	) -> (H256, sp_trie::StorageProof) {
 		// Create a mock implementation or structure, adjust this to match the proof's definition
 		let mut proof_builder =
 			RelayStateSproofBuilder { num_authorities: 0, ..Default::default() };
@@ -499,8 +515,37 @@ mod tests {
 				next_authorities.encode(),
 			));
 		}
-		let (hash, relay_storage_proof) = proof_builder.into_state_root_and_proof();
-		RelayChainStateProof::new(PARA_ID.into(), hash, relay_storage_proof).unwrap()
+		proof_builder.into_state_root_and_proof()
+	}
+
+	/// Run `verify_relay_parent_descendants` with a host-backed [`RelayChainStateProof`] whose
+	/// reads are served (and verified against `root`) from the given relay-state `proof` —
+	/// mirroring how the reads flow through the `read_relay_chain_state` host function in
+	/// production.
+	fn verify_with_relay_reads(
+		root: H256,
+		proof: sp_trie::StorageProof,
+		relay_parent_descendants: Vec<TestHeader>,
+		relay_parent_state_root: H256,
+		expected_number_of_descendants: u32,
+	) -> Result<(), RelayParentVerificationError<TestHeader>> {
+		let mut map = AdditionalData::new();
+		map.insert(sp_additional_data::RELAY_PROOF_KEY.into(), (root, proof).encode());
+		let provider = cumulus_client_additional_data::VerifyingAdditionalDataProvider::<
+			sp_runtime::traits::BlakeTwo256,
+		>::from_map_with_root(root, map)
+		.expect("valid relay-proof map");
+		let mut ext = sp_io::TestExternalities::default();
+		ext.register_extension(AdditionalDataExt(Box::new(provider)));
+		ext.execute_with(|| {
+			let relay_state_proof = RelayChainStateProof::new(PARA_ID.into());
+			verify_relay_parent_descendants(
+				&relay_state_proof,
+				relay_parent_descendants,
+				relay_parent_state_root,
+				expected_number_of_descendants,
+			)
+		})
 	}
 
 	/// This method generates some vrf data, but only to make the compiler happy.

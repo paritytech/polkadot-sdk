@@ -26,6 +26,7 @@ use sp_runtime::{
 use std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc};
 
 use sc_client_api::PrefetchedIndexedTransactions;
+use sp_additional_data::AdditionalData;
 use sp_consensus::{BlockOrigin, Error};
 
 /// Block import result.
@@ -257,8 +258,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	/// Indexed-transaction data attached by upstream block-import wrappers.
 	/// See [`PrefetchedIndexedTransactions`].
 	pub prefetched_indexed_transactions: PrefetchedIndexedTransactions,
-	/// Opaque SCALE-encoded additional data attached to this block.
-	pub additional_data: Option<Vec<u8>>,
+	/// Additional data (an [`AdditionalData`] map) attached to this block.
+	pub additional_data: Option<AdditionalData>,
 }
 
 impl<Block: BlockT> BlockImportParams<Block> {
@@ -464,10 +465,11 @@ mod tests {
 			Default::default(),
 			Default::default(),
 		);
+		let ad: AdditionalData = [("test".to_string(), vec![1u8, 2, 3])].into();
 		let mut params: BlockImportParams<Block> = BlockImportParams::new(BlockOrigin::Own, header);
 		assert_eq!(params.additional_data, None);
-		params.additional_data = Some(vec![1, 2, 3]);
-		assert_eq!(params.additional_data, Some(vec![1, 2, 3]));
+		params.additional_data = Some(ad.clone());
+		assert_eq!(params.additional_data, Some(ad.clone()));
 
 		let incoming = IncomingBlock::<Block> {
 			hash: Default::default(),
@@ -483,7 +485,7 @@ mod tests {
 			additional_data: None,
 		};
 		assert_eq!(incoming.additional_data, None);
-		let incoming = IncomingBlock::<Block> { additional_data: Some(vec![1, 2, 3]), ..incoming };
-		assert_eq!(incoming.additional_data, Some(vec![1, 2, 3]));
+		let incoming = IncomingBlock::<Block> { additional_data: Some(ad.clone()), ..incoming };
+		assert_eq!(incoming.additional_data, Some(ad.clone()));
 	}
 }

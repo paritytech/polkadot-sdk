@@ -44,6 +44,7 @@ use crate::{
 	leaves::LeafSet,
 	TrieCacheContext, UsageInfo,
 };
+use sp_additional_data::AdditionalData;
 
 struct PendingBlock<B: BlockT> {
 	block: StoredBlock<B>,
@@ -442,7 +443,10 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 		unimplemented!("Not supported by the in-mem backend.")
 	}
 
-	fn block_additional_data(&self, _hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<u8>>> {
+	fn block_additional_data(
+		&self,
+		_hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<AdditionalData>> {
 		Ok(None)
 	}
 }
@@ -610,7 +614,7 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 
 	fn set_create_gap(&mut self, _create_gap: bool) {}
 
-	fn set_additional_data(&mut self, _data: Option<Vec<u8>>) -> sp_blockchain::Result<()> {
+	fn set_additional_data(&mut self, _data: Option<AdditionalData>) -> sp_blockchain::Result<()> {
 		Ok(())
 	}
 }

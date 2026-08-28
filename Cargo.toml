@@ -60,6 +60,7 @@ members = [
 	"bridges/snowbridge/runtime/test-common",
 	"bridges/snowbridge/test-utils",
 	"cumulus/bin/pov-validator",
+	"cumulus/client/additional-data",
 	"cumulus/client/bootnodes",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
@@ -775,6 +776,7 @@ coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
 cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
+cumulus-client-additional-data = { path = "cumulus/client/additional-data", default-features = false }
 cumulus-client-bootnodes = { path = "cumulus/client/bootnodes", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false }
 cumulus-client-collator = { path = "cumulus/client/collator", default-features = false }
