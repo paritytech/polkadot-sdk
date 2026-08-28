@@ -36,6 +36,7 @@ use cumulus_test_client::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
+use rstest::rstest;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_additional_data::{AdditionalData, AdditionalDataExt};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
@@ -700,12 +701,40 @@ fn validate_block_invalid_parent_hash() {
 	}
 }
 
-#[test]
-fn validate_block_fails_on_invalid_validation_data() {
+/// A candidate validated against the wrong `relay_parent_storage_root` must be rejected — on both
+/// the **V2** path (the fixed relay-state proof carried in the inherent) and the **V3** path (the
+/// dynamic relay-read proof recorded in the additional data). Parameterized so we keep coverage of
+/// the V2 inherent path alongside V3; the two paths reject with different messages, so each case
+/// carries the client, the matching `validate_block` caller and its expected rejection message.
+///
+/// The rejection is a runtime panic, whose message reaches only the process' stderr, so — like the
+/// other `validate_block` failure tests — we re-run the test binary in a subprocess (`RUN_TEST=1`)
+/// and assert on its stderr. The subprocess filter is the base test name, so both cases run under
+/// it and both messages land in the combined stderr; each case asserts its own.
+#[rstest]
+#[case::v2_inherent(
+	create_test_client,
+	call_validate_block,
+	"Relay parent storage root doesn't match"
+)]
+#[case::v3_additional_data(
+	create_v3_test_client,
+	call_validate_block_v3,
+	"additional data proof must verify against relay_parent_storage_root"
+)]
+fn validate_block_fails_on_invalid_validation_data(
+	#[case] make_client: fn() -> (Client, Header),
+	#[case] validate: fn(
+		Header,
+		ParachainBlockData<Block>,
+		Hash,
+	) -> cumulus_test_client::ExecutorResult<Header>,
+	#[case] expected_err: &str,
+) {
 	sp_tracing::try_init_simple();
 
 	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_v3_test_client();
+		let (client, parent_head) = make_client();
 		let TestBlockData { block, .. } = build_block_with_witness(
 			&client,
 			Vec::new(),
@@ -714,7 +743,9 @@ fn validate_block_fails_on_invalid_validation_data() {
 			Default::default(),
 		);
 
-		call_validate_block_v3(parent_head, block, Hash::random()).unwrap_err();
+		// A random `relay_parent_storage_root` cannot match the one the block was built against, so
+		// the relay-state proof fails to verify against it and validation rejects the candidate.
+		validate(parent_head, block, Hash::random()).unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
 			.args(["validate_block_fails_on_invalid_validation_data", "--", "--nocapture"])
@@ -722,13 +753,7 @@ fn validate_block_fails_on_invalid_validation_data() {
 			.output()
 			.expect("Runs the test");
 		assert!(output.status.success());
-
-		// With a wrong `relay_parent_storage_root`, the relay-read proof recorded by the block no
-		// longer verifies against it, so validation is rejected at the additional-data check (which
-		// now runs before `validate_validation_data`, since `set_validation_data` reads relay
-		// state).
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("additional data proof must verify against relay_parent_storage_root"));
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap()).contains(expected_err));
 	}
 }
 
@@ -1770,5 +1795,126 @@ fn validate_block_v3_additional_data_without_digest_fails() {
 		assert!(output.status.success());
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("additional data present but header digest missing AdditionalData item"));
+	}
+}
+
+/// Decode the `(root, StorageProof)` the runtime recorded under [`RELAY_PROOF_KEY`] in `blob`.
+fn decode_relay_proof(blob: &AdditionalData) -> (Hash, StorageProof) {
+	<(Hash, StorageProof)>::decode(
+		&mut &blob
+			.get(sp_additional_data::RELAY_PROOF_KEY)
+			.expect("relay-read blob carries the relay-proof entry")[..],
+	)
+	.expect("relay-proof entry decodes as (root, proof)")
+}
+
+/// An [`AdditionalData`] map carrying `(root, proof)` under [`RELAY_PROOF_KEY`].
+fn relay_proof_map(root: Hash, proof: StorageProof) -> AdditionalData {
+	AdditionalData::from([(
+		sp_additional_data::RELAY_PROOF_KEY.to_string(),
+		(root, proof).encode(),
+	)])
+}
+
+/// Rebuild a single-block `V3` candidate carrying `new_map` as its additional data: rewrite the
+/// header's `AdditionalData` digest to `hash(new_map)` and re-seal, so the candidate stays
+/// *self-consistent* — it passes the up-front `hash(map) == header digest` integrity check and thus
+/// exercises the deeper proof-verification layers instead of being rejected at that check.
+fn reseal_v3_with_additional_data(
+	client: &Client,
+	block: ParachainBlockData<Block>,
+	new_map: AdditionalData,
+) -> ParachainBlockData<Block> {
+	let (mut blocks, proof) = block.into_inner();
+	let mut inner = pop_seal(blocks[0].clone());
+	let new_digest = DigestItem::AdditionalData(sp_additional_data::hash(&new_map));
+	for item in inner.header.digest.logs.iter_mut() {
+		if item.as_additional_data().is_some() {
+			*item = new_digest.clone();
+		}
+	}
+	blocks[0] = seal_block(inner, client);
+	ParachainBlockData::V3 {
+		blocks,
+		proof,
+		scheduling_proof: dummy_scheduling_proof(),
+		additional_data: vec![Some(new_map)],
+	}
+}
+
+/// A V3 candidate whose relay-read proof is missing nodes needed for the reads the runtime performs
+/// must be rejected. Keeping only the root node still lets the proof verify against the trusted
+/// `relay_parent_storage_root` (`AdditionalDataReader::new` succeeds), but any relay read that
+/// needs a child node hits a missing node — the PVF must reject the candidate, not silently serve
+/// `None` (which would let a collator suppress a value by omitting its proof nodes, consistently on
+/// build and validate, so re-execution wouldn't catch it).
+#[test]
+fn validate_block_v3_incomplete_relay_proof_fails() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_v3_test_client();
+		let (block, validation_data, blob) =
+			build_v3_with_runtime_relay_read(&client, parent_head.clone());
+
+		let (root, proof) = decode_relay_proof(&blob);
+		let root_only = StorageProof::new(
+			proof
+				.iter_nodes()
+				.filter(|n| BlakeTwo256::hash(n.as_slice()) == root)
+				.cloned()
+				.collect::<Vec<_>>(),
+		);
+		let corrupted =
+			reseal_v3_with_additional_data(&client, block, relay_proof_map(root, root_only));
+
+		call_validate_block_v3(parent_head, corrupted, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_v3_incomplete_relay_proof_fails", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("candidate omitted required nodes"));
+	}
+}
+
+/// A V3 candidate whose relay-read proof carries *extra*, unread nodes must be rejected. All the
+/// real reads still succeed, but the PVF re-records only the nodes actually touched, so the hash it
+/// commits at `finalize` is of the minimal proof and no longer matches the digest of the bloated
+/// blob the candidate carries — `frame_executive`'s digest-item equality rejects it. This enforces
+/// that a candidate carries *exactly* the proof nodes it read (no PoV bloat).
+#[test]
+fn validate_block_v3_unused_relay_proof_nodes_fail() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_v3_test_client();
+		let (block, validation_data, blob) =
+			build_v3_with_runtime_relay_read(&client, parent_head.clone());
+
+		let (root, proof) = decode_relay_proof(&blob);
+		let mut nodes: Vec<Vec<u8>> = proof.iter_nodes().cloned().collect();
+		// An extra node the runtime never reads (its exact bytes are irrelevant; it is never looked
+		// up on any read path — it only bloats the carried proof).
+		nodes.push(vec![0xABu8; 64]);
+		let bloated = StorageProof::new(nodes);
+		let corrupted =
+			reseal_v3_with_additional_data(&client, block, relay_proof_map(root, bloated));
+
+		call_validate_block_v3(parent_head, corrupted, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_v3_unused_relay_proof_nodes_fail", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("Digest item must match that calculated"));
 	}
 }
