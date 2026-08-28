@@ -3441,7 +3441,7 @@ fn cold_hot_call_target_warms_across_calls() {
 				account: Some(Warmth::Cold { .. }),
 				sender_account: Some(_),
 				sender_account_info: Some(_),
-				info_op: _,
+				dust: _,
 				original_account: Warmth::Cold { .. },
 				account_info: Warmth::Cold { .. }
 			},
@@ -3459,7 +3459,7 @@ fn cold_hot_call_target_warms_across_calls() {
 				account: Some(Warmth::Cold { .. }),
 				sender_account: Some(_),
 				sender_account_info: Some(_),
-				info_op: _,
+				dust: _,
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},
@@ -3545,7 +3545,7 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 				account: Some(Warmth::Cold { .. }),
 				sender_account: Some(_),
 				sender_account_info: Some(_),
-				info_op: _,
+				dust: _,
 				original_account: Warmth::Cold { .. },
 				account_info: Warmth::Cold { .. }
 			},
@@ -3560,7 +3560,7 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 				account: Some(Warmth::Cold { .. }),
 				sender_account: Some(_),
 				sender_account_info: Some(_),
-				info_op: _,
+				dust: _,
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},
@@ -3614,7 +3614,7 @@ fn cold_hot_first_frame_warms_entry_target() {
 				account: Some(Warmth::Cold { .. }),
 				sender_account: Some(_),
 				sender_account_info: Some(_),
-				info_op: _,
+				dust: _,
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},
@@ -3645,7 +3645,7 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 				account: Some(Warmth::Cold { .. }),
 				sender_account: Some(_),
 				sender_account_info: Some(_),
-				info_op: _,
+				dust: _,
 				original_account: Warmth::Cold { .. },
 				account_info: Warmth::Cold { .. }
 			},
@@ -3663,7 +3663,7 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 				account: Some(Warmth::Cold { .. }),
 				sender_account: Some(_),
 				sender_account_info: Some(_),
-				info_op: _,
+				dust: _,
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},

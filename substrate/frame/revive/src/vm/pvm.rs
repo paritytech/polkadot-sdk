@@ -694,9 +694,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-						dust_transfer: Pallet::<E::T>::has_dust(value),
-					})?;
+					// Only precompiles: a contract's transfer rides in `CallBase`, at its warmth.
+					if precompile.is_some() {
+						self.charge_gas(RuntimeCosts::CallTransferSurcharge {
+							dust_transfer: Pallet::<E::T>::has_dust(value),
+						})?;
+					}
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {

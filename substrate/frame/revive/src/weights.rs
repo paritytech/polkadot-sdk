@@ -166,7 +166,7 @@ pub trait WeightInfo {
 	fn seal_contains_transient_storage(n: u32, ) -> Weight;
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
 	fn seal_call(t: u32, d: u32, i: u32, ) -> Weight;
-	fn seal_call_hot() -> Weight;
+	fn seal_call_hot(t: u32, d: u32, ) -> Weight;
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_delegate_call_hot() -> Weight;
@@ -1344,12 +1344,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(t.into())))
 	}
-	fn seal_call_hot() -> Weight {
+	/// The range of component `t` is `[0, 1]`.
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_call_hot(t: u32, d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 23_798_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 23_798_000 picoseconds.
 		Weight::from_parts(25_764_000, 0)
+			// PLACEHOLDER, needs /cmd bench: `t` and `d` copied from `seal_call`.
+			.saturating_add(Weight::from_parts(19_727_690, 0).saturating_mul(t.into()))
+			.saturating_add(Weight::from_parts(25_957_453, 0).saturating_mul(d.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -2945,12 +2950,17 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(t.into())))
 	}
-	fn seal_call_hot() -> Weight {
+	/// The range of component `t` is `[0, 1]`.
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_call_hot(t: u32, d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 23_798_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 23_798_000 picoseconds.
 		Weight::from_parts(25_764_000, 0)
+			// PLACEHOLDER, needs /cmd bench: `t` and `d` copied from `seal_call`.
+			.saturating_add(Weight::from_parts(19_727_690, 0).saturating_mul(t.into()))
+			.saturating_add(Weight::from_parts(25_957_453, 0).saturating_mul(d.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

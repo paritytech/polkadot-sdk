@@ -1326,13 +1326,18 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(t.into())))
 	}
-	fn seal_call_hot() -> Weight {
+	/// The range of component `t` is `[0, 1]`.
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_call_hot(t: u32, d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 30_264_000 picoseconds.
+		// PLACEHOLDER, needs /cmd bench. Minimum execution time: 30_264_000 picoseconds.
 		Weight::from_parts(32_396_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+			// PLACEHOLDER, needs /cmd bench: `t` and `d` copied from `seal_call`.
+			.saturating_add(Weight::from_parts(18_744_318, 0).saturating_mul(t.into()))
+			.saturating_add(Weight::from_parts(25_268_869, 0).saturating_mul(d.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

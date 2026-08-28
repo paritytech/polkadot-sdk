@@ -231,15 +231,15 @@ pub trait Access {
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
 	/// A normal call reads the target's address mapping and contract info, and both parties'
-	/// account state only when it transfers value (`None` otherwise). `info_op` is what the call
-	/// does to the contract infos: a dust transfer writes them.
+	/// account state only when it transfers value (`None` otherwise). `dust` says the transferred
+	/// value carries dust, which both prices the transfer and writes the contract infos.
 	Plain {
 		account: Option<Warmth>,
 		sender_account: Option<Warmth>,
 		original_account: Warmth,
 		account_info: Warmth,
 		sender_account_info: Option<Warmth>,
-		info_op: StorageOp,
+		dust: bool,
 	},
 	/// A delegate call reads only the target's contract info.
 	Delegate { account_info: Warmth },
@@ -268,7 +268,7 @@ pub struct Transfer {
 
 impl Transfer {
 	/// What a transfer does to the two contract infos.
-	fn info_op(dust: bool) -> StorageOp {
+	pub(crate) fn info_op(dust: bool) -> StorageOp {
 		if dust { StorageOp::Write } else { StorageOp::Read }
 	}
 }
@@ -310,7 +310,8 @@ impl Access for CallAccess {
 	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
 		match self {
 			Self::Plain { target, transfer } => {
-				let info_op = Transfer::info_op(transfer.is_some_and(|transfer| transfer.dust));
+				let dust = transfer.is_some_and(|transfer| transfer.dust);
+				let info_op = Transfer::info_op(dust);
 				CallWarmth::Plain {
 					account: transfer.map(|_| {
 						resolve(AccessEntry::Account { address: target }, StorageOp::Write)
@@ -326,7 +327,7 @@ impl Access for CallAccess {
 					sender_account_info: transfer.map(|transfer| {
 						resolve(AccessEntry::AccountInfo { address: transfer.from }, info_op)
 					}),
-					info_op,
+					dust,
 				}
 			},
 			Self::Delegate { target } => CallWarmth::Delegate {
@@ -757,7 +758,7 @@ mod tests {
 			account: Some(Warmth::cold_revertible()),
 			sender_account: Some(Warmth::cold_non_revertible()),
 			sender_account_info: Some(Warmth::cold_non_revertible()),
-			info_op: StorageOp::Read,
+			dust: false,
 			original_account: Warmth::cold_non_revertible(),
 			account_info: Warmth::cold_non_revertible(),
 		};

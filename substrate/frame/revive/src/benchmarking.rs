@@ -22,7 +22,7 @@ use crate::{
 	Pallet as Contracts,
 	access_list::{
 		AccessEntry, AccessList, CallAccess, CodeLoad, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
-		StorageOp,
+		StorageOp, Transfer,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -200,11 +200,14 @@ mod benchmarks {
 
 	/// Shared setup of the hot call benches: deploys `$module` as the callee,
 	/// makes it hot (access list warmed, keys whitelisted), and binds
-	/// `$do_call` to a zero-value call (or, with the `delegate` prefix, a
-	/// delegate call) to it.
+	/// `$do_call` to a call forwarding `$t` times a value carrying `$d` times some dust (or, with
+	/// the `delegate` prefix, to a delegate call, which cannot transfer).
 	macro_rules! hot_call_setup {
 		($do_call:ident, $module:expr) => {
-			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len, $module, false);
+			hot_call_setup!($do_call, $module, 0, 0);
+		};
+		($do_call:ident, $module:expr, $t:expr, $d:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len, $module, false, $t, $d);
 			let mut $do_call = || {
 				runtime.bench_call(
 					memory.as_mut_slice(),
@@ -218,7 +221,7 @@ mod benchmarks {
 			};
 		};
 		(delegate $do_call:ident, $module:expr) => {
-			hot_call_setup!(@setup runtime, memory, callee_len, _deposit_len, $module, true);
+			hot_call_setup!(@setup runtime, memory, callee_len, _deposit_len, $module, true, 0, 0);
 			let mut $do_call = || {
 				runtime.bench_delegate_call(
 					memory.as_mut_slice(),
@@ -232,20 +235,19 @@ mod benchmarks {
 			};
 		};
 		(@setup $runtime:ident, $memory:ident, $callee_len:ident, $deposit_len:ident,
-			$module:expr, $delegate:expr) => {
+			$module:expr, $delegate:expr, $t:expr, $d:expr) => {
 			let callee_contract = Contract::<T>::with_index(1, $module, vec![])?;
 			let callee = callee_contract.account_id.clone();
 			let code_hash = callee_contract.info()?.code_hash;
 
-			let call_access = CallAccess::new(callee_contract.address, $delegate, None);
-			let code_access = CodeLoad { hash: code_hash };
-			whitelist_access::<T>(call_access);
-			whitelist_access::<T>(code_access);
-
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
 
-			let value_bytes = U256::zero().encode();
+			// Same amounts as the cold `seal_call` bench, so both slopes measure the same work.
+			let native: BalanceOf<T> = (1_000_000u32 * $t).into();
+			let dust = 100u32 * $d;
+			let value = BalanceWithDust::new_unchecked::<T>(native, dust);
+			let value_bytes = Pallet::<T>::convert_native_to_evm(value).encode();
 
 			let deposit: BalanceOf<T> = (u32::MAX - 100).into();
 			let deposit_bytes = Into::<U256>::into(deposit).encode();
@@ -254,6 +256,14 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::default();
 			setup.set_storage_deposit_limit(deposit);
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(native + 1u32.into() + Pallet::<T>::min_balance());
+
+			let transfer = (!value.is_zero())
+				.then(|| Transfer { from: setup.contract().address, dust: dust != 0 });
+			let call_access = CallAccess::new(callee_contract.address, $delegate, transfer);
+			let code_access = CodeLoad { hash: code_hash };
+			whitelist_access::<T>(call_access);
+			whitelist_access::<T>(code_access);
 
 			let (mut ext, _) = setup.ext();
 			ext.warm(call_access);
@@ -2599,8 +2609,8 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call_hot() -> Result<(), BenchmarkError> {
-		hot_call_setup!(do_call, VmBinaryModule::dummy());
+	fn seal_call_hot(t: Linear<0, 1>, d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::dummy(), t, d);
 
 		let result;
 		#[block]
