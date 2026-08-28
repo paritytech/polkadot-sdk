@@ -20,6 +20,7 @@ use tracing;
 
 use sp_runtime_interface::{pass_by::PassFatPointerAndDecode, runtime_interface};
 
+#[allow(unused_imports)]
 use crate::*;
 
 /// Interface to provide tracing facilities for wasm. Modelled after tokios `tracing`-crate

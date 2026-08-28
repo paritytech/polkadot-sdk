@@ -17,6 +17,7 @@
 
 use sp_runtime_interface::{runtime_interface, Pointer};
 
+#[allow(unused_imports)]
 use crate::*;
 
 /// Wasm only interface that provides functions for calling into the allocator.

@@ -22,6 +22,7 @@ use sp_runtime_interface::{
 	runtime_interface,
 };
 
+#[allow(unused_imports)]
 use crate::*;
 
 /// Interface that provides functions for logging from within the runtime.
