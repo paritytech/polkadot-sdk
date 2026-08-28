@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787929594535,
+  "lastUpdate": 1787937477861,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8807c22f2a3507af2401e99a8c420f68e0ce7dfd",
-          "message": "telemtry: Downgrade spam log to debug (#10201)\n\nThis PR downgrade the telemetry warning log to debug.\n- The log is causing a lot of noise in our test nets:\nhttps://grafana.teleport.parity.io/goto/fjTQ_vzDg?orgId=1\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T14:40:21Z",
-          "tree_id": "9dc6998aca49d4847b64529b702da9955d0b891b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8807c22f2a3507af2401e99a8c420f68e0ce7dfd"
-        },
-        "date": 1769788354277,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.088220575533335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11656056453333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.969841978499996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "de9b0827e2ba77478239b54695692aec82e436c0",
+          "message": "ci: add AI review action (#13018)\n\nAdds a workflow that sends PR diff to gemini for review.\nAfter it's merged it can be invoked by `/aireview` comment.\n\ncc https://github.com/paritytech/devops/issues/5505",
+          "timestamp": "2026-08-28T14:17:38Z",
+          "tree_id": "943f29e3e445cbf96b746dd20234fc5e9f139410",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/de9b0827e2ba77478239b54695692aec82e436c0"
+        },
+        "date": 1787937436057,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.099365577500002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13528711146666667,
             "unit": "seconds"
           }
         ]
