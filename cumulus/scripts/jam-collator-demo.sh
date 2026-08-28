@@ -51,9 +51,12 @@ EOF
 echo "chain spec: $WORK_DIR/jam-parachain-spec.json"
 
 # 2. A stable node network key (a collator is an authority; it refuses to
-#    auto-generate one).
-"$OMNI_NODE" key generate-node-key --base-path "$WORK_DIR/collator" \
-	--chain "$WORK_DIR/jam-parachain-spec.json" 2>/dev/null
+#    auto-generate one). Generation fails if the key exists, so a re-run with the
+#    same WORK_DIR (restart testing) must skip it.
+if ! ls "$WORK_DIR"/collator/chains/*/network/secret_* >/dev/null 2>&1; then
+	"$OMNI_NODE" key generate-node-key --base-path "$WORK_DIR/collator" \
+		--chain "$WORK_DIR/jam-parachain-spec.json" 2>/dev/null
+fi
 
 # 3. The collator. Watch the logs (target 'jam-collator' and 'jam-rpc-interface'):
 #    JAM best/finalized blocks tick, blocks get built, work packages submitted,
