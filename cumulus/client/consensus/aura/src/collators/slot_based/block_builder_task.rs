@@ -557,12 +557,11 @@ where
 			"Core configuration",
 		);
 
-		// Core affinity: bucket each unincluded (historical) block by its original
-		// `CoreInfo.selector`, mapped into the current core set via `selector mod total_cores`.
-		// The mapping is stable across slots, so a block is always re-advertised on the same
-		// core — never double-advertised across cores — and the resubmission load spreads over
-		// all assigned cores. Buckets stay as headers; they're hydrated per core just before
-		// submission, so buckets for cores we never reach are never hydrated.
+		// Core affinity serves two purposes: spread resubmission work over the assigned cores
+		// instead of piling it on one, and keep each unincluded block on a single core so it is not
+		// refetched by another. The second holds only while the assigned cores keep their order
+		// across slots; when it shifts, a duplicate refetch is possible if the block is
+		// re-advertised within ~4s.
 		let total_cores = cores.total_cores();
 		let mut per_selector_unincluded_headers: HashMap<u32, Vec<Block::Header>> = HashMap::new();
 		if total_cores > 0 {
