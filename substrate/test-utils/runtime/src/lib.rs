@@ -186,12 +186,8 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 pub type Balance = u64;
 
 /// Host functions for this test runtime's `WasmExecutor`.
-///
-/// Extends [`sp_io::SubstrateHostFunctions`] with `sp_additional_data` so the runtime's
-/// `push` / `finalize` host-function calls resolve when the WASM binary is executed.
 #[cfg(feature = "std")]
-pub type TestRuntimeHostFunctions =
-	(sp_additional_data::additional_data::HostFunctions, sp_io::SubstrateHostFunctions);
+pub type TestRuntimeHostFunctions = sp_io::SubstrateHostFunctions;
 
 #[cfg(feature = "bls-experimental")]
 mod bls {
@@ -1649,74 +1645,5 @@ mod tests {
 			);
 			assert_eq!(H256::decode(&mut &value[..]).unwrap(), [69u8; 32].into());
 		}
-	}
-
-	#[test]
-	fn additional_data_digest_deposited_when_pushed() {
-		use sp_additional_data::{
-			encode_items, hash_blob, AdditionalDataExt, RecordingAdditionalDataProvider,
-		};
-
-		let provider = RecordingAdditionalDataProvider::new();
-		let mut ext = new_test_ext();
-		ext.register_extension(AdditionalDataExt(Box::new(provider)));
-
-		let header = ext.execute_with(|| {
-			use sp_runtime::traits::Header as _;
-			let parent_hash = System::parent_hash();
-			Executive::initialize_block(&Header::new(
-				1,
-				H256::default(),
-				H256::default(),
-				parent_hash,
-				Default::default(),
-			));
-			SubstrateTest::push_additional_data(RuntimeOrigin::none()).unwrap();
-			Executive::finalize_block()
-		});
-
-		let additional_data_hashes: alloc::vec::Vec<[u8; 32]> =
-			header
-				.digest
-				.logs
-				.iter()
-				.filter_map(|log| {
-					if let DigestItem::AdditionalData(hash) = log {
-						Some(*hash)
-					} else {
-						None
-					}
-				})
-				.collect();
-
-		assert_eq!(additional_data_hashes.len(), 1);
-		let expected = hash_blob(&encode_items(&[b"additional-data-test".to_vec()]));
-		assert_eq!(additional_data_hashes[0], expected);
-	}
-
-	#[test]
-	fn no_additional_data_digest_when_nothing_pushed() {
-		let mut ext = new_test_ext();
-
-		let header = ext.execute_with(|| {
-			use sp_runtime::traits::Header as _;
-			let parent_hash = System::parent_hash();
-			Executive::initialize_block(&Header::new(
-				1,
-				H256::default(),
-				H256::default(),
-				parent_hash,
-				Default::default(),
-			));
-			Executive::finalize_block()
-		});
-
-		let count = header
-			.digest
-			.logs
-			.iter()
-			.filter(|log| matches!(log, DigestItem::AdditionalData(_)))
-			.count();
-		assert_eq!(count, 0);
 	}
 }

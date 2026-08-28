@@ -184,7 +184,7 @@ fn relay_chain_state_proof(relay_slot: u64) -> RelayChainStateProof {
 
 	let (hash, state_proof) = builder.into_state_root_and_proof();
 
-	RelayChainStateProof::new(ParaId::from(200), hash, state_proof)
+	RelayChainStateProof::from_inherent_proof(ParaId::from(200), hash, state_proof)
 		.expect("Should be able to construct state proof.")
 }
 
