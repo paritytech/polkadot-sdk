@@ -1008,7 +1008,9 @@ impl<T: Config> Pallet<T> {
 	/// through here and whose deposits are not this pallet's to hold. `reserve` cannot produce
 	/// one, so an entry below the floor means something else put it there — a migration seeding
 	/// the wrong range being the way it would actually happen.
-	#[cfg(any(feature = "try-runtime", test))]
+	// Also built for `std` so native integration tests can assert the invariant mid-migration
+	// without turning on `try-runtime` for the whole runtime. Stays out of the wasm blob.
+	#[cfg(any(feature = "try-runtime", feature = "std", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		for (para_id, _) in Paras::<T>::iter() {
 			frame_support::ensure!(

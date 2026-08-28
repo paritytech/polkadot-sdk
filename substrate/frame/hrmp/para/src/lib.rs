@@ -628,7 +628,9 @@ impl<T: Config> Pallet<T> {
 	/// of the design is that a deposit is taken exactly when a state is entered and released
 	/// exactly when one is left. Anything that drifts here is money held against nothing, or a
 	/// channel standing on a deposit nobody paid.
-	#[cfg(any(feature = "try-runtime", test))]
+	// Also built for `std` so native integration tests can assert the invariant mid-migration
+	// without turning on `try-runtime` for the whole runtime. Stays out of the wasm blob.
+	#[cfg(any(feature = "try-runtime", feature = "std", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		for (channel, info) in Channels::<T>::iter() {
 			frame_support::ensure!(
