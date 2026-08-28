@@ -1,0 +1,173 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Tests for the on-demand pallet.
+
+use crate::{mock::*, Error, Event, ParaId, PendingBatch, PriceConfig, QueueState};
+use frame_support::{assert_noop, assert_ok, traits::fungible::Inspect};
+
+const ALICE: u64 = 1;
+
+fn set_order_cap(order_cap: u32) {
+	PriceConfig::<Test>::mutate(|config| {
+		config.as_mut().expect("initialized by `new_test_ext`; qed").order_cap = order_cap;
+	});
+}
+
+fn on_demand_events() -> Vec<Event<Test>> {
+	System::events()
+		.into_iter()
+		.filter_map(|record| match record.event {
+			RuntimeEvent::OnDemand(event) => Some(event),
+			_ => None,
+		})
+		.collect()
+}
+
+#[test]
+fn place_order_charges_spot_price_and_batches_the_order() {
+	new_test_ext().execute_with(|| {
+		let before = Balances::balance(&ALICE);
+
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			ParaId::from(2000),
+			BASE_FEE
+		));
+
+		// The spot price of the first order is the base fee, and it went to the pallet's pot.
+		assert_eq!(Balances::balance(&ALICE), before - BASE_FEE);
+		assert_eq!(Balances::balance(&OnDemand::account_id()), BASE_FEE);
+
+		// The order is pending, waiting to be forwarded to the Relay chain.
+		let batch = PendingBatch::<Test>::get();
+		assert_eq!(batch.len(), 1);
+		assert_eq!(batch[0].para_id, ParaId::from(2000));
+		assert_eq!(batch[0].ordered_at, 0);
+
+		// The local queue estimate grew by one.
+		assert_eq!(QueueState::<Test>::get().unwrap().outstanding_orders, 1);
+
+		assert_eq!(
+			on_demand_events(),
+			vec![Event::OrderPlaced {
+				para_id: ParaId::from(2000),
+				spot_price: BASE_FEE,
+				ordered_by: ALICE,
+			}]
+		);
+	});
+}
+
+#[test]
+fn spot_price_grows_with_the_queue_depth() {
+	new_test_ext().execute_with(|| {
+		// Every order already outstanding raises the price by 3%.
+		for expected_price in [1_000, 1_030, 1_060] {
+			let before = Balances::balance(&ALICE);
+			assert_ok!(OnDemand::place_order(
+				RuntimeOrigin::signed(ALICE),
+				ParaId::from(2000),
+				expected_price
+			));
+			assert_eq!(Balances::balance(&ALICE), before - expected_price);
+		}
+
+		assert_eq!(QueueState::<Test>::get().unwrap().outstanding_orders, 3);
+	});
+}
+
+#[test]
+fn place_order_respects_max_amount() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			OnDemand::place_order(RuntimeOrigin::signed(ALICE), ParaId::from(2000), BASE_FEE - 1),
+			Error::<Test>::SpotPriceHigherThanMaxAmount
+		);
+		assert!(PendingBatch::<Test>::get().is_empty());
+	});
+}
+
+#[test]
+fn place_order_fails_once_the_order_cap_is_reached() {
+	new_test_ext().execute_with(|| {
+		set_order_cap(1);
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			ParaId::from(2000),
+			BASE_FEE
+		));
+		assert_noop!(
+			OnDemand::place_order(RuntimeOrigin::signed(ALICE), ParaId::from(2000), Balance::MAX),
+			Error::<Test>::QueueFull
+		);
+	});
+}
+
+#[test]
+fn the_queue_estimate_drains_over_relay_chain_blocks() {
+	new_test_ext().execute_with(|| {
+		for _ in 0..3 {
+			assert_ok!(OnDemand::place_order(
+				RuntimeOrigin::signed(ALICE),
+				ParaId::from(2000),
+				Balance::MAX
+			));
+		}
+		assert_eq!(QueueState::<Test>::get().unwrap().outstanding_orders, 3);
+
+		// One order per Relay-chain block is assumed to be drained, so after five blocks the queue
+		// is considered empty again and the next order costs the base fee.
+		set_relay_block_number(5);
+		let before = Balances::balance(&ALICE);
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			ParaId::from(2000),
+			BASE_FEE
+		));
+		assert_eq!(Balances::balance(&ALICE), before - BASE_FEE);
+
+		let queue_state = QueueState::<Test>::get().unwrap();
+		assert_eq!(queue_state.outstanding_orders, 1);
+		assert_eq!(queue_state.last_updated, 5);
+	});
+}
+
+#[test]
+fn the_pending_batch_is_forwarded_to_the_relay_chain_on_finalize() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			ParaId::from(2000),
+			Balance::MAX
+		));
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			ParaId::from(2001),
+			Balance::MAX
+		));
+
+		advance_block();
+
+		assert_eq!(queued_batches(), vec![vec![(ParaId::from(2000), 0), (ParaId::from(2001), 0)]]);
+		assert!(PendingBatch::<Test>::get().is_empty());
+
+		// Nothing is sent when no orders were placed.
+		advance_block();
+		assert_eq!(queued_batches().len(), 1);
+	});
+}

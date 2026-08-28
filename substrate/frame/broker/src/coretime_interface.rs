@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_runtime::traits::BlockNumberProvider;
 
-use crate::{CoreIndex, ParaId, PartsOf57600, TaskId, Timeslice};
+use crate::{CoreIndex, PartsOf57600, TaskId, Timeslice};
 
 /// An element to which a core can be assigned.
 #[derive(
@@ -114,9 +114,6 @@ pub trait CoretimeInterface {
 	/// batching different matters happened during the timeslice that may benefit from batched
 	/// processing.
 	fn on_new_timeslice(_timeslice: Timeslice) {}
-
-	/// Instructs the Relay-chain to queue the given on-demand orders.
-	fn queue_on_demand_batch(batch: Vec<(ParaId, RCBlockNumberOf<Self>)>);
 }
 
 impl CoretimeInterface for () {
@@ -134,5 +131,4 @@ impl CoretimeInterface for () {
 		_end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 	}
-	fn queue_on_demand_batch(_batch: Vec<(ParaId, RCBlockNumberOf<Self>)>) {}
 }

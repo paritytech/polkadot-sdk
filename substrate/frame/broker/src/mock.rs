@@ -30,7 +30,6 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
@@ -131,9 +130,6 @@ impl CoretimeInterface for TestCoretimeProvider {
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
 	}
-	fn queue_on_demand_batch(_batch: Vec<(ParaId, RCBlockNumberOf<Self>)>) {
-		// TODO
-	}
 }
 
 impl TestCoretimeProvider {
@@ -221,9 +217,6 @@ impl crate::Config for Test {
 	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
-	type DefaultOnDemandOrderCap = ConstU32<100>;
-	type DefaultOnDemandDrainRatePerBlock = ConstU32<1>;
-	type DefaultOnDemandPriceStep = ConstU32<3>;
 }
 
 pub fn advance_to(b: u64) {

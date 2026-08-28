@@ -18,29 +18,11 @@
 use super::*;
 use alloc::{vec, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
-use sp_arithmetic::{
-	traits::{One, SaturatedConversion, Saturating, Zero},
-	Perbill,
-};
+use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, ConvertBack, MaybeConvert};
 use CompletionStatus::Complete;
 
 impl<T: Config> Pallet<T> {
-	/// Initializes the local on demand queue info.
-	pub(crate) fn initialize_on_demand() {
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let pricing_config = OnDemandPriceParameters {
-			order_cap: T::DefaultOnDemandOrderCap::get(),
-			drain_rate_per_block: T::DefaultOnDemandDrainRatePerBlock::get(),
-			price_step: Perbill::from_percent(T::DefaultOnDemandPriceStep::get()),
-			base_fee: BalanceOf::<T>::zero(), // TODO
-		};
-		OnDemandPriceConfig::<T>::put(pricing_config);
-
-		let queue_counter = OnDemandQueueCounter { outstanding_orders: 0, last_updated: now };
-		OnDemandQueueState::<T>::put(queue_counter);
-	}
-
 	/// Attempt to tick things along.
 	///
 	/// This may do several things:

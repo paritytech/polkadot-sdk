@@ -81,7 +81,7 @@ use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets_precompiles::{InlineIdConfig, ERC20};
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, ParaId, PartsOf57600, TaskId};
+use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, TaskId};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -2499,7 +2499,6 @@ impl CoretimeInterface for CoretimeProvider {
 		_end_hint: Option<u32>,
 	) {
 	}
-	fn queue_on_demand_batch(_batch: Vec<(ParaId, u32)>) {}
 }
 
 pub struct SovereignAccountOf;
@@ -2527,9 +2526,6 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
-	type DefaultOnDemandOrderCap = ConstU32<100>;
-	type DefaultOnDemandDrainRatePerBlock = ConstU32<1>;
-	type DefaultOnDemandPriceStep = ConstU32<3>;
 }
 
 parameter_types! {

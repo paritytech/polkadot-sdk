@@ -22,7 +22,6 @@ use crate::{
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
 use frame_system::Config as SConfig;
-use polkadot_parachain_primitives::primitives::Id as ParaId;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 use sp_core::ConstU32;
@@ -248,45 +247,6 @@ pub struct OnDemandRevenueRecord<RelayBlockNumber, RelayBalance> {
 
 pub type OnDemandRevenueRecordOf<T> =
 	OnDemandRevenueRecord<RelayBlockNumberOf<T>, RelayBalanceOf<T>>;
-
-/// The On demand pricing configuration
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-)]
-pub struct OnDemandPriceParameters<Balance> {
-	/// The maximum number of outstanding orders beyond which we reject new orders.
-	pub order_cap: u32,
-	/// The number of outstanding orders assumed to be drained per relay chain block.
-	pub drain_rate_per_block: u32,
-	/// The spot price increase (in percent) per outstanding order in the queue.
-	pub price_step: Perbill,
-	/// The base spot price when the queue is empty.
-	pub base_fee: Balance,
-}
-
-pub type OnDemandPriceParametersOf<T> = OnDemandPriceParameters<BalanceOf<T>>;
-
-/// Data about a placed on-demand order.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub struct EnqueuedOnDemandOrder<N> {
-	/// The parachain the order was placed for.
-	pub para_id: ParaId,
-	/// The block number the order came in.
-	pub ordered_at: N,
-}
-
-/// The On demand estimated queue state.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-)]
-pub struct OnDemandQueueCounter<RelayBlockNumber> {
-	/// The current estimated number of outstanding orders.
-	pub outstanding_orders: u32,
-	/// When the queue state was last updated.
-	pub last_updated: RelayBlockNumber,
-}
-
-pub type OnDemandQueueStateOf<T> = OnDemandQueueCounter<RelayBlockNumberOf<T>>;
 
 /// Configuration of this pallet.
 #[derive(

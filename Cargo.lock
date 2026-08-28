@@ -4368,6 +4368,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
+ "pallet-on-demand",
  "pallet-proxy",
  "pallet-session",
  "pallet-sudo",
@@ -12839,8 +12840,6 @@ dependencies = [
  "frame-system",
  "log",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-primitives",
  "pretty_assertions",
  "scale-info",
  "sp-api 26.0.0",
@@ -13975,6 +13974,24 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-staking",
  "sp-tracing 16.0.0",
+]
+
+[[package]]
+name = "pallet-on-demand"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
+ "scale-info",
+ "sp-arithmetic 23.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -17690,6 +17707,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-on-demand",
  "pallet-oracle",
  "pallet-oracle-runtime-api",
  "pallet-origin-restriction",

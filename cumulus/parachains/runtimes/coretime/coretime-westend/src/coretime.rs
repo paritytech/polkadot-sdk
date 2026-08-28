@@ -22,6 +22,7 @@ use frame_support::parameter_types;
 use pallet_broker::{
 	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId,
 };
+use pallet_on_demand::QueueOnDemandOrders;
 use parachains_common::{AccountId, Balance};
 use sp_runtime::traits::MaybeConvert;
 use westend_runtime_constants::system_parachain::coretime;
@@ -57,8 +58,12 @@ enum CoretimeProviderCalls {
 	QueueOnDemandBatch(Vec<(ParaId, relay_chain::BlockNumber)>),
 }
 
+/// The maximum number of on-demand orders we put into a single `QueueOnDemandBatch` message.
+const MAX_ORDERS_PER_MESSAGE: usize = 100;
+
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 	pub const MinimumCreditPurchase: Balance = UNITS / 10;
 	pub const MinimumEndPrice: Balance = UNITS;
 }
@@ -215,14 +220,16 @@ impl CoretimeInterface for CoretimeAllocator {
 			}
 		}
 	}
+}
 
-	fn queue_on_demand_batch(batch: Vec<(ParaId, RCBlockNumberOf<Self>)>) {
+impl QueueOnDemandOrders<relay_chain::BlockNumber> for CoretimeAllocator {
+	fn queue_batch(batch: Vec<(ParaId, relay_chain::BlockNumber)>) {
 		use crate::coretime::CoretimeProviderCalls::QueueOnDemandBatch;
 
 		// TODO: figure out the correct weight
 		let call_weight = Weight::from_parts(980_000_000, 3800);
 
-		for chunk in batch.chunks(100) {
+		for chunk in batch.chunks(MAX_ORDERS_PER_MESSAGE) {
 			let partial_batch = chunk.to_vec();
 
 			let queue_on_demand_batch_call =
@@ -279,7 +286,16 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
-	type DefaultOnDemandOrderCap = ConstU32<100>;
-	type DefaultOnDemandDrainRatePerBlock = ConstU32<1>;
-	type DefaultOnDemandPriceStep = ConstU32<3>;
+}
+
+impl pallet_on_demand::Config for Runtime {
+	type WeightInfo = weights::pallet_on_demand::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type RelayBlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type OrderQueue = CoretimeAllocator;
+	type PalletId = OnDemandPalletId;
+	type DefaultOrderCap = ConstU32<100>;
+	type DefaultDrainRatePerBlock = ConstU32<1>;
+	type DefaultPriceStep = ConstU32<3>;
+	type DefaultBaseFee = ConstU128<1000>; // TODO: choose a sane default
 }

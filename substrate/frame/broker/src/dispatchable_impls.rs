@@ -22,10 +22,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
-use sp_arithmetic::{
-	traits::{ensure_pow, CheckedDiv, SaturatedConversion, Saturating, Zero},
-	FixedPointNumber, FixedU128,
-};
+use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, Convert};
 use CompletionStatus::{Complete, Partial};
 
@@ -253,55 +250,6 @@ impl<T: Config> Pallet<T> {
 		});
 
 		Ok(())
-	}
-
-	pub(crate) fn do_place_order(
-		who: T::AccountId,
-		para_id: ParaId,
-		max_amount: BalanceOf<T>,
-	) -> DispatchResult {
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let mut current_queue_state =
-			OnDemandQueueState::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let pricing_config = OnDemandPriceConfig::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let elapsed = now.saturating_sub(current_queue_state.last_updated).saturated_into();
-		let drained_orders = pricing_config.drain_rate_per_block.saturating_mul(elapsed);
-		let current_outstanding_orders =
-			current_queue_state.outstanding_orders.saturating_sub(drained_orders);
-		ensure!(
-			current_outstanding_orders >= pricing_config.order_cap,
-			Error::<T>::OnDemandQueueFull
-		);
-		current_queue_state.outstanding_orders = current_outstanding_orders.saturating_add(1);
-		current_queue_state.last_updated = now;
-
-		let price_adjustment = ensure_pow(
-			FixedU128::one().saturating_add(FixedU128::from_perbill(pricing_config.price_step)),
-			current_outstanding_orders as usize,
-		)?;
-		let spot_price = price_adjustment.saturating_mul_int(pricing_config.base_fee);
-
-		ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
-
-		OnDemandPendingBatch::<T>::mutate(|batch| {
-			// Charge the sending account the spot price.
-			T::Currency::transfer(&who, &Self::account_id(), spot_price, Expendable)?;
-
-			// Add the order to the batch
-			batch
-				.try_push(EnqueuedOnDemandOrder { para_id, ordered_at: now })
-				.map_err(|_| Error::<T>::OnDemandBatchFull)?;
-
-			OnDemandQueueState::<T>::put(current_queue_state);
-
-			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
-				para_id,
-				spot_price,
-				ordered_by: who,
-			});
-
-			Ok(())
-		})
 	}
 
 	pub(crate) fn do_partition(
