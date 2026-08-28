@@ -28,7 +28,7 @@ use crate::{
 		},
 		error::{Error, FatalResult, Result},
 	},
-	LeafSchedulingInfo, LOG_TARGET,
+	LeafClaimQueues, LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
@@ -45,8 +45,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_session_index_for_child, request_validator_groups,
-	request_validators, runtime::recv_runtime,
+	request_session_index_for_child, request_validator_groups, request_validators,
+	runtime::recv_runtime,
 };
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
@@ -58,7 +58,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+	collections::{BTreeSet, HashMap},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -87,12 +87,8 @@ pub struct CollationManager {
 	// ancestors.
 	implicit_view: ImplicitView,
 
-	// The full claim queue per core for each active leaf, fetched once per leaf via
-	// `request_claim_queue`. This is the authoritative CQ — it's what the runtime will see
-	// when candidates get backed on-chain — so all capacity reasoning routes through it.
-	// Per-scheduling-parent capacity is derived via offset arithmetic from the leaf's CQ
-	// (`unfulfilled_claim_queue_entries`, `slots_available`).
-	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	// The per-core claim queues (plus scheduling lookahead) for each active leaf.
+	leaf_claim_queues: HashMap<Hash, LeafClaimQueues>,
 
 	// Collations which we haven't been able to second due to their parent not being known by
 	// prospective-parachains. Mapped from the para_id and parent_head_hash to the fetched
@@ -114,6 +110,10 @@ pub struct CollationManager {
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
 	// Clock for time reads (V3 scheduling-parent slot validation, advertisement timestamps).
 	clock: Arc<dyn Clock>,
+	// Rate-limiting state for the (potentially frequent) collation-fetch error warnings, so a
+	// flaky network or a buggy `Canceled` loop can't flood the logs.
+	network_error_freq: gum::Freq,
+	canceled_freq: gum::Freq,
 }
 
 impl CollationManager {
@@ -133,6 +133,8 @@ impl CollationManager {
 			keystore,
 			leaf_scheduling_info: HashMap::default(),
 			clock,
+			network_error_freq: gum::Freq::new(),
+			canceled_freq: gum::Freq::new(),
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
@@ -205,6 +207,13 @@ impl CollationManager {
 				if !self.implicit_view.paths_via_relay_parent(&sp).is_empty() {
 					return Some((sp, per_sp));
 				}
+
+				gum::trace!(
+					target: LOG_TARGET,
+					scheduling_parent = ?sp,
+					"Scheduling parent no longer reachable from any leaf; dropping it and cancelling its in-flight fetches",
+				);
+
 				for (advertisement, _) in per_sp.all_advertisements() {
 					self.fetching.cancel(advertisement);
 				}
@@ -252,16 +261,33 @@ impl CollationManager {
 						continue;
 					},
 				};
+				gum::trace!(
+					target: LOG_TARGET,
+					scheduling_parent = ?ancestor,
+					?core,
+					session_index,
+					"Registered scheduling parent on our assigned core",
+				);
 				self.per_scheduling_parent
 					.insert(*ancestor, PerSchedulingParent::new(session_index, core, &*self.clock));
 			}
 
-			// Fetch and store the leaf's full per-core claim queue. Capacity at every
-			// scheduling parent on a path to this leaf is computed from this CQ via offset
-			// arithmetic — the leaf is authoritative because it's closest to what the runtime
-			// will see when candidates get backed.
-			let claim_queues = recv_runtime(request_claim_queue(*leaf, sender).await).await?;
-			self.leaf_claim_queues.insert(*leaf, claim_queues);
+			// Fetch and store the leaf's per-core claim queues and scheduling lookahead. Capacity
+			// at every scheduling parent on a path to this leaf is computed from these via offset
+			// arithmetic — the leaf is authoritative because it's closest to what the runtime will
+			// see when candidates get backed.
+			match LeafClaimQueues::fetch(*leaf, session_index, sender)
+				.await
+				.map_err(Error::Runtime)
+			{
+				Ok(leaf_claim_queues) => {
+					self.leaf_claim_queues.insert(*leaf, leaf_claim_queues);
+				},
+				Err(err) => {
+					err.split()?.log();
+					continue;
+				},
+			}
 		}
 
 		Ok(())
@@ -357,11 +383,6 @@ impl CollationManager {
 		Ok(())
 	}
 
-	/// Claim queue for `core` at `leaf`.
-	fn cq(&self, leaf: &Hash, core: CoreIndex) -> Option<&VecDeque<ParaId>> {
-		self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
-	}
-
 	/// CQ positions at `core` schedulable by an advertisement made at `scheduling_parent`.
 	///
 	/// We use the *leaf's* CQ rather than the SP's: the SP's original CQ predicted slots
@@ -386,22 +407,12 @@ impl CollationManager {
 			.into_iter()
 			.filter_map(|path| {
 				let leaf = path.last()?;
-				let cq = self.leaf_claim_queues.get(leaf)?.get(&core)?;
-				// SP at depth `d` from the leaf can host advertisements landing at leaf-CQ
-				// positions `i` where `i + d < lookahead`. The bound is the lookahead, NOT
-				// `cq.len()`, which may be shorter.
-				let lookahead = self
-					.implicit_view
-					.known_allowed_relay_parents_under(leaf)
-					.map(|p| p.len())
-					.unwrap_or(0);
 				let depth = path
 					.iter()
 					.rev()
 					.position(|h| h == scheduling_parent)
 					.expect("paths_via_relay_parent only returns paths containing the SP; qed");
-				let valid_len = lookahead.saturating_sub(depth).min(cq.len());
-				Some(cq.iter().take(valid_len).copied().collect::<Vec<_>>())
+				Some(self.leaf_claim_queues.get(leaf)?.window(core, depth))
 			})
 			.max_by_key(Vec::len)
 			.unwrap_or_default()
@@ -494,20 +505,11 @@ impl CollationManager {
 		let mut out: Vec<LeafCoreCq> = Vec::new();
 		for leaf in leaves {
 			for &core in &cores {
-				let Some(cq) = self.cq(&leaf, core) else { continue };
+				let Some(leaf_cqs) = self.leaf_claim_queues.get(&leaf) else { continue };
 				let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
 					continue;
 				};
-				// Pad the CQ up to the lookahead so `cq.len() == sps_by_depth.len()`. The
-				// runtime may return a CQ shorter than the lookahead.
-				let lookahead = path.len();
-				let mut cq: Vec<Option<ParaId>> = cq
-					.iter()
-					.copied()
-					.map(Some)
-					.chain(std::iter::repeat(None))
-					.take(lookahead)
-					.collect();
+				let Some(mut cq) = leaf_cqs.slots(core) else { continue };
 				// SPs by depth from the leaf (leaf = 0). Cross-core ancestors are masked as
 				// `None` so `sps_reaching` and `reserve_slot` automatically skip them.
 				let sps_by_depth: Vec<Option<Hash>> = path
@@ -515,8 +517,8 @@ impl CollationManager {
 					.map(|sp_hash| {
 						self.per_scheduling_parent
 							.get(sp_hash)
-							.filter(|per_sp| per_sp.core_index == core)
-							.map(|_| *sp_hash)
+							.is_some_and(|per_sp| per_sp.core_index == core)
+							.then_some(*sp_hash)
 					})
 					.collect();
 
@@ -606,7 +608,11 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info);
 		};
 
-		match process_collation_fetch_result(res) {
+		match process_collation_fetch_result(
+			res,
+			&mut self.network_error_freq,
+			&mut self.canceled_freq,
+		) {
 			Ok(fetched_collation) => {
 				let candidate_hash = fetched_collation.candidate_receipt.hash();
 				// It can't be a duplicate, because we check before initiating fetch. For the old
@@ -850,7 +856,14 @@ impl CollationManager {
 			.collect();
 
 		// `Ord` is custom: descending by score, so first = best.
-		let Some(best) = advertisements.first() else { return Either::Left(None) };
+		let Some(best) = advertisements.first() else {
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				"No fetchable advertisement for a free claim-queue slot",
+			);
+			return Either::Left(None);
+		};
 
 		let delay = Self::calculate_delay(best.score, highest_rep_of_para);
 
@@ -872,6 +885,14 @@ impl CollationManager {
 			);
 			Either::Left(Some(*best.adv))
 		} else {
+			gum::trace!(
+				target: LOG_TARGET,
+				peer_id = ?best.adv.peer_id,
+				scheduling_parent = ?best.adv.scheduling_parent,
+				?para_id,
+				?remaining,
+				"Best advertisement is fetch-delayed; will fetch once the delay elapses",
+			);
 			Either::Right(remaining)
 		}
 	}
@@ -1146,10 +1167,9 @@ struct FetchedCollationInfo {
 /// candidates for our slots, and cross-core reservations are no-ops because the SP isn't
 /// found in `sps_by_depth`.
 ///
-/// Invariant: `cq.len() == sps_by_depth.len() == scheduling_lookahead`. The runtime may
-/// return a CQ shorter than the lookahead (on-demand cores); `build_leaf_core_cqs` pads it
-/// with `None` so the SP-window arithmetic (`cq.len() - depth`) matches the lookahead, not
-/// the runtime CQ length.
+/// `cq` is padded to the scheduling lookahead (`build_leaf_core_cqs`), so the SP-window
+/// arithmetic (`cq.len() - depth`) is bounded by the lookahead, not the runtime CQ length
+/// (which may be shorter for e.g. on-demand cores).
 struct LeafCoreCq {
 	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
@@ -1361,6 +1381,8 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 
 fn process_collation_fetch_result(
 	(advertisement, res): CollationFetchResponse,
+	network_error_freq: &mut gum::Freq,
+	canceled_freq: &mut gum::Freq,
 ) -> std::result::Result<FetchedCollation, Option<Score>> {
 	match res {
 		Err(CollationFetchError::Cancelled) => {
@@ -1385,7 +1407,9 @@ fn process_collation_fetch_result(
 			Err(Some(FAILED_FETCH_SLASH))
 		},
 		Err(CollationFetchError::Request(RequestError::NetworkError(err))) => {
-			gum::warn!(
+			gum::warn_if_frequent!(
+				freq: network_error_freq,
+				max_rate: gum::Times::PerHour(100),
 				target: LOG_TARGET,
 				?advertisement,
 				err = ?err,
@@ -1394,7 +1418,9 @@ fn process_collation_fetch_result(
 			Err(None)
 		},
 		Err(CollationFetchError::Request(RequestError::Canceled(err))) => {
-			gum::warn!(
+			gum::warn_if_frequent!(
+				freq: canceled_freq,
+				max_rate: gum::Times::PerHour(100),
 				target: LOG_TARGET,
 				?advertisement,
 				err = ?err,
@@ -1691,6 +1717,8 @@ mod tests {
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 			leaf_scheduling_info: HashMap::default(),
 			clock: polkadot_node_clock::system_clock(),
+			network_error_freq: gum::Freq::new(),
+			canceled_freq: gum::Freq::new(),
 		};
 
 		// No advertisements - returns Left(None).

@@ -120,6 +120,14 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
+		gum::debug!(
+			target: LOG_TARGET,
+			?scheduled_paras,
+			"Collator protocol initial assignments",
+		);
+
+		metrics.note_assigned_paras(scheduled_paras.len());
+
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
 			db.clone(),
@@ -150,6 +158,7 @@ async fn initialize<Context>(
 			ctx.sender(),
 			scheduled_paras.into_iter().collect(),
 			clock.clone(),
+			metrics.clone(),
 		)
 		.await
 		{
@@ -183,7 +192,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerConnected(peer_id, ..),
 					) => {
-						gum::info!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that connected before subsystem initialization",
@@ -197,7 +206,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerMessage(peer_id, ..),
 					) => {
-						gum::info!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that sent message before subsystem initialization",
@@ -293,6 +302,11 @@ async fn run_inner<Context>(
 				persistence_timer = create_persistence_timer(&*clock, persist_interval);
 			},
 		}
+
+		// Refresh the in-memory connected peers. Done once per loop iteration, so that
+		// it covers every event source above and cannot be missed by a handler that forgets to
+		// update it.
+		state.note_in_memory_connected_peers();
 
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).

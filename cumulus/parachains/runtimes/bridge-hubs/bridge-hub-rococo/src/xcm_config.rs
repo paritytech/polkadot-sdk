@@ -17,8 +17,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
-	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmOverRococoBulletin,
-	XcmpQueue,
+	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubWestend, XcmpQueue,
 };
 
 use frame_support::{
@@ -221,11 +220,8 @@ impl xcm_executor::Config for XcmConfig {
 		WaivedLocations,
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
-	type MessageExporter = (
-		XcmOverBridgeHubWestend,
-		XcmOverRococoBulletin,
-		crate::bridge_to_ethereum_config::SnowbridgeExporter,
-	);
+	type MessageExporter =
+		(XcmOverBridgeHubWestend, crate::bridge_to_ethereum_config::SnowbridgeExporter);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;

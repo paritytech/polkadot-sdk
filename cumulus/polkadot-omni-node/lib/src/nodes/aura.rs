@@ -47,7 +47,6 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
-use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -65,6 +64,7 @@ use sc_consensus::{
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NotificationMetrics, PeerId};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
+use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -198,7 +198,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	AuraId: AuraIdT + Sync,
+	AuraId: AuraIdT + Sync + Send + 'static,
 	StartConsensus: self::StartConsensus<
 			Block,
 			RuntimeApi,
@@ -211,7 +211,6 @@ where
 {
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
 	fn start_dev_node(
 		mut config: Configuration,
@@ -226,6 +225,7 @@ where
 			ref statement_store_config,
 			ref storage_monitor,
 			ref hop,
+			collator_reserved_slots: _,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -250,7 +250,7 @@ where
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _, _),
+			other: (_, mut telemetry, _, _, _),
 		} = Self::new_partial(&config)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
@@ -274,7 +274,7 @@ where
 			(proto, *ss_config)
 		});
 
-		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				client: client.clone(),
@@ -287,6 +287,7 @@ where
 				warp_sync_config: None,
 				block_relay: None,
 				metrics,
+				gap_sync_body_policy: None,
 			})?;
 
 		let statement_store = statement_handler_proto
@@ -418,7 +419,12 @@ where
 		}
 		let hop_pool = hop
 			.as_ref()
-			.map(|params| params.build_pool(config.database.path().map(|p| p.to_path_buf())))
+			.map(|params| {
+				params.build_pool(
+					config.database.path().map(|p| p.to_path_buf()),
+					config.prometheus_registry(),
+				)
+			})
 			.transpose()
 			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
@@ -631,7 +637,11 @@ where
 				Block,
 				SlotBasedBlockImport<
 					Block,
-					Arc<ParachainClient<Block, RuntimeApi>>,
+					StorageChainBlockImport<
+						Block,
+						Arc<ParachainClient<Block, RuntimeApi>>,
+						ParachainClient<Block, RuntimeApi>,
+					>,
 					ParachainClient<Block, RuntimeApi>,
 				>,
 			>,
@@ -667,7 +677,11 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 		RuntimeApi,
 		SlotBasedBlockImport<
 			Block,
-			Arc<ParachainClient<Block, RuntimeApi>>,
+			StorageChainBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				ParachainClient<Block, RuntimeApi>,
+			>,
 			ParachainClient<Block, RuntimeApi>,
 		>,
 		SlotBasedBlockImportHandle<Block>,
@@ -684,7 +698,11 @@ where
 			Block,
 			SlotBasedBlockImport<
 				Block,
-				Arc<ParachainClient<Block, RuntimeApi>>,
+				StorageChainBlockImport<
+					Block,
+					Arc<ParachainClient<Block, RuntimeApi>>,
+					ParachainClient<Block, RuntimeApi>,
+				>,
 				ParachainClient<Block, RuntimeApi>,
 			>,
 		>,
@@ -712,12 +730,7 @@ where
 			telemetry.clone(),
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
@@ -786,15 +799,24 @@ where
 {
 	type BlockImport = SlotBasedBlockImport<
 		Block,
-		Arc<ParachainClient<Block, RuntimeApi>>,
+		StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 		ParachainClient<Block, RuntimeApi>,
 	>;
 	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok(SlotBasedBlockImport::new(client.clone(), client))
+		Ok(SlotBasedBlockImport::new(storage_chain_block_import, client))
 	}
 }
 
@@ -827,8 +849,16 @@ pub(crate) struct StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>(
 );
 
 impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
-	StartConsensus<Block, RuntimeApi, Arc<ParachainClient<Block, RuntimeApi>>, ()>
-	for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
+	StartConsensus<
+		Block,
+		RuntimeApi,
+		StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
+		(),
+	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
@@ -837,7 +867,14 @@ where
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, Arc<ParachainClient<Block, RuntimeApi>>>,
+		block_import: ParachainBlockImport<
+			Block,
+			StorageChainBlockImport<
+				Block,
+				Arc<ParachainClient<Block, RuntimeApi>>,
+				ParachainClient<Block, RuntimeApi>,
+			>,
+		>,
 		prometheus_registry: Option<&Registry>,
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -861,12 +898,7 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {

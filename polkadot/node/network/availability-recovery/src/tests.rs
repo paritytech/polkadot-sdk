@@ -41,8 +41,8 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features, AuthorityDiscoveryId, Block, Hash, HeadData, IndexedVec, MutateDescriptorV2,
-	NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
+	node_features, ApprovalVotingParams, AuthorityDiscoveryId, Block, Hash, HeadData, IndexedVec,
+	MutateDescriptorV2, NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
@@ -420,6 +420,19 @@ impl TestState {
 				)).unwrap();
 			}
 		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_relay_parent,
+				RuntimeApiRequest::ApprovalVotingParams(
+					_,
+					tx,
+				)
+			)) => {
+				tx.send(Ok(ApprovalVotingParams::default())).unwrap();
+			}
+		);
 	}
 
 	async fn respond_to_available_data_query(
@@ -535,7 +548,10 @@ impl TestState {
 									}
 								};
 
-								req.pending_response.send(
+								// Recovery cancels the requests it no longer needs as soon as it has
+								// enough chunks to reconstruct, dropping the receiver. Answering a
+								// request that has already been cancelled is not a failure.
+								let _ = req.pending_response.send(
 									available_data.map(|r|
 										(
 											match protocol {
@@ -557,7 +573,7 @@ impl TestState {
 											req_protocol_names.get_name(protocol)
 										)
 									)
-								).unwrap();
+								);
 							}
 						)
 					}

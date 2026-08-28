@@ -303,7 +303,6 @@ impl<A, F> Consideration<A, F> for () {
 	fn ensure_successful(_: &A, _: F) {}
 }
 
-#[cfg(feature = "experimental")]
 /// An extension of the [`Consideration`] trait that allows for the management of tickets that may
 /// represent no cost. While the [`MaybeConsideration`] still requires proper handling, it
 /// introduces the ability to determine if a ticket represents no cost and can be safely forgotten
@@ -314,7 +313,6 @@ pub trait MaybeConsideration<AccountId, Footprint>: Consideration<AccountId, Foo
 	fn is_none(&self) -> bool;
 }
 
-#[cfg(feature = "experimental")]
 impl<A, F> MaybeConsideration<A, F> for () {
 	fn is_none(&self) -> bool {
 		true

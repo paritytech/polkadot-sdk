@@ -8,9 +8,22 @@ use crate::utils::{
 	DEFAULT_SUBSTRATE_IMAGE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC, PEER_COUNT_METRIC,
 };
 use anyhow::{anyhow, Result};
-use subxt::{config::substrate::SubstrateConfig, dynamic::tx, OnlineClient};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::{Arg, NetworkConfig, NetworkConfigBuilder, NetworkNode};
+use scale_info::PortableRegistry;
+use zombienet_sdk::{
+	subxt::{
+		self,
+		client::ClientState,
+		config::{
+			substrate::SubstrateConfig, transaction_extensions, Config, ExtrinsicParams,
+			ExtrinsicParamsEncoder, ExtrinsicParamsError,
+		},
+		dynamic::{tx, Value},
+		ext::codec::Encode,
+		OnlineClient,
+	},
+	subxt_signer::sr25519::dev,
+	Arg, NetworkConfig, NetworkConfigBuilder, NetworkNode,
+};
 
 const NODE_NAMES: [&str; 2] = ["alice", "bob"];
 
@@ -26,6 +39,69 @@ const TRANSACTION_TIMEOUT_SECS: u64 = 30;
 const REMARK_PAYLOAD: &[u8] = b"block-building-test";
 const LARGE_REMARK_SIZE: usize = 8 * 1024 * 1024;
 const LARGE_REMARK_FINALIZATION_TIMEOUT_SECS: u64 = 120;
+
+/// Subxt configuration for the dev runtime, which includes the custom `AsScarcity` extension.
+enum ScarcitySubstrateConfig {}
+
+impl Config for ScarcitySubstrateConfig {
+	type AccountId = <SubstrateConfig as Config>::AccountId;
+	type Address = <SubstrateConfig as Config>::Address;
+	type Signature = <SubstrateConfig as Config>::Signature;
+	type Hasher = <SubstrateConfig as Config>::Hasher;
+	type Header = <SubstrateConfig as Config>::Header;
+	type ExtrinsicParams = transaction_extensions::AnyOf<
+		Self,
+		(
+			AsScarcity,
+			transaction_extensions::VerifySignature<Self>,
+			transaction_extensions::CheckSpecVersion,
+			transaction_extensions::CheckTxVersion,
+			transaction_extensions::CheckNonce,
+			transaction_extensions::CheckGenesis<Self>,
+			transaction_extensions::CheckMortality<Self>,
+			transaction_extensions::ChargeAssetTxPayment<Self>,
+			transaction_extensions::ChargeTransactionPayment,
+			transaction_extensions::CheckMetadataHash,
+		),
+	>;
+	type AssetId = <SubstrateConfig as Config>::AssetId;
+}
+
+/// Encodes the account-transaction mode of the runtime's `AsScarcity` extension.
+///
+/// NFT purse transactions provide `Some(AsNft { .. })`. These ordinary signed remark
+/// transactions must provide `None`, encoded as the zero `Option` discriminant.
+struct AsScarcity;
+
+impl<T: Config> ExtrinsicParams<T> for AsScarcity {
+	type Params = ();
+
+	fn new(_client: &ClientState<T>, _params: Self::Params) -> Result<Self, ExtrinsicParamsError> {
+		Ok(Self)
+	}
+}
+
+impl ExtrinsicParamsEncoder for AsScarcity {
+	fn encode_value_to(&self, value: &mut Vec<u8>) {
+		None::<()>.encode_to(value);
+	}
+}
+
+impl<T: Config> transaction_extensions::TransactionExtension<T> for AsScarcity {
+	type Decoded = Value<()>;
+
+	fn matches(identifier: &str, _type_id: u32, _types: &PortableRegistry) -> bool {
+		identifier == "AsScarcity"
+	}
+}
+
+#[test]
+fn as_scarcity_encodes_account_mode() {
+	let mut encoded = Vec::new();
+	AsScarcity.encode_value_to(&mut encoded);
+	assert_eq!(encoded, [0]);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn block_building_test() -> Result<()> {
 	let _ = env_logger::try_init_from_env(
@@ -134,7 +210,8 @@ async fn assert_node_health(node: &NetworkNode) -> Result<()> {
 }
 
 async fn submit_transaction_and_wait_finalization(node: &NetworkNode) -> Result<()> {
-	let client: OnlineClient<SubstrateConfig> = node.wait_client::<SubstrateConfig>().await?;
+	let client: OnlineClient<ScarcitySubstrateConfig> =
+		node.wait_client::<ScarcitySubstrateConfig>().await?;
 	let signer = dev::alice();
 
 	let remark_call =
@@ -154,7 +231,9 @@ async fn submit_transaction_and_wait_finalization(node: &NetworkNode) -> Result<
 	Ok(())
 }
 
-async fn build_client_with_large_payload(url: &str) -> Result<OnlineClient<SubstrateConfig>> {
+async fn build_client_with_large_payload(
+	url: &str,
+) -> Result<OnlineClient<ScarcitySubstrateConfig>> {
 	use subxt::ext::jsonrpsee::{
 		client_transport::ws::{Url, WsTransportClientBuilder},
 		core::client::Client,
@@ -172,7 +251,7 @@ async fn build_client_with_large_payload(url: &str) -> Result<OnlineClient<Subst
 		.max_buffer_capacity_per_subscription(4096)
 		.build_with_tokio(sender, receiver);
 
-	OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client)
+	OnlineClient::<ScarcitySubstrateConfig>::from_rpc_client(rpc_client)
 		.await
 		.map_err(|e| anyhow!("OnlineClient creation failed: {e}"))
 }
