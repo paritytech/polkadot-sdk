@@ -22,7 +22,8 @@
 //! every submitted package, and a once-per-JAM-slot timer.
 //!
 //! For each block the builder hands over, the manager decides how the package links into the
-//! chain ([`decide_link`]): the first one anchors on the head JAM has accumulated, every later
+//! chain by *obeying* the [`ParentLink`] the builder resolved at that package's anchor
+//! ([`decide_tip_link`]): the first one anchors on the head JAM has accumulated, every later
 //! one names its parent's package as a prerequisite *and* imports that package's segment 0 (the
 //! parent's header), which is how the service learns in-core which unaccumulated block this one
 //! builds on. The package goes out as a bundle carrying that segment inline. A parent whose
@@ -84,6 +85,11 @@ const RETRY_DELAY: Duration = Duration::from_secs(6);
 /// submission. Two clocks, the same length: the anchor must still be in recent history when the
 /// package is reported, and so must the prerequisite's own report.
 const REPORT_DEADLINE_SLOTS: JamSlot = 8;
+
+/// How many accumulated packages [`RecentlyAccumulated`] keeps. It only has to cover the gap
+/// between the builder's tick and the arrival of that tick's block here — milliseconds — so a
+/// handful of blocks is already generous.
+const RECENTLY_ACCUMULATED_CAP: usize = 8;
 
 pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -209,6 +215,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		rebuild_sender,
 		announce_block,
 		chain: InFlightChain::new(),
+		recently_accumulated: RecentlyAccumulated::new(),
 		included_head: None,
 		submitted_blocks: HashSet::new(),
 		statuses: SelectAll::new(),
@@ -309,10 +316,10 @@ impl<Block: BlockT> InFlightChain<Block> {
 		self.entries.iter().position(|entry| entry.wp_hash == wp_hash)
 	}
 
-	/// Everything up to and including `index` has been accumulated; drop it and return what was
-	/// dropped.
-	fn pop_through(&mut self, index: usize) -> Vec<Block::Hash> {
-		self.entries.drain(..=index).map(|entry| entry.block_hash).collect()
+	/// Everything up to and including `index` has been accumulated; drop it and return the
+	/// entries, whose packages stay linkable for a short while ([`RecentlyAccumulated`]).
+	fn pop_through(&mut self, index: usize) -> Vec<InFlight<Block>> {
+		self.entries.drain(..=index).collect()
 	}
 
 	/// `index` and every descendant can never be reported; drop them and return what was dropped.
@@ -329,15 +336,77 @@ impl<Block: BlockT> InFlightChain<Block> {
 	}
 }
 
+/// One package that left the chain because JAM accumulated it.
+struct AccumulatedPackage<Hash> {
+	block_hash: Hash,
+	wp_hash: WorkPackageHash,
+	/// The block's export. A child chaining onto it carries this inline, exactly as it would for
+	/// a parent still in the chain — which is why the entry is kept at all.
+	export: Export,
+}
+
+/// The last few packages JAM accumulated, oldest first.
+///
+/// A parent can accumulate in the moment between the builder's tick and the arrival of the
+/// child's message here: the child was anchored where that parent was still in flight, so its
+/// package must chain onto the parent's, but the chain no longer holds it. This buffer is what
+/// keeps that link available; without it the child looks like a chain root and gets submitted
+/// with a link its own anchor proof contradicts.
+struct RecentlyAccumulated<Hash> {
+	entries: VecDeque<AccumulatedPackage<Hash>>,
+}
+
+/// A parent found in [`RecentlyAccumulated`]: everything the chained link needs, plus how far
+/// back it now sits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AccumulatedParent {
+	wp_hash: WorkPackageHash,
+	export: Export,
+	/// How many of our blocks accumulated after this one.
+	blocks_ago: usize,
+}
+
+impl<Hash: Copy + PartialEq> RecentlyAccumulated<Hash> {
+	fn new() -> Self {
+		Self { entries: VecDeque::new() }
+	}
+
+	fn remember(&mut self, block_hash: Hash, wp_hash: WorkPackageHash, export: Export) {
+		self.entries.push_back(AccumulatedPackage { block_hash, wp_hash, export });
+		while self.entries.len() > RECENTLY_ACCUMULATED_CAP {
+			self.entries.pop_front();
+		}
+	}
+
+	fn parent(&self, block_hash: Hash) -> Option<AccumulatedParent> {
+		let index = self.entries.iter().position(|entry| entry.block_hash == block_hash)?;
+		Some(AccumulatedParent {
+			wp_hash: self.entries[index].wp_hash,
+			export: self.entries[index].export.clone(),
+			blocks_ago: self.entries.len() - 1 - index,
+		})
+	}
+
+	fn len(&self) -> usize {
+		self.entries.len()
+	}
+}
+
 /// How a new block's package links into the chain of in-flight packages.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Link<Hash> {
-	/// Nothing in flight and the block builds on the accumulated head (or on genesis): no
-	/// prerequisite, nothing imported.
-	Root,
+	/// The block builds on the head JAM has accumulated (or on genesis): no prerequisite,
+	/// nothing imported. `drain_accumulated` means this task is still holding the packages for
+	/// that head — the anchor proves they accumulated, so they leave the chain here instead of
+	/// waiting for the para-head subscription to say the same thing.
+	Root { drain_accumulated: bool },
 	/// The block's parent is the chain tip's block: name the tip's package as the prerequisite
 	/// and import its exported header.
 	Chain(WorkPackageHash),
+	/// The block's parent accumulated while the block was on its way over from the builder. The
+	/// link is the ordinary chained one — prerequisite plus import — served from
+	/// [`RecentlyAccumulated`] instead of from the chain.
+	RecentlyAccumulated(AccumulatedParent),
 	/// The block's parent is in flight but its package was never submitted from here — another
 	/// collator's, or ours from before a restart. Start a new chain segment on that package,
 	/// whose export has to be reproduced from the parent's header.
@@ -347,25 +416,59 @@ enum Link<Hash> {
 	Mismatch { expected: Option<Hash> },
 }
 
-/// Decide the link from the chain tip alone — the only thing a new block may extend.
+/// Decide the link for a block whose parent the builder saw as still in flight
+/// ([`ParentLink::Tip`]).
 ///
-/// With an empty chain the block must build on the head JAM has accumulated. The comparison is
-/// skipped while that head is unknown (nothing has been observed on the para-head stream yet),
-/// because the builder proved the very same head against its anchor before authoring; once it is
-/// known, a block naming anything else is a block the builder authored on a chain this task has
-/// already abandoned.
-fn decide_link<Hash: Copy + PartialEq>(
+/// **The anchor state the package carries is the authority here, never this task's newer view
+/// of the para head.** The builder resolved the parent against the head *proven at the anchor*,
+/// and that proof travels inside the PoV: refine checks the block's parent against exactly that
+/// head and takes the import path because of it. A para-head notification that lands here in
+/// the meantime says nothing about the anchor — only that this task has since seen further — so
+/// letting it override the builder would submit a package whose link contradicts its own proof.
+/// That is precisely the failure this function exists to avoid: a root package anchored at a
+/// state proving the head *before* the parent makes refine fail with a missing import, which
+/// zeroes the exports and cascades down every descendant.
+///
+/// Chaining onto a parent that accumulated a moment ago is fully valid: the prerequisite and the
+/// `Indirect` import resolve against recent history, refine imports the parent's header exactly
+/// as it would for a parent still in flight, and accumulate's freshness check finds the stored
+/// head this block's parent is. Only a parent that is in neither the chain nor the buffer is a
+/// genuine disagreement between the two sides.
+fn decide_tip_link<Hash: Copy + PartialEq>(
 	tip: Option<(Hash, WorkPackageHash)>,
 	included_head: Option<Hash>,
+	recently_accumulated: Option<AccumulatedParent>,
 	parent_hash: Hash,
 ) -> Link<Hash> {
 	match tip {
 		Some((tip_block, tip_package)) if tip_block == parent_hash => Link::Chain(tip_package),
 		Some((tip_block, _)) => Link::Mismatch { expected: Some(tip_block) },
-		None => match included_head {
-			Some(head) if head != parent_hash => Link::Mismatch { expected: Some(head) },
-			_ => Link::Root,
+		None => match recently_accumulated {
+			Some(parent) => Link::RecentlyAccumulated(parent),
+			None => Link::Mismatch { expected: included_head },
 		},
+	}
+}
+
+/// Decide the link for a block the builder authored on the para head proven at its anchor
+/// ([`ParentLink::Included`]).
+///
+/// The package is a root: the anchor's own proof shows the parent *is* the accumulated head, so
+/// there is nothing in flight left for it to depend on. This task may still be holding the
+/// packages for that head, because accumulation reached the anchor before it reached the
+/// subscription; the anchor has already proved them accumulated, so they are drained rather
+/// than believed. A chain that ends anywhere else holds blocks the anchor says nothing about —
+/// unaccumulated descendants of the parent, which the builder has forgotten and this task has
+/// not — and rooting a sibling next to them would fork our own chain, so that stays the
+/// ordinary mismatch that resynchronises both sides.
+fn decide_included_link<Hash: Copy + PartialEq>(
+	tip: Option<(Hash, WorkPackageHash)>,
+	parent_hash: Hash,
+) -> Link<Hash> {
+	match tip {
+		Some((tip_block, _)) if tip_block == parent_hash => Link::Root { drain_accumulated: true },
+		Some((tip_block, _)) => Link::Mismatch { expected: Some(tip_block) },
+		None => Link::Root { drain_accumulated: false },
 	}
 }
 
@@ -425,6 +528,9 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	rebuild_sender: mpsc::Sender<()>,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	chain: InFlightChain<Block>,
+	/// The packages that left `chain` because JAM accumulated them, kept just long enough for a
+	/// block anchored while they were still in flight to chain onto one of them.
+	recently_accumulated: RecentlyAccumulated<Block::Hash>,
 	/// The para head last seen in JAM state; `None` until the stream reports one.
 	included_head: Option<Block::Hash>,
 	/// Every para block whose package was submitted, so an accumulated head can be told apart
@@ -456,11 +562,21 @@ where
 		let block_number = *block.header().number();
 		let parent_hash = parent_header.hash();
 
+		// The builder's `ParentLink` is obeyed, not second-guessed: it was resolved against the
+		// para head proven at this package's anchor, and that proof is what refine will check
+		// the block against. Whatever the para-head subscription has told this task since is a
+		// *newer* view than the anchor's, and a newer view cannot invalidate a link the anchor
+		// still proves — see [`decide_tip_link`].
 		let link = match parent_link {
 			ParentLink::Reported { wp_hash, segroot } =>
 				decide_reported_link(self.chain.tip_link(), parent_hash, wp_hash, segroot),
-			ParentLink::Included | ParentLink::Tip =>
-				decide_link(self.chain.tip_link(), self.included_head, parent_hash),
+			ParentLink::Tip => decide_tip_link(
+				self.chain.tip_link(),
+				self.included_head,
+				self.recently_accumulated.parent(parent_hash),
+				parent_hash,
+			),
+			ParentLink::Included => decide_included_link(self.chain.tip_link(), parent_hash),
 		};
 		tracing::debug!(
 			target: LOG_TARGET,
@@ -479,9 +595,42 @@ where
 		// well as its package hash: held for a parent we submitted, recomputed for one we are
 		// adopting on the strength of its report.
 		let (prerequisite, parent_export) = match link {
-			Link::Root => (None, None),
+			Link::Root { drain_accumulated } => {
+				if drain_accumulated {
+					let last = self.chain.depth() - 1;
+					let accumulated = self.chain.pop_through(last);
+					let drained = self.remember_accumulated(accumulated);
+					tracing::info!(
+						target: LOG_TARGET,
+						?block_hash,
+						%block_number,
+						?parent_hash,
+						?drained,
+						"The anchor proves the parent is the accumulated head while this task \
+						 still held the packages for it; draining them and rooting the new \
+						 package, rather than waiting for the para-head subscription to catch up.",
+					);
+				}
+				(None, None)
+			},
 			Link::Chain(parent_package) =>
 				(Some(parent_package), self.chain.tip().map(|tip| tip.export.clone())),
+			Link::RecentlyAccumulated(parent) => {
+				tracing::info!(
+					target: LOG_TARGET,
+					?block_hash,
+					%block_number,
+					?parent_hash,
+					parent_wp_hash = ?parent.wp_hash,
+					accumulated_blocks_ago = parent.blocks_ago,
+					buffered = self.recently_accumulated.len(),
+					"The parent accumulated while this block was on its way over from the \
+					 builder; linking onto its package all the same — the anchor this package \
+					 carries proves the parent was still in flight, so a chained link is what \
+					 refine verifies and a root package is what it would reject.",
+				);
+				(Some(parent.wp_hash), Some(parent.export))
+			},
 			Link::Adopt { wp_hash, segroot } => match adopted_parent_export(&parent_header, segroot)
 			{
 				Ok(export) => (Some(wp_hash), Some(export)),
@@ -888,13 +1037,18 @@ where
 
 		match self.chain.position_of_block(hash) {
 			Some(index) => {
-				let accumulated = self.chain.pop_through(index);
+				let popped = self.chain.pop_through(index);
+				let accumulated = self.remember_accumulated(popped);
 				tracing::info!(
 					target: LOG_TARGET,
 					block_hash = ?hash,
 					block_number = %header.number(),
 					?accumulated,
-					"Para head advanced in JAM state; our packages accumulated.",
+					buffered = self.recently_accumulated.len(),
+					remaining = self.chain.depth(),
+					"Para head advanced in JAM state; our packages accumulated. Their packages \
+					 stay linkable for a few more blocks: a block anchored while they were still \
+					 in flight may be on its way here right now.",
 				);
 			},
 			// The block our chain hangs off, accumulating exactly as it should. It is not one of
@@ -931,6 +1085,18 @@ where
 			},
 		}
 		self.log_chain_state("the para head advanced");
+	}
+
+	/// Move packages JAM has accumulated out of the chain and into the buffer that keeps them
+	/// linkable, returning their blocks for logging.
+	fn remember_accumulated(&mut self, accumulated: Vec<InFlight<Block>>) -> Vec<Block::Hash> {
+		accumulated
+			.into_iter()
+			.map(|entry| {
+				self.recently_accumulated.remember(entry.block_hash, entry.wp_hash, entry.export);
+				entry.block_hash
+			})
+			.collect()
 	}
 
 	/// Drop everything in flight and ask the builder to start again from the accumulated head.
@@ -974,6 +1140,7 @@ where
 			tip_wp_hash = ?self.chain.tip().map(|entry| entry.wp_hash),
 			entries = ?self.chain.block_hashes(),
 			included_head = ?self.included_head,
+			recently_accumulated = self.recently_accumulated.len(),
 			"In-flight chain state.",
 		);
 	}
@@ -1251,13 +1418,30 @@ mod tests {
 		chain
 	}
 
-	/// Nothing in flight and a block on the accumulated head: the package stands on the
-	/// proof-anchored root, with nothing to depend on.
+	/// What the manager does with entries the chain pops as accumulated.
+	fn remember(buffer: &mut RecentlyAccumulated<H256>, accumulated: Vec<InFlight<TestBlock>>) {
+		for entry in accumulated {
+			buffer.remember(entry.block_hash, entry.wp_hash, entry.export);
+		}
+	}
+
+	/// The prerequisite a link turns into at the assembly site.
+	fn prerequisite_of(link: &Link<H256>) -> Option<WorkPackageHash> {
+		match link {
+			Link::Chain(wp_hash) | Link::Adopt { wp_hash, .. } => Some(*wp_hash),
+			Link::RecentlyAccumulated(parent) => Some(parent.wp_hash),
+			Link::Root { .. } | Link::Mismatch { .. } => None,
+		}
+	}
+
+	/// Nothing in flight and a block the builder authored on the accumulated head: the package
+	/// stands on the proof-anchored root, with nothing to depend on and nothing to drain.
 	#[test]
 	fn a_block_on_the_accumulated_head_is_a_root_package() {
-		let head = H256::repeat_byte(1);
-		assert_eq!(decide_link(None, Some(head), head), Link::Root);
-		assert_eq!(decide_link(None, None, head), Link::Root, "before any head is known");
+		assert_eq!(
+			decide_included_link::<H256>(None, H256::repeat_byte(1)),
+			Link::Root { drain_accumulated: false },
+		);
 	}
 
 	/// The normal pipelined case: the block extends the tip, so the package chains onto the
@@ -1266,27 +1450,143 @@ mod tests {
 	fn a_block_on_the_chain_tip_chains_onto_its_package() {
 		let tip_block = H256::repeat_byte(2);
 		assert_eq!(
-			decide_link(Some((tip_block, wp_hash(7))), Some(H256::repeat_byte(1)), tip_block),
+			decide_tip_link(
+				Some((tip_block, wp_hash(7))),
+				Some(H256::repeat_byte(1)),
+				None,
+				tip_block,
+			),
 			Link::Chain(wp_hash(7)),
 		);
 	}
 
-	/// The builder authoring on anything else means the two sides disagree about the chain —
-	/// after a drop-tail, say — and the package must not be submitted: a link to the wrong
-	/// parent is a package the service will reject.
+	/// The builder authoring on a block that is in neither the chain nor the recently-accumulated
+	/// buffer means the two sides disagree about the chain — after a drop-tail, say — and the
+	/// package must not be submitted: a link to the wrong parent is a package the service will
+	/// reject.
 	#[test]
 	fn a_block_on_neither_is_a_mismatch() {
 		let tip_block = H256::repeat_byte(2);
 		let head = H256::repeat_byte(1);
 		let stranger = H256::repeat_byte(3);
 		assert_eq!(
-			decide_link(Some((tip_block, wp_hash(7))), Some(head), stranger),
+			decide_tip_link(Some((tip_block, wp_hash(7))), Some(head), None, stranger),
 			Link::Mismatch { expected: Some(tip_block) },
 		);
 		assert_eq!(
-			decide_link(None, Some(head), stranger),
+			decide_tip_link(None, Some(head), None, stranger),
 			Link::Mismatch { expected: Some(head) },
+			"an empty chain and an empty buffer leave nothing the parent could link onto",
 		);
+	}
+
+	/// The race this buffer exists for, as observed live: the builder anchored where the parent
+	/// was still in flight and said `Tip`, but the parent's accumulation reached the para-head
+	/// subscription first, so the chain is already empty when the block lands here. Rooting the
+	/// package is the bug — its anchor proof shows the head *before* the parent, so refine finds
+	/// a parent it never imported, zeroes the exports and takes every descendant down with it.
+	/// The link has to stay chained onto the parent's package.
+	#[test]
+	fn a_parent_that_accumulated_in_transit_still_chains_onto_its_package() {
+		let mut chain = test_chain(1);
+		let parent = chain.entries[0].block_hash;
+		let mut buffer = RecentlyAccumulated::new();
+		remember(&mut buffer, chain.pop_through(0));
+
+		let link = decide_tip_link(chain.tip_link(), Some(parent), buffer.parent(parent), parent);
+
+		let Link::RecentlyAccumulated(accumulated) = &link else {
+			panic!("the parent is in the buffer, so the link chains onto it: {link:?}");
+		};
+		assert_eq!(accumulated.wp_hash, wp_hash(0));
+		assert_eq!(accumulated.blocks_ago, 0);
+		assert_eq!(
+			accumulated.export,
+			export_of(&header(1, H256::repeat_byte(200)).encode()).unwrap(),
+			"the parent's export travels inline with the child, exactly as from the chain",
+		);
+
+		let package = package_source(prerequisite_of(&link)).package(&anchored(11));
+		assert_eq!(package.context.prerequisites.as_ref(), &[wp_hash(0)][..]);
+		assert_eq!(
+			package.items[0].import_segments.first(),
+			Some(&ImportSpec { root: RootIdentifier::Indirect(wp_hash(0)), index: 0 }),
+		);
+	}
+
+	/// The link is decided by the anchor the package carries, so the order the builder's message
+	/// and the para-head notification happen to reach the manager in cannot change it. Both
+	/// orders name the parent's package; only the source of the parent's export differs.
+	#[test]
+	fn the_link_is_the_same_whichever_event_reaches_the_manager_first() {
+		let message_first = {
+			let chain = test_chain(1);
+			let parent = chain.entries[0].block_hash;
+			decide_tip_link(chain.tip_link(), None, None, parent)
+		};
+		let pop_first = {
+			let mut chain = test_chain(1);
+			let parent = chain.entries[0].block_hash;
+			let mut buffer = RecentlyAccumulated::new();
+			remember(&mut buffer, chain.pop_through(0));
+			decide_tip_link(chain.tip_link(), Some(parent), buffer.parent(parent), parent)
+		};
+
+		assert_eq!(message_first, Link::Chain(wp_hash(0)));
+		assert_eq!(prerequisite_of(&message_first), Some(wp_hash(0)));
+		assert_eq!(prerequisite_of(&pop_first), prerequisite_of(&message_first));
+	}
+
+	/// The mirror image of the same race: the anchor proves the parent is the accumulated head
+	/// while this task is still holding the packages for it. The anchor is the authority, so
+	/// they are drained here rather than waited on, and the package is the root the builder said
+	/// it was.
+	#[test]
+	fn an_included_parent_the_chain_still_holds_drains_it_and_roots_the_package() {
+		let mut chain = test_chain(3);
+		let parent = chain.tip().expect("not empty").block_hash;
+
+		assert_eq!(
+			decide_included_link(chain.tip_link(), parent),
+			Link::Root { drain_accumulated: true },
+		);
+
+		let mut buffer = RecentlyAccumulated::new();
+		let last = chain.depth() - 1;
+		remember(&mut buffer, chain.pop_through(last));
+		assert_eq!(chain.depth(), 0);
+		assert_eq!(buffer.parent(parent).map(|parent| parent.wp_hash), Some(wp_hash(2)));
+	}
+
+	/// A chain that still holds unaccumulated descendants of the parent is not behind the
+	/// anchor — it disagrees with the builder, which has forgotten blocks this task is still
+	/// carrying. Rooting a sibling next to them would fork our own chain, so this stays the
+	/// mismatch that resynchronises both sides.
+	#[test]
+	fn an_included_parent_under_live_descendants_is_a_mismatch() {
+		let chain = test_chain(2);
+		let root_parent = chain.root_parent().expect("not empty");
+
+		assert_eq!(
+			decide_included_link(chain.tip_link(), root_parent),
+			Link::Mismatch { expected: Some(chain.entries[1].block_hash) },
+		);
+	}
+
+	/// The buffer covers the transit window between the builder's tick and this task, not the
+	/// whole history, so it stays bounded and drops the oldest entries first.
+	#[test]
+	fn the_recently_accumulated_buffer_keeps_only_the_last_few_packages() {
+		let mut chain = test_chain(RECENTLY_ACCUMULATED_CAP as u8 + 2);
+		let oldest = chain.entries[0].block_hash;
+		let newest = chain.tip().expect("not empty").block_hash;
+		let mut buffer = RecentlyAccumulated::new();
+		let last = chain.depth() - 1;
+		remember(&mut buffer, chain.pop_through(last));
+
+		assert_eq!(buffer.len(), RECENTLY_ACCUMULATED_CAP);
+		assert_eq!(buffer.parent(oldest), None, "the oldest packages are evicted first");
+		assert_eq!(buffer.parent(newest).map(|parent| parent.blocks_ago), Some(0));
 	}
 
 	/// After a restart, or when another collator authored the parent, the chain is empty and the
