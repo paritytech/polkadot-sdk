@@ -23,9 +23,10 @@
 //!   the JAM tip it caches, extending its unincluded segment rather than waiting for inclusion,
 //!   with the shared authoring primitives and a *mocked* parachain inherent, and feeds the
 //!   channel;
-//! - the [collation task](collation_task) assembles the work package (payload =
-//!   `ParachainCandidate`), submits it, follows `workPackageStatus`, and drives resubmission behind
-//!   a pluggable [policy](resubmission).
+//! - the [collation task](collation_task) links each block's work package onto the one before
+//!   it, submits it as a bundle carrying the parent's exported header ([segments](segments)),
+//!   follows `workPackageStatus` for every package in flight, and drives resubmission and
+//!   drop-tail behind a pluggable [policy](resubmission).
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
@@ -33,6 +34,7 @@
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod resubmission;
+pub(crate) mod segments;
 
 use codec::Decode;
 use futures::{Stream, StreamExt};
@@ -47,7 +49,7 @@ use sp_timestamp::Timestamp;
 
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
-const JAM_SLOT_DURATION_MS: u64 = 6000;
+pub(crate) const JAM_SLOT_DURATION_MS: u64 = 6000;
 
 /// The [`cumulus_primitives_core::AdditionalData`] key under which the anchor state proof
 /// travels inside the PoV.
@@ -76,6 +78,10 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// Proof of the para's included head at the anchor, already verified against
 	/// `anchor_state_root`.
 	pub anchor_state_proof: StateProof,
+	/// The timeslot of the anchor block, which starts the ~8-block clock the package has to be
+	/// reported within. The collation task needs it to tell an expired anchor apart from an
+	/// expired dependency reference when a package fails.
+	pub anchor_slot: JamSlot,
 	/// The JAM best block that triggered this build (for logging).
 	pub triggered_by: BlockDesc,
 }
