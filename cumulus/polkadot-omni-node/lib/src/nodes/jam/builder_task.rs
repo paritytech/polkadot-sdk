@@ -33,12 +33,13 @@
 //! instead of recomputing them from their own clock — exactly as in relay mode.
 
 use super::{
-	JamCollatorMessage, LOG_TARGET, fetch_anchor_state_proof, jam_slot_as_relay_slot, jam_slot_at,
+	JamCollatorMessage, LOG_TARGET, ParentLink, fetch_anchor_state_proof, jam_slot_as_relay_slot,
+	jam_slot_at, segments::export_of,
 };
 use crate::common::{
 	ConstructNodeRuntimeApi, NodeBlock,
 	aura::{AuraIdT, AuraRuntimeApi},
-	types::ParachainClient,
+	types::{ParachainBackend, ParachainClient},
 };
 use codec::{Decode, Encode};
 use cumulus_client_consensus_aura::collator::SlotClaim;
@@ -49,15 +50,16 @@ use futures::{FutureExt, StreamExt, channel::mpsc};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
 	BlockDesc, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
-	StateRootHash,
+	StateRootHash, WorkPackageHash, WorkReport,
 };
 use jam_state_helpers::StateProof;
-use jam_types::RefineContext;
+use jam_types::{RefineContext, SegmentTreeRoot};
 use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
+use sc_client_api::Backend as _;
 use sc_consensus::{BlockImport, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
-use sp_blockchain::HeaderBackend;
+use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Environment, ProposeArgs, Proposer};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_externalities::Extensions;
@@ -67,7 +69,7 @@ use sp_runtime::traits::{Header as HeaderT, UniqueSaturatedInto};
 use sp_timestamp::Timestamp;
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{
-	collections::VecDeque,
+	collections::{HashSet, VecDeque},
 	future::Future,
 	sync::Arc,
 	time::{Duration, Instant},
@@ -96,6 +98,9 @@ const MAX_UNINCLUDED: usize = 8;
 
 pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
+	/// Needed for the block tree alone: correlating JAM's in-flight reports means walking the
+	/// children of the accumulated head, which only the backend's blockchain can enumerate.
+	pub para_backend: Arc<ParachainBackend<Block>>,
 	pub block_import: BI,
 	pub proposer_factory: PF,
 	pub keystore: KeystorePtr,
@@ -106,7 +111,26 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub rebuild_receiver: mpsc::Receiver<()>,
 }
 
-/// The parachain blocks that have been authored but not accumulated by JAM yet.
+/// The in-flight work package JAM's reports say is carrying a block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ReportedPackage {
+	wp_hash: WorkPackageHash,
+	segroot: SegmentTreeRoot,
+}
+
+/// One block in flight, and how its package is known.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SegmentEntry<Header> {
+	header: Header,
+	/// `None` for a block authored this session — the collation manager holds its package and
+	/// knows its hash first-hand. `Some` for one taken from JAM's in-flight reports, which is
+	/// the only way a restarted collator, or one extending another collator's block, can name
+	/// the parent package at all.
+	reported: Option<ReportedPackage>,
+}
+
+/// The parachain blocks that are in flight — authored, or read out of JAM's in-flight reports —
+/// but not accumulated by JAM yet.
 ///
 /// The JAM twin of Cumulus' unincluded segment: `included` is the para head proven in JAM state
 /// at the anchor, `entries` are the blocks chained on top of it, oldest first, each one the child
@@ -114,7 +138,19 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 struct UnincludedSegment<Header> {
 	/// The para head accumulated in JAM state; `None` until the para's first block lands.
 	included: Option<Header>,
-	entries: VecDeque<Header>,
+	entries: VecDeque<SegmentEntry<Header>>,
+}
+
+/// What folding JAM's in-flight reports into the segment did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Adoption {
+	/// In-flight blocks taken from JAM's reports.
+	from_state: usize,
+	/// In-flight blocks authored this session, which always end up on top.
+	from_local: usize,
+	/// The reported chain and the blocks we authored are on different forks. Ours won and the
+	/// reported chain was ignored — the priority order says our own tip beats state.
+	forked: bool,
 }
 
 /// What reading the accumulated para head did to the segment.
@@ -147,8 +183,8 @@ impl<Header: HeaderT> UnincludedSegment<Header> {
 			return PruneOutcome::Unchanged;
 		}
 
-		let position =
-			new_head.and_then(|hash| self.entries.iter().position(|entry| entry.hash() == hash));
+		let position = new_head
+			.and_then(|hash| self.entries.iter().position(|entry| entry.header.hash() == hash));
 		self.included = included;
 		match position {
 			Some(index) => {
@@ -163,14 +199,69 @@ impl<Header: HeaderT> UnincludedSegment<Header> {
 		}
 	}
 
+	/// Rebuild the in-flight part of the segment around the chain JAM's reports describe.
+	///
+	/// The reported chain goes underneath: those packages exist on chain, so a block chaining
+	/// onto them can name one as its prerequisite. The blocks authored this session stay on top
+	/// and stay ours — a package submitted a moment ago is not reported yet and is therefore
+	/// invisible in JAM state, while the collation manager is already tracking it. That is the
+	/// whole reason the priority order puts our own tip above anything read from state.
+	fn adopt(&mut self, reported: Vec<Correlated<Header>>) -> Adoption {
+		let local: VecDeque<SegmentEntry<Header>> =
+			self.entries.drain(..).filter(|entry| entry.reported.is_none()).collect();
+		let ours: HashSet<Header::Hash> = local.iter().map(|entry| entry.header.hash()).collect();
+		// A reported block we authored ourselves is already in `local`, and so is everything
+		// after it on the reported chain — the two lists describe the same line of blocks, so the
+		// reported one is cut where ours takes over.
+		let taken = reported
+			.iter()
+			.position(|block| ours.contains(&block.header.hash()))
+			.unwrap_or(reported.len());
+		let mut adopted: VecDeque<SegmentEntry<Header>> = reported
+			.into_iter()
+			.take(taken)
+			.map(|block| SegmentEntry { header: block.header, reported: Some(block.package) })
+			.collect();
+
+		let base = adopted
+			.back()
+			.map(|entry| entry.header.hash())
+			.or_else(|| self.included.as_ref().map(|header| header.hash()));
+		// With no accumulated head and nothing adopted, our blocks start at genesis and there is
+		// nothing here to check them against.
+		let joins = match (local.front(), base) {
+			(None, _) | (Some(_), None) => true,
+			(Some(first), Some(base)) => *first.header.parent_hash() == base,
+		};
+
+		let (from_state, from_local) = (adopted.len(), local.len());
+		if joins {
+			adopted.extend(local);
+			self.entries = adopted;
+			Adoption { from_state, from_local, forked: false }
+		} else {
+			self.entries = local;
+			Adoption { from_state: 0, from_local, forked: true }
+		}
+	}
+
 	/// The block to author on: the deepest in-flight block, else the accumulated head. `None`
 	/// means the para has no head at all yet and the next block is its first.
 	fn tip(&self) -> Option<&Header> {
-		self.entries.back().or(self.included.as_ref())
+		self.entries.back().map(|entry| &entry.header).or(self.included.as_ref())
+	}
+
+	/// How the next block's package attaches to the block [`Self::tip`] names.
+	fn parent_link(&self) -> ParentLink {
+		match self.entries.back().and_then(|entry| entry.reported) {
+			None if self.entries.is_empty() => ParentLink::Included,
+			None => ParentLink::Tip,
+			Some(ReportedPackage { wp_hash, segroot }) => ParentLink::Reported { wp_hash, segroot },
+		}
 	}
 
 	fn push(&mut self, header: Header) {
-		self.entries.push_back(header);
+		self.entries.push_back(SegmentEntry { header, reported: None });
 	}
 
 	/// Forget everything in flight, keeping the accumulated head. Sent by the collation task when
@@ -188,8 +279,213 @@ impl<Header: HeaderT> UnincludedSegment<Header> {
 	}
 
 	fn entry_hashes(&self) -> Vec<Header::Hash> {
-		self.entries.iter().map(|entry| entry.hash()).collect()
+		self.entries.iter().map(|entry| entry.header.hash()).collect()
 	}
+}
+
+/// One work package JAM currently has in flight, reduced to what correlation needs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InFlightReport {
+	wp_hash: WorkPackageHash,
+	/// The root of the package's export tree. The only handle the collator has on "which block
+	/// is this package carrying": the work output that would say so outright is the parachain
+	/// service's own format, and decoding it would tie the collator to one service.
+	segroot: SegmentTreeRoot,
+	source: ReportSource,
+}
+
+/// Which of JAM's two in-flight state entries a report was read from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReportSource {
+	/// `C(10)`: reported by guarantors, data still being made available.
+	Availability,
+	/// `C(14)`: available, queued for accumulation behind its dependencies.
+	ReadyQueue,
+}
+
+/// A block we hold whose header reproduces an in-flight report's export root.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Correlated<Header> {
+	header: Header,
+	package: ReportedPackage,
+}
+
+/// What one tick's in-flight reports say about the blocks we hold.
+#[derive(Debug, PartialEq, Eq)]
+struct Correlation<Header: HeaderT> {
+	/// The reported blocks forming an unbroken line from the included head, oldest first.
+	chain: Vec<Correlated<Header>>,
+	/// Reports matching a block we hold that is not on that line: someone is building a fork.
+	off_chain: Vec<(WorkPackageHash, Header::Hash)>,
+	/// Reports matching no block we hold. Someone's chain is ahead of ours and we are waiting
+	/// for the block itself to be announced — never an error, just something to wait for.
+	unmatched: Vec<InFlightReport>,
+}
+
+/// Match JAM's in-flight reports to blocks we hold, by export root alone.
+///
+/// The collator never decodes a report's work output, so the only correlation available is: take
+/// a block we hold, recompute the export its package must have published ([`export_of`], the same
+/// helper the collation task builds the real export with), and see whether a report commits to
+/// that root. The matches are then threaded into a chain by parent-hash linkage from the included
+/// head, because that is the order the packages depend on each other in.
+fn correlate<Header: HeaderT>(
+	reports: &[InFlightReport],
+	candidates: &[Header],
+	included_hash: Header::Hash,
+) -> Correlation<Header> {
+	let roots: Vec<(SegmentTreeRoot, &Header)> = candidates
+		.iter()
+		.filter_map(|header| match export_of(&header.encode()) {
+			Ok(export) => Some((export.segroot, header)),
+			Err(error) => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					block = ?header.hash(),
+					error,
+					"Cannot recompute the export root of a block we hold; no report will ever be \
+					 correlated to it.",
+				);
+				None
+			},
+		})
+		.collect();
+
+	let mut matched: Vec<(&InFlightReport, &Header)> = Vec::new();
+	let mut unmatched = Vec::new();
+	for report in reports {
+		match roots.iter().find(|(segroot, _)| *segroot == report.segroot) {
+			Some((_, header)) => matched.push((report, header)),
+			None => unmatched.push(*report),
+		}
+	}
+
+	let mut chain = Vec::new();
+	let mut parent = included_hash;
+	while chain.len() < MAX_UNINCLUDED {
+		let Some(position) = matched.iter().position(|(_, header)| *header.parent_hash() == parent)
+		else {
+			break;
+		};
+		let (report, header) = matched.remove(position);
+		parent = header.hash();
+		chain.push(Correlated {
+			header: header.clone(),
+			package: ReportedPackage { wp_hash: report.wp_hash, segroot: report.segroot },
+		});
+	}
+
+	let off_chain =
+		matched.into_iter().map(|(report, header)| (report.wp_hash, header.hash())).collect();
+	Correlation { chain, off_chain, unmatched }
+}
+
+/// The blocks we hold that descend from `included`, at most [`MAX_UNINCLUDED`] generations down.
+///
+/// Every block an in-flight report could be carrying is somewhere in this tree: a package in
+/// flight was built on the accumulated head or on another in-flight block, and the segment can be
+/// no deeper than that bound. Sibling forks are kept — several collators may have reported
+/// children of the same block, and working out which of them is on the reported chain is exactly
+/// what [`correlate`] does.
+fn known_descendants<Block: NodeBlock>(
+	backend: &ParachainBackend<Block>,
+	included: Block::Hash,
+) -> Vec<Block::Header> {
+	let blockchain = backend.blockchain();
+	let mut frontier = vec![included];
+	let mut descendants = Vec::new();
+	for _ in 0..MAX_UNINCLUDED {
+		let mut next = Vec::new();
+		for hash in frontier {
+			let children = match blockchain.children(hash) {
+				Ok(children) => children,
+				Err(error) => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?hash,
+						?error,
+						"Cannot list a block's children; the in-flight search stops here.",
+					);
+					continue;
+				},
+			};
+			for child in children {
+				if let Ok(Some(header)) = blockchain.header(child) {
+					descendants.push(header);
+					next.push(child);
+				}
+			}
+		}
+		if next.is_empty() {
+			break;
+		}
+		frontier = next;
+	}
+	descendants
+}
+
+/// The work packages JAM has in flight for our service, from both places state keeps them.
+///
+/// Filtering is by service id — a protocol-level field of a report's per-item digest — and
+/// nothing else is taken from the digest: the work output's format belongs to the service, and
+/// reading it would make this collator work against one service only.
+async fn read_in_flight_reports<Jam: JamStateSource + ?Sized>(
+	jam: &Jam,
+	anchor: HeaderHash,
+	service_id: ServiceId,
+) -> Result<Vec<InFlightReport>, String> {
+	let started = Instant::now();
+	let availability =
+		jam.availability(anchor).await.map_err(|error| format!("availability: {error}"))?;
+	let availability_ms = started.elapsed().as_millis();
+	let started = Instant::now();
+	let ready = jam.ready_queue(anchor).await.map_err(|error| format!("readyQueue: {error}"))?;
+	let ready_queue_ms = started.elapsed().as_millis();
+
+	let mut reports = Vec::new();
+	for assignment in availability.iter().flatten() {
+		push_report(&mut reports, &assignment.report, ReportSource::Availability, service_id);
+	}
+	let from_availability = reports.len();
+	for record in ready.iter().flatten() {
+		push_report(&mut reports, &record.report, ReportSource::ReadyQueue, service_id);
+	}
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		method = "availability + readyQueue",
+		at = ?anchor,
+		service_id,
+		cores = availability.len(),
+		epoch_phases = ready.len(),
+		from_availability,
+		from_ready_queue = reports.len() - from_availability,
+		?reports,
+		availability_ms,
+		ready_queue_ms,
+		"JAM read: the work packages in flight for our service.",
+	);
+	Ok(reports)
+}
+
+/// Keep a report if it refines something for our service and is not already listed.
+///
+/// The same package can sit in both state entries across a tick's two reads, and JAM keys them by
+/// package hash, so the hash is what deduplicates.
+fn push_report(
+	reports: &mut Vec<InFlightReport>,
+	report: &WorkReport,
+	source: ReportSource,
+	service_id: ServiceId,
+) {
+	if !report.results.iter().any(|digest| digest.service == service_id) {
+		return;
+	}
+	let wp_hash = report.package_spec.hash;
+	if reports.iter().any(|seen| seen.wp_hash == wp_hash) {
+		return;
+	}
+	reports.push(InFlightReport { wp_hash, segroot: report.package_spec.exports_root, source });
 }
 
 /// What the builder remembers between ticks.
@@ -207,6 +503,8 @@ struct AnchorReads {
 	/// The para's entry in the service's state, exactly as stored; `None` = no head yet.
 	included: Option<Vec<u8>>,
 	proof: StateProof,
+	/// Our service's work packages that JAM has in flight at this anchor.
+	reports: Vec<InFlightReport>,
 }
 
 /// How long until the next para slot starts.
@@ -277,6 +575,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 {
 	let BuilderTaskParams {
 		para_client,
+		para_backend,
 		mut block_import,
 		mut proposer_factory,
 		keystore,
@@ -316,9 +615,10 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		"JAM builder task started; building one block per parachain slot.",
 	);
 
-	// The segment starts empty because 5.2 only ever feeds it blocks we author ourselves;
-	// reconstructing what is already in flight (after a restart, or authored by another
-	// collator) is filled from JAM state in 5.4.
+	// The segment starts empty and every tick rebuilds it: the blocks JAM's in-flight reports
+	// name go underneath, ours on top. That is what carries a restart across (nothing was
+	// authored this session, so the whole segment comes from state) and what lets this collator
+	// extend a block another one authored.
 	let mut state = BuilderState { last_claimed_slot: None, segment: UnincludedSegment::new() };
 	let mut cached_tip: Option<BlockDesc> = None;
 	loop {
@@ -372,6 +672,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 
 		match run_tick::<Block, RuntimeApi, AuraId, _, _, _>(
 			&para_client,
+			&para_backend,
 			&mut block_import,
 			&mut proposer_factory,
 			&keystore,
@@ -420,6 +721,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 /// `Ok(None)` means the tick was skipped; the reason is always logged where it was decided.
 async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	para_client: &Arc<ParachainClient<Block, RuntimeApi>>,
+	para_backend: &ParachainBackend<Block>,
 	block_import: &mut BI,
 	proposer_factory: &mut PF,
 	keystore: &KeystorePtr,
@@ -498,8 +800,14 @@ where
 			return Ok(None);
 		},
 	};
-	let Some(AnchorReads { anchor, context, state_root, included, proof: anchor_state_proof }) =
-		reads
+	let Some(AnchorReads {
+		anchor,
+		context,
+		state_root,
+		included,
+		proof: anchor_state_proof,
+		reports,
+	}) = reads
 	else {
 		return Ok(None);
 	};
@@ -549,6 +857,49 @@ where
 	}
 
 	let genesis_hash = para_client.info().genesis_hash;
+	let included_hash =
+		state.segment.included.as_ref().map(|header| header.hash()).unwrap_or(genesis_hash);
+	let candidates = known_descendants::<Block>(para_backend, included_hash);
+	let correlation = correlate(&reports, &candidates, included_hash);
+	for report in &correlation.unmatched {
+		tracing::info!(
+			target: LOG_TARGET,
+			wp_hash = ?report.wp_hash,
+			segroot = ?report.segroot,
+			source = ?report.source,
+			?included_hash,
+			"A work package is in flight for a block we do not hold; someone's chain is ahead of \
+			 ours and we are waiting for the block announcement.",
+		);
+	}
+	let reported_chain = correlation.chain.len();
+	let adoption = state.segment.adopt(correlation.chain);
+	tracing::debug!(
+		target: LOG_TARGET,
+		?included_hash,
+		known_descendants = candidates.len(),
+		reports = reports.len(),
+		reported_chain,
+		off_chain = ?correlation.off_chain,
+		unmatched = correlation.unmatched.len(),
+		from_state = adoption.from_state,
+		from_local = adoption.from_local,
+		depth = state.segment.depth(),
+		entries = ?state.segment.entry_hashes(),
+		"Unincluded segment reconstructed from JAM's in-flight reports.",
+	);
+	if adoption.forked {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?included_hash,
+			reported_chain,
+			from_local = adoption.from_local,
+			entries = ?state.segment.entry_hashes(),
+			"The reported chain does not join the blocks we authored; keeping ours and ignoring \
+			 it — another collator is building a fork of the accumulated head.",
+		);
+	}
+
 	let parent_source = match (state.segment.depth(), state.segment.included.is_some()) {
 		(0, false) => "genesis",
 		(0, true) => "accumulated head",
@@ -563,11 +914,13 @@ where
 			.ok_or_else(|| format!("genesis header {genesis_hash:?} not found"))?,
 	};
 	let parent_hash = parent_header.hash();
+	let parent_link = state.segment.parent_link();
 	tracing::debug!(
 		target: LOG_TARGET,
 		parent_source,
 		parent = ?parent_hash,
 		parent_number = %parent_header.number(),
+		?parent_link,
 		depth = state.segment.depth(),
 		"Parent selected.",
 	);
@@ -594,8 +947,6 @@ where
 		return Ok(None);
 	}
 
-	let included_hash =
-		state.segment.included.as_ref().map(|header| header.hash()).unwrap_or(genesis_hash);
 	let started = Instant::now();
 	let can_build = can_build_upon::<Block, RuntimeApi, AuraId>(
 		para_client,
@@ -657,6 +1008,7 @@ where
 		timestamp = now.as_millis(),
 		parent = ?parent_hash,
 		parent_number = %parent_header.number(),
+		?parent_link,
 		depth = state.segment.depth(),
 		"Building a parachain block against the JAM anchor.",
 	);
@@ -734,6 +1086,7 @@ where
 
 	Ok(Some(JamCollatorMessage {
 		parent_header,
+		parent_link,
 		block,
 		proof,
 		context,
@@ -772,6 +1125,21 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 		jam.service_value(anchor.header_hash, service_id, &para_info_key(para_id.into())),
 	)
 	.await?;
+	// Reconstruction is an addition to what the builder could already do, so losing it must not
+	// cost a block: without reports the tick simply keeps whatever it is already holding, which
+	// is exactly 5.3's behaviour.
+	let reports = read_in_flight_reports(jam, anchor.header_hash, service_id)
+		.await
+		.unwrap_or_else(|error| {
+			tracing::warn!(
+				target: LOG_TARGET,
+				anchor = ?anchor.header_hash,
+				error,
+				"Unable to read JAM's in-flight reports; this tick reconstructs nothing and \
+				 builds on the blocks it already holds.",
+			);
+			Vec::new()
+		});
 
 	let started = Instant::now();
 	let (proof, proved_head) =
@@ -814,6 +1182,7 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 		state_root,
 		included,
 		proof,
+		reports,
 	}))
 }
 
@@ -953,11 +1322,76 @@ mod tests {
 			.collect()
 	}
 
+	/// A segment whose in-flight blocks were all authored by this collator.
 	fn segment_of(
 		included: Option<TestHeader>,
 		entries: &[TestHeader],
 	) -> UnincludedSegment<TestHeader> {
-		UnincludedSegment { included, entries: entries.iter().cloned().collect() }
+		UnincludedSegment {
+			included,
+			entries: entries
+				.iter()
+				.cloned()
+				.map(|header| SegmentEntry { header, reported: None })
+				.collect(),
+		}
+	}
+
+	fn reported_package(byte: u8, header: &TestHeader) -> ReportedPackage {
+		ReportedPackage {
+			wp_hash: WorkPackageHash::from([byte; 32]),
+			segroot: export_of(&header.encode()).expect("a header fits a segment").segroot,
+		}
+	}
+
+	/// A report for `header`, as a collator that holds the block would have to recognise it:
+	/// nothing but the export root ties the two together.
+	fn report_for(byte: u8, header: &TestHeader) -> InFlightReport {
+		let package = reported_package(byte, header);
+		InFlightReport {
+			wp_hash: package.wp_hash,
+			segroot: package.segroot,
+			source: ReportSource::Availability,
+		}
+	}
+
+	fn correlated(byte: u8, header: &TestHeader) -> Correlated<TestHeader> {
+		Correlated { header: header.clone(), package: reported_package(byte, header) }
+	}
+
+	/// A work report as JAM state holds it, carrying one item refined by `service`.
+	fn work_report(byte: u8, service: ServiceId, segroot: SegmentTreeRoot) -> WorkReport {
+		let digest = jam_types::WorkDigest {
+			service,
+			code_hash: Default::default(),
+			payload_hash: Default::default(),
+			accumulate_gas: 0,
+			result: Ok(Default::default()),
+			refine_load: Default::default(),
+		};
+		WorkReport {
+			package_spec: jam_std_common::WorkPackageSpec {
+				hash: WorkPackageHash::from([byte; 32]),
+				len: 0,
+				erasure_root: Default::default(),
+				exports_root: segroot,
+				exports_count: 1,
+			},
+			context: RefineContext {
+				anchor: Default::default(),
+				state_root: Default::default(),
+				beefy_root: Default::default(),
+				lookup_anchor: Default::default(),
+				lookup_anchor_slot: 0,
+				prerequisites: Default::default(),
+			},
+			core_index: 0,
+			authorizer_hash: Default::default(),
+			auth_gas_used: 0,
+			auth_output: Default::default(),
+			sr_lookup: Default::default(),
+			results: vec![digest].try_into().expect("a single digest always fits; qed"),
+		}
 	}
 
 	/// The normal pipelined case: JAM accumulated the oldest in-flight block, so exactly that one
@@ -1074,6 +1508,221 @@ mod tests {
 		assert_eq!(time_until_next_para_slot(Duration::from_millis(1000), slot).as_millis(), 5000);
 		assert_eq!(time_until_next_para_slot(Duration::from_millis(5999), slot).as_millis(), 1);
 		assert_eq!(time_until_next_para_slot(Duration::from_millis(6000), slot).as_millis(), 6000);
+	}
+
+	/// The one handle correlation has: a report is recognised as carrying a block only because
+	/// the block's header, laid out as an export segment, hashes to the root the report commits
+	/// to. Nothing in the report's work output is read.
+	#[test]
+	fn a_report_matches_the_block_whose_header_reproduces_its_export_root() {
+		let chain = chain(2);
+		let correlation = correlate(&[report_for(1, &chain[1])], &chain[1..], chain[0].hash());
+
+		assert_eq!(correlation.chain, vec![correlated(1, &chain[1])]);
+		assert!(correlation.unmatched.is_empty());
+		assert!(correlation.off_chain.is_empty());
+	}
+
+	/// A package in flight for a block nobody has sent us is the normal multi-collator race, not
+	/// an error: it has to come back as "unmatched" so the tick can say it is waiting for the
+	/// block announcement rather than dropping the report on the floor.
+	#[test]
+	fn a_report_for_a_block_we_do_not_hold_is_unmatched() {
+		let chain = chain(2);
+		let report = report_for(1, &chain[1]);
+
+		let correlation = correlate::<TestHeader>(&[report], &[], chain[0].hash());
+
+		assert!(correlation.chain.is_empty());
+		assert_eq!(correlation.unmatched, vec![report]);
+	}
+
+	/// Packages depend on each other in block order, so the matches have to come back in that
+	/// order — and the only ordering available is parent-hash linkage from the included head,
+	/// which must hold whatever order the reports and the block tree arrive in.
+	#[test]
+	fn reports_are_threaded_into_a_chain_by_parent_linkage() {
+		let chain = chain(4);
+		let reports =
+			[report_for(3, &chain[3]), report_for(1, &chain[1]), report_for(2, &chain[2])];
+		let candidates = [chain[2].clone(), chain[3].clone(), chain[1].clone()];
+
+		let correlation = correlate(&reports, &candidates, chain[0].hash());
+
+		assert_eq!(
+			correlation.chain,
+			vec![correlated(1, &chain[1]), correlated(2, &chain[2]), correlated(3, &chain[3])],
+		);
+	}
+
+	/// The multi-collator case 5.4 exists for: another collator's block is in flight and ours is
+	/// its child. Both are reported, both must land on the same chain, and nothing distinguishes
+	/// them here — correlation does not know or care who authored what.
+	#[test]
+	fn a_foreign_block_and_ours_thread_into_one_chain() {
+		let chain = chain(3);
+		let (theirs, ours) = (&chain[1], &chain[2]);
+
+		let correlation = correlate(
+			&[report_for(9, theirs), report_for(8, ours)],
+			&[theirs.clone(), ours.clone()],
+			chain[0].hash(),
+		);
+
+		assert_eq!(correlation.chain, vec![correlated(9, theirs), correlated(8, ours)]);
+	}
+
+	/// A block we hold that does not descend from the included head in an unbroken line is on
+	/// somebody's fork; it must stay off the chain (its package cannot be a parent of ours) but
+	/// still be reported as matched, or a fork would look exactly like a missing block.
+	#[test]
+	fn a_matched_block_off_the_included_line_does_not_join_the_chain() {
+		let chain = chain(3);
+		let orphan = &chain[2];
+
+		let correlation = correlate(&[report_for(5, orphan)], &[orphan.clone()], chain[0].hash());
+
+		assert!(correlation.chain.is_empty());
+		assert!(correlation.unmatched.is_empty());
+		assert_eq!(correlation.off_chain, vec![(WorkPackageHash::from([5u8; 32]), orphan.hash())]);
+	}
+
+	/// The segment is bounded, so the reconstructed chain must be too — a JAM state showing more
+	/// in-flight blocks than the bound allows would otherwise rebuild a segment the capacity gate
+	/// was never asked about.
+	#[test]
+	fn the_reconstructed_chain_is_depth_capped() {
+		let chain = chain(MAX_UNINCLUDED as u32 + 3);
+		let reports: Vec<_> =
+			chain[1..].iter().enumerate().map(|(i, h)| report_for(i as u8, h)).collect();
+
+		let correlation = correlate(&reports, &chain[1..], chain[0].hash());
+
+		assert_eq!(correlation.chain.len(), MAX_UNINCLUDED);
+	}
+
+	/// Only our service's packages may be correlated: another service's report commits to its own
+	/// export root, and matching one would chain our block onto a package that carries something
+	/// else entirely.
+	#[test]
+	fn only_reports_for_our_service_are_kept() {
+		let segroot = SegmentTreeRoot::from([1u8; 32]);
+		let mut reports = Vec::new();
+
+		push_report(&mut reports, &work_report(1, 7, segroot), ReportSource::Availability, 42);
+		push_report(&mut reports, &work_report(2, 42, segroot), ReportSource::Availability, 42);
+
+		assert_eq!(
+			reports,
+			vec![InFlightReport {
+				wp_hash: WorkPackageHash::from([2u8; 32]),
+				segroot,
+				source: ReportSource::Availability,
+			}],
+		);
+	}
+
+	/// The same package sits in availability at one moment and in the ready queue the next, and a
+	/// tick reads both; listing it twice would put the same block in the segment twice.
+	#[test]
+	fn a_package_listed_in_both_state_entries_is_kept_once() {
+		let segroot = SegmentTreeRoot::from([1u8; 32]);
+		let mut reports = Vec::new();
+
+		push_report(&mut reports, &work_report(1, 42, segroot), ReportSource::Availability, 42);
+		push_report(&mut reports, &work_report(1, 42, segroot), ReportSource::ReadyQueue, 42);
+
+		assert_eq!(reports.len(), 1);
+		assert_eq!(reports[0].source, ReportSource::Availability);
+	}
+
+	/// The restart case. Nothing was authored this session, so the entire segment comes from
+	/// JAM's reports, and the next block is built on the deepest of them.
+	#[test]
+	fn a_restarted_collator_rebuilds_its_whole_segment_from_the_reports() {
+		let chain = chain(3);
+		let mut segment = segment_of(Some(chain[0].clone()), &[]);
+
+		let adoption = segment.adopt(vec![correlated(1, &chain[1]), correlated(2, &chain[2])]);
+
+		assert_eq!(adoption, Adoption { from_state: 2, from_local: 0, forked: false });
+		assert_eq!(segment.entry_hashes(), vec![chain[1].hash(), chain[2].hash()]);
+		assert_eq!(segment.tip().map(|header| header.hash()), Some(chain[2].hash()));
+	}
+
+	/// Our own packages are invisible in JAM state for a slot or two after submission, so a
+	/// reconstruction that replaced the blocks we authored with what state can see would keep
+	/// re-rooting the chain one block short of where it actually is.
+	#[test]
+	fn adopting_keeps_the_blocks_we_authored_on_top() {
+		let chain = chain(3);
+		let mut segment = segment_of(Some(chain[0].clone()), &chain[2..]);
+
+		let adoption = segment.adopt(vec![correlated(1, &chain[1])]);
+
+		assert_eq!(adoption, Adoption { from_state: 1, from_local: 1, forked: false });
+		assert_eq!(segment.entry_hashes(), vec![chain[1].hash(), chain[2].hash()]);
+		assert_eq!(segment.parent_link(), ParentLink::Tip);
+	}
+
+	/// A block of ours that JAM has now reported is still ours: adopting it as well would put it
+	/// in the segment twice and, worse, make the collation manager re-root onto a package it is
+	/// already tracking.
+	#[test]
+	fn a_reported_block_we_authored_is_not_adopted_a_second_time() {
+		let chain = chain(2);
+		let mut segment = segment_of(Some(chain[0].clone()), &chain[1..]);
+
+		let adoption = segment.adopt(vec![correlated(1, &chain[1])]);
+
+		assert_eq!(adoption, Adoption { from_state: 0, from_local: 1, forked: false });
+		assert_eq!(segment.entry_hashes(), vec![chain[1].hash()]);
+		assert_eq!(segment.parent_link(), ParentLink::Tip);
+	}
+
+	/// Reported chain and our own blocks on different children of the included head: the priority
+	/// order says our own tip wins, and abandoning our blocks for someone else's fork would throw
+	/// away packages that are still perfectly able to accumulate.
+	#[test]
+	fn a_reported_fork_that_does_not_join_our_blocks_is_ignored() {
+		let ours = chain(2);
+		let mut theirs = ours[1].clone();
+		theirs.state_root = H256::repeat_byte(0xaa);
+		let mut segment = segment_of(Some(ours[0].clone()), &ours[1..]);
+
+		let adoption = segment.adopt(vec![correlated(4, &theirs)]);
+
+		assert_eq!(adoption, Adoption { from_state: 0, from_local: 1, forked: true });
+		assert_eq!(segment.entry_hashes(), vec![ours[1].hash()]);
+	}
+
+	/// The priority order the timing gap forces: a package we submitted a moment ago is not
+	/// reported yet, so our own tip has to outrank anything state can show; state in turn
+	/// outranks the accumulated head, which is only the root case.
+	#[test]
+	fn the_parent_link_follows_the_priority_order() {
+		let chain = chain(3);
+
+		assert_eq!(segment_of(Some(chain[0].clone()), &[]).parent_link(), ParentLink::Included);
+
+		let mut state_only = segment_of(Some(chain[0].clone()), &[]);
+		state_only.adopt(vec![correlated(1, &chain[1])]);
+		assert_eq!(
+			state_only.parent_link(),
+			ParentLink::Reported {
+				wp_hash: WorkPackageHash::from([1u8; 32]),
+				segroot: export_of(&chain[1].encode()).unwrap().segroot,
+			},
+			"with nothing of our own in flight, the reported tip is the parent",
+		);
+
+		let mut ours_on_top = segment_of(Some(chain[0].clone()), &chain[2..]);
+		ours_on_top.adopt(vec![correlated(1, &chain[1])]);
+		assert_eq!(
+			ours_on_top.parent_link(),
+			ParentLink::Tip,
+			"a block we authored outranks anything read from state",
+		);
 	}
 
 	/// The consensus hook panics unless the block's Aura slot equals the slot it derives from the

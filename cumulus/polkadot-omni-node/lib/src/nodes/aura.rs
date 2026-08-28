@@ -582,6 +582,7 @@ where
 
 		let jam_init = {
 			let client = client.clone();
+			let para_backend = backend.clone();
 			let keystore = keystore_container.keystore();
 			let spawn_essential = task_manager.spawn_essential_handle();
 			let announce_block = announce_block.clone();
@@ -664,6 +665,7 @@ where
 						_,
 					>(jam::builder_task::BuilderTaskParams {
 						para_client: client.clone(),
+						para_backend,
 						block_import,
 						proposer_factory,
 						keystore,

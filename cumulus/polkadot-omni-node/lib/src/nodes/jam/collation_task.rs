@@ -384,6 +384,7 @@ where
 	async fn on_new_block(&mut self, message: JamCollatorMessage<Block>) {
 		let JamCollatorMessage {
 			parent_header,
+			parent_link,
 			block,
 			proof,
 			context,
@@ -402,6 +403,7 @@ where
 			?block_hash,
 			%block_number,
 			?parent_hash,
+			?parent_link,
 			included_head = ?self.included_head,
 			chain_depth = self.chain.depth(),
 			chain_tip = ?self.chain.tip_link().map(|(block, _)| block),
