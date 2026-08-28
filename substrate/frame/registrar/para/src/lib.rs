@@ -226,8 +226,8 @@ pub struct ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumbe
 /// The [`ParaInfo`] type as configured.
 pub type ParaInfoOf<T> = ParaInfo<
 	<T as frame_system::Config>::AccountId,
-	<T as Config>::ReservationConsideration,
-	<T as Config>::RegistrationConsideration,
+	Option<<T as Config>::ReservationConsideration>,
+	Option<<T as Config>::RegistrationConsideration>,
 	ProvidedBlockNumberOf<T>,
 >;
 
@@ -418,6 +418,15 @@ pub mod pallet {
 		/// to apply it. The cost is burned here and is not returned if the relay chain finds
 		/// nothing to drop.
 		UpgradeCooldownRemovalRequested { para_id: ParaId, message_id: u64, who: T::AccountId },
+		/// A migrated para arrived whose manager could not cover one or both of this chain's
+		/// deposits. The para is registered regardless — it is a live parachain, and refusing it
+		/// would leave it with no control plane on either chain — but it holds storage it has not
+		/// paid for until governance settles or removes it.
+		MigratedWithUnpaidDeposit { para_id: ParaId, manager: T::AccountId },
+		/// A migrated para id below [`Config::FirstPublicParaId`] was ignored. System chains are
+		/// not registered through this pallet and their lifecycle stays with relay-chain
+		/// governance.
+		SystemParaSkipped { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -502,7 +511,8 @@ pub mod pallet {
 			let para_id = Self::next_free_para_id()?;
 			let next = para_id.checked_add(1).ok_or(Error::<T>::NoFreeParaId)?;
 
-			let reservation = T::ReservationConsideration::new(&who, Footprint::from_parts(1, 0))?;
+			let reservation =
+				Some(T::ReservationConsideration::new(&who, Footprint::from_parts(1, 0))?);
 
 			Paras::<T>::insert(
 				para_id,
@@ -553,10 +563,10 @@ pub mod pallet {
 			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
 			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
 
-			let ticket = T::RegistrationConsideration::new(
+			let ticket = Some(T::RegistrationConsideration::new(
 				&who,
 				Self::registration_footprint(head_len),
-			)?;
+			)?);
 
 			let cancellable_at = T::BlockNumberProvider::current_block_number()
 				.saturating_add(T::PendingDeadline::get());
@@ -679,7 +689,7 @@ pub mod pallet {
 
 			match state {
 				RegistrationState::Reserved => {
-					reservation.drop(&manager)?;
+					Self::drop_reservation(reservation, &manager)?;
 					Paras::<T>::remove(para_id);
 					Self::deposit_event(Event::Deregistered { para_id, manager });
 				},
@@ -920,12 +930,12 @@ pub mod pallet {
 			ensure!(overdue, Error::<T>::CannotCancelYet);
 
 			let ParaInfo { manager, reservation, state, .. } = info;
-			reservation.drop(&manager)?;
+			Self::drop_reservation(reservation, &manager)?;
 			match state {
 				RegistrationState::Pending { ticket, .. } |
 				RegistrationState::Registered { ticket } |
 				RegistrationState::Deregistering { ticket, .. } => {
-					ticket.drop(&manager)?;
+					Self::drop_registration(ticket, &manager)?;
 				},
 				RegistrationState::Reserved => {},
 			}
@@ -1148,7 +1158,7 @@ impl<T: Config> Pallet<T> {
 				T::OnRegistered::on_registered(para_id);
 			},
 			Err(reason) => {
-				ticket.drop(&info.manager)?;
+				Self::drop_registration(ticket, &info.manager)?;
 				info.state = RegistrationState::Reserved;
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationFailed {
@@ -1188,7 +1198,7 @@ impl<T: Config> Pallet<T> {
 		let manager = info.manager.clone();
 		match outcome {
 			Ok(()) => {
-				ticket.drop(&info.manager)?;
+				Self::drop_registration(ticket, &info.manager)?;
 				info.state = RegistrationState::Reserved;
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationCancelled { para_id, message_id, manager });
@@ -1230,8 +1240,8 @@ impl<T: Config> Pallet<T> {
 
 		match outcome {
 			Ok(()) => {
-				ticket.drop(&manager)?;
-				reservation.drop(&manager)?;
+				Self::drop_registration(ticket, &manager)?;
+				Self::drop_reservation(reservation, &manager)?;
 				Paras::<T>::remove(para_id);
 				Self::deposit_event(Event::Deregistered { para_id, manager });
 			},
@@ -1303,8 +1313,8 @@ impl<T: Config> Pallet<T> {
 				});
 			},
 			Err(FailureReason::NotRegistered) => {
-				ticket.drop(&manager)?;
-				reservation.drop(&manager)?;
+				Self::drop_registration(ticket, &manager)?;
+				Self::drop_reservation(reservation, &manager)?;
 				Paras::<T>::remove(para_id);
 				Self::deposit_event(Event::Deregistered { para_id, manager });
 			},
@@ -1339,8 +1349,17 @@ impl<T: Config> ParaManager for Pallet<T> {
 ///
 /// The deposits are re-taken here at this chain's prices, from funds that arrived earlier — the
 /// old chain's recorded amounts are deliberately not carried, because the only thing this chain
-/// could do with them is charge the wrong number. A manager whose migrated balance does not cover
-/// the new price fails, and the caller parks the record rather than losing it.
+/// could do with them is charge the wrong number.
+///
+/// Taking them is **best effort**. A migrated para is a live parachain, and refusing it because
+/// its manager cannot cover this chain's price would leave that parachain with no control plane at
+/// all: the old chain's registry is drained, so nothing anywhere could deregister it, unlock it or
+/// push code to it. On the real Polkadot state this is not hypothetical — some managers hold their
+/// registrar deposit as free balance rather than reserved, so nothing arrives to re-take it with.
+/// So the para lands either way, with whichever deposits could be paid, and reports the shortfall
+/// as [`Event::MigratedWithUnpaidDeposit`]. Such a para holds its storage without paying for it
+/// until governance either settles or removes it; the set is small, one-off, and enumerable from
+/// the event.
 impl<T: Config> ReceiveMigratedParas for Pallet<T> {
 	type AccountId = T::AccountId;
 
@@ -1359,11 +1378,46 @@ impl<T: Config> ReceiveMigratedParas for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Release a reservation ticket, if one was ever taken.
+	fn drop_reservation(
+		ticket: Option<T::ReservationConsideration>,
+		who: &T::AccountId,
+	) -> DispatchResult {
+		if let Some(ticket) = ticket {
+			ticket.drop(who)?;
+		}
+		Ok(())
+	}
+
+	/// Release a registration ticket, if one was ever taken.
+	fn drop_registration(
+		ticket: Option<T::RegistrationConsideration>,
+		who: &T::AccountId,
+	) -> DispatchResult {
+		if let Some(ticket) = ticket {
+			ticket.drop(who)?;
+		}
+		Ok(())
+	}
+
 	fn do_receive_para(para: MigratedPara<T::AccountId>) -> DispatchResult {
 		let MigratedPara { para_id, manager, state, locked } = para;
+
+		// System chains are not registered through this pallet — they have no manager and no
+		// deposit here, and `do_try_state` rejects any id below the floor. Accepting one would
+		// mean holding a deposit against an account that never placed it. Their lifecycle stays
+		// with governance on the relay chain, which is where it already lives.
+		if para_id < T::FirstPublicParaId::get() {
+			Self::deposit_event(Event::SystemParaSkipped { para_id });
+			return Ok(());
+		}
+
 		ensure!(!Paras::<T>::contains_key(para_id), Error::<T>::AlreadyRegistered);
 
-		let reservation = T::ReservationConsideration::new(&manager, Footprint::from_parts(1, 0))?;
+		// Best effort, per the note on the trait impl: whatever cannot be paid is left unpaid and
+		// reported, never a reason to drop the para.
+		let reservation =
+			T::ReservationConsideration::new(&manager, Footprint::from_parts(1, 0)).ok();
 
 		// Priced exactly the way a fresh registration is, from the head length the sending chain
 		// measured. Anything else would leave migrated and new paras holding different amounts
@@ -1374,12 +1428,22 @@ impl<T: Config> Pallet<T> {
 				let ticket = T::RegistrationConsideration::new(
 					&manager,
 					Self::registration_footprint(head_len),
-				)?;
+				)
+				.ok();
 				RegistrationState::Registered { ticket }
 			},
 		};
 
-		Paras::<T>::insert(para_id, ParaInfo { manager, reservation, state, locked });
+		let unpaid = reservation.is_none() ||
+			matches!(state, RegistrationState::Registered { ticket: None });
+
+		Paras::<T>::insert(
+			para_id,
+			ParaInfo { manager: manager.clone(), reservation, state, locked },
+		);
+		if unpaid {
+			Self::deposit_event(Event::MigratedWithUnpaidDeposit { para_id, manager });
+		}
 		Ok(())
 	}
 }

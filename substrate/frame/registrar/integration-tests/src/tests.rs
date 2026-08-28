@@ -135,7 +135,7 @@ fn submit_code(para_id: u32, blob: Vec<u8>) -> sp_runtime::DispatchResult {
 
 type RegistrationTicket = <Runtime as pallet_registrar_para::Config>::RegistrationConsideration;
 
-fn para_state(para_id: u32) -> Option<RegistrationState<RegistrationTicket, u64>> {
+fn para_state(para_id: u32) -> Option<RegistrationState<Option<RegistrationTicket>, u64>> {
 	pallet_registrar_para::Paras::<para::Runtime>::get(para_id).map(|info| info.state)
 }
 

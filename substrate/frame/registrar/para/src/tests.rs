@@ -2028,27 +2028,95 @@ mod receiving_a_migration {
 	}
 
 	#[test]
-	fn a_manager_who_cannot_pay_the_new_price_is_refused_whole() {
+	fn a_manager_who_can_pay_only_the_reservation_still_gets_the_para() {
 		build_and_execute(|| {
-			// GIVEN a manager whose migrated balance does not cover this chain's prices. The
-			// caller is expected to park the record; what matters here is that nothing is left
-			// half-taken.
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), BOB, PARA_DEPOSIT + 1));
+			// GIVEN a manager whose migrated balance covers the reservation but not the
+			// registration on top of it.
+			let para_id = FIRST_PARA_ID + 503;
+			assert_ok!(Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				BOB,
+				PARA_DEPOSIT + 1 // the mock ED, so the account survives the hold
+			));
 
-			assert_noop!(
-				Registrar::receive_para(MigratedPara {
-					para_id: FIRST_PARA_ID + 503,
-					manager: BOB,
-					state: MigratedParaState::Registered { head_len: 20 },
-					locked: true,
-				}),
-				sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable)
+			// WHEN it arrives from the migration
+			assert_ok!(Registrar::receive_para(MigratedPara {
+				para_id,
+				manager: BOB,
+				state: MigratedParaState::Registered { head_len: 20 },
+				locked: true,
+			}));
+
+			// THEN the para lands regardless, with the half that could be paid taken and the
+			// half that could not left unpaid. A live parachain is never dropped for a deposit.
+			let info = Paras::<Test>::get(para_id).expect("the para is preserved");
+			assert!(info.reservation.is_some(), "the affordable half was taken");
+			assert_eq!(info.state, RegistrationState::Registered { ticket: None });
+			assert!(info.locked);
+			assert_eq!(held(BOB), PARA_DEPOSIT);
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::MigratedWithUnpaidDeposit { para_id, manager: BOB }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_manager_who_can_pay_nothing_still_gets_the_para() {
+		build_and_execute(|| {
+			// GIVEN a manager with nothing at all — the shape real Polkadot state produced, where
+			// a registrar deposit was recorded but never reserved, so nothing migrated with it.
+			let para_id = FIRST_PARA_ID + 504;
+			let broke = 99; // a manager whose deposit never migrated
+			assert_eq!(Balances::free_balance(broke), 0);
+
+			assert_ok!(Registrar::receive_para(MigratedPara {
+				para_id,
+				manager: broke,
+				state: MigratedParaState::Registered { head_len: 20 },
+				locked: true,
+			}));
+
+			// THEN the record exists with neither deposit taken, and says so.
+			let info = Paras::<Test>::get(para_id).expect("the para is preserved");
+			assert!(info.reservation.is_none());
+			assert_eq!(info.state, RegistrationState::Registered { ticket: None });
+			assert_eq!(held(broke), 0);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::MigratedWithUnpaidDeposit { para_id, manager: broke }]
 			);
 
-			// The reservation half was taken before the registration half failed, and must not
-			// survive the failure.
-			assert_eq!(held(BOB), 0);
-			assert!(Paras::<Test>::get(FIRST_PARA_ID + 503).is_none());
+			// AND it behaves like any other para: the manager is locked out, and governance can
+			// still remove it without a ticket to release.
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(broke), para_id),
+				Error::<Test>::ParaLocked
+			);
+			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
+			assert!(Paras::<Test>::get(para_id).is_none());
+		});
+	}
+
+	#[test]
+	fn a_system_para_is_skipped_rather_than_registered() {
+		build_and_execute(|| {
+			// GIVEN a migrated id below the public floor. System chains are not registered
+			// through this pallet, and `do_try_state` rejects any id below the floor — so
+			// accepting one would corrupt storage rather than preserve anything.
+			let system_para = FIRST_PARA_ID - 1;
+
+			assert_ok!(Registrar::receive_para(MigratedPara {
+				para_id: system_para,
+				manager: ALICE,
+				state: MigratedParaState::Registered { head_len: 20 },
+				locked: true,
+			}));
+
+			assert!(Paras::<Test>::get(system_para).is_none());
+			assert_eq!(held(ALICE), 0);
+			assert_eq!(registrar_events(), vec![Event::SystemParaSkipped { para_id: system_para }]);
 		});
 	}
 
