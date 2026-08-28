@@ -3,10 +3,9 @@ title: 'statement-store: bound inbound statement batch size'
 doc:
 - audience: Node Dev
   description: |-
-    An inbound statement notification is now rejected from its length prefix, before decoding, when
-    it declares more statements than a notification can hold, so a peer can't turn a small message
-    into a large allocation before the rate limiter runs. Such a peer is disconnected; other decode
-    failures stay a bad-message report.
+    An inbound statement notification declaring more statements than a notification can hold is
+    now rejected from its length prefix, drawing the same bad-message reputation penalty as any
+    other decode failure.
 
 crates:
 - name: sc-network-statement
