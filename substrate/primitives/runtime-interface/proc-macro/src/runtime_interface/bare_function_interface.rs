@@ -139,7 +139,7 @@ fn function_no_std_impl(
 		quote! {}
 	};
 
-	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
+	let attrs = method.attrs.iter().filter(|a| !crate::utils::is_internal_attr(a));
 
 	let cfg_wasm_only = if is_wasm_only {
 		quote! { #[cfg(substrate_runtime)] }
@@ -164,7 +164,7 @@ fn function_wrapper_impl(name: &Ident, wrapper: &TraitItemFn) -> Result<TokenStr
 	let attrs = wrapper
 		.attrs
 		.iter()
-		.filter(|a| !a.path().is_ident("wrapper"))
+		.filter(|a| !a.path().is_ident("wrapper") && !crate::utils::is_internal_attr(a))
 		.collect::<Vec<_>>();
 	let args = get_function_arguments(&wrapper.sig);
 	let return_value = &wrapper.sig.output;
@@ -197,7 +197,7 @@ fn function_std_latest_impl(
 	let args = get_function_arguments(&method.sig).map(pat_ty_to_host_inner).map(FnArg::Typed);
 	let arg_names = get_function_argument_names(&method.sig).collect::<Vec<_>>();
 	let return_value = host_inner_return_ty(&method.sig.output);
-	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
+	let attrs = method.attrs.iter().filter(|a| !crate::utils::is_internal_attr(a));
 	let latest_function_name =
 		create_function_ident_with_version(&method.sig.ident, latest_version);
 
@@ -242,7 +242,7 @@ fn function_std_impl(
 			.take(1),
 		);
 	let return_value = host_inner_return_ty(&method.sig.output);
-	let attrs = method.attrs.iter().filter(|a| !a.path().is_ident("version"));
+	let attrs = method.attrs.iter().filter(|a| !crate::utils::is_internal_attr(a));
 	// Don't make the function public accessible when this is a wasm only interface.
 	let call_to_trait = generate_call_to_trait(trait_name, method, version, is_wasm_only);
 	let call_to_trait = if !tracing {

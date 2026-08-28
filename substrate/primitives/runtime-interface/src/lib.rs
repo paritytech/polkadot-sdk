@@ -124,6 +124,20 @@ pub use sp_std;
 ///         [18].to_vec()
 ///     }
 ///
+///     /// A function with a fixed PolkaVM host-call index.
+///     ///
+///     /// PolkaVM/JAM dispatches host calls by number rather than by symbol name, and the
+///     /// PolkaVM linker rejects a program that mixes indexed with unindexed imports. So for a
+///     /// runtime that is built for a PolkaVM target and that talks to a host expecting fixed
+///     /// numbers, *every* import it emits needs an index agreed with that host.
+///     ///
+///     /// The attribute only affects the riscv import; wasm and native are untouched. Each
+///     /// version of a function is a distinct host call and therefore needs its own index.
+///     #[polkavm_index(300)]
+///     fn indexed_call(data: PassFatPointerAndRead<&[u8]>) {
+///         let _ = data;
+///     }
+///
 ///     /// A function can take a `&self` or `&mut self` argument to get access to the
 ///     /// `Externalities`. (The generated method does not require
 ///     /// this argument, so the function can be called just with the `optional` argument)

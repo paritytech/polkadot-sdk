@@ -140,17 +140,39 @@ fn generate_extern_host_function(
 	// Drop in the reverse order to construction.
 	drop_args.reverse();
 
+	let extern_fn = quote! {
+		pub fn #ext_function (
+			#( #arg_names: <#arg_types as #crate_::RIType>::FFIType ),*
+		) #ffi_return_value;
+	};
+
+	// `#[polkavm_index(N)]` on the method pins the host-call number. The index attribute has to
+	// sit on the function *inside* the `extern` block, and an inner `cfg_attr` is not expanded
+	// before the outer `polkavm_import` macro reads it, so riscv gets its own `cfg`-selected block
+	// rather than sharing one via `cfg_attr`.
+	let polkavm_index = crate::utils::get_item_polkavm_index(method)?
+		.map(|index| quote!( #[polkavm_import(index = #index)] ));
+
+	let extern_block = quote! {
+		#[cfg(target_arch = "riscv64")]
+		#[#crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi)]
+		extern "C" {
+			#polkavm_index
+			#extern_fn
+		}
+
+		#[cfg(not(target_arch = "riscv64"))]
+		#[cfg_attr(target_arch = "wasm32", link(wasm_import_module = "env"))]
+		extern "C" {
+			#extern_fn
+		}
+	};
+
 	Ok(quote! {
 		#(#cfg_attrs)*
 		#[doc = #doc_string]
 		pub fn #function ( #( #unpacked_args ),* ) #unpacked_return_value {
-			#[cfg_attr(target_arch = "riscv64", #crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi))]
-			#[cfg_attr(target_arch = "wasm32", link(wasm_import_module = "env"))]
-			extern "C" {
-				pub fn #ext_function (
-					#( #arg_names: <#arg_types as #crate_::RIType>::FFIType ),*
-				) #ffi_return_value;
-			}
+			#extern_block
 
 			#(#call_into_ffi_value)*
 			let __runtime_interface_result_ = unsafe { #ext_function( #( #ffi_names ),* ) };

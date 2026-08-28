@@ -32,6 +32,9 @@ extern "C" {
 	/// Grows the heap by `size` bytes, returning the previous heap end address, or zero if the
 	/// allocation failed. When called with `size == 0`, returns the current heap end without
 	/// growing. Exceeding the Gray Paper's heap ceiling `b` is a silent no-op.
+	///
+	/// Index 1 is fixed by the Gray Paper (`Ω_Gemini`), not chosen here.
+	#[polkavm_import(index = 1)]
 	fn grow_heap(size: usize) -> usize;
 }
 
@@ -56,7 +59,8 @@ impl picoalloc::Env for RuntimeAllocator {
 		let current = unsafe { grow_heap(0) };
 		let aligned = current.next_multiple_of(32) as *mut u8;
 		// The heap starts right after the already-built stack and data sections, so the new
-		// address space starts at the current heap end, aligned to the 32-byte boundary `picoalloc` needs.
+		// address space starts at the current heap end, aligned to the 32-byte boundary `picoalloc`
+		// needs.
 		if unsafe { grow_heap(aligned.addr() - current) } == 0 {
 			return core::ptr::null_mut();
 		}

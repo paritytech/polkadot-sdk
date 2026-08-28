@@ -35,6 +35,7 @@ pub const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 #[runtime_interface]
 pub trait StorageProofSize {
 	/// Returns the current storage proof size.
+	#[polkavm_index(241)]
 	fn storage_proof_size(&mut self) -> u64 {
 		self.extension::<ProofSizeExt>()
 			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())

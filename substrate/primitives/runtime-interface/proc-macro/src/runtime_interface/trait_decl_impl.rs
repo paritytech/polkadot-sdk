@@ -106,7 +106,7 @@ impl Fold for ToEssentialTraitDef {
 
 		self.error_on_generic_parameters(&method.sig.generics);
 
-		method.attrs.retain(|a| !a.path().is_ident("version"));
+		method.attrs.retain(|a| !crate::utils::is_internal_attr(a));
 
 		fold::fold_trait_item_fn(self, method)
 	}
@@ -155,7 +155,7 @@ fn impl_trait_for_externalities(trait_def: &ItemTrait, is_wasm_only: bool) -> Re
 	let interface = get_runtime_interface(trait_def)?;
 	let methods = interface.all_versions().map(|(version, method)| {
 		let mut cloned = (*method).clone();
-		cloned.attrs.retain(|a| !a.path().is_ident("version"));
+		cloned.attrs.retain(|a| !crate::utils::is_internal_attr(a));
 		cloned.sig.ident = create_function_ident_with_version(&cloned.sig.ident, version);
 		crate::utils::unpack_inner_types_in_signature(&mut cloned.sig);
 		cloned

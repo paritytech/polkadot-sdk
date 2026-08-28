@@ -23,6 +23,7 @@ use crate::*;
 #[runtime_interface(wasm_only)]
 pub trait Input {
 	/// Read input data into the provided buffer.
+	#[polkavm_index(240)]
 	fn read(&mut self, buffer: PassFatPointerAndWrite<&mut [u8]>) {
 		let data = self
 			.take_input_data()

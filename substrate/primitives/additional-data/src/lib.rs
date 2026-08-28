@@ -56,9 +56,9 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use codec::Encode;
 use sp_crypto_hashing::blake2_256;
 use sp_externalities::ExternalitiesExt;
@@ -125,6 +125,7 @@ pub trait AdditionalData {
 	///
 	/// - If [`AdditionalDataExt`] is not registered in the externalities.
 	/// - If [`finalize`](Self::finalize) has already been called on the underlying provider.
+	#[polkavm_index(242)]
 	fn push(&mut self, item: PassFatPointerAndRead<Vec<u8>>) {
 		self.extension::<AdditionalDataExt>()
 			.expect(
@@ -143,6 +144,7 @@ pub trait AdditionalData {
 	/// # Panics
 	///
 	/// If [`AdditionalDataExt`] is not registered in the externalities.
+	#[polkavm_index(243)]
 	fn finalize(&mut self) -> AllocateAndReturnByCodec<Option<[u8; 32]>> {
 		self.extension::<AdditionalDataExt>()
 			.expect(
