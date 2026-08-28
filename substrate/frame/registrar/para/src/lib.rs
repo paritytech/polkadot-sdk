@@ -1360,6 +1360,9 @@ impl<T: Config> ParaManager for Pallet<T> {
 /// as [`Event::MigratedWithUnpaidDeposit`]. Such a para holds its storage without paying for it
 /// until governance either settles or removes it; the set is small, one-off, and enumerable from
 /// the event.
+///
+/// Paras that arrive already registered also get their control-plane channel opened, exactly as a
+/// fresh registration would — see [`Config::OnRegistered`].
 impl<T: Config> ReceiveMigratedParas for Pallet<T> {
 	type AccountId = T::AccountId;
 
@@ -1436,6 +1439,7 @@ impl<T: Config> Pallet<T> {
 
 		let unpaid = reservation.is_none() ||
 			matches!(state, RegistrationState::Registered { ticket: None });
+		let registered = matches!(state, RegistrationState::Registered { .. });
 
 		Paras::<T>::insert(
 			para_id,
@@ -1443,6 +1447,16 @@ impl<T: Config> Pallet<T> {
 		);
 		if unpaid {
 			Self::deposit_event(Event::MigratedWithUnpaidDeposit { para_id, manager });
+		}
+
+		// A migrated para never runs the path a fresh registration does, so without this it would
+		// arrive with no route to this chain — and since every live para arrives locked, it could
+		// not even ask for one: `open_channel`'s para-origin branch is unreachable without a
+		// channel, and its manager is locked out. Firing the same hook a confirmed registration
+		// fires is what makes a migrated para and a new one behave identically afterwards.
+		// A merely reserved id has no parachain to talk to, so it gets nothing.
+		if registered {
+			T::OnRegistered::on_registered(para_id);
 		}
 		Ok(())
 	}

@@ -1226,6 +1226,55 @@ mod receiving_a_migration {
 	}
 
 	#[test]
+	fn a_channel_already_established_as_a_control_channel_is_dropped_not_duplicated() {
+		build_and_execute(|| {
+			// GIVEN a para this chain already took over, so its control channel is open in both
+			// directions. On real state 34 of these arrive twice — once established here when the
+			// para migrated, once handed over by the HRMP migration.
+			use hrmp_primitives::OnParaRegistered;
+			Hrmp::on_registered(PARA_A);
+			let out = chan(SELF_PARA, PARA_A);
+			let back = chan(PARA_A, SELF_PARA);
+			assert_eq!(state_of(out), Some(ChannelState::Open));
+			let _ = take_sent();
+			let _ = hrmp_events();
+
+			// WHEN the migration hands the same channel over
+			assert_ok!(Hrmp::receive_channel(MigratedChannel { channel: out, confirmed: true }));
+
+			// THEN the established record stands and nothing is charged. The two describe the
+			// same thing — a system channel takes no deposit at either end.
+			assert_eq!(state_of(out), Some(ChannelState::Open));
+			assert_eq!(state_of(back), Some(ChannelState::Open));
+			assert_eq!(held(PARA_A), 0);
+			assert_eq!(held(SELF_PARA), 0);
+			assert_eq!(
+				hrmp_events(),
+				vec![Event::MigratedSystemChannelAlreadyOpen { channel: out }]
+			);
+
+			// An unconfirmed request for the same pair is superseded too: the relay chain has
+			// already been told to open it outright, so `Pending` would be a lie.
+			assert_ok!(Hrmp::receive_channel(MigratedChannel { channel: back, confirmed: false }));
+			assert_eq!(state_of(back), Some(ChannelState::Open));
+		});
+	}
+
+	#[test]
+	fn a_collision_that_is_not_a_system_channel_is_still_an_error() {
+		build_and_execute(|| {
+			// The tolerance above is scoped to system channels precisely because they hold no
+			// deposit. A migrated record landing on a deposit-carrying channel would silently
+			// strand that deposit, so it must still fail.
+			let existing = open_channel(PARA_A, PARA_B);
+			assert_noop!(
+				Hrmp::receive_channel(MigratedChannel { channel: existing, confirmed: true }),
+				Error::<Test>::AlreadyExists
+			);
+		});
+	}
+
+	#[test]
 	fn a_migrated_system_channel_holds_nothing() {
 		build_and_execute(|| {
 			assert_ok!(Hrmp::receive_channel(MigratedChannel {

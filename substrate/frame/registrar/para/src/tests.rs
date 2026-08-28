@@ -207,6 +207,41 @@ mod register {
 	}
 
 	#[test]
+	fn a_manager_who_cannot_pay_the_registration_keeps_only_the_reservation() {
+		build_and_execute(|| {
+			// GIVEN a manager who could afford the id but not the data deposit on top of it.
+			// A live registration must never be booked unpaid: the `Option` on the ticket exists
+			// only so that a *migrated* para can be preserved, never as a discount here.
+			let para_id = reserve_for(ALICE);
+			assert_ok!(Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				ALICE,
+				1 // the mock ED, so the account survives but can fund nothing
+			));
+			let blob = code(300);
+
+			assert_noop!(
+				Registrar::register(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					head(20),
+					300,
+					hash_of(&blob),
+				),
+				DispatchError::Token(TokenError::FundsUnavailable)
+			);
+
+			// THEN the id stays reserved on the deposit already paid, nothing is half-taken, and
+			// the relay chain was never asked.
+			let info = Paras::<Test>::get(para_id).expect("the reservation survives");
+			assert!(info.reservation.is_some());
+			assert_eq!(info.state, RegistrationState::Reserved);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
 	fn rejects_an_unreserved_id() {
 		build_and_execute(|| {
 			assert_noop!(
@@ -2096,6 +2131,55 @@ mod receiving_a_migration {
 			);
 			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
 			assert!(Paras::<Test>::get(para_id).is_none());
+		});
+	}
+
+	#[test]
+	fn a_registered_para_gets_its_control_channel_and_a_reserved_id_does_not() {
+		build_and_execute(|| {
+			// GIVEN a migrated para that is already running, and a migrated id that is not.
+			// Every live para arrives locked, so it cannot ask for a channel itself and its
+			// manager is locked out — if the migration does not open one, nothing ever will.
+			let running = FIRST_PARA_ID + 505;
+			let reserved = FIRST_PARA_ID + 506;
+
+			assert_ok!(Registrar::receive_para(MigratedPara {
+				para_id: running,
+				manager: ALICE,
+				state: MigratedParaState::Registered { head_len: 20 },
+				locked: true,
+			}));
+			assert_ok!(Registrar::receive_para(MigratedPara {
+				para_id: reserved,
+				manager: ALICE,
+				state: MigratedParaState::Reserved,
+				locked: false,
+			}));
+
+			// THEN only the running one is worth a route: a reserved id has no parachain at the
+			// other end to talk to.
+			assert_eq!(take_control_channels(), vec![running]);
+		});
+	}
+
+	#[test]
+	fn an_unpaid_para_still_gets_its_control_channel() {
+		build_and_execute(|| {
+			// Reachability is not something a para forfeits by arriving broke — the channel is
+			// deposit-free, and a para nobody can reach is the failure mode this whole policy
+			// exists to avoid.
+			let para_id = FIRST_PARA_ID + 507;
+			let broke = 98; // a manager whose deposit never migrated
+
+			assert_ok!(Registrar::receive_para(MigratedPara {
+				para_id,
+				manager: broke,
+				state: MigratedParaState::Registered { head_len: 20 },
+				locked: true,
+			}));
+
+			assert!(Paras::<Test>::get(para_id).unwrap().reservation.is_none());
+			assert_eq!(take_control_channels(), vec![para_id]);
 		});
 	}
 

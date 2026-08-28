@@ -307,6 +307,10 @@ pub mod pallet {
 		SystemChannelFailed { channel: ChannelId },
 		/// Governance removed this chain's record of a channel.
 		ChannelForceRemoved { channel: ChannelId },
+		/// A migrated channel was already established here as a deposit-free system channel, so
+		/// the migrated record was dropped rather than duplicated. Nothing is lost: a system
+		/// channel carries no deposit at either end, so the two records describe the same thing.
+		MigratedSystemChannelAlreadyOpen { channel: ChannelId },
 	}
 
 	#[pallet::error]
@@ -953,7 +957,18 @@ impl<T: Config> Pallet<T> {
 	fn do_receive_channel(migrated: MigratedChannel) -> DispatchResult {
 		let MigratedChannel { channel, confirmed } = migrated;
 		ensure!(channel.sender != channel.recipient, Error::<T>::ToSelf);
-		ensure!(!Channels::<T>::contains_key(channel), Error::<T>::AlreadyExists);
+
+		// This chain opens a control channel with every para it takes over, so a channel that
+		// already ran between this chain and that para arrives twice: once established here,
+		// once handed over. They describe the same thing — a system channel takes no deposit at
+		// either end, so neither record holds anything the other does not — and the established
+		// one is authoritative, because the relay chain has already been told to open it in both
+		// directions. Any other collision is still a real error.
+		if Channels::<T>::contains_key(channel) {
+			ensure!(Self::is_system(channel), Error::<T>::AlreadyExists);
+			Self::deposit_event(Event::MigratedSystemChannelAlreadyOpen { channel });
+			return Ok(());
+		}
 
 		let sender_ticket = Self::take_deposit(channel, channel.sender)?;
 		let (recipient_ticket, state) = if confirmed {
