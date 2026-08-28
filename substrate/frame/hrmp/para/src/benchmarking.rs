@@ -19,13 +19,21 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
+use frame_support::traits::Contains;
 use frame_system::RawOrigin;
 
 /// Two public para ids no benchmark setup will collide on, and which are never system chains, so
 /// the deposit path is the one being measured.
 fn pair<T: Config>() -> (ParaId, ParaId) {
-	let base = T::FirstPublicParaId::get();
-	(base.saturating_add(11), base.saturating_add(12))
+	// Deliberately not system paras, so the deposit path is the one being measured. Asserted
+	// rather than assumed: a runtime whose `SystemParas` swallowed these would silently benchmark
+	// the free path instead.
+	let (sender, recipient) = (4_242, 4_243);
+	assert!(
+		!T::SystemParas::contains(&sender) && !T::SystemParas::contains(&recipient),
+		"benchmark para ids must not be system chains"
+	);
+	(sender, recipient)
 }
 
 /// Fund both ends' sovereign accounts so every consideration this pallet takes can be paid.

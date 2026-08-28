@@ -61,7 +61,7 @@ extern crate alloc;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
-	traits::{Consideration, EnsureOrigin, Footprint, Get},
+	traits::{Consideration, Contains, EnsureOrigin, Footprint, Get},
 };
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
@@ -213,12 +213,16 @@ pub mod pallet {
 		#[pallet::constant]
 		type SelfParaId: Get<ParaId>;
 
-		/// The largest para id treated as a system chain.
+		/// Which paras count as system chains.
 		///
-		/// A local mirror of the relay chain's `LOWEST_PUBLIC_ID`, used to decide when a channel
-		/// is deposit-free. Ids strictly below this are system chains.
-		#[pallet::constant]
-		type FirstPublicParaId: Get<ParaId>;
+		/// Two things hang off it: a channel with or amongst system chains is deposit-free, and a
+		/// para may pair *itself* with a system chain through
+		/// [`Pallet::establish_system_channel`] without going through governance.
+		///
+		/// A set rather than an id threshold on purpose. "System chains are the low-numbered
+		/// paras" is a relay-chain numbering convention, not a fact about channels, and this
+		/// pallet has no business knowing it.
+		type SystemParas: Contains<ParaId>;
 
 		/// The largest channel capacity the relay chain will accept.
 		///
@@ -329,6 +333,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn integrity_test() {
 			// Otherwise no channel could ever be opened.
 			assert!(T::MaxCapacity::get() > 0, "MaxCapacity must be positive");
@@ -550,8 +559,10 @@ pub mod pallet {
 
 			if frame_system::ensure_root(origin.clone()).is_err() {
 				// Not root: one end must be a system chain, and the caller must be the other.
-				let first = T::FirstPublicParaId::get();
-				let other = match (sender < first, recipient < first) {
+				let other = match (
+					T::SystemParas::contains(&sender),
+					T::SystemParas::contains(&recipient),
+				) {
 					(true, false) => recipient,
 					(false, true) => sender,
 					// Neither end is a system chain, or both are: not a pairing a para may make
@@ -611,6 +622,52 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Check that every channel's held deposits match what its state says they should be.
+	///
+	/// This is the pallet's one real invariant, and it is the one worth checking: the whole point
+	/// of the design is that a deposit is taken exactly when a state is entered and released
+	/// exactly when one is left. Anything that drifts here is money held against nothing, or a
+	/// channel standing on a deposit nobody paid.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (channel, info) in Channels::<T>::iter() {
+			frame_support::ensure!(
+				channel.sender != channel.recipient,
+				"hrmp-para: a channel has the same para at both ends"
+			);
+
+			let (sender, recipient) = (info.sender_ticket.is_some(), info.recipient_ticket.is_some());
+
+			if Self::is_system(channel) {
+				// System channels are free at both ends, in every state.
+				frame_support::ensure!(
+					!sender && !recipient,
+					"hrmp-para: a system channel is holding a deposit"
+				);
+				continue;
+			}
+
+			match info.state {
+				// The sender has committed; the recipient has not been asked yet, or has been
+				// answered and refunded.
+				ChannelState::Opening { .. } |
+				ChannelState::Pending |
+				ChannelState::Cancelling { .. } => frame_support::ensure!(
+					sender && !recipient,
+					"hrmp-para: a channel before acceptance must hold exactly the sender's deposit"
+				),
+				// Both ends have committed and neither has been released.
+				ChannelState::Accepting { .. } |
+				ChannelState::Open |
+				ChannelState::Closing { .. } => frame_support::ensure!(
+					sender && recipient,
+					"hrmp-para: a channel from acceptance onwards must hold both deposits"
+				),
+			}
+		}
+		Ok(())
+	}
+
 	/// The footprint one end of a channel is charged for.
 	fn channel_footprint() -> Footprint {
 		Footprint::from_parts(1, 0)
@@ -618,10 +675,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Whether a channel between these two is deposit-free.
 	///
-	/// Mirrors the relay chain's rule: a channel with or amongst system chains costs nothing.
+	/// A channel with or amongst system chains costs nothing, at either end.
 	fn is_system(channel: ChannelId) -> bool {
-		channel.sender < T::FirstPublicParaId::get() ||
-			channel.recipient < T::FirstPublicParaId::get()
+		T::SystemParas::contains(&channel.sender) || T::SystemParas::contains(&channel.recipient)
 	}
 
 	/// Take one end's deposit from that para's sovereign account here.

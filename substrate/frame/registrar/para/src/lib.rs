@@ -400,6 +400,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn integrity_test() {
 			// Otherwise no validation code could ever pass `register`.
 			assert!(
@@ -880,6 +885,23 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Check that this pallet only ever holds ids it is allowed to hand out.
+	///
+	/// Ids below [`Config::FirstPublicParaId`] belong to system chains, which are not registered
+	/// through here and whose deposits are not this pallet's to hold. `reserve` cannot produce
+	/// one, so an entry below the floor means something else put it there — a migration seeding
+	/// the wrong range being the way it would actually happen.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (para_id, _) in Paras::<T>::iter() {
+			frame_support::ensure!(
+				para_id >= T::FirstPublicParaId::get(),
+				"registrar-para: a para id below the public floor is registered here"
+			);
+		}
+		Ok(())
+	}
+
 	/// The footprint a registration is charged for: the head data plus the largest validation
 	/// code the relay chain will accept.
 	///

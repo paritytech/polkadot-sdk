@@ -599,7 +599,6 @@ mod cancel_authorization {
 mod deregister {
 	use super::*;
 
-	const BOB: AccountId = 2;
 
 	#[test]
 	fn deregisters_a_known_para_and_reports_success() {
@@ -1237,5 +1236,63 @@ mod force_drop_pending {
 			assert_eq!(take_sent(), vec![]);
 			assert_eq!(registrar_events(), vec![Event::PendingDropped { para_id: PARA_A }]);
 		});
+	}
+}
+
+mod bounds {
+	use super::*;
+
+	#[test]
+	fn the_two_pending_maps_are_bounded_separately_but_by_the_same_number() {
+		new_test_ext().execute_with(|| {
+			// Fill the registration map to its bound.
+			for i in 0..MAX_PENDING {
+				let para = PARA_A + 100 + i;
+				let (msg, _) = register_msg(para, 20, 300);
+				assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+				assert!(PendingRegistrations::<Test>::get(para).is_some(), "para {para}");
+			}
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			// One more is refused and reported, rather than silently growing relay-chain state
+			// that no deposit here pays for.
+			let overflow = PARA_A + 999;
+			let (msg, _) = register_msg(overflow, 20, 300);
+			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert!(PendingRegistrations::<Test>::get(overflow).is_none());
+			assert_eq!(
+				take_sent(),
+				vec![failure_report(overflow, FailureReason::TooManyPending)]
+			);
+
+			// The upgrade map has its own budget: a full registration map must not stop a
+			// registered para from upgrading.
+			known_para(PARA_A);
+			assert_ok!(Registrar::authorize_code_upgrade(
+				RuntimeOrigin::root(),
+				upgrade_msg(PARA_A, &code(MAX_CODE_SIZE as usize))
+			));
+			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_some());
+		});
+	}
+
+	#[test]
+	fn every_validation_failure_reports_a_distinct_code() {
+		// These codes are what a node sees when an unsigned upload is refused from the pool. Two
+		// failures sharing one would make the refusal ambiguous to anybody debugging it.
+		let errors = [
+			Error::<Test>::NothingPending,
+			Error::<Test>::CodeHashMismatch,
+			Error::<Test>::CodeLenMismatch,
+			Error::<Test>::CodeTooLarge,
+			Error::<Test>::UnexpectedMessage,
+			Error::<Test>::NothingPendingUpgrade,
+		];
+		let mut codes: Vec<u8> = errors.into_iter().map(Registrar::err_to_code).collect();
+		let total = codes.len();
+		codes.sort_unstable();
+		codes.dedup();
+		assert_eq!(codes.len(), total, "two errors share an InvalidTransaction::Custom code");
 	}
 }

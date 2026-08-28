@@ -22,8 +22,8 @@
 
 use crate::{self as pallet_hrmp_para, HoldReason, SendToRelay};
 use frame_support::{
-	derive_impl, parameter_types,
-	traits::{fungible::HoldConsideration, ConstU32, ConstantStoragePrice},
+	assert_ok, derive_impl, parameter_types,
+	traits::{fungible::HoldConsideration, ConstU32, ConstantStoragePrice, Contains},
 };
 use hrmp_primitives::{MessageToRelay, ParaId, ParaManager};
 use sp_runtime::{traits::Convert, BuildStorage};
@@ -185,6 +185,15 @@ impl Convert<ParaId, AccountId> for SovereignOf {
 	}
 }
 
+/// Which paras this runtime treats as system chains.
+pub struct SystemParas;
+
+impl Contains<ParaId> for SystemParas {
+	fn contains(para_id: &ParaId) -> bool {
+		*para_id < FIRST_PUBLIC_PARA_ID
+	}
+}
+
 parameter_types! {
 	pub const ChannelDeposit: Balance = CHANNEL_DEPOSIT;
 	pub const ChannelHoldReason: RuntimeHoldReason = RuntimeHoldReason::Hrmp(HoldReason::Channel);
@@ -204,7 +213,7 @@ impl pallet_hrmp_para::Config for Test {
 	type ParaManager = MockManagers;
 	type SovereignAccountOf = SovereignOf;
 	type SelfParaId = ConstU32<SELF_PARA>;
-	type FirstPublicParaId = ConstU32<FIRST_PUBLIC_PARA_ID>;
+	type SystemParas = SystemParas;
 	type MaxCapacity = ConstU32<MAX_CAPACITY>;
 	type MaxMessageSize = ConstU32<MAX_MESSAGE_SIZE>;
 	type PendingDeadline = ConstU32<PENDING_DEADLINE>;
@@ -235,6 +244,17 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+/// Run `f` against fresh externalities, then assert the pallet's invariants still hold.
+///
+/// Every test goes through here, so no test can leave storage in a shape the pallet says is
+/// impossible. A test that deliberately corrupts storage must put it back before returning.
+pub fn build_and_execute(f: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		f();
+		assert_try_state_ok();
+	});
+}
+
 /// Advance to block `n`, so deadline-dependent logic can be exercised.
 pub fn run_to_block(n: BlockNumber) {
 	while System::block_number() < n {
@@ -246,6 +266,19 @@ pub fn run_to_block(n: BlockNumber) {
 pub fn held(para_id: ParaId) -> Balance {
 	use frame_support::traits::fungible::InspectHold;
 	Balances::balance_on_hold(&ChannelHoldReason::get(), &SovereignOf::convert(para_id))
+}
+
+/// Assert the pallet's storage invariants hold.
+pub fn assert_try_state_ok() {
+	assert_ok!(pallet_hrmp_para::Pallet::<Test>::do_try_state());
+}
+
+/// Assert the pallet's storage invariants are violated.
+///
+/// Tests that deliberately corrupt storage must restore it afterwards, so the state they leave
+/// behind is one [`assert_try_state_ok`] would still accept.
+pub fn assert_try_state_invalid() {
+	assert!(pallet_hrmp_para::Pallet::<Test>::do_try_state().is_err());
 }
 
 /// Every event this pallet emitted, oldest first, clearing the log.

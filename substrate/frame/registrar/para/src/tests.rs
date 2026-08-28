@@ -100,7 +100,7 @@ mod reserve {
 
 	#[test]
 	fn allocates_ids_from_the_first_public_id_upwards() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(ALICE)));
 			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(BOB)));
 
@@ -117,7 +117,7 @@ mod reserve {
 
 	#[test]
 	fn holds_the_para_deposit_and_records_the_manager() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let before = Balances::free_balance(ALICE);
 			let para_id = reserve_for(ALICE);
 
@@ -131,7 +131,7 @@ mod reserve {
 
 	#[test]
 	fn steps_over_an_id_the_counter_and_the_map_disagree_about() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN the counter points at an id this pallet already knows. The two can drift:
 			// ids may arrive from elsewhere, or the counter may be restored from another chain.
 			let alice_id = reserve_for(ALICE); // manager of the id in the way
@@ -149,7 +149,7 @@ mod reserve {
 
 	#[test]
 	fn fails_without_the_deposit() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// Alice keeps only enough to stay alive, well short of the deposit.
 			let keep = 10;
 			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), ALICE, keep));
@@ -170,7 +170,7 @@ mod register {
 
 	#[test]
 	fn holds_the_data_deposit_and_asks_the_relay_chain() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			let head_len = 20;
 			let code_len = 300;
@@ -208,7 +208,7 @@ mod register {
 
 	#[test]
 	fn rejects_an_unreserved_id() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			assert_noop!(
 				Registrar::register(
 					RuntimeOrigin::signed(ALICE),
@@ -224,7 +224,7 @@ mod register {
 
 	#[test]
 	fn rejects_someone_elses_id() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			assert_noop!(
 				Registrar::register(
@@ -241,7 +241,7 @@ mod register {
 
 	#[test]
 	fn rejects_a_second_request_while_one_is_in_flight() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 10, 100);
 
@@ -260,7 +260,7 @@ mod register {
 
 	#[test]
 	fn enforces_the_relay_chains_size_bounds() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			assert_noop!(
 				Registrar::register(
@@ -297,7 +297,7 @@ mod register {
 
 	#[test]
 	fn a_transport_failure_rolls_the_whole_call_back() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			SendFails::set(true);
 
@@ -333,7 +333,7 @@ mod receive {
 
 	#[test]
 	fn success_finalises_the_registration_and_keeps_the_deposit() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
@@ -358,7 +358,7 @@ mod receive {
 
 	#[test]
 	fn failure_releases_the_deposit_and_keeps_the_id_reserved() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
@@ -385,7 +385,7 @@ mod receive {
 
 	#[test]
 	fn a_user_cannot_forge_a_relay_chain_report() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 
@@ -403,7 +403,7 @@ mod receive {
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "register response for unknown para, dropping")]
 	fn a_report_for_an_unknown_para_is_defensive() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(4242, 0, Ok(())));
 		});
 	}
@@ -412,7 +412,7 @@ mod receive {
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "register response for para which is not pending, dropping")]
 	fn a_report_for_a_non_pending_para_is_defensive() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(para_id, 0, Ok(())));
 		});
@@ -420,7 +420,7 @@ mod receive {
 
 	#[test]
 	fn a_refused_cancellation_records_the_registration_and_keeps_the_deposit() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
@@ -448,7 +448,7 @@ mod receive {
 
 	#[test]
 	fn a_cancel_response_that_lost_the_race_to_a_report_is_dropped_quietly() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
@@ -480,7 +480,7 @@ mod receive {
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "cancel response for unknown para, dropping")]
 	fn a_cancel_response_for_an_unknown_para_is_defensive() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 0, Ok(())));
 		});
 	}
@@ -499,7 +499,7 @@ mod receive {
 
 	#[test]
 	fn a_confirmed_deregistration_releases_both_deposits_and_frees_the_id() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 
 			assert_ok!(Registrar::receive(
@@ -515,7 +515,7 @@ mod receive {
 
 	#[test]
 	fn a_refused_deregistration_flips_back_to_registered_and_keeps_the_deposits() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
@@ -545,7 +545,7 @@ mod receive {
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "deregister response for unknown para, dropping")]
 	fn a_deregister_response_for_an_unknown_para_is_defensive() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let _ = Registrar::receive(RuntimeOrigin::root(), deregister_answer(4242, 0, Ok(())));
 		});
 	}
@@ -554,7 +554,7 @@ mod receive {
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "deregister response for para which is not deregistering, dropping")]
 	fn a_deregister_response_for_a_para_that_is_not_deregistering_is_defensive() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE);
 			let _ =
 				Registrar::receive(RuntimeOrigin::root(), deregister_answer(para_id, 1, Ok(())));
@@ -563,7 +563,7 @@ mod receive {
 
 	#[test]
 	fn a_refused_chase_up_completes_the_deregistration() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 
 			// The deregistration went through and its report was lost, so the chase-up comes
@@ -581,7 +581,7 @@ mod receive {
 
 	#[test]
 	fn a_chase_up_answer_that_lost_the_race_to_the_verdict_is_dropped_quietly() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 
 			// The verdict settles the deregistration first and removes the entry.
@@ -606,7 +606,7 @@ mod receive {
 
 	#[test]
 	fn a_chase_up_answer_for_a_registered_para_is_dropped_quietly() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
@@ -636,7 +636,7 @@ mod receive {
 	#[cfg(debug_assertions)]
 	#[should_panic(expected = "unexpected cancel deregistration refusal, leaving deregistering")]
 	fn an_unexpected_chase_up_refusal_is_defensive_and_leaves_state() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			let _ = Registrar::receive(
 				RuntimeOrigin::root(),
@@ -647,7 +647,7 @@ mod receive {
 
 	#[test]
 	fn a_user_cannot_forge_a_deregister_report() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 
 			assert_noop!(
@@ -681,7 +681,7 @@ mod cancel_registration {
 
 	#[test]
 	fn is_refused_before_the_deadline() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 
@@ -695,7 +695,7 @@ mod cancel_registration {
 
 	#[test]
 	fn asks_the_relay_chain_and_only_the_answer_releases_the_deposit() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let _ = registrar_events();
@@ -736,7 +736,7 @@ mod cancel_registration {
 
 	#[test]
 	fn cannot_be_asked_again_until_another_deadline_passes() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			run_to_block(System::block_number() + PENDING_DEADLINE);
@@ -760,7 +760,7 @@ mod cancel_registration {
 
 	#[test]
 	fn a_transport_failure_rolls_the_whole_call_back() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			let cancellable_at = System::block_number() + PENDING_DEADLINE;
@@ -785,7 +785,7 @@ mod cancel_registration {
 
 	#[test]
 	fn rejects_a_non_manager_and_a_para_that_is_not_pending() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 
 			// Reserved, not pending.
@@ -809,7 +809,7 @@ mod deregister {
 
 	#[test]
 	fn a_reserved_id_is_dropped_locally_and_the_deposit_comes_back() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
 
@@ -826,7 +826,7 @@ mod deregister {
 
 	#[test]
 	fn a_registered_para_asks_the_relay_chain_and_releases_nothing() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE);
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
@@ -857,7 +857,7 @@ mod deregister {
 
 	#[test]
 	fn a_transport_failure_rolls_the_whole_call_back() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE);
 			SendFails::set(true);
 
@@ -877,7 +877,7 @@ mod deregister {
 
 	#[test]
 	fn rejects_an_unknown_id_a_non_manager_and_in_flight_states() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			assert_noop!(
 				Registrar::deregister(RuntimeOrigin::signed(ALICE), 4242),
 				Error::<Test>::NotReserved
@@ -915,7 +915,7 @@ mod deregister {
 
 	#[test]
 	fn the_para_itself_and_root_may_deregister() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// Another para cannot pose as this one.
 			let para_id = reserve_for(ALICE);
 			assert_noop!(
@@ -949,7 +949,7 @@ mod deregister {
 
 	#[test]
 	fn a_para_still_holding_an_assignment_is_refused() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE);
 			AssignedParas::set(vec![para_id]);
 
@@ -997,7 +997,7 @@ mod cancel_deregistration {
 
 	#[test]
 	fn is_refused_before_the_deadline() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 
 			run_to_block(System::block_number() + PENDING_DEADLINE - 1);
@@ -1010,7 +1010,7 @@ mod cancel_deregistration {
 
 	#[test]
 	fn asks_the_relay_chain_and_only_the_answer_settles_it() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
@@ -1061,7 +1061,7 @@ mod cancel_deregistration {
 
 	#[test]
 	fn cannot_be_asked_again_until_another_deadline_passes() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
@@ -1082,7 +1082,7 @@ mod cancel_deregistration {
 
 	#[test]
 	fn a_transport_failure_rolls_the_whole_call_back() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			let cancellable_at = System::block_number() + PENDING_DEADLINE;
 			run_to_block(cancellable_at);
@@ -1106,7 +1106,7 @@ mod cancel_deregistration {
 
 	#[test]
 	fn the_para_itself_and_root_may_chase_up() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 
@@ -1137,7 +1137,7 @@ mod cancel_deregistration {
 
 	#[test]
 	fn rejects_a_non_manager_and_a_para_that_is_not_deregistering() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 
 			// Reserved, not deregistering.
@@ -1182,7 +1182,7 @@ mod locking {
 
 	#[test]
 	fn the_manager_the_para_and_root_may_all_lock() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN three registered paras under three managers.
 			let alice_para = registered_para(ALICE); // locked by its manager
 			let bob_para = registered_para(BOB); // locked by the para itself
@@ -1211,7 +1211,7 @@ mod locking {
 
 	#[test]
 	fn locking_twice_is_not_an_error_and_says_nothing_the_second_time() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE); // manager races its own lock
 			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
 			let _ = registrar_events();
@@ -1227,7 +1227,7 @@ mod locking {
 
 	#[test]
 	fn only_the_para_and_root_may_unlock() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a locked para.
 			let para_id = registered_para(ALICE); // manager, locked out below
 			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
@@ -1253,7 +1253,7 @@ mod locking {
 
 	#[test]
 	fn a_lock_shuts_the_manager_out_of_every_call_it_gates() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a locked, registered para.
 			let para_id = registered_para(ALICE); // manager, locked out
 			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
@@ -1284,7 +1284,7 @@ mod locking {
 
 	#[test]
 	fn a_lock_does_not_shut_out_the_para_or_root() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a locked para.
 			let para_id = registered_para(ALICE);
 			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
@@ -1300,7 +1300,7 @@ mod locking {
 
 	#[test]
 	fn holding_a_core_locks_the_para_against_its_manager() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a registered para that has since been assigned coretime. This chain hosts
 			// coretime, so it can ask directly rather than waiting for a hook.
 			let para_id = registered_para(ALICE); // manager
@@ -1341,7 +1341,7 @@ mod locking {
 
 	#[test]
 	fn a_fresh_registration_starts_unlocked() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// A manager who has just made a mistake can undo it. What protects a para that is
 			// actually in use is the assignment check, not this flag.
 			let para_id = registered_para(ALICE);
@@ -1356,7 +1356,7 @@ mod schedule_code_upgrade {
 
 	#[test]
 	fn asks_the_relay_chain_and_takes_no_deposit() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a registered para whose deposit already covers the largest allowed code.
 			let para_id = registered_para(ALICE); // manager
 			let held_before = held(ALICE);
@@ -1394,7 +1394,7 @@ mod schedule_code_upgrade {
 
 	#[test]
 	fn refuses_code_outside_the_relay_chains_bounds() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE); // manager
 
 			assert_noop!(
@@ -1421,7 +1421,7 @@ mod schedule_code_upgrade {
 
 	#[test]
 	fn refuses_a_para_that_is_not_registered_yet() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN an id that is only reserved: there is nothing on the relay chain to upgrade.
 			let para_id = reserve_for(ALICE); // manager
 
@@ -1440,7 +1440,7 @@ mod schedule_code_upgrade {
 
 	#[test]
 	fn refuses_anybody_but_the_manager_the_para_and_root() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE); // manager
 
 			assert_noop!(
@@ -1458,7 +1458,7 @@ mod schedule_code_upgrade {
 
 	#[test]
 	fn a_transport_failure_rolls_the_whole_call_back() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE); // manager
 			SendFails::set(true);
 
@@ -1482,7 +1482,7 @@ mod set_current_head {
 
 	#[test]
 	fn sends_the_head_inline() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE); // manager
 			let new_head = head(MAX_HEAD_SIZE as usize);
 
@@ -1510,7 +1510,7 @@ mod set_current_head {
 
 	#[test]
 	fn refuses_head_data_the_relay_chain_would_not_take() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = registered_para(ALICE); // manager
 
 			assert_noop!(
@@ -1527,7 +1527,7 @@ mod set_current_head {
 
 	#[test]
 	fn refuses_a_para_that_is_not_registered_yet() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let para_id = reserve_for(ALICE); // manager
 
 			assert_noop!(
@@ -1544,7 +1544,7 @@ mod force_set_next_free_para_id {
 
 	#[test]
 	fn root_moves_the_counter_and_nobody_else_can() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let target = FIRST_PARA_ID + 400;
 
 			assert_noop!(
@@ -1567,7 +1567,7 @@ mod force_remove_para {
 
 	#[test]
 	fn root_repairs_a_record_the_two_chains_can_no_longer_agree_on() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a registered para. Suppose governance has since removed it on the relay chain
 			// directly — this chain would never hear, and the deposits would sit here forever
 			// against a para it can no longer act on.
@@ -1599,7 +1599,7 @@ mod force_remove_para {
 
 	#[test]
 	fn a_verdict_that_is_merely_slow_cannot_be_torn_down() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a registration still waiting on the relay chain.
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
@@ -1619,11 +1619,178 @@ mod force_remove_para {
 
 	#[test]
 	fn a_para_this_chain_never_knew_is_refused() {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			assert_noop!(
 				Registrar::force_remove_para(RuntimeOrigin::root(), FIRST_PARA_ID),
 				Error::<Test>::NotReserved
 			);
+		});
+	}
+}
+
+mod state_machine {
+	use super::*;
+	use sp_runtime::DispatchResult;
+
+	/// The four states a para id can be in, each with a way to reach it from nothing.
+	fn reach(state: &str) -> u32 {
+		match state {
+			"Reserved" => reserve_for(ALICE),
+			"Pending" => {
+				let id = reserve_for(ALICE);
+				request_registration(ALICE, id, 20, 300);
+				id
+			},
+			"Registered" => registered_para(ALICE),
+			"Deregistering" => deregistering_para(ALICE),
+			other => panic!("unknown state {other}"),
+		}
+	}
+
+	/// Every call that cares about state, from every state, with the answer written down.
+	///
+	/// `None` means it should succeed. Kept as one table so a missing arm is visible rather than
+	/// scattered across six `ensure!`s.
+	#[allow(clippy::type_complexity)]
+	const MATRIX: &[(&str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>)] = &[
+		//  state            register             cancel_registration    deregister             upgrade                set_head
+		("Reserved", None, Some("NotPending"), None, Some("NotRegistered"), Some("NotRegistered")),
+		("Pending", Some("AlreadyRegistered"), Some("CannotCancelYet"), Some("RequestInFlight"), Some("NotRegistered"), Some("NotRegistered")),
+		("Registered", Some("AlreadyRegistered"), Some("NotPending"), None, None, None),
+		("Deregistering", Some("AlreadyRegistered"), Some("NotPending"), Some("RequestInFlight"), Some("NotRegistered"), Some("NotRegistered")),
+	];
+
+	fn err_name(e: DispatchError) -> String {
+		match e {
+			DispatchError::Module(m) => m.message.unwrap_or("?").to_string(),
+			other => format!("{other:?}"),
+		}
+	}
+
+	fn check(expected: Option<&str>, got: DispatchResult, what: &str, state: &str) {
+		match (expected, got) {
+			(None, Ok(())) => {},
+			(Some(want), Err(e)) => assert_eq!(err_name(e), want, "{what} from {state}"),
+			(None, Err(e)) => panic!("{what} from {state}: expected Ok, got {}", err_name(e)),
+			(Some(want), Ok(())) => panic!("{what} from {state}: expected {want}, got Ok"),
+		}
+	}
+
+	#[test]
+	fn every_call_from_every_state_does_what_the_table_says() {
+		for (state, register, cancel, deregister, upgrade, set_head) in MATRIX {
+			// A fresh chain per cell, so a call that succeeds cannot leak into the next one.
+			build_and_execute(|| {
+				let id = reach(state);
+				let blob = code(300);
+				check(
+					*register,
+					Registrar::register(
+						RuntimeOrigin::signed(ALICE),
+						id,
+						head(20),
+						300,
+						hash_of(&blob),
+					),
+					"register",
+					state,
+				);
+			});
+			build_and_execute(|| {
+				let id = reach(state);
+				check(
+					*cancel,
+					Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), id),
+					"cancel_registration",
+					state,
+				);
+			});
+			build_and_execute(|| {
+				let id = reach(state);
+				check(
+					*deregister,
+					Registrar::deregister(RuntimeOrigin::signed(ALICE), id),
+					"deregister",
+					state,
+				);
+			});
+			build_and_execute(|| {
+				let id = reach(state);
+				check(
+					*upgrade,
+					Registrar::schedule_code_upgrade(
+						RuntimeOrigin::signed(ALICE),
+						id,
+						MIN_CODE_SIZE,
+						hash_of(&code(MIN_CODE_SIZE as usize)),
+					),
+					"schedule_code_upgrade",
+					state,
+				);
+			});
+			build_and_execute(|| {
+				let id = reach(state);
+				check(
+					*set_head,
+					Registrar::set_current_head(RuntimeOrigin::signed(ALICE), id, head(4)),
+					"set_current_head",
+					state,
+				);
+			});
+		}
+	}
+
+	#[test]
+	fn nothing_can_be_done_to_an_id_this_chain_has_never_heard_of() {
+		build_and_execute(|| {
+			let unknown = FIRST_PARA_ID + 900;
+			for (what, result) in [
+				("deregister", Registrar::deregister(RuntimeOrigin::signed(ALICE), unknown)),
+				(
+					"cancel_registration",
+					Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), unknown),
+				),
+				("add_lock", Registrar::add_lock(RuntimeOrigin::signed(ALICE), unknown)),
+				("remove_lock", Registrar::remove_lock(RuntimeOrigin::root(), unknown)),
+				(
+					"set_current_head",
+					Registrar::set_current_head(RuntimeOrigin::signed(ALICE), unknown, head(4)),
+				),
+				(
+					"force_remove_para",
+					Registrar::force_remove_para(RuntimeOrigin::root(), unknown),
+				),
+			] {
+				assert_eq!(
+					result,
+					Err(Error::<Test>::NotReserved.into()),
+					"{what} on an unknown id"
+				);
+			}
+		});
+	}
+}
+
+mod invariants {
+	use super::*;
+
+	#[test]
+	fn a_system_chain_id_must_never_be_registered_here() {
+		build_and_execute(|| {
+			// GIVEN a normal registration.
+			let para_id = registered_para(ALICE);
+			let record = Paras::<Test>::get(para_id).unwrap();
+
+			// WHEN the same record turns up under an id below the public floor. `reserve` cannot
+			// produce one, so this is what a migration seeding the wrong range would look like —
+			// this pallet holding a deposit for a chain whose deposit is not its business.
+			let system_id = FIRST_PARA_ID - 1;
+			Paras::<Test>::insert(system_id, record);
+			assert_try_state_invalid();
+
+			// Put it back, so the harness's own check at the end still means something.
+			Paras::<Test>::remove(system_id);
+			assert_try_state_ok();
 		});
 	}
 }

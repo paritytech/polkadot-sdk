@@ -219,6 +219,17 @@ parameter_types! {
 		RuntimeHoldReason::HrmpControl(pallet_hrmp_para::HoldReason::Channel);
 }
 
+/// Which paras this runtime treats as system chains.
+///
+/// The relay chain's numbering convention, stated here rather than baked into the pallet.
+pub struct SystemParas;
+
+impl frame_support::traits::Contains<u32> for SystemParas {
+	fn contains(para_id: &u32) -> bool {
+		*para_id < FIRST_PARA_ID
+	}
+}
+
 /// A para's sovereign account on this chain, as the XCM location converter derives it.
 ///
 /// The same conversion a real Coretime chain would use for a sibling, so the deposits this pallet
@@ -249,7 +260,7 @@ impl pallet_hrmp_para::Config for Runtime {
 	type ParaManager = Registrar;
 	type SovereignAccountOf = SovereignOf;
 	type SelfParaId = ConstU32<{ crate::senders::PARA_ID }>;
-	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
+	type SystemParas = SystemParas;
 	type MaxCapacity = ConstU32<{ crate::MAX_CAPACITY }>;
 	type MaxMessageSize = ConstU32<{ crate::MAX_MESSAGE_SIZE }>;
 	type PendingDeadline = ConstU64<{ crate::HRMP_DEADLINE }>;

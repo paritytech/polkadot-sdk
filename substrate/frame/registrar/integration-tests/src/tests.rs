@@ -247,6 +247,11 @@ fn a_registration_travels_from_the_parachain_to_the_relay_chain_and_onboards_a_p
 			polkadot_runtime_common::paras_registrar::Paras::<relay::Runtime>::get(id).unwrap();
 		assert_eq!(info.manager, ALICE);
 		assert_eq!(info.deposit, 0);
+		// Locked from birth, not from the para's first head. The manager holds the same
+		// AccountId32 on both chains, so without this they could reach around the control plane
+		// and use the relay chain's own deregister, swap, code-upgrade and set-head calls until
+		// the para produced a block — and for ever, if it never did.
+		assert_eq!(info.locked, Some(true), "a remotely registered para must be locked here");
 		assert_eq!(pallet_balances::Pallet::<relay::Runtime>::reserved_balance(ALICE), 0);
 	});
 

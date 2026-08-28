@@ -23,7 +23,7 @@ use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
 	Outcome, ParaId,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, DispatchResult};
 
 /// The message id every test request carries. An arbitrary value: this side only echoes what the
 /// parachain sent.
@@ -374,6 +374,183 @@ mod establish_system_channel {
 					message_id: MSG_ID,
 					reason: FailureReason::Refused,
 				}]
+			);
+		});
+	}
+}
+
+mod contract {
+	use super::*;
+
+	/// Every call, the message it serves, and the report it must produce.
+	///
+	/// The pallet's whole job is "drive the registry, then say what happened", so the thing worth
+	/// pinning is that no path can ever skip the saying.
+	#[allow(clippy::type_complexity)]
+	fn calls() -> Vec<(&'static str, Box<dyn Fn() -> DispatchResult>, MessageToPara)> {
+		let channel = chan(PARA_A, PARA_B);
+		vec![
+			(
+				"init_open_channel",
+				Box::new(move || {
+					Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel))
+				}),
+				open_report(channel, Ok(())),
+			),
+			(
+				"accept_open_channel",
+				Box::new(move || {
+					Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)).unwrap();
+					let _ = take_sent();
+					Hrmp::accept_open_channel(RuntimeOrigin::root(), accept_msg(channel))
+				}),
+				accept_report(channel, Ok(())),
+			),
+			(
+				"close_channel",
+				Box::new(move || {
+					opened(channel);
+					Hrmp::close_channel(RuntimeOrigin::root(), close_msg(channel, PARA_A))
+				}),
+				close_report(channel, Ok(())),
+			),
+			(
+				"cancel_open_request",
+				Box::new(move || {
+					Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)).unwrap();
+					let _ = take_sent();
+					Hrmp::cancel_open_request(RuntimeOrigin::root(), cancel_msg(channel))
+				}),
+				cancel_report(channel, Ok(())),
+			),
+		]
+	}
+
+	#[test]
+	fn every_call_reports_exactly_once_on_success() {
+		for (name, run, expected) in calls() {
+			new_test_ext().execute_with(|| {
+				assert_ok!(run());
+				assert_eq!(take_sent(), vec![expected.clone()], "{name} did not report");
+			});
+		}
+	}
+
+	#[test]
+	fn a_report_that_cannot_be_sent_never_unwinds_the_registry() {
+		for (name, run, _) in calls() {
+			new_test_ext().execute_with(|| {
+				// The setup steps inside `run` send reports of their own, so the transport is
+				// broken for all of them; only the last call's report is the one under test.
+				SendFails::set(true);
+
+				// The call still succeeds: this chain's state is already correct, and unwinding
+				// it because the report could not go out would be strictly worse.
+				assert!(run().is_ok(), "{name} failed when the transport was down");
+
+				let events = hrmp_events();
+				assert!(
+					events.iter().any(|e| matches!(e, Event::ReportFailed { .. })),
+					"{name} did not raise ReportFailed"
+				);
+			});
+		}
+	}
+
+	#[test]
+	fn every_call_refuses_a_message_it_does_not_serve() {
+		new_test_ext().execute_with(|| {
+			let channel = chan(PARA_A, PARA_B);
+			let wrong = [
+				("init", Hrmp::init_open_channel(RuntimeOrigin::root(), accept_msg(channel))),
+				("accept", Hrmp::accept_open_channel(RuntimeOrigin::root(), init_msg(channel))),
+				("close", Hrmp::close_channel(RuntimeOrigin::root(), cancel_msg(channel))),
+				(
+					"cancel",
+					Hrmp::cancel_open_request(
+						RuntimeOrigin::root(),
+						close_msg(channel, PARA_A),
+					),
+				),
+				(
+					"system",
+					Hrmp::establish_system_channel(RuntimeOrigin::root(), init_msg(channel)),
+				),
+			];
+			for (name, result) in wrong {
+				assert_eq!(
+					result,
+					Err(Error::<Test>::UnexpectedMessage.into()),
+					"{name} accepted a message it does not serve"
+				);
+			}
+			// A refused message is an extrinsic failure, not a report: nothing was decided, so
+			// there is nothing to tell the parachain.
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn the_registry_is_the_only_source_of_truth_about_what_exists() {
+		new_test_ext().execute_with(|| {
+			use hrmp_primitives::HrmpRegistry;
+			let channel = chan(PARA_A, PARA_B);
+
+			assert!(!MockRegistry::exists(channel));
+
+			assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
+			assert!(MockRegistry::exists(channel), "a pending request counts as existing");
+
+			assert_ok!(Hrmp::accept_open_channel(RuntimeOrigin::root(), accept_msg(channel)));
+			assert!(MockRegistry::exists(channel));
+
+			assert_ok!(Hrmp::close_channel(RuntimeOrigin::root(), close_msg(channel, PARA_A)));
+			assert!(!MockRegistry::exists(channel));
+		});
+	}
+
+	#[test]
+	fn this_pallet_keeps_no_storage_of_its_own() {
+		new_test_ext().execute_with(|| {
+			let channel = chan(PARA_A, PARA_B);
+			opened(channel);
+
+			// Deliberate: the relay chain half is a translator, not a second registry. If it ever
+			// grows storage, the two chains gain a third thing that can disagree.
+			assert!(
+				sp_io::storage::next_key(&[]).is_none_or(|k| !k.starts_with(
+					&sp_io::hashing::twox_128(b"Hrmp")[..]
+				)),
+				"pallet-hrmp-relay has grown storage of its own"
+			);
+		});
+	}
+}
+
+mod parameters {
+	use super::*;
+
+	#[test]
+	fn the_registry_gets_the_bounds_the_parachain_asked_for() {
+		new_test_ext().execute_with(|| {
+			let channel = chan(PARA_A, PARA_B);
+
+			// Zero capacity is refused by the registry, not by this pallet: the live bounds are
+			// the relay chain's business, and mirroring them here would let the two drift.
+			assert_ok!(Hrmp::init_open_channel(
+				RuntimeOrigin::root(),
+				MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
+					channel,
+					message_id: MSG_ID,
+					max_capacity: 0,
+					max_message_size: MESSAGE_SIZE,
+				})
+			));
+
+			assert!(Requests::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![open_report(channel, Err(FailureReason::InvalidParameters))]
 			);
 		});
 	}

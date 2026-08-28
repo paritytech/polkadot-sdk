@@ -229,11 +229,35 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+/// Run `f` against fresh externalities, then assert the pallet's invariants still hold.
+///
+/// Every test goes through here, so no test can leave storage in a shape the pallet says is
+/// impossible. A test that deliberately corrupts storage must put it back before returning.
+pub fn build_and_execute(f: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		f();
+		assert_try_state_ok();
+	});
+}
+
 /// Advance to block `n`, so block-number-dependent logic can be exercised.
 pub fn run_to_block(n: BlockNumber) {
 	while System::block_number() < n {
 		System::set_block_number(System::block_number() + 1);
 	}
+}
+
+/// Assert the pallet's storage invariants hold.
+pub fn assert_try_state_ok() {
+	frame_support::assert_ok!(crate::Pallet::<Test>::do_try_state());
+}
+
+/// Assert the pallet's storage invariants are violated.
+///
+/// Tests that deliberately corrupt storage must restore it afterwards, so the state they leave
+/// behind is one [`assert_try_state_ok`] would still accept.
+pub fn assert_try_state_invalid() {
+	assert!(crate::Pallet::<Test>::do_try_state().is_err());
 }
 
 /// Every event this pallet emitted, oldest first, clearing the log.
