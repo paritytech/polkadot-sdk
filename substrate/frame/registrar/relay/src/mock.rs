@@ -96,6 +96,8 @@ parameter_types! {
 	pub static HeadsSet: Vec<(ParaId, Vec<u8>)> = Vec::new();
 	/// When true, `MockRegistrar::set_current_head` fails.
 	pub static SetHeadFails: bool = false;
+	/// Paras the registry says are in an upgrade cooldown.
+	pub static InCooldown: Vec<ParaId> = Vec::new();
 }
 
 /// A raw storage key `MockRegistrar::deregister` writes before it can fail.
@@ -153,6 +155,12 @@ impl ParachainRegistrar for MockRegistrar {
 		}
 		Upgraded::mutate(|v| v.push((para_id, new_code)));
 		Ok(())
+	}
+
+	fn remove_upgrade_cooldown(para_id: ParaId) -> bool {
+		let was = InCooldown::get().contains(&para_id);
+		InCooldown::mutate(|c| c.retain(|p| *p != para_id));
+		was
 	}
 
 	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> sp_runtime::DispatchResult {

@@ -84,6 +84,7 @@ pub trait WeightInfo {
 	fn set_current_head(h: u32, ) -> Weight;
 	fn force_set_next_free_para_id() -> Weight;
 	fn force_remove_para() -> Weight;
+	fn remove_upgrade_cooldown() -> Weight;
 }
 
 /// Weights for `pallet_registrar_para` using the Substrate node and recommended hardware.
@@ -218,6 +219,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn force_remove_para() -> Weight {
 		Self::deregister_reserved().max(Self::deregister_registered())
 	}
+	fn remove_upgrade_cooldown() -> Weight {
+		Self::cancel_registration()
+	}
 
 }
 
@@ -351,6 +355,9 @@ impl WeightInfo for () {
 	}
 	fn force_remove_para() -> Weight {
 		Self::deregister_reserved().max(Self::deregister_registered())
+	}
+	fn remove_upgrade_cooldown() -> Weight {
+		Self::cancel_registration()
 	}
 
 }

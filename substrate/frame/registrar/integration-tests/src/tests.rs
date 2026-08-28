@@ -910,3 +910,68 @@ fn a_request_the_relay_chain_refuses_gives_the_deposit_straight_back() {
 		)));
 	});
 }
+
+/// What the relay chain would charge to skip the rest of `para_id`'s upgrade cooldown.
+///
+/// Zero when there is no cooldown, so it doubles as "is this para in one".
+fn cooldown_cost(para_id: u32) -> u128 {
+	polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::remove_upgrade_cooldown_cost(
+		polkadot_primitives::Id::from(para_id),
+	)
+}
+
+#[test]
+fn a_cooldown_buy_out_travels_to_the_relay_chain_and_burns_on_the_parachain() {
+	MockNet::reset();
+
+	let para_id = onboard(ALICE, 32, 64);
+	let new_blob = code(128);
+
+	// Upgrade once, which is what puts the para into a cooldown on the relay chain.
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::schedule_code_upgrade(
+			para::RuntimeOrigin::signed(ALICE),
+			para_id,
+			new_blob.len() as u32,
+			hash_of(&new_blob),
+		));
+	});
+	Relay::execute_with(|| {
+		assert_ok!(submit_upgrade_code(para_id, new_blob.clone()));
+		// Queried through the public view function rather than the private storage item: it is
+		// what a user would ask, and it is non-zero exactly while a cooldown is running.
+		assert!(
+			cooldown_cost(para_id) > 0,
+			"the upgrade should have started a cooldown"
+		);
+	});
+
+	// Anybody may pay to skip the rest of it. Bob manages nothing here.
+	let (before, issuance) = RegistrarPara::execute_with(|| {
+		(
+			pallet_balances::Pallet::<para::Runtime>::free_balance(&BOB),
+			pallet_balances::Pallet::<para::Runtime>::total_issuance(),
+		)
+	});
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::remove_upgrade_cooldown(
+			para::RuntimeOrigin::signed(BOB),
+			para_id
+		));
+
+		// Burned on this chain, which is where the money lives now.
+		assert_eq!(
+			pallet_balances::Pallet::<para::Runtime>::free_balance(&BOB),
+			before - COOLDOWN_COST
+		);
+		assert_eq!(
+			pallet_balances::Pallet::<para::Runtime>::total_issuance(),
+			issuance - COOLDOWN_COST
+		);
+	});
+
+	// The relay chain dropped the cooldown and charged nothing for it.
+	Relay::execute_with(|| {
+		assert_eq!(cooldown_cost(para_id), 0, "the cooldown should be gone");
+	});
+}

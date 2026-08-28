@@ -1296,3 +1296,71 @@ mod bounds {
 		assert_eq!(codes.len(), total, "two errors share an InvalidTransaction::Custom code");
 	}
 }
+
+mod remove_upgrade_cooldown {
+	use super::*;
+
+	fn cooldown_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
+		MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
+			para_id,
+			message_id: MSG_ID,
+		})
+	}
+
+	#[test]
+	fn drops_the_cooldown_and_charges_nothing_here() {
+		new_test_ext().execute_with(|| {
+			InCooldown::set(vec![PARA_A]);
+
+			assert_ok!(Registrar::remove_upgrade_cooldown(
+				RuntimeOrigin::root(),
+				cooldown_msg(PARA_A)
+			));
+
+			assert!(InCooldown::get().is_empty());
+			// The payer was charged on the parachain, so nothing goes back and nothing is taken
+			// here.
+			assert_eq!(take_sent(), vec![]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::UpgradeCooldownRemoved { para_id: PARA_A, message_id: MSG_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_cooldown_that_already_expired_is_said_so_rather_than_looking_like_success() {
+		new_test_ext().execute_with(|| {
+			// The cooldown may lapse between the parachain deciding to pay and this arriving.
+			assert_ok!(Registrar::remove_upgrade_cooldown(
+				RuntimeOrigin::root(),
+				cooldown_msg(PARA_A)
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::NoUpgradeCooldown { para_id: PARA_A, message_id: MSG_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn users_cannot_reach_it_and_it_refuses_a_message_it_does_not_serve() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::remove_upgrade_cooldown(
+					RuntimeOrigin::signed(ALICE),
+					cooldown_msg(PARA_A)
+				),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Registrar::remove_upgrade_cooldown(
+					RuntimeOrigin::root(),
+					deregister_msg(PARA_A)
+				),
+				Error::<Test>::UnexpectedMessage
+			);
+		});
+	}
+}

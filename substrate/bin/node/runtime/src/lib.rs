@@ -2714,7 +2714,8 @@ impl pallet_registrar_para::Config for Runtime {
 		LinearStoragePrice<ConstU128<0>, RegistrationDepositPerByte, Balance>,
 	>;
 	type SendToRelay = DiscardRegistrarMessages;
-	type AssignmentChecker = ();
+	type AssignmentChecker = pallet_registrar_para::NoAssignments;
+	type RequireAssignmentLock = frame_support::traits::ConstBool<false>;
 	type RelayOrigin = EnsureRoot<AccountId>;
 	// No parachain can call into this runtime, so the para-itself origin stays off.
 	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;

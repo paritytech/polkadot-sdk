@@ -134,7 +134,8 @@ pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
 		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) |
 		MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
 		MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
-		MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) => 0,
+		MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
+		MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown { .. }) => 0,
 	}
 }
 
@@ -268,6 +269,10 @@ pub mod pallet {
 		HeadRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// Governance dropped a pending entry that nobody was going to complete.
 		PendingDropped { para_id: ParaId },
+		/// A para's upgrade cooldown was dropped, paid for on the parachain.
+		UpgradeCooldownRemoved { para_id: ParaId, message_id: u64 },
+		/// There was no upgrade cooldown to drop. The parachain has already charged for it.
+		NoUpgradeCooldown { para_id: ParaId, message_id: u64 },
 	}
 
 	#[pallet::error]
@@ -541,6 +546,38 @@ pub mod pallet {
 					head,
 				}) => {
 					Self::on_set_head_request(para_id, message_id, head);
+					Ok(())
+				},
+				_ => Err(Error::<T>::UnexpectedMessage.into()),
+			}
+		}
+
+		/// Drop a para's upgrade cooldown, at the parachain's request.
+		///
+		/// Only callable by a trusted XCM origin, never by users. Charges nothing: the cost was
+		/// burned on the parachain, which is where the money lives. Unanswered, like the other
+		/// calls whose outcome nothing is staked on.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::remove_upgrade_cooldown())]
+		pub fn remove_upgrade_cooldown(
+			origin: OriginFor<T>,
+			message: MessageToRelay<T::AccountId>,
+		) -> DispatchResult {
+			T::ParaOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
+					para_id,
+					message_id,
+				}) => {
+					if T::Registrar::remove_upgrade_cooldown(para_id) {
+						Self::deposit_event(Event::UpgradeCooldownRemoved { para_id, message_id });
+					} else {
+						// Not an error: the cooldown may simply have expired between the
+						// parachain deciding to pay and this arriving. The payer is not made
+						// whole, which is the same deal they get today.
+						Self::deposit_event(Event::NoUpgradeCooldown { para_id, message_id });
+					}
 					Ok(())
 				},
 				_ => Err(Error::<T>::UnexpectedMessage.into()),

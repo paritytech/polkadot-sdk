@@ -82,6 +82,7 @@ pub trait WeightInfo {
 	fn authorize_apply_authorized_code_upgrade(c: u32, ) -> Weight;
 	fn set_current_head(h: u32, ) -> Weight;
 	fn force_drop_pending() -> Weight;
+	fn remove_upgrade_cooldown() -> Weight;
 }
 
 /// Weights for `pallet_registrar_relay` using the Substrate node and recommended hardware.
@@ -186,6 +187,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn force_drop_pending() -> Weight {
 		Self::cancel_authorization()
 	}
+	fn remove_upgrade_cooldown() -> Weight {
+		Self::cancel_authorization()
+	}
 
 }
 
@@ -288,6 +292,9 @@ impl WeightInfo for () {
 		Self::authorize_code(h)
 	}
 	fn force_drop_pending() -> Weight {
+		Self::cancel_authorization()
+	}
+	fn remove_upgrade_cooldown() -> Weight {
 		Self::cancel_authorization()
 	}
 

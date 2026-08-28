@@ -71,6 +71,8 @@ pub const MAX_MESSAGE_SIZE: u32 = 1024;
 pub const CHANNEL_DEPOSIT: u128 = 500;
 /// How long the parachain waits before a channel counts as stuck.
 pub const HRMP_DEADLINE: u64 = 50;
+/// What it costs on the parachain to buy out an upgrade cooldown.
+pub const COOLDOWN_COST: u128 = 250;
 pub const MAX_HEAD_SIZE: u32 = 1024;
 
 decl_test_parachain! {

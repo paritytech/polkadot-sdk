@@ -648,6 +648,10 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
+	fn remove_upgrade_cooldown(para_id: u32) -> bool {
+		paras::Pallet::<T>::remove_upgrade_cooldown_without_charge(ParaId::from(para_id))
+	}
+
 	fn set_current_head(para_id: u32, head: Vec<u8>) -> DispatchResult {
 		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
 		Ok(())

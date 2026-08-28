@@ -193,7 +193,8 @@ impl pallet_registrar_para::Config for Runtime {
 		LinearStoragePrice<ConstU128<0>, DataDepositPerByte, Balance>,
 	>;
 	type SendToRelay = ParaSendToRelay;
-	type AssignmentChecker = ();
+	type AssignmentChecker = pallet_registrar_para::NoAssignments;
+	type RequireAssignmentLock = ConstBool<false>;
 	type ParachainOrigin = frame_system::EnsureNever<u32>;
 	// The relay chain reports with `OriginKind::Superuser`, which `ParentAsSuperuser` turns into
 	// `Root`. Nothing else on this chain can produce a `Root` origin in these tests.
@@ -207,11 +208,13 @@ impl pallet_registrar_para::Config for Runtime {
 	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
 	type BlockNumberProvider = System;
 	// A registration opens a channel with the new para, so this chain always has a route to it.
+	type Fungible = Balances;
+	type UpgradeCooldownCost = ConstU128<{ crate::COOLDOWN_COST }>;
 	type OnRegistered = HrmpControl;
 	type WeightInfo = ();
 }
 
-use frame_support::traits::ConstU64;
+use frame_support::traits::{ConstBool, ConstU64};
 
 parameter_types! {
 	pub const ChannelDeposit: Balance = crate::CHANNEL_DEPOSIT;

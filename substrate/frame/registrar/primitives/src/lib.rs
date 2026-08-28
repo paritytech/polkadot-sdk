@@ -135,6 +135,21 @@ pub enum MessageToRelayV1<AccountId> {
 		/// Length of the validation code that will be uploaded, in bytes.
 		code_len: u32,
 	},
+	/// Ask the relay chain to drop `para_id`'s upgrade cooldown.
+	///
+	/// The cost was already burned on the parachain, so the relay chain charges nothing. It is a
+	/// flat price there rather than the relay chain's "time left times a multiplier", because the
+	/// parachain cannot see how much of the cooldown is left without another round trip.
+	///
+	/// Unanswered. Nothing on the parachain is staked on the outcome — the cost is burned, not
+	/// held — so a refusal is reported as a relay-chain event.
+	#[codec(index = 6)]
+	RemoveUpgradeCooldown {
+		/// The para whose cooldown should be dropped.
+		para_id: ParaId,
+		/// The parachain's id for this message, for tying the two chains' events together.
+		message_id: u64,
+	},
 	/// Ask the relay chain to set `para_id`'s head data.
 	///
 	/// Head data is small enough in practice to travel inline, so this needs no upload step.
@@ -325,6 +340,13 @@ pub trait ParachainRegistrar {
 
 	/// Set `para_id`'s current head data.
 	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> sp_runtime::DispatchResult;
+
+	/// Drop `para_id`'s upgrade cooldown, charging nothing.
+	///
+	/// The caller has already been charged on the chain that holds the money. Returns whether
+	/// there was a cooldown to remove, so a request for a para that was not in one can be
+	/// reported as such rather than looking like a success.
+	fn remove_upgrade_cooldown(para_id: ParaId) -> bool;
 
 	/// Arrange for `para_id` to be registered under `manager`, unlocked and deregisterable, so
 	/// the deregistration path can be benchmarked.

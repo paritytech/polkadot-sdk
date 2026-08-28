@@ -19,7 +19,7 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Get;
+use frame_support::traits::{fungible::Mutate, Get};
 use frame_system::RawOrigin;
 use registrar_primitives::{MessageToPara, MessageToParaV1};
 
@@ -287,6 +287,23 @@ mod benchmarks {
 		_(RawOrigin::Root, para_id);
 
 		assert!(Paras::<T>::get(para_id).is_none());
+		Ok(())
+	}
+
+	/// Buying out a cooldown: a read, a burn, and the message.
+	#[benchmark]
+	fn remove_upgrade_cooldown() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+		// The burn is the whole point of the call, so the payer must be able to afford it.
+		T::Fungible::set_balance(
+			&who,
+			T::UpgradeCooldownCost::get().saturating_mul(2u32.into()),
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id);
+
 		Ok(())
 	}
 

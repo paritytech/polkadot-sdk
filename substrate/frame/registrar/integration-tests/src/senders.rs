@@ -67,6 +67,8 @@ pub enum RegistrarRelayCalls<AccountId> {
 	AuthorizeCodeUpgrade(MessageToRelay<AccountId>),
 	#[codec(index = 7)]
 	SetCurrentHead(MessageToRelay<AccountId>),
+	#[codec(index = 9)]
+	RemoveUpgradeCooldown(MessageToRelay<AccountId>),
 }
 
 /// Calls on the parachain, as the relay chain must encode them.
@@ -116,6 +118,9 @@ impl SendToRelay for ParaSendToRelay {
 			},
 			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => {
 				RegistrarRelayCalls::SetCurrentHead(message)
+			},
+			MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown { .. }) => {
+				RegistrarRelayCalls::RemoveUpgradeCooldown(message)
 			},
 		};
 		let call = RelayRuntimePallets::Registrar(relay_call).encode();

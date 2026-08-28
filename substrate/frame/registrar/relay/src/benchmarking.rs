@@ -268,5 +268,20 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Dropping a cooldown at the parachain's request: one registry call, no report.
+	#[benchmark]
+	fn remove_upgrade_cooldown() -> Result<(), BenchmarkError> {
+		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
+		let message = MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
+			para_id: PARA_ID,
+			message_id: 0,
+		});
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, message);
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

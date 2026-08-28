@@ -1794,3 +1794,137 @@ mod invariants {
 		});
 	}
 }
+
+mod remove_upgrade_cooldown {
+	use super::*;
+
+	#[test]
+	fn anybody_may_pay_to_unblock_anybody_elses_para() {
+		build_and_execute(|| {
+			// GIVEN Alice's registered para, and Bob, who manages nothing.
+			let para_id = registered_para(ALICE);
+			let bob_before = Balances::free_balance(BOB);
+			let issuance_before = Balances::total_issuance();
+			let _ = take_sent();
+
+			// WHEN Bob pays. Permissionless, as on the relay chain: whoever wants the upgrade
+			// sooner can buy it, not just the manager.
+			assert_ok!(Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(BOB), para_id));
+
+			// THEN the cost is burned, not held: there is nothing to give back later.
+			assert_eq!(Balances::free_balance(BOB), bob_before - COOLDOWN_COST);
+			assert_eq!(Balances::total_issuance(), issuance_before - COOLDOWN_COST);
+			assert_eq!(held(BOB), 0);
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
+					para_id,
+					message_id: 1,
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::UpgradeCooldownRemovalRequested {
+					para_id,
+					message_id: 1,
+					who: BOB
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_that_is_not_registered_has_no_cooldown_to_buy_out() {
+		build_and_execute(|| {
+			let reserved = reserve_for(ALICE);
+			let before = Balances::free_balance(ALICE);
+
+			assert_noop!(
+				Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(ALICE), reserved),
+				Error::<Test>::NotRegistered
+			);
+			assert_noop!(
+				Registrar::remove_upgrade_cooldown(
+					RuntimeOrigin::signed(ALICE),
+					FIRST_PARA_ID + 900
+				),
+				Error::<Test>::NotReserved
+			);
+			// Nothing burned for a call that never went anywhere.
+			assert_eq!(Balances::free_balance(ALICE), before);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_caller_who_cannot_pay_is_refused_and_nothing_is_sent() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), BOB, 10));
+			let issuance_before = Balances::total_issuance();
+			let _ = take_sent();
+
+			assert_noop!(
+				Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(BOB), para_id),
+				sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable)
+			);
+			assert_eq!(Balances::total_issuance(), issuance_before);
+			assert_eq!(take_sent(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_puts_the_burned_money_back() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+			let before = Balances::free_balance(ALICE);
+			let issuance_before = Balances::total_issuance();
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::SendFailed
+			);
+
+			// The burn is unwound with the rest of the call, so a request that never left does
+			// not cost anything.
+			assert_eq!(Balances::free_balance(ALICE), before);
+			assert_eq!(Balances::total_issuance(), issuance_before);
+		});
+	}
+}
+
+mod integrity {
+	use super::*;
+	use crate::AssignmentChecker;
+	use frame_support::traits::Get;
+
+	#[test]
+	fn the_stub_and_a_real_checker_declare_themselves_correctly() {
+		// The startup check is only as good as this signal. If `NoAssignments` ever stopped
+		// declaring itself, a coretime-hosting runtime could ship it and the check would wave it
+		// through — and every live parachain's manager would be able to deregister it.
+		assert!(
+			crate::NoAssignments::NEVER_ASSIGNS,
+			"the stub must declare that it never reports an assignment"
+		);
+		assert!(
+			!MockAssignments::NEVER_ASSIGNS,
+			"a real checker must not declare itself as the stub"
+		);
+
+		// And the two must disagree, or the check cannot tell them apart.
+		assert_ne!(crate::NoAssignments::NEVER_ASSIGNS, MockAssignments::NEVER_ASSIGNS);
+	}
+
+	#[test]
+	fn this_runtime_declares_that_it_manages_coretime_and_backs_it_up() {
+		// The mock stands in for the chain that hosts coretime. `runtime_integrity_tests` runs
+		// the assertion itself; this pins the combination it is asserting about, so a later
+		// config change cannot quietly turn the check into a no-op by flipping the flag.
+		let requires: bool = <Test as crate::Config>::RequireAssignmentLock::get();
+		assert!(requires);
+		assert!(!<<Test as crate::Config>::AssignmentChecker as AssignmentChecker>::NEVER_ASSIGNS);
+	}
+}

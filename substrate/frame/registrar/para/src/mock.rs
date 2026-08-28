@@ -25,7 +25,8 @@ use crate::{self as pallet_registrar_para, AssignmentChecker, HoldReason, SendTo
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstU128, ConstU32, ConstantStoragePrice, LinearStoragePrice,
+		fungible::HoldConsideration, ConstBool, ConstU128, ConstU32, ConstantStoragePrice,
+		LinearStoragePrice,
 	},
 };
 use registrar_primitives::MessageToRelay;
@@ -47,6 +48,7 @@ pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const PENDING_DEADLINE: BlockNumber = 50;
+pub const COOLDOWN_COST: Balance = 250;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -197,6 +199,9 @@ impl pallet_registrar_para::Config for Test {
 	>;
 	type SendToRelay = RecordingSender;
 	type AssignmentChecker = MockAssignments;
+	// The mock stands in for the coretime host, so the startup check must be satisfied by a
+	// checker that can actually report an assignment.
+	type RequireAssignmentLock = ConstBool<true>;
 	type RelayOrigin = frame_system::EnsureRoot<AccountId>;
 	type ParachainOrigin = ParaAccounts;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
@@ -205,6 +210,8 @@ impl pallet_registrar_para::Config for Test {
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type PendingDeadline = ConstU32<PENDING_DEADLINE>;
 	type BlockNumberProvider = System;
+	type Fungible = Balances;
+	type UpgradeCooldownCost = ConstU128<COOLDOWN_COST>;
 	type OnRegistered = ();
 	type WeightInfo = ();
 }

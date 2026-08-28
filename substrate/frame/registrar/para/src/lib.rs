@@ -64,7 +64,11 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
-	traits::{Consideration, EnsureOrigin, Footprint, Get},
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+		Consideration, EnsureOrigin, Footprint, Get,
+	},
 };
 use hrmp_primitives::{OnParaRegistered, ParaManager};
 use registrar_primitives::{
@@ -74,7 +78,7 @@ use registrar_primitives::{
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlockNumberProvider, Saturating},
+	traits::{BlockNumberProvider, Saturating, Zero},
 	DispatchResult,
 };
 
@@ -89,6 +93,10 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
+
+/// The balance type this pallet burns in, taken from the configured fungible.
+pub type BalanceOf<T> =
+	<<T as Config>::Fungible as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Block number used for registration deadlines.
 ///
@@ -126,11 +134,29 @@ impl SendToRelay for () {
 /// [`Pallet::deregister`] refuses while this says yes. Runtimes without coretime knowledge use
 /// `()`, which never blocks.
 pub trait AssignmentChecker {
+	/// Whether this implementation can ever report an assignment.
+	///
+	/// Declared rather than inferred so that a runtime which *should* know about coretime can be
+	/// stopped at startup from shipping one that does not — see [`Config::RequireAssignmentLock`].
+	const NEVER_ASSIGNS: bool = false;
+
 	/// Whether `para_id` still holds a lease or a region.
 	fn has_assignment(para_id: ParaId) -> bool;
 }
 
-impl AssignmentChecker for () {
+/// An [`AssignmentChecker`] that never reports an assignment.
+///
+/// For runtimes that genuinely have no coretime to consult. **Not** for the chain that hosts it:
+/// there, a para holding a core is what locks it against its manager, and this would leave a live
+/// parachain's manager able to deregister it.
+///
+/// A named type rather than an impl on `()`, so choosing it is a decision somebody wrote down and
+/// a reviewer can grep for, instead of the thing you get by leaving a config line alone.
+pub struct NoAssignments;
+
+impl AssignmentChecker for NoAssignments {
+	const NEVER_ASSIGNS: bool = true;
+
 	fn has_assignment(_para_id: ParaId) -> bool {
 		false
 	}
@@ -224,6 +250,15 @@ pub mod pallet {
 		/// Knows whether a para id still holds a coretime assignment on this chain.
 		type AssignmentChecker: AssignmentChecker;
 
+		/// Whether this runtime is one that must be able to tell when a para holds a core.
+		///
+		/// True on the chain that hosts coretime. Set it there and the startup check refuses a
+		/// [`NoAssignments`] checker, which would otherwise silently leave every live parachain's
+		/// manager able to deregister it — a one-line config slip with the worst payoff in this
+		/// pallet. False elsewhere, where there is genuinely nothing to consult.
+		#[pallet::constant]
+		type RequireAssignmentLock: Get<bool>;
+
 		/// An origin that is sure to be the relay chain's registrar pallet.
 		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -269,6 +304,20 @@ pub mod pallet {
 		/// `cumulus_pallet_parachain_system::RelaychainDataProvider`, so
 		/// [`Config::PendingDeadline`] is in relay-chain blocks.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		/// The token an upgrade cooldown is bought out in.
+		///
+		/// Only used by [`Pallet::remove_upgrade_cooldown`], which burns rather than holds: the
+		/// point is to make skipping a cooldown cost something, not to return it later.
+		type Fungible: Mutate<Self::AccountId>;
+
+		/// What it costs to drop a para's upgrade cooldown.
+		///
+		/// The relay chain prices this on how much of the cooldown is left. This chain cannot see
+		/// that without another round trip, so the price is flat and governance-tunable. Cruder,
+		/// but the cooldown exists to deter rapid upgrades, not to raise revenue.
+		#[pallet::constant]
+		type UpgradeCooldownCost: Get<BalanceOf<Self>>;
 
 		/// Told when a para finishes registering.
 		///
@@ -362,6 +411,10 @@ pub mod pallet {
 		NextFreeParaIdSet { para_id: ParaId },
 		/// Governance dropped this chain's record of a para and released its deposits.
 		ParaForceRemoved { para_id: ParaId, manager: T::AccountId },
+		/// Somebody paid to drop a para's upgrade cooldown, and the relay chain has been asked
+		/// to apply it. The cost is burned here and is not returned if the relay chain finds
+		/// nothing to drop.
+		UpgradeCooldownRemovalRequested { para_id: ParaId, message_id: u64, who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -412,6 +465,22 @@ pub mod pallet {
 				"MinCodeSize ({}) must not exceed MaxCodeSize ({})",
 				T::MinCodeSize::get(),
 				T::MaxCodeSize::get(),
+			);
+
+			// A chain that hosts coretime and cannot see it has no lock at all: holding a core is
+			// what shuts a manager out of deregistering, upgrading and setting head data, and
+			// there is no other signal here to fall back on.
+			assert!(
+				!(T::RequireAssignmentLock::get() && T::AssignmentChecker::NEVER_ASSIGNS),
+				"AssignmentChecker never reports an assignment, but this runtime declares that it \
+				 manages coretime. A live parachain's manager would be able to deregister it.",
+			);
+
+			// A zero deadline would let a manager chase a verdict in the same block they asked
+			// for it, which is the whole thing the deadline exists to prevent.
+			assert!(
+				!T::PendingDeadline::get().is_zero(),
+				"PendingDeadline must not be zero",
 			);
 		}
 	}
@@ -860,6 +929,51 @@ pub mod pallet {
 			Paras::<T>::remove(para_id);
 
 			Self::deposit_event(Event::ParaForceRemoved { para_id, manager });
+			Ok(())
+		}
+
+		/// Pay to drop a para's upgrade cooldown, so it can upgrade again sooner.
+		///
+		/// Permissionless, as on the relay chain: anybody may pay to unblock anybody's para. The
+		/// cost is burned from the caller, never held, so there is nothing to return.
+		///
+		/// Unanswered. If the cooldown has already expired by the time the request lands, the
+		/// relay chain says so in an event and the caller is not made whole — the same deal the
+		/// relay chain's own call gives today.
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::remove_upgrade_cooldown())]
+		pub fn remove_upgrade_cooldown(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+		) -> DispatchResult {
+			let who = frame_system::ensure_signed(origin)?;
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+
+			T::Fungible::burn_from(
+				&who,
+				T::UpgradeCooldownCost::get(),
+				Preservation::Preserve,
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
+
+			// A transport failure returns `Err` and unwinds the burn with it.
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
+				para_id,
+				message_id,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::UpgradeCooldownRemovalRequested {
+				para_id,
+				message_id,
+				who,
+			});
 			Ok(())
 		}
 
