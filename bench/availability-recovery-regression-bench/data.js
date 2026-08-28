@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787910691341,
+  "lastUpdate": 1787929594535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5168cadb2683174b891cbd33e37cd436bfdce1d",
-          "message": "collator-protocol: Readvertise collations after peer disconnects (#10464)\n\nThere's a possible race case between peer connectivity and collation\nadvertisement:\n- The advertisement was generated\n- peer disconnected before receiving the advertisement\n\nAs a result of that, when the peer reconnects, the previous collation\n(C0) is not sent.\nThis happens when the collator has produced another collation (C1).\nHowever, from the logs it looks like the collation C1 is advertising,\nbut C0 is skipped.\n\n- T0: peer disconnects without receiving C0\n- T1: peer reconnects\n- T2: collator advertises C1, but not C0\n\nThis PR aims to resubmit collations on `PeerConect` events to mitigate\nthese cases\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/10463\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-01-30T13:57:37Z",
-          "tree_id": "7068a46b2cd404d92390dc3bd0b3efa3b14b6638",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5168cadb2683174b891cbd33e37cd436bfdce1d"
-        },
-        "date": 1769785888257,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.3099653964,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1273800988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.720857773666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2cc7937afe9324b248d92a8ddb5373c0eba80b9c",
+          "message": "Don't use expensive aliasers in `ExplicitUnpaidExecutionFrom` (#12831)\n\nThe `ExplicitUnpaidExecutionFrom` barrier runs `AliasOrigin`\ninstructions first so we should only run the cheap ones. There's no\nvalid use-case for `AuthorizedAliasers` as well\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>",
+          "timestamp": "2026-08-28T13:19:01Z",
+          "tree_id": "6284bf0f74d0c2771b6933010a53252ccd83be01",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cc7937afe9324b248d92a8ddb5373c0eba80b9c"
+        },
+        "date": 1787929553738,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1397282235,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.969841978499996,
             "unit": "seconds"
           }
         ]
