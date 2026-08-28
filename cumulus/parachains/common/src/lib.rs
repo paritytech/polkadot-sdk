@@ -22,6 +22,8 @@ pub mod benchmarking;
 pub mod impls;
 pub mod message_queue;
 pub mod pay;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod xcm_benchmarks;
 pub mod xcm_config;
 pub use constants::*;
 pub use parachains_common_types::{opaque::*, *};

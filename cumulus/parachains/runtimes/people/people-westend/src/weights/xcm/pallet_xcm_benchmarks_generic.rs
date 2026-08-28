@@ -375,4 +375,22 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		Weight::from_parts(19_804_000, 3915)
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
+	// NOTE: placeholder reusing the previous `barrier_check` measurement; regenerate
+	// the two barrier benchmarks with `/cmd bench` for `pallet_xcm_benchmarks::generic`.
+	pub fn barrier_check_ref_time() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 495_000 picoseconds.
+		Weight::from_parts(600_000, 0)
+	}
+	// NOTE: placeholder reusing the previous `barrier_check` measurement; regenerate
+	// the two barrier benchmarks with `/cmd bench` for `pallet_xcm_benchmarks::generic`.
+	pub fn barrier_check_proof_size() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 8_226_000 picoseconds.
+		Weight::from_parts(8_865_000, 0)
+	}
 }

@@ -195,6 +195,15 @@ impl generic::Config for Test {
 		Err(BenchmarkError::Skip)
 	}
 
+	fn worst_case_barrier_check_ref_time() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+		Ok((Location::parent(), Xcm(vec![ClearOrigin])))
+	}
+
+	fn worst_case_barrier_check_proof_size() -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError>
+	{
+		Ok((Location::parent(), Xcm(vec![ClearOrigin])))
+	}
+
 	fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 		let origin: Location = (Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
 		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();

@@ -325,14 +325,14 @@ fn transfer_from_penpal_to_ethereum_trapped_on_ah_and_then_claim_can_work() {
 		));
 	});
 
+	// Capture the exact trapped assets: the amounts depend on the configured weights and
+	// fees, and a claim only succeeds if it matches the trapped assets exactly.
 	let trapped_assets: Assets = AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![RuntimeEvent::PolkadotXcm(pallet_xcm::Event::ProcessXcmError { .. }) => {},]
 		);
-		// Capture the exact trapped assets: the amounts depend on the configured weights and
-		// fees, and a claim only succeeds if it matches the trapped assets exactly.
 		AssetHubWestend::events()
 			.into_iter()
 			.find_map(|event| match event {

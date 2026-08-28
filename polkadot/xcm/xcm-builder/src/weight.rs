@@ -223,6 +223,32 @@ where
 	}
 }
 
+/// Wraps an inner [`WeightBounds`] implementation (e.g. [`WeightInfoBounds`]) and additionally
+/// reports a precise barrier-check weight via [`WeightBounds::barrier_check_weight`], so the
+/// executor charges that exact weight on barrier rejection instead of the full message weight.
+///
+/// `BarrierCheckWeight` is a `Get<Weight>` yielding the runtime's barrier-check benchmark weight —
+/// typically the component-wise `Weight::max` of the `barrier_check_ref_time` and
+/// `barrier_check_proof_size` benchmarks (a barrier worst in both dimensions can supply just one).
+pub struct BarrierWeightBounds<Inner, BarrierCheckWeight>(PhantomData<(Inner, BarrierCheckWeight)>);
+
+impl<Call, Inner, BarrierCheckWeight> WeightBounds<Call>
+	for BarrierWeightBounds<Inner, BarrierCheckWeight>
+where
+	Inner: WeightBounds<Call>,
+	BarrierCheckWeight: Get<Weight>,
+{
+	fn weight(message: &mut Xcm<Call>, weight_limit: Weight) -> Result<Weight, InstructionError> {
+		Inner::weight(message, weight_limit)
+	}
+	fn instr_weight(instruction: &mut Instruction<Call>) -> Result<Weight, XcmError> {
+		Inner::instr_weight(instruction)
+	}
+	fn barrier_check_weight() -> Option<Weight> {
+		Some(BarrierCheckWeight::get())
+	}
+}
+
 /// Function trait for handling some revenue. Similar to a negative imbalance (credit) handler, but
 /// for a `Asset`. Sensible implementations will deposit the asset in some known treasury or
 /// block-author account.

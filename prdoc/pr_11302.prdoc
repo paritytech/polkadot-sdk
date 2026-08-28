@@ -1,0 +1,46 @@
+title: 'fix(xcm): charge precise barrier-check weight on barrier rejection'
+doc:
+- audience: Runtime Dev
+  description: |-
+    On barrier rejection the executor previously charged the full message weight, over-estimating
+    the work done. This adds an optional `WeightBounds::barrier_check_weight()` hook (default
+    `None`): a weigher that provides it has that precise weight charged on rejection, otherwise the
+    previous behaviour is kept, so existing `XcmConfig`s are unaffected.
+
+    The weight is measured by two `pallet_xcm_benchmarks::generic` benchmarks,
+    `barrier_check_ref_time` and `barrier_check_proof_size` (driven by new
+    `worst_case_barrier_check_ref_time` / `worst_case_barrier_check_proof_size` config methods).
+    A barrier's worst case can split into disjoint paths each worst in a different dimension, so
+    each is benchmarked separately and combined with a component-wise `Weight::max`; a barrier
+    worst in both dimensions can implement just one method. Westend and its system parachains
+    (Asset Hub, Bridge Hub, Collectives, Coretime, People) wire this into their `Weigher`.
+
+    Since this weight is a worst-case constant it can exceed a cheap message's execution weight, so
+    `PreparedMessage::weight_of()` now reports the maximum of the two. This keeps it an upper bound
+    on what the executor consumes, so a caller reserving `weight_of()` (e.g. the `MessageQueue`)
+    never over-consumes on rejection; weighers without `barrier_check_weight()` are unaffected.
+
+    Closes #7965.
+crates:
+- name: staging-xcm-executor
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
+- name: pallet-xcm-benchmarks
+  bump: minor
+- name: testnet-parachains-constants
+  bump: minor
+- name: parachains-common
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor

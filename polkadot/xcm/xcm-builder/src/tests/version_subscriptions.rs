@@ -38,7 +38,7 @@ fn simple_version_subscriptions_should_work() {
 			Weight::zero(),
 		),
 		Outcome::Incomplete {
-			used: Weight::from_parts(20, 20),
+			used: BARRIER_CHECK_WEIGHT,
 			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
@@ -54,7 +54,7 @@ fn simple_version_subscriptions_should_work() {
 			Weight::zero(),
 		),
 		Outcome::Incomplete {
-			used: Weight::from_parts(20, 20),
+			used: BARRIER_CHECK_WEIGHT,
 			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
@@ -75,7 +75,7 @@ fn simple_version_subscriptions_should_work() {
 	assert_eq!(
 		r,
 		Outcome::Incomplete {
-			used: Weight::from_parts(10, 10),
+			used: BARRIER_CHECK_WEIGHT,
 			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
@@ -157,7 +157,7 @@ fn simple_version_unsubscriptions_should_work() {
 	assert_eq!(
 		r,
 		Outcome::Incomplete {
-			used: Weight::from_parts(20, 20),
+			used: BARRIER_CHECK_WEIGHT,
 			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);
@@ -176,7 +176,7 @@ fn simple_version_unsubscriptions_should_work() {
 	assert_eq!(
 		r,
 		Outcome::Incomplete {
-			used: Weight::from_parts(10, 10),
+			used: BARRIER_CHECK_WEIGHT,
 			error: InstructionError { index: 0, error: XcmError::Barrier },
 		}
 	);

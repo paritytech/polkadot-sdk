@@ -24,7 +24,7 @@ use alloc::vec::Vec;
 use assets_common::IsLocalAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
-use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
+pub use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
 use sp_runtime::BoundedVec;
 use xcm::{
 	latest::{prelude::*, AssetTransferFilter},

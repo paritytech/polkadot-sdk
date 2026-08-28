@@ -1258,6 +1258,33 @@ impl_runtime_apis! {
 					// filter is tried and fails first.
 					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
+
+				fn worst_case_barrier_check_ref_time(
+				) -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+					// Scan/compute path: `WithComputedOrigin` descends through its full prefix budget
+					// and `DenyRecursively` scans a `MaxInstructions`-sized message.
+					Ok(parachains_common::xcm_benchmarks::worst_case_barrier_check_ref_time::<RuntimeCall>(
+						testnet_parachains_constants::MAX_XCM_COMPUTED_ORIGIN_PREFIXES,
+						xcm_config::MaxInstructions::get(),
+					))
+				}
+
+				fn worst_case_barrier_check_proof_size(
+				) -> Result<(Location, Xcm<RuntimeCall>), BenchmarkError> {
+					use xcm::latest::prelude::*;
+					use xcm_executor::traits::QueryHandler;
+					// Storage-read path. Register a pending query whose responder differs from
+					// `origin` so `AllowKnownQueryResponses` performs the `Queries` read in
+					// `expecting_response` before the message is rejected.
+					let origin = Location::parent();
+					let responder = Location::new(1, [Parachain(1000)]);
+					let query_id =
+						<PolkadotXcm as QueryHandler>::new_query(responder, 1u32.into(), Here);
+					Ok(parachains_common::xcm_benchmarks::worst_case_barrier_check_proof_size::<RuntimeCall>(
+						origin,
+						query_id,
+					))
+				}
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

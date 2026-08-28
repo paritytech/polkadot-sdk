@@ -19,3 +19,7 @@
 pub mod rococo;
 #[cfg(feature = "westend")]
 pub mod westend;
+
+/// Maximum number of origin-altering instructions `WithComputedOrigin` will process before giving
+/// up.
+pub const MAX_XCM_COMPUTED_ORIGIN_PREFIXES: u32 = 8;

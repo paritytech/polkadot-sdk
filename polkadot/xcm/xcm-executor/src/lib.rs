@@ -210,7 +210,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 }
 
-pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
+/// A message that has been weighed, ready to be executed.
+///
+/// Carries two weights: the `reserve` weight is the worst case over *processing* the message — the
+/// maximum of executing it in full and rejecting it at the barrier (`barrier_check_weight`) — and
+/// is what [`PreparedMessage::weight_of`] reports, so callers reserve enough for either outcome.
+/// The `exec` weight is the message's execution weight; it is used internally by
+/// [`XcmExecutor::execute`] as the barrier's `max_weight` and as the VM's `message_weight`, and
+/// must not be inflated by the barrier-check weight (doing so would change barrier decisions and
+/// corrupt surplus accounting).
+pub struct WeighedMessage<Call>(Weight, Weight, Xcm<Call>);
 impl<C> PreparedMessage for WeighedMessage<C> {
 	fn weight_of(&self) -> Weight {
 		self.0
@@ -220,7 +229,7 @@ impl<C> PreparedMessage for WeighedMessage<C> {
 #[cfg(any(test, feature = "std"))]
 impl<C> WeighedMessage<C> {
 	pub fn new(weight: Weight, message: Xcm<C>) -> Self {
-		Self(weight, message)
+		Self(weight, weight, message)
 	}
 }
 
@@ -231,7 +240,13 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		weight_limit: Weight,
 	) -> Result<Self::Prepared, InstructionError> {
 		match Config::Weigher::weight(&mut message, weight_limit) {
-			Ok(weight) => Ok(WeighedMessage(weight, message)),
+			Ok(exec) => {
+				// Reserve the worst case over executing the message and rejecting it at the
+				// barrier, so `weight_of()` bounds whatever `execute` consumes (see
+				// `WeighedMessage`).
+				let reserve = Config::Weigher::barrier_check_weight().map_or(exec, |b| exec.max(b));
+				Ok(WeighedMessage(reserve, exec, message))
+			},
 			Err(error) => {
 				tracing::debug!(
 					target: "xcm::prepare",
@@ -245,7 +260,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	}
 	fn execute(
 		origin: impl Into<Location>,
-		WeighedMessage(xcm_weight, mut message): WeighedMessage<Config::RuntimeCall>,
+		WeighedMessage(_reserve, xcm_weight, mut message): WeighedMessage<Config::RuntimeCall>,
 		id: &mut XcmHash,
 		weight_credit: Weight,
 	) -> Outcome {
@@ -281,10 +296,9 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				"Barrier blocked execution",
 			);
 
-			return Outcome::Incomplete {
-				used: xcm_weight, // Weight consumed before the error
-				error: InstructionError { index: 0, error: XcmError::Barrier }, // The error that occurred
-			};
+			let used = Config::Weigher::barrier_check_weight().unwrap_or(xcm_weight);
+			let error = InstructionError { index: 0, error: XcmError::Barrier };
+			return Outcome::Incomplete { used, error };
 		}
 
 		*id = properties.message_id.unwrap_or(*id);

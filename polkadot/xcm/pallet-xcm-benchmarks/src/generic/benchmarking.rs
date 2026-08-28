@@ -26,7 +26,7 @@ use xcm::{
 	DoubleEncoded,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, FeeReason, TransactAsset},
+	traits::{ConvertLocation, FeeReason, ShouldExecute, TransactAsset},
 	AssetsInHolding, ExecutorError, FeesMode,
 };
 
@@ -1003,6 +1003,54 @@ mod benchmarks {
 			executor.bench_process(xcm)?;
 		}
 		assert_eq!(executor.origin(), &Some(target));
+		Ok(())
+	}
+
+	// Two benchmarks, each worst in a different weight dimension; the runtime combines them with a
+	// component-wise `Weight::max` (see the `worst_case_barrier_check_*` config methods).
+	#[benchmark]
+	fn barrier_check_ref_time() -> Result<(), BenchmarkError> {
+		let (origin, mut message) =
+			T::worst_case_barrier_check_ref_time().map_err(|_| BenchmarkError::Skip)?;
+
+		// Build outside the measured block so only `should_execute` is timed. The worst-case
+		// message is rejected by construction on real runtimes; the result is ignored because the
+		// benchmark mock barrier accepts everything.
+		let mut properties =
+			xcm_executor::traits::Properties { weight_credit: Weight::zero(), message_id: None };
+
+		#[block]
+		{
+			let _ = <T::XcmConfig as xcm_executor::Config>::Barrier::should_execute(
+				&origin,
+				message.inner_mut(),
+				Weight::MAX,
+				&mut properties,
+			);
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn barrier_check_proof_size() -> Result<(), BenchmarkError> {
+		let (origin, mut message) =
+			T::worst_case_barrier_check_proof_size().map_err(|_| BenchmarkError::Skip)?;
+
+		// As in `barrier_check_ref_time`: only `should_execute` is measured and the result ignored.
+		let mut properties =
+			xcm_executor::traits::Properties { weight_credit: Weight::zero(), message_id: None };
+
+		#[block]
+		{
+			let _ = <T::XcmConfig as xcm_executor::Config>::Barrier::should_execute(
+				&origin,
+				message.inner_mut(),
+				Weight::MAX,
+				&mut properties,
+			);
+		}
+
 		Ok(())
 	}
 

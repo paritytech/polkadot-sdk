@@ -44,13 +44,14 @@ use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
-	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
-	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
-	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, IsParentsOnly,
-	LocationAsSuperuser, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	AllowTopLevelPaidExecutionFrom, BarrierWeightBounds, DenyRecursively,
+	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
+	EnsureXcmOrigin, ExternalConsensusLocationsConverterFor, FrameTransactionalProcessor,
+	FungibleAdapter, HashedDescription, IsConcrete, IsParentsOnly, LocationAsSuperuser,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -164,7 +165,7 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowHrmpNotificationsFromRelayChain,
 				),
 				UniversalLocation,
-				ConstU32<8>,
+				ConstU32<{ testnet_parachains_constants::MAX_XCM_COMPUTED_ORIGIN_PREFIXES }>,
 			>,
 		),
 	>,
@@ -189,6 +190,29 @@ pub type TrustedTeleporters = ConcreteAssetFromSystem<WestendLocation>;
 /// - Allow origins explicitly authorized by the alias target location.
 pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
 
+/// Standard message weigher for the executor.
+type BridgeHubWestendWeightBounds = WeightInfoBounds<
+	crate::weights::xcm::BridgeHubWestendXcmWeight<RuntimeCall>,
+	RuntimeCall,
+	MaxInstructions,
+>;
+
+parameter_types! {
+	/// Benchmarked weight of a single barrier check, charged on barrier rejection.
+	// Worst case over the two disjoint barrier paths: take the component-wise max of the
+	// `ref_time`-dominant and `proof_size`-dominant benchmarks so neither dimension is
+	// under-charged. (A runtime with one message worst in both dimensions could use a single
+	// benchmark here instead.)
+	pub BarrierCheckWeight: Weight = crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check_ref_time()
+		.max(crate::weights::xcm::XcmGeneric::<Runtime>::barrier_check_proof_size());
+}
+
+/// Weigher that delegates message/instruction weighing to `BridgeHubWestendWeightBounds` and, in
+/// addition, reports the benchmarked weight of a barrier check so barrier rejections are charged
+/// precisely instead of the full message weight.
+pub type BridgeHubWestendWeigher =
+	BarrierWeightBounds<BridgeHubWestendWeightBounds, BarrierCheckWeight>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -202,11 +226,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::BridgeHubWestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = BridgeHubWestendWeigher;
 	// TODO: once DAP allocates collator budgets, redirect XCM execution fees to the accumulation
 	// account instead of StakingPot (use crate::DealWithFeesAccumulate as the OnUnbalanced
 	// handler).

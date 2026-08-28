@@ -146,5 +146,6 @@ pub use universal_exports::{
 
 mod weight;
 pub use weight::{
-	FixedRateOfFungible, FixedWeightBounds, TakeRevenue, UsingComponents, WeightInfoBounds,
+	BarrierWeightBounds, FixedRateOfFungible, FixedWeightBounds, TakeRevenue, UsingComponents,
+	WeightInfoBounds,
 };
