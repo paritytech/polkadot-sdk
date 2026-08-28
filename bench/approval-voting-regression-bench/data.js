@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787910786818,
+  "lastUpdate": 1787929694766,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "02f16b7f9e9b5d5c889051286da6d2a36eb79e7a",
-          "message": "[pallet-revive] added trybuild test for precompile compile-time checks (#10698)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8364\n\nThis PR adds compile-time tests using try_build to validate invariants\nenforced on registered precompiles. The tests ensure collision detection\nand related compile-time checks are correctly triggered and remain\nenforced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2026-01-30T11:43:34Z",
-          "tree_id": "f226a0b4b0136dc84a597a278f932d31a55fc684",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/02f16b7f9e9b5d5c889051286da6d2a36eb79e7a"
-        },
-        "date": 1769777393142,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52936.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63630.02,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6973125495400003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.657394062239999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000261713,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002531872,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.86150373230996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005340035420000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6566383164699996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3565985453399954,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8077799297199644,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.51849404231288,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000261713,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.680440293579998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002531872,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8090784437799646,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "franciscoaguirreperez@gmail.com",
+            "name": "Francisco Aguirre",
+            "username": "franciscoaguirre"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2cc7937afe9324b248d92a8ddb5373c0eba80b9c",
+          "message": "Don't use expensive aliasers in `ExplicitUnpaidExecutionFrom` (#12831)\n\nThe `ExplicitUnpaidExecutionFrom` barrier runs `AliasOrigin`\ninstructions first so we should only run the cheap ones. There's no\nvalid use-case for `AuthorizedAliasers` as well\n\n---------\n\nCo-authored-by: Francisco Aguirre <francisco@parity.io>",
+          "timestamp": "2026-08-28T13:19:01Z",
+          "tree_id": "6284bf0f74d0c2771b6933010a53252ccd83be01",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2cc7937afe9324b248d92a8ddb5373c0eba80b9c"
+        },
+        "date": 1787929652933,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63560.81999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7155176745799983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.331117816992723,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7400492916000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020676299999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.023645142549976,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3447680306299934,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7485113923999844,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002116991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002116991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005133215910000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7060266034400007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020676299999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7636389339899985,
             "unit": "seconds"
           }
         ]
