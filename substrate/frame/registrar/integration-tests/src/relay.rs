@@ -34,7 +34,7 @@ use frame_system::EnsureRoot;
 use polkadot_primitives::{Id as ParaId, ValidationCode};
 use polkadot_runtime_common::{paras_registrar, traits::OnSwap};
 use polkadot_runtime_parachains::{
-	configuration,
+	configuration, dmp, hrmp,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	origin, paras, shared,
 };
@@ -53,7 +53,7 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 use crate::{
-	senders::{EnsureRegistrarPara, RelaySendToPara},
+	senders::{EnsureRegistrarPara, RelayHrmpSendToPara, RelaySendToPara},
 	MAX_CODE_SIZE, MAX_HEAD_SIZE,
 };
 
@@ -335,6 +335,36 @@ impl pallet_message_queue::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl dmp::Config for Runtime {
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	/// Matches the mock parachain's own mirrors, so a request that passes there passes here.
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) =
+		(crate::MAX_MESSAGE_SIZE, crate::MAX_CAPACITY);
+}
+
+impl hrmp::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type ChannelManager = EnsureRoot<AccountId>;
+	type Currency = Balances;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type VersionWrapper = ();
+	type WeightInfo = hrmp::TestWeightInfo;
+}
+
+impl pallet_hrmp_relay::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParaOrigin = EnsureRegistrarPara;
+	type SendToPara = RelayHrmpSendToPara;
+	// The real thing: this is what proves the control plane drives actual HRMP state, with no
+	// deposit taken on this side.
+	type Registry = Hrmp;
+	type WeightInfo = ();
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
@@ -345,6 +375,9 @@ construct_runtime!(
 		ParasOrigin: origin,
 		ParasRegistrar: paras_registrar,
 		Registrar: pallet_registrar_relay,
+		Dmp: dmp,
+		Hrmp: hrmp,
+		HrmpControl: pallet_hrmp_relay,
 		XcmPallet: pallet_xcm,
 		MessageQueue: pallet_message_queue,
 	}
@@ -366,6 +399,16 @@ pub fn run_to_block(n: BlockNumber) {
 				shared::Pallet::<Runtime>::set_active_validators_ascending(keys);
 
 				Parachains::test_on_new_session();
+
+				// `hrmp::initializer_on_new_session` is `pub(crate)`, so this mock drives the
+				// same work through the governance calls that exist for it. Without this,
+				// requests never become channels and nothing HRMP-shaped ever completes.
+				let open = hrmp::HrmpOpenChannelRequestsList::<Runtime>::decode_len()
+					.unwrap_or(0) as u32;
+				let close = hrmp::HrmpCloseChannelRequestsList::<Runtime>::decode_len()
+					.unwrap_or(0) as u32;
+				let _ = Hrmp::force_process_hrmp_open(RuntimeOrigin::root(), open);
+				let _ = Hrmp::force_process_hrmp_close(RuntimeOrigin::root(), close);
 			}
 		}),
 	);
@@ -374,6 +417,15 @@ pub fn run_to_block(n: BlockNumber) {
 /// Advance whole sessions.
 pub fn run_to_session(n: BlockNumber) {
 	run_to_block(n * BLOCKS_PER_SESSION);
+}
+
+/// Rotate `n` more sessions from wherever the chain is now.
+///
+/// Anything that has to happen "a couple of sessions later" should use this rather than an
+/// absolute session number, so it still works after a test has already advanced the chain.
+pub fn advance_sessions(n: BlockNumber) {
+	let now = shared::CurrentSessionIndex::<Runtime>::get();
+	run_to_session(now + n);
 }
 
 /// Have the validators approve `code`, so onboarding can proceed.

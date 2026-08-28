@@ -433,6 +433,9 @@ members = [
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
+	"substrate/frame/hrmp/para",
+	"substrate/frame/hrmp/primitives",
+	"substrate/frame/hrmp/relay",
 	"substrate/frame/registrar/integration-tests",
 	"substrate/frame/registrar/para",
 	"substrate/frame/registrar/primitives",
@@ -1067,6 +1070,8 @@ pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
+pallet-hrmp-para = { path = "substrate/frame/hrmp/para", default-features = false }
+pallet-hrmp-relay = { path = "substrate/frame/hrmp/relay", default-features = false }
 pallet-registrar-para = { path = "substrate/frame/registrar/para", default-features = false }
 pallet-registrar-relay = { path = "substrate/frame/registrar/relay", default-features = false }
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
@@ -1222,6 +1227,7 @@ rand_pcg = { version = "0.3.1" }
 rbtag = { version = "0.3" }
 ref-cast = { version = "1.0.23" }
 regex = { version = "1.10.2" }
+hrmp-primitives = { path = "substrate/frame/hrmp/primitives", default-features = false }
 registrar-primitives = { path = "substrate/frame/registrar/primitives", default-features = false }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }

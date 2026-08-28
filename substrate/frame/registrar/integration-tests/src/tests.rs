@@ -161,7 +161,10 @@ fn onboard(who: AccountId32, head_len: usize, code_len: usize) -> u32 {
 		let session =
 			polkadot_runtime_parachains::shared::CurrentSessionIndex::<relay::Runtime>::get();
 		relay::conclude_pvf_checking(&ValidationCode(blob), session);
-		relay::run_to_session(3);
+		// Onboarding needs two rotations. Taking the later of "session 3" and "two from here"
+		// keeps a first call landing exactly where it always did, while letting a second para be
+		// onboarded after a first instead of silently not advancing at all.
+		relay::run_to_session(core::cmp::max(3, session + 2));
 		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::is_parathread(
 			para_id.into()
 		));
@@ -697,5 +700,208 @@ fn head_data_travels_inline_and_lands_on_the_relay_chain() {
 			),
 			Some(polkadot_primitives::HeadData(new_head)),
 		);
+	});
+}
+
+// --- HRMP -----------------------------------------------------------------
+
+use hrmp_primitives::ChannelId;
+use pallet_hrmp_para::ChannelState;
+use polkadot_runtime_parachains::hrmp::{HrmpChannels, HrmpOpenChannelRequests};
+
+/// The relay chain's own channel id type, for reading its storage.
+fn relay_channel(sender: u32, recipient: u32) -> polkadot_primitives::HrmpChannelId {
+	polkadot_primitives::HrmpChannelId {
+		sender: sender.into(),
+		recipient: recipient.into(),
+	}
+}
+
+fn channel_state(channel: ChannelId) -> Option<ChannelState<u64>> {
+	pallet_hrmp_para::Channels::<para::Runtime>::get(channel).map(|c| c.state)
+}
+
+/// What is held on a para's sovereign account on the parachain, for channels.
+fn channel_held(para_id: u32) -> u128 {
+	use frame_support::traits::fungible::InspectHold;
+	use sp_runtime::traits::Convert;
+	pallet_balances::Pallet::<para::Runtime>::balance_on_hold(
+		&para::RuntimeHoldReason::HrmpControl(pallet_hrmp_para::HoldReason::Channel),
+		&para::SovereignOf::convert(para_id),
+	)
+}
+
+#[test]
+fn registering_a_para_opens_a_channel_with_coretime_in_both_directions() {
+	MockNet::reset();
+
+	let para_id = onboard(ALICE, 32, 64);
+    let here = crate::senders::PARA_ID;
+
+	// The relay chain really has both channels, deposit-free. Without them the para could never
+	// `Transact` into the control plane at all.
+	Relay::execute_with(|| {
+		relay::advance_sessions(2);
+		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(here, para_id)).is_some());
+		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(para_id, here)).is_some());
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert_eq!(
+			channel_state(ChannelId { sender: here, recipient: para_id }),
+			Some(ChannelState::Open)
+		);
+		assert_eq!(channel_held(para_id), 0);
+	});
+}
+
+#[test]
+fn a_channel_opens_end_to_end_and_both_deposits_settle_on_the_parachain() {
+	MockNet::reset();
+
+	// Two paras, both managed by Alice, so one account can drive both ends.
+	let a = onboard(ALICE, 32, 64);
+	let b = onboard(ALICE, 32, 65);
+	let channel = ChannelId { sender: a, recipient: b };
+
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::HrmpControl::open_channel(
+			para::RuntimeOrigin::signed(ALICE),
+			a,
+			b,
+			crate::MAX_CAPACITY,
+			crate::MAX_MESSAGE_SIZE,
+		));
+		// The sender's half is held immediately, on its sovereign account.
+		assert_eq!(channel_held(a), crate::CHANNEL_DEPOSIT);
+		assert_eq!(channel_held(b), 0);
+	});
+
+	// The relay chain recorded the request, and took nothing for it.
+	Relay::execute_with(|| {
+		let request =
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(a, b)).unwrap();
+		assert!(!request.confirmed);
+		assert_eq!(request.sender_deposit, 0);
+		use sp_runtime::traits::AccountIdConversion;
+		let sovereign: relay::AccountId =
+			polkadot_primitives::Id::from(a).into_account_truncating();
+		assert_eq!(pallet_balances::Pallet::<relay::Runtime>::reserved_balance(&sovereign), 0);
+	});
+
+	// The verdict came back and the parachain moved on.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(channel_state(channel), Some(ChannelState::Pending));
+
+		assert_ok!(para::HrmpControl::accept_open_channel(
+			para::RuntimeOrigin::signed(ALICE),
+			a,
+			b,
+		));
+		assert_eq!(channel_held(b), crate::CHANNEL_DEPOSIT);
+	});
+
+	// The channel exists on the relay chain once a session rotates.
+	Relay::execute_with(|| {
+		assert!(HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(a, b))
+			.unwrap()
+			.confirmed);
+		relay::advance_sessions(2);
+		let live = HrmpChannels::<relay::Runtime>::get(&relay_channel(a, b)).unwrap();
+		assert_eq!(live.sender_deposit, 0);
+		assert_eq!(live.recipient_deposit, 0);
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert_eq!(channel_state(channel), Some(ChannelState::Open));
+		assert_eq!(channel_held(a), crate::CHANNEL_DEPOSIT);
+		assert_eq!(channel_held(b), crate::CHANNEL_DEPOSIT);
+	});
+}
+
+#[test]
+fn closing_returns_both_deposits_only_after_the_relay_chain_confirms() {
+	MockNet::reset();
+
+	let a = onboard(ALICE, 32, 64);
+	let b = onboard(ALICE, 32, 65);
+	let channel = ChannelId { sender: a, recipient: b };
+
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::HrmpControl::open_channel(
+			para::RuntimeOrigin::signed(ALICE),
+			a,
+			b,
+			crate::MAX_CAPACITY,
+			crate::MAX_MESSAGE_SIZE,
+		));
+	});
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::HrmpControl::accept_open_channel(
+			para::RuntimeOrigin::signed(ALICE),
+			a,
+			b,
+		));
+	});
+	Relay::execute_with(|| relay::advance_sessions(2));
+
+	RegistrarPara::execute_with(|| {
+		assert_eq!(channel_state(channel), Some(ChannelState::Open));
+
+		assert_ok!(para::HrmpControl::close_channel(
+			para::RuntimeOrigin::signed(ALICE),
+			a,
+			b,
+		));
+	});
+
+	// The confirmation came back and released both ends. Nothing was released at request time:
+	// closing is not atomic once it spans two chains.
+	RegistrarPara::execute_with(|| {
+		assert!(channel_state(channel).is_none());
+		assert_eq!(channel_held(a), 0);
+		assert_eq!(channel_held(b), 0);
+	});
+
+	Relay::execute_with(|| {
+		relay::advance_sessions(2);
+		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(a, b)).is_none());
+	});
+}
+
+#[test]
+fn a_request_the_relay_chain_refuses_gives_the_deposit_straight_back() {
+	MockNet::reset();
+
+	let a = onboard(ALICE, 32, 64);
+	// A para the relay chain has never heard of, so `is_valid_para` fails there.
+	let ghost = 2_999;
+	let channel = ChannelId { sender: a, recipient: ghost };
+
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::HrmpControl::open_channel(
+			para::RuntimeOrigin::signed(ALICE),
+			a,
+			ghost,
+			crate::MAX_CAPACITY,
+			crate::MAX_MESSAGE_SIZE,
+		));
+	});
+
+	Relay::execute_with(|| {
+		assert!(HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(a, ghost))
+			.is_none());
+	});
+
+	// The refusal travelled back and the deposit is gone from the hold.
+	RegistrarPara::execute_with(|| {
+		assert!(channel_state(channel).is_none());
+		assert_eq!(channel_held(a), 0);
+
+		let events = para::System::events();
+		assert!(events.iter().any(|e| matches!(
+			&e.event,
+			para::RuntimeEvent::HrmpControl(pallet_hrmp_para::Event::OpenFailed { .. })
+		)));
 	});
 }

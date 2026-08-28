@@ -8739,6 +8739,7 @@ version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -13540,20 +13541,32 @@ dependencies = [
 name = "pallet-hrmp-para"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "pallet-hrmp-relay"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14219,6 +14232,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -14251,7 +14265,10 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
  "pallet-balances",
+ "pallet-hrmp-para",
+ "pallet-hrmp-relay",
  "pallet-message-queue",
  "pallet-registrar-para",
  "pallet-registrar-relay",
@@ -17490,6 +17507,7 @@ dependencies = [
  "frame-support-test",
  "frame-system",
  "hex-literal",
+ "hrmp-primitives",
  "impl-trait-for-tuples",
  "log",
  "pallet-authority-discovery",

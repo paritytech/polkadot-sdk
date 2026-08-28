@@ -63,6 +63,14 @@ pub const VALIDATORS: &[Sr25519Keyring] = &[
 /// `configuration` genesis is built from them.
 pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 3 * 1024;
+
+/// HRMP channel bounds, mirrored on both chains so a request that passes locally passes remotely.
+pub const MAX_CAPACITY: u32 = 8;
+pub const MAX_MESSAGE_SIZE: u32 = 1024;
+/// What one end of a channel costs on the parachain.
+pub const CHANNEL_DEPOSIT: u128 = 500;
+/// How long the parachain waits before a channel counts as stuck.
+pub const HRMP_DEADLINE: u64 = 50;
 pub const MAX_HEAD_SIZE: u32 = 1024;
 
 decl_test_parachain! {
@@ -97,10 +105,20 @@ decl_test_network! {
 
 pub fn para_ext() -> sp_io::TestExternalities {
 	use para::{MsgQueue, Runtime, System};
+	use sp_runtime::traits::Convert;
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	// HRMP deposits are held on a para's sovereign account here, not on whoever calls, so those
+	// accounts have to exist and be funded for a channel to be openable at all.
+	let sovereigns = (PARA_ID..PARA_ID + 1)
+		.chain(2000..2006)
+		.map(|id| (para::SovereignOf::convert(id), INITIAL_BALANCE));
+
 	pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)],
+		balances: vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)]
+			.into_iter()
+			.chain(sovereigns)
+			.collect(),
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
@@ -115,7 +133,7 @@ pub fn para_ext() -> sp_io::TestExternalities {
 }
 
 pub fn relay_ext() -> sp_io::TestExternalities {
-	use polkadot_runtime_parachains::configuration;
+	use polkadot_runtime_parachains::{configuration, paras};
 	use relay::{Runtime, System};
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
@@ -124,8 +142,39 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 		config: configuration::HostConfiguration {
 			max_code_size: MAX_CODE_SIZE,
 			max_head_data_size: MAX_HEAD_SIZE,
+			// The HRMP defaults are all zero, which would make every channel request invalid
+			// before this pallet's own bounds were ever exercised.
+			hrmp_channel_max_capacity: MAX_CAPACITY,
+			hrmp_channel_max_message_size: MAX_MESSAGE_SIZE,
+			hrmp_channel_max_total_size: MAX_CAPACITY * MAX_MESSAGE_SIZE,
+			hrmp_max_parachain_outbound_channels: 8,
+			hrmp_max_parachain_inbound_channels: 8,
+			// Deposits are held on the parachain now, so the relay chain's own figures are only
+			// here to prove nothing is ever reserved against them.
+			hrmp_sender_deposit: 1_000,
+			hrmp_recipient_deposit: 1_000,
+			// `hrmp` sends its own open/accept/close notifications down to the paras, and the
+			// default of zero makes every one of them undeliverable.
+			max_downward_message_size: 1024,
 			..Default::default()
 		},
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	// The control-plane parachain is a real, registered para here. It has to be: a channel is
+	// only openable between two paras the relay chain knows, and every para it registers gets one
+	// with it.
+	paras::GenesisConfig::<Runtime> {
+		paras: vec![(
+			PARA_ID.into(),
+			paras::ParaGenesisArgs {
+				genesis_head: vec![1].into(),
+				validation_code: vec![1].into(),
+				para_kind: paras::ParaKind::Parachain,
+			},
+		)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

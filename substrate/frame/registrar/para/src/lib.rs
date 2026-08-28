@@ -66,6 +66,7 @@ use frame_support::{
 	defensive, ensure,
 	traits::{Consideration, EnsureOrigin, Footprint, Get},
 };
+use hrmp_primitives::{OnParaRegistered, ParaManager};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
 	ParaId,
@@ -268,6 +269,13 @@ pub mod pallet {
 		/// `cumulus_pallet_parachain_system::RelaychainDataProvider`, so
 		/// [`Config::PendingDeadline`] is in relay-chain blocks.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		/// Told when a para finishes registering.
+		///
+		/// Normally `pallet-hrmp-para`, which opens a channel with the new para so this chain has
+		/// a route to every para it is the control plane for. `()` for a runtime that does not
+		/// manage HRMP.
+		type OnRegistered: OnParaRegistered;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -917,6 +925,7 @@ impl<T: Config> Pallet<T> {
 				info.state = RegistrationState::Registered { ticket };
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, message_id, manager });
+				T::OnRegistered::on_registered(para_id);
 			},
 			Err(reason) => {
 				ticket.drop(&info.manager)?;
@@ -968,6 +977,7 @@ impl<T: Config> Pallet<T> {
 				info.state = RegistrationState::Registered { ticket };
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, message_id, manager });
+				T::OnRegistered::on_registered(para_id);
 			},
 			// Nothing else is a cancellation the relay chain refuses, so leave the registration
 			// pending: the manager can ask again once the deadline comes round.
@@ -1089,5 +1099,18 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+}
+
+/// Who manages a para here, for pallets that need to know without depending on this one's
+/// wire types.
+///
+/// `pallet-hrmp-para` uses it to let a para's manager act for it as a signed account, alongside
+/// the para speaking for itself.
+impl<T: Config> ParaManager for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn manager_of(para_id: ParaId) -> Option<T::AccountId> {
+		Paras::<T>::get(para_id).map(|info| info.manager)
 	}
 }

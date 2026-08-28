@@ -24,6 +24,9 @@ frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
+hrmp-primitives = { workspace = true, default-features = true }
+pallet-hrmp-para = { workspace = true, default-features = true }
+pallet-hrmp-relay = { workspace = true, default-features = true }
 pallet-registrar-para = { workspace = true, default-features = true }
 pallet-registrar-relay = { workspace = true, default-features = true }
 pallet-xcm = { workspace = true, default-features = true }

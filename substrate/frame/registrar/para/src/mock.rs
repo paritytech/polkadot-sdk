@@ -205,6 +205,7 @@ impl pallet_registrar_para::Config for Test {
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type PendingDeadline = ConstU32<PENDING_DEADLINE>;
 	type BlockNumberProvider = System;
+	type OnRegistered = ();
 	type WeightInfo = ();
 }
 

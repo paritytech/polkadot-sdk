@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+hrmp-primitives = { workspace = true }
 bitflags = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
@@ -83,6 +84,7 @@ no_std = []
 std = [
 	"bitvec/std",
 	"codec/std",
+	"hrmp-primitives/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support?/std",
 	"frame-support/std",
@@ -123,6 +125,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"hrmp-primitives/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support-test/runtime-benchmarks",

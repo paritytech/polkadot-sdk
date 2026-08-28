@@ -42,7 +42,7 @@ use xcm_executor::XcmExecutor;
 use xcm_simulator::mock_message_queue;
 
 use crate::{
-	senders::{ParaSendToRelay, PARA_ID},
+	senders::{ParaHrmpSendToRelay, ParaSendToRelay, PARA_ID},
 	MAX_CODE_SIZE, MAX_HEAD_SIZE, MIN_CODE_SIZE,
 };
 
@@ -206,10 +206,56 @@ impl pallet_registrar_para::Config for Runtime {
 	// No parachain-system in this simulator; production runtimes should use
 	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
 	type BlockNumberProvider = System;
+	// A registration opens a channel with the new para, so this chain always has a route to it.
+	type OnRegistered = HrmpControl;
 	type WeightInfo = ();
 }
 
 use frame_support::traits::ConstU64;
+
+parameter_types! {
+	pub const ChannelDeposit: Balance = crate::CHANNEL_DEPOSIT;
+	pub const ChannelHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::HrmpControl(pallet_hrmp_para::HoldReason::Channel);
+}
+
+/// A para's sovereign account on this chain, as the XCM location converter derives it.
+///
+/// The same conversion a real Coretime chain would use for a sibling, so the deposits this pallet
+/// holds land where the migration puts them.
+pub struct SovereignOf;
+
+impl sp_runtime::traits::Convert<u32, AccountId> for SovereignOf {
+	fn convert(para_id: u32) -> AccountId {
+		use xcm_executor::traits::ConvertLocation;
+		LocationConverter::convert_location(&Location::new(1, [Parachain(para_id)]))
+			.expect("sibling locations always convert; qed")
+	}
+}
+
+impl pallet_hrmp_para::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ChannelConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ChannelHoldReason,
+		ConstantStoragePrice<ChannelDeposit, Balance>,
+	>;
+	type SendToRelay = ParaHrmpSendToRelay;
+	type RelayOrigin = EnsureRoot<AccountId>;
+	// No para origin in the simulator, so channels are driven by managers and root here. The
+	// para-origin path is covered by the pallet's own tests.
+	type ParachainOrigin = frame_system::EnsureNever<u32>;
+	type ParaManager = Registrar;
+	type SovereignAccountOf = SovereignOf;
+	type SelfParaId = ConstU32<{ crate::senders::PARA_ID }>;
+	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
+	type MaxCapacity = ConstU32<{ crate::MAX_CAPACITY }>;
+	type MaxMessageSize = ConstU32<{ crate::MAX_MESSAGE_SIZE }>;
+	type PendingDeadline = ConstU64<{ crate::HRMP_DEADLINE }>;
+	type BlockNumberProvider = System;
+	type WeightInfo = ();
+}
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
@@ -220,5 +266,6 @@ construct_runtime!(
 		MsgQueue: mock_message_queue,
 		PolkadotXcm: pallet_xcm,
 		Registrar: pallet_registrar_para,
+		HrmpControl: pallet_hrmp_para,
 	}
 );

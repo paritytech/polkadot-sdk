@@ -28,6 +28,10 @@ use pallet_registrar_para::SendToRelay;
 use pallet_registrar_relay::SendToPara;
 use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
 use polkadot_runtime_parachains::Origin as ParachainsOrigin;
+use hrmp_primitives::{
+	MessageToPara as HrmpMessageToPara, MessageToRelay as HrmpMessageToRelay,
+	MessageToRelayV1 as HrmpMessageToRelayV1,
+};
 use registrar_primitives::{MessageToPara, MessageToRelay, MessageToRelayV1};
 use sp_runtime::AccountId32;
 use xcm::latest::prelude::*;
@@ -127,6 +131,104 @@ impl SendToRelay for ParaSendToRelay {
 		send_xcm::<crate::para::XcmRouter>(Location::parent(), program)
 			.map(|_| ())
 			.map_err(|_| ())
+	}
+}
+
+/// Calls on the relay chain's HRMP control pallet, as the parachain must encode them.
+///
+/// Audit: index of `HrmpControl` (`pallet-hrmp-relay`) in the relay chain's
+/// `construct_runtime!`, in `crate::relay`.
+#[derive(Encode)]
+pub enum RelayRuntimeHrmpPallets {
+	#[codec(index = 10)]
+	HrmpControl(HrmpRelayCalls),
+}
+
+#[derive(Encode)]
+pub enum HrmpRelayCalls {
+	#[codec(index = 0)]
+	InitOpenChannel(HrmpMessageToRelay),
+	#[codec(index = 1)]
+	AcceptOpenChannel(HrmpMessageToRelay),
+	#[codec(index = 2)]
+	CloseChannel(HrmpMessageToRelay),
+	#[codec(index = 3)]
+	CancelOpenRequest(HrmpMessageToRelay),
+	#[codec(index = 4)]
+	EstablishSystemChannel(HrmpMessageToRelay),
+}
+
+/// Calls on the parachain's HRMP control pallet, as the relay chain must encode them.
+///
+/// Audit: index of `HrmpControl` (`pallet-hrmp-para`) in the parachain's `construct_runtime!`.
+#[derive(Encode)]
+pub enum ParaRuntimeHrmpPallets {
+	#[codec(index = 5)]
+	HrmpControl(HrmpParaCalls),
+}
+
+#[derive(Encode)]
+pub enum HrmpParaCalls {
+	/// Index of `fn receive` in `pallet-hrmp-para`.
+	#[codec(index = 4)]
+	Receive(HrmpMessageToPara),
+}
+
+/// The parachain's half of the HRMP transport.
+pub struct ParaHrmpSendToRelay;
+
+impl pallet_hrmp_para::SendToRelay for ParaHrmpSendToRelay {
+	fn send(message: HrmpMessageToRelay) -> Result<(), ()> {
+		let call = match message {
+			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::InitOpenChannel { .. }) =>
+				HrmpRelayCalls::InitOpenChannel(message),
+			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::AcceptOpenChannel { .. }) =>
+				HrmpRelayCalls::AcceptOpenChannel(message),
+			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::CloseChannel { .. }) =>
+				HrmpRelayCalls::CloseChannel(message),
+			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::CancelOpenRequest { .. }) =>
+				HrmpRelayCalls::CancelOpenRequest(message),
+			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::EstablishSystemChannel { .. }) =>
+				HrmpRelayCalls::EstablishSystemChannel(message),
+		};
+		let call = RelayRuntimeHrmpPallets::HrmpControl(call).encode();
+		let program = Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: call.into(),
+			},
+		]);
+
+		send_xcm::<crate::para::XcmRouter>(Location::parent(), program)
+			.map(|_| ())
+			.map_err(|_| ())
+	}
+}
+
+/// The relay chain's half of the HRMP transport.
+pub struct RelayHrmpSendToPara;
+
+impl pallet_hrmp_relay::SendToPara for RelayHrmpSendToPara {
+	fn send(message: HrmpMessageToPara) -> Result<(), ()> {
+		let call =
+			ParaRuntimeHrmpPallets::HrmpControl(HrmpParaCalls::Receive(message)).encode();
+		let program = Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: call.into(),
+			},
+		]);
+
+		send_xcm::<crate::relay::XcmRouter>(
+			Location::new(0, [Parachain(PARA_ID)]),
+			program,
+		)
+		.map(|_| ())
+		.map_err(|_| ())
 	}
 }
 

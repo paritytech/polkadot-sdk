@@ -19,6 +19,7 @@ codec = { workspace = true, features = ["derive"] }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+hrmp-primitives = { workspace = true }
 log = { workspace = true }
 registrar-primitives = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
@@ -36,6 +37,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"hrmp-primitives/std",
 	"log/std",
 	"pallet-balances/std",
 	"registrar-primitives/std",
@@ -47,6 +49,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"hrmp-primitives/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"registrar-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
