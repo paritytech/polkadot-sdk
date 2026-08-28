@@ -49,13 +49,26 @@
 //! initial-sync chunks both skip the recorded peers, and the propagation pass clears
 //! `recently_received_statements` when done.
 //!
+//! ## Initial sync
+//!
+//! A peer joining (or changing its topic affinity) receives the store's existing statements
+//! through a cursor over the store's admission journal: scheduling captures the journal's
+//! watermark, and bursts walk the admissions below it chunk by chunk, advancing the cursor as
+//! each send is confirmed — a failed chunk is resent from the same position. The watermark also
+//! splits delivery ownership between the two paths: admissions below the peer's highest
+//! watermark are the sync cursor's job, and propagation skips them, so within one sync a
+//! statement reaches the peer through at most one path. Duplicates stay possible at the edges —
+//! an affinity-change re-sync restarts the cursor from zero and redelivers earlier admissions,
+//! and a chunk whose send timed out may have arrived regardless, so its resend repeats it.
+//!
 //! ## Send scheduling
 //!
 //! Every peer has one send slot, shared by propagation and initial sync, so at most one chunk per
 //! connection is in flight. Each chunk carries a fresh id, so the result of a send left over from
 //! a previous connection cannot free the current one's slot. A completed chunk frees the slot at
-//! once and the next propagation chunk follows, a failed send included: the failed chunk is not
-//! retried, but the rest of the backlog keeps draining.
+//! once and the next propagation chunk follows, a failed send included: a failed propagation
+//! chunk is not retried, but the rest of the backlog keeps draining, while a failed initial-sync
+//! chunk is resent from the sync's cursor.
 //!
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
@@ -69,11 +82,6 @@
 //! propagation ticks. While initial syncs are pending, propagation parks
 //! `config::INITIAL_SYNC_RESERVED_BYTES` early: refills reclaim freed bytes synchronously,
 //! while the timer-driven sync bursts would otherwise always find the budget full.
-//!
-//! A statement can still reach a peer twice when it sits both in the peer's initial-sync snapshot
-//! and in a propagation tick around it, and the peer may charge a small reputation penalty for the
-//! duplicate. TODO: replace the hash snapshot with a cursor over the store's admission sequence,
-//! which splits the two paths by admission order instead of by content.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -108,7 +116,8 @@ use futures::{
 	stream::FuturesUnordered,
 };
 use governor::{
-	clock::DefaultClock,
+	clock::{Clock, DefaultClock},
+	middleware::NoOpMiddleware,
 	state::{InMemoryState, NotKeyed},
 	Quota, RateLimiter,
 };
@@ -133,11 +142,11 @@ use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
+	AdmittedBatch, FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
-	iter,
+	fmt, iter,
 	num::NonZeroU32,
 	pin::Pin,
 	sync::Arc,
@@ -225,6 +234,10 @@ const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
+
+/// Maximum admission-journal entries one initial-sync fetch visits, so that a peer whose
+/// affinity matches nothing cannot make one burst walk the whole journal in the event loop.
+const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
@@ -434,7 +447,7 @@ impl Metrics {
 				CounterVec::new(
 					Opts::new(
 						"substrate_sync_statement_undelivered_total",
-						"Total statements whose send failed, so the peer never received them, by reason",
+						"Total statements whose delivery was abandoned, so the peer never received them, by reason",
 					),
 					&["reason"],
 				)?,
@@ -508,7 +521,8 @@ impl StatementHandlerPrototype {
 		statements_per_second: u32,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		// Still bounded via the `MAX_PENDING_STATEMENTS` check in `on_statements`.
+		let (queue_sender, queue_receiver) = async_channel::unbounded();
 
 		if num_submission_workers == 0 {
 			log::warn!(
@@ -679,19 +693,44 @@ pub struct StatementHandler<
 	sync_recovery_readd_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 }
 
+/// A token bucket, measured against whatever clock it was built with.
+trait TokenBucket: fmt::Debug + Send + Sync {
+	/// Whether admitting `n` more cells would exceed the quota.
+	fn would_exceed(&self, n: NonZeroU32) -> bool;
+}
+
+impl<C> TokenBucket for RateLimiter<NotKeyed, InMemoryState, C, NoOpMiddleware<C::Instant>>
+where
+	C: Clock + fmt::Debug + Send + Sync,
+	C::Instant: fmt::Debug + Send + Sync,
+{
+	fn would_exceed(&self, n: NonZeroU32) -> bool {
+		!matches!(self.check_n(n), Ok(Ok(())))
+	}
+}
+
 /// Per-peer rate limiter using a token bucket algorithm.
 ///
 /// The token bucket allows short bursts up to the per-second limit while enforcing
 /// the average rate over time.
 #[derive(Debug)]
 struct PeerRateLimiter {
-	limiter: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
+	bucket: Box<dyn TokenBucket>,
 }
 
 impl PeerRateLimiter {
 	fn new(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
+		Self::with_clock(statements_per_second, burst, &DefaultClock::default())
+	}
+
+	/// The same quota, measured against `clock`.
+	fn with_clock<C>(statements_per_second: NonZeroU32, burst: NonZeroU32, clock: &C) -> Self
+	where
+		C: Clock + fmt::Debug + Send + Sync + 'static,
+		C::Instant: fmt::Debug + Send + Sync,
+	{
 		let quota = Quota::per_second(statements_per_second).allow_burst(burst);
-		Self { limiter: RateLimiter::direct(quota) }
+		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)) }
 	}
 
 	/// Check if receiving `count` statements would exceed the rate limit.
@@ -703,7 +742,7 @@ impl PeerRateLimiter {
 		let Some(n) = NonZeroU32::new(count as u32) else {
 			return false;
 		};
-		!matches!(self.limiter.check_n(n), Ok(Ok(())))
+		self.bucket.would_exceed(n)
 	}
 }
 
@@ -725,11 +764,17 @@ pub struct Peer {
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
+	/// One past the newest admission covered by the peer's initial syncs.
+	sync_watermark: u64,
 }
 
-/// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
+/// Tracks pending initial sync state for a peer as a cursor over the store's admission
+/// journal (statements fetched on-demand).
 struct PendingInitialSync {
-	hashes: Vec<Hash>,
+	/// Admission sequence number the next burst resumes fetching from.
+	cursor: u64,
+	/// One past the newest admission covered by this sync.
+	watermark: u64,
 	started_at: Instant,
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
 	/// apart once its result arrives.
@@ -747,7 +792,11 @@ enum SendOutcome {
 
 enum SendKind {
 	Propagation,
-	InitialSync { sync_id: u64 },
+	InitialSync {
+		sync_id: u64,
+		/// Cursor position the pending sync advances to once this chunk's send is confirmed.
+		next_cursor: u64,
+	},
 }
 
 impl SendKind {
@@ -792,6 +841,58 @@ fn max_statement_payload_size(envelope_overhead: usize) -> usize {
 	MAX_STATEMENT_NOTIFICATION_SIZE as usize - envelope_overhead
 }
 
+fn unix_timestamp_secs() -> u64 {
+	std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap_or_default()
+		.as_secs()
+}
+
+/// Fetch the next chunk of statements admitted between `cursor` and `watermark`, filtering
+/// in the `admitted_statements` callback so non-matching statements are never cloned into
+/// the batch.
+///
+/// Returns the batch and the accumulated encoded size. A size above `max_size` signals a
+/// lone oversized statement: it is taken and the cursor sits past it, so the caller must
+/// drop the chunk and move on.
+fn fetch_admitted_chunk(
+	store: &dyn StatementStore,
+	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
+	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
+	who: &PeerId,
+	peer_data: &Peer,
+	cursor: u64,
+	watermark: u64,
+	max_size: usize,
+) -> sp_statement_store::Result<(AdmittedBatch, usize)> {
+	let now = unix_timestamp_secs();
+	let mut accumulated_size = 0;
+	let batch = store.admitted_statements(
+		cursor,
+		watermark,
+		INITIAL_SYNC_SCAN_LIMIT,
+		&mut |hash, encoded, stmt| {
+			if stmt.is_expired(now) {
+				return FilterDecision::Skip;
+			}
+			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+				return FilterDecision::Skip;
+			}
+			// The peer supplied this statement, do not send it back.
+			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
+			{
+				return FilterDecision::Skip;
+			}
+			if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
+				return FilterDecision::Abort;
+			}
+			accumulated_size += encoded.len();
+			FilterDecision::Take
+		},
+	)?;
+	Ok((batch, accumulated_size))
+}
+
 /// Fetch the next chunk of statements for a peer from `hashes`, filtering in the
 /// `statements_by_hashes` callback so non-matching statements are never materialized.
 fn fetch_statement_chunk(
@@ -803,9 +904,13 @@ fn fetch_statement_chunk(
 	hashes: &[Hash],
 	max_size: usize,
 ) -> sp_statement_store::Result<(Vec<(Hash, Statement)>, usize, usize)> {
+	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
 	let (statements, processed) =
 		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
+			if stmt.is_expired(now) {
+				return FilterDecision::Skip;
+			}
 			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
 				return FilterDecision::Skip;
 			}
@@ -857,6 +962,7 @@ impl Peer {
 			topic_affinity: None,
 			is_light: false,
 			pending_topic_affinity: None,
+			sync_watermark: 0,
 		}
 	}
 
@@ -950,6 +1056,7 @@ where
 				},
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
+					self.shrink_pending_statements_peers();
 					self.metrics.as_ref().map(|metrics| {
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
 					});
@@ -996,14 +1103,26 @@ where
 		}
 	}
 
-	/// Record a send that never reached the peer.
-	///
-	/// A failed send is not retried, so the statements are lost for that peer until
-	/// its next initial sync. Counting them here is the only way that loss is
-	/// visible in monitoring.
-	fn record_send_failure(&self, reason: &str, statement_count: usize) {
+	/// Release excess map capacity once the map is less than a quarter full.
+	fn shrink_pending_statements_peers(&mut self) {
+		const MIN_RETAINED_CAPACITY: usize = 1024;
+		let map = &mut self.pending_statements_peers;
+		if map.capacity() > MIN_RETAINED_CAPACITY && map.capacity() / 4 > map.len() {
+			map.shrink_to(MIN_RETAINED_CAPACITY);
+		}
+	}
+
+	/// Record a send attempt that never reached the peer.
+	fn record_send_failure(&self, reason: &str) {
 		self.metrics.as_ref().map(|metrics| {
 			metrics.send_failures.with_label_values(&[reason]).inc();
+		});
+	}
+
+	/// Record a failed send whose statements' delivery to the peer is abandoned.
+	fn record_abandoned_send(&self, reason: &str, statement_count: usize) {
+		self.record_send_failure(reason);
+		self.metrics.as_ref().map(|metrics| {
 			metrics
 				.undelivered_statements
 				.with_label_values(&[reason])
@@ -1193,6 +1312,7 @@ where
 						topic_affinity: None,
 						is_light,
 						pending_topic_affinity: None,
+						sync_watermark: 0,
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -1487,7 +1607,7 @@ where
 	/// Internally filters out statements the peer sent to us.
 	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox.
-	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
+	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(u64, Hash, Statement)]) {
 		let Self {
 			peers,
 			propagation_outboxes,
@@ -1503,7 +1623,10 @@ where
 			return;
 		}
 
-		let to_send = statements.iter().filter_map(|(hash, stmt)| {
+		let to_send = statements.iter().filter_map(|(seq, hash, stmt)| {
+			if *seq < peer.sync_watermark {
+				return None;
+			}
 			// The peer supplied this statement, do not send it back.
 			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
 			{
@@ -1533,7 +1656,7 @@ where
 		log::trace!(target: LOG_TARGET, "We have {queued} statements that the peer doesn't know about");
 
 		if overflow > 0 {
-			self.record_send_failure(send_failure::OUTBOX_FULL, overflow);
+			self.record_abandoned_send(send_failure::OUTBOX_FULL, overflow);
 		}
 		self.try_send_next_chunk(*who);
 	}
@@ -1641,7 +1764,7 @@ where
 					target: LOG_TARGET,
 					"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
 				);
-				self.record_send_failure(send_failure::NO_SINK, abandoned);
+				self.record_abandoned_send(send_failure::NO_SINK, abandoned);
 				self.propagation_outboxes.remove(&who);
 				return;
 			};
@@ -1719,7 +1842,6 @@ where
 					target: LOG_TARGET,
 					"Failed to send {statement_count} statements ({bytes_sent} bytes) to {peer}: {error}",
 				);
-				self.record_send_failure(send_failure::NETWORK, statement_count);
 				Some(send_failure::NETWORK)
 			},
 			SendOutcome::TimedOut => {
@@ -1727,10 +1849,16 @@ where
 					target: LOG_TARGET,
 					"Send of {statement_count} statements ({bytes_sent} bytes) to {peer} timed out after {SEND_TIMEOUT:?}",
 				);
-				self.record_send_failure(send_failure::TIMEOUT, statement_count);
 				Some(send_failure::TIMEOUT)
 			},
 		};
+
+		if let Some(reason) = failure {
+			match kind {
+				SendKind::Propagation => self.record_abandoned_send(reason, statement_count),
+				SendKind::InitialSync { .. } => self.record_send_failure(reason),
+			}
+		}
 
 		// A send future is not cancelled on disconnect, so its result can outlive the
 		// connection. Only the result of the chunk still occupying the slot frees it.
@@ -1739,7 +1867,7 @@ where
 			self.in_flight_chunks.remove(&peer);
 		}
 
-		let SendKind::InitialSync { sync_id } = kind else { return slot_freed };
+		let SendKind::InitialSync { sync_id, next_cursor } = kind else { return slot_freed };
 
 		// A peer that reconnects inside the send timeout loses its sync on disconnect and gets a
 		// fresh one under the same `PeerId`; a stale result would advance or abort the wrong sync.
@@ -1748,12 +1876,14 @@ where
 		}
 
 		if failure.is_some() {
-			if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
-			}
+			// The cursor still points at the unconfirmed chunk, so a later burst resends it.
+			self.initial_sync_peer_queue.push_back(peer);
 			return slot_freed;
 		}
 
+		if let Some(pending) = self.pending_initial_syncs.get_mut(&peer) {
+			pending.cursor = next_cursor;
+		}
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_statements_sent.inc_by(statement_count as u64);
 		});
@@ -1771,7 +1901,7 @@ where
 		}
 	}
 
-	fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
+	fn do_propagate_statements(&mut self, statements: &[(u64, Hash, Statement)]) {
 		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
 		let peers: Vec<_> = self.peers.keys().copied().collect();
 		for who in peers {
@@ -1808,16 +1938,40 @@ where
 	/// affinity changes (so that newly-matching statements get sent).
 	/// If the peer already has a pending initial sync, it is replaced.
 	fn schedule_initial_sync_for_peer(&mut self, peer: PeerId) {
+		// A peer absent from the map has no entry to mirror the sync's watermark into.
+		if !self.peers.contains_key(&peer) {
+			return;
+		}
+		// The watermark is read before the existing sync is touched, so a store error
+		// leaves an in-progress sync running instead of destroying it with no successor.
+		let watermark = match self.statement_store.admission_watermark() {
+			Ok(watermark) => watermark,
+			Err(e) => {
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to read the admission watermark, skipping initial sync for {peer}: {e:?}",
+				);
+				return;
+			},
+		};
 		let sync_id = self.next_initial_sync_id;
 		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
 		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
 			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
-		let hashes = self.statement_store.statement_hashes();
-		if !hashes.is_empty() {
-			self.pending_initial_syncs
-				.insert(peer, PendingInitialSync { hashes, started_at: Instant::now(), sync_id });
+		if watermark > 0 {
+			if let Some(peer_data) = self.peers.get_mut(&peer) {
+				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
+			}
+			// Hashes queued for propagation before this scheduling sit below the new
+			// watermark, so the cursor already covers them; dropping the outbox keeps
+			// them from arriving twice.
+			self.propagation_outboxes.remove(&peer);
+			self.pending_initial_syncs.insert(
+				peer,
+				PendingInitialSync { cursor: 0, watermark, started_at: Instant::now(), sync_id },
+			);
 			self.initial_sync_peer_queue.push_back(peer);
 			self.metrics.as_ref().map(|metrics| {
 				metrics.initial_sync_peers_active.inc();
@@ -1959,7 +2113,7 @@ where
 			metrics.initial_sync_bursts_total.inc();
 		});
 
-		if entry.get().hashes.is_empty() {
+		if entry.get().cursor >= entry.get().watermark {
 			let started_at = entry.get().started_at;
 			entry.remove();
 			self.record_initial_sync_completion(sync_outcome::COMPLETED, started_at);
@@ -1967,7 +2121,7 @@ where
 		}
 
 		// Fetch statements up to max_statement_payload_size, filtering directly in the
-		// callback (see `fetch_statement_chunk`).
+		// callback (see `fetch_admitted_chunk`).
 		let Some(peer_data) = self.peers.get(&peer_id) else {
 			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
 			let pending = entry.remove();
@@ -1977,60 +2131,67 @@ where
 		let peer_version = peer_data.protocol_version;
 		let envelope_overhead = peer_version.envelope_overhead();
 		let max_size = max_statement_payload_size(envelope_overhead);
-		let (statements, processed, accumulated_size) = match fetch_statement_chunk(
+		let (batch, accumulated_size) = match fetch_admitted_chunk(
 			&*self.statement_store,
 			&self.recently_received_statements,
 			&self.pending_statements_peers,
 			&peer_id,
 			peer_data,
-			&entry.get().hashes,
+			entry.get().cursor,
+			entry.get().watermark,
 			max_size,
 		) {
 			Ok(r) => r,
 			Err(e) => {
-				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
-				let pending = entry.remove();
-				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
+				// A store read error says nothing about the journal, and the cursor is
+				// retained, so the sync resumes from the same position on a later burst.
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to fetch statements for initial sync of {peer_id}, will retry: {e:?}",
+				);
+				self.initial_sync_peer_queue.push_back(peer_id);
 				return;
 			},
 		};
 
-		// Drain the processed hashes; a failed send abandons them.
-		entry.get_mut().hashes.drain(..processed);
-		drop(entry);
-
+		// A failed send must resend the same admissions, so the cursor advances only when a
+		// send is confirmed; chunks that queue no send advance it here.
 		if accumulated_size > max_size {
 			log::warn!(target: LOG_TARGET, "Statement too large, skipping");
 			self.metrics.as_ref().map(|metrics| {
 				metrics.skipped_oversized_statements.inc();
 			});
+			entry.get_mut().cursor = batch.cursor;
 			self.initial_sync_peer_queue.push_back(peer_id);
 			return;
 		}
 
-		if statements.is_empty() {
+		if batch.statements.is_empty() {
 			// Nothing was queued, so no result will arrive for this peer. Put it back and let the
 			// next burst either send the remainder or observe that the sync is done.
+			entry.get_mut().cursor = batch.cursor;
 			self.initial_sync_peer_queue.push_back(peer_id);
 			return;
 		}
 
-		let statement_count = statements.len();
-		let send_stmts: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
+		let next_cursor = batch.cursor;
+
+		let statement_count = batch.statements.len();
+		let send_stmts: Vec<_> = batch.statements.iter().map(|(_, stmt)| stmt).collect();
 		let encoded = match peer_version {
 			PeerProtocolVersion::V1 => send_stmts.encode(),
 			PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(&send_stmts),
 		};
 		let bytes_to_send = encoded.len() as u64;
 		let Some(message_sink) = self.notification_service.message_sink(&peer_id) else {
+			// A missing sink usually means the peer is disconnecting, which removes the sync;
+			// until then the retained cursor lets a later burst retry.
 			log::debug!(
 				target: LOG_TARGET,
-				"Failed to get message sink for peer {peer_id}, abandoning its initial sync",
+				"Failed to get message sink for peer {peer_id}, its initial sync will retry",
 			);
-			self.record_send_failure(send_failure::NO_SINK, statement_count);
-			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
-				self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
-			}
+			self.record_send_failure(send_failure::NO_SINK);
+			self.initial_sync_peer_queue.push_back(peer_id);
 			return;
 		};
 		let sent_latency =
@@ -2047,7 +2208,7 @@ where
 				statement_count,
 				bytes_sent: bytes_to_send,
 				result,
-				kind: SendKind::InitialSync { sync_id },
+				kind: SendKind::InitialSync { sync_id, next_cursor },
 				chunk_id,
 			}
 		}));
@@ -2058,13 +2219,23 @@ where
 mod tests {
 
 	use super::*;
-	use std::sync::{
-		atomic::{AtomicBool, AtomicUsize, Ordering},
-		Mutex,
+	use governor::clock::FakeRelativeClock;
+	use std::{
+		sync::{
+			atomic::{AtomicBool, AtomicUsize, Ordering},
+			Mutex,
+		},
+		time::Duration,
 	};
 
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
+
+	fn new_live_statement() -> Statement {
+		let mut statement = sp_statement_store::Statement::new();
+		statement.set_expiry_from_parts(u32::MAX, 0);
+		statement
+	}
 
 	#[derive(Clone)]
 	struct TestNetwork {
@@ -2380,6 +2551,8 @@ mod tests {
 		statements: Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
 		recent_statements:
 			Arc<Mutex<HashMap<sp_statement_store::Hash, sp_statement_store::Statement>>>,
+		/// Admission journal: the vector index is the statement's admission sequence number.
+		admissions: Arc<Mutex<Vec<sp_statement_store::Hash>>>,
 		fail_fetches: Arc<AtomicBool>,
 	}
 
@@ -2388,8 +2561,27 @@ mod tests {
 			Self {
 				statements: Default::default(),
 				recent_statements: Default::default(),
+				admissions: Default::default(),
 				fail_fetches: Arc::new(AtomicBool::new(false)),
 			}
+		}
+
+		/// Insert a statement into the store, recording it in the admission journal.
+		fn insert(&self, statement: sp_statement_store::Statement) {
+			let hash = statement.hash();
+			self.statements.lock().unwrap().insert(hash, statement);
+			self.admit(hash);
+		}
+
+		/// Record the hash in the admission journal unless it is already admitted, and
+		/// return its admission sequence number.
+		fn admit(&self, hash: sp_statement_store::Hash) -> u64 {
+			let mut admissions = self.admissions.lock().unwrap();
+			if let Some(seq) = admissions.iter().position(|admitted| *admitted == hash) {
+				return seq as u64;
+			}
+			admissions.push(hash);
+			(admissions.len() - 1) as u64
 		}
 	}
 
@@ -2405,7 +2597,7 @@ mod tests {
 		fn take_recent_statements(
 			&self,
 		) -> sp_statement_store::Result<
-			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
+			Vec<(u64, sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
 			// A recent statement is a statement the store holds, so make the drained
 			// statements visible to `statements_by_hashes` like the real store does.
@@ -2415,7 +2607,12 @@ mod tests {
 				statements.insert(*hash, statement.clone());
 			}
 			drop(statements);
-			Ok(drained)
+			let mut result: Vec<_> = drained
+				.into_iter()
+				.map(|(hash, statement)| (self.admit(hash), hash, statement))
+				.collect();
+			result.sort_unstable_by_key(|(seq, ..)| *seq);
+			Ok(result)
 		}
 
 		fn statement(
@@ -2427,10 +2624,6 @@ mod tests {
 
 		fn has_statement(&self, hash: &sp_statement_store::Hash) -> bool {
 			self.statements.lock().unwrap().contains_key(hash)
-		}
-
-		fn statement_hashes(&self) -> Vec<sp_statement_store::Hash> {
-			self.statements.lock().unwrap().keys().cloned().collect()
 		}
 
 		fn statements_by_hashes(
@@ -2469,6 +2662,64 @@ mod tests {
 				}
 			}
 			Ok((result, processed))
+		}
+
+		fn admission_watermark(&self) -> sp_statement_store::Result<u64> {
+			Ok(self.admissions.lock().unwrap().len() as u64)
+		}
+
+		fn admitted_statements(
+			&self,
+			mut cursor: u64,
+			watermark: u64,
+			scan_limit: usize,
+			filter: &mut dyn FnMut(
+				&sp_statement_store::Hash,
+				&[u8],
+				&sp_statement_store::Statement,
+			) -> FilterDecision,
+		) -> sp_statement_store::Result<sp_statement_store::AdmittedBatch> {
+			if self.fail_fetches.load(Ordering::Relaxed) {
+				return Err(sp_statement_store::Error::Db("fetch failed".into()));
+			}
+			let admissions = self.admissions.lock().unwrap();
+			let statements = self.statements.lock().unwrap();
+			let mut result = Vec::new();
+			let mut aborted = false;
+			let mut scanned = 0usize;
+			while cursor < watermark {
+				if scanned == scan_limit {
+					aborted = true;
+					break;
+				}
+				scanned += 1;
+				let Some(hash) = admissions.get(cursor as usize) else { break };
+				// A journal entry whose statement left the store is a dead sequence number.
+				let Some(statement) = statements.get(hash) else {
+					cursor += 1;
+					continue;
+				};
+				let encoded = statement.encode();
+				match filter(hash, &encoded, statement) {
+					FilterDecision::Skip => cursor += 1,
+					FilterDecision::Take => {
+						result.push((*hash, statement.clone()));
+						cursor += 1;
+					},
+					FilterDecision::Abort => {
+						aborted = true;
+						break;
+					},
+				}
+			}
+			if !aborted && cursor < watermark {
+				cursor = watermark;
+			}
+			Ok(sp_statement_store::AdmittedBatch {
+				statements: result,
+				cursor,
+				done: cursor >= watermark,
+			})
 		}
 
 		fn broadcasts(
@@ -2569,6 +2820,7 @@ mod tests {
 					topic_affinity: None,
 					is_light: false,
 					pending_topic_affinity: None,
+					sync_watermark: 0,
 				},
 			);
 		}
@@ -2633,7 +2885,7 @@ mod tests {
 	) {
 		let (statement, completion) = queue_receiver.try_recv().unwrap();
 		let hash = statement.hash();
-		statement_store.statements.lock().unwrap().insert(hash, statement.clone());
+		statement_store.insert(statement.clone());
 		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
 		completion.send(result).unwrap();
 		let (hash, result) = handler.pending_statements.next().await.unwrap();
@@ -2652,7 +2904,7 @@ mod tests {
 		) = build_handler(3);
 		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement from two peers".to_vec());
 		let hash = statement.hash();
 
@@ -2692,7 +2944,7 @@ mod tests {
 		) = build_handler(3);
 		let (sender_a, sender_b, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement received mid-import".to_vec());
 		let hash = statement.hash();
 
@@ -2701,7 +2953,7 @@ mod tests {
 		// The worker has inserted the statement into the store, but the event loop
 		// has not processed the validation completion yet.
 		let (queued, completion) = queue_receiver.try_recv().unwrap();
-		statement_store.statements.lock().unwrap().insert(hash, queued.clone());
+		statement_store.insert(queued.clone());
 		statement_store.recent_statements.lock().unwrap().insert(hash, queued);
 
 		// The second peer sends the same statement inside that window.
@@ -2736,7 +2988,7 @@ mod tests {
 		) = build_handler(3);
 		let (sender, forwarder, receiver) = (peer_ids[0], peer_ids[1], peer_ids[2]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"late forwarder".to_vec());
 		let hash = statement.hash();
 
@@ -2777,7 +3029,7 @@ mod tests {
 		) = build_handler(2);
 		let (sender, receiver) = (peer_ids[0], peer_ids[1]);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"during major sync".to_vec());
 		let hash = statement.hash();
 
@@ -2810,7 +3062,7 @@ mod tests {
 	#[tokio::test]
 	async fn propagation_does_not_wait_for_pending_send() {
 		let (mut handler, statement_store, _, notification_service, _, _) = build_handler(1);
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement".to_vec());
 		statement_store
 			.recent_statements
@@ -2820,8 +3072,7 @@ mod tests {
 
 		notification_service.block_sends();
 		let result =
-			tokio::time::timeout(std::time::Duration::from_secs(1), handler.propagate_statements())
-				.await;
+			tokio::time::timeout(Duration::from_secs(1), handler.propagate_statements()).await;
 
 		assert!(result.is_ok(), "Propagation waited for a pending send");
 		assert_eq!(handler.pending_sends.len(), 1);
@@ -2835,7 +3086,7 @@ mod tests {
 
 		// 100 KB each, so the tick spans several 1 MiB chunks.
 		for i in 0..25u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
@@ -2855,7 +3106,7 @@ mod tests {
 		assert!(backlog > 0, "the remaining hashes stay in the outbox");
 
 		// Another tick accumulates into the same outbox while the slot is busy.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"second tick".to_vec());
 		statement_store
 			.recent_statements
@@ -2874,12 +3125,12 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut kept = Statement::new();
+		let mut kept = new_live_statement();
 		kept.set_plain_data(b"kept".to_vec());
 		let kept_hash = kept.hash();
-		statement_store.statements.lock().unwrap().insert(kept_hash, kept);
+		statement_store.insert(kept);
 
-		let mut pruned = Statement::new();
+		let mut pruned = new_live_statement();
 		pruned.set_plain_data(b"pruned".to_vec());
 		let pruned_hash = pruned.hash();
 
@@ -2904,7 +3155,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"statement".to_vec());
 		let hash = statement.hash();
 		statement_store.statements.lock().unwrap().insert(hash, statement);
@@ -2939,14 +3190,14 @@ mod tests {
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		let peer_id = peer_ids[0];
 
-		let mut oversized = Statement::new();
+		let mut oversized = new_live_statement();
 		oversized.set_plain_data(vec![1u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
 		let oversized_hash = oversized.hash();
-		let mut small = Statement::new();
+		let mut small = new_live_statement();
 		small.set_plain_data(b"small".to_vec());
 		let small_hash = small.hash();
-		statement_store.statements.lock().unwrap().insert(oversized_hash, oversized);
-		statement_store.statements.lock().unwrap().insert(small_hash, small);
+		statement_store.insert(oversized);
+		statement_store.insert(small);
 
 		// The oversized statement heads the outbox. It must be consumed, not
 		// re-fetched forever, and the statement behind it must still go out.
@@ -2970,7 +3221,7 @@ mod tests {
 		// Several chunks worth of statements with a blocked substream, so the slot
 		// is taken and a backlog stays queued.
 		for i in 0..25u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
@@ -3002,14 +3253,14 @@ mod tests {
 		let peer_id = peer_ids[0];
 
 		// 700 KiB each, so a 1 MiB chunk carries exactly one statement.
-		let mut first = Statement::new();
+		let mut first = new_live_statement();
 		first.set_plain_data(vec![1u8; 700 * 1024]);
 		let first_hash = first.hash();
-		let mut second = Statement::new();
+		let mut second = new_live_statement();
 		second.set_plain_data(vec![2u8; 700 * 1024]);
 		let second_hash = second.hash();
-		statement_store.statements.lock().unwrap().insert(first_hash, first);
-		statement_store.statements.lock().unwrap().insert(second_hash, second);
+		statement_store.insert(first);
+		statement_store.insert(second);
 		handler
 			.propagation_outboxes
 			.insert(peer_id, VecDeque::from(vec![first_hash, second_hash]));
@@ -3038,7 +3289,7 @@ mod tests {
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		let peer_id = peer_ids[0];
 
-		let mut old = Statement::new();
+		let mut old = new_live_statement();
 		old.set_plain_data(b"oldest".to_vec());
 		let old_hash = old.hash();
 
@@ -3046,7 +3297,7 @@ mod tests {
 		// peer's slot is busy.
 		let fresh_hashes: HashSet<_> = (0..3u8)
 			.map(|i| {
-				let mut fresh = Statement::new();
+				let mut fresh = new_live_statement();
 				fresh.set_plain_data(vec![i; 8]);
 				let hash = fresh.hash();
 				statement_store.recent_statements.lock().unwrap().insert(hash, fresh);
@@ -3088,10 +3339,10 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"received after append".to_vec());
 		let hash = statement.hash();
-		statement_store.statements.lock().unwrap().insert(hash, statement);
+		statement_store.insert(statement);
 
 		// The hash was appended while the peer's slot was busy, and the peer sent
 		// us the statement before the slot freed: the encode-time senders check
@@ -3126,13 +3377,12 @@ mod tests {
 		let (mut handler, statement_store, _network, _notification_service, queue_receiver, _) =
 			build_handler(1);
 
-		let mut statement1 = Statement::new();
+		let mut statement1 = new_live_statement();
 		statement1.set_plain_data(b"statement1".to_vec());
-		let hash1 = statement1.hash();
 
-		statement_store.statements.lock().unwrap().insert(hash1, statement1.clone());
+		statement_store.insert(statement1.clone());
 
-		let mut statement2 = Statement::new();
+		let mut statement2 = new_live_statement();
 		statement2.set_plain_data(b"statement2".to_vec());
 		let hash2 = statement2.hash();
 
@@ -3154,14 +3404,14 @@ mod tests {
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
-		let mut statement1 = Statement::new();
+		let mut statement1 = new_live_statement();
 		statement1.set_plain_data(b"statement1".to_vec());
 
 		handler.on_statements(peer_id, vec![statement1.clone()]);
 		{
 			// Manually process statements submission
 			let (s, _) = queue_receiver.try_recv().unwrap();
-			let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
+			statement_store.insert(s);
 			handler.network.report_peer(peer_id, rep::ANY_STATEMENT_REFUND);
 		}
 
@@ -3188,7 +3438,7 @@ mod tests {
 		let num_statements = 30;
 		let statement_size = 100 * 1024; // 100KB per statement
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; statement_size];
 			data[0] = i as u8;
 			statement.set_plain_data(data);
@@ -3230,7 +3480,7 @@ mod tests {
 		let (mut handler, statement_store, _network, notification_service, _queue_receiver, _) =
 			build_handler(1);
 
-		let mut statement1 = Statement::new();
+		let mut statement1 = new_live_statement();
 		statement1.set_plain_data(vec![1u8; 100]);
 		let hash1 = statement1.hash();
 		statement_store
@@ -3239,7 +3489,7 @@ mod tests {
 			.unwrap()
 			.insert(hash1, statement1.clone());
 
-		let mut oversized1 = Statement::new();
+		let mut oversized1 = new_live_statement();
 		oversized1.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize * 100]);
 		let hash_oversized1 = oversized1.hash();
 		statement_store
@@ -3248,7 +3498,7 @@ mod tests {
 			.unwrap()
 			.insert(hash_oversized1, oversized1);
 
-		let mut statement2 = Statement::new();
+		let mut statement2 = new_live_statement();
 		statement2.set_plain_data(vec![3u8; 100]);
 		let hash2 = statement2.hash();
 		statement_store
@@ -3257,7 +3507,7 @@ mod tests {
 			.unwrap()
 			.insert(hash2, statement2.clone());
 
-		let mut oversized2 = Statement::new();
+		let mut oversized2 = new_live_statement();
 		oversized2.set_plain_data(vec![4u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
 		let hash_oversized2 = oversized2.hash();
 		statement_store
@@ -3266,7 +3516,7 @@ mod tests {
 			.unwrap()
 			.insert(hash_oversized2, oversized2);
 
-		let mut statement3 = Statement::new();
+		let mut statement3 = new_live_statement();
 		statement3.set_plain_data(vec![5u8; 100]);
 		let hash3 = statement3.hash();
 		statement_store
@@ -3406,7 +3656,7 @@ mod tests {
 		let statement_size = 100 * 1024; // 100KB per statement
 		let mut expected_hashes = Vec::new();
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; statement_size];
 			// Use multiple bytes for uniqueness since we have >255 statements
 			data[0] = (i % 256) as u8;
@@ -3414,7 +3664,7 @@ mod tests {
 			statement.set_plain_data(data);
 			let hash = statement.hash();
 			expected_hashes.push(hash);
-			statement_store.statements.lock().unwrap().insert(hash, statement);
+			statement_store.insert(statement);
 		}
 
 		// Setup peer and simulate connection
@@ -3480,20 +3730,20 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn initial_sync_network_error_abandons_the_sync() {
+	async fn initial_sync_network_error_leaves_the_sync_to_retry() {
 		let (mut handler, statement_store, _, notification_service, _, peer_ids) = build_handler(1);
 		let peer_id = peer_ids[0];
 		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 
 		// Two statements small enough to share one chunk, so a statement count cannot be
 		// mistaken for a chunk count.
-		let hashes: Vec<_> = [b"initial-sync-one".to_vec(), b"initial-sync-two".to_vec()]
+		let mut hashes: Vec<_> = [b"initial-sync-one".to_vec(), b"initial-sync-two".to_vec()]
 			.into_iter()
 			.map(|payload| {
-				let mut statement = Statement::new();
+				let mut statement = new_live_statement();
 				statement.set_plain_data(payload);
 				let hash = statement.hash();
-				statement_store.statements.lock().unwrap().insert(hash, statement);
+				statement_store.insert(statement);
 				hash
 			})
 			.collect();
@@ -3507,20 +3757,143 @@ mod tests {
 		handler.flush_pending_sends().await;
 
 		assert!(notification_service.get_sent_notifications().is_empty());
-		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert_eq!(pending.cursor, 0, "an unconfirmed chunk must not advance the cursor");
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"the failed send must requeue the peer"
+		);
 
 		let metrics = handler.metrics.as_ref().unwrap();
 		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::NETWORK]).get(), 1,);
 		assert_eq!(
 			metrics.undelivered_statements.with_label_values(&[send_failure::NETWORK]).get(),
-			hashes.len() as u64,
-			"both statements in the chunk were lost, counted individually"
+			0,
+			"a retried sync chunk is not abandoned, so its statements are not undelivered"
 		);
 		assert_eq!(
 			metrics.send_failures.with_label_values(&[send_failure::TIMEOUT]).get(),
 			0,
 			"a network error must not be attributed to a timeout"
 		);
+
+		// The network recovers: the retried chunk delivers the same statements.
+		notification_service.allow_sends();
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		let mut sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		sent.sort();
+		hashes.sort();
+		assert_eq!(sent, hashes);
+
+		handler.process_initial_sync_burst();
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn rescheduling_a_sync_drops_the_propagation_outbox() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"queued before re-sync".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement);
+		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		assert!(
+			!handler.propagation_outboxes.contains_key(&peer_id),
+			"hashes queued before the sync are covered by its cursor"
+		);
+
+		// The sync cursor remains the only path, so the statement arrives exactly once.
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
+	}
+
+	#[tokio::test]
+	async fn missing_sink_leaves_the_initial_sync_to_retry() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"initial-sync statement".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		// No sink is available for the first burst.
+		notification_service.serve_sinks(0);
+		handler.process_initial_sync_burst();
+
+		assert!(handler.pending_sends.is_empty());
+		assert_eq!(
+			handler.pending_initial_syncs.get(&peer_id).unwrap().cursor,
+			0,
+			"a chunk that found no sink must not advance the cursor"
+		);
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"the peer must be requeued for a retry"
+		);
+
+		// The sink comes back: the retried chunk delivers.
+		notification_service.serve_sinks(usize::MAX);
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
+	}
+
+	#[tokio::test]
+	async fn failed_store_fetch_retains_the_sync_and_a_later_burst_retries() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"initial-sync statement".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+		let watermark = handler.pending_initial_syncs.get(&peer_id).unwrap().watermark;
+
+		statement_store.fail_fetches.store(true, Ordering::Relaxed);
+		handler.process_initial_sync_burst();
+
+		assert!(handler.pending_sends.is_empty(), "a failed fetch must not queue a send");
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert_eq!(pending.cursor, 0, "the cursor must stay at the failed position");
+		assert_eq!(pending.watermark, watermark);
+		assert_eq!(
+			handler.initial_sync_peer_queue.iter().filter(|p| **p == peer_id).count(),
+			1,
+			"the peer must be requeued for a retry"
+		);
+
+		// The store recovers: the next burst resumes from the retained cursor.
+		statement_store.fail_fetches.store(false, Ordering::Relaxed);
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash]);
+
+		// The completed send requeued the peer; the next burst observes the finished sync.
+		handler.process_initial_sync_burst();
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 	}
 
 	#[tokio::test]
@@ -3534,7 +3907,7 @@ mod tests {
 		// number and the test proves nothing.
 		let total = 25;
 		for i in 0..total {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i as u8;
 			statement.set_plain_data(data);
@@ -3573,11 +3946,10 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"filtered by affinity".to_vec());
 		statement.set_topic(0, [0xAA; 32].into());
-		let hash = statement.hash();
-		statement_store.statements.lock().unwrap().insert(hash, statement);
+		statement_store.insert(statement);
 
 		// A topic affinity matching nothing in the store, so the burst finds no
 		// statement to send.
@@ -3611,11 +3983,11 @@ mod tests {
 		// 100 KB each, so the store spans several 1 MiB chunks and the peer has more to receive
 		// after its first one.
 		for i in 0..25u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
-			statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+			statement_store.insert(statement);
 		}
 
 		// The peer never reads its substream.
@@ -3636,10 +4008,9 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"superseded".to_vec());
-		let hash = statement.hash();
-		statement_store.statements.lock().unwrap().insert(hash, statement);
+		statement_store.insert(statement);
 
 		handler.schedule_initial_sync_for_peer(peer_id);
 		handler.process_initial_sync_burst();
@@ -3663,9 +4034,9 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"superseded failure".to_vec());
-		statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+		statement_store.insert(statement);
 
 		// Queue a chunk, then arrange for that very send to come back as a failure.
 		handler.schedule_initial_sync_for_peer(peer_id);
@@ -3698,7 +4069,7 @@ mod tests {
 
 		let mut data_len = max_size - 32;
 		let exact = loop {
-			let mut candidate = Statement::new();
+			let mut candidate = new_live_statement();
 			candidate.set_plain_data(vec![7u8; data_len]);
 			let size = candidate.encoded_size();
 			assert!(size <= max_size, "no data length encodes to exactly {max_size}");
@@ -3708,11 +4079,10 @@ mod tests {
 			data_len += 1;
 		};
 		let exact_hash = exact.hash();
-		let mut oversized = Statement::new();
+		let mut oversized = new_live_statement();
 		oversized.set_plain_data(vec![2u8; MAX_STATEMENT_NOTIFICATION_SIZE as usize]);
-		let oversized_hash = oversized.hash();
-		statement_store.statements.lock().unwrap().insert(exact_hash, exact);
-		statement_store.statements.lock().unwrap().insert(oversized_hash, oversized);
+		statement_store.insert(exact);
+		statement_store.insert(oversized);
 
 		handler.schedule_initial_sync_for_peer(peer_id);
 		for _ in 0..10 {
@@ -3737,11 +4107,11 @@ mod tests {
 		// ~1.1 MB of statements, so each peer's first chunk sits just under the 1 MiB cap and a
 		// handful of peers is enough to exhaust the budget.
 		for i in 0..11u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; 100 * 1024];
 			data[0] = i;
 			statement.set_plain_data(data);
-			statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+			statement_store.insert(statement);
 		}
 
 		// No peer reads, so nothing ever leaves the budget.
@@ -3777,7 +4147,7 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"deferred by budget".to_vec());
 		let hash = statement.hash();
 		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
@@ -3799,7 +4169,7 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: MAX_SEND_IN_FLIGHT_BYTES,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
 			chunk_id: 0,
 		});
 		handler.flush_pending_sends().await;
@@ -3815,7 +4185,7 @@ mod tests {
 
 		// One chunk is ~900 KB, so freeing a few bytes admits exactly one of the
 		// two parked peers into the 16 MiB budget.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(vec![7u8; 900 * 1024]);
 		let hash = statement.hash();
 		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
@@ -3832,7 +4202,7 @@ mod tests {
 			statement_count: 1,
 			bytes_sent: 100,
 			result: SendOutcome::Sent,
-			kind: SendKind::InitialSync { sync_id: 0 },
+			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
 			chunk_id: 0,
 		});
 		assert_eq!(handler.pending_sends.len(), 1);
@@ -3857,10 +4227,10 @@ mod tests {
 		let propagation_peer = peer_ids[0];
 		let sync_peer = peer_ids[1];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"backlog".to_vec());
 		let hash = statement.hash();
-		statement_store.statements.lock().unwrap().insert(hash, statement);
+		statement_store.insert(statement);
 		handler.schedule_initial_sync_for_peer(sync_peer);
 		assert!(handler.pending_initial_syncs.contains_key(&sync_peer));
 
@@ -3913,10 +4283,9 @@ mod tests {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(2);
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"burst behind a busy slot".to_vec());
-		let hash = statement.hash();
-		statement_store.statements.lock().unwrap().insert(hash, statement);
+		statement_store.insert(statement);
 
 		handler.schedule_initial_sync_for_peer(peer_ids[0]);
 		handler.schedule_initial_sync_for_peer(peer_ids[1]);
@@ -3943,15 +4312,15 @@ mod tests {
 
 		// An initial-sync chunk takes the slot, then a fresh statement arrives by
 		// tick while the slot is busy.
-		let mut synced = Statement::new();
+		let mut synced = new_live_statement();
 		synced.set_plain_data(b"snapshot statement".to_vec());
 		let synced_hash = synced.hash();
-		statement_store.statements.lock().unwrap().insert(synced_hash, synced);
+		statement_store.insert(synced);
 		handler.schedule_initial_sync_for_peer(peer_id);
 		handler.process_initial_sync_burst();
 		assert!(handler.in_flight_chunks.contains_key(&peer_id));
 
-		let mut fresh = Statement::new();
+		let mut fresh = new_live_statement();
 		fresh.set_plain_data(b"fresh gossip".to_vec());
 		let fresh_hash = fresh.hash();
 		statement_store.recent_statements.lock().unwrap().insert(fresh_hash, fresh);
@@ -3978,9 +4347,9 @@ mod tests {
 			build_handler(1);
 		let peer_id = peer_ids[0];
 
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"shared budget".to_vec());
-		statement_store.statements.lock().unwrap().insert(statement.hash(), statement);
+		statement_store.insert(statement);
 		handler.schedule_initial_sync_for_peer(peer_id);
 
 		// Propagation bytes alone exhaust the shared budget, so the burst must wait.
@@ -4004,14 +4373,14 @@ mod tests {
 		let statement_size = 100 * 1024; // 100KB per statement
 		let mut expected_hashes = Vec::new();
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			let mut data = vec![0u8; statement_size];
 			data[0] = (i % 256) as u8;
 			data[1] = (i / 256) as u8;
 			statement.set_plain_data(data);
 			let hash = statement.hash();
 			expected_hashes.push(hash);
-			statement_store.statements.lock().unwrap().insert(hash, statement);
+			statement_store.insert(statement);
 		}
 
 		// Setup 3 peers and simulate connections
@@ -4121,7 +4490,7 @@ mod tests {
 		let mut total_encoded_size = 0;
 
 		for i in 0..num_statements {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			// Distribute remainder across first `remainder` statements to exactly fill max_size
 			let extra = if i < remainder { 1 } else { 0 };
 			let mut data = vec![42u8; per_statement_data_size + extra];
@@ -4193,7 +4562,7 @@ mod tests {
 
 		// Create first statement that's just over half the payload limit
 		let first_stmt_data_size = payload_limit / 2 + 10;
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(vec![1u8; first_stmt_data_size]);
 		let stmt1_encoded_size = stmt1.encoded_size();
 
@@ -4202,7 +4571,7 @@ mod tests {
 		let remaining = payload_limit.saturating_sub(stmt1_encoded_size);
 		let target_stmt2_encoded = remaining + 3; // 3 bytes over limit when combined
 		let stmt2_data_size = target_stmt2_encoded.saturating_sub(4); // ~4 bytes encoding overhead
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(vec![2u8; stmt2_data_size]);
 		let stmt2_encoded_size = stmt2.encoded_size();
 
@@ -4218,8 +4587,8 @@ mod tests {
 
 		let hash1 = stmt1.hash();
 		let hash2 = stmt2.hash();
-		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
-		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+		statement_store.insert(stmt1);
+		statement_store.insert(stmt2);
 
 		// Setup peer and simulate connection
 		let peer_id = PeerId::random();
@@ -4233,9 +4602,10 @@ mod tests {
 			})
 			.await;
 
-		// Verify initial sync was queued with both hashes
+		// Verify initial sync was queued covering both statements
 		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
-		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 2);
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert_eq!(pending.watermark - pending.cursor, 2);
 
 		// Process first burst - should send only one statement (the other doesn't fit)
 		handler.process_initial_sync_burst();
@@ -4258,7 +4628,8 @@ mod tests {
 
 		// Second statement should still be pending
 		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
-		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 1);
+		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
+		assert_eq!(pending.watermark - pending.cursor, 1);
 
 		// Process second burst - should send the remaining statement
 		handler.process_initial_sync_burst();
@@ -4295,7 +4666,7 @@ mod tests {
 
 		let mut flood_statements = Vec::new();
 		for i in 0..600_000 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![i as u8, (i >> 8) as u8, (i >> 16) as u8]);
 			flood_statements.push(statement);
 		}
@@ -4335,32 +4706,24 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_legitimate_traffic_not_flagged() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
-			build_handler(1);
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_,
+			clock,
+		) = build_handler_with_fake_clock(1);
 
 		let peer_id = *handler.peers.keys().next().unwrap();
-
-		let start = std::time::Instant::now();
-		let duration = std::time::Duration::from_secs(5);
 		let mut counter = 0u32;
 
-		while start.elapsed() < duration {
-			let mut statements = Vec::new();
-			for i in 0..5_000 {
-				let mut statement = Statement::new();
-				statement.set_plain_data(vec![
-					counter as u8,
-					(counter >> 8) as u8,
-					(counter >> 16) as u8,
-					i as u8,
-				]);
-				statements.push(statement);
-				counter = counter.wrapping_add(1);
-			}
-
-			handler.on_statements(peer_id, statements);
-
-			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		// 100 steps of 100ms is 10 simulated seconds: twice the 5s the full burst takes to drain,
+		// so any drift in the accounting would have tripped by the end.
+		for _ in 0..100 {
+			handler.on_statements(peer_id, statement_batch(5_000, &mut counter));
+			clock.advance(Duration::from_millis(100));
 		}
 
 		let reports = network.get_reports();
@@ -4391,7 +4754,7 @@ mod tests {
 
 		let mut statements = Vec::new();
 		for i in 0..260_000 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![
 				i as u8,
 				(i >> 8) as u8,
@@ -4435,7 +4798,7 @@ mod tests {
 
 		let mut statements = Vec::new();
 		for i in 0..250_000 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![
 				i as u8,
 				(i >> 8) as u8,
@@ -4462,49 +4825,97 @@ mod tests {
 		);
 	}
 
-	#[tokio::test]
-	async fn test_sustained_rate_above_limit_triggers_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver, _) =
-			build_handler(1);
+	/// Like [`build_handler`], but every peer's rate limiter runs on the returned clock instead of
+	/// on wall-clock time, so rate-limit behaviour spanning several batches is exact. The quota is
+	/// the production one.
+	fn build_handler_with_fake_clock(
+		num_peers: usize,
+	) -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		Vec<PeerId>,
+		FakeRelativeClock,
+	) {
+		let (mut handler, statement_store, network, notification_service, queue_receiver, peer_ids) =
+			build_handler(num_peers);
 
-		let peer_id = *handler.peers.keys().next().unwrap();
-
-		let mut counter = 0u32;
-
-		let start = std::time::Instant::now();
-		let duration = std::time::Duration::from_secs(5);
-
-		let mut flooding_detected = false;
-		while start.elapsed() < duration {
-			let mut statements = Vec::new();
-			for i in 0..30_000 {
-				let mut statement = Statement::new();
-				statement.set_plain_data(vec![
-					counter as u8,
-					(counter >> 8) as u8,
-					(counter >> 16) as u8,
-					i as u8,
-				]);
-				statements.push(statement);
-				counter = counter.wrapping_add(1);
-			}
-
-			handler.on_statements(peer_id, statements);
-
-			// Check if flooding was detected
-			let reports = network.get_reports();
-			if reports
-				.iter()
-				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING)
-			{
-				flooding_detected = true;
-				break;
-			}
-
-			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		let clock = FakeRelativeClock::default();
+		for peer in handler.peers.values_mut() {
+			peer.rate_limiter =
+				PeerRateLimiter::with_clock(statements_per_second(), burst(), &clock);
 		}
 
-		assert!(flooding_detected, "Sustained rate of 300k/sec should trigger flooding");
+		(handler, statement_store, network, notification_service, queue_receiver, peer_ids, clock)
+	}
+
+	/// The production quota the handler is built with: 50k statements/sec, 250k burst.
+	fn statements_per_second() -> NonZeroU32 {
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+			.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero")
+	}
+
+	fn burst() -> NonZeroU32 {
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)
+			.expect("burst capacity is nonzero")
+	}
+
+	fn statement_batch(count: u32, counter: &mut u32) -> Statements {
+		(0..count)
+			.map(|i| {
+				let mut statement = Statement::new();
+				statement.set_plain_data(vec![
+					*counter as u8,
+					(*counter >> 8) as u8,
+					(*counter >> 16) as u8,
+					i as u8,
+				]);
+				*counter = counter.wrapping_add(1);
+				statement
+			})
+			.collect()
+	}
+
+	/// A rate sustained above the quota must drain the bucket across successive batches and
+	/// eventually get the peer reported and disconnected.
+	#[tokio::test]
+	async fn test_sustained_rate_above_limit_triggers_flooding() {
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_,
+			clock,
+		) = build_handler_with_fake_clock(1);
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+		let mut counter = 0u32;
+
+		let flooding_reported = |network: &TestNetwork| {
+			network
+				.get_reports()
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING)
+		};
+
+		for batch in 0..9 {
+			handler.on_statements(peer_id, statement_batch(30_000, &mut counter));
+			assert!(
+				!flooding_reported(&network),
+				"batch {batch} is still within the burst and must not be flagged",
+			);
+			clock.advance(Duration::from_millis(100));
+		}
+
+		handler.on_statements(peer_id, statement_batch(30_000, &mut counter));
+		assert!(
+			flooding_reported(&network),
+			"the 10th batch overdraws the burst and must be flagged as flooding",
+		);
 
 		let disconnected = network.get_disconnected_peers();
 		assert!(
@@ -4586,7 +4997,7 @@ mod tests {
 			.await;
 
 		// V1 peer sends raw Vec<Statement>.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"v1 statement".to_vec());
 		let hash = statement.hash();
 		let raw_encoded = vec![statement].encode();
@@ -4622,7 +5033,7 @@ mod tests {
 			.await;
 
 		// V2 peer sends StatementMessage::Statements.
-		let mut statement = Statement::new();
+		let mut statement = new_live_statement();
 		statement.set_plain_data(b"v2 statement".to_vec());
 		let hash = statement.hash();
 		let msg = StatementMessage::Statements(vec![statement]);
@@ -4725,17 +5136,17 @@ mod tests {
 		handler.process_pending_affinities();
 
 		// Create statements: one matching, one not matching, one with no topics.
-		let mut stmt_matching = Statement::new();
+		let mut stmt_matching = new_live_statement();
 		stmt_matching.set_plain_data(b"matching".to_vec());
 		stmt_matching.set_topic(0, topic_aa.into());
 		let hash_matching = stmt_matching.hash();
 
-		let mut stmt_not_matching = Statement::new();
+		let mut stmt_not_matching = new_live_statement();
 		stmt_not_matching.set_plain_data(b"not matching".to_vec());
 		stmt_not_matching.set_topic(0, topic_bb.into());
 		let hash_not_matching = stmt_not_matching.hash();
 
-		let mut stmt_no_topic = Statement::new();
+		let mut stmt_no_topic = new_live_statement();
 		stmt_no_topic.set_plain_data(b"no topic".to_vec());
 		let hash_no_topic = stmt_no_topic.hash();
 
@@ -4806,12 +5217,12 @@ mod tests {
 
 		// V1 peers have no topic affinity - all statements should be propagated.
 		let topic_aa: [u8; 32] = [0xAA; 32];
-		let mut stmt_with_topic = Statement::new();
+		let mut stmt_with_topic = new_live_statement();
 		stmt_with_topic.set_plain_data(b"with topic".to_vec());
 		stmt_with_topic.set_topic(0, topic_aa.into());
 		let hash_with_topic = stmt_with_topic.hash();
 
-		let mut stmt_no_topic = Statement::new();
+		let mut stmt_no_topic = new_live_statement();
 		stmt_no_topic.set_plain_data(b"no topic".to_vec());
 		let hash_no_topic = stmt_no_topic.hash();
 
@@ -4858,23 +5269,23 @@ mod tests {
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
 
-		let mut stmt_aa = Statement::new();
+		let mut stmt_aa = new_live_statement();
 		stmt_aa.set_plain_data(b"stmt_aa".to_vec());
 		stmt_aa.set_topic(0, topic_aa.into());
 		let hash_aa = stmt_aa.hash();
 
-		let mut stmt_bb = Statement::new();
+		let mut stmt_bb = new_live_statement();
 		stmt_bb.set_plain_data(b"stmt_bb".to_vec());
 		stmt_bb.set_topic(0, topic_bb.into());
 		let hash_bb = stmt_bb.hash();
 
-		let mut stmt_no_topic = Statement::new();
+		let mut stmt_no_topic = new_live_statement();
 		stmt_no_topic.set_plain_data(b"no topic".to_vec());
 		let hash_no_topic = stmt_no_topic.hash();
 
-		statement_store.statements.lock().unwrap().insert(hash_aa, stmt_aa);
-		statement_store.statements.lock().unwrap().insert(hash_bb, stmt_bb);
-		statement_store.statements.lock().unwrap().insert(hash_no_topic, stmt_no_topic);
+		statement_store.insert(stmt_aa);
+		statement_store.insert(stmt_bb);
+		statement_store.insert(stmt_no_topic);
 
 		// Connect peer as v2.
 		handler
@@ -4999,18 +5410,18 @@ mod tests {
 		let topic_aa: [u8; 32] = [0xAA; 32];
 		let topic_bb: [u8; 32] = [0xBB; 32];
 
-		let mut stmt_aa = Statement::new();
+		let mut stmt_aa = new_live_statement();
 		stmt_aa.set_plain_data(b"stmt_aa".to_vec());
 		stmt_aa.set_topic(0, topic_aa.into());
 		let hash_aa = stmt_aa.hash();
 
-		let mut stmt_bb = Statement::new();
+		let mut stmt_bb = new_live_statement();
 		stmt_bb.set_plain_data(b"stmt_bb".to_vec());
 		stmt_bb.set_topic(0, topic_bb.into());
 		let hash_bb = stmt_bb.hash();
 
-		statement_store.statements.lock().unwrap().insert(hash_aa, stmt_aa.clone());
-		statement_store.statements.lock().unwrap().insert(hash_bb, stmt_bb.clone());
+		statement_store.insert(stmt_aa.clone());
+		statement_store.insert(stmt_bb.clone());
 
 		// Also put them in recent_statements so propagate_statements can find them.
 		statement_store.recent_statements.lock().unwrap().insert(hash_aa, stmt_aa);
@@ -5064,7 +5475,19 @@ mod tests {
 			"stmt_bb should NOT be sent (filtered by affinity)"
 		);
 
-		// Propagation must apply the same affinity filter.
+		// Propagation must apply the same affinity filter. The original statements sit below
+		// the sync watermark and belong to the cursor, so fresh admissions carry the check.
+		let mut stmt_aa2 = new_live_statement();
+		stmt_aa2.set_plain_data(b"stmt_aa2".to_vec());
+		stmt_aa2.set_topic(0, topic_aa.into());
+		let hash_aa2 = stmt_aa2.hash();
+		let mut stmt_bb2 = new_live_statement();
+		stmt_bb2.set_plain_data(b"stmt_bb2".to_vec());
+		stmt_bb2.set_topic(0, topic_bb.into());
+		let hash_bb2 = stmt_bb2.hash();
+		statement_store.recent_statements.lock().unwrap().insert(hash_aa2, stmt_aa2);
+		statement_store.recent_statements.lock().unwrap().insert(hash_bb2, stmt_bb2);
+
 		notification_service.clear_sent_notifications();
 		handler.propagate_statements().await;
 		handler.flush_pending_sends().await;
@@ -5080,10 +5503,17 @@ mod tests {
 			})
 			.map(|s| s.hash())
 			.collect();
-		assert!(sent_hashes.contains(&hash_aa), "stmt_aa should be propagated (matches affinity)");
 		assert!(
-			!sent_hashes.contains(&hash_bb),
-			"stmt_bb should NOT be propagated (filtered by affinity)"
+			sent_hashes.contains(&hash_aa2),
+			"stmt_aa2 should be propagated (matches affinity)"
+		);
+		assert!(
+			!sent_hashes.contains(&hash_bb2),
+			"stmt_bb2 should NOT be propagated (filtered by affinity)"
+		);
+		assert!(
+			!sent_hashes.contains(&hash_aa),
+			"a statement below the sync watermark is delivered by the cursor, not propagation"
 		);
 
 		// Now change affinity to include topic_bb.
@@ -5134,9 +5564,9 @@ mod tests {
 
 	#[test]
 	fn test_encode_statement_refs_matches_derive_encoding() {
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(b"first".to_vec());
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(b"second".to_vec());
 
 		let refs: Vec<&Statement> = vec![&stmt1, &stmt2];
@@ -5174,6 +5604,7 @@ mod tests {
 				topic_affinity,
 				is_light,
 				pending_topic_affinity: None,
+				sync_watermark: 0,
 			}
 		};
 
@@ -5219,9 +5650,9 @@ mod tests {
 			})
 			.await;
 
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"encoding test".to_vec());
-		statement_store.statements.lock().unwrap().insert(stmt.hash(), stmt);
+		statement_store.insert(stmt);
 
 		// Send to V1 peer.
 		notification_service.clear_sent_notifications();
@@ -5268,10 +5699,9 @@ mod tests {
 		let peer_id = PeerId::random();
 
 		// Add some statements to the store.
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(b"stmt1".to_vec());
-		let hash1 = stmt1.hash();
-		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
+		statement_store.insert(stmt1);
 
 		// Connect peer as V1.
 		handler
@@ -5292,10 +5722,9 @@ mod tests {
 		);
 
 		// Add another statement and re-schedule.
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(b"stmt2".to_vec());
-		let hash2 = stmt2.hash();
-		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+		statement_store.insert(stmt2);
 
 		handler.schedule_initial_sync_for_peer(peer_id);
 
@@ -5305,10 +5734,10 @@ mod tests {
 			1,
 			"Peer should NOT be duplicated in the queue after re-schedule"
 		);
-		// The new sync should contain both hashes.
+		// The new sync should cover both admissions.
 		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
-		assert!(pending.hashes.contains(&hash1));
-		assert!(pending.hashes.contains(&hash2));
+		assert_eq!(pending.cursor, 0);
+		assert_eq!(pending.watermark, 2);
 	}
 
 	#[tokio::test]
@@ -5360,10 +5789,9 @@ mod tests {
 		};
 
 		// Add a statement so there's something to sync.
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"during major sync".to_vec());
-		let hash = stmt.hash();
-		statement_store.statements.lock().unwrap().insert(hash, stmt);
+		statement_store.insert(stmt);
 
 		// Add a peer manually.
 		let peer_id = PeerId::random();
@@ -5415,15 +5843,13 @@ mod tests {
 		let peer_id = PeerId::random();
 
 		// Add statements to the store.
-		let mut stmt1 = Statement::new();
+		let mut stmt1 = new_live_statement();
 		stmt1.set_plain_data(b"delivered before".to_vec());
-		let hash1 = stmt1.hash();
-		let mut stmt2 = Statement::new();
+		let mut stmt2 = new_live_statement();
 		stmt2.set_plain_data(b"never delivered".to_vec());
-		let hash2 = stmt2.hash();
 
-		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
-		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+		statement_store.insert(stmt1);
+		statement_store.insert(stmt2);
 
 		handler.peers.insert(
 			peer_id,
@@ -5439,18 +5865,96 @@ mod tests {
 				topic_affinity: None,
 				is_light: false,
 				pending_topic_affinity: None,
+				sync_watermark: 0,
 			},
 		);
 
 		handler.schedule_initial_sync_for_peer(peer_id);
 
 		let pending = handler.pending_initial_syncs.get(&peer_id).unwrap();
-		// all hashes are included for redelivery.
-		assert!(
-			pending.hashes.contains(&hash1),
-			"Previously delivered hash should be included after affinity change"
+		// The whole admission journal is covered for redelivery.
+		assert_eq!(pending.cursor, 0, "The sync must start from the oldest admission");
+		assert_eq!(pending.watermark, 2, "Both admissions must sit below the watermark");
+	}
+
+	#[tokio::test]
+	async fn statement_below_the_watermark_reaches_a_syncing_peer_exactly_once() {
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"pre-watermark".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		// The statement is also due for a propagation tick, racing the sync.
+		statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
+			})
+			.await;
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+
+		// A tick between scheduling and the first burst must not queue the statement:
+		// below the peer's sync watermark it is the cursor's job.
+		handler.propagate_statements().await;
+		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![hash], "the sync cursor is the only delivery path");
+	}
+
+	#[tokio::test]
+	async fn sync_watermark_keeps_filtering_propagation_after_the_sync_completes() {
+		let (mut handler, statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+
+		let mut pre = new_live_statement();
+		pre.set_plain_data(b"pre-watermark".to_vec());
+		let pre_hash = pre.hash();
+		statement_store.insert(pre.clone());
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
+			})
+			.await;
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst();
+			handler.flush_pending_sends().await;
+		}
+		notification_service.clear_sent_notifications();
+
+		// A late tick drains the already synced statement together with a fresh one.
+		let mut fresh = new_live_statement();
+		fresh.set_plain_data(b"post-watermark".to_vec());
+		let fresh_hash = fresh.hash();
+		statement_store.recent_statements.lock().unwrap().insert(pre_hash, pre);
+		statement_store.recent_statements.lock().unwrap().insert(fresh_hash, fresh);
+
+		handler.propagate_statements().await;
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(
+			sent,
+			vec![fresh_hash],
+			"only admissions at or above the watermark are propagated"
 		);
-		assert!(pending.hashes.contains(&hash2), "Unknown hash should be included in initial sync");
 	}
 
 	#[tokio::test]
@@ -5479,7 +5983,7 @@ mod tests {
 			.await;
 
 		// Send V1-encoded data to V2 peer — also should not panic.
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"v1 encoded".to_vec());
 		let v1_encoded = vec![stmt].encode();
 		handler
@@ -5512,10 +6016,9 @@ mod tests {
 			build_handler_no_peers();
 
 		// Add a statement so there's something to sync.
-		let mut stmt = Statement::new();
+		let mut stmt = new_live_statement();
 		stmt.set_plain_data(b"full node v2".to_vec());
-		let hash = stmt.hash();
-		statement_store.statements.lock().unwrap().insert(hash, stmt);
+		statement_store.insert(stmt);
 
 		let peer_id = PeerId::random();
 
@@ -5552,7 +6055,7 @@ mod tests {
 		// Insert 3 statements into recent_statements for propagation
 		let mut expected_hashes = Vec::new();
 		for i in 0..3u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![i; 100]);
 			let hash = statement.hash();
 			expected_hashes.push(hash);
@@ -5598,7 +6101,7 @@ mod tests {
 		// Create 5 statements
 		let mut hashes = Vec::new();
 		for i in 0..5u8 {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![i; 100]);
 			let hash = statement.hash();
 			hashes.push(hash);
@@ -5824,6 +6327,7 @@ mod tests {
 				topic_affinity: None,
 				is_light: false,
 				pending_topic_affinity: None,
+				sync_watermark: 0,
 			},
 		);
 
@@ -5927,6 +6431,7 @@ mod tests {
 			topic_affinity: None,
 			is_light: false,
 			pending_topic_affinity: None,
+			sync_watermark: 0,
 		};
 
 		let make_handler =
@@ -5987,5 +6492,62 @@ mod tests {
 		handler2.start_sync_recovery();
 		assert!(handler2.sync_recovery_peer.is_some());
 		assert_eq!(net2.get_removed_reserved().len(), 1);
+	}
+
+	#[test]
+	fn send_paths_skip_expired_statements() {
+		let mut live = new_live_statement();
+		live.set_expiry_from_parts(u32::MAX, 0);
+		live.set_plain_data(vec![1u8; 16]);
+		let live_hash = live.hash();
+
+		let mut stale = Statement::new();
+		stale.set_plain_data(vec![2u8; 16]);
+		let stale_hash = stale.hash();
+
+		let store = TestStatementStore::new();
+		store.insert(stale.clone());
+		store.insert(live.clone());
+
+		let peer = Peer {
+			rate_limiter: PeerRateLimiter::new(
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+				NonZeroU32::new(
+					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.expect("burst capacity is nonzero"),
+			),
+			protocol_version: PeerProtocolVersion::V1,
+			topic_affinity: None,
+			is_light: false,
+			pending_topic_affinity: None,
+			sync_watermark: 0,
+		};
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
+
+		let (statements, _processed, _size) = fetch_statement_chunk(
+			&store,
+			&received,
+			&pending,
+			&who,
+			&peer,
+			&[stale_hash, live_hash],
+			max_size,
+		)
+		.expect("the test store never fails a fetch");
+		assert_eq!(statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![live_hash],);
+
+		let watermark = store.admission_watermark().expect("watermark is readable");
+		let (batch, _size) =
+			fetch_admitted_chunk(&store, &received, &pending, &who, &peer, 0, watermark, max_size)
+				.expect("the test store never fails a walk");
+		assert_eq!(
+			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![live_hash],
+		);
 	}
 }
