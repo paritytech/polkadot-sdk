@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{StorageOp, Warmth},
+	access_list::{CodeLoadWarmth, StorageOp, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
@@ -1116,7 +1116,7 @@ pub mod pallet {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
 						kind: StorageAccessKind::Persistent {
-							warmth: Warmth::Cold { revertible: true },
+							warmth: Warmth::cold_revertible(),
 							op: StorageOp::Write,
 						},
 					})
@@ -1889,7 +1889,12 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				Code::Existing(code_hash) => {
-					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
+					// A root instantiate has no access list yet, so its blob is billed cold.
+					let executable = ContractBlob::from_storage(
+						code_hash,
+						&mut transaction_meter,
+						CodeLoadWarmth::cold_non_revertible(),
+					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},

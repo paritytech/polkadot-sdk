@@ -22,7 +22,7 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::StorageOp,
+	access_list::{CallAccess, StorageOp, Transfer},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -279,15 +279,6 @@ enum CallType {
 	DelegateCall,
 }
 
-impl CallType {
-	fn cost(&self) -> RuntimeCosts {
-		match self {
-			CallType::Call { .. } => RuntimeCosts::CallBase,
-			CallType::DelegateCall => RuntimeCosts::DelegateCallBase,
-		}
-	}
-}
-
 /// This is only appropriate when writing out data of constant size that does not depend on user
 /// input. In this case the costs for this copy was already charged as part of the token at
 /// the beginning of the API entry point.
@@ -495,9 +486,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 
 		if value_len > max_size {
-			// Don't warm the slot on a failed validation as the storage was not accessed.
+			// A peek registers nothing, so no rollback is owed.
 			let access_kind = StorageAccessKind::new(transient, StorageOp::Write, || {
-				self.ext.peek_storage_access(&key)
+				self.ext.peek_storage_access(&key).to_non_revertible()
 			});
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
@@ -649,13 +640,26 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let callee = memory.read_h160(callee_ptr)?;
+		let value = match &call_type {
+			CallType::Call { value_ptr } => memory.read_u256(*value_ptr)?,
+			CallType::DelegateCall => U256::zero(),
+		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
-			None => self.charge_gas(call_type.cost())?,
+			None => {
+				let transfer = (!value.is_zero()).then(|| Transfer {
+					from: self.ext.address(),
+					dust: Pallet::<E::T>::has_dust(value),
+				});
+				let state_access =
+					CallAccess::new(callee, matches!(&call_type, CallType::DelegateCall), transfer);
+				let warmth = self.ext.warm(state_access);
+				self.charge_gas(RuntimeCosts::CallBase(warmth))?
+			},
 		};
 
 		// we do check this in exec.rs but we want to error out early
@@ -681,9 +685,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { value_ptr } => {
+			CallType::Call { .. } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
-				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.
@@ -691,9 +694,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-						dust_transfer: Pallet::<E::T>::has_dust(value),
-					})?;
+					// Only precompiles: a contract's transfer rides in `CallBase`, at its warmth.
+					if precompile.is_some() {
+						self.charge_gas(RuntimeCosts::CallTransferSurcharge {
+							dust_transfer: Pallet::<E::T>::has_dust(value),
+						})?;
+					}
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {

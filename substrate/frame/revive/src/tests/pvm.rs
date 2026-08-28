@@ -24,6 +24,7 @@ use super::{
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
 	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
+	access_list::CallAccess,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -618,7 +619,11 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_binary, _caller_code_hash) = compile_module("caller_contract").unwrap();
 	let (callee_binary, callee_code_hash) = compile_module("return_with_data").unwrap();
-	let code_load_weight = crate::vm::code_load_weight(callee_binary.len() as u32);
+	let code_load_weight = crate::vm::code_load_weight(
+		callee_binary.len() as u32,
+		crate::vm::BytecodeType::Pvm,
+		crate::access_list::CodeLoadWarmth::cold_non_revertible(),
+	);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -3329,6 +3334,89 @@ fn weight_consumed_is_linear_for_nested_calls() {
 
 		let gas_per_recursion = gas_2.checked_sub(&gas_1).unwrap();
 		assert_eq!(gas_max, gas_0 + gas_per_recursion * limits::CALL_STACK_DEPTH as u64);
+	});
+}
+
+#[test]
+fn cold_hot_repeated_call_target_stays_hot() {
+	let (code, _code_hash) = compile_module("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let metrics_after = |recursions: u32| {
+			builder::bare_call(addr).data(recursions.encode()).build_and_unwrap_result();
+			last_access_list_metrics()
+		};
+
+		// A fresh access list per call, so these snapshots are independent.
+		for recursions in [0u32, 1, 5] {
+			let metrics = metrics_after(recursions);
+			assert_eq!(
+				metrics.cold,
+				CallAccess::plain_entries(),
+				"the target is warmed cold once, whatever the depth"
+			);
+			assert_eq!(
+				metrics.hot,
+				CallAccess::plain_entries() * recursions,
+				"each self-call re-reads the target's entries hot",
+			);
+		}
+	});
+}
+
+#[test]
+fn cold_hot_top_level_value_call_warms_the_account() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+		let zero_value = last_access_list_metrics();
+
+		builder::bare_call(addr).native_value(1_000).build_and_unwrap_result();
+		let with_value = last_access_list_metrics();
+
+		assert_eq!(
+			with_value.cold - zero_value.cold,
+			CallAccess::value_call_entries() - CallAccess::plain_entries(),
+			"a value transfer warms both accounts on top of a zero-value call's entries",
+		);
+	});
+}
+
+#[test]
+fn cold_hot_depth_denied_call_warms_before_the_denial() {
+	let (code, _code_hash) = compile_module("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let metrics_after = |recursions: u32| {
+			builder::bare_call(addr).data(recursions.encode()).build_and_unwrap_result();
+			last_access_list_metrics()
+		};
+
+		let at_limit = metrics_after(limits::CALL_STACK_DEPTH);
+		let past_limit = metrics_after(limits::CALL_STACK_DEPTH + 1);
+
+		assert_eq!(
+			at_limit.hot,
+			CallAccess::plain_entries() * limits::CALL_STACK_DEPTH,
+			"every call up to the limit re-reads the target's entries hot",
+		);
+
+		assert_eq!(
+			past_limit.hot,
+			at_limit.hot + 2,
+			"the denied attempt warms the target's account entries before the depth check",
+		);
+		assert_eq!(past_limit.cold, at_limit.cold, "the denied attempt adds no cold touch");
 	});
 }
 

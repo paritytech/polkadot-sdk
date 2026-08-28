@@ -30,6 +30,7 @@ use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
+	access_list::AccessListMetrics,
 	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
@@ -58,6 +59,16 @@ use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
 };
+
+parameter_types! {
+	/// The metrics of the last transaction that ran a first frame, recorded by `Stack::run`.
+	pub static LastAccessListMetrics: Option<AccessListMetrics> = None;
+}
+
+pub(crate) fn last_access_list_metrics() -> AccessListMetrics {
+	LastAccessListMetrics::take()
+		.expect("the call under test ran a first frame and recorded metrics")
+}
 
 pub type Address = MultiAddress<AccountId32, u32>;
 pub type Block = sp_runtime::generic::Block<Header<u64, BlakeTwo256>, UncheckedExtrinsic>;

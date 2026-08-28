@@ -35,6 +35,11 @@ use crate::{
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
 };
+#[cfg(feature = "runtime-benchmarks")]
+use crate::{
+	AccountInfoOf,
+	access_list::{Access, AccessEntry, CodeLoad, Warmth},
+};
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
 use frame_system::RawOrigin;
@@ -228,6 +233,41 @@ pub fn caller_funding<T: Config>() -> BalanceOf<T> {
 	BalanceOf::<T>::max_value() / 10_000u32.into()
 }
 
+/// Whitelists the storage key behind one access-list entry.
+#[cfg(feature = "runtime-benchmarks")]
+fn whitelist_entry<T: Config>(entry: &AccessEntry) {
+	use frame_benchmarking::benchmarking::add_to_whitelist;
+	match entry {
+		AccessEntry::Account { address } => add_to_whitelist(
+			frame_system::Account::<T>::hashed_key_for(&T::AddressMapper::to_account_id(address))
+				.into(),
+		),
+		AccessEntry::OriginalAccount { address } => {
+			add_to_whitelist(crate::OriginalAccount::<T>::hashed_key_for(address).into())
+		},
+		AccessEntry::AccountInfo { address } => {
+			add_to_whitelist(AccountInfoOf::<T>::hashed_key_for(address).into())
+		},
+		AccessEntry::CodeInfo { hash } => {
+			add_to_whitelist(CodeInfoOf::<T>::hashed_key_for(hash).into())
+		},
+		AccessEntry::CodeBlob { hash } => {
+			add_to_whitelist(PristineCode::<T>::hashed_key_for(hash).into())
+		},
+		// Child-trie slots have no fixed key here; benches whitelist them ad hoc.
+		AccessEntry::Storage { .. } => {},
+	}
+}
+
+/// Whitelists every entry the access reads.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn whitelist_access<T: Config>(access: impl Access) {
+	access.expand(|entry, _op| {
+		whitelist_entry::<T>(&entry);
+		Warmth::cold_non_revertible()
+	});
+}
+
 /// An instantiated and deployed contract.
 #[derive(Clone)]
 pub struct Contract<T: Config> {
@@ -381,6 +421,13 @@ where
 		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
 			account.as_mut().map(|a| a.dust = dust);
 		});
+	}
+
+	/// Whitelist this contract's code keys; `code_load` prices those reads.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn whitelist_code(&self) -> Result<(), &'static str> {
+		whitelist_access::<T>(CodeLoad { hash: self.info()?.code_hash });
+		Ok(())
 	}
 
 	/// Returns `true` iff all storage entries related to code storage exist.

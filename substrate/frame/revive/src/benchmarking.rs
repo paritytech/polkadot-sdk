@@ -20,8 +20,14 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StorageOp, Warmth},
-	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
+	access_list::{
+		AccessEntry, AccessList, CallAccess, CodeLoad, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
+		StorageOp, Transfer,
+	},
+	call_builder::{
+		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
+		whitelist_access,
+	},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
@@ -192,6 +198,81 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Shared setup of the hot call benches: deploys `$module` as the callee,
+	/// makes it hot (access list warmed, keys whitelisted), and binds
+	/// `$do_call` to a call that forwards value when `$t` is 1 and dust when `$d` is 1 (or, with
+	/// the `delegate` prefix, to a delegate call, which cannot transfer).
+	macro_rules! hot_call_setup {
+		($do_call:ident, $module:expr) => {
+			hot_call_setup!($do_call, $module, 0, 0);
+		};
+		($do_call:ident, $module:expr, $t:expr, $d:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len, $module, false, $t, $d);
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0),     // flags + callee_ptr
+					u64::MAX,                                         // ref_time_limit
+					u64::MAX,                                         // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_ptr
+					pack_hi_lo(0, 0),                                 // input_data_len + input_data_ptr
+					pack_hi_lo(0, SENTINEL),                          // output_len_ptr + output_ptr (skip)
+				)
+			};
+		};
+		(delegate $do_call:ident, $module:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, _deposit_len, $module, true, 0, 0);
+			let mut $do_call = || {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address_ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					callee_len,              // deposit_ptr
+					pack_hi_lo(0, 0),        // input_data_len + input_data_ptr
+					pack_hi_lo(0, SENTINEL), // output_len_ptr + output_ptr (skip)
+				)
+			};
+		};
+		(@setup $runtime:ident, $memory:ident, $callee_len:ident, $deposit_len:ident,
+			$module:expr, $delegate:expr, $t:expr, $d:expr) => {
+			let callee_contract = Contract::<T>::with_index(1, $module, vec![])?;
+			let callee = callee_contract.account_id.clone();
+			let code_hash = callee_contract.info()?.code_hash;
+
+			let callee_bytes = callee.encode();
+			let $callee_len = callee_bytes.len() as u32;
+
+			// Same amounts as the cold `seal_call` bench, so both slopes measure the same work.
+			let native: BalanceOf<T> = (1_000_000u32 * $t).into();
+			let dust = 100u32 * $d;
+			let value = BalanceWithDust::new_unchecked::<T>(native, dust);
+			let value_bytes = Pallet::<T>::convert_native_to_evm(value).encode();
+
+			let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let $deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_storage_deposit_limit(deposit);
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(native + 1u32.into() + Pallet::<T>::min_balance());
+
+			let transfer = (!value.is_zero())
+				.then(|| Transfer { from: setup.contract().address, dust: dust != 0 });
+			let call_access = CallAccess::new(callee_contract.address, $delegate, transfer);
+			let code_access = CodeLoad { hash: code_hash };
+			whitelist_access::<T>(call_access);
+			whitelist_access::<T>(code_access);
+
+			let (mut ext, _) = setup.ext();
+			ext.warm(call_access);
+			ext.warm(code_access);
+			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+		};
+	}
+
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
@@ -220,6 +301,20 @@ mod benchmarks {
 			vec![],
 		);
 
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_pvm_code_per_byte_hot(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::sized(c));
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
@@ -254,6 +349,20 @@ mod benchmarks {
 			vec![],
 		);
 
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_evm_code_per_byte_hot(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::evm_init_code_for_runtime_size(c));
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
@@ -455,6 +564,8 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		instance.whitelist_code()?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -490,6 +601,8 @@ mod benchmarks {
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		// The callee's code read is priced by `code_load`.
+		instance.whitelist_code()?;
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
@@ -1974,106 +2087,164 @@ mod benchmarks {
 		Ok(())
 	}
 
-	fn worst_case_slot() -> crate::access_list::Slot {
-		let key = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
-			.expect("key fits STORAGE_KEY_BYTES bound; qed");
-		crate::access_list::Slot::from(&key)
+	/// Entry number `i`, a storage slot or an account depending on `key`. Only the trailing
+	/// bytes carry `i`, so a comparison runs the whole shared prefix before it can decide.
+	fn access_entry(key: KeyFamily, i: u32) -> AccessEntry {
+		match key {
+			// One slot, at the maximum length, shared by every entry, so each comparison
+			// runs its full length before the address can decide.
+			KeyFamily::Slot => {
+				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+					.expect("key fits STORAGE_KEY_BYTES bound; qed");
+				AccessEntry::Storage {
+					slot: crate::access_list::Slot::from(&slot),
+					address: H160::from_low_u64_be(i as u64),
+				}
+			},
+			KeyFamily::Address => {
+				let mut hash = [0xFFu8; 32];
+				hash[30] = (i >> 8) as u8;
+				hash[31] = i as u8;
+				AccessEntry::CodeInfo { hash: H256::from(hash) }
+			},
+		}
 	}
 
-	fn near_full_access_list() -> crate::access_list::AccessList {
+	/// Builds an access list filled with `entries` entries of the given `key` and returns it
+	/// with the last entry inserted, so touching that is hot, or cold when `entries` is zero.
+	fn access_list_with(
+		entries: u32,
+		key: KeyFamily,
+	) -> (crate::access_list::AccessList, AccessEntry) {
 		let mut al = AccessList::new();
-		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(
-				AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(i as u64) },
-				StorageOp::Read,
-			);
-		}
-		al
-	}
-
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
-		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(entry, StorageOp::Read);
-		}
-		assert!(outcome.is_cold());
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
-		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
-		let entry = AccessEntry {
-			slot: worst_case_slot(),
-			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
-		};
-
-		let touched = entry.clone();
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(touched, StorageOp::Write);
+		for i in 0..entries {
+			al.touch(access_entry(key, i), StorageOp::Read);
 		}
 		assert_eq!(
-			outcome,
-			Warmth::Hot { charged: StorageOp::Read },
-			"the fill seeded this entry read-paid"
+			al.metrics().size as u32,
+			entries,
+			"the keys must stay distinct, or the list is smaller than it looks",
 		);
-		assert_eq!(
-			al.peek(&entry),
-			Warmth::Hot { charged: StorageOp::Write },
-			"the write upgraded the entry"
-		);
-		Ok(())
+		(al, access_entry(key, entries.saturating_sub(1)))
 	}
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::new();
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		// Empty, so the entry it hands back is absent and the touch is cold.
+		let (mut al, entry) = access_list_with(0, KeyFamily::Slot);
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert!(outcome.is_cold());
+		assert!(!outcome.is_hot());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_account_empty() -> Result<(), BenchmarkError> {
+		// The address family needs its own baseline: its keys are shorter and never on the heap.
+		let (mut al, entry) = access_list_with(0, KeyFamily::Address);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::new();
-		let entry =
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
-		al.touch(entry.clone(), StorageOp::Read);
+		// One entry, and it is the one handed back, so the touch is hot.
+		let (mut al, entry) = access_list_with(1, KeyFamily::Slot);
 		let outcome;
 		#[block]
 		{
 			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert!(!outcome.is_cold());
+		assert!(outcome.is_hot());
+		Ok(())
+	}
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_account_single_element() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(1, KeyFamily::Address);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot());
 		Ok(())
 	}
 
-	// Per-entry rollback cost, prepaid by every cold touch since a frame revert
-	// can't charge gas itself. Isolated by reverting a frame with exactly one
-	// journaled entry on top of a near-full `AccessList`.
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Slot);
+		let entry = access_entry(KeyFamily::Slot, MAX_ACCESS_LIST_ENTRIES as u32);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Slot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_account_full() -> Result<(), BenchmarkError> {
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Address);
+		let entry = access_entry(KeyFamily::Address, MAX_ACCESS_LIST_ENTRIES as u32);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_hot());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_account_full() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Address);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
+		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Slot);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Write);
+		}
+		assert!(outcome.is_hot(), "the fill seeded this entry");
+		Ok(())
+	}
+
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		let mut al = near_full_access_list();
+		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Slot);
 		al.enter_frame();
-		al.touch(
-			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) },
-			StorageOp::Read,
-		);
+		al.touch(access_entry(KeyFamily::Slot, MAX_ACCESS_LIST_ENTRIES as u32), StorageOp::Read);
 		#[block]
 		{
 			al.rollback_frame();
@@ -2391,8 +2562,12 @@ mod benchmarks {
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, address: callee_addr, .. } =
+		let callee_contract =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		let Contract { account_id: callee, address: callee_addr, .. } = callee_contract.clone();
+
+		// The code read is priced by `code_load`.
+		callee_contract.whitelist_code().unwrap();
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -2439,6 +2614,20 @@ mod benchmarks {
 			evm_value,
 			"{callee_addr:?} balance should hold {evm_value:?}"
 		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_hot(t: Linear<0, 1>, d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::dummy(), t, d);
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
@@ -2505,8 +2694,12 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let Contract { account_id: address, .. } =
+		let callee_contract =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		let Contract { account_id: address, .. } = callee_contract.clone();
+
+		// The code read is priced by `code_load`.
+		callee_contract.whitelist_code()?;
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
@@ -2537,6 +2730,36 @@ mod benchmarks {
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_delegate_call_hot() -> Result<(), BenchmarkError> {
+		hot_call_setup!(delegate do_call, VmBinaryModule::dummy());
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
+	/// Both reads of a code load in one block, so the trie path they share is paid for once.
+	#[benchmark(pov_mode = Measured)]
+	fn code_load() -> Result<(), BenchmarkError> {
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let code_hash = contract.info()?.code_hash;
+		let code_info;
+		let code;
+		#[block]
+		{
+			code_info = <CodeInfoOf<T>>::get(code_hash);
+			code = <PristineCode<T>>::get(&code_hash);
+		}
+		assert!(code_info.is_some() && code.is_some(), "an existing contract must have both");
 		Ok(())
 	}
 

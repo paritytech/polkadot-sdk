@@ -17,6 +17,7 @@
 
 use crate::{
 	Pallet, RuntimeCosts,
+	access_list::{CallAccess, Transfer},
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
 		Ext,
@@ -81,14 +82,24 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.ext
 				.frame_meter_mut()
 				.charge_or_halt(RuntimeCosts::PrecompileDecode(input_len as u32))?;
+
+			if !value.is_zero() {
+				interpreter.ext.frame_meter_mut().charge_or_halt(
+					RuntimeCosts::CallTransferSurcharge {
+						dust_transfer: Pallet::<E::T>::has_dust(value),
+					},
+				)?;
+			}
 		},
 		None => {
-			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
-			interpreter.ext.charge_or_halt(if scheme.is_delegate_call() {
-				RuntimeCosts::DelegateCallBase
-			} else {
-				RuntimeCosts::CallBase
-			})?;
+			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
+			let transfer = (!value.is_zero()).then(|| Transfer {
+				from: interpreter.ext.address(),
+				dust: Pallet::<E::T>::has_dust(value),
+			});
+			let state_access = CallAccess::new(callee, scheme.is_delegate_call(), transfer);
+			let cost = RuntimeCosts::CallBase(interpreter.ext.warm(state_access));
+			interpreter.ext.charge_or_halt(cost)?;
 
 			interpreter
 				.ext
@@ -96,14 +107,6 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.charge_or_halt(RuntimeCosts::CopyFromContract(input_len as u32))?;
 		},
 	};
-	if !value.is_zero() {
-		interpreter
-			.ext
-			.frame_meter_mut()
-			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
-				dust_transfer: Pallet::<E::T>::has_dust(value),
-			})?;
-	}
 
 	ControlFlow::Continue(())
 }
