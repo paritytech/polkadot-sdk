@@ -2601,7 +2601,7 @@ impl StatementStore for Store {
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
-		if self.timestamp() >= statement.get_expiration_timestamp_secs().into() {
+		if statement.is_expired(self.timestamp()) {
 			log::debug!(
 				target: LOG_TARGET,
 				"Statement is already expired: {:?}",
