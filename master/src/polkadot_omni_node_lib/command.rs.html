@@ -512,26 +512,36 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#362 id=362 data-nosnippet>362</a>					})
 <a href=#363 id=363 data-nosnippet>363</a>					.flatten();
 <a href=#364 id=364 data-nosnippet>364</a>				<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
-<a href=#365 id=365 data-nosnippet>365</a>				<span class="kw">let </span>polkadot_config =
+<a href=#365 id=365 data-nosnippet>365</a>				<span class="kw">let </span><span class="kw-2">mut </span>polkadot_config =
 <a href=#366 id=366 data-nosnippet>366</a>					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
 <a href=#367 id=367 data-nosnippet>367</a>						.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
 <a href=#368 id=368 data-nosnippet>368</a>
-<a href=#369 id=369 data-nosnippet>369</a>				<span class="macro">info!</span>(<span class="string">"✍️ Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
-<a href=#370 id=370 data-nosnippet>370</a>
-<a href=#371 id=371 data-nosnippet>371</a>				node_spec
-<a href=#372 id=372 data-nosnippet>372</a>					.start_node(
-<a href=#373 id=373 data-nosnippet>373</a>						config,
-<a href=#374 id=374 data-nosnippet>374</a>						polkadot_config,
-<a href=#375 id=375 data-nosnippet>375</a>						collator_options,
-<a href=#376 id=376 data-nosnippet>376</a>						hwbench,
-<a href=#377 id=377 data-nosnippet>377</a>						cli.node_extra_args(),
-<a href=#378 id=378 data-nosnippet>378</a>					)
-<a href=#379 id=379 data-nosnippet>379</a>					.<span class="kw">await
-<a href=#380 id=380 data-nosnippet>380</a>					</span>.map_err(Into::into)
-<a href=#381 id=381 data-nosnippet>381</a>			})
-<a href=#382 id=382 data-nosnippet>382</a>		},
-<a href=#383 id=383 data-nosnippet>383</a>	}
-<a href=#384 id=384 data-nosnippet>384</a>}
+<a href=#369 id=369 data-nosnippet>369</a>				<span class="comment">// The relay chain side of a collator doesn't listen on WebRTC by default;
+<a href=#370 id=370 data-nosnippet>370</a>				// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
+<a href=#371 id=371 data-nosnippet>371</a>				</span><span class="kw">let </span>relay_network_params = <span class="kw-2">&amp;</span>polkadot_cli.base.base.network_params;
+<a href=#372 id=372 data-nosnippet>372</a>				<span class="kw">if </span>config.role.is_authority() &amp;&amp;
+<a href=#373 id=373 data-nosnippet>373</a>					!relay_network_params.force_enable_webrtc &amp;&amp;
+<a href=#374 id=374 data-nosnippet>374</a>					relay_network_params.listen_addr.is_empty()
+<a href=#375 id=375 data-nosnippet>375</a>				{
+<a href=#376 id=376 data-nosnippet>376</a>					polkadot_config.network.remove_webrtc_addresses();
+<a href=#377 id=377 data-nosnippet>377</a>				}
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a>				<span class="macro">info!</span>(<span class="string">"✍️ Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
+<a href=#380 id=380 data-nosnippet>380</a>
+<a href=#381 id=381 data-nosnippet>381</a>				node_spec
+<a href=#382 id=382 data-nosnippet>382</a>					.start_node(
+<a href=#383 id=383 data-nosnippet>383</a>						config,
+<a href=#384 id=384 data-nosnippet>384</a>						polkadot_config,
+<a href=#385 id=385 data-nosnippet>385</a>						collator_options,
+<a href=#386 id=386 data-nosnippet>386</a>						hwbench,
+<a href=#387 id=387 data-nosnippet>387</a>						cli.node_extra_args(),
+<a href=#388 id=388 data-nosnippet>388</a>					)
+<a href=#389 id=389 data-nosnippet>389</a>					.<span class="kw">await
+<a href=#390 id=390 data-nosnippet>390</a>					</span>.map_err(Into::into)
+<a href=#391 id=391 data-nosnippet>391</a>			})
+<a href=#392 id=392 data-nosnippet>392</a>		},
+<a href=#393 id=393 data-nosnippet>393</a>	}
+<a href=#394 id=394 data-nosnippet>394</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_network/</div>error.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_network/</div>error.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
@@ -212,32 +212,53 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#62 id=62 data-nosnippet>62</a>		<span class="doccomment">/// The invalid addresses.
 <a href=#63 id=63 data-nosnippet>63</a>		</span>addresses: Vec&lt;Multiaddr&gt;,
 <a href=#64 id=64 data-nosnippet>64</a>	},
-<a href=#65 id=65 data-nosnippet>65</a>	<span class="doccomment">/// The same request-response protocol has been registered multiple times.
-<a href=#66 id=66 data-nosnippet>66</a>	</span><span class="attr">#[error(<span class="string">"Request-response protocol registered multiple times: {protocol}"</span>)]
-<a href=#67 id=67 data-nosnippet>67</a>	</span>DuplicateRequestResponseProtocol {
-<a href=#68 id=68 data-nosnippet>68</a>		<span class="doccomment">/// Name of the protocol registered multiple times.
-<a href=#69 id=69 data-nosnippet>69</a>		</span>protocol: ProtocolName,
-<a href=#70 id=70 data-nosnippet>70</a>	},
-<a href=#71 id=71 data-nosnippet>71</a>	<span class="doccomment">/// Peer does not exist.
-<a href=#72 id=72 data-nosnippet>72</a>	</span><span class="attr">#[error(<span class="string">"Peer `{0}` does not exist."</span>)]
-<a href=#73 id=73 data-nosnippet>73</a>	</span>PeerDoesntExist(PeerId),
-<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// Channel closed.
-<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="attr">#[error(<span class="string">"Channel closed"</span>)]
-<a href=#76 id=76 data-nosnippet>76</a>	</span>ChannelClosed,
-<a href=#77 id=77 data-nosnippet>77</a>	<span class="doccomment">/// Connection closed.
-<a href=#78 id=78 data-nosnippet>78</a>	</span><span class="attr">#[error(<span class="string">"Connection closed"</span>)]
-<a href=#79 id=79 data-nosnippet>79</a>	</span>ConnectionClosed,
-<a href=#80 id=80 data-nosnippet>80</a>	<span class="doccomment">/// Litep2p error.
-<a href=#81 id=81 data-nosnippet>81</a>	</span><span class="attr">#[error(<span class="string">"Litep2p error: `{0}`"</span>)]
-<a href=#82 id=82 data-nosnippet>82</a>	</span>Litep2p(litep2p::Error),
-<a href=#83 id=83 data-nosnippet>83</a>}
-<a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a><span class="comment">// Make `Debug` use the `Display` implementation.
-<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Error {
-<a href=#87 id=87 data-nosnippet>87</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-<a href=#88 id=88 data-nosnippet>88</a>		fmt::Display::fmt(<span class="self">self</span>, f)
-<a href=#89 id=89 data-nosnippet>89</a>	}
-<a href=#90 id=90 data-nosnippet>90</a>}
+<a href=#65 id=65 data-nosnippet>65</a>	<span class="doccomment">/// An invalid `webrtc-direct` address.
+<a href=#66 id=66 data-nosnippet>66</a>	</span><span class="attr">#[error(
+<a href=#67 id=67 data-nosnippet>67</a>		<span class="string">"Invalid WebRTC address `{address}`: expected `/&lt;host&gt;/udp/&lt;port&gt;/webrtc-direct` and \
+<a href=#68 id=68 data-nosnippet>68</a>		 nothing after it."
+<a href=#69 id=69 data-nosnippet>69</a>	</span>)]
+<a href=#70 id=70 data-nosnippet>70</a>	</span>InvalidWebRtcAddress {
+<a href=#71 id=71 data-nosnippet>71</a>		<span class="doccomment">/// The invalid address.
+<a href=#72 id=72 data-nosnippet>72</a>		</span>address: Multiaddr,
+<a href=#73 id=73 data-nosnippet>73</a>	},
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// A public `webrtc-direct` address was configured without a WebRTC transport to back it.
+<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="attr">#[error(
+<a href=#76 id=76 data-nosnippet>76</a>		<span class="string">"A WebRTC public address has been configured, but the node does not listen on any \
+<a href=#77 id=77 data-nosnippet>77</a>		 `webrtc-direct` address"
+<a href=#78 id=78 data-nosnippet>78</a>	</span>)]
+<a href=#79 id=79 data-nosnippet>79</a>	</span>WebRtcTransportNotConfigured,
+<a href=#80 id=80 data-nosnippet>80</a>	<span class="doccomment">/// A `webrtc-direct` address was configured on a backend that cannot serve WebRTC.
+<a href=#81 id=81 data-nosnippet>81</a>	</span><span class="attr">#[error(
+<a href=#82 id=82 data-nosnippet>82</a>		<span class="string">"A WebRTC address is configured, \
+<a href=#83 id=83 data-nosnippet>83</a>		 but WebRTC is only supported by the litep2p network backend."
+<a href=#84 id=84 data-nosnippet>84</a>	</span>)]
+<a href=#85 id=85 data-nosnippet>85</a>	</span>WebRtcNotSupportedByBackend,
+<a href=#86 id=86 data-nosnippet>86</a>	<span class="doccomment">/// The same request-response protocol has been registered multiple times.
+<a href=#87 id=87 data-nosnippet>87</a>	</span><span class="attr">#[error(<span class="string">"Request-response protocol registered multiple times: {protocol}"</span>)]
+<a href=#88 id=88 data-nosnippet>88</a>	</span>DuplicateRequestResponseProtocol {
+<a href=#89 id=89 data-nosnippet>89</a>		<span class="doccomment">/// Name of the protocol registered multiple times.
+<a href=#90 id=90 data-nosnippet>90</a>		</span>protocol: ProtocolName,
+<a href=#91 id=91 data-nosnippet>91</a>	},
+<a href=#92 id=92 data-nosnippet>92</a>	<span class="doccomment">/// Peer does not exist.
+<a href=#93 id=93 data-nosnippet>93</a>	</span><span class="attr">#[error(<span class="string">"Peer `{0}` does not exist."</span>)]
+<a href=#94 id=94 data-nosnippet>94</a>	</span>PeerDoesntExist(PeerId),
+<a href=#95 id=95 data-nosnippet>95</a>	<span class="doccomment">/// Channel closed.
+<a href=#96 id=96 data-nosnippet>96</a>	</span><span class="attr">#[error(<span class="string">"Channel closed"</span>)]
+<a href=#97 id=97 data-nosnippet>97</a>	</span>ChannelClosed,
+<a href=#98 id=98 data-nosnippet>98</a>	<span class="doccomment">/// Connection closed.
+<a href=#99 id=99 data-nosnippet>99</a>	</span><span class="attr">#[error(<span class="string">"Connection closed"</span>)]
+<a href=#100 id=100 data-nosnippet>100</a>	</span>ConnectionClosed,
+<a href=#101 id=101 data-nosnippet>101</a>	<span class="doccomment">/// Litep2p error.
+<a href=#102 id=102 data-nosnippet>102</a>	</span><span class="attr">#[error(<span class="string">"Litep2p error: `{0}`"</span>)]
+<a href=#103 id=103 data-nosnippet>103</a>	</span>Litep2p(litep2p::Error),
+<a href=#104 id=104 data-nosnippet>104</a>}
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a><span class="comment">// Make `Debug` use the `Display` implementation.
+<a href=#107 id=107 data-nosnippet>107</a></span><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Error {
+<a href=#108 id=108 data-nosnippet>108</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+<a href=#109 id=109 data-nosnippet>109</a>		fmt::Display::fmt(<span class="self">self</span>, f)
+<a href=#110 id=110 data-nosnippet>110</a>	}
+<a href=#111 id=111 data-nosnippet>111</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

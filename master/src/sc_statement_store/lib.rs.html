@@ -2698,7 +2698,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2548 id=2548 data-nosnippet>2548</a>		<span class="kw">let </span>_histogram_submit_start_timer = <span class="self">self</span>.metrics.start_submit_timer();
 <a href=#2549 id=2549 data-nosnippet>2549</a>		<span class="kw">let </span>hash = statement.hash();
 <a href=#2550 id=2550 data-nosnippet>2550</a>		<span class="comment">// Get unix timestamp
-<a href=#2551 id=2551 data-nosnippet>2551</a>		</span><span class="kw">if </span><span class="self">self</span>.timestamp() &gt;= statement.get_expiration_timestamp_secs().into() {
+<a href=#2551 id=2551 data-nosnippet>2551</a>		</span><span class="kw">if </span>statement.is_expired(<span class="self">self</span>.timestamp()) {
 <a href=#2552 id=2552 data-nosnippet>2552</a>			<span class="macro">log::debug!</span>(
 <a href=#2553 id=2553 data-nosnippet>2553</a>				target: LOG_TARGET,
 <a href=#2554 id=2554 data-nosnippet>2554</a>				<span class="string">"Statement is already expired: {:?}"</span>,
