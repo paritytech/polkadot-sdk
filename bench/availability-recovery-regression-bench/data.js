@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787857400447,
+  "lastUpdate": 1787910691341,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c3487a54579dbfb96cde4168b012bf60438c93ef",
-          "message": "Enforce stricter rustfmt rules to prevent style ambiguity (#10939)\n\nby default rustfmt preserve local style, and Claude loves to add semi or\nbracket where there were none before,\nWe should make the formatting more strict as this is a bit annoying to\nremind it constantly not to make unnecessary diff.\n\n## Summary\n\nThe PR is just updating\nhttps://github.com/paritytech/polkadot-sdk/blob/pg/stricter-rustfmt-rules/.rustfmt.toml\nevery other changes are just the result of running the linter\n\n\n- Change `match_arm_leading_pipes` from \"Preserve\" to \"Never\" to enforce\na single style\n- Change `trailing_semicolon` from false to true to enforce `return 42;`\nfalse unfortunately preserve the local style\n- Add `normalize_comments = true` to normalize comment spacing (e.g.,\n`// comment` not `//comment`)\n- Add `normalize_doc_attributes = true` to enforce `///` over `#[doc =\n\"\"]`\n\nThese changes ensure only one valid formatting style exists, reducing\nunnecessary diffs in pull requests caused by different but equally valid\nformatting styles.\n\n## Not changed (for now)\nThe following options also default to \"Preserve\" but were intentionally\nnot changed due to (even) larger diff impact:\n\n- `group_imports` - Would enforce import grouping order (std → external\n→ crate) but causes massive import reordering across the codebase\n- `hex_literal_case` - Would enforce `0xABCD` vs `0xabcd` consistency\n- edition 2024 - not sure what that change but it also probably create a\nbig diff\n\nThese could be considered in a future PR if the one-time diff cost is\nacceptable.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T12:58:02Z",
-          "tree_id": "272f1c9365f5d242b76d092585582773f220dbba",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3487a54579dbfb96cde4168b012bf60438c93ef"
-        },
-        "date": 1769781863520,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12527265296666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.138722010833337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.087581876066665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0413284779a1d30969d82c7ed0087a8d78758926",
+          "message": "network: Enable WebRTC by default on full nodes (#12870)\n\nAccept WebRTC connections on the same UDP `--port` as used for TCP/WS\nconnections. Enabled by default on full nodes, can be force-enabled with\n`--force-enable-webrtc` on validators & collators, or disabled by\nexplicitly passing listen addresses. Only supported with litep2p network\nbackend.\n\n---------\n\nCo-authored-by: gab <gabriele@parity.io>",
+          "timestamp": "2026-08-28T07:02:42Z",
+          "tree_id": "60cff1edb168eac349847133edd496c478f3f6e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0413284779a1d30969d82c7ed0087a8d78758926"
+        },
+        "date": 1787910654271,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13567594473333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.720857773666662,
             "unit": "seconds"
           }
         ]
