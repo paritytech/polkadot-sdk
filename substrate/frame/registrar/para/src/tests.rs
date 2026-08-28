@@ -953,8 +953,16 @@ mod deregister {
 			let para_id = registered_para(ALICE);
 			AssignedParas::set(vec![para_id]);
 
+			// The manager is locked out before the state is even looked at: holding a core is
+			// what locks a para here.
 			assert_noop!(
 				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+			// Root is not locked out, so it reaches the assignment check itself — a para that can
+			// still be scheduled must not be removed out from under itself, whoever asks.
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::root(), para_id),
 				Error::<Test>::StillAssigned
 			);
 			assert!(matches!(
@@ -962,7 +970,9 @@ mod deregister {
 				RegistrationState::Registered { .. }
 			));
 
-			// The check guards scheduling, which a merely reserved id cannot be doing.
+			// A merely reserved id is never locked by an assignment and is always droppable by
+			// its manager. It cannot hold a core, so treating a stray entry as a lock would
+			// strand the reservation deposit behind a governance call for nothing.
 			let reserved = reserve_for(ALICE);
 			AssignedParas::mutate(|assigned| assigned.push(reserved));
 			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), reserved));
@@ -1289,6 +1299,47 @@ mod locking {
 	}
 
 	#[test]
+	fn holding_a_core_locks_the_para_against_its_manager() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a registered para that has since been assigned coretime. This chain hosts
+			// coretime, so it can ask directly rather than waiting for a hook.
+			let para_id = registered_para(ALICE); // manager
+			AssignedParas::mutate(|v| v.push(para_id));
+			let _ = take_sent();
+
+			// THEN the manager is shut out of everything a lock gates, even though nobody set the
+			// stored flag. This is what replaces the relay chain's lock-at-first-head.
+			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					MIN_CODE_SIZE,
+					hash_of(&code(MIN_CODE_SIZE as usize)),
+				),
+				Error::<Test>::ParaLocked
+			);
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
+				Error::<Test>::ParaLocked
+			);
+			assert_eq!(take_sent(), vec![]);
+
+			// The para itself and root are unaffected: a lock protects the para from its manager.
+			assert_ok!(Registrar::set_current_head(para_origin(para_id), para_id, head(4)));
+
+			// WHEN the core lapses. THEN the manager has control again, because nothing made the
+			// lock stick. Where that is not wanted, add_lock is what makes it permanent.
+			AssignedParas::set(Vec::new());
+			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
+		});
+	}
+
+	#[test]
 	fn a_fresh_registration_starts_unlocked() {
 		new_test_ext().execute_with(|| {
 			// A manager who has just made a mistake can undo it. What protects a para that is
@@ -1507,6 +1558,72 @@ mod force_set_next_free_para_id {
 			assert_eq!(registrar_events(), vec![Event::NextFreeParaIdSet { para_id: target }]);
 			// And the next reservation picks up from there.
 			assert_eq!(reserve_for(ALICE), target);
+		});
+	}
+}
+
+mod force_remove_para {
+	use super::*;
+
+	#[test]
+	fn root_repairs_a_record_the_two_chains_can_no_longer_agree_on() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a registered para. Suppose governance has since removed it on the relay chain
+			// directly — this chain would never hear, and the deposits would sit here forever
+			// against a para it can no longer act on.
+			let para_id = registered_para(ALICE); // manager
+			let before = Balances::free_balance(ALICE);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance));
+
+			assert_noop!(
+				Registrar::force_remove_para(RuntimeOrigin::signed(ALICE), para_id),
+				DispatchError::BadOrigin
+			);
+
+			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
+
+			// Both deposits go back to the manager who paid them, and the record is gone.
+			assert_eq!(held(ALICE), 0);
+			assert_eq!(
+				Balances::free_balance(ALICE),
+				before + PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance)
+			);
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(take_sent(), vec![]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::ParaForceRemoved { para_id, manager: ALICE }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_verdict_that_is_merely_slow_cannot_be_torn_down() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a registration still waiting on the relay chain.
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+
+			// THEN governance must wait: tearing this down early would release a deposit for a
+			// para the relay chain may be about to confirm.
+			assert_noop!(
+				Registrar::force_remove_para(RuntimeOrigin::root(), para_id),
+				Error::<Test>::CannotCancelYet
+			);
+
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
+			assert_eq!(held(ALICE), 0);
+		});
+	}
+
+	#[test]
+	fn a_para_this_chain_never_knew_is_refused() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::force_remove_para(RuntimeOrigin::root(), FIRST_PARA_ID),
+				Error::<Test>::NotReserved
+			);
 		});
 	}
 }

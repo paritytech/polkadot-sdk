@@ -360,6 +360,8 @@ pub mod pallet {
 		HeadUpdateRequested { para_id: ParaId, message_id: u64 },
 		/// Governance moved the para id counter.
 		NextFreeParaIdSet { para_id: ParaId },
+		/// Governance dropped this chain's record of a para and released its deposits.
+		ParaForceRemoved { para_id: ParaId, manager: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -595,7 +597,7 @@ pub mod pallet {
 		)]
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
 			let ParaInfo { manager, reservation, state, locked } = info;
 
 			match state {
@@ -655,7 +657,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_deregistration())]
 		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
 			let manager = info.manager.clone();
 			let RegistrationState::Deregistering { ticket, cancellable_at } = info.state else {
 				return Err(Error::<T>::NotDeregistering.into());
@@ -750,7 +752,7 @@ pub mod pallet {
 			code_hash: H256,
 		) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
 			ensure!(
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
@@ -784,7 +786,7 @@ pub mod pallet {
 			head: Vec<u8>,
 		) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
 			ensure!(
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
@@ -804,6 +806,55 @@ pub mod pallet {
 			.map_err(|()| Error::<T>::SendFailed)?;
 
 			Self::deposit_event(Event::HeadUpdateRequested { para_id, message_id });
+			Ok(())
+		}
+
+		/// Drop this chain's record of a para, releasing whatever deposits it holds.
+		///
+		/// Root only, and the counterpart of `pallet-hrmp-para`'s `force_remove_channel`. It
+		/// exists because the two chains can diverge in ways no user-facing call can repair:
+		///
+		/// - governance acts on the relay chain's own registrar directly, which this chain never
+		///   hears about;
+		/// - a verdict is lost for good, so the entry stays in an in-flight state past every
+		///   deadline;
+		/// - a para arrives on the relay chain by some route this chain did not drive.
+		///
+		/// Without it those cases leave a manager's deposit held forever against a para this chain
+		/// can no longer act on.
+		///
+		/// Deliberately blunt: it tells the relay chain nothing, so the two chains can be left
+		/// disagreeing. That is why it is governance's tool and not a user's, and why an entry
+		/// still waiting on a verdict is refused until [`Config::PendingDeadline`] has passed —
+		/// a verdict that is merely slow must not be torn down from under the relay chain.
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::force_remove_para())]
+		pub fn force_remove_para(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			frame_system::ensure_root(origin)?;
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+
+			let now = T::BlockNumberProvider::current_block_number();
+			let overdue = match info.state {
+				RegistrationState::Pending { cancellable_at, .. } |
+				RegistrationState::Deregistering { cancellable_at, .. } => now >= cancellable_at,
+				// Nothing is in flight for these, so there is no verdict to be overdue.
+				RegistrationState::Reserved | RegistrationState::Registered { .. } => true,
+			};
+			ensure!(overdue, Error::<T>::CannotCancelYet);
+
+			let ParaInfo { manager, reservation, state, .. } = info;
+			reservation.drop(&manager)?;
+			match state {
+				RegistrationState::Pending { ticket, .. } |
+				RegistrationState::Registered { ticket } |
+				RegistrationState::Deregistering { ticket, .. } => {
+					ticket.drop(&manager)?;
+				},
+				RegistrationState::Reserved => {},
+			}
+			Paras::<T>::remove(para_id);
+
+			Self::deposit_event(Event::ParaForceRemoved { para_id, manager });
 			Ok(())
 		}
 
@@ -862,6 +913,34 @@ impl<T: Config> Pallet<T> {
 			*next = next.wrapping_add(1);
 			id
 		})
+	}
+
+	/// Whether the manager is shut out of the calls a lock gates.
+	///
+	/// Two things lock a para. The stored flag is deliberate — set by the manager, the para, root,
+	/// or carried over by the migration, since every live para arrives locked. The assignment
+	/// check is automatic: **a para holding a core is locked for as long as it holds one**, so its
+	/// registrar manager cannot deregister it, change its code, or rewrite its head while it is in
+	/// use.
+	///
+	/// That second half is what replaces the relay chain's `OnNewHead` lock. The relay chain locks
+	/// at a para's first block because that is the only "in use" signal it has; this chain hosts
+	/// coretime, so it can ask the better question directly through
+	/// [`Config::AssignmentChecker`] — and it is a question, not an event, so there is no hook to
+	/// miss and no ordering to get wrong.
+	///
+	/// A para that *loses* its core becomes manager-controllable again, unlike on the relay chain
+	/// where the lock is permanent once set. Where that is not wanted, the coretime side can make
+	/// it stick with [`Pallet::add_lock`], which is exactly what the stored flag is for.
+	/// A merely reserved id is never locked by an assignment. It cannot hold a core — nothing is
+	/// registered for it to schedule — so treating a stray assignment entry as a lock would strand
+	/// the reservation deposit behind a governance call for no reason.
+	fn is_locked(para_id: ParaId, info: &ParaInfoOf<T>) -> bool {
+		if info.locked {
+			return true;
+		}
+		!matches!(info.state, RegistrationState::Reserved) &&
+			T::AssignmentChecker::has_assignment(para_id)
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its `manager`, or root.

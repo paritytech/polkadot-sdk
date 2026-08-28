@@ -501,11 +501,6 @@ mod system_channels {
 	#[test]
 	fn root_opens_both_directions_deposit_free() {
 		new_test_ext().execute_with(|| {
-			assert_noop!(
-				Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), SELF_PARA, PARA_A),
-				DispatchError::BadOrigin
-			);
-
 			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 
 			// Both directions, because a one-way system channel is never what was meant.
@@ -520,6 +515,69 @@ mod system_channels {
 					message_id: 0,
 				})]
 			);
+		});
+	}
+
+	#[test]
+	fn a_para_may_pair_itself_with_a_system_chain_without_governance() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a para whose manager wants a channel to a system chain. Requiring root here
+			// would mean a referendum before a new para could talk to Asset Hub.
+			assert_ok!(Hrmp::establish_system_channel(
+				RuntimeOrigin::signed(ALICE), // manager of PARA_A
+				PARA_A,
+				SYSTEM_PARA,
+			));
+			assert_eq!(state(chan(PARA_A, SYSTEM_PARA)), Some(ChannelState::Open));
+			assert_eq!(state(chan(SYSTEM_PARA, PARA_A)), Some(ChannelState::Open));
+
+			// The para itself may do the same, whichever way round the pair is given.
+			assert_ok!(Hrmp::establish_system_channel(
+				para_origin(PARA_B),
+				SYSTEM_PARA,
+				PARA_B,
+			));
+			assert_eq!(state(chan(SYSTEM_PARA, PARA_B)), Some(ChannelState::Open));
+
+			// Deposit-free at both ends by definition, which is why this can stay open.
+			assert_eq!(held(PARA_A), 0);
+			assert_eq!(held(PARA_B), 0);
+		});
+	}
+
+	#[test]
+	fn a_para_cannot_use_it_to_pair_anyone_else() {
+		new_test_ext().execute_with(|| {
+			// Not the caller's own para.
+			assert_noop!(
+				Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), PARA_B, SYSTEM_PARA),
+				Error::<Test>::NotOwner
+			);
+			// Neither end is a system chain: free channels between two public paras would be a
+			// way around the deposit entirely.
+			assert_noop!(
+				Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B),
+				Error::<Test>::NotOwner
+			);
+			// Both ends are system chains: only root pairs those.
+			assert_noop!(
+				Hrmp::establish_system_channel(
+					RuntimeOrigin::signed(ALICE),
+					SELF_PARA,
+					SYSTEM_PARA
+				),
+				Error::<Test>::NotOwner
+			);
+			// A manager of nothing.
+			assert_noop!(
+				Hrmp::establish_system_channel(
+					RuntimeOrigin::signed(CHARLIE),
+					PARA_A,
+					SYSTEM_PARA
+				),
+				Error::<Test>::NotOwner
+			);
+			assert_eq!(take_sent(), vec![]);
 		});
 	}
 

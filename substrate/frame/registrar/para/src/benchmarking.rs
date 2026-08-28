@@ -277,5 +277,18 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Governance dropping a para record. Worst case releases both deposits.
+	#[benchmark]
+	fn force_remove_para() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id);
+
+		assert!(Paras::<T>::get(para_id).is_none());
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

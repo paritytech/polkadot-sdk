@@ -525,11 +525,20 @@ pub mod pallet {
 
 		/// Open a deposit-free channel in both directions.
 		///
-		/// Root only. Replaces the relay chain's `establish_system_channel`, which was a signed
-		/// call and is filtered once this chain is the control plane — system channels still have
-		/// to be openable, and new system chains still have to be onboardable.
+		/// Replaces both of the relay chain's system-channel calls, which were a signed call and a
+		/// para-origin call and are therefore both filtered once this chain is the control plane.
 		///
-		/// Also the retry for a channel this chain failed to open with a newly registered para.
+		/// Origins mirror what they replaced, rather than being root-only:
+		///
+		/// - **Root** may pair any two paras, standing in for `establish_system_channel`.
+		/// - **A para, or its registrar manager**, may open a channel between itself and a system
+		///   chain, standing in for `establish_channel_with_system`. Requiring governance for this
+		///   would mean every newly registered para needed a referendum before it could talk to
+		///   Asset Hub, which is not a trade anybody would take.
+		///
+		/// Safe to leave open because it is deposit-free at both ends by definition, and the
+		/// relay chain still enforces its own per-para channel limits. Also the retry for a
+		/// channel this chain failed to open with a newly registered para.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::establish_system_channel())]
 		pub fn establish_system_channel(
@@ -537,8 +546,20 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			frame_system::ensure_root(origin)?;
 			ensure!(sender != recipient, Error::<T>::ToSelf);
+
+			if frame_system::ensure_root(origin.clone()).is_err() {
+				// Not root: one end must be a system chain, and the caller must be the other.
+				let first = T::FirstPublicParaId::get();
+				let other = match (sender < first, recipient < first) {
+					(true, false) => recipient,
+					(false, true) => sender,
+					// Neither end is a system chain, or both are: not a pairing a para may make
+					// for itself.
+					_ => return Err(Error::<T>::NotOwner.into()),
+				};
+				Self::ensure_root_para_or_manager(origin, other)?;
+			}
 
 			let message_id = Self::do_establish_system_channel(sender, recipient)?;
 
