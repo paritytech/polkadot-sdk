@@ -150,6 +150,7 @@ members = [
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
+	"cumulus/zombienet/jam-tests",
 	"cumulus/zombienet/zombienet-sdk",
 	"cumulus/zombienet/zombienet-sdk-helpers",
 	"docs/sdk",

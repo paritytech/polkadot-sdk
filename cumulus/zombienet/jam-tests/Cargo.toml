@@ -1,0 +1,23 @@
+[package]
+name = "cumulus-jam-zombienet-tests"
+version = "0.1.0"
+description = "Zombienet-sdk tests for the Cumulus JAM collator."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+serde_json = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "time"] }
+jsonrpsee = { workspace = true, features = ["ws-client"] }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+tempfile = { workspace = true }
+zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk", rev = "74a1d56abdd1b4b451afca26b77d34e88bc58918" }
+
+[features]
+jam-ci = []
