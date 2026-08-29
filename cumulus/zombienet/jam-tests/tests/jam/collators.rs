@@ -22,7 +22,7 @@ use tokio::time::Instant;
 /// user's own network, keeps working while the tests run. Each set reserves its own block, because
 /// the previous set's sockets can still be in `TIME_WAIT` when the next one binds.
 const FIRST_PORT: u16 = 41000;
-const PORTS_PER_COLLATOR: u16 = 2;
+const PORTS_PER_COLLATOR: u16 = 3;
 static NEXT_PORT: AtomicU16 = AtomicU16::new(FIRST_PORT);
 
 struct Collator {
@@ -64,6 +64,7 @@ impl Collators {
 			let base_path = work_dir.join(&name);
 			let p2p_port = first_port + index as u16 * PORTS_PER_COLLATOR;
 			let rpc_port = p2p_port + 1;
+			let prometheus_port = p2p_port + 2;
 			let peer_id = node_key(&binaries.omni_node, &base_path, &spec)?;
 
 			let log_path = work_dir.join(format!("{name}.log"));
@@ -78,6 +79,9 @@ impl Collators {
 				.args(["--collator", &chain_spec::dev_account_flag(index), "--force-authoring"])
 				.args(["--port", &p2p_port.to_string()])
 				.args(["--rpc-port", &rpc_port.to_string()])
+				// Every collator needs its own metrics port; they would otherwise all try to bind
+				// the 9615 default.
+				.args(["--prometheus-port", &prometheus_port.to_string()])
 				.args(["--jam-rpc-urls", &jam.rpc_url])
 				.args(["--jam-service-id", &jam.service_id.to_string()])
 				.args(["--jam-core", &jam.core.to_string()])
@@ -94,7 +98,7 @@ impl Collators {
 
 			let process = command
 				.spawn()
-				.with_context(|| format!("spawning collator {name} from {}", binaries.omni_node.display()))?;
+				.with_context(|| format!("spawning collator {name}"))?;
 			log::info!("collator {name}: rpc 127.0.0.1:{rpc_port}, log {}", log_path.display());
 
 			bootnode.get_or_insert(format!("/ip4/127.0.0.1/tcp/{p2p_port}/p2p/{peer_id}"));
@@ -167,25 +171,33 @@ pub fn tail(path: &Path, lines: usize) -> String {
 ///
 /// A collator is an authority and refuses to author with a throwaway network key, so the key is
 /// generated up front. Generation fails if the key already exists, which a re-run against the same
-/// work dir (the demo's restart path) must tolerate.
+/// work dir (the demo's restart path) must tolerate — and it prints the peer id on stderr, so the
+/// id is always read back with `inspect-node-key`, which prints it on stdout.
 fn node_key(omni_node: &Path, base_path: &Path, spec: &Path) -> anyhow::Result<String> {
-	let existing = glob_secret(base_path);
-	let output = match &existing {
-		Some(key_file) => Command::new(omni_node)
-			.args(["key", "inspect-node-key", "--file"])
-			.arg(key_file)
-			.output()?,
-		None => Command::new(omni_node)
+	if glob_secret(base_path).is_none() {
+		run(Command::new(omni_node)
 			.args(["key", "generate-node-key", "--base-path"])
 			.arg(base_path)
 			.arg("--chain")
-			.arg(spec)
-			.output()?,
-	};
+			.arg(spec))?;
+	}
+	let key_file = glob_secret(base_path)
+		.with_context(|| format!("no node key under {}", base_path.display()))?;
+
+	let peer_id = run(Command::new(omni_node)
+		.args(["key", "inspect-node-key", "--file"])
+		.arg(&key_file))?;
+	anyhow::ensure!(!peer_id.is_empty(), "no peer id for the key at {}", key_file.display());
+	Ok(peer_id)
+}
+
+/// Run a command to completion and return its trimmed stdout.
+fn run(command: &mut Command) -> anyhow::Result<String> {
+	let output = command.output().with_context(|| format!("running {command:?}"))?;
 	anyhow::ensure!(
 		output.status.success(),
-		"node key for {} failed: {}",
-		base_path.display(),
+		"{command:?} failed ({}): {}",
+		output.status,
 		String::from_utf8_lossy(&output.stderr)
 	);
 	Ok(String::from_utf8(output.stdout)?.trim().to_string())

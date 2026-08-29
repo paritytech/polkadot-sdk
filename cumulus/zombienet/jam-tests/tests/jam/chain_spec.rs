@@ -35,7 +35,12 @@ fn ss58(keyring: Sr25519Keyring) -> String {
 }
 
 /// Generate the collators' chain spec at `path`, with `collators` authorities.
-pub fn build(omni_node: &Path, runtime_wasm: &Path, path: &Path, collators: usize) -> anyhow::Result<()> {
+pub fn build(
+	omni_node: &Path,
+	runtime_wasm: &Path,
+	path: &Path,
+	collators: usize,
+) -> anyhow::Result<()> {
 	anyhow::ensure!(
 		(1..=DEV_ACCOUNTS.len()).contains(&collators),
 		"between 1 and {} collators are supported, got {collators}",
@@ -80,7 +85,7 @@ fn patch(path: &Path, collators: usize) -> anyhow::Result<()> {
 		.collect();
 	anyhow::ensure!(
 		found == expected,
-		"the development preset changed shape: expected session.keys for {expected:?}, found {found:?}"
+		"the development preset changed shape: session.keys is {found:?}, expected {expected:?}"
 	);
 
 	let accounts: Vec<String> = DEV_ACCOUNTS[..collators].iter().map(|k| ss58(*k)).collect();
@@ -94,7 +99,11 @@ fn patch(path: &Path, collators: usize) -> anyhow::Result<()> {
 	// `--para-id 0` / `--relay-chain jam` already set these; assert rather than re-set them, so a
 	// chain-spec-builder change cannot silently leave the collators on the wrong chain.
 	anyhow::ensure!(spec["para_id"] == json!(0), "chain spec para_id is {}", spec["para_id"]);
-	anyhow::ensure!(spec["relay_chain"] == json!("jam"), "chain spec relay_chain is {}", spec["relay_chain"]);
+	anyhow::ensure!(
+		spec["relay_chain"] == json!("jam"),
+		"chain spec relay_chain is {}",
+		spec["relay_chain"]
+	);
 
 	std::fs::write(path, serde_json::to_vec_pretty(&spec)?)?;
 	Ok(())

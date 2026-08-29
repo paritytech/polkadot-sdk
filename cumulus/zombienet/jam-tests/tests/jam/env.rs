@@ -42,7 +42,9 @@ impl Binaries {
 			jam_node: from_env_or("JAM_NODE_BIN", PathBuf::new),
 			jamt: from_env_or("JAMT_BIN", PathBuf::new),
 			parasim_blob: from_env_or("PARASIM_BLOB", PathBuf::new),
-			omni_node: from_env_or("OMNI_NODE_BIN", || root.join("target/release/polkadot-omni-node")),
+			omni_node: from_env_or("OMNI_NODE_BIN", || {
+				root.join("target/release/polkadot-omni-node")
+			}),
 			relay_node: from_env_or("RELAY_NODE_BIN", || root.join("target/release/polkadot")),
 			runtime_wasm: from_env_or("RUNTIME_WASM", || {
 				root.join(
@@ -63,7 +65,10 @@ impl Binaries {
 			("JAMT_BIN (the jamt CLI)", &binaries.jamt),
 			("PARASIM_BLOB (the parasim service .jam blob)", &binaries.parasim_blob),
 			("OMNI_NODE_BIN (cargo build --release -p polkadot-omni-node)", &binaries.omni_node),
-			("RUNTIME_WASM (cargo build --release -p parachain-template-runtime)", &binaries.runtime_wasm),
+			(
+				"RUNTIME_WASM (cargo build --release -p parachain-template-runtime)",
+				&binaries.runtime_wasm,
+			),
 			("RELAY_NODE_BIN (cargo build --release --bin polkadot)", &binaries.relay_node),
 			("the relay node's PVF workers (--bin polkadot-prepare-worker)", &prepare_worker),
 			("the relay node's PVF workers (--bin polkadot-execute-worker)", &execute_worker),
@@ -86,8 +91,9 @@ pub fn binaries_or_skip(test: &str) -> Option<Binaries> {
 	match Binaries::from_env() {
 		Ok(binaries) => Some(binaries),
 		Err(reason) => {
+			// Not `log::warn!`: this has to be readable without a logger, and both are only
+			// visible under `--nocapture` anyway.
 			eprintln!("SKIP {test}: {reason}");
-			log::warn!("SKIP {test}: {reason}");
 			None
 		},
 	}

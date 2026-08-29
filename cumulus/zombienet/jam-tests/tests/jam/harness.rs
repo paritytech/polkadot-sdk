@@ -73,7 +73,7 @@ impl Run {
 		}
 
 		Err(anyhow::anyhow!(
-			"the parachain reached best {} / finalized {} in {:?}, wanted best {blocks} / finalized {finalized}",
+			"the parachain reached best {} / finalized {} in {:?}, wanted {blocks} / {finalized}",
 			height.best,
 			height.finalized,
 			DEADLINE,
@@ -120,9 +120,11 @@ pub async fn assert_collators_build_blocks(
 			Ok(())
 		},
 		Err(error) => {
-			let diagnostics = run.diagnostics();
+			// One message, reason first: anyhow prints the outermost context before its cause, so
+			// wrapping would bury the reason under forty lines of log.
+			let report = format!("{error}\n\n{}", run.diagnostics());
 			run.shutdown().await;
-			Err(error.context(format!("\n{diagnostics}")))
+			Err(anyhow::anyhow!(report))
 		},
 	}
 }
