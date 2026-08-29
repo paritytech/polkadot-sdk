@@ -431,8 +431,6 @@ where
 				max_pov_size,
 			};
 
-			// Build and announce collations recursively until
-			// `can_build_upon` fails or building a collation fails.
 			let relay_proof_request =
 				super::get_relay_proof_request(&*params.para_client, parent_hash);
 
@@ -541,8 +539,6 @@ where
 							"SubmitSegment",
 						)
 						.await;
-
-					parent_hash = new_block_hash;
 				},
 				Ok(None) => {
 					tracing::debug!(target: crate::LOG_TARGET, "No block proposal");

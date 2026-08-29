@@ -243,7 +243,6 @@
 //! More precise usage details are still being worked on and will likely change in the future.
 
 mod behaviour;
-pub mod bitswap;
 mod ipfs_block_provider;
 mod litep2p;
 mod protocol;

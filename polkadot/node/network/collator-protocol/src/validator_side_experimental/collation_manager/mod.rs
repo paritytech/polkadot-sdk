@@ -58,7 +58,7 @@ use crate::{
 		},
 		error::{Error, FatalResult, Result},
 	},
-	LeafSchedulingInfo, LOG_TARGET,
+	LeafClaimQueues, LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
@@ -75,8 +75,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_session_index_for_child, request_validator_groups,
-	request_validators, runtime::recv_runtime,
+	request_session_index_for_child, request_validator_groups, request_validators,
+	runtime::recv_runtime,
 };
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
@@ -88,7 +88,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -117,12 +117,8 @@ pub struct CollationManager {
 	// ancestors.
 	implicit_view: ImplicitView,
 
-	// The full claim queue per core for each active leaf, fetched once per leaf via
-	// `request_claim_queue`. This is the authoritative CQ — it's what the runtime will see
-	// when candidates get backed on-chain — so all capacity reasoning routes through it.
-	// Per-scheduling-parent capacity is derived via offset arithmetic from the leaf's CQ
-	// (`unfulfilled_claim_queue_entries`, `slots_available`).
-	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	// The per-core claim queues (plus scheduling lookahead) for each active leaf.
+	leaf_claim_queues: HashMap<Hash, LeafClaimQueues>,
 
 	// Collations which we haven't been able to second due to their parent not being known by
 	// prospective-parachains. Mapped from the para_id and parent_head_hash to the fetched
@@ -315,12 +311,22 @@ impl CollationManager {
 					.insert(*ancestor, PerSchedulingParent::new(session_index, core, &*self.clock));
 			}
 
-			// Fetch and store the leaf's full per-core claim queue. Capacity at every
-			// scheduling parent on a path to this leaf is computed from this CQ via offset
-			// arithmetic — the leaf is authoritative because it's closest to what the runtime
-			// will see when candidates get backed.
-			let claim_queues = recv_runtime(request_claim_queue(*leaf, sender).await).await?;
-			self.leaf_claim_queues.insert(*leaf, claim_queues);
+			// Fetch and store the leaf's per-core claim queues and scheduling lookahead. Capacity
+			// at every scheduling parent on a path to this leaf is computed from these via offset
+			// arithmetic — the leaf is authoritative because it's closest to what the runtime will
+			// see when candidates get backed.
+			match LeafClaimQueues::fetch(*leaf, session_index, sender)
+				.await
+				.map_err(Error::Runtime)
+			{
+				Ok(leaf_claim_queues) => {
+					self.leaf_claim_queues.insert(*leaf, leaf_claim_queues);
+				},
+				Err(err) => {
+					err.split()?.log();
+					continue;
+				},
+			}
 		}
 
 		// Refresh the PP snapshot for every para we may fetch for.
@@ -478,11 +484,6 @@ impl CollationManager {
 		Ok(())
 	}
 
-	/// Claim queue for `core` at `leaf`.
-	fn cq(&self, leaf: &Hash, core: CoreIndex) -> Option<&VecDeque<ParaId>> {
-		self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
-	}
-
 	/// CQ positions at `core` schedulable by an advertisement made at `scheduling_parent`.
 	///
 	/// We use the *leaf's* CQ rather than the SP's: the SP's original CQ predicted slots
@@ -507,22 +508,12 @@ impl CollationManager {
 			.into_iter()
 			.filter_map(|path| {
 				let leaf = path.last()?;
-				let cq = self.leaf_claim_queues.get(leaf)?.get(&core)?;
-				// SP at depth `d` from the leaf can host advertisements landing at leaf-CQ
-				// positions `i` where `i + d < lookahead`. The bound is the lookahead, NOT
-				// `cq.len()`, which may be shorter.
-				let lookahead = self
-					.implicit_view
-					.known_allowed_relay_parents_under(leaf)
-					.map(|p| p.len())
-					.unwrap_or(0);
 				let depth = path
 					.iter()
 					.rev()
 					.position(|h| h == scheduling_parent)
 					.expect("paths_via_relay_parent only returns paths containing the SP; qed");
-				let valid_len = lookahead.saturating_sub(depth).min(cq.len());
-				Some(cq.iter().take(valid_len).copied().collect::<Vec<_>>())
+				Some(self.leaf_claim_queues.get(leaf)?.window(core, depth))
 			})
 			.max_by_key(Vec::len)
 			.unwrap_or_default()
@@ -633,20 +624,11 @@ impl CollationManager {
 		let mut out: Vec<LeafCoreCq> = Vec::new();
 		for leaf in leaves {
 			for &core in &cores {
-				let Some(cq) = self.cq(&leaf, core) else { continue };
+				let Some(leaf_cqs) = self.leaf_claim_queues.get(&leaf) else { continue };
 				let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
 					continue;
 				};
-				// Pad the CQ up to the lookahead so `cq.len() == sps_by_depth.len()`. The
-				// runtime may return a CQ shorter than the lookahead.
-				let lookahead = path.len();
-				let mut cq: Vec<Option<ParaId>> = cq
-					.iter()
-					.copied()
-					.map(Some)
-					.chain(std::iter::repeat(None))
-					.take(lookahead)
-					.collect();
+				let Some(mut cq) = leaf_cqs.slots(core) else { continue };
 				// SPs by depth from the leaf (leaf = 0). Cross-core ancestors are masked as
 				// `None` so `sps_reaching` and `reserve_slot` automatically skip them.
 				let sps_by_depth: Vec<Option<Hash>> = path
@@ -654,8 +636,8 @@ impl CollationManager {
 					.map(|sp_hash| {
 						self.per_scheduling_parent
 							.get(sp_hash)
-							.filter(|per_sp| per_sp.core_index == core)
-							.map(|_| *sp_hash)
+							.is_some_and(|per_sp| per_sp.core_index == core)
+							.then_some(*sp_hash)
 					})
 					.collect();
 
@@ -969,7 +951,7 @@ impl CollationManager {
 			.and_then(|per_scheduling_parent| {
 				per_scheduling_parent.peer_advertisements.get(&item.peer_id)
 			})
-			.and_then(|peer_ads| peer_ads.segments.get(item.segment_index))
+			.and_then(|peer_ads| peer_ads.segments.get(&item.segment_id))
 		else {
 			return Resolution::Exhausted;
 		};
@@ -1023,20 +1005,13 @@ impl CollationManager {
 		&mut self,
 		scheduling_parent: &Hash,
 		peer_id: &PeerId,
-		segment_index: usize,
+		segment_id: SegmentId,
 	) {
-		match self
-			.per_scheduling_parent
-			.get_mut(scheduling_parent)
-			.and_then(|per_scheduling_parent| {
-				per_scheduling_parent.peer_advertisements.get_mut(peer_id)
-			})
-			.and_then(|peer_advertisements| peer_advertisements.segments.get_mut(segment_index))
-		{
-			Some(segment) => segment.consumed = true,
-			None => {
-				gum::error!(target: LOG_TARGET, ?scheduling_parent, ?peer_id, segment_index,  "Picked segment missing at consumption; entitlement not spent")
-			},
+		if let Some(peer_advertisements) =
+			self.per_scheduling_parent.get_mut(scheduling_parent).and_then(
+				|per_scheduling_parent| per_scheduling_parent.peer_advertisements.get_mut(peer_id),
+			) {
+			peer_advertisements.consume(segment_id);
 		}
 	}
 
@@ -1045,7 +1020,7 @@ impl CollationManager {
 		&'a self,
 		scheduling_parent: Hash,
 		para_id: ParaId,
-	) -> impl Iterator<Item = (Instant, usize, PeerId)> + 'a {
+	) -> impl Iterator<Item = (Instant, SegmentId, PeerId)> + 'a {
 		// `Either` unifies the two iterator types into one `impl Iterator`: empty for an
 		// untracked SP, the filter chain otherwise.
 		let per_sp = match self.per_scheduling_parent.get(&scheduling_parent) {
@@ -1109,14 +1084,14 @@ impl CollationManager {
 			.filter_map(|scheduling_parent| {
 				let activated_at = self.per_scheduling_parent.get(&scheduling_parent)?.activated_at;
 				Some(self.eligible_segments(scheduling_parent, para_id).filter_map(
-					move |(timestamp, segment_index, peer_id)| {
+					move |(timestamp, segment_id, peer_id)| {
 						Some(RankedSegment {
 							score: connected_rep_query_fn(&peer_id, &para_id)?,
 							timestamp,
 							activated_at,
 							scheduling_parent,
 							peer_id,
-							segment_index,
+							segment_id,
 						})
 					},
 				))
@@ -1173,19 +1148,11 @@ impl CollationManager {
 			);
 			match self.resolve_segment(&item, para_id, known) {
 				Resolution::Launch(fetch_target) => {
-					self.consume_segment(
-						&item.scheduling_parent,
-						&item.peer_id,
-						item.segment_index,
-					);
+					self.consume_segment(&item.scheduling_parent, &item.peer_id, item.segment_id);
 					return PickOutcome::Fetch(fetch_target);
 				},
 				Resolution::Exhausted => {
-					self.consume_segment(
-						&item.scheduling_parent,
-						&item.peer_id,
-						item.segment_index,
-					);
+					self.consume_segment(&item.scheduling_parent, &item.peer_id, item.segment_id);
 					continue;
 				},
 				Resolution::Waiting => {
@@ -1347,9 +1314,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.live_segments().filter_map(move |(_segment_index, segment)| {
-						segment.as_advertisement(*peer_id, *sp)
-					})
+					peer_ads
+						.live_segments()
+						.filter_map(move |(_, segment)| segment.as_advertisement(*peer_id, *sp))
 				})
 			})
 			.collect()
@@ -1363,9 +1330,9 @@ impl CollationManager {
 			.iter()
 			.flat_map(|(sp, per_sp)| {
 				per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
-					peer_ads.live_segments().map(move |(_segment_index, segment)| {
-						(*sp, *peer_id, segment.entries.clone())
-					})
+					peer_ads
+						.live_segments()
+						.map(move |(_, segment)| (*sp, *peer_id, segment.entries.clone()))
 				})
 			})
 			.collect()
@@ -1495,7 +1462,7 @@ struct RankedSegment {
 	activated_at: Instant,
 	scheduling_parent: Hash,
 	peer_id: PeerId,
-	segment_index: usize,
+	segment_id: SegmentId,
 }
 
 impl Ord for RankedSegment {
@@ -1506,7 +1473,7 @@ impl Ord for RankedSegment {
 			.then_with(|| self.timestamp.cmp(&other.timestamp)) // Ascending: earlier timestamp comes first
 			.then_with(|| self.scheduling_parent.cmp(&other.scheduling_parent))
 			.then_with(|| self.peer_id.cmp(&other.peer_id))
-			.then_with(|| self.segment_index.cmp(&other.segment_index))
+			.then_with(|| self.segment_id.cmp(&other.segment_id))
 	}
 }
 
@@ -1535,10 +1502,9 @@ struct FetchedCollationInfo {
 /// candidates for our slots, and cross-core reservations are no-ops because the SP isn't
 /// found in `sps_by_depth`.
 ///
-/// Invariant: `cq.len() == sps_by_depth.len() == scheduling_lookahead`. The runtime may
-/// return a CQ shorter than the lookahead (on-demand cores); `build_leaf_core_cqs` pads it
-/// with `None` so the SP-window arithmetic (`cq.len() - depth`) matches the lookahead, not
-/// the runtime CQ length.
+/// `cq` is padded to the scheduling lookahead (`build_leaf_core_cqs`), so the SP-window
+/// arithmetic (`cq.len() - depth`) is bounded by the lookahead, not the runtime CQ length
+/// (which may be shorter for e.g. on-demand cores).
 struct LeafCoreCq {
 	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
@@ -1622,7 +1588,7 @@ impl PerSchedulingParent {
 	}
 
 	fn add_segment(&mut self, segment: StoredSegment, peer_id: PeerId) {
-		self.peer_advertisements.entry(peer_id).or_default().segments.push(segment);
+		self.peer_advertisements.entry(peer_id).or_default().insert(segment);
 	}
 
 	#[cfg(test)]
@@ -1630,8 +1596,7 @@ impl PerSchedulingParent {
 		self.peer_advertisements
 			.entry(advertisement.peer_id)
 			.or_default()
-			.segments
-			.push(StoredSegment {
+			.insert(StoredSegment {
 				descriptor_version: advertisement.advertised_descriptor_version,
 				entries: advertisement.prospective_candidate.into_iter().collect(),
 				received_at,
@@ -1641,21 +1606,47 @@ impl PerSchedulingParent {
 	}
 }
 
+/// Identifies a stored segment within one peer's map, stably across insertions, sweeps and
+/// any other mutation of that map.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct SegmentId(u64);
+
 #[derive(Default)]
 struct PeerAdvertisements {
-	segments: Vec<StoredSegment>,
+	/// Stored segments keyed by id. Ids are handed out in increasing order, so iteration is
+	/// in arrival order.
+	segments: BTreeMap<SegmentId, StoredSegment>,
+	/// Source of `SegmentId`s. Monotonic per peer, never reused.
+	next_segment_id: u64,
 	// We increment this even for advertisements that we don't end up accepting, so that we take
 	// these into account when rate limiting.
 	total: usize,
 }
 
 impl PeerAdvertisements {
-	fn live_segments(&self) -> impl Iterator<Item = (usize, &StoredSegment)> {
-		self.segments.iter().enumerate().filter(|(_, segment)| !segment.consumed)
+	fn live_segments(&self) -> impl Iterator<Item = (SegmentId, &StoredSegment)> {
+		self.segments
+			.iter()
+			.filter(|(_, segment)| !segment.consumed)
+			.map(|(id, s)| (*id, s))
+	}
+
+	/// Store `segment` under a fresh id.
+	fn insert(&mut self, segment: StoredSegment) {
+		let id = SegmentId(self.next_segment_id);
+		self.next_segment_id += 1;
+		self.segments.insert(id, segment);
+	}
+
+	/// Mark the segment `id` as consumed, if it is still stored.
+	fn consume(&mut self, id: SegmentId) {
+		if let Some(segment) = self.segments.get_mut(&id) {
+			segment.consumed = true;
+		}
 	}
 
 	fn sweep_consumed(&mut self) {
-		self.segments.retain(|segment| !segment.consumed);
+		self.segments.retain(|_, segment| !segment.consumed);
 	}
 
 	fn check_for_duplicates(
@@ -1664,7 +1655,7 @@ impl PeerAdvertisements {
 	) -> std::result::Result<(), AdvertisementError> {
 		// Byte-dedup against currently stored segments only (consumed segments are gone, so
 		// a re-advertisement after launch is accepted as a fresh entitlement).
-		if self.live_segments().any(|(_segment_index, stored_segment)| {
+		if self.live_segments().any(|(_, stored_segment)| {
 			segment.descriptor_version == stored_segment.descriptor_version &&
 				segment.entries == stored_segment.entries
 		}) {
@@ -1948,21 +1939,21 @@ mod tests {
 		let peer_1 = PeerId::random();
 		let peer_2 = PeerId::random();
 
-		let ranked = |score: Score, timestamp: Instant, peer_id: PeerId, segment_index: usize| {
+		let ranked = |score: Score, timestamp: Instant, peer_id: PeerId, segment_id: SegmentId| {
 			RankedSegment {
 				score,
 				timestamp,
 				activated_at: now,
 				scheduling_parent,
 				peer_id,
-				segment_index,
+				segment_id,
 			}
 		};
 
 		// Different scores - higher score comes first (is "less").
 		{
-			let high_score = ranked(score(100), now, peer_1, 0);
-			let low_score = ranked(score(50), now, peer_2, 0);
+			let high_score = ranked(score(100), now, peer_1, SegmentId(0));
+			let low_score = ranked(score(50), now, peer_2, SegmentId(0));
 
 			assert_eq!(high_score.cmp(&low_score), Ordering::Less);
 			assert_eq!(low_score.cmp(&high_score), Ordering::Greater);
@@ -1970,8 +1961,8 @@ mod tests {
 
 		// Same score, different timestamps - earlier timestamp comes first.
 		{
-			let earlier = ranked(score(100), now, peer_1, 0);
-			let later_item = ranked(score(100), later, peer_2, 0);
+			let earlier = ranked(score(100), now, peer_1, SegmentId(0));
+			let later_item = ranked(score(100), later, peer_2, SegmentId(0));
 
 			assert_eq!(earlier.cmp(&later_item), Ordering::Less);
 			assert_eq!(later_item.cmp(&earlier), Ordering::Greater);
@@ -1979,8 +1970,8 @@ mod tests {
 
 		// Same score, same timestamp - falls back to the identity tuple (the peer here).
 		{
-			let seg_1 = ranked(score(100), now, peer_1, 0);
-			let seg_2 = ranked(score(100), now, peer_2, 0);
+			let seg_1 = ranked(score(100), now, peer_1, SegmentId(0));
+			let seg_2 = ranked(score(100), now, peer_2, SegmentId(0));
 
 			let cmp_result = seg_1.cmp(&seg_2);
 			assert_ne!(cmp_result, Ordering::Equal);
@@ -1989,8 +1980,8 @@ mod tests {
 
 		// Same peer, different segment index - still a total, deterministic order.
 		{
-			let seg_1 = ranked(score(100), now, peer_1, 0);
-			let seg_2 = ranked(score(100), now, peer_1, 1);
+			let seg_1 = ranked(score(100), now, peer_1, SegmentId(0));
+			let seg_2 = ranked(score(100), now, peer_1, SegmentId(1));
 
 			assert_eq!(seg_1.cmp(&seg_2), Ordering::Less);
 			assert_eq!(seg_2.cmp(&seg_1), Ordering::Greater);
@@ -1998,8 +1989,8 @@ mod tests {
 
 		// Same identity, same score, same timestamp - Equal.
 		{
-			let seg_1 = ranked(score(100), now, peer_1, 0);
-			let seg_2 = ranked(score(100), now, peer_1, 0);
+			let seg_1 = ranked(score(100), now, peer_1, SegmentId(0));
+			let seg_2 = ranked(score(100), now, peer_1, SegmentId(0));
 
 			assert_eq!(seg_1.cmp(&seg_2), Ordering::Equal);
 		}
@@ -2007,10 +1998,10 @@ mod tests {
 		// BTreeSet ordering - first() returns the highest score.
 		{
 			let segments: BTreeSet<_> = [
-				ranked(score(50), now, peer_1, 0),
-				ranked(score(200), now, peer_2, 0),
-				ranked(score(100), now, PeerId::random(), 0),
-				ranked(score(150), later, PeerId::random(), 0),
+				ranked(score(50), now, peer_1, SegmentId(0)),
+				ranked(score(200), now, peer_2, SegmentId(0)),
+				ranked(score(100), now, PeerId::random(), SegmentId(0)),
+				ranked(score(150), later, PeerId::random(), SegmentId(0)),
 			]
 			.into_iter()
 			.collect();
@@ -2021,9 +2012,9 @@ mod tests {
 		// BTreeSet with same scores - first() returns the earliest timestamp.
 		{
 			let segments: BTreeSet<_> = [
-				ranked(score(100), later, peer_1, 0),
-				ranked(score(100), now, peer_2, 0),
-				ranked(score(50), now, PeerId::random(), 0),
+				ranked(score(100), later, peer_1, SegmentId(0)),
+				ranked(score(100), now, peer_2, SegmentId(0)),
+				ranked(score(50), now, PeerId::random(), SegmentId(0)),
 			]
 			.into_iter()
 			.collect();
@@ -2359,8 +2350,7 @@ mod tests {
 			.peer_advertisements
 			.entry(peer_id)
 			.or_default()
-			.segments
-			.push(StoredSegment {
+			.insert(StoredSegment {
 				descriptor_version: Some(CandidateDescriptorVersion::V3),
 				entries,
 				received_at: Instant::now(),
