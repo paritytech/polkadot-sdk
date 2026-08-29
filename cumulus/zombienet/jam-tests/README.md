@@ -13,7 +13,7 @@ From this repository:
 
 ```sh
 cargo build --release -p polkadot-omni-node -p parachain-template-runtime
-cargo build --release --bin polkadot
+cargo build --release --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
 ```
 
 The `polkadot` binary is not used by the test itself — see "Why a relay chain" below.

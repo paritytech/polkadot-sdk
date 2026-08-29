@@ -9,7 +9,9 @@
 # Prerequisites:
 #   1. This repo built:
 #        cargo build --release -p polkadot-omni-node -p parachain-template-runtime
-#        cargo build --release --bin polkadot   # zombienet still requires a relay chain
+#        # zombienet still requires a relay chain, and a relay validator needs its PVF workers
+#        cargo build --release --bin polkadot \
+#            --bin polkadot-prepare-worker --bin polkadot-execute-worker
 #   2. A polkajam build (the `polkajam` node binary and the `jamt` CLI).
 #   3. The parasim service blob from the parachain-service repo.
 #

@@ -7,7 +7,7 @@
 
 use super::{env, harness::Run, rpc::Height};
 use std::time::Duration;
-use tokio::time::{sleep, Instant};
+use tokio::time::{timeout, Instant};
 
 /// How many collators the demo runs. One is enough to watch a block get built, submitted as a work
 /// package and reported.
@@ -27,8 +27,8 @@ async fn demo() -> Result<(), anyhow::Error> {
 
 	let collators = collator_count();
 	let mut run = Run::start(&binaries, collators).await?;
-	// The demo has no deadline; the one the harness set is only for the start-up it just did.
-	run.deadline = Instant::now() + Duration::from_secs(u32::MAX as u64);
+	// The demo has no deadline; the one the harness set only covered the start-up it just did.
+	run.deadline = Instant::now() + Duration::from_secs(365 * 24 * 60 * 60);
 
 	println!(
 		"demo: {collators} collator(s) against JAM at {}\nlogs and chain spec: {}\nCtrl-C to stop",
@@ -38,10 +38,21 @@ async fn demo() -> Result<(), anyhow::Error> {
 
 	let rpc = run.collators.rpc(run.deadline).await?;
 	let mut height = Height::default();
-	loop {
-		run.collators.check_all_running()?;
+	let result = loop {
+		if let Err(error) = run.collators.check_all_running() {
+			break Err(error);
+		}
 		height = rpc.height().await.unwrap_or(height);
 		println!("parachain best {} finalized {}", height.best, height.finalized);
-		sleep(Duration::from_secs(6)).await;
-	}
+
+		// Ctrl-C has to be handled explicitly: the test harness does not unwind on a signal, so
+		// without this the collators and the JAM nodes would outlive the demo.
+		if timeout(Duration::from_secs(6), tokio::signal::ctrl_c()).await.is_ok() {
+			println!("stopping");
+			break Ok(());
+		}
+	};
+
+	run.shutdown().await;
+	result
 }

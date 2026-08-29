@@ -52,6 +52,12 @@ impl Binaries {
 			}),
 		};
 
+		// A relay validator refuses to start without its PVF workers, and zombienet reports that
+		// only as a spawn timeout — so check for them here, where the message is useful.
+		let workers = binaries.relay_node.parent().unwrap_or(Path::new(""));
+		let prepare_worker = workers.join("polkadot-prepare-worker");
+		let execute_worker = workers.join("polkadot-execute-worker");
+
 		let missing: Vec<String> = [
 			("JAM_NODE_BIN (the polkajam node binary)", &binaries.jam_node),
 			("JAMT_BIN (the jamt CLI)", &binaries.jamt),
@@ -59,6 +65,8 @@ impl Binaries {
 			("OMNI_NODE_BIN (cargo build --release -p polkadot-omni-node)", &binaries.omni_node),
 			("RUNTIME_WASM (cargo build --release -p parachain-template-runtime)", &binaries.runtime_wasm),
 			("RELAY_NODE_BIN (cargo build --release --bin polkadot)", &binaries.relay_node),
+			("the relay node's PVF workers (--bin polkadot-prepare-worker)", &prepare_worker),
+			("the relay node's PVF workers (--bin polkadot-execute-worker)", &execute_worker),
 		]
 		.iter()
 		.filter(|(_, path)| !path.exists())
