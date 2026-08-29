@@ -1,72 +1,32 @@
 #!/usr/bin/env bash
-# Phase-1 JAM collator demo: run polkadot-omni-node as a collator against a
-# local polkajam testnet with the parasim service (spec B.0, phases 1-2).
+# JAM collator demo: run polkadot-omni-node as a collator against a JAM network.
 #
-# Prerequisites (see docs/cumulus-jam-components/07-integration.md):
-#   1. A polkajam testnet with the JIP-2 stateValue/stateProof extension:
-#        polkajam-testnet --num-ordinary-nodes 1        # RPC on ws://127.0.0.1:19800
-#      (In sandboxes without userfaultfd: POLKAVM_BACKEND=interpreter POLKAVM_ALLOW_INSECURE=1.)
-#   2. The parasim service registered on it (parachain-service repo):
-#        jamt create-service <parasim-service.jam> 1000000000000000000 \
-#            --register=parasim --raw --id 5
-#      Register from a COPY of the blob: PVM builds are not byte-deterministic and a later
-#      cargo run can rewrite the blob after its hash was registered, leaving the service
-#      without a resolvable code preimage ("Service code not found").
-#   3. This repo built: cargo build --release -p polkadot-omni-node -p parachain-template-runtime
+# This is a thin wrapper. Everything it used to do in bash — spin up the network, patch the
+# chain spec, register the parasim service, launch the collators — now lives in the Rust
+# harness at cumulus/zombienet/jam-tests, so the demo and the tests take exactly the same
+# code path. The demo spawns its OWN JAM network, so no testnet has to be running.
 #
-# The demo parachain uses PARA ID 0: under the dev-genesis null authorizer (empty
-# config) parasim falls back to ParaId(0), so the collator must build, submit and
-# watch para 0 for the loop to close.
+# Prerequisites:
+#   1. This repo built:
+#        cargo build --release -p polkadot-omni-node -p parachain-template-runtime
+#        cargo build --release --bin polkadot   # zombienet still requires a relay chain
+#   2. A polkajam build (the `polkajam` node binary and the `jamt` CLI).
+#   3. The parasim service blob from the parachain-service repo.
 #
-# Usage: JAM_RPC=ws://127.0.0.1:19800 JAM_SERVICE_ID=5 cumulus/scripts/jam-collator-demo.sh
+# Required environment (see cumulus/zombienet/jam-tests/README.md):
+#   JAM_NODE_BIN    path to the polkajam node binary
+#   JAMT_BIN        path to the jamt CLI
+#   PARASIM_BLOB    path to parasim-service.jam
+# Optional:
+#   NUM_COLLATORS   how many collators to run (default 1)
+#   OMNI_NODE_BIN, RUNTIME_WASM, RELAY_NODE_BIN   override the target/release defaults
+#
+# Usage:
+#   JAM_NODE_BIN=... JAMT_BIN=... PARASIM_BLOB=... cumulus/scripts/jam-collator-demo.sh
 
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
-JAM_RPC="${JAM_RPC:-ws://127.0.0.1:19800}"
-JAM_SERVICE_ID="${JAM_SERVICE_ID:-5}"
-JAM_CORE="${JAM_CORE:-0}"
-WORK_DIR="${WORK_DIR:-$(mktemp -d /tmp/jam-collator-demo.XXXXXX)}"
-mkdir -p "$WORK_DIR"
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
-OMNI_NODE="$ROOT/target/release/polkadot-omni-node"
-RUNTIME_WASM="$(ls "$ROOT"/target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm)"
-
-# 1. Chain spec: template runtime, dev preset, para id 0, JAM marker.
-"$OMNI_NODE" chain-spec-builder --chain-spec-path "$WORK_DIR/jam-parachain-spec.json" \
-	create --relay-chain jam --para-id 0 -r "$RUNTIME_WASM" named-preset development
-
-python3 - "$WORK_DIR/jam-parachain-spec.json" <<'EOF'
-import json, sys
-path = sys.argv[1]
-spec = json.load(open(path))
-# The preset pins para id 1000; the JAM demo needs para 0 (parasim's null-authorizer fallback).
-patch = spec["genesis"]["runtimeGenesis"]["patch"]
-patch.setdefault("parachainInfo", {})["parachainId"] = 0
-spec["para_id"] = 0
-spec["relay_chain"] = "jam"
-json.dump(spec, open(path, "w"), indent=2)
-EOF
-echo "chain spec: $WORK_DIR/jam-parachain-spec.json"
-
-# 2. A stable node network key (a collator is an authority; it refuses to
-#    auto-generate one). Generation fails if the key exists, so a re-run with the
-#    same WORK_DIR (restart testing) must skip it.
-if ! ls "$WORK_DIR"/collator/chains/*/network/secret_* >/dev/null 2>&1; then
-	"$OMNI_NODE" key generate-node-key --base-path "$WORK_DIR/collator" \
-		--chain "$WORK_DIR/jam-parachain-spec.json" 2>/dev/null
-fi
-
-# 3. The collator. Watch the logs (target 'jam-collator' and 'jam-rpc-interface'):
-#    JAM best/finalized blocks tick, blocks get built, work packages submitted,
-#    status reaches Reported, and the para head advances in JAM state.
-exec "$OMNI_NODE" \
-	--chain "$WORK_DIR/jam-parachain-spec.json" \
-	--collator --alice \
-	--jam-rpc-urls "$JAM_RPC" \
-	--jam-service-id "$JAM_SERVICE_ID" \
-	--jam-core "$JAM_CORE" \
-	--base-path "$WORK_DIR/collator" \
-	--force-authoring \
-	-l jam-collator=debug,jam-rpc-interface=debug
+exec cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
+	-- --ignored --nocapture --test-threads 1 jam::demo
