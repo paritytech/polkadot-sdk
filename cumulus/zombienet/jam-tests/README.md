@@ -74,11 +74,16 @@ The parachain uses para id 0. Under the dev-genesis null authorizer parasim fall
 
 ## The zombienet-sdk dependency
 
-This crate pins zombienet-sdk to a revision of the unmerged `jam-integration` branch
+This crate depends on the unmerged `jam-integration` branch
 ([PR #573](https://github.com/paritytech/zombienet-sdk/pull/573)), which is what adds JAM networks
 to the SDK. It deliberately does not share the `zombienet-sdk` version the rest of the workspace
 uses, so `cumulus-zombienet-sdk-tests` and every existing zombienet test keep their released pin.
-Revisit the pin when #573 merges.
+
+**The dependency currently points at a local checkout, not at a git revision.** The pinned rev
+`74a1d56` carries the genesis address bug described below; the fix for it is not upstream yet, so
+`Cargo.toml` uses a `path` dependency on a sibling `zombienet-sdk` working copy that has it
+applied. The git line it replaces is kept, commented out, right above it. Restore that line — and
+bump the rev — once the fix lands in #573, and drop the dependency entirely when #573 merges.
 
 ### Why a relay chain
 
@@ -87,9 +92,9 @@ chain config unconditionally, so building a network without one panics at spawn 
 therefore starts a single idle relay validator that nothing in the test uses, which is the only
 reason a `polkadot` binary is needed.
 
-### The known SDK bug that makes these tests slow
+### The SDK bug that made these tests slow (fixed in the local checkout)
 
-`jam_config.rs` records each validator's address in JAM genesis as `127.0.0.1:{rpc_port}`, but
+`jam_config.rs` recorded each validator's address in JAM genesis as `127.0.0.1:{rpc_port}`, but
 starts the node with `--port={p2p_port}` — a different, randomly chosen port. In polkajam the
 genesis validator metadata *is* the address book and it overrides `--bootnode` addresses, so the
 network forms (the bootnode dials happen before a node learns it is a validator) but cannot
@@ -97,8 +102,9 @@ recover: every validator observed here drops from five validator peers to three 
 minutes and never reconnects. Work packages whose guarantor set has just rotated then miss their
 report deadline, and each miss costs three rebuilt parachain blocks. The measured block rate is
 ~22s instead of the 6s a healthy JAM network gives, which is why the deadline is 25 minutes.
-There is no workaround from the test side: `JamNodeConfigBuilder` has `with_rpc_port` but no
-`with_p2p_port`. The fix is to allocate the p2p port once and use it for both.
+There was no workaround from the test side: `JamNodeConfigBuilder` has `with_rpc_port` but no
+`with_p2p_port`. The fix is one line — write `n.port` into `net_addr` instead of `n.rpc_port` —
+and it is in the local checkout this crate now builds against.
 
 ### Current status of the three tests
 
