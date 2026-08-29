@@ -96,6 +96,15 @@ report deadline, and each miss costs three rebuilt parachain blocks. The measure
 There is no workaround from the test side: `JamNodeConfigBuilder` has `with_rpc_port` but no
 `with_p2p_port`. The fix is to allocate the p2p port once and use it for both.
 
+### Current status of the three tests
+
+`two_jam_collators_build_blocks` passes (best 30 / finalized 27 in about eight minutes).
+`three_` and `six_` do not yet pass against a zombienet-spawned network: all collators submit to
+the same core, so they multiply the work-package contention that the port bug above has already
+made unreliable, and the parachain stalls part-way. The three collators do all author, and the
+same tests passed in minutes against a healthy externally-run polkajam testnet, so the tests
+themselves encode the behaviour we want — they are waiting on the SDK fix, not on a change here.
+
 ### What upstream support should replace
 
 * The relay chain filler node, once a jamchain can be spawned on its own.
