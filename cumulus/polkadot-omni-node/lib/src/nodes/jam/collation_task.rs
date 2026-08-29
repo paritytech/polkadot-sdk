@@ -409,8 +409,10 @@ enum Link<Hash> {
 	RecentlyAccumulated(AccumulatedParent),
 	/// The block's parent is in flight but its package was never submitted from here — another
 	/// collator's, or ours from before a restart. Start a new chain segment on that package,
-	/// whose export has to be reproduced from the parent's header.
-	Adopt { wp_hash: WorkPackageHash, segroot: SegmentTreeRoot },
+	/// whose export has to be reproduced from the parent's header. `drain_accumulated` means
+	/// this task is still holding packages the anchor proves accumulated; they leave the chain
+	/// here, exactly as they do for [`Link::Root`].
+	Adopt { wp_hash: WorkPackageHash, segroot: SegmentTreeRoot, drain_accumulated: bool },
 	/// The block builds on something this task is not tracking. Builder and manager disagree
 	/// about the chain, which is a bug on one of the two sides.
 	Mismatch { expected: Option<Hash> },
@@ -477,18 +479,32 @@ fn decide_included_link<Hash: Copy + PartialEq>(
 ///
 /// Our own ledger still wins wherever it has an opinion: if that parent is the chain tip then we
 /// submitted its package ourselves and know its hash first-hand, so the reported hash is only a
-/// confirmation. A chain that ends anywhere else is the same disagreement any other mismatch is,
-/// and resynchronising both sides is what resolves it.
+/// confirmation.
+///
+/// A chain that ends at the head the *anchor* proves accumulated is the same anchor-owned
+/// invariant [`decide_tip_link`] and [`decide_included_link`] carry, with the two sides the other
+/// way round: here the anchor is ahead of this task rather than behind it. The builder saw our
+/// own block accumulate and another collator's successor take over as the in-flight tip, and it
+/// built on that successor; the para-head notification saying the same thing simply has not
+/// arrived yet. The anchor has already proved those entries accumulated, so they are drained on
+/// its evidence and the reported parent is adopted, instead of the arrival order deciding whether
+/// a perfectly good block survives.
+///
+/// A chain ending anywhere else holds entries the anchor says nothing about — a genuine
+/// disagreement between the two sides, which resynchronising is what resolves.
 fn decide_reported_link<Hash: Copy + PartialEq>(
 	tip: Option<(Hash, WorkPackageHash)>,
+	anchor_included_head: Hash,
 	parent_hash: Hash,
 	wp_hash: WorkPackageHash,
 	segroot: SegmentTreeRoot,
 ) -> Link<Hash> {
 	match tip {
 		Some((tip_block, tip_package)) if tip_block == parent_hash => Link::Chain(tip_package),
+		Some((tip_block, _)) if tip_block == anchor_included_head =>
+			Link::Adopt { wp_hash, segroot, drain_accumulated: true },
 		Some((tip_block, _)) => Link::Mismatch { expected: Some(tip_block) },
-		None => Link::Adopt { wp_hash, segroot },
+		None => Link::Adopt { wp_hash, segroot, drain_accumulated: false },
 	}
 }
 
@@ -555,6 +571,7 @@ where
 			context,
 			anchor_state_root,
 			anchor_state_proof,
+			anchor_included_head,
 			anchor_slot,
 			triggered_by,
 		} = message;
@@ -568,8 +585,13 @@ where
 		// *newer* view than the anchor's, and a newer view cannot invalidate a link the anchor
 		// still proves — see [`decide_tip_link`].
 		let link = match parent_link {
-			ParentLink::Reported { wp_hash, segroot } =>
-				decide_reported_link(self.chain.tip_link(), parent_hash, wp_hash, segroot),
+			ParentLink::Reported { wp_hash, segroot } => decide_reported_link(
+				self.chain.tip_link(),
+				anchor_included_head,
+				parent_hash,
+				wp_hash,
+				segroot,
+			),
 			ParentLink::Tip => decide_tip_link(
 				self.chain.tip_link(),
 				self.included_head,
@@ -584,6 +606,7 @@ where
 			%block_number,
 			?parent_hash,
 			?parent_link,
+			?anchor_included_head,
 			included_head = ?self.included_head,
 			chain_depth = self.chain.depth(),
 			chain_tip = ?self.chain.tip_link().map(|(block, _)| block),
@@ -597,9 +620,7 @@ where
 		let (prerequisite, parent_export) = match link {
 			Link::Root { drain_accumulated } => {
 				if drain_accumulated {
-					let last = self.chain.depth() - 1;
-					let accumulated = self.chain.pop_through(last);
-					let drained = self.remember_accumulated(accumulated);
+					let drained = self.drain_chain_as_accumulated();
 					tracing::info!(
 						target: LOG_TARGET,
 						?block_hash,
@@ -631,22 +652,43 @@ where
 				);
 				(Some(parent.wp_hash), Some(parent.export))
 			},
-			Link::Adopt { wp_hash, segroot } => match adopted_parent_export(&parent_header, segroot)
-			{
-				Ok(export) => (Some(wp_hash), Some(export)),
-				Err(error) => {
-					tracing::error!(
+			Link::Adopt { wp_hash, segroot, drain_accumulated } => {
+				// The same invariant the recently-accumulated buffer encodes: this task's
+				// subscription view never overrides the anchor. There the anchor was behind us
+				// and we kept a popped parent linkable; here it is ahead of us, having proved
+				// the entries we still hold accumulated, so they leave on its evidence.
+				if drain_accumulated {
+					let drained = self.drain_chain_as_accumulated();
+					tracing::info!(
 						target: LOG_TARGET,
 						?block_hash,
+						%block_number,
 						?parent_hash,
-						?wp_hash,
-						error,
-						"The parent's export cannot be reproduced from the header we hold; \
-						 dropping the block rather than submitting a package whose import no \
-						 guarantor could verify.",
+						?drained,
+						?anchor_included_head,
+						buffered = self.recently_accumulated.len(),
+						"The anchor proves the packages this task still held accumulated and \
+						 another collator's block took over as the in-flight tip; draining them \
+						 and adopting the reported parent the builder picked on that same anchor, \
+						 rather than waiting for the para-head subscription to catch up.",
 					);
-					return;
-				},
+				}
+				match adopted_parent_export(&parent_header, segroot) {
+					Ok(export) => (Some(wp_hash), Some(export)),
+					Err(error) => {
+						tracing::error!(
+							target: LOG_TARGET,
+							?block_hash,
+							?parent_hash,
+							?wp_hash,
+							error,
+							"The parent's export cannot be reproduced from the header we hold; \
+							 dropping the block rather than submitting a package whose import no \
+							 guarantor could verify.",
+						);
+						return;
+					},
+				}
 			},
 			Link::Mismatch { expected } => {
 				tracing::error!(
@@ -1087,6 +1129,14 @@ where
 		self.log_chain_state("the para head advanced");
 	}
 
+	/// Move the whole chain into the recently-accumulated buffer, on the strength of the anchor
+	/// having proved every block in it accumulated. Returns the drained blocks for logging.
+	fn drain_chain_as_accumulated(&mut self) -> Vec<Block::Hash> {
+		let Some(last) = self.chain.depth().checked_sub(1) else { return Vec::new() };
+		let accumulated = self.chain.pop_through(last);
+		self.remember_accumulated(accumulated)
+	}
+
 	/// Move packages JAM has accumulated out of the chain and into the buffer that keeps them
 	/// linkable, returning their blocks for logging.
 	fn remember_accumulated(&mut self, accumulated: Vec<InFlight<Block>>) -> Vec<Block::Hash> {
@@ -1395,8 +1445,13 @@ mod tests {
 	/// A chain of `count` entries whose blocks form a parent/child line, package `k` hashed as
 	/// `[k; 32]`, all submitted in slot `k`.
 	fn test_chain(count: u8) -> InFlightChain<TestBlock> {
+		test_chain_rooted(count, H256::repeat_byte(200))
+	}
+
+	/// The same chain, hanging off a named block — the shape an adopted segment has.
+	fn test_chain_rooted(count: u8, root_parent: H256) -> InFlightChain<TestBlock> {
 		let mut chain = InFlightChain::new();
-		let mut parent_hash = H256::repeat_byte(200);
+		let mut parent_hash = root_parent;
 		for index in 0..count {
 			let block_header = header(u32::from(index) + 1, parent_hash);
 			let block_hash = block_header.hash();
@@ -1598,8 +1653,8 @@ mod tests {
 		let segroot = SegmentTreeRoot::from([5u8; 32]);
 
 		assert_eq!(
-			decide_reported_link(None, parent, wp_hash(6), segroot),
-			Link::Adopt { wp_hash: wp_hash(6), segroot },
+			decide_reported_link(None, H256::repeat_byte(1), parent, wp_hash(6), segroot),
+			Link::Adopt { wp_hash: wp_hash(6), segroot, drain_accumulated: false },
 		);
 	}
 
@@ -1611,18 +1666,111 @@ mod tests {
 		let segroot = SegmentTreeRoot::from([5u8; 32]);
 
 		assert_eq!(
-			decide_reported_link(Some((tip_block, wp_hash(7))), tip_block, wp_hash(6), segroot),
+			decide_reported_link(
+				Some((tip_block, wp_hash(7))),
+				H256::repeat_byte(1),
+				tip_block,
+				wp_hash(6),
+				segroot,
+			),
 			Link::Chain(wp_hash(7)),
 		);
 		assert_eq!(
 			decide_reported_link(
 				Some((tip_block, wp_hash(7))),
+				H256::repeat_byte(1),
 				H256::repeat_byte(3),
 				wp_hash(6),
 				segroot,
 			),
 			Link::Mismatch { expected: Some(tip_block) },
 			"a chain that ends somewhere else is the usual disagreement, not an adoption",
+		);
+	}
+
+	/// The race observed live twice in one soak (2026-08-29 00:22:24 and 00:23:00): our own
+	/// block is the head the anchor proves accumulated, another collator's successor of it is
+	/// the in-flight tip the anchor's reports name, and the builder correctly builds on that
+	/// successor — but its message reaches this task before the para-head notification for the
+	/// pop does. The anchor is ahead of this task, not in disagreement with it, so the entry it
+	/// proves accumulated is drained and the reported parent adopted. Deciding this from the
+	/// arrival order instead dropped a perfectly good block and resynchronised both sides.
+	#[test]
+	fn a_reported_parent_above_our_just_accumulated_tip_drains_the_chain_and_adopts() {
+		let mut chain = test_chain(1);
+		let our_tip = chain.tip().expect("not empty").block_hash;
+		let their_successor = header(2, our_tip).hash();
+		let segroot = SegmentTreeRoot::from([5u8; 32]);
+
+		assert_eq!(
+			decide_reported_link(
+				chain.tip_link(),
+				our_tip,
+				their_successor,
+				wp_hash(6),
+				segroot,
+			),
+			Link::Adopt { wp_hash: wp_hash(6), segroot, drain_accumulated: true },
+		);
+
+		let mut buffer = RecentlyAccumulated::new();
+		let last = chain.depth() - 1;
+		remember(&mut buffer, chain.pop_through(last));
+		assert_eq!(chain.depth(), 0);
+		assert_eq!(
+			buffer.parent(our_tip).map(|parent| parent.wp_hash),
+			Some(wp_hash(0)),
+			"the drained package stays linkable, as it does on the para-head path",
+		);
+	}
+
+	/// ...and the para-head notification for that same pop, arriving afterwards, must change
+	/// nothing. The head is gone from the chain, it is not the block the adopted segment is
+	/// rooted on, and it is one of ours — which is the branch `on_para_head` takes and the only
+	/// harmless one. The foreign-head branch would reset the chain and throw away the package we
+	/// just adopted onto the other collator's block.
+	#[test]
+	fn the_para_head_pop_after_a_drain_and_adopt_resets_nothing() {
+		let mut chain = test_chain(1);
+		let our_tip = chain.tip().expect("not empty").block_hash;
+		let their_successor = header(2, our_tip).hash();
+		let mut submitted: HashSet<H256> = chain.block_hashes().into_iter().collect();
+		let mut buffer = RecentlyAccumulated::new();
+		let last = chain.depth() - 1;
+		remember(&mut buffer, chain.pop_through(last));
+
+		let adopted = test_chain_rooted(1, their_successor);
+		submitted.insert(adopted.tip().expect("not empty").block_hash);
+
+		assert_eq!(adopted.position_of_block(our_tip), None, "the drain already removed it");
+		assert_eq!(adopted.root_parent(), Some(their_successor));
+		assert!(
+			submitted.contains(&our_tip),
+			"a drained head is still one of ours, so the foreign-head reset cannot fire",
+		);
+		assert!(buffer.parent(our_tip).is_some(), "and it is still linkable for a late child");
+	}
+
+	/// A chain the anchor's included head does *not* cover keeps the old behaviour: the entries
+	/// above that head are live packages the anchor says nothing about, and starting an adopted
+	/// segment beside them would fork our own chain. That is a real desync, and resynchronising
+	/// is what resolves it.
+	#[test]
+	fn a_reported_parent_the_anchor_does_not_prove_us_past_is_still_a_mismatch() {
+		let chain = test_chain(2);
+		let tip = chain.tip().expect("not empty").block_hash;
+		let root_parent = chain.root_parent().expect("not empty");
+		let segroot = SegmentTreeRoot::from([5u8; 32]);
+
+		assert_eq!(
+			decide_reported_link(
+				chain.tip_link(),
+				root_parent,
+				H256::repeat_byte(9),
+				wp_hash(6),
+				segroot,
+			),
+			Link::Mismatch { expected: Some(tip) },
 		);
 	}
 

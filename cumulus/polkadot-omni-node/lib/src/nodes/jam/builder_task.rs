@@ -1204,6 +1204,7 @@ where
 		context,
 		anchor_state_root: *state_root,
 		anchor_state_proof,
+		anchor_included_head: included_hash,
 		anchor_slot: anchor.slot,
 		triggered_by: tip,
 	}))

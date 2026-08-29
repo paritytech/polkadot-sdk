@@ -102,6 +102,10 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// Proof of the para's included head at the anchor, already verified against
 	/// `anchor_state_root`.
 	pub anchor_state_proof: StateProof,
+	/// The para head the anchor proves accumulated — the head the parent above was resolved
+	/// against. The collation manager needs it to tell its own newer-or-older view of the head
+	/// apart from the one the package's proof commits to.
+	pub anchor_included_head: Block::Hash,
 	/// The timeslot of the anchor block, which starts the ~8-block clock the package has to be
 	/// reported within. The collation task needs it to tell an expired anchor apart from an
 	/// expired dependency reference when a package fails.
