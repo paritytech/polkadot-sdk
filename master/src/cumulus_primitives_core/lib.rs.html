@@ -800,94 +800,102 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#650 id=650 data-nosnippet>650</a>	/// preventing collators from skipping slots.
 <a href=#651 id=651 data-nosnippet>651</a>	/// See: &lt;https://github.com/paritytech/polkadot-sdk/issues/8893&gt;
 <a href=#652 id=652 data-nosnippet>652</a>	///
-<a href=#653 id=653 data-nosnippet>653</a>	/// Version history:
-<a href=#654 id=654 data-nosnippet>654</a>	/// - Version 1: Initial version with `relay_parent_offset` only
-<a href=#655 id=655 data-nosnippet>655</a>	/// - Version 2: Added `max_claim_queue_offset` method
-<a href=#656 id=656 data-nosnippet>656</a>	</span><span class="attr">#[api_version(<span class="number">2</span>)]
-<a href=#657 id=657 data-nosnippet>657</a>	</span><span class="kw">pub trait </span>RelayParentOffsetApi {
-<a href=#658 id=658 data-nosnippet>658</a>		<span class="doccomment">/// Fetch the relay parent offset that is expected from the relay chain.
-<a href=#659 id=659 data-nosnippet>659</a>		///
-<a href=#660 id=660 data-nosnippet>660</a>		/// This determines how many blocks behind the relay chain tip the relay parent should be.
-<a href=#661 id=661 data-nosnippet>661</a>		</span><span class="kw">fn </span>relay_parent_offset() -&gt; u32;
-<a href=#662 id=662 data-nosnippet>662</a>
-<a href=#663 id=663 data-nosnippet>663</a>		<span class="doccomment">/// Maximum claim queue offset for async backing flexibility.
-<a href=#664 id=664 data-nosnippet>664</a>		///
-<a href=#665 id=665 data-nosnippet>665</a>		/// Bounds how far "into the future" a candidate may look in the claim queue when
-<a href=#666 id=666 data-nosnippet>666</a>		/// selecting a core. The effective claim queue depth depends on the candidate version:
-<a href=#667 id=667 data-nosnippet>667</a>		///
-<a href=#668 id=668 data-nosnippet>668</a>		/// - **V1/V2 candidates**: the claim queue is looked up at the candidate's `relay_parent`,
-<a href=#669 id=669 data-nosnippet>669</a>		///   which is `relay_parent_offset` blocks behind the relay-chain tip. The effective
-<a href=#670 id=670 data-nosnippet>670</a>		///   depth is `relay_parent_offset + max_claim_queue_offset`.
+<a href=#653 id=653 data-nosnippet>653</a>	/// WARNING: collators call these methods in the on-chain context, which resolves
+<a href=#654 id=654 data-nosnippet>654</a>	/// `:pending_code`: while an upgrade is pending the answer comes from the new blob, before its
+<a href=#655 id=655 data-nosnippet>655</a>	/// migrations have run. Implementations must NOT read state that a migration changes.
+<a href=#656 id=656 data-nosnippet>656</a>	///
+<a href=#657 id=657 data-nosnippet>657</a>	/// Version history:
+<a href=#658 id=658 data-nosnippet>658</a>	/// - Version 1: Initial version with `relay_parent_offset` only
+<a href=#659 id=659 data-nosnippet>659</a>	/// - Version 2: Added `max_claim_queue_offset` method
+<a href=#660 id=660 data-nosnippet>660</a>	</span><span class="attr">#[api_version(<span class="number">2</span>)]
+<a href=#661 id=661 data-nosnippet>661</a>	</span><span class="kw">pub trait </span>RelayParentOffsetApi {
+<a href=#662 id=662 data-nosnippet>662</a>		<span class="doccomment">/// Fetch the relay parent offset that is expected from the relay chain.
+<a href=#663 id=663 data-nosnippet>663</a>		///
+<a href=#664 id=664 data-nosnippet>664</a>		/// This determines how many blocks behind the relay chain tip the relay parent should be.
+<a href=#665 id=665 data-nosnippet>665</a>		</span><span class="kw">fn </span>relay_parent_offset() -&gt; u32;
+<a href=#666 id=666 data-nosnippet>666</a>
+<a href=#667 id=667 data-nosnippet>667</a>		<span class="doccomment">/// Maximum claim queue offset for async backing flexibility.
+<a href=#668 id=668 data-nosnippet>668</a>		///
+<a href=#669 id=669 data-nosnippet>669</a>		/// Bounds how far "into the future" a candidate may look in the claim queue when
+<a href=#670 id=670 data-nosnippet>670</a>		/// selecting a core. The effective claim queue depth depends on the candidate version:
 <a href=#671 id=671 data-nosnippet>671</a>		///
-<a href=#672 id=672 data-nosnippet>672</a>		/// - **V3 candidates**: the claim queue is looked up at the candidate's
-<a href=#673 id=673 data-nosnippet>673</a>		///   `scheduling_parent` — the relay-chain block of the *last finished* slot, decoupled
-<a href=#674 id=674 data-nosnippet>674</a>		///   from the execution-context `relay_parent`. The effective depth is just
-<a href=#675 id=675 data-nosnippet>675</a>		///   `max_claim_queue_offset`.
-<a href=#676 id=676 data-nosnippet>676</a>		///
-<a href=#677 id=677 data-nosnippet>677</a>		/// Collators select a core via an offset in `[0, max_claim_queue_offset]`.
-<a href=#678 id=678 data-nosnippet>678</a>		///
-<a href=#679 id=679 data-nosnippet>679</a>		/// - **V2 candidates**: `max_claim_queue_offset = 1` is sufficient. The claim queue is
-<a href=#680 id=680 data-nosnippet>680</a>		///   looked up at `relay_parent`, which sits behind the tip. Offset 0 covers synchronous
-<a href=#681 id=681 data-nosnippet>681</a>		///   backing in the next relay block; offset 1 covers asynchronous backing in the relay
-<a href=#682 id=682 data-nosnippet>682</a>		///   block after that.
-<a href=#683 id=683 data-nosnippet>683</a>		///
-<a href=#684 id=684 data-nosnippet>684</a>		/// - **V3 candidates**: offset 0 is not reachable — the `scheduling_parent`
-<a href=#685 id=685 data-nosnippet>685</a>		///   is usually the leaf when picked, but its child is already being built, so there is
-<a href=#686 id=686 data-nosnippet>686</a>		///   no opportunity to land in the next relay block. Offset 1 is reachable under
-<a href=#687 id=687 data-nosnippet>687</a>		///   synchronous-backing semantics. For elastic scaling the last block in the bundle is
-<a href=#688 id=688 data-nosnippet>688</a>		///   built near the end of the current slot, which makes offset 1 too tight —
-<a href=#689 id=689 data-nosnippet>689</a>		///   `max_claim_queue_offset = 2` is the minimum cap that keeps elastic scaling viable.
-<a href=#690 id=690 data-nosnippet>690</a>		///
-<a href=#691 id=691 data-nosnippet>691</a>		/// Note: this method was added in `api_version = 2`. Collators calling on runtimes that
-<a href=#692 id=692 data-nosnippet>692</a>		/// only implement `api_version = 1` of [`RelayParentOffsetApi`] will receive an error
-<a href=#693 id=693 data-nosnippet>693</a>		/// and should fall back to a sensible default (current collator defaults: `1` on the
-<a href=#694 id=694 data-nosnippet>694</a>		/// V3 path, `0` on the V1/V2 path).
-<a href=#695 id=695 data-nosnippet>695</a>		///
-<a href=#696 id=696 data-nosnippet>696</a>		/// See: &lt;https://github.com/paritytech/polkadot-sdk/issues/8893&gt;
-<a href=#697 id=697 data-nosnippet>697</a>		</span><span class="attr">#[api_version(<span class="number">2</span>)]
-<a href=#698 id=698 data-nosnippet>698</a>		</span><span class="kw">fn </span>max_claim_queue_offset() -&gt; u8;
-<a href=#699 id=699 data-nosnippet>699</a>	}
-<a href=#700 id=700 data-nosnippet>700</a>
-<a href=#701 id=701 data-nosnippet>701</a>	<span class="doccomment">/// API to tell the node side whether V3 scheduling is enabled.
-<a href=#702 id=702 data-nosnippet>702</a>	///
-<a href=#703 id=703 data-nosnippet>703</a>	/// When enabled, collators must produce V3 candidates with:
-<a href=#704 id=704 data-nosnippet>704</a>	/// - ParachainBlockData::V2 containing the scheduling proof
-<a href=#705 id=705 data-nosnippet>705</a>	/// - CandidateDescriptorV3 with scheduling_parent
+<a href=#672 id=672 data-nosnippet>672</a>		/// - **V1/V2 candidates**: the claim queue is looked up at the candidate's `relay_parent`,
+<a href=#673 id=673 data-nosnippet>673</a>		///   which is `relay_parent_offset` blocks behind the relay-chain tip. The effective
+<a href=#674 id=674 data-nosnippet>674</a>		///   depth is `relay_parent_offset + max_claim_queue_offset`.
+<a href=#675 id=675 data-nosnippet>675</a>		///
+<a href=#676 id=676 data-nosnippet>676</a>		/// - **V3 candidates**: the claim queue is looked up at the candidate's
+<a href=#677 id=677 data-nosnippet>677</a>		///   `scheduling_parent` — the relay-chain block of the *last finished* slot, decoupled
+<a href=#678 id=678 data-nosnippet>678</a>		///   from the execution-context `relay_parent`. The effective depth is just
+<a href=#679 id=679 data-nosnippet>679</a>		///   `max_claim_queue_offset`.
+<a href=#680 id=680 data-nosnippet>680</a>		///
+<a href=#681 id=681 data-nosnippet>681</a>		/// Collators select a core via an offset in `[0, max_claim_queue_offset]`.
+<a href=#682 id=682 data-nosnippet>682</a>		///
+<a href=#683 id=683 data-nosnippet>683</a>		/// - **V2 candidates**: `max_claim_queue_offset = 1` is sufficient. The claim queue is
+<a href=#684 id=684 data-nosnippet>684</a>		///   looked up at `relay_parent`, which sits behind the tip. Offset 0 covers synchronous
+<a href=#685 id=685 data-nosnippet>685</a>		///   backing in the next relay block; offset 1 covers asynchronous backing in the relay
+<a href=#686 id=686 data-nosnippet>686</a>		///   block after that.
+<a href=#687 id=687 data-nosnippet>687</a>		///
+<a href=#688 id=688 data-nosnippet>688</a>		/// - **V3 candidates**: offset 0 is not reachable — the `scheduling_parent`
+<a href=#689 id=689 data-nosnippet>689</a>		///   is usually the leaf when picked, but its child is already being built, so there is
+<a href=#690 id=690 data-nosnippet>690</a>		///   no opportunity to land in the next relay block. Offset 1 is reachable under
+<a href=#691 id=691 data-nosnippet>691</a>		///   synchronous-backing semantics. For elastic scaling the last block in the bundle is
+<a href=#692 id=692 data-nosnippet>692</a>		///   built near the end of the current slot, which makes offset 1 too tight —
+<a href=#693 id=693 data-nosnippet>693</a>		///   `max_claim_queue_offset = 2` is the minimum cap that keeps elastic scaling viable.
+<a href=#694 id=694 data-nosnippet>694</a>		///
+<a href=#695 id=695 data-nosnippet>695</a>		/// Note: this method was added in `api_version = 2`. Collators calling on runtimes that
+<a href=#696 id=696 data-nosnippet>696</a>		/// only implement `api_version = 1` of [`RelayParentOffsetApi`] will receive an error
+<a href=#697 id=697 data-nosnippet>697</a>		/// and should fall back to a sensible default (current collator defaults: `1` on the
+<a href=#698 id=698 data-nosnippet>698</a>		/// V3 path, `0` on the V1/V2 path).
+<a href=#699 id=699 data-nosnippet>699</a>		///
+<a href=#700 id=700 data-nosnippet>700</a>		/// See: &lt;https://github.com/paritytech/polkadot-sdk/issues/8893&gt;
+<a href=#701 id=701 data-nosnippet>701</a>		</span><span class="attr">#[api_version(<span class="number">2</span>)]
+<a href=#702 id=702 data-nosnippet>702</a>		</span><span class="kw">fn </span>max_claim_queue_offset() -&gt; u8;
+<a href=#703 id=703 data-nosnippet>703</a>	}
+<a href=#704 id=704 data-nosnippet>704</a>
+<a href=#705 id=705 data-nosnippet>705</a>	<span class="doccomment">/// API to tell the node side whether V3 scheduling is enabled.
 <a href=#706 id=706 data-nosnippet>706</a>	///
-<a href=#707 id=707 data-nosnippet>707</a>	/// This is mutually exclusive with relay parent offset (building on older
-<a href=#708 id=708 data-nosnippet>708</a>	/// relay parents). A parachain enables V3 when it wants low-latency block
-<a href=#709 id=709 data-nosnippet>709</a>	/// production with the dual-parent model.
-<a href=#710 id=710 data-nosnippet>710</a>	</span><span class="kw">pub trait </span>SchedulingV3EnabledApi {
-<a href=#711 id=711 data-nosnippet>711</a>		<span class="doccomment">/// Returns true if V3 scheduling is enabled for this parachain.
-<a href=#712 id=712 data-nosnippet>712</a>		</span><span class="kw">fn </span>scheduling_v3_enabled() -&gt; bool;
-<a href=#713 id=713 data-nosnippet>713</a>	}
-<a href=#714 id=714 data-nosnippet>714</a>
-<a href=#715 id=715 data-nosnippet>715</a>	<span class="doccomment">/// API for parachain target block rate.
-<a href=#716 id=716 data-nosnippet>716</a>	///
-<a href=#717 id=717 data-nosnippet>717</a>	/// This runtime API allows the parachain runtime to communicate the target block rate
-<a href=#718 id=718 data-nosnippet>718</a>	/// to the node side. The target block rate is always valid for the next relay chain slot.
-<a href=#719 id=719 data-nosnippet>719</a>	///
-<a href=#720 id=720 data-nosnippet>720</a>	/// The runtime can not enforce this target block rate. It only acts as a maximum, but not more.
-<a href=#721 id=721 data-nosnippet>721</a>	/// In the end it depends on the collator how many blocks will be produced. If there are no cores
-<a href=#722 id=722 data-nosnippet>722</a>	/// available or the collator is offline, no blocks at all will be produced.
-<a href=#723 id=723 data-nosnippet>723</a>	</span><span class="kw">pub trait </span>TargetBlockRate {
-<a href=#724 id=724 data-nosnippet>724</a>		<span class="doccomment">/// Get the target block rate for this parachain.
-<a href=#725 id=725 data-nosnippet>725</a>		///
-<a href=#726 id=726 data-nosnippet>726</a>		/// Returns the target number of blocks per relay chain slot.
-<a href=#727 id=727 data-nosnippet>727</a>		</span><span class="kw">fn </span>target_block_rate() -&gt; u32;
-<a href=#728 id=728 data-nosnippet>728</a>	}
-<a href=#729 id=729 data-nosnippet>729</a>
-<a href=#730 id=730 data-nosnippet>730</a>	<span class="doccomment">/// API for specifying which relay chain storage data to include in storage proofs.
-<a href=#731 id=731 data-nosnippet>731</a>	///
-<a href=#732 id=732 data-nosnippet>732</a>	/// This API allows parachains to request both top-level relay chain storage keys
-<a href=#733 id=733 data-nosnippet>733</a>	/// and child trie storage keys to be included in the relay chain state proof.
-<a href=#734 id=734 data-nosnippet>734</a>	</span><span class="kw">pub trait </span>KeyToIncludeInRelayProof {
-<a href=#735 id=735 data-nosnippet>735</a>		<span class="doccomment">/// Returns relay chain storage proof requests.
-<a href=#736 id=736 data-nosnippet>736</a>		///
-<a href=#737 id=737 data-nosnippet>737</a>		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
-<a href=#738 id=738 data-nosnippet>738</a>		</span><span class="kw">fn </span>keys_to_prove() -&gt; RelayProofRequest;
-<a href=#739 id=739 data-nosnippet>739</a>	}
-<a href=#740 id=740 data-nosnippet>740</a>}
+<a href=#707 id=707 data-nosnippet>707</a>	/// When enabled, collators must produce V3 candidates with:
+<a href=#708 id=708 data-nosnippet>708</a>	/// - ParachainBlockData::V2 containing the scheduling proof
+<a href=#709 id=709 data-nosnippet>709</a>	/// - CandidateDescriptorV3 with scheduling_parent
+<a href=#710 id=710 data-nosnippet>710</a>	///
+<a href=#711 id=711 data-nosnippet>711</a>	/// This is mutually exclusive with relay parent offset (building on older
+<a href=#712 id=712 data-nosnippet>712</a>	/// relay parents). A parachain enables V3 when it wants low-latency block
+<a href=#713 id=713 data-nosnippet>713</a>	/// production with the dual-parent model.
+<a href=#714 id=714 data-nosnippet>714</a>	///
+<a href=#715 id=715 data-nosnippet>715</a>	/// WARNING: collators call this in the on-chain context, which resolves `:pending_code`: while
+<a href=#716 id=716 data-nosnippet>716</a>	/// an upgrade is pending the answer comes from the new blob, before its migrations have run.
+<a href=#717 id=717 data-nosnippet>717</a>	/// Implementations must NOT read state that a migration changes.
+<a href=#718 id=718 data-nosnippet>718</a>	</span><span class="kw">pub trait </span>SchedulingV3EnabledApi {
+<a href=#719 id=719 data-nosnippet>719</a>		<span class="doccomment">/// Returns true if V3 scheduling is enabled for this parachain.
+<a href=#720 id=720 data-nosnippet>720</a>		</span><span class="kw">fn </span>scheduling_v3_enabled() -&gt; bool;
+<a href=#721 id=721 data-nosnippet>721</a>	}
+<a href=#722 id=722 data-nosnippet>722</a>
+<a href=#723 id=723 data-nosnippet>723</a>	<span class="doccomment">/// API for parachain target block rate.
+<a href=#724 id=724 data-nosnippet>724</a>	///
+<a href=#725 id=725 data-nosnippet>725</a>	/// This runtime API allows the parachain runtime to communicate the target block rate
+<a href=#726 id=726 data-nosnippet>726</a>	/// to the node side. The target block rate is always valid for the next relay chain slot.
+<a href=#727 id=727 data-nosnippet>727</a>	///
+<a href=#728 id=728 data-nosnippet>728</a>	/// The runtime can not enforce this target block rate. It only acts as a maximum, but not more.
+<a href=#729 id=729 data-nosnippet>729</a>	/// In the end it depends on the collator how many blocks will be produced. If there are no cores
+<a href=#730 id=730 data-nosnippet>730</a>	/// available or the collator is offline, no blocks at all will be produced.
+<a href=#731 id=731 data-nosnippet>731</a>	</span><span class="kw">pub trait </span>TargetBlockRate {
+<a href=#732 id=732 data-nosnippet>732</a>		<span class="doccomment">/// Get the target block rate for this parachain.
+<a href=#733 id=733 data-nosnippet>733</a>		///
+<a href=#734 id=734 data-nosnippet>734</a>		/// Returns the target number of blocks per relay chain slot.
+<a href=#735 id=735 data-nosnippet>735</a>		</span><span class="kw">fn </span>target_block_rate() -&gt; u32;
+<a href=#736 id=736 data-nosnippet>736</a>	}
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>	<span class="doccomment">/// API for specifying which relay chain storage data to include in storage proofs.
+<a href=#739 id=739 data-nosnippet>739</a>	///
+<a href=#740 id=740 data-nosnippet>740</a>	/// This API allows parachains to request both top-level relay chain storage keys
+<a href=#741 id=741 data-nosnippet>741</a>	/// and child trie storage keys to be included in the relay chain state proof.
+<a href=#742 id=742 data-nosnippet>742</a>	</span><span class="kw">pub trait </span>KeyToIncludeInRelayProof {
+<a href=#743 id=743 data-nosnippet>743</a>		<span class="doccomment">/// Returns relay chain storage proof requests.
+<a href=#744 id=744 data-nosnippet>744</a>		///
+<a href=#745 id=745 data-nosnippet>745</a>		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
+<a href=#746 id=746 data-nosnippet>746</a>		</span><span class="kw">fn </span>keys_to_prove() -&gt; RelayProofRequest;
+<a href=#747 id=747 data-nosnippet>747</a>	}
+<a href=#748 id=748 data-nosnippet>748</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
