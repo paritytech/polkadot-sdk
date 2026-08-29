@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787937528572,
+  "lastUpdate": 1788004026666,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8807c22f2a3507af2401e99a8c420f68e0ce7dfd",
-          "message": "telemtry: Downgrade spam log to debug (#10201)\n\nThis PR downgrade the telemetry warning log to debug.\n- The log is causing a lot of noise in our test nets:\nhttps://grafana.teleport.parity.io/goto/fjTQ_vzDg?orgId=1\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T14:40:21Z",
-          "tree_id": "9dc6998aca49d4847b64529b702da9955d0b891b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8807c22f2a3507af2401e99a8c420f68e0ce7dfd"
-        },
-        "date": 1769788388541,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14748021084666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006999858739999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02317484652666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00996861906,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007627894226666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90c177d163860c7836bdd118306f0459de9e7f28",
+          "message": "Read the collator's scheduling parameters from the runtime that executes the block (#12695)\n\nThe slot-based collator read scheduling_v3_enabled, relay_parent_offset\nand max_claim_queue_offset at\nthe parachain best head with the default offchain context, which can\nresolve a different runtime than\nthe one executing the block: :code instead of a pending :pending_code,\nor the best head instead of the\nparent find_parent settles on. They are now read at that parent with an\nonchain context, and the\nrelay chain context is re-derived when the two disagree, so candidate\nshape stays correct across a\n   parachain runtime upgrade that switches V3 scheduling on or off.\n  \ncloses #12865\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-08-29T10:17:17Z",
+          "tree_id": "f51a62f44d2a14f16c0d23abe85df149156faff8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90c177d163860c7836bdd118306f0459de9e7f28"
+        },
+        "date": 1788003987164,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.008012141673333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14308706634666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023634854860000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009850506446666636,
             "unit": "seconds"
           }
         ]
