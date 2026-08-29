@@ -100,20 +100,28 @@ genesis validator metadata *is* the address book and it overrides `--bootnode` a
 network forms (the bootnode dials happen before a node learns it is a validator) but cannot
 recover: every validator observed here drops from five validator peers to three within a few
 minutes and never reconnects. Work packages whose guarantor set has just rotated then miss their
-report deadline, and each miss costs three rebuilt parachain blocks. The measured block rate is
-~22s instead of the 6s a healthy JAM network gives, which is why the deadline is 25 minutes.
+report deadline, and each miss costs three rebuilt parachain blocks. The measured block rate was
+~22s instead of the 6s a healthy JAM network gives, which is why the deadline is 25 minutes — it
+is now far larger than any run needs, and is left as headroom rather than tuned to these numbers.
 There was no workaround from the test side: `JamNodeConfigBuilder` has `with_rpc_port` but no
 `with_p2p_port`. The fix is one line — write `n.port` into `net_addr` instead of `n.rpc_port` —
 and it is in the local checkout this crate now builds against.
 
 ### Current status of the three tests
 
-`two_jam_collators_build_blocks` passes (best 30 / finalized 27 in about eight minutes).
-`three_` and `six_` do not yet pass against a zombienet-spawned network: all collators submit to
-the same core, so they multiply the work-package contention that the port bug above has already
-made unreliable, and the parachain stalls part-way. The three collators do all author, and the
-same tests passed in minutes against a healthy externally-run polkajam testnet, so the tests
-themselves encode the behaviour we want — they are waiting on the SDK fix, not on a change here.
+All three pass against a zombienet-spawned network, once the SDK carries the genesis address fix:
+
+| test | result | wall clock | effective block rate |
+| --- | --- | --- | --- |
+| `two_jam_collators_build_blocks` | best 30 / finalized 28 | 325s | 6s median |
+| `three_jam_collators_build_blocks` | best 30 / finalized 26 | 301s | 6s median |
+| `six_jam_collators_build_blocks` | best 30 / finalized 27 | 312s | 6s median |
+
+`three_` and `six_` used to stall part-way: all collators submit to the same core, so they
+multiplied the work-package contention that the genesis address bug had already made unreliable.
+With the mesh intact they are no slower than the two-collator case. Across all three runs every
+validator held `6 peers (5 vals)` for the entire run, where before it decayed to `4 peers
+(3 vals)` within a few minutes and never recovered.
 
 ### What upstream support should replace
 
