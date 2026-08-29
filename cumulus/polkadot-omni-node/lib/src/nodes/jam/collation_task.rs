@@ -56,7 +56,12 @@ use super::{
 use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{AdditionalData, ParachainBlockData, SchedulingProof};
-use futures::{FutureExt, StreamExt, channel::mpsc, stream::SelectAll};
+use futures::{
+	FutureExt, StreamExt,
+	channel::mpsc,
+	future::AbortHandle,
+	stream::{SelectAll, abortable},
+};
 use jam_cumulus_facade::{ParachainCandidate, authorizer::fixed_authorizer};
 use jam_interface::{
 	BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
@@ -74,7 +79,7 @@ use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_timestamp::Timestamp;
 use sp_trie::CompactProof;
 use std::{
-	collections::{HashSet, VecDeque},
+	collections::{HashMap, HashSet, VecDeque},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -219,6 +224,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		included_head: None,
 		submitted_blocks: HashSet::new(),
 		statuses: SelectAll::new(),
+		subscriptions: StatusSubscriptions::new(),
 	};
 
 	// One tick per JAM slot, the granularity every deadline in this task is counted in. It is
@@ -322,12 +328,13 @@ impl<Block: BlockT> InFlightChain<Block> {
 		self.entries.drain(..=index).collect()
 	}
 
-	/// `index` and every descendant can never be reported; drop them and return what was dropped.
-	fn drop_tail(&mut self, index: usize) -> Vec<Block::Hash> {
-		self.entries.drain(index..).map(|entry| entry.block_hash).collect()
+	/// `index` and every descendant can never be reported; drop them and return the entries,
+	/// whose status subscriptions the manager still has to close.
+	fn drop_tail(&mut self, index: usize) -> Vec<InFlight<Block>> {
+		self.entries.drain(index..).collect()
 	}
 
-	fn clear(&mut self) -> Vec<Block::Hash> {
+	fn clear(&mut self) -> Vec<InFlight<Block>> {
 		self.drop_tail(0)
 	}
 
@@ -389,6 +396,56 @@ impl<Hash: Copy + PartialEq> RecentlyAccumulated<Hash> {
 
 	fn len(&self) -> usize {
 		self.entries.len()
+	}
+}
+
+/// The status subscription following each package in flight, keyed by package hash.
+///
+/// A subscription is closed on the node only when the client drops its stream, and the stream is
+/// dropped out of the select only when it *ends* — which a server-side status stream never does
+/// on its own. So every package leaving the chain has to have its stream ended here. Without
+/// that the node keeps every subscription this collator ever opened and refuses new ones past
+/// its per-connection cap, at which point every further package fails the moment it is
+/// submitted (observed live after ~1050 packages: `Too many subscriptions on the connection`).
+struct StatusSubscriptions {
+	handles: HashMap<WorkPackageHash, AbortHandle>,
+}
+
+impl StatusSubscriptions {
+	fn new() -> Self {
+		Self { handles: HashMap::new() }
+	}
+
+	/// Wrap a package's status stream so it can be ended on demand.
+	///
+	/// A resubmission subscribes again for the same package hash; the earlier subscription is
+	/// closed here, so a package holds exactly one however often it is resubmitted.
+	fn follow(
+		&mut self,
+		wp_hash: WorkPackageHash,
+		stream: BoxStream<'static, (WorkPackageHash, WorkPackageStatus)>,
+	) -> BoxStream<'static, (WorkPackageHash, WorkPackageStatus)> {
+		let (stream, handle) = abortable(stream);
+		if let Some(previous) = self.handles.insert(wp_hash, handle) {
+			previous.abort();
+		}
+		stream.boxed()
+	}
+
+	/// End a package's stream: the select drops it, and dropping it unsubscribes on the node.
+	/// `false` means there was nothing to close — the subscription never opened.
+	fn close(&mut self, wp_hash: WorkPackageHash) -> bool {
+		match self.handles.remove(&wp_hash) {
+			Some(handle) => {
+				handle.abort();
+				true
+			},
+			None => false,
+		}
+	}
+
+	fn len(&self) -> usize {
+		self.handles.len()
 	}
 }
 
@@ -553,6 +610,8 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	/// from another collator's.
 	submitted_blocks: HashSet<Block::Hash>,
 	statuses: SelectAll<BoxStream<'static, (WorkPackageHash, WorkPackageStatus)>>,
+	/// One handle per live status subscription, fired when its package leaves the chain.
+	subscriptions: StatusSubscriptions,
 }
 
 impl<Block, RuntimeApi, Jam> Manager<Block, RuntimeApi, Jam>
@@ -859,7 +918,11 @@ where
 		);
 
 		match self.jam.work_package_status_stream(wp_hash, anchor, false).await {
-			Ok(stream) => self.statuses.push(stream.map(move |status| (wp_hash, status)).boxed()),
+			Ok(stream) => {
+				let stream = stream.map(move |status| (wp_hash, status)).boxed();
+				let followed = self.subscriptions.follow(wp_hash, stream);
+				self.statuses.push(followed);
+			},
 			Err(error) => tracing::warn!(
 				target: LOG_TARGET,
 				?wp_hash,
@@ -977,7 +1040,8 @@ where
 			return;
 		}
 
-		let dropped = self.chain.drop_tail(index);
+		let cut = self.chain.drop_tail(index);
+		let dropped = self.forget(cut, "dropped");
 		tracing::warn!(
 			target: LOG_TARGET,
 			index,
@@ -1030,6 +1094,7 @@ where
 		};
 
 		let entry = &self.chain.entries[0];
+		let old_wp_hash = entry.wp_hash;
 		let package = entry.source.package(&anchored);
 		// A root package imports nothing, which is why re-contexting it is safe at all.
 		let (wp_hash, bundle) =
@@ -1038,7 +1103,7 @@ where
 		tracing::info!(
 			target: LOG_TARGET,
 			?block_hash,
-			old_wp_hash = ?entry.wp_hash,
+			?old_wp_hash,
 			new_wp_hash = ?wp_hash,
 			?anchor,
 			anchor_slot = anchored.anchor_slot,
@@ -1049,6 +1114,8 @@ where
 		if !self.submit(wp_hash, &bundle, anchor, block_hash).await {
 			return false;
 		}
+		// The old package hash is gone from the chain, so its subscription has to go with it.
+		self.stop_following(old_wp_hash, "re-contexted");
 		let submitted_at = jam_slot_at(Timestamp::current());
 		let entry = &mut self.chain.entries[0];
 		entry.wp_hash = wp_hash;
@@ -1143,15 +1210,45 @@ where
 		accumulated
 			.into_iter()
 			.map(|entry| {
+				self.stop_following(entry.wp_hash, "accumulated");
 				self.recently_accumulated.remember(entry.block_hash, entry.wp_hash, entry.export);
 				entry.block_hash
 			})
 			.collect()
 	}
 
+	/// Entries leaving the chain for good: close their status subscriptions and return their
+	/// blocks for logging. Nothing about these stays usable, unlike an accumulated entry whose
+	/// package a child may still chain onto.
+	fn forget(&mut self, entries: Vec<InFlight<Block>>, why: &str) -> Vec<Block::Hash> {
+		entries
+			.into_iter()
+			.map(|entry| {
+				self.stop_following(entry.wp_hash, why);
+				entry.block_hash
+			})
+			.collect()
+	}
+
+	/// Close one package's status subscription. Every path that takes an entry out of the chain
+	/// goes through here: a handle outliving its entry is a subscription the node holds open for
+	/// the rest of the connection's life, and enough of those stop the collator dead.
+	fn stop_following(&mut self, wp_hash: WorkPackageHash, why: &str) {
+		if self.subscriptions.close(wp_hash) {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?wp_hash,
+				why,
+				live_subscriptions = self.subscriptions.len(),
+				"Closed a work-package status subscription.",
+			);
+		}
+	}
+
 	/// Drop everything in flight and ask the builder to start again from the accumulated head.
 	fn reset_chain(&mut self, why: &str) {
-		let dropped = self.chain.clear();
+		let cleared = self.chain.clear();
+		let dropped = self.forget(cleared, "reset");
 		if !dropped.is_empty() {
 			tracing::warn!(
 				target: LOG_TARGET,
@@ -1191,6 +1288,7 @@ where
 			entries = ?self.chain.block_hashes(),
 			included_head = ?self.included_head,
 			recently_accumulated = self.recently_accumulated.len(),
+			live_subscriptions = self.subscriptions.len(),
 			"In-flight chain state.",
 		);
 	}
@@ -1905,6 +2003,59 @@ mod tests {
 		assert_eq!(dropped.len(), 2);
 		assert_eq!(chain.depth(), 2);
 		assert_eq!(chain.tip().map(|entry| entry.wp_hash), Some(wp_hash(1)));
+	}
+
+	/// A status stream that never ends on its own — which is what a real subscription is, and
+	/// the reason nothing leaves the select unless it is ended deliberately.
+	fn endless_statuses() -> BoxStream<'static, (WorkPackageHash, WorkPackageStatus)> {
+		futures::stream::pending().boxed()
+	}
+
+	/// The node closes a status subscription only when the client drops its stream, and it caps a
+	/// connection at 1024 of them. A handle that outlives its entry therefore leaks a
+	/// subscription the node holds open for good: live, after ~1050 packages, every new
+	/// submission failed with "Too many subscriptions on the connection" and drop-tailed
+	/// immediately. Whichever way an entry leaves the chain — accumulated, dropped tail, reset —
+	/// its subscription has to leave with it, and a resubmission must not add a second one.
+	#[test]
+	fn a_status_subscription_never_outlives_the_entry_it_follows() {
+		let mut chain = test_chain(4);
+		let mut subscriptions = StatusSubscriptions::new();
+		let mut statuses = SelectAll::new();
+		for entry in &chain.entries {
+			statuses.push(subscriptions.follow(entry.wp_hash, endless_statuses()));
+		}
+		assert_eq!(subscriptions.len(), 4);
+
+		let resubmitted = chain.tip().expect("not empty").wp_hash;
+		statuses.push(subscriptions.follow(resubmitted, endless_statuses()));
+		assert_eq!(subscriptions.len(), 4, "resubmitting replaces a package's subscription");
+
+		for entry in chain.pop_through(1) {
+			assert!(subscriptions.close(entry.wp_hash), "the accumulated entries are closed");
+		}
+		assert_eq!(subscriptions.len(), 2);
+
+		for entry in chain.drop_tail(0) {
+			assert!(subscriptions.close(entry.wp_hash), "and so is a dropped tail");
+		}
+		assert_eq!(subscriptions.len(), 0, "no handle outlives the chain");
+		assert!(!subscriptions.close(resubmitted), "closing twice is not a leak either");
+	}
+
+	/// ...and closing has to actually end the stream, because that — and only that — is what
+	/// drops it out of the select and unsubscribes on the node side.
+	#[test]
+	fn closing_a_subscription_ends_its_stream() {
+		let mut subscriptions = StatusSubscriptions::new();
+		let mut statuses = SelectAll::new();
+		statuses.push(subscriptions.follow(wp_hash(1), endless_statuses()));
+		assert!(subscriptions.close(wp_hash(1)));
+
+		assert!(
+			futures::executor::block_on(statuses.next()).is_none(),
+			"the select is empty again, so the subscription was dropped",
+		);
 	}
 
 	/// The key is a cross-repo contract: the collator writes it, the parachain service reads it,
