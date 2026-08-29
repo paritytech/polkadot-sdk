@@ -45,6 +45,9 @@ The demo runs the same code path with no assertion, until it is killed:
 NUM_COLLATORS=2 cumulus/zombienet/jam-tests/demo.sh
 ```
 
+To run collators against a JAM testnet you already have running, rather than one spawned here,
+use `cumulus/scripts/jam-collator-demo.sh` instead.
+
 ## Layout
 
 | file | what it does |
