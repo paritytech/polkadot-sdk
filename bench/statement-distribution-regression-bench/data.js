@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787937628640,
+  "lastUpdate": 1788004124707,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "03ae1a76c77566c313736836d55ce50b16f5093e",
-          "message": "Bump pallet-staking-reward-fn (#10905)\n\nBump pallet-staking-reward-fn to patch. This forces it to use local path\nand the local sp-arithmetic instead of registry while running\n`parity-publish`.\nThis aims to fix the failure in `Check publish build` job (e.g.\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21359458014/job/61474963706?pr=10903#step:12:546)\nwhich started to appear since #10682 got merged.\n\nWhen parity-publish is used with --registry:\n- If the version exists on crates.io → remove path, use registry\n- If the version doesn't exist → keep path, use local\nThe issue is that --registry creates a hybrid state where some deps use\nregistry and some use local paths, causing version conflicts in case e.g\nof missing trait impl in on the two.\n\nExtended explanation, courtesy of @iulianbarbu : \nIn the parity-publish CI job example we have:\n- polkadot-runtime-common (crate A), depends on crate B indirectly &\ncrate C\n- sp-arithmetic (crate B), was bumped locally (due to #10682), but not\npublished on the registry yet\n- pallet-staking-reward-fn (crate C). depends on crate B.\n\npolkadot-runtime-common fails to compile due to a dependency graph using\ntwo versions of same type of crate B. What is an issue though is that\npallet-staking-reward-fn uses the previous crate B version (from the\nregistry), which misses a certain trait impl that is required by\npolkadot-runtime-common. If polkadot-runtime-common usage of\npallet-staking-reward-fn expects the new trait impl, it means that it is\nnot enough to just bump pallet-staking-reward-fn, but also\npolkadot-runtime-common, in this PR (to update it to depend on the new\nversion of pallet-staking-reward-fn). Everything compiles fine rn\nbecause polkadot-runtime-common is already bumped in a previous PR (e.g\n#10582 and maybe others), which did not make its way to a stable release\nyet.",
-          "timestamp": "2026-01-30T10:11:47Z",
-          "tree_id": "c324d8994cb2081f90929647158c15072033b701",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/03ae1a76c77566c313736836d55ce50b16f5093e"
-        },
-        "date": 1769771920519,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.03999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03871080954800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06454556638399991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0935720151939999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90c177d163860c7836bdd118306f0459de9e7f28",
+          "message": "Read the collator's scheduling parameters from the runtime that executes the block (#12695)\n\nThe slot-based collator read scheduling_v3_enabled, relay_parent_offset\nand max_claim_queue_offset at\nthe parachain best head with the default offchain context, which can\nresolve a different runtime than\nthe one executing the block: :code instead of a pending :pending_code,\nor the best head instead of the\nparent find_parent settles on. They are now read at that parent with an\nonchain context, and the\nrelay chain context is re-derived when the two disagree, so candidate\nshape stays correct across a\n   parachain runtime upgrade that switches V3 scheduling on or off.\n  \ncloses #12865\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-08-29T10:17:17Z",
+          "tree_id": "f51a62f44d2a14f16c0d23abe85df149156faff8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90c177d163860c7836bdd118306f0459de9e7f28"
+        },
+        "date": 1788004084665,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038687393970000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09144930338199994,
             "unit": "seconds"
           }
         ]
