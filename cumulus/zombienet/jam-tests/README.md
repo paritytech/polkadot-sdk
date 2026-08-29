@@ -42,7 +42,7 @@ for a reason unrelated to the collator.
 The demo runs the same code path with no assertion, until it is killed:
 
 ```sh
-NUM_COLLATORS=2 cumulus/scripts/jam-collator-demo.sh
+NUM_COLLATORS=2 cumulus/zombienet/jam-tests/demo.sh
 ```
 
 ## Layout
@@ -57,6 +57,7 @@ NUM_COLLATORS=2 cumulus/scripts/jam-collator-demo.sh
 | `tests/jam/harness.rs` | one run: network, parasim, collators, assertions |
 | `tests/jam/collator_progress.rs` | the 2, 3 and 6 collator tests |
 | `tests/jam/demo.rs` | the same run with no assertion and no end |
+| `demo.sh` | shell entry point for that demo |
 
 ## Two things worth knowing about the chain spec
 

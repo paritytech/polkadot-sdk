@@ -3,7 +3,7 @@
 
 //! The demo: the same harness the tests use, with no assertion and no end.
 //!
-//! `cumulus/scripts/jam-collator-demo.sh` is a thin wrapper around this.
+//! `cumulus/zombienet/jam-tests/demo.sh` is a thin wrapper around this.
 
 use super::{env, harness::Run, rpc::Height};
 use std::time::Duration;

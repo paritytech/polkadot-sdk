@@ -24,11 +24,11 @@
 #   OMNI_NODE_BIN, RUNTIME_WASM, RELAY_NODE_BIN   override the target/release defaults
 #
 # Usage:
-#   JAM_NODE_BIN=... JAMT_BIN=... PARASIM_BLOB=... cumulus/scripts/jam-collator-demo.sh
+#   JAM_NODE_BIN=... JAMT_BIN=... PARASIM_BLOB=... cumulus/zombienet/jam-tests/demo.sh
 
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
 exec cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 	-- --ignored --nocapture --test-threads 1 jam::demo
