@@ -14,9 +14,15 @@ use std::time::Duration;
 use tokio::time::{sleep, Instant};
 
 /// The whole run — network spin-up, parasim registration and block production — has to fit in
-/// this. Steady state is one parachain block per 6s JAM slot, so 30 blocks is ~3 minutes of the
-/// budget and the rest is start-up slack.
-pub const DEADLINE: Duration = Duration::from_secs(15 * 60);
+/// this.
+///
+/// A healthy JAM network produces one parachain block per 6s slot, which would make 30 blocks
+/// three minutes. A zombienet-spawned one is slower and lumpier: it records the wrong port for
+/// every validator in genesis, so a work package whose guarantor set has just rotated sometimes
+/// cannot be reported, and each such failure drops three in-flight blocks that have to be
+/// rebuilt. Measured average is ~22s per block rather than 6s. This budget is sized for that,
+/// and can come back down to a few minutes once the SDK generates matching addresses.
+pub const DEADLINE: Duration = Duration::from_secs(25 * 60);
 
 /// The core parasim guarantees the parachain's work packages on.
 const JAM_CORE: u32 = 0;
