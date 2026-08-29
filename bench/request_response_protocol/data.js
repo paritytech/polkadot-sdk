@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787933716100,
+  "lastUpdate": 1788003030593,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -119339,6 +119339,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2707735783,
             "range": "± 12801191",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "90c177d163860c7836bdd118306f0459de9e7f28",
+          "message": "Read the collator's scheduling parameters from the runtime that executes the block (#12695)\n\nThe slot-based collator read scheduling_v3_enabled, relay_parent_offset\nand max_claim_queue_offset at\nthe parachain best head with the default offchain context, which can\nresolve a different runtime than\nthe one executing the block: :code instead of a pending :pending_code,\nor the best head instead of the\nparent find_parent settles on. They are now read at that parent with an\nonchain context, and the\nrelay chain context is re-derived when the two disagree, so candidate\nshape stays correct across a\n   parachain runtime upgrade that switches V3 scheduling on or off.\n  \ncloses #12865\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-08-29T10:17:17Z",
+          "tree_id": "f51a62f44d2a14f16c0d23abe85df149156faff8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/90c177d163860c7836bdd118306f0459de9e7f28"
+        },
+        "date": 1788002993205,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20207483,
+            "range": "± 133174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20535902,
+            "range": "± 112273",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21925939,
+            "range": "± 147046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26648744,
+            "range": "± 174917",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61790031,
+            "range": "± 911160",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 384511492,
+            "range": "± 8444911",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2744027018,
+            "range": "± 81951326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17438145,
+            "range": "± 198120",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17416283,
+            "range": "± 152183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18077042,
+            "range": "± 218563",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22371362,
+            "range": "± 170611",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64288873,
+            "range": "± 606677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 383955279,
+            "range": "± 4273300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2704525247,
+            "range": "± 9661771",
             "unit": "ns/iter"
           }
         ]
