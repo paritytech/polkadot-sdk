@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788004075460,
+  "lastUpdate": 1788061125754,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8807c22f2a3507af2401e99a8c420f68e0ce7dfd",
-          "message": "telemtry: Downgrade spam log to debug (#10201)\n\nThis PR downgrade the telemetry warning log to debug.\n- The log is causing a lot of noise in our test nets:\nhttps://grafana.teleport.parity.io/goto/fjTQ_vzDg?orgId=1\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T14:40:21Z",
-          "tree_id": "9dc6998aca49d4847b64529b702da9955d0b891b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8807c22f2a3507af2401e99a8c420f68e0ce7dfd"
-        },
-        "date": 1769788421476,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.740000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6748129072099993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000024175309999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6358883583700004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.641231784809998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6778699369000027,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.317536963959997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7663283039499595,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022796169999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.606422009032983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000024175309999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0053211976300000016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022796169999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.718989452829959,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.000019507980000000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f",
+          "message": "Reject duplicate derivative IDs (#13006)\n\n- reject derivative registration when the derivative ID is already\nmapped to another original\n- preserve the one-to-one relationship between the forward and reverse\nregistry indexes\n- add a regression covering duplicate derivative IDs and the original\nmapping\n\n`try_register_derivative` previously checked only the\noriginal-to-derivative index before writing both indexes. Reusing a\nderivative ID could therefore overwrite the reverse entry while leaving\ntwo forward entries pointing at the same derivative.",
+          "timestamp": "2026-08-30T02:09:09Z",
+          "tree_id": "0d9fb29c9148dd99c089bd6e31e1990375f53caa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f"
+        },
+        "date": 1788061084960,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52945.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63570.73,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7225336596199994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00550815195,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.35242667019,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020920459999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.293626024562776,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001767201,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020920459999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.113078424759962,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7492563902999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.738098479499999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8390993729499634,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.70615570025,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001767201,
             "unit": "seconds"
           }
         ]
