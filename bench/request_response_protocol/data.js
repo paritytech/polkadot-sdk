@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788060297858,
+  "lastUpdate": 1788069889011,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -119555,6 +119555,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2626809277,
             "range": "± 36651917",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb30ef0d7a40e9efd6fa573451026267e6fcefe3",
+          "message": "statement-store: bound inbound statement batch size (#12991)\n\n# Description\n\nInbound statement batches now decode into a `BoundedVec` capped at the\nmost statements a full notification can carry. A batch declaring more is\nrejected from its length prefix, drawing the same finite `BAD_MESSAGE`\npenalty as any other decode failure.\n\n# Integration\n\nNo action required.\n\n# Review Notes\n\n- `StatementBatch = BoundedVec<Statement,\nConstU32<MAX_STATEMENTS_PER_NOTIFICATION>>`, used by both V1 and V2\ndecode paths.\n- Bound derived in `config.rs` from the notification payload and the\nminimum encoded statement size, with a test pinning that minimum across\nall `Proof` variants.",
+          "timestamp": "2026-08-30T04:45:44Z",
+          "tree_id": "8f130fc8cfbe558e5e364ccc1bed8b033d199574",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bb30ef0d7a40e9efd6fa573451026267e6fcefe3"
+        },
+        "date": 1788069852879,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20960110,
+            "range": "± 642792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21338322,
+            "range": "± 781768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23058800,
+            "range": "± 243582",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28095920,
+            "range": "± 254496",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62650558,
+            "range": "± 684217",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 392876507,
+            "range": "± 4261262",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2801748579,
+            "range": "± 120034908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18563243,
+            "range": "± 728340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18640234,
+            "range": "± 251535",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18983093,
+            "range": "± 150992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23566809,
+            "range": "± 250028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63056563,
+            "range": "± 338701",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 379147006,
+            "range": "± 18376512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2814672977,
+            "range": "± 14021730",
             "unit": "ns/iter"
           }
         ]
