@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788003030593,
+  "lastUpdate": 1788060297858,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -119447,6 +119447,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2704525247,
             "range": "± 9661771",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f",
+          "message": "Reject duplicate derivative IDs (#13006)\n\n- reject derivative registration when the derivative ID is already\nmapped to another original\n- preserve the one-to-one relationship between the forward and reverse\nregistry indexes\n- add a regression covering duplicate derivative IDs and the original\nmapping\n\n`try_register_derivative` previously checked only the\noriginal-to-derivative index before writing both indexes. Reusing a\nderivative ID could therefore overwrite the reverse entry while leaving\ntwo forward entries pointing at the same derivative.",
+          "timestamp": "2026-08-30T02:09:09Z",
+          "tree_id": "0d9fb29c9148dd99c089bd6e31e1990375f53caa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f"
+        },
+        "date": 1788060254319,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19605942,
+            "range": "± 141029",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19757073,
+            "range": "± 107724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21180868,
+            "range": "± 103074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25593802,
+            "range": "± 143399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57086871,
+            "range": "± 626814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 347970607,
+            "range": "± 5120508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2420484803,
+            "range": "± 19656558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16786735,
+            "range": "± 155013",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16830251,
+            "range": "± 140256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17464969,
+            "range": "± 145509",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21616609,
+            "range": "± 94694",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59626047,
+            "range": "± 486790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 346584171,
+            "range": "± 4314381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2626809277,
+            "range": "± 36651917",
             "unit": "ns/iter"
           }
         ]
