@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788003977973,
+  "lastUpdate": 1788061032857,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a9c09b0bf857037584f8439908cf68e34abf1ee9",
-          "message": "collator-protocol: Re-advertise collations when peer authority IDs are updated (#10891)\n\nThe collator protocol contained a race-condition which could manifest as\n\"Collation wasn't advertised\".\n\nA given peer (\"A\") can connect before the new authority keys are\nreceived via `UpdatedAuthorityIds` (nk -- new key).\n\n- T0: peer A connects`PeerConnected`\n- T1: peer A sends its current view `PeerViewChange`\n  - Peer A wants the block N \n- T2: `validator_group.should_advertise_to`: checks peer A for key nK\n(the new key)\n- We don't have this key stored and therefore return\n`ShouldAdvertiseTo::NotAuthority`\n- T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])\n\nAt this point, we have the collation, peer A wants to collation, we know\npeer A is an authority but we never send the collation back. Then, the\ncollation will expire with \"Collation wasn't advertised\".\n\nTo close the gap, the `UpdatedAuthorityIds` events will trigger a\nre-advertisement of collations\n- note: if the advertisement was already sent, the logic does not resend\nit (achieved in should_advertise_to).\n\nPart of the stabilization of: \n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T17:46:48Z",
-          "tree_id": "7b10160fb0e0396af578d3a2a1489e8be3546d30",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9c09b0bf857037584f8439908cf68e34abf1ee9"
-        },
-        "date": 1769799982334,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1252633863333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.521366219899999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13665674713333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f",
+          "message": "Reject duplicate derivative IDs (#13006)\n\n- reject derivative registration when the derivative ID is already\nmapped to another original\n- preserve the one-to-one relationship between the forward and reverse\nregistry indexes\n- add a regression covering duplicate derivative IDs and the original\nmapping\n\n`try_register_derivative` previously checked only the\noriginal-to-derivative index before writing both indexes. Reusing a\nderivative ID could therefore overwrite the reverse entry while leaving\ntwo forward entries pointing at the same derivative.",
+          "timestamp": "2026-08-30T02:09:09Z",
+          "tree_id": "0d9fb29c9148dd99c089bd6e31e1990375f53caa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f"
+        },
+        "date": 1788060992260,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14158366303333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.833573915966669,
             "unit": "seconds"
           }
         ]
