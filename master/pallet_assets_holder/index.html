@@ -150,11 +150,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 
 <script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate pallet_assets_holder</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_assets_holder/index.html">pallet_<wbr>assets_<wbr>holder</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#assets-holder-pallet" title="Assets Holder Pallet">Assets Holder Pallet</a><ul><li><a href="#pallet-api" title="Pallet API">Pallet API</a></li><li><a href="#overview" title="Overview">Overview</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_<wbr>assets_<wbr>holder</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_assets_holder/lib.rs.html#18-178">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="assets-holder-pallet"><a class="doc-anchor" href="#assets-holder-pallet">§</a>Assets Holder Pallet</h2>
 <p>A pallet capable of holding fungibles from <code>pallet-assets</code>. This is an extension of
-<code>pallet-assets</code>, wrapping <a href="%60frame_support::traits::fungibles::Inspect%60"><code>fungibles::Inspect</code></a>.
+<code>pallet-assets</code>, wrapping <a href="../frame_support/traits/tokens/fungibles/regular/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::regular::Inspect"><code>fungibles::Inspect</code></a>.
 It implements both
-<a href="frame_support::traits::fungibles::hold::Inspect"><code>fungibles::hold::Inspect</code></a>,
-<a href="frame_support::traits::fungibles::hold::Mutate"><code>fungibles::hold::Mutate</code></a>, and especially
-<a href="frame_support::traits::fungibles::hold::Unbalanced"><code>fungibles::hold::Unbalanced</code></a>. The
+<a href="../frame_support/traits/tokens/fungibles/hold/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::hold::Inspect"><code>fungibles::hold::Inspect</code></a>,
+<a href="../frame_support/traits/tokens/fungibles/hold/trait.Mutate.html" title="trait frame_support::traits::tokens::fungibles::hold::Mutate"><code>fungibles::hold::Mutate</code></a>, and especially
+<a href="../frame_support/traits/tokens/fungibles/hold/trait.Unbalanced.html" title="trait frame_support::traits::tokens::fungibles::hold::Unbalanced"><code>fungibles::hold::Unbalanced</code></a>. The
 complexity of the operations is <code>O(1)</code>.</p>
 <h3 id="pallet-api"><a class="doc-anchor" href="#pallet-api">§</a>Pallet API</h3>
 <p>See the <a href="pallet/index.html" title="mod pallet_assets_holder::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
@@ -165,9 +165,9 @@ including its configuration trait, dispatchables, storage items, events and erro
 <li>Pallet hooks allowing <code>pallet-assets</code> to know the balance on hold for an account on a given
 asset (see [<code>pallet_assets::BalanceOnHold</code>]).</li>
 <li>An implementation of
-<a href="frame_support::traits::fungibles::hold::Inspect"><code>fungibles::hold::Inspect</code></a>,
-<a href="frame_support::traits::fungibles::hold::Mutate"><code>fungibles::hold::Mutate</code></a> and
-<a href="frame_support::traits::fungibles::hold::Unbalanced"><code>fungibles::hold::Unbalanced</code></a>, allowing
+<a href="../frame_support/traits/tokens/fungibles/hold/trait.Inspect.html" title="trait frame_support::traits::tokens::fungibles::hold::Inspect"><code>fungibles::hold::Inspect</code></a>,
+<a href="../frame_support/traits/tokens/fungibles/hold/trait.Mutate.html" title="trait frame_support::traits::tokens::fungibles::hold::Mutate"><code>fungibles::hold::Mutate</code></a> and
+<a href="../frame_support/traits/tokens/fungibles/hold/trait.Unbalanced.html" title="trait frame_support::traits::tokens::fungibles::hold::Unbalanced"><code>fungibles::hold::Unbalanced</code></a>, allowing
 other pallets to manage holds for the <code>pallet-assets</code> assets.</li>
 </ul>
 </div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_assets_holder::pallet">pallet</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="pallet/index.html" title="mod pallet_assets_holder::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed

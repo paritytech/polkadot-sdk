@@ -157,11 +157,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     type <a href="#associatedtype.RuntimeHoldReason" class="associatedtype">RuntimeHoldReason</a>;
     type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_revive::weights::WeightInfo">WeightInfo</a>;
     type <a href="#associatedtype.Precompiles" class="associatedtype">Precompiles</a>;
-    type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: FindAuthor&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: <a class="trait" href="../../frame_support/traits/validation/trait.FindAuthor.html" title="trait frame_support::traits::validation::FindAuthor">FindAuthor</a>&lt;Self::AccountId&gt;;
     type <a href="#associatedtype.DepositPerByte" class="associatedtype">DepositPerByte</a>;
     type <a href="#associatedtype.DepositPerItem" class="associatedtype">DepositPerItem</a>;
     type <a href="#associatedtype.DepositPerChildTrieItem" class="associatedtype">DepositPerChildTrieItem</a>;
-    type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;Perbill&gt;;
+    type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;<a class="struct" href="../../sp_arithmetic/per_things/struct.Perbill.html" title="struct sp_arithmetic::per_things::Perbill">Perbill</a>&gt;;
     type <a href="#associatedtype.AllowEVMBytecode" class="associatedtype">AllowEVMBytecode</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>&gt;;
     type <a href="#associatedtype.UploadOrigin" class="associatedtype">UploadOrigin</a>;
     type <a href="#associatedtype.InstantiateOrigin" class="associatedtype">InstantiateOrigin</a>;
@@ -171,7 +171,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     type <a href="#associatedtype.NativeToEthRatio" class="associatedtype">NativeToEthRatio</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>&gt;;
     type <a href="#associatedtype.FeeInfo" class="associatedtype">FeeInfo</a>;
     type <a href="#associatedtype.Deposit" class="associatedtype">Deposit</a>;
-    type <a href="#associatedtype.MaxEthExtrinsicWeight" class="associatedtype">MaxEthExtrinsicWeight</a>: Get&lt;FixedU128&gt;;
+    type <a href="#associatedtype.MaxEthExtrinsicWeight" class="associatedtype">MaxEthExtrinsicWeight</a>: Get&lt;<a class="struct" href="../../sp_arithmetic/fixed_point/struct.FixedU128.html" title="struct sp_arithmetic::fixed_point::FixedU128">FixedU128</a>&gt;;
     type <a href="#associatedtype.DebugEnabled" class="associatedtype">DebugEnabled</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>&gt;;
     type <a href="#associatedtype.AutoMap" class="associatedtype">AutoMap</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>&gt;;
     type <a href="#associatedtype.GasScale" class="associatedtype">GasScale</a>;
@@ -197,7 +197,7 @@ destroying it.</p>
 construct a default cost schedule.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.Precompiles" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#244">Source</a><h4 class="code-header">type <a href="#associatedtype.Precompiles" class="associatedtype">Precompiles</a></h4></section></summary><div class="docblock"><p>Type that allows the runtime authors to add new host functions for a contract to call.</p>
 <p>Pass in a tuple of types that implement <a href="../precompiles/trait.Precompile.html" title="trait pallet_revive::precompiles::Precompile"><code>precompiles::Precompile</code></a>.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.FindAuthor" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#247">Source</a><h4 class="code-header">type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: FindAuthor&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Find the author of the current block.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.FindAuthor" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#247">Source</a><h4 class="code-header">type <a href="#associatedtype.FindAuthor" class="associatedtype">FindAuthor</a>: <a class="trait" href="../../frame_support/traits/validation/trait.FindAuthor.html" title="trait frame_support::traits::validation::FindAuthor">FindAuthor</a>&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Find the author of the current block.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.DepositPerByte" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#256">Source</a><h4 class="code-header">type <a href="#associatedtype.DepositPerByte" class="associatedtype">DepositPerByte</a></h4></section></summary><div class="docblock"><p>The amount of balance a caller has to pay for each byte of storage.</p>
 <h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
 <p>It is safe to change this value on a live chain as all refunds are pro rata.</p>
@@ -210,7 +210,7 @@ storage item. This is why we need to set a lower value here than for the main
 trie items. Otherwise the storage deposit is too high.</p>
 <h5 id="note-2"><a class="doc-anchor" href="#note-2">§</a>Note</h5>
 <p>It is safe to change this value on a live chain as all refunds are pro rata.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.CodeHashLockupDepositPercent" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#284">Source</a><h4 class="code-header">type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;Perbill&gt;</h4></section></summary><div class="docblock"><p>The percentage of the storage deposit that should be held for using a code hash.
+</div></details><details class="toggle" open><summary><section id="associatedtype.CodeHashLockupDepositPercent" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#284">Source</a><h4 class="code-header">type <a href="#associatedtype.CodeHashLockupDepositPercent" class="associatedtype">CodeHashLockupDepositPercent</a>: Get&lt;<a class="struct" href="../../sp_arithmetic/per_things/struct.Perbill.html" title="struct sp_arithmetic::per_things::Perbill">Perbill</a>&gt;</h4></section></summary><div class="docblock"><p>The percentage of the storage deposit that should be held for using a code hash.
 Instantiating a contract, protects the code from being removed. In order to prevent
 abuse these actions are protected with a percentage of the code deposit.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.AllowEVMBytecode" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#292">Source</a><h4 class="code-header">type <a href="#associatedtype.AllowEVMBytecode" class="associatedtype">AllowEVMBytecode</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>&gt;</h4></section></summary><div class="docblock"><p>Allow EVM bytecode to be uploaded and instantiated.</p>
@@ -241,7 +241,7 @@ preventing replay attacks.</p>
 the default value of <code>()</code> will suffice.</p>
 </div></details><details class="toggle" open><summary><section id="associatedtype.Deposit" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#350">Source</a><h4 class="code-header">type <a href="#associatedtype.Deposit" class="associatedtype">Deposit</a></h4></section></summary><div class="docblock"><p>Payment backend used to charge storage deposits.
 The default <code>()</code> binding always uses the native currency.</p>
-</div></details><details class="toggle" open><summary><section id="associatedtype.MaxEthExtrinsicWeight" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#365">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxEthExtrinsicWeight" class="associatedtype">MaxEthExtrinsicWeight</a>: Get&lt;FixedU128&gt;</h4></section></summary><div class="docblock"><p>The fraction the maximum extrinsic weight <code>eth_transact</code> extrinsics are capped to.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxEthExtrinsicWeight" class="method"><a class="src rightside" href="../../src/pallet_revive/lib.rs.html#365">Source</a><h4 class="code-header">type <a href="#associatedtype.MaxEthExtrinsicWeight" class="associatedtype">MaxEthExtrinsicWeight</a>: Get&lt;<a class="struct" href="../../sp_arithmetic/fixed_point/struct.FixedU128.html" title="struct sp_arithmetic::fixed_point::FixedU128">FixedU128</a>&gt;</h4></section></summary><div class="docblock"><p>The fraction the maximum extrinsic weight <code>eth_transact</code> extrinsics are capped to.</p>
 <p>This is not a security measure but a requirement due to how we map gas to <code>(Weight, StorageDeposit)</code>. The mapping might derive a <code>Weight</code> that is too large to fit into an
 extrinsic. In this case we cap it to the limit specified here.</p>
 <p><code>eth_transact</code> transactions that use more weight than specified will fail with an out of

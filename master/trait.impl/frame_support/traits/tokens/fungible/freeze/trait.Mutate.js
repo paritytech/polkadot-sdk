@@ -1,9 +1,9 @@
 (function() {
-    var implementors = Object.fromEntries([["frame_support",[]],["pallet_balances",[["impl&lt;T: <a class=\"trait\" href=\"pallet_balances/pallet/trait.Config.html\" title=\"trait pallet_balances::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; Mutate&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_balances/pallet/struct.Pallet.html\" title=\"struct pallet_balances::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]]],["polkadot_sdk_frame",[]]]);
+    var implementors = Object.fromEntries([["frame_support",[]],["pallet_balances",[["impl&lt;T: <a class=\"trait\" href=\"pallet_balances/pallet/trait.Config.html\" title=\"trait pallet_balances::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; <a class=\"trait\" href=\"frame_support/traits/tokens/fungible/freeze/trait.Mutate.html\" title=\"trait frame_support::traits::tokens::fungible::freeze::Mutate\">Mutate</a>&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_balances/pallet/struct.Pallet.html\" title=\"struct pallet_balances::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]]],["polkadot_sdk_frame",[]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":57,"fragment_lengths":[20,382,26]}
+//{"start":57,"fragment_lengths":[20,548,26]}

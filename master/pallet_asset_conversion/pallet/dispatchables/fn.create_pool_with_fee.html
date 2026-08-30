@@ -152,7 +152,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
     creator: T::AccountId,
     asset1: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T::<a class="associatedtype" href="../trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;,
     asset2: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;T::<a class="associatedtype" href="../trait.Config.html#associatedtype.AssetKind" title="type pallet_asset_conversion::pallet::Config::AssetKind">AssetKind</a>&gt;,
-    fee: Permill,
+    fee: <a class="struct" href="../../../sp_arithmetic/per_things/struct.Permill.html" title="struct sp_arithmetic::per_things::Permill">Permill</a>,
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Like <a href="../struct.Pallet.html#method.create_pool" title="associated function pallet_asset_conversion::pallet::Pallet::create_pool"><code>Pallet::create_pool</code></a>, but sets an initial per-pool swap <code>fee</code> overriding the
 global <a href="../trait.Config.html#associatedtype.LPFee" title="associated type pallet_asset_conversion::pallet::Config::LPFee"><code>Config::LPFee</code></a>.</p>
 <p>Requires <a href="../trait.Config.html#associatedtype.AdminOrigin" title="associated type pallet_asset_conversion::pallet::Config::AdminOrigin"><code>Config::AdminOrigin</code></a>. <code>creator</code> pays the pool setup fee and deposits.
