@@ -140,7 +140,10 @@ use sc_network::{
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{
+	traits::{Block as BlockT, ConstU32},
+	BoundedVec,
+};
 use sp_statement_store::{
 	AdmittedBatch, FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
@@ -157,6 +160,8 @@ pub mod config;
 
 /// A set of statements.
 pub type Statements = Vec<Statement>;
+
+type StatementBatch = BoundedVec<Statement, ConstU32<{ MAX_STATEMENTS_PER_NOTIFICATION as u32 }>>;
 
 /// The protocol version that was negotiated with a peer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,7 +185,7 @@ impl PeerProtocolVersion {
 #[derive(Debug, Encode, Decode)]
 enum StatementMessage {
 	#[codec(index = 0)]
-	Statements(Vec<Statement>),
+	Statements(StatementBatch),
 	/// Bloom filter bytes representing the topics this peer is interested in.
 	#[codec(index = 1)]
 	ExplicitTopicAffinity(AffinityFilter),
@@ -1374,9 +1379,9 @@ where
 					PeerProtocolVersion::V1 => {
 						// V1 peers send raw Vec<Statement>.
 						if let Ok(statements) =
-							<Statements as Decode>::decode(&mut notification.as_ref())
+							<StatementBatch as Decode>::decode(&mut notification.as_ref())
 						{
-							self.on_statements(peer, statements);
+							self.on_statements(peer, statements.into_inner());
 						} else {
 							log::debug!(
 								target: LOG_TARGET,
@@ -1390,7 +1395,7 @@ where
 						if let Ok(message) = StatementMessage::decode(&mut notification.as_ref()) {
 							match message {
 								StatementMessage::Statements(statements) => {
-									self.on_statements(peer, statements)
+									self.on_statements(peer, statements.into_inner())
 								},
 								StatementMessage::ExplicitTopicAffinity(filter) => {
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
@@ -5036,7 +5041,7 @@ mod tests {
 		let mut statement = new_live_statement();
 		statement.set_plain_data(b"v2 statement".to_vec());
 		let hash = statement.hash();
-		let msg = StatementMessage::Statements(vec![statement]);
+		let msg = StatementMessage::Statements(vec![statement].try_into().unwrap());
 		let encoded = msg.encode();
 
 		handler
@@ -5571,7 +5576,8 @@ mod tests {
 
 		let refs: Vec<&Statement> = vec![&stmt1, &stmt2];
 		let hand_rolled = StatementMessage::encode_statement_refs(&refs);
-		let derive_encoded = StatementMessage::Statements(vec![stmt1, stmt2]).encode();
+		let derive_encoded =
+			StatementMessage::Statements(vec![stmt1, stmt2].try_into().unwrap()).encode();
 
 		assert_eq!(
 			hand_rolled, derive_encoded,
@@ -5583,7 +5589,7 @@ mod tests {
 	fn test_encode_statement_refs_empty() {
 		let refs: Vec<&Statement> = vec![];
 		let hand_rolled = StatementMessage::encode_statement_refs(&refs);
-		let derive_encoded = StatementMessage::Statements(vec![]).encode();
+		let derive_encoded = StatementMessage::Statements(vec![].try_into().unwrap()).encode();
 
 		assert_eq!(hand_rolled, derive_encoded);
 	}
@@ -5995,6 +6001,87 @@ mod tests {
 
 		// If we got here without panic, the test passes.
 		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
+	}
+
+	// A batch of one more empty statement (a single `0x00` field-count byte each) than a
+	// notification can hold. An unbounded `Vec<Statement>` would decode it in full.
+	fn oversized_statement_batch() -> Vec<u8> {
+		let count = MAX_STATEMENTS_PER_NOTIFICATION + 1;
+		let mut batch = Compact(count as u32).encode();
+		batch.extend(iter::repeat_n(0u8, count));
+		batch
+	}
+
+	#[tokio::test]
+	async fn test_v1_oversized_batch_reported_as_bad_message() {
+		let (mut handler, _statement_store, network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
+			})
+			.await;
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: oversized_statement_batch().into(),
+			})
+			.await;
+
+		let reports = network.get_reports();
+		assert!(
+			reports.iter().any(|(id, rep)| *id == peer_id && *rep == rep::BAD_MESSAGE),
+			"Expected BAD_MESSAGE reputation change, but got: {reports:?}"
+		);
+		assert!(
+			!network.get_disconnected_peers().contains(&peer_id),
+			"Expected oversized-batch peer to stay connected"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_v2_oversized_batch_reported_as_bad_message() {
+		let (mut handler, _statement_store, network, _notification_service) =
+			build_handler_no_peers();
+
+		let peer_id = PeerId::random();
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// `StatementMessage::Statements` variant byte followed by the oversized batch.
+		let mut notification = vec![STATEMENTS_VARIANT_INDEX];
+		notification.extend(oversized_statement_batch());
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: notification.into(),
+			})
+			.await;
+
+		let reports = network.get_reports();
+		assert!(
+			reports.iter().any(|(id, rep)| *id == peer_id && *rep == rep::BAD_MESSAGE),
+			"Expected BAD_MESSAGE reputation change, but got: {reports:?}"
+		);
+		assert!(
+			!network.get_disconnected_peers().contains(&peer_id),
+			"Expected oversized-batch peer to stay connected"
+		);
 	}
 
 	#[test]
