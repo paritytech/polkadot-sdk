@@ -8854,6 +8854,7 @@ version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
