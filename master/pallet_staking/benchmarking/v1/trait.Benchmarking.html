@@ -154,7 +154,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <span class="item-spacer"></span>    fn <a href="#tymethod.run_benchmark" class="fn">run_benchmark</a>(
         name: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
         selected_components: &amp;[(<a class="enum" href="../enum.BenchmarkParameter.html" title="enum pallet_staking::benchmarking::BenchmarkParameter">BenchmarkParameter</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>)],
-        whitelist: &amp;[<a class="struct" href="../../../sp_storage/struct.TrackedStorageKey.html" title="struct sp_storage::TrackedStorageKey">TrackedStorageKey</a>],
+        whitelist: &amp;[TrackedStorageKey],
         verify: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>,
         internal_repeats: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../struct.BenchmarkResult.html" title="struct pallet_staking::benchmarking::BenchmarkResult">BenchmarkResult</a>&gt;, <a class="enum" href="../enum.BenchmarkError.html" title="enum pallet_staking::benchmarking::BenchmarkError">BenchmarkError</a>&gt;;
@@ -169,7 +169,7 @@ weight calculation.</li>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.run_benchmark" class="method"><h4 class="code-header">fn <a href="#tymethod.run_benchmark" class="fn">run_benchmark</a>(
     name: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>],
     selected_components: &amp;[(<a class="enum" href="../enum.BenchmarkParameter.html" title="enum pallet_staking::benchmarking::BenchmarkParameter">BenchmarkParameter</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>)],
-    whitelist: &amp;[<a class="struct" href="../../../sp_storage/struct.TrackedStorageKey.html" title="struct sp_storage::TrackedStorageKey">TrackedStorageKey</a>],
+    whitelist: &amp;[TrackedStorageKey],
     verify: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a>,
     internal_repeats: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../struct.BenchmarkResult.html" title="struct pallet_staking::benchmarking::BenchmarkResult">BenchmarkResult</a>&gt;, <a class="enum" href="../enum.BenchmarkError.html" title="enum pallet_staking::benchmarking::BenchmarkError">BenchmarkError</a>&gt;</h4></section></summary><div class="docblock"><p>Run the benchmarks for this pallet.</p>

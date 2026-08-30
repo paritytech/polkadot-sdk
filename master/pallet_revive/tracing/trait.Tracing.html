@@ -192,7 +192,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     ) { ... }
 <span class="item-spacer"></span>    fn <a href="#method.exit_child_span_with_error" class="fn">exit_child_span_with_error</a>(
         &amp;mut self,
-        _error: <a class="enum" href="../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>,
+        _error: DispatchError,
         _gas_used: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>,
         _weight_consumed: <a class="struct" href="../struct.Weight.html" title="struct pallet_revive::Weight">Weight</a>,
     ) { ... }
@@ -270,7 +270,7 @@ attribute a step’s cost, so an unmatched call charges that step to an enclosin
 )</h4></section></summary><div class="docblock"><p>Called after a contract call is executed</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.exit_child_span_with_error" class="method"><a class="src rightside" href="../../src/pallet_revive/tracing.rs.html#138-144">Source</a><h4 class="code-header">fn <a href="#method.exit_child_span_with_error" class="fn">exit_child_span_with_error</a>(
     &amp;mut self,
-    _error: <a class="enum" href="../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>,
+    _error: DispatchError,
     _gas_used: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u64.html">u64</a>,
     _weight_consumed: <a class="struct" href="../struct.Weight.html" title="struct pallet_revive::Weight">Weight</a>,
 )</h4></section></summary><div class="docblock"><p>Called when a contract call terminates with an error</p>

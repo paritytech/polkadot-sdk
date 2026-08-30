@@ -153,11 +153,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
     fn <a href="#tymethod.from_storage" class="fn">from_storage</a>&lt;S: State&gt;(
         code_hash: <a class="struct" href="struct.H256.html" title="struct pallet_revive::H256">H256</a>,
         meter: &amp;mut <a class="struct" href="struct.ResourceMeter.html" title="struct pallet_revive::ResourceMeter">ResourceMeter</a>&lt;T, S&gt;,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.from_evm_init_code" class="fn">from_evm_init_code</a>(
         code: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;,
         owner: &lt;T as Config&gt;::AccountId,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.execute" class="fn">execute</a>&lt;E: Ext&lt;T = T&gt;&gt;(
         self,
         ext: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;mut E</a>,
@@ -173,13 +173,13 @@ in order to be able to mock the vm logic for testing.</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.from_storage" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#602-605">Source</a><h4 class="code-header">fn <a href="#tymethod.from_storage" class="fn">from_storage</a>&lt;S: State&gt;(
     code_hash: <a class="struct" href="struct.H256.html" title="struct pallet_revive::H256">H256</a>,
     meter: &amp;mut <a class="struct" href="struct.ResourceMeter.html" title="struct pallet_revive::ResourceMeter">ResourceMeter</a>&lt;T, S&gt;,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Load the executable from storage.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Load the executable from storage.</p>
 <h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
 <p>Charges size base load weight from the weight meter.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.from_evm_init_code" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#608">Source</a><h4 class="code-header">fn <a href="#tymethod.from_evm_init_code" class="fn">from_evm_init_code</a>(
     code: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u8.html">u8</a>&gt;,
     owner: &lt;T as Config&gt;::AccountId,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Load the executable from EVM bytecode</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Load the executable from EVM bytecode</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.execute" class="method"><a class="src rightside" href="../src/pallet_revive/exec.rs.html#619-624">Source</a><h4 class="code-header">fn <a href="#tymethod.execute" class="fn">execute</a>&lt;E: Ext&lt;T = T&gt;&gt;(
     self,
     ext: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;mut E</a>,

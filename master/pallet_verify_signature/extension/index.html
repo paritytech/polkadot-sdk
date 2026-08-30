@@ -153,8 +153,8 @@ the rest of the transaction extension pipeline.</p>
 </div></details><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.VerifySignature.html" title="enum pallet_verify_signature::extension::VerifySignature">Verify<wbr>Signature</a></dt><dd>Extension that, if enabled, validates a signature type against the payload constructed from the
 call and the rest of the transaction extension pipeline. This extension provides the
 functionality that traditionally signed transactions had with the implicit signature checking
-implemented in <a href="../../sp_runtime/traits/trait.Checkable.html" title="trait sp_runtime::traits::Checkable"><code>Checkable</code></a>. It is meant to be placed ahead of
-any other extensions that do authorization work in the <a href="../../sp_runtime/traits/transaction_extension/trait.TransactionExtension.html" title="trait sp_runtime::traits::transaction_extension::TransactionExtension"><code>TransactionExtension</code></a> pipeline.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+implemented in <a href="sp_runtime::traits::Checkable"><code>Checkable</code></a>. It is meant to be placed ahead of
+any other extensions that do authorization work in the [<code>TransactionExtension</code>] pipeline.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>
