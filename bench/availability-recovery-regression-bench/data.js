@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788061032857,
+  "lastUpdate": 1788070855446,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "684c79ccace32f8813b2570acac7dfb29f515656",
-          "message": "fix(revive): handle transaction hash conflicts during re-org (#10950)\n\n## Summary\n\nFixes a UNIQUE constraint violation when processing blocks after a\nre-org:\n```\nUNIQUE constraint failed: transaction_hashes.transaction_hash\n```\n\n## Problem\n\nWhen a blockchain re-org occurs:\n1. Block A contains transaction TX1 → stored in `transaction_hashes`\n2. Server restarts (clearing the in-memory `block_number_to_hashes` map)\n3. Re-org happens, Block B (different hash) now contains the same TX1\n4. INSERT fails because TX1 already exists with old block_hash\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T21:49:20Z",
-          "tree_id": "077c704684a65444f754d1995eede215c0ac6a71",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/684c79ccace32f8813b2570acac7dfb29f515656"
-        },
-        "date": 1769813751937,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12115562046666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.208899398366668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.833573915966669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb30ef0d7a40e9efd6fa573451026267e6fcefe3",
+          "message": "statement-store: bound inbound statement batch size (#12991)\n\n# Description\n\nInbound statement batches now decode into a `BoundedVec` capped at the\nmost statements a full notification can carry. A batch declaring more is\nrejected from its length prefix, drawing the same finite `BAD_MESSAGE`\npenalty as any other decode failure.\n\n# Integration\n\nNo action required.\n\n# Review Notes\n\n- `StatementBatch = BoundedVec<Statement,\nConstU32<MAX_STATEMENTS_PER_NOTIFICATION>>`, used by both V1 and V2\ndecode paths.\n- Bound derived in `config.rs` from the notification payload and the\nminimum encoded statement size, with a test pinning that minimum across\nall `Proof` variants.",
+          "timestamp": "2026-08-30T04:45:44Z",
+          "tree_id": "8f130fc8cfbe558e5e364ccc1bed8b033d199574",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bb30ef0d7a40e9efd6fa573451026267e6fcefe3"
+        },
+        "date": 1788070817755,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.978311108533331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13057148143333333,
             "unit": "seconds"
           }
         ]
