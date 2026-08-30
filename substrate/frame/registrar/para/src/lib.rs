@@ -72,11 +72,8 @@ use frame_support::{
 };
 use hrmp_primitives::{OnParaRegistered, ParaManager};
 use registrar_primitives::{
-	MigratedPara, MigratedParaState, ReceiveMigratedParas,
-};
-use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
-	ParaId,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, MigratedPara,
+	MigratedParaState, Outcome, ParaId, ReceiveMigratedParas,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -684,20 +681,27 @@ pub mod pallet {
 		)]
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
+			// One assignment lookup answers both questions below: it locks the manager out, and
+			// it blocks the deregistration outright. A reserved id cannot hold a core, so the
+			// checker is not consulted for one — see `is_locked` for why.
+			let assigned = !matches!(info.state, RegistrationState::Reserved) &&
+				T::AssignmentChecker::has_assignment(para_id);
+			Self::ensure_root_para_or_manager(
+				origin,
+				para_id,
+				&info.manager,
+				info.locked || assigned,
+			)?;
 			let ParaInfo { manager, reservation, state, locked } = info;
 
 			match state {
 				RegistrationState::Reserved => {
-					Self::drop_reservation(reservation, &manager)?;
+					Self::drop_ticket(reservation, &manager)?;
 					Paras::<T>::remove(para_id);
 					Self::deposit_event(Event::Deregistered { para_id, manager });
 				},
 				RegistrationState::Registered { ticket } => {
-					ensure!(
-						!T::AssignmentChecker::has_assignment(para_id),
-						Error::<T>::StillAssigned
-					);
+					ensure!(!assigned, Error::<T>::StillAssigned);
 
 					let cancellable_at = T::BlockNumberProvider::current_block_number()
 						.saturating_add(T::PendingDeadline::get());
@@ -930,12 +934,12 @@ pub mod pallet {
 			ensure!(overdue, Error::<T>::CannotCancelYet);
 
 			let ParaInfo { manager, reservation, state, .. } = info;
-			Self::drop_reservation(reservation, &manager)?;
+			Self::drop_ticket(reservation, &manager)?;
 			match state {
 				RegistrationState::Pending { ticket, .. } |
 				RegistrationState::Registered { ticket } |
 				RegistrationState::Deregistering { ticket, .. } => {
-					Self::drop_registration(ticket, &manager)?;
+					Self::drop_ticket(ticket, &manager)?;
 				},
 				RegistrationState::Reserved => {},
 			}
@@ -1051,10 +1055,19 @@ impl<T: Config> Pallet<T> {
 	/// way to advance past the clash.
 	fn next_free_para_id() -> Result<ParaId, Error<T>> {
 		let mut para_id = NextFreeParaId::<T>::get().max(T::FirstPublicParaId::get());
-		while Paras::<T>::contains_key(para_id) {
+		// Stepping over ids the counter and the map disagree about is a repair mechanism, not an
+		// allocator: it exists so a migrated counter that lands low or on a taken id cannot brick
+		// `reserve`. Bound it, because `reserve` is charged a constant weight — a long dense run
+		// above the counter (only reachable through `force_set_next_free_para_id`) should fail
+		// loudly for governance to re-point the counter, not hand out unbounded reads.
+		const MAX_PROBES: u32 = 64;
+		for _ in 0..MAX_PROBES {
+			if !Paras::<T>::contains_key(para_id) {
+				return Ok(para_id);
+			}
 			para_id = para_id.checked_add(1).ok_or(Error::<T>::NoFreeParaId)?;
 		}
-		Ok(para_id)
+		Err(Error::<T>::NoFreeParaId)
 	}
 
 	/// Take the id for the next message to the relay chain.
@@ -1158,7 +1171,7 @@ impl<T: Config> Pallet<T> {
 				T::OnRegistered::on_registered(para_id);
 			},
 			Err(reason) => {
-				Self::drop_registration(ticket, &info.manager)?;
+				Self::drop_ticket(ticket, &info.manager)?;
 				info.state = RegistrationState::Reserved;
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationFailed {
@@ -1198,7 +1211,7 @@ impl<T: Config> Pallet<T> {
 		let manager = info.manager.clone();
 		match outcome {
 			Ok(()) => {
-				Self::drop_registration(ticket, &info.manager)?;
+				Self::drop_ticket(ticket, &info.manager)?;
 				info.state = RegistrationState::Reserved;
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::RegistrationCancelled { para_id, message_id, manager });
@@ -1240,8 +1253,8 @@ impl<T: Config> Pallet<T> {
 
 		match outcome {
 			Ok(()) => {
-				Self::drop_registration(ticket, &manager)?;
-				Self::drop_reservation(reservation, &manager)?;
+				Self::drop_ticket(ticket, &manager)?;
+				Self::drop_ticket(reservation, &manager)?;
 				Paras::<T>::remove(para_id);
 				Self::deposit_event(Event::Deregistered { para_id, manager });
 			},
@@ -1313,8 +1326,8 @@ impl<T: Config> Pallet<T> {
 				});
 			},
 			Err(FailureReason::NotRegistered) => {
-				Self::drop_registration(ticket, &manager)?;
-				Self::drop_reservation(reservation, &manager)?;
+				Self::drop_ticket(ticket, &manager)?;
+				Self::drop_ticket(reservation, &manager)?;
 				Paras::<T>::remove(para_id);
 				Self::deposit_event(Event::Deregistered { para_id, manager });
 			},
@@ -1381,20 +1394,9 @@ impl<T: Config> ReceiveMigratedParas for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Release a reservation ticket, if one was ever taken.
-	fn drop_reservation(
-		ticket: Option<T::ReservationConsideration>,
-		who: &T::AccountId,
-	) -> DispatchResult {
-		if let Some(ticket) = ticket {
-			ticket.drop(who)?;
-		}
-		Ok(())
-	}
-
-	/// Release a registration ticket, if one was ever taken.
-	fn drop_registration(
-		ticket: Option<T::RegistrationConsideration>,
+	/// Release a ticket, if one was ever taken — an unpaid (migrated) ticket drops to a no-op.
+	fn drop_ticket<C: Consideration<T::AccountId, Footprint>>(
+		ticket: Option<C>,
 		who: &T::AccountId,
 	) -> DispatchResult {
 		if let Some(ticket) = ticket {

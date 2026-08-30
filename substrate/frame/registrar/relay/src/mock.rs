@@ -24,7 +24,10 @@
 //! the job of the `pallet-registrar-test` crate.
 
 use crate::{self as pallet_registrar_relay, SendToPara};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64},
+};
 use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
@@ -228,11 +231,6 @@ impl pallet_registrar_relay::Config for Test {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	pub const Unused: u32 = 0;
-}
-
-use frame_support::traits::ConstU64;
 
 /// Fresh externalities with every recorder cleared.
 pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -504,14 +504,9 @@ pub mod pallet {
 
 			let pending = Self::validate_pending_upgrade(para_id, &validation_code)?;
 
-			// The registry may fail after writing storage, so isolate the attempt and report the
-			// refusal instead of unwinding: the parachain is not waiting on an answer, and
-			// leaving the entry behind would let the manager simply try different bytes.
-			let outcome = frame_support::storage::with_storage_layer::<
-				(),
-				sp_runtime::DispatchError,
-				_,
-			>(|| T::Registrar::schedule_code_upgrade(para_id, validation_code));
+			// Isolated so the entry can be removed and the refusal reported either way:
+			// leaving it behind would let the manager simply try different bytes.
+			let outcome = Self::guarded(|| T::Registrar::schedule_code_upgrade(para_id, validation_code));
 
 			PendingCodeUpgrades::<T>::remove(para_id);
 			let message_id = pending.message_id;
@@ -714,11 +709,7 @@ pub mod pallet {
 				return Self::deposit_event(Event::Deregistered { para_id, message_id });
 			}
 
-			// The registry may fail after writing storage, so isolate the attempt in its own
-			// storage layer and report the refusal instead of unwinding.
-			match frame_support::storage::with_storage_layer::<(), sp_runtime::DispatchError, _>(
-				|| T::Registrar::deregister(para_id),
-			) {
+			match Self::guarded(|| T::Registrar::deregister(para_id)) {
 				Ok(()) => {
 					Self::report_deregistration(para_id, message_id, Ok(()));
 					Self::deposit_event(Event::Deregistered { para_id, message_id });
@@ -757,47 +748,59 @@ pub mod pallet {
 			Self::deposit_event(Event::DeregistrationCancellationRefused { para_id, message_id });
 		}
 
+		/// Run a registry call in its own storage layer, so a failure after partial writes
+		/// unwinds the registry alone and can be *reported* instead of unwinding the extrinsic.
+		///
+		/// This is the rule for every trusted-origin call in this pallet: the parachain is not
+		/// waiting on an extrinsic result, only on the report, so an error must never take the
+		/// report (or this pallet's own bookkeeping) down with it. The unsigned code uploads are
+		/// the deliberate exception — they have no report and unwind whole.
+		fn guarded(
+			f: impl FnOnce() -> sp_runtime::DispatchResult,
+		) -> Result<(), sp_runtime::DispatchError> {
+			frame_support::storage::with_storage_layer::<(), sp_runtime::DispatchError, _>(f)
+		}
+
+		/// Check an uploaded blob against what an authorization committed to.
+		///
+		/// The order is the DoS guard and it is deliberate: bound the length *before* hashing, so
+		/// a junk blob costs an attacker bandwidth rather than CPU. Both unsigned uploads go
+		/// through here — the ordering must exist exactly once.
+		fn check_blob(
+			validation_code: &[u8],
+			expected_len: u32,
+			expected_hash: H256,
+		) -> Result<(), Error<T>> {
+			let code_len =
+				u32::try_from(validation_code.len()).map_err(|_| Error::<T>::CodeTooLarge)?;
+			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+			ensure!(code_len == expected_len, Error::<T>::CodeLenMismatch);
+			ensure!(
+				BlakeTwo256::hash(validation_code) == expected_hash,
+				Error::<T>::CodeHashMismatch
+			);
+			Ok(())
+		}
+
 		/// Check `validation_code` against the pending entry for `para_id`.
 		fn validate_pending_code(
 			para_id: ParaId,
 			validation_code: &[u8],
 		) -> Result<PendingRegistrationOf<T>, Error<T>> {
-			// Bound the work before hashing, so an oversized blob is rejected cheaply.
-			let code_len =
-				u32::try_from(validation_code.len()).map_err(|_| Error::<T>::CodeTooLarge)?;
-			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
-
 			let pending =
 				PendingRegistrations::<T>::get(para_id).ok_or(Error::<T>::NothingPending)?;
-			ensure!(code_len == pending.code_len, Error::<T>::CodeLenMismatch);
-			ensure!(
-				BlakeTwo256::hash(validation_code) == pending.code_hash,
-				Error::<T>::CodeHashMismatch
-			);
-
+			Self::check_blob(validation_code, pending.code_len, pending.code_hash)?;
 			Ok(pending)
 		}
 
 		/// Check an uploaded blob against the upgrade authorization held for `para_id`.
-		///
-		/// Same ordering as [`Self::validate_pending_code`], and for the same reason: bound the
-		/// work before hashing so a junk blob costs an attacker bandwidth rather than CPU.
 		fn validate_pending_upgrade(
 			para_id: ParaId,
 			validation_code: &[u8],
 		) -> Result<PendingCodeUpgrade, Error<T>> {
-			let code_len =
-				u32::try_from(validation_code.len()).map_err(|_| Error::<T>::CodeTooLarge)?;
-			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
-
 			let pending = PendingCodeUpgrades::<T>::get(para_id)
 				.ok_or(Error::<T>::NothingPendingUpgrade)?;
-			ensure!(code_len == pending.code_len, Error::<T>::CodeLenMismatch);
-			ensure!(
-				BlakeTwo256::hash(validation_code) == pending.code_hash,
-				Error::<T>::CodeHashMismatch
-			);
-
+			Self::check_blob(validation_code, pending.code_len, pending.code_hash)?;
 			Ok(pending)
 		}
 
@@ -866,9 +869,7 @@ pub mod pallet {
 				});
 			}
 
-			match frame_support::storage::with_storage_layer::<(), sp_runtime::DispatchError, _>(
-				|| T::Registrar::set_current_head(para_id, head),
-			) {
+			match Self::guarded(|| T::Registrar::set_current_head(para_id, head)) {
 				Ok(()) => Self::deposit_event(Event::HeadSet { para_id, message_id }),
 				Err(_) => Self::deposit_event(Event::HeadRejected {
 					para_id,

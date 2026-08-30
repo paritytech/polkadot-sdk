@@ -44,7 +44,7 @@ extern crate alloc;
 use frame_support::traits::EnsureOrigin;
 use hrmp_primitives::{
 	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, Outcome, ParaId,
+	MessageToRelayV1, Outcome,
 };
 
 pub use pallet::*;
@@ -368,6 +368,3 @@ pub mod pallet {
 		}
 	}
 }
-
-/// Sugar for tests and runtimes that need to name a para without importing the primitives crate.
-pub type HrmpParaId = ParaId;
