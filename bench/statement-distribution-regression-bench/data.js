@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788004124707,
+  "lastUpdate": 1788061171901,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "02f16b7f9e9b5d5c889051286da6d2a36eb79e7a",
-          "message": "[pallet-revive] added trybuild test for precompile compile-time checks (#10698)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8364\n\nThis PR adds compile-time tests using try_build to validate invariants\nenforced on registered precompiles. The tests ensure collision detection\nand related compile-time checks are correctly triggered and remain\nenforced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2026-01-30T11:43:34Z",
-          "tree_id": "f226a0b4b0136dc84a597a278f932d31a55fc684",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/02f16b7f9e9b5d5c889051286da6d2a36eb79e7a"
-        },
-        "date": 1769777426664,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.06599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03834638200399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06624578940399989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09144930338199994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f",
+          "message": "Reject duplicate derivative IDs (#13006)\n\n- reject derivative registration when the derivative ID is already\nmapped to another original\n- preserve the one-to-one relationship between the forward and reverse\nregistry indexes\n- add a regression covering duplicate derivative IDs and the original\nmapping\n\n`try_register_derivative` previously checked only the\noriginal-to-derivative index before writing both indexes. Reusing a\nderivative ID could therefore overwrite the reverse entry while leaving\ntwo forward entries pointing at the same derivative.",
+          "timestamp": "2026-08-30T02:09:09Z",
+          "tree_id": "0d9fb29c9148dd99c089bd6e31e1990375f53caa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f"
+        },
+        "date": 1788061131852,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10999999999993,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038445688374,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08206877445999997,
             "unit": "seconds"
           }
         ]
