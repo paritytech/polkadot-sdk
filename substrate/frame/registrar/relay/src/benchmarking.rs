@@ -84,7 +84,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		authorize_code(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(PendingRegistrations::<T>::contains_key(PARA_ID));
 		Ok(())
@@ -138,7 +138,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(!PendingRegistrations::<T>::contains_key(PARA_ID));
 		Ok(())
@@ -156,7 +156,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(T::Registrar::manager_of(PARA_ID).is_none());
 		Ok(())
@@ -174,7 +174,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(T::Registrar::manager_of(PARA_ID).is_some());
 		Ok(())
@@ -192,7 +192,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(PendingCodeUpgrades::<T>::contains_key(PARA_ID));
 		Ok(())
@@ -248,7 +248,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		Ok(())
 	}
@@ -278,7 +278,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		Ok(())
 	}

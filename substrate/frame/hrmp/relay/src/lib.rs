@@ -138,32 +138,38 @@ pub mod pallet {
 		ReportFailed { channel: ChannelId, message_id: u64 },
 	}
 
-	#[pallet::error]
-	pub enum Error<T> {
-		/// The message is not one this call serves.
-		UnexpectedMessage,
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Record an open-channel request, at the parachain's request.
+		/// Serve one request from the parachain that owns the HRMP user surface.
 		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users.
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. One
+		/// entry point for every message variant — the wire enum is the protocol, so the call
+		/// surface should not re-split what the type already unifies; a new message costs a new
+		/// variant and a match arm here, not a new extrinsic. Mirrors the para side's `receive`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::init_open_channel())]
-		pub fn init_open_channel(
-			origin: OriginFor<T>,
-			message: MessageToRelay,
-		) -> DispatchResult {
+		#[pallet::weight(match message {
+			MessageToRelay::V1(MessageToRelayV1::InitOpenChannel { .. }) =>
+				T::WeightInfo::init_open_channel(),
+			MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel { .. }) =>
+				T::WeightInfo::accept_open_channel(),
+			MessageToRelay::V1(MessageToRelayV1::CloseChannel { .. }) =>
+				T::WeightInfo::close_channel(),
+			MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest { .. }) =>
+				T::WeightInfo::cancel_open_request(),
+			MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { .. }) =>
+				T::WeightInfo::establish_system_channel(),
+		})]
+		pub fn receive(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
 			T::ParaOrigin::ensure_origin_or_root(origin)?;
 
+			let MessageToRelay::V1(message) = message;
 			match message {
-				MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
+				MessageToRelayV1::InitOpenChannel {
 					channel,
 					message_id,
 					max_capacity,
 					max_message_size,
-				}) => {
+				} => {
 					let outcome = Self::guarded(|| {
 						T::Registry::init_open_channel(channel, max_capacity, max_message_size)
 					});
@@ -179,28 +185,12 @@ pub mod pallet {
 						|c, m| Event::OpenRequested { channel: c, message_id: m },
 						|c, m, r| Event::OpenRejected { channel: c, message_id: m, reason: r },
 					);
-					Ok(())
 				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Confirm an open-channel request on the recipient's behalf.
-		///
-		/// Only callable by a trusted XCM origin, never by users. The channel itself comes into
-		/// existence at this chain's next session boundary; the report goes out now, because what
-		/// the parachain is waiting on is whether its deposit is owed, not whether the channel has
-		/// finished opening.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::accept_open_channel())]
-		pub fn accept_open_channel(
-			origin: OriginFor<T>,
-			message: MessageToRelay,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel { channel, message_id }) => {
+				MessageToRelayV1::AcceptOpenChannel { channel, message_id } => {
+					// The channel itself comes into existence at this chain's next session
+					// boundary; the report goes out now, because what the parachain is waiting
+					// on is whether its deposit is owed, not whether the channel has finished
+					// opening.
 					let outcome = Self::guarded(|| T::Registry::accept_open_channel(channel));
 					Self::settle(
 						channel,
@@ -214,26 +204,8 @@ pub mod pallet {
 						|c, m| Event::OpenAccepted { channel: c, message_id: m },
 						|c, m, r| Event::AcceptRejected { channel: c, message_id: m, reason: r },
 					);
-					Ok(())
 				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Close an open channel, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin, never by users.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::close_channel())]
-		pub fn close_channel(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::CloseChannel {
-					channel,
-					message_id,
-					initiator,
-				}) => {
+				MessageToRelayV1::CloseChannel { channel, message_id, initiator } => {
 					let outcome = Self::guarded(|| T::Registry::close_channel(channel, initiator));
 					Self::settle(
 						channel,
@@ -247,25 +219,8 @@ pub mod pallet {
 						|c, m| Event::Closed { channel: c, message_id: m },
 						|c, m, r| Event::CloseRejected { channel: c, message_id: m, reason: r },
 					);
-					Ok(())
 				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Drop an unconfirmed open-channel request, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin, never by users.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::cancel_open_request())]
-		pub fn cancel_open_request(
-			origin: OriginFor<T>,
-			message: MessageToRelay,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest { channel, message_id }) => {
+				MessageToRelayV1::CancelOpenRequest { channel, message_id } => {
 					let outcome = Self::guarded(|| T::Registry::cancel_open_request(channel));
 					Self::settle(
 						channel,
@@ -279,29 +234,10 @@ pub mod pallet {
 						|c, m| Event::Cancelled { channel: c, message_id: m },
 						|c, m, r| Event::CancelRejected { channel: c, message_id: m, reason: r },
 					);
-					Ok(())
 				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Open a deposit-free channel in both directions, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin, never by users. Unanswered: the outcome is an
-		/// event on this chain, because no deposit anywhere depends on it.
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::establish_system_channel())]
-		pub fn establish_system_channel(
-			origin: OriginFor<T>,
-			message: MessageToRelay,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
-					channel,
-					message_id,
-				}) => {
+				// Unanswered: the outcome is an event on this chain, because no deposit anywhere
+				// depends on it.
+				MessageToRelayV1::EstablishSystemChannel { channel, message_id } => {
 					match Self::guarded(|| T::Registry::establish_system_channel(channel)) {
 						Ok(()) => Self::deposit_event(Event::SystemChannelOpened {
 							channel,
@@ -313,10 +249,9 @@ pub mod pallet {
 							reason,
 						}),
 					}
-					Ok(())
 				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
 			}
+			Ok(())
 		}
 	}
 

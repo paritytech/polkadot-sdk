@@ -285,52 +285,93 @@ pub mod pallet {
 		CodeLenMismatch,
 		/// The validation code is larger than this pallet will accept.
 		CodeTooLarge,
-		/// The message is not one this call serves.
-		UnexpectedMessage,
 		/// No code upgrade is waiting on code for this para id.
 		NothingPendingUpgrade,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Accept a control-plane message from the parachain's registrar pallet and authorize the
-		/// validation code that will follow.
+		/// Serve one control-plane request from the parachain that owns the registrar's user
+		/// surface.
 		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users.
+		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. One
+		/// entry point for every message variant — the wire enum is the protocol, so the call
+		/// surface should not re-split what the type already unifies; a new message costs a new
+		/// variant and a match arm here, not a new extrinsic. Mirrors the para side's `receive`.
+		/// The unsigned code uploads stay separate calls: they carry a different origin
+		/// discipline entirely.
 		///
 		/// A request this pallet will not act on is *not* an extrinsic failure. Failing would roll
 		/// back the rejection report along with everything else, and the parachain would sit on a
 		/// held deposit waiting for news that never comes. So a rejection is applied, reported, and
 		/// returns `Ok`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::authorize_code(head_data_len(message)))]
-		pub fn authorize_code(
+		#[pallet::weight(match message {
+			MessageToRelay::V1(MessageToRelayV1::Register { .. }) =>
+				T::WeightInfo::authorize_code(head_data_len(message)),
+			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
+				T::WeightInfo::cancel_authorization(),
+			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) =>
+				T::WeightInfo::deregister(),
+			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) =>
+				T::WeightInfo::cancel_deregistration(),
+			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) =>
+				T::WeightInfo::authorize_code_upgrade(),
+			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) =>
+				T::WeightInfo::set_current_head(head_data_len(message)),
+			MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown { .. }) =>
+				T::WeightInfo::remove_upgrade_cooldown(),
+		})]
+		pub fn receive(
 			origin: OriginFor<T>,
 			message: MessageToRelay<T::AccountId>,
 		) -> DispatchResult {
 			T::ParaOrigin::ensure_origin_or_root(origin)?;
 
+			let MessageToRelay::V1(message) = message;
 			match message {
-				MessageToRelay::V1(MessageToRelayV1::Register {
+				// Park the registration and authorize the validation code that will follow.
+				MessageToRelayV1::Register {
 					para_id,
 					message_id,
 					manager,
 					genesis_head,
 					code_hash,
 					code_len,
-				}) => {
-					Self::on_register_request(
-						para_id,
-						message_id,
-						manager,
-						genesis_head,
-						code_hash,
-						code_len,
-					);
-					Ok(())
+				} => Self::on_register_request(
+					para_id,
+					message_id,
+					manager,
+					genesis_head,
+					code_hash,
+					code_len,
+				),
+				MessageToRelayV1::CancelRegistration { para_id, message_id } =>
+					Self::on_cancel_request(para_id, message_id),
+				MessageToRelayV1::Deregister { para_id, message_id } =>
+					Self::on_deregister_request(para_id, message_id),
+				MessageToRelayV1::CancelDeregistration { para_id, message_id } =>
+					Self::on_cancel_deregistration_request(para_id, message_id),
+				MessageToRelayV1::AuthorizeCodeUpgrade {
+					para_id,
+					message_id,
+					code_hash,
+					code_len,
+				} => Self::on_code_upgrade_request(para_id, message_id, code_hash, code_len),
+				MessageToRelayV1::SetCurrentHead { para_id, message_id, head } =>
+					Self::on_set_head_request(para_id, message_id, head),
+				MessageToRelayV1::RemoveUpgradeCooldown { para_id, message_id } => {
+					if T::Registrar::remove_upgrade_cooldown(para_id) {
+						Self::deposit_event(Event::UpgradeCooldownRemoved { para_id, message_id });
+					} else {
+						// Not an error: the cooldown may simply have expired between the
+						// parachain deciding to pay and this arriving. The payer is not made
+						// whole, which is the same deal they get today.
+						Self::deposit_event(Event::NoUpgradeCooldown { para_id, message_id });
+					}
 				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
 			}
+			Ok(())
 		}
 
 		/// Upload the validation code for a pending authorization, onboarding the para.
@@ -369,121 +410,6 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Drop the authorization held for a para id, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. This is
-		/// the only way an authorization that never received its code goes away, and the manager
-		/// pays for it on the parachain: nothing here expires on its own.
-		///
-		/// Answered with [`MessageToParaV1::CancelResponse`], which is what lets the parachain
-		/// release the deposit. Refused, and reported as such, if the code did land in the meantime
-		/// and the para is registered: the deposit is then owed after all.
-		///
-		/// Cancelling something that was never pending is not an error. The request may simply have
-		/// been rejected here and the report lost, and the parachain still needs an answer it can
-		/// act on.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::cancel_authorization())]
-		pub fn cancel_authorization(
-			origin: OriginFor<T>,
-			message: MessageToRelay<T::AccountId>,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
-					para_id,
-					message_id,
-				}) => {
-					Self::on_cancel_request(para_id, message_id);
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Remove a para from the registry, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users.
-		///
-		/// Checks the manager and that the para is unlocked, then removes the para and schedules
-		/// its relay-chain cleanup. As with [`Pallet::authorize_code`], a rejected request is
-		/// reported back and returns `Ok`, never `Err`. An unknown id is confirmed as gone rather
-		/// than refused, so the parachain can release deposits.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::deregister())]
-		pub fn deregister(
-			origin: OriginFor<T>,
-			message: MessageToRelay<T::AccountId>,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id }) => {
-					Self::on_deregister_request(para_id, message_id);
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Answer whether a deregistration went through, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. Sent
-		/// when the verdict for a [`MessageToRelayV1::Deregister`] never arrived. Answered with
-		/// [`MessageToParaV1::CancelDeregistrationResponse`], which settles the parachain either
-		/// way: back to registered, or deposits released after all.
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::cancel_deregistration())]
-		pub fn cancel_deregistration(
-			origin: OriginFor<T>,
-			message: MessageToRelay<T::AccountId>,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
-					para_id,
-					message_id,
-				}) => {
-					Self::on_cancel_deregistration_request(para_id, message_id);
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Authorize the validation code of an upgrade, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. The
-		/// blob follows in [`Pallet::apply_authorized_code_upgrade`], exactly as a registration's
-		/// code does.
-		///
-		/// No deposit is involved. A registration is priced at the largest code the relay chain
-		/// will accept, so an upgrade to any acceptable code is already paid for and needs no
-		/// top-up message. A refusal is therefore reported as an event here rather than sent back.
-		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::authorize_code_upgrade())]
-		pub fn authorize_code_upgrade(
-			origin: OriginFor<T>,
-			message: MessageToRelay<T::AccountId>,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
-					para_id,
-					message_id,
-					code_hash,
-					code_len,
-				}) => {
-					Self::on_code_upgrade_request(para_id, message_id, code_hash, code_len);
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
 		/// Upload the validation code for an authorized upgrade, applying it.
 		///
 		/// Needs no signature and pays no fee, on the same argument as
@@ -519,64 +445,6 @@ pub mod pallet {
 				}),
 			}
 			Ok(Pays::No.into())
-		}
-
-		/// Set a para's head data, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. Head
-		/// data is small enough to travel inline, so unlike validation code this needs no upload
-		/// step. Unanswered, like [`Pallet::authorize_code_upgrade`].
-		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::set_current_head(head_data_len(message)))]
-		pub fn set_current_head(
-			origin: OriginFor<T>,
-			message: MessageToRelay<T::AccountId>,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
-					para_id,
-					message_id,
-					head,
-				}) => {
-					Self::on_set_head_request(para_id, message_id, head);
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
-		}
-
-		/// Drop a para's upgrade cooldown, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin, never by users. Charges nothing: the cost was
-		/// burned on the parachain, which is where the money lives. Unanswered, like the other
-		/// calls whose outcome nothing is staked on.
-		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::remove_upgrade_cooldown())]
-		pub fn remove_upgrade_cooldown(
-			origin: OriginFor<T>,
-			message: MessageToRelay<T::AccountId>,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
-					para_id,
-					message_id,
-				}) => {
-					if T::Registrar::remove_upgrade_cooldown(para_id) {
-						Self::deposit_event(Event::UpgradeCooldownRemoved { para_id, message_id });
-					} else {
-						// Not an error: the cooldown may simply have expired between the
-						// parachain deciding to pay and this arriving. The payer is not made
-						// whole, which is the same deal they get today.
-						Self::deposit_event(Event::NoUpgradeCooldown { para_id, message_id });
-					}
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
 		}
 
 		/// Drop a pending registration or code upgrade that nobody is going to complete.
@@ -886,7 +754,6 @@ pub mod pallet {
 				Error::<T>::CodeHashMismatch => 1,
 				Error::<T>::CodeLenMismatch => 2,
 				Error::<T>::CodeTooLarge => 3,
-				Error::<T>::UnexpectedMessage => 4,
 				Error::<T>::NothingPendingUpgrade => 5,
 			}
 		}

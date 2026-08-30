@@ -418,10 +418,10 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 		let other_para: relay::RuntimeOrigin =
 			ParachainsOrigin::Parachain((PARA_ID + 1).into()).into();
 		assert!(senders::EnsureRegistrarPara::try_origin(other_para.clone()).is_err());
-		assert!(relay::Registrar::authorize_code(other_para, message.clone()).is_err());
+		assert!(relay::Registrar::receive(other_para, message.clone()).is_err());
 
 		// ...nor is a plain signed account.
-		assert!(relay::Registrar::authorize_code(
+		assert!(relay::Registrar::receive(
 			relay::RuntimeOrigin::signed(BOB),
 			message.clone()
 		)
@@ -429,7 +429,7 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 
 		// The configured parachain is.
 		let ours: relay::RuntimeOrigin = ParachainsOrigin::Parachain(PARA_ID.into()).into();
-		assert_ok!(relay::Registrar::authorize_code(ours, message));
+		assert_ok!(relay::Registrar::receive(ours, message));
 		assert!(pallet_registrar_relay::PendingRegistrations::<relay::Runtime>::get(3000).is_some());
 	});
 }

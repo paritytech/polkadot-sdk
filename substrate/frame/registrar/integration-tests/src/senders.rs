@@ -28,11 +28,8 @@ use pallet_registrar_para::SendToRelay;
 use pallet_registrar_relay::SendToPara;
 use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
 use polkadot_runtime_parachains::Origin as ParachainsOrigin;
-use hrmp_primitives::{
-	MessageToPara as HrmpMessageToPara, MessageToRelay as HrmpMessageToRelay,
-	MessageToRelayV1 as HrmpMessageToRelayV1,
-};
-use registrar_primitives::{MessageToPara, MessageToRelay, MessageToRelayV1};
+use hrmp_primitives::{MessageToPara as HrmpMessageToPara, MessageToRelay as HrmpMessageToRelay};
+use registrar_primitives::{MessageToPara, MessageToRelay};
 use sp_runtime::AccountId32;
 use xcm::latest::prelude::*;
 
@@ -51,24 +48,10 @@ pub enum RelayRuntimePallets<AccountId> {
 
 #[derive(Encode)]
 pub enum RegistrarRelayCalls<AccountId> {
-	/// Index of `fn authorize_code` in `pallet-registrar-relay`.
+	/// Index of `fn receive` in `pallet-registrar-relay`: one entry point for every message
+	/// variant, so the transport needs no routing.
 	#[codec(index = 0)]
-	AuthorizeCode(MessageToRelay<AccountId>),
-	/// Index of `fn cancel_authorization` in `pallet-registrar-relay`.
-	#[codec(index = 2)]
-	CancelAuthorization(MessageToRelay<AccountId>),
-	/// Index of `fn deregister` in `pallet-registrar-relay`.
-	#[codec(index = 3)]
-	Deregister(MessageToRelay<AccountId>),
-	/// Index of `fn cancel_deregistration` in `pallet-registrar-relay`.
-	#[codec(index = 4)]
-	CancelDeregistration(MessageToRelay<AccountId>),
-	#[codec(index = 5)]
-	AuthorizeCodeUpgrade(MessageToRelay<AccountId>),
-	#[codec(index = 7)]
-	SetCurrentHead(MessageToRelay<AccountId>),
-	#[codec(index = 9)]
-	RemoveUpgradeCooldown(MessageToRelay<AccountId>),
+	Receive(MessageToRelay<AccountId>),
 }
 
 /// Calls on the parachain, as the relay chain must encode them.
@@ -98,32 +81,7 @@ impl SendToRelay for ParaSendToRelay {
 	type AccountId = AccountId32;
 
 	fn send(message: MessageToRelay<Self::AccountId>) -> Result<(), ()> {
-		// One call per message on that side, so the transport picks the index the variant belongs
-		// to.
-		let relay_call = match message {
-			MessageToRelay::V1(MessageToRelayV1::Register { .. }) => {
-				RegistrarRelayCalls::AuthorizeCode(message)
-			},
-			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => {
-				RegistrarRelayCalls::CancelAuthorization(message)
-			},
-			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) => {
-				RegistrarRelayCalls::Deregister(message)
-			},
-			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) => {
-				RegistrarRelayCalls::CancelDeregistration(message)
-			},
-			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) => {
-				RegistrarRelayCalls::AuthorizeCodeUpgrade(message)
-			},
-			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => {
-				RegistrarRelayCalls::SetCurrentHead(message)
-			},
-			MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown { .. }) => {
-				RegistrarRelayCalls::RemoveUpgradeCooldown(message)
-			},
-		};
-		let call = RelayRuntimePallets::Registrar(relay_call).encode();
+		let call = RelayRuntimePallets::Registrar(RegistrarRelayCalls::Receive(message)).encode();
 		let program = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
@@ -151,16 +109,9 @@ pub enum RelayRuntimeHrmpPallets {
 
 #[derive(Encode)]
 pub enum HrmpRelayCalls {
+	/// Index of `fn receive` in `pallet-hrmp-relay`.
 	#[codec(index = 0)]
-	InitOpenChannel(HrmpMessageToRelay),
-	#[codec(index = 1)]
-	AcceptOpenChannel(HrmpMessageToRelay),
-	#[codec(index = 2)]
-	CloseChannel(HrmpMessageToRelay),
-	#[codec(index = 3)]
-	CancelOpenRequest(HrmpMessageToRelay),
-	#[codec(index = 4)]
-	EstablishSystemChannel(HrmpMessageToRelay),
+	Receive(HrmpMessageToRelay),
 }
 
 /// Calls on the parachain's HRMP control pallet, as the relay chain must encode them.
@@ -184,19 +135,7 @@ pub struct ParaHrmpSendToRelay;
 
 impl pallet_hrmp_para::SendToRelay for ParaHrmpSendToRelay {
 	fn send(message: HrmpMessageToRelay) -> Result<(), ()> {
-		let call = match message {
-			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::InitOpenChannel { .. }) =>
-				HrmpRelayCalls::InitOpenChannel(message),
-			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::AcceptOpenChannel { .. }) =>
-				HrmpRelayCalls::AcceptOpenChannel(message),
-			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::CloseChannel { .. }) =>
-				HrmpRelayCalls::CloseChannel(message),
-			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::CancelOpenRequest { .. }) =>
-				HrmpRelayCalls::CancelOpenRequest(message),
-			HrmpMessageToRelay::V1(HrmpMessageToRelayV1::EstablishSystemChannel { .. }) =>
-				HrmpRelayCalls::EstablishSystemChannel(message),
-		};
-		let call = RelayRuntimeHrmpPallets::HrmpControl(call).encode();
+		let call = RelayRuntimeHrmpPallets::HrmpControl(HrmpRelayCalls::Receive(message)).encode();
 		let program = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {

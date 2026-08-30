@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-hrmp-relay`.
 
-use crate::{mock::*, Error, Event};
+use crate::{mock::*, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
@@ -79,8 +79,8 @@ fn cancel_report(channel: ChannelId, outcome: Outcome) -> MessageToPara {
 
 /// Drive a channel all the way to open on the registry.
 fn opened(channel: ChannelId) {
-	assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
-	assert_ok!(Hrmp::accept_open_channel(RuntimeOrigin::root(), accept_msg(channel)));
+	assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
+	assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
 	let _ = take_sent();
 	let _ = hrmp_events();
 }
@@ -93,33 +93,16 @@ mod origins {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
 			for call in [
-				Hrmp::init_open_channel(RuntimeOrigin::signed(ALICE), init_msg(channel)),
-				Hrmp::accept_open_channel(RuntimeOrigin::signed(ALICE), accept_msg(channel)),
-				Hrmp::close_channel(RuntimeOrigin::signed(ALICE), close_msg(channel, PARA_A)),
-				Hrmp::cancel_open_request(RuntimeOrigin::signed(ALICE), cancel_msg(channel)),
+				Hrmp::receive(RuntimeOrigin::signed(ALICE), init_msg(channel)),
+				Hrmp::receive(RuntimeOrigin::signed(ALICE), accept_msg(channel)),
+				Hrmp::receive(RuntimeOrigin::signed(ALICE), close_msg(channel, PARA_A)),
+				Hrmp::receive(RuntimeOrigin::signed(ALICE), cancel_msg(channel)),
 			] {
 				assert_noop!(call, DispatchError::BadOrigin);
 			}
 		});
 	}
 
-	#[test]
-	fn a_call_refuses_a_message_it_does_not_serve() {
-		new_test_ext().execute_with(|| {
-			// The wire format is one enum, so each call has to check it got its own variant.
-			assert_noop!(
-				Hrmp::init_open_channel(
-					RuntimeOrigin::root(),
-					accept_msg(chan(PARA_A, PARA_B))
-				),
-				Error::<Test>::UnexpectedMessage
-			);
-			assert_noop!(
-				Hrmp::close_channel(RuntimeOrigin::root(), init_msg(chan(PARA_A, PARA_B))),
-				Error::<Test>::UnexpectedMessage
-			);
-		});
-	}
 }
 
 mod init_open_channel {
@@ -130,7 +113,7 @@ mod init_open_channel {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
 
-			assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
 
 			assert_eq!(Requests::get(), vec![(channel, false)]);
 			assert_eq!(take_sent(), vec![open_report(channel, Ok(()))]);
@@ -149,7 +132,7 @@ mod init_open_channel {
 
 			// Returning `Err` here would roll the report back with everything else, and the
 			// parachain would sit on a held deposit waiting for news that never comes.
-			assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
 
 			assert!(Requests::get().is_empty());
 			assert_eq!(
@@ -173,7 +156,7 @@ mod init_open_channel {
 			let channel = chan(PARA_A, PARA_B);
 			SendFails::set(true);
 
-			assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
 
 			// This chain's own state is already correct; the parachain is the one now out of
 			// step, and unwinding here would be strictly worse.
@@ -196,11 +179,11 @@ mod accept_open_channel {
 	fn confirms_the_request_and_reports_success() {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
 			let _ = take_sent();
 			let _ = hrmp_events();
 
-			assert_ok!(Hrmp::accept_open_channel(RuntimeOrigin::root(), accept_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
 
 			assert_eq!(Requests::get(), vec![(channel, true)]);
 			assert_eq!(OpenChannels::get(), vec![channel]);
@@ -217,7 +200,7 @@ mod accept_open_channel {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
 
-			assert_ok!(Hrmp::accept_open_channel(RuntimeOrigin::root(), accept_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
 
 			assert_eq!(
 				take_sent(),
@@ -236,7 +219,7 @@ mod close_channel {
 			let channel = chan(PARA_A, PARA_B);
 			opened(channel);
 
-			assert_ok!(Hrmp::close_channel(RuntimeOrigin::root(), close_msg(channel, PARA_B)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_B)));
 
 			assert!(OpenChannels::get().is_empty());
 			assert_eq!(take_sent(), vec![close_report(channel, Ok(()))]);
@@ -250,7 +233,7 @@ mod close_channel {
 			let channel = chan(PARA_A, PARA_B);
 			opened(channel);
 
-			assert_ok!(Hrmp::close_channel(
+			assert_ok!(Hrmp::receive(
 				RuntimeOrigin::root(),
 				close_msg(channel, PARA_UNKNOWN)
 			));
@@ -271,7 +254,7 @@ mod close_channel {
 			opened(channel);
 			NextFailure::set(Some(FailureReason::Refused));
 
-			assert_ok!(Hrmp::close_channel(RuntimeOrigin::root(), close_msg(channel, PARA_A)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_A)));
 
 			// A refusal is reported as "nothing happened", so a partial write must not survive
 			// it — otherwise the two chains disagree with no way to notice.
@@ -292,11 +275,11 @@ mod cancel_open_request {
 	fn drops_an_unconfirmed_request() {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
 			let _ = take_sent();
 			let _ = hrmp_events();
 
-			assert_ok!(Hrmp::cancel_open_request(RuntimeOrigin::root(), cancel_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_msg(channel)));
 
 			assert!(Requests::get().is_empty());
 			assert_eq!(take_sent(), vec![cancel_report(channel, Ok(()))]);
@@ -310,7 +293,7 @@ mod cancel_open_request {
 			let channel = chan(PARA_A, PARA_B);
 			opened(channel);
 
-			assert_ok!(Hrmp::cancel_open_request(RuntimeOrigin::root(), cancel_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_msg(channel)));
 
 			// The parachain must keep holding: the channel is real now.
 			assert_eq!(
@@ -336,7 +319,7 @@ mod establish_system_channel {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
 
-			assert_ok!(Hrmp::establish_system_channel(
+			assert_ok!(Hrmp::receive(
 				RuntimeOrigin::root(),
 				system_msg(channel)
 			));
@@ -360,7 +343,7 @@ mod establish_system_channel {
 			let channel = chan(PARA_A, PARA_B);
 			NextFailure::set(Some(FailureReason::Refused));
 
-			assert_ok!(Hrmp::establish_system_channel(
+			assert_ok!(Hrmp::receive(
 				RuntimeOrigin::root(),
 				system_msg(channel)
 			));
@@ -393,16 +376,16 @@ mod contract {
 			(
 				"init_open_channel",
 				Box::new(move || {
-					Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel))
+					Hrmp::receive(RuntimeOrigin::root(), init_msg(channel))
 				}),
 				open_report(channel, Ok(())),
 			),
 			(
 				"accept_open_channel",
 				Box::new(move || {
-					Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)).unwrap();
+					Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)).unwrap();
 					let _ = take_sent();
-					Hrmp::accept_open_channel(RuntimeOrigin::root(), accept_msg(channel))
+					Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel))
 				}),
 				accept_report(channel, Ok(())),
 			),
@@ -410,16 +393,16 @@ mod contract {
 				"close_channel",
 				Box::new(move || {
 					opened(channel);
-					Hrmp::close_channel(RuntimeOrigin::root(), close_msg(channel, PARA_A))
+					Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_A))
 				}),
 				close_report(channel, Ok(())),
 			),
 			(
 				"cancel_open_request",
 				Box::new(move || {
-					Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)).unwrap();
+					Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)).unwrap();
 					let _ = take_sent();
-					Hrmp::cancel_open_request(RuntimeOrigin::root(), cancel_msg(channel))
+					Hrmp::receive(RuntimeOrigin::root(), cancel_msg(channel))
 				}),
 				cancel_report(channel, Ok(())),
 			),
@@ -457,38 +440,6 @@ mod contract {
 		}
 	}
 
-	#[test]
-	fn every_call_refuses_a_message_it_does_not_serve() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			let wrong = [
-				("init", Hrmp::init_open_channel(RuntimeOrigin::root(), accept_msg(channel))),
-				("accept", Hrmp::accept_open_channel(RuntimeOrigin::root(), init_msg(channel))),
-				("close", Hrmp::close_channel(RuntimeOrigin::root(), cancel_msg(channel))),
-				(
-					"cancel",
-					Hrmp::cancel_open_request(
-						RuntimeOrigin::root(),
-						close_msg(channel, PARA_A),
-					),
-				),
-				(
-					"system",
-					Hrmp::establish_system_channel(RuntimeOrigin::root(), init_msg(channel)),
-				),
-			];
-			for (name, result) in wrong {
-				assert_eq!(
-					result,
-					Err(Error::<Test>::UnexpectedMessage.into()),
-					"{name} accepted a message it does not serve"
-				);
-			}
-			// A refused message is an extrinsic failure, not a report: nothing was decided, so
-			// there is nothing to tell the parachain.
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
 
 	#[test]
 	fn the_registry_is_the_only_source_of_truth_about_what_exists() {
@@ -498,13 +449,13 @@ mod contract {
 
 			assert!(!MockRegistry::exists(channel));
 
-			assert_ok!(Hrmp::init_open_channel(RuntimeOrigin::root(), init_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
 			assert!(MockRegistry::exists(channel), "a pending request counts as existing");
 
-			assert_ok!(Hrmp::accept_open_channel(RuntimeOrigin::root(), accept_msg(channel)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
 			assert!(MockRegistry::exists(channel));
 
-			assert_ok!(Hrmp::close_channel(RuntimeOrigin::root(), close_msg(channel, PARA_A)));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_A)));
 			assert!(!MockRegistry::exists(channel));
 		});
 	}
@@ -537,7 +488,7 @@ mod parameters {
 
 			// Zero capacity is refused by the registry, not by this pallet: the live bounds are
 			// the relay chain's business, and mirroring them here would let the two drift.
-			assert_ok!(Hrmp::init_open_channel(
+			assert_ok!(Hrmp::receive(
 				RuntimeOrigin::root(),
 				MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
 					channel,

@@ -39,7 +39,7 @@ fn init_msg() -> MessageToRelay {
 /// Put a request on the registry, so the calls that act on one have something to find.
 fn request<T: Config>() -> Result<(), BenchmarkError> {
 	T::Registry::ensure_openable(CHANNEL);
-	Pallet::<T>::init_open_channel(RawOrigin::Root.into(), init_msg())?;
+	Pallet::<T>::receive(RawOrigin::Root.into(), init_msg())?;
 	Ok(())
 }
 
@@ -53,7 +53,7 @@ mod benchmarks {
 		T::Registry::ensure_openable(CHANNEL);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, init_msg());
+		receive(RawOrigin::Root, init_msg());
 
 		assert!(T::Registry::exists(CHANNEL));
 		Ok(())
@@ -65,7 +65,7 @@ mod benchmarks {
 		request::<T>()?;
 
 		#[extrinsic_call]
-		_(
+		receive(
 			RawOrigin::Root,
 			MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel {
 				channel: CHANNEL,
@@ -80,7 +80,7 @@ mod benchmarks {
 	#[benchmark]
 	fn close_channel() -> Result<(), BenchmarkError> {
 		request::<T>()?;
-		Pallet::<T>::accept_open_channel(
+		Pallet::<T>::receive(
 			RawOrigin::Root.into(),
 			MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel {
 				channel: CHANNEL,
@@ -89,7 +89,7 @@ mod benchmarks {
 		)?;
 
 		#[extrinsic_call]
-		_(
+		receive(
 			RawOrigin::Root,
 			MessageToRelay::V1(MessageToRelayV1::CloseChannel {
 				channel: CHANNEL,
@@ -107,7 +107,7 @@ mod benchmarks {
 		request::<T>()?;
 
 		#[extrinsic_call]
-		_(
+		receive(
 			RawOrigin::Root,
 			MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest {
 				channel: CHANNEL,
@@ -124,7 +124,7 @@ mod benchmarks {
 		T::Registry::ensure_openable(CHANNEL);
 
 		#[extrinsic_call]
-		_(
+		receive(
 			RawOrigin::Root,
 			MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
 				channel: CHANNEL,
