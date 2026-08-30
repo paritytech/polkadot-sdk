@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788004173734,
+  "lastUpdate": 1788061220048,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "02f16b7f9e9b5d5c889051286da6d2a36eb79e7a",
-          "message": "[pallet-revive] added trybuild test for precompile compile-time checks (#10698)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8364\n\nThis PR adds compile-time tests using try_build to validate invariants\nenforced on registered precompiles. The tests ensure collision detection\nand related compile-time checks are correctly triggered and remain\nenforced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
-          "timestamp": "2026-01-30T11:43:34Z",
-          "tree_id": "f226a0b4b0136dc84a597a278f932d31a55fc684",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/02f16b7f9e9b5d5c889051286da6d2a36eb79e7a"
-        },
-        "date": 1769777459942,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002683047629999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00936360584999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006844922399999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0024819454299999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f",
+          "message": "Reject duplicate derivative IDs (#13006)\n\n- reject derivative registration when the derivative ID is already\nmapped to another original\n- preserve the one-to-one relationship between the forward and reverse\nregistry indexes\n- add a regression covering duplicate derivative IDs and the original\nmapping\n\n`try_register_derivative` previously checked only the\noriginal-to-derivative index before writing both indexes. Reusing a\nderivative ID could therefore overwrite the reverse entry while leaving\ntwo forward entries pointing at the same derivative.",
+          "timestamp": "2026-08-30T02:09:09Z",
+          "tree_id": "0d9fb29c9148dd99c089bd6e31e1990375f53caa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0bc5b68f7f98ff03cdd5badfbb234108b80ec0f"
+        },
+        "date": 1788061178814,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009261542089999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010279727630000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00260190507,
             "unit": "seconds"
           }
         ]
