@@ -119,7 +119,9 @@ pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
 		MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) => {
 			genesis_head.len() as u32
 		},
-		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => 0,
+		MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { head, .. }) => head.len() as u32,
+		// Everything else carries no head data.
+		MessageToRelay::V1(_) => 0,
 	}
 }
 
