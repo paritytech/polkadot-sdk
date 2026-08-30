@@ -21,12 +21,18 @@ module types {
   /// typechecker catches, not a discipline new code has to remember. An ITF
   /// trace still names the domain, since the field name is the domain.
   ///
-  /// `Hash` keys `preimage_registry` (§6.1), `HeadHash` is `hash(head_data)`
-  /// (§5.1), `KvKeyHash` is the `blake2_256` key hash a rejected `kv_set` logs
-  /// (§6.1), and `MerkleHash` is a head-commitment tree element (§5.5).
+  /// `Hash` keys `preimage_registry` (§6.1), `HeadHash` is the `blake2b-256`
+  /// `hash(head_data)` the parent-head check compares (§5.1), `KvKeyHash` is
+  /// the `blake2_256` key hash a rejected `kv_set` logs (§6.1), and the two
+  /// `keccak_256` domains of §5.5 are `LeafHeadHash`, the head hash a
+  /// commitment leaf carries, and `MerkleHash`, a tree element. The two head
+  /// hashes are separate types because they digest the same `head_data` under
+  /// different functions, so a commitment leaf must never be checked against a
+  /// candidate's declared parent head.
   type Hash = { hashBytes: int }
   type HeadHash = { headBytes: int }
   type KvKeyHash = { kvKeyBytes: int }
+  type LeafHeadHash = { leafHeadBytes: int }
   type MerkleHash = { merkleBytes: int }
   type ValidationCodeHash = { vchBytes: int }
   type AuthorizerHash = { authBytes: int }
@@ -204,12 +210,16 @@ module types {
     | None => Set()
   }
 
-  // --- Abstract hash function ---------------------------------------------
+  // --- Abstract hash functions ---------------------------------------------
   //
-  // We model `blake2b-256(head_data)` as an injective function; we only need
-  // equality semantics for the parent-head check (§5.1, step 3).
+  // Both digest `head_data` injectively, since only equality semantics matter,
+  // but they stand for different real functions and so land in different
+  // domains: `blake2b-256` for the parent-head check (§5.1 step 3) and
+  // `keccak_256` for the head a commitment leaf carries (§5.5).
 
   pure def headHash(h: HeadData): HeadHash = { headBytes: h }
+
+  pure def leafHeadHash(h: HeadData): LeafHeadHash = { leafHeadBytes: h }
 
   /// Abstract hash of a byte list, modelling blake2-256 for KV key hashing.
   /// Injective within the model's small key space.

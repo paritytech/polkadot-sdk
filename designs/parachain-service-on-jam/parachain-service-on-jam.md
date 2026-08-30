@@ -1176,7 +1176,7 @@ enum MerkleTree {
 }
 ```
 
-- A leaf's `head_hash` is `blake2b-256` of the parachain's `head_data`.
+- A leaf's `head_hash` is `keccak_256` of the parachain's `head_data`.
 - Every element's hash is `keccak_256` (as specified by Ethereum) of its SCALE encoding.
   The variant discriminant is therefore covered by the hash, so a leaf hash can never
   collide with a node hash. A `Leaf` encodes to 37 octets (discriminant, 4-octet

@@ -12,7 +12,7 @@ module head_commitment_test {
   /// equal a node hash, what §5.5 gets from covering the SCALE discriminant.
   run headCommitmentLeafNodeDisjointTest = {
     val leaves = Set(MkParaId(1), MkParaId(2), MkParaId(7)).map(p =>
-      merkleHash(Leaf({ paraId: p, headHash: headHash(paraIdInt(p) * 3) })))
+      merkleHash(Leaf({ paraId: p, headHash: leafHeadHash(paraIdInt(p) * 3) })))
     val nodes = tuples(leaves, leaves).map(pair =>
       merkleHash(Node({ left: pair._1, right: pair._2 })))
     init.then(expectThat(leaves.intersect(nodes) == Set()))
@@ -22,7 +22,7 @@ module head_commitment_test {
   /// its own root rather than being hashed again.
   run headCommitmentRootShapeTest = {
     val leaf = merkleHash(Leaf({
-      paraId: AssetHubParaId, headHash: headHash(9)
+      paraId: AssetHubParaId, headHash: leafHeadHash(9)
     }))
     init.then(expectThat(all {
       merkleRoot(List()) == None,
@@ -47,9 +47,9 @@ module head_commitment_test {
   /// in head_commitment.qnt.
   run headCommitmentOddLevelPromotesTest = {
     // A level holds tree-element hashes, not raw head hashes.
-    val a = merkleHash(Leaf({ paraId: MkParaId(1), headHash: headHash(1) }))
-    val b = merkleHash(Leaf({ paraId: MkParaId(2), headHash: headHash(2) }))
-    val c = merkleHash(Leaf({ paraId: MkParaId(3), headHash: headHash(3) }))
+    val a = merkleHash(Leaf({ paraId: MkParaId(1), headHash: leafHeadHash(1) }))
+    val b = merkleHash(Leaf({ paraId: MkParaId(2), headHash: leafHeadHash(2) }))
+    val c = merkleHash(Leaf({ paraId: MkParaId(3), headHash: leafHeadHash(3) }))
     init.then(expectThat(all {
       pairUp(List(a, b, c)) == List(merkleHash(Node({ left: a, right: b })), c),
       merkleRoot(List(a, b, c)) == Some(merkleHash(Node({
@@ -69,7 +69,7 @@ module head_commitment_test {
       .then(expectThat(
         lastHeadRoot == Some(merkleHash(Leaf({
           paraId: AssetHubParaId,
-          headHash: headHash(svc.paraInfo(AssetHubParaId).headData)
+          headHash: leafHeadHash(svc.paraInfo(AssetHubParaId).headData)
         })))))
       // A step that moves no head contributes no entry for that block.
       .then(provisionPreimage)

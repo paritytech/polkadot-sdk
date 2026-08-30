@@ -13,11 +13,11 @@ module head_commitment {
   import types.* from "./types"
   import state.* from "./state"
 
-  /// A node of the commitment tree. A leaf commits to a parachain's `HeadHash`;
-  /// a node holds its two children's `MerkleHash`es, which the design writes as
-  /// the tuple variant `Node(Hash, Hash)`.
+  /// A node of the commitment tree. A leaf commits to a parachain's
+  /// `LeafHeadHash`; a node holds its two children's `MerkleHash`es, which the
+  /// design writes as the tuple variant `Node(Hash, Hash)`.
   type MerkleTree =
-  | Leaf({ paraId: ParaId, headHash: HeadHash })
+  | Leaf({ paraId: ParaId, headHash: LeafHeadHash })
   | Node({ left: MerkleHash, right: MerkleHash })
 
   /// Abstract `keccak_256` of a tree element's SCALE encoding. Doubling the
@@ -25,7 +25,7 @@ module head_commitment {
   /// so a leaf hash can never collide with a node hash (§5.5).
   pure def merkleHash(t: MerkleTree): MerkleHash =
   match t {
-    | Leaf(l) => { merkleBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.headBytes) }
+    | Leaf(l) => { merkleBytes: 2 * (paraIdInt(l.paraId) * 257 + l.headHash.leafHeadBytes) }
     | Node(c) => { merkleBytes: 2 * (c.left.merkleBytes * 257 + c.right.merkleBytes) + 1 }
   }
 
@@ -94,6 +94,6 @@ module head_commitment {
     sortedParaIds(changedHeads(prev, post)).foldl(List(), (acc, p) =>
       acc.append(merkleHash(Leaf({
         paraId: p,
-        headHash: headHash(post.paraInfo(p).headData)
+        headHash: leafHeadHash(post.paraInfo(p).headData)
       })))))
 }
