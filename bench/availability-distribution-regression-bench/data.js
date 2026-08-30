@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788061079109,
+  "lastUpdate": 1788070901543,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a9c09b0bf857037584f8439908cf68e34abf1ee9",
-          "message": "collator-protocol: Re-advertise collations when peer authority IDs are updated (#10891)\n\nThe collator protocol contained a race-condition which could manifest as\n\"Collation wasn't advertised\".\n\nA given peer (\"A\") can connect before the new authority keys are\nreceived via `UpdatedAuthorityIds` (nk -- new key).\n\n- T0: peer A connects`PeerConnected`\n- T1: peer A sends its current view `PeerViewChange`\n  - Peer A wants the block N \n- T2: `validator_group.should_advertise_to`: checks peer A for key nK\n(the new key)\n- We don't have this key stored and therefore return\n`ShouldAdvertiseTo::NotAuthority`\n- T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])\n\nAt this point, we have the collation, peer A wants to collation, we know\npeer A is an authority but we never send the collation back. Then, the\ncollation will expire with \"Collation wasn't advertised\".\n\nTo close the gap, the `UpdatedAuthorityIds` events will trigger a\nre-advertisement of collations\n- note: if the advertisement was already sent, the logic does not resend\nit (achieved in should_advertise_to).\n\nPart of the stabilization of: \n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T17:46:48Z",
-          "tree_id": "7b10160fb0e0396af578d3a2a1489e8be3546d30",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9c09b0bf857037584f8439908cf68e34abf1ee9"
-        },
-        "date": 1769800015951,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14597371222000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01024037935333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007239549806666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022979097479999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14250323906,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb30ef0d7a40e9efd6fa573451026267e6fcefe3",
+          "message": "statement-store: bound inbound statement batch size (#12991)\n\n# Description\n\nInbound statement batches now decode into a `BoundedVec` capped at the\nmost statements a full notification can carry. A batch declaring more is\nrejected from its length prefix, drawing the same finite `BAD_MESSAGE`\npenalty as any other decode failure.\n\n# Integration\n\nNo action required.\n\n# Review Notes\n\n- `StatementBatch = BoundedVec<Statement,\nConstU32<MAX_STATEMENTS_PER_NOTIFICATION>>`, used by both V1 and V2\ndecode paths.\n- Bound derived in `config.rs` from the notification payload and the\nminimum encoded statement size, with a test pinning that minimum across\nall `Proof` variants.",
+          "timestamp": "2026-08-30T04:45:44Z",
+          "tree_id": "8f130fc8cfbe558e5e364ccc1bed8b033d199574",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bb30ef0d7a40e9efd6fa573451026267e6fcefe3"
+        },
+        "date": 1788070863976,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023609519086666662,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00981565212666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14299583056666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007869389086666666,
             "unit": "seconds"
           }
         ]
