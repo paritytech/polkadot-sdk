@@ -532,7 +532,7 @@ pub mod pallet {
 		/// data is small enough to travel inline, so unlike validation code this needs no upload
 		/// step. Unanswered, like [`Pallet::authorize_code_upgrade`].
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::set_current_head(head_data_len(&message)))]
+		#[pallet::weight(T::WeightInfo::set_current_head(head_data_len(message)))]
 		pub fn set_current_head(
 			origin: OriginFor<T>,
 			message: MessageToRelay<T::AccountId>,

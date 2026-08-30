@@ -385,7 +385,7 @@ mod responses {
 			// WHEN the relay chain refuses.
 			assert_ok!(Hrmp::receive(
 				RuntimeOrigin::root(),
-				close_response(channel, Err(FailureReason::NotFound))
+				close_response(channel, Err(FailureReason::Refused))
 			));
 			// THEN the channel is open again, deposits untouched.
 			assert_eq!(state_of(channel), Some(ChannelState::Open));
@@ -416,6 +416,56 @@ mod responses {
 
 			assert_eq!(held(PARA_A), 0);
 			assert!(state_of(channel).is_none());
+		});
+	}
+
+	#[test]
+	fn a_close_the_relay_chain_cannot_find_is_a_confirmation() {
+		build_and_execute(|| {
+			// GIVEN an open channel whose counterparty was offboarded: the relay chain deleted
+			// its channels at the session boundary without telling this chain, so the relay
+			// chain's only possible answer to a close is NotFound.
+			let channel = open_channel(PARA_A, PARA_B);
+			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B));
+
+			// WHEN the relay chain answers that no such channel exists.
+			assert_ok!(Hrmp::receive(
+				RuntimeOrigin::root(),
+				close_response(channel, Err(FailureReason::NotFound))
+			));
+
+			// THEN that is the end state a close asks for: both deposits come back and the
+			// record is gone. Refusing here would strand them behind a governance call forever.
+			assert_eq!(held(PARA_A), 0);
+			assert_eq!(held(PARA_B), 0);
+			assert_eq!(state_of(channel), None);
+			assert!(matches!(
+				hrmp_events().last(),
+				Some(Event::Closed { channel: c, .. }) if *c == channel
+			));
+		});
+	}
+
+	#[test]
+	fn a_cancel_the_relay_chain_cannot_find_is_a_confirmation() {
+		build_and_execute(|| {
+			// GIVEN a pending request whose entry the relay chain no longer holds.
+			assert_ok!(Hrmp::open_channel(para_origin(PARA_A), PARA_A, PARA_B, 4, 512));
+			let channel = chan(PARA_A, PARA_B);
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), open_response(channel, Ok(()))));
+			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
+
+			// WHEN the relay chain answers NotFound. (A request that was meanwhile accepted is
+			// refused as AlreadyExists, never NotFound, so this cannot misfire on one that
+			// became a channel.)
+			assert_ok!(Hrmp::receive(
+				RuntimeOrigin::root(),
+				cancel_response(channel, Err(FailureReason::NotFound))
+			));
+
+			// THEN the sender's deposit comes back and the record is gone.
+			assert_eq!(held(PARA_A), 0);
+			assert_eq!(state_of(channel), None);
 		});
 	}
 

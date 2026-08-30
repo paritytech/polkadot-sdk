@@ -325,8 +325,6 @@ pub mod pallet {
 		AlreadyExists,
 		/// The channel is not in a state this call can act on.
 		WrongState,
-		/// A request for this channel is already in flight with the relay chain.
-		RequestInFlight,
 		/// The capacity or message size is outside what the relay chain will accept.
 		InvalidParameters,
 		/// The message could not be handed to the transport.
@@ -871,7 +869,13 @@ impl<T: Config> Pallet<T> {
 		};
 
 		match outcome {
-			Ok(()) => {
+			// `NotFound` is a confirmation wearing a refusal's clothes: the relay chain is
+			// authoritative for its own channel map, and "no such channel" is exactly the end
+			// state a close asks for. It is also the only signal this chain ever gets that a
+			// counterparty was offboarded — the relay chain deletes an outgoing para's channels
+			// at the session boundary without telling anyone — so refusing here would hold the
+			// deposits behind a governance call forever, for a channel that no longer exists.
+			Ok(()) | Err(FailureReason::NotFound) => {
 				Self::release(info.sender_ticket, channel.sender)?;
 				Self::release(info.recipient_ticket, channel.recipient)?;
 				Channels::<T>::remove(channel);
@@ -893,7 +897,10 @@ impl<T: Config> Pallet<T> {
 		};
 
 		match outcome {
-			Ok(()) => {
+			// Same reasoning as the close above. A cancel of a request the relay chain no longer
+			// has cannot misfire on one that was meanwhile accepted: cancelling a *confirmed*
+			// request is refused as `AlreadyExists`, never `NotFound`.
+			Ok(()) | Err(FailureReason::NotFound) => {
 				Self::release(info.sender_ticket, channel.sender)?;
 				Channels::<T>::remove(channel);
 				Self::deposit_event(Event::Cancelled { channel, message_id });
