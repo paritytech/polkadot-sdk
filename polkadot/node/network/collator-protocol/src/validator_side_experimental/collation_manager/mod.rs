@@ -408,8 +408,8 @@ impl CollationManager {
 	) -> std::result::Result<(), AdvertisementError> {
 		// Segments are homogeneous by construction: one message, one claim shape.
 		debug_assert!(
-			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. }))
-				|| entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. }))
+			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. })) ||
+				entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. }))
 		);
 
 		let segment = StoredSegment {
@@ -427,8 +427,8 @@ impl CollationManager {
 
 		// V3 candidate descriptors require scheduling_parent to be the block from the last
 		// finished relay chain slot.
-		if segment.descriptor_version == Some(CandidateDescriptorVersion::V3)
-			&& !is_scheduling_parent_valid(
+		if segment.descriptor_version == Some(CandidateDescriptorVersion::V3) &&
+			!is_scheduling_parent_valid(
 				&*self.clock,
 				&scheduling_parent,
 				&self.leaf_scheduling_info,
@@ -1035,11 +1035,11 @@ impl CollationManager {
 		// V1 has no candidate hash to dedup by, so at most one V1 fetch may be in-flight or
 		// already fetched per (sp, para). Multiple peers may hold V1 ads for the same
 		// (sp, para); we must filter out *all* V1 ads for that (sp, para) once one is taken.
-		let v1_blocked = per_sp.fetched_collations.values().any(|info| info.para_id == para_id)
-			|| self.fetching.iter().any(|adv| {
-				adv.scheduling_parent == scheduling_parent
-					&& adv.para_id == para_id
-					&& adv.prospective_candidate.is_none()
+		let v1_blocked = per_sp.fetched_collations.values().any(|info| info.para_id == para_id) ||
+			self.fetching.iter().any(|adv| {
+				adv.scheduling_parent == scheduling_parent &&
+					adv.para_id == para_id &&
+					adv.prospective_candidate.is_none()
 			});
 		let fetching = &self.fetching;
 		Either::Right(per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
@@ -1656,8 +1656,8 @@ impl PeerAdvertisements {
 		// Byte-dedup against currently stored segments only (consumed segments are gone, so
 		// a re-advertisement after launch is accepted as a fresh entitlement).
 		if self.live_segments().any(|(_, stored_segment)| {
-			segment.descriptor_version == stored_segment.descriptor_version
-				&& segment.entries == stored_segment.entries
+			segment.descriptor_version == stored_segment.descriptor_version &&
+				segment.entries == stored_segment.entries
 		}) {
 			return Err(AdvertisementError::Duplicate);
 		}
