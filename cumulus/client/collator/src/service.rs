@@ -547,7 +547,7 @@ mod tests {
 		// The runtime read relay state while building, so the header carries an `AdditionalData`
 		// digest; the executing import path requires the matching recorded map.
 		params.additional_data = additional_data_recorder();
-		(&*client).import_block(params).await.expect("block imported");
+		client.import_block(params).await.expect("block imported");
 
 		(block, proof)
 	}
