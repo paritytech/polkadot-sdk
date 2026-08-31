@@ -1,0 +1,11 @@
+title: 'frame-support: stop `CountedStorageMap::try_append` counting existing keys'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `CountedStorageMap::try_append` incremented `CounterFor` on every append within the bound,
+    including appends to an existing key, which create no entry. `count()` drifted above the
+    number of stored keys. It now increments only when the key is absent, matching `insert` and
+    `append`.
+crates:
+- name: frame-support
+  bump: patch
