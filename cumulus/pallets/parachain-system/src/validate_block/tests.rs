@@ -137,20 +137,15 @@ fn call_validate_block_elastic_scaling(
 	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
 }
 
-/// Call `validate_block` in the runtime with V3 scheduling activated (the `v3-descriptor` feature).
-///
-/// V3 is what enables the dynamic `read_relay_chain_state` / additional-data channel; the default
-/// runtime reads relay state from the fixed inherent proof instead, so the additional-data tests
-/// must run against this variant.
-fn call_validate_block_v3(
+/// Encode `block_data` as V3 validation params — appending the trailing
+/// `ValidationParamsExtension::V3` the relay chain adds for a V3 candidate — and run
+/// `validate_block` in `wasm`.
+fn call_validate_block_v3_in(
+	wasm: &[u8],
 	parent_head: Header,
 	block_data: ParachainBlockData<Block>,
 	relay_parent_storage_root: Hash,
 ) -> cumulus_test_client::ExecutorResult<Header> {
-	// A V3 candidate's validation params carry a trailing `ValidationParamsExtension::V3` (the
-	// relay chain appends it). For an initial submission (`RelayParentOffset == 0`), `relay_parent
-	// == scheduling_parent == the internal scheduling parent header` carried in the block's
-	// scheduling proof, so we derive it from the candidate itself.
 	let scheduling_parent = block_data
 		.scheduling_proof()
 		.expect("V3 candidate carries a scheduling proof")
@@ -170,12 +165,44 @@ fn call_validate_block_v3(
 		}
 		.encode(),
 	);
-	cumulus_test_client::validate_block_raw(
-		&encoded,
+	cumulus_test_client::validate_block_raw(&encoded, wasm)
+		.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
+}
+
+/// Call `validate_block` in the runtime with V3 scheduling activated (the `v3-descriptor` feature).
+///
+/// V3 is what enables the dynamic `read_relay_chain_state` / additional-data channel; the default
+/// runtime reads relay state from the fixed inherent proof instead, so the additional-data tests
+/// must run against this variant.
+fn call_validate_block_v3(
+	parent_head: Header,
+	block_data: ParachainBlockData<Block>,
+	relay_parent_storage_root: Hash,
+) -> cumulus_test_client::ExecutorResult<Header> {
+	call_validate_block_v3_in(
 		test_runtime::v3::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block_data,
+		relay_parent_storage_root,
 	)
-	.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
+}
+
+/// Like [`call_validate_block_v3`], but against the `elastic_scaling_v3` runtime (V3 scheduling
+/// plus block bundling / velocity), so a single PoV can carry several V3 blocks. Used by the
+/// multi-block additional-data tests.
+fn call_validate_block_elastic_scaling_v3(
+	parent_head: Header,
+	block_data: ParachainBlockData<Block>,
+	relay_parent_storage_root: Hash,
+) -> cumulus_test_client::ExecutorResult<Header> {
+	call_validate_block_v3_in(
+		test_runtime::elastic_scaling_v3::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		block_data,
+		relay_parent_storage_root,
+	)
 }
 
 fn create_test_client() -> (Client, Header) {
@@ -195,6 +222,28 @@ fn create_elastic_scaling_test_client() -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
 		test_runtime::elastic_scaling_500ms::WASM_BINARY
+			.expect("You need to build the WASM binaries to run the tests!")
+			.to_vec(),
+	);
+	let client = builder.enable_import_proof_recording().build();
+
+	let genesis_header = client
+		.header(client.chain_info().genesis_hash)
+		.ok()
+		.flatten()
+		.expect("Genesis header exists; qed");
+
+	(client, genesis_header)
+}
+
+/// Create test client using the `elastic_scaling_v3` runtime: V3 scheduling (the `v3-descriptor`
+/// feature, so `set_validation_data` reads relay state and records it into each block's additional
+/// data) plus block bundling, so a single PoV can carry several V3 blocks. Required by the
+/// multi-block additional-data tests.
+fn create_elastic_scaling_v3_test_client() -> (Client, Header) {
+	let mut builder = TestClientBuilder::new();
+	builder.genesis_init_mut().wasm = Some(
+		test_runtime::elastic_scaling_v3::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
@@ -1916,5 +1965,140 @@ fn validate_block_v3_unused_relay_proof_nodes_fail() {
 		assert!(output.status.success());
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("Digest item must match that calculated"));
+	}
+}
+
+/// Build a multi-block `V3` candidate: `num_blocks` bundled blocks on the `elastic_scaling_v3`
+/// runtime, each of which reads relay state during `set_validation_data` and therefore carries its
+/// own additional-data blob.
+fn build_v3_block_bundle(client: &Client, parent_head: Header, num_blocks: u32) -> TestBlockData {
+	build_multiple_blocks_with_witness(
+		client,
+		parent_head,
+		Default::default(),
+		num_blocks,
+		|i| {
+			vec![generate_extrinsic_with_pair(
+				client,
+				Charlie.into(),
+				TestPalletCall::read_and_write_big_value {},
+				Some(i),
+			)]
+		},
+		|i| vec![BlockBundleInfo { index: i as u8, is_last: i + 1 == num_blocks }.to_digest_item()],
+	)
+}
+
+/// A multi-block `V3` candidate whose every bundled block dynamically read relay state validates,
+/// and each block carries its own additional-data blob (one entry per block).
+#[test]
+fn validate_block_v3_multiple_blocks_succeeds() {
+	sp_tracing::try_init_simple();
+
+	let num_blocks = 2u32;
+	let (client, parent_head) = create_elastic_scaling_v3_test_client();
+	let TestBlockData { block, validation_data } =
+		build_v3_block_bundle(&client, parent_head.clone(), num_blocks);
+
+	assert_eq!(block.additional_data().len(), num_blocks as usize);
+	assert!(
+		block.additional_data().iter().all(|d| d.is_some()),
+		"every V3 block in the bundle carries its own additional data"
+	);
+
+	let header = block.blocks().last().unwrap().header().clone();
+	let res_header = call_validate_block_elastic_scaling_v3(
+		parent_head,
+		block,
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("multi-block V3 candidate with correct additional data validates");
+	assert_eq!(header, res_header);
+}
+
+/// The additional-data vector must carry exactly one entry per bundled block. A shorter (or longer)
+/// vector would smuggle in an entry belonging to no block — committed by no header digest, hence
+/// otherwise unchecked — so it must be rejected up front.
+#[test]
+fn validate_block_v3_additional_data_length_mismatch_fails() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let num_blocks = 2u32;
+		let (client, parent_head) = create_elastic_scaling_v3_test_client();
+		let TestBlockData { block, validation_data } =
+			build_v3_block_bundle(&client, parent_head.clone(), num_blocks);
+
+		let mut additional_data = block.additional_data().to_vec();
+		additional_data.pop();
+		let (blocks, proof) = block.into_inner();
+		let v3 = ParachainBlockData::V3 {
+			blocks,
+			proof,
+			scheduling_proof: dummy_scheduling_proof(),
+			additional_data,
+		};
+		call_validate_block_elastic_scaling_v3(
+			parent_head,
+			v3,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_v3_additional_data_length_mismatch_fails", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("additional data vector length does not match the number of blocks"));
+	}
+}
+
+/// The per-block additional-data integrity check must run for *every* block, not just the first.
+/// Corrupting only the second block's blob (leaving its header digest intact) must be caught by the
+/// integrity check as the validation loop reaches that block.
+#[test]
+fn validate_block_v3_malformed_additional_data_in_second_block_fails() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let num_blocks = 2u32;
+		let (client, parent_head) = create_elastic_scaling_v3_test_client();
+		let TestBlockData { block, validation_data } =
+			build_v3_block_bundle(&client, parent_head.clone(), num_blocks);
+
+		let mut additional_data = block.additional_data().to_vec();
+		additional_data[1] = Some(AdditionalData::from([(
+			sp_additional_data::RELAY_PROOF_KEY.to_string(),
+			vec![0u8; 32],
+		)]));
+		let (blocks, proof) = block.into_inner();
+		let v3 = ParachainBlockData::V3 {
+			blocks,
+			proof,
+			scheduling_proof: dummy_scheduling_proof(),
+			additional_data,
+		};
+		call_validate_block_elastic_scaling_v3(
+			parent_head,
+			v3,
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args([
+				"validate_block_v3_malformed_additional_data_in_second_block_fails",
+				"--",
+				"--nocapture",
+			])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
+			.contains("additional data hash does not match header digest"));
 	}
 }
