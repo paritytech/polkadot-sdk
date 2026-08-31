@@ -14,44 +14,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The JAM collation manager (phase 5): the work-package lifecycle for a *chain* of packages.
+//! The JAM collation manager (phase 5a): the work-package lifecycle for the blocks this
+//! collator authors.
 //!
 //! One task owns everything, instead of the phase-1 follower spawned per package. It keeps the
-//! [`InFlightChain`] — the packages submitted for the builder's unincluded segment, oldest first
-//! — and selects over the builder's channel, the para-head stream, the status subscriptions of
-//! every submitted package, and a once-per-JAM-slot timer.
+//! packages *it* submitted — [`InFlightPackages`] — and selects over the builder's channel, the
+//! para-head stream, the status subscriptions of every submitted package, and a
+//! once-per-JAM-slot timer.
 //!
-//! For each block the builder hands over, the manager decides how the package links into the
-//! chain by *obeying* the [`ParentLink`] the builder resolved at that package's anchor
-//! ([`decide_tip_link`]): the first one anchors on the head JAM has accumulated, every later
-//! one names its parent's package as a prerequisite *and* imports that package's segment 0 (the
-//! parent's header), which is how the service learns in-core which unaccumulated block this one
-//! builds on. The package goes out as a bundle carrying that segment inline. A parent whose
-//! package this task never submitted — another collator's block, or one of ours from before a
-//! restart — is *adopted* instead ([`decide_reported_link`]): the builder found its package hash
-//! in JAM's in-flight reports, and the parent's export is reproduced from its header and checked
-//! against the segment root that report commits to before anything is linked onto it.
+//! Each block the builder hands over becomes **one independent work package**: no prerequisite,
+//! no imported segment, `export_count = 0`, submitted with a plain `submitWorkPackage`. Phase 5a
+//! removed the in-core link between a block's package and its parent's, because an import
+//! authenticates bytes to a *package*, not to a service, and so never carried the security it
+//! appeared to; lineage is declared in the work output (the parent head hash refine derives from
+//! the block) and settled by the parachain service at accumulate, which applies a head only if
+//! it chains onto the stored one and buffers the rest.
 //!
-//! Failure handling is drop-tail: a package that can no longer be reported takes every
-//! descendant with it (their links name a package that will never exist), and the builder is
-//! told to reset its segment so the next block starts from the accumulated head again. The
-//! phase-4 re-contexting survives only for a root package with no children, because re-contexting
-//! rewrites a package's bytes and therefore its hash — which every child has already named.
+//! What a package still carries is the anchor state proof of the para head, inside the PoV. The
+//! service verifies it in-core, which is why anchor and PoV are inseparable: re-anchoring a
+//! package means re-proving the head and rebuilding the payload, not just swapping the context
+//! out. Re-anchoring is legal for *any* package now — nothing names a package's hash any more,
+//! so changing it cannot orphan anything.
 //!
-//! The PoV is a V3 `ParachainBlockData` whose single additional-data slot carries the anchor
-//! state proof. Because that proof is verified in-core against the refine context's state root,
-//! anchor and PoV are inseparable: re-contexting a package means re-proving the para head and
-//! rebuilding the payload, not just swapping the context out.
+//! Failure handling is per package and has no tail: a package that can no longer be reported is
+//! forgotten. Nothing else has to be undone, because no other package depended on it; the block
+//! itself stays in the local database, and the next parachain slot authors on whatever is
+//! deepest there.
 //!
 //! Phase-1 simplifications that still stand: null authorizer (empty token, nothing to sign),
 //! fixed core, PoV is NOT zstd-compressed (parasim rejects compressed PoVs; JIP-2 is silent on
 //! compression).
 
 use super::{
-	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET, ParentLink,
-	fetch_anchor_state_proof, jam_slot_at, para_head_stream,
-	resubmission::*,
-	segments::{Export, export_of},
+	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET,
+	fetch_anchor_state_proof, jam_slot_at, para_head_stream, resubmission::*,
 };
 use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
@@ -69,32 +65,23 @@ use jam_interface::{
 	WorkPackageHash, WorkPackageStatus,
 };
 use jam_state_helpers::StateProof;
-use jam_std_common::{ImportData, build_encoded_bundle};
-use jam_types::{
-	Authorization, CodeHash, ImportSpec, RefineContext, RootIdentifier, SegmentTreeRoot,
-	UnsignedGas, WorkItem, WorkPayload,
-};
+use jam_types::{Authorization, CodeHash, RefineContext, UnsignedGas, WorkItem, WorkPayload};
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_timestamp::Timestamp;
 use sp_trie::CompactProof;
 use std::{
-	collections::{HashMap, HashSet, VecDeque},
+	collections::{HashMap, VecDeque},
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
 const RETRY_DELAY: Duration = Duration::from_secs(6);
 
-/// How long a package has to be reported, counted from its anchor and from its prerequisite's
-/// submission. Two clocks, the same length: the anchor must still be in recent history when the
-/// package is reported, and so must the prerequisite's own report.
+/// How long a package has to be reported, counted from its anchor: the anchor must still be in
+/// JAM's recent history when the package is reported. With no links between packages this is the
+/// only such clock left.
 const REPORT_DEADLINE_SLOTS: JamSlot = 8;
-
-/// How many accumulated packages [`RecentlyAccumulated`] keeps. It only has to cover the gap
-/// between the builder's tick and the arrival of that tick's block here — milliseconds — so a
-/// handful of blocks is already generous.
-const RECENTLY_ACCUMULATED_CAP: usize = 8;
 
 pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -103,10 +90,6 @@ pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub service_id: ServiceId,
 	pub core: CoreIndex,
 	pub message_receiver: mpsc::Receiver<JamCollatorMessage<Block>>,
-	/// Ask the builder to drop its unincluded segment and start again from the accumulated head.
-	/// Since 5.2 this is the *only* thing that heals a lost package: the builder keeps extending
-	/// its own segment and never re-authors a stalled head on its own.
-	pub rebuild_sender: mpsc::Sender<()>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	pub max_resubmits: u32,
 }
@@ -125,7 +108,6 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		service_id,
 		core,
 		mut message_receiver,
-		rebuild_sender,
 		announce_block,
 		max_resubmits,
 	} = params;
@@ -202,11 +184,9 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		"JAM collation task started.",
 	);
 
-	// The chain starts empty after a restart, and stays empty until the builder hands over a
-	// block: the builder is the side that reads JAM's availability assignments and ready queue,
-	// so the first message re-roots the chain here, on the accumulated head
-	// (`ParentLink::Included`) or on a package only JAM state knows about
-	// (`ParentLink::Reported`).
+	// Nothing is tracked after a restart and nothing needs to be: the packages this task lost
+	// track of are either already accumulated or lost, and the builder authors from the local
+	// database and the accumulated head either way.
 	let mut manager = Manager {
 		para_client,
 		jam,
@@ -216,13 +196,10 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		service_code_hash,
 		refine_gas_limit,
 		accumulate_gas_limit,
-		policy: DropTailOnFailure::new(max_resubmits),
-		rebuild_sender,
+		policy: ReanchorThenForget::new(max_resubmits),
 		announce_block,
-		chain: InFlightChain::new(),
-		recently_accumulated: RecentlyAccumulated::new(),
+		packages: InFlightPackages::new(),
 		included_head: None,
-		submitted_blocks: HashSet::new(),
 		statuses: SelectAll::new(),
 		subscriptions: StatusSubscriptions::new(),
 	};
@@ -262,140 +239,74 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 	}
 }
 
-/// One submitted work package, still in flight.
+/// One work package this collator submitted, still in flight.
 struct InFlight<Block: BlockT> {
 	block_hash: Block::Hash,
 	block_number: <Block::Header as HeaderT>::Number,
 	parent_hash: Block::Hash,
 	wp_hash: WorkPackageHash,
-	/// The bundle exactly as submitted. A resubmission replays these bytes verbatim.
-	bundle: Vec<u8>,
-	/// This block's own export — the segment a child's bundle carries inline, and the segment
-	/// root a work report for this package will commit to.
-	export: Export,
-	/// What the package would be rebuilt from around a fresh anchor. Only usable while the entry
-	/// has no children: re-contexting changes the hash they name.
+	/// The package exactly as submitted. A soft resubmission replays it verbatim, which is what
+	/// keeps the hash JAM knows it by — and therefore the status subscription — unchanged.
+	package: WorkPackage,
+	/// What the package would be rebuilt from around a fresh anchor.
 	source: PackageSource<Block>,
 	anchored: Anchored,
-	/// The JAM slot this package was last submitted in, which is both the soft-resubmit timer's
-	/// zero and the moment a child's dependency reference started ageing.
+	/// The JAM slot this package was last submitted in: the zero of the soft-resubmit timer.
 	submitted_at: JamSlot,
 	reported: bool,
 	resubmits: u32,
 }
 
-/// The chain of packages submitted for the builder's unincluded segment, oldest first. Entry
-/// `k + 1` names entry `k` as its prerequisite and imports its exported header.
-struct InFlightChain<Block: BlockT> {
+/// The work packages this collator has in flight, in the order they were submitted.
+///
+/// A plain list, not a chain: phase 5a packages depend on nothing, so one leaving — accumulated,
+/// forgotten, superseded — says nothing about any other.
+struct InFlightPackages<Block: BlockT> {
 	entries: VecDeque<InFlight<Block>>,
 }
 
-impl<Block: BlockT> InFlightChain<Block> {
+impl<Block: BlockT> InFlightPackages<Block> {
 	fn new() -> Self {
 		Self { entries: VecDeque::new() }
 	}
 
-	fn depth(&self) -> usize {
+	fn len(&self) -> usize {
 		self.entries.len()
-	}
-
-	fn tip(&self) -> Option<&InFlight<Block>> {
-		self.entries.back()
-	}
-
-	/// What [`decide_link`] needs to know about the chain: the tip's block and its package.
-	fn tip_link(&self) -> Option<(Block::Hash, WorkPackageHash)> {
-		self.tip().map(|tip| (tip.block_hash, tip.wp_hash))
-	}
-
-	/// The block the whole chain hangs off: the accumulated head for a chain rooted here, another
-	/// collator's in-flight block for one adopted from JAM's reports.
-	fn root_parent(&self) -> Option<Block::Hash> {
-		self.entries.front().map(|entry| entry.parent_hash)
-	}
-
-	fn position_of_block(&self, block_hash: Block::Hash) -> Option<usize> {
-		self.entries.iter().position(|entry| entry.block_hash == block_hash)
 	}
 
 	fn position_of_package(&self, wp_hash: WorkPackageHash) -> Option<usize> {
 		self.entries.iter().position(|entry| entry.wp_hash == wp_hash)
 	}
 
-	/// Everything up to and including `index` has been accumulated; drop it and return the
-	/// entries, whose packages stay linkable for a short while ([`RecentlyAccumulated`]).
-	fn pop_through(&mut self, index: usize) -> Vec<InFlight<Block>> {
-		self.entries.drain(..=index).collect()
+	fn remove(&mut self, index: usize) -> InFlight<Block> {
+		self.entries.remove(index).expect("callers only ever pass an index they just found; qed")
 	}
 
-	/// `index` and every descendant can never be reported; drop them and return the entries,
-	/// whose status subscriptions the manager still has to close.
-	fn drop_tail(&mut self, index: usize) -> Vec<InFlight<Block>> {
-		self.entries.drain(index..).collect()
-	}
-
-	fn clear(&mut self) -> Vec<InFlight<Block>> {
-		self.drop_tail(0)
+	/// Take out every package whose block is at or below `number`, newest first, and say for each
+	/// whether it is the block that became the head.
+	///
+	/// The parachain service applies a head only if it chains onto the stored one and evicts
+	/// everything at or below the stored head's height, so a package for a block at that height
+	/// or lower has either just accumulated or lost its fork. Either way it is done.
+	fn remove_up_to(
+		&mut self,
+		number: <Block::Header as HeaderT>::Number,
+	) -> Vec<InFlight<Block>> {
+		let mut settled = Vec::new();
+		let mut remaining = VecDeque::with_capacity(self.entries.len());
+		while let Some(entry) = self.entries.pop_front() {
+			if entry.block_number <= number {
+				settled.push(entry);
+			} else {
+				remaining.push_back(entry);
+			}
+		}
+		self.entries = remaining;
+		settled
 	}
 
 	fn block_hashes(&self) -> Vec<Block::Hash> {
 		self.entries.iter().map(|entry| entry.block_hash).collect()
-	}
-}
-
-/// One package that left the chain because JAM accumulated it.
-struct AccumulatedPackage<Hash> {
-	block_hash: Hash,
-	wp_hash: WorkPackageHash,
-	/// The block's export. A child chaining onto it carries this inline, exactly as it would for
-	/// a parent still in the chain — which is why the entry is kept at all.
-	export: Export,
-}
-
-/// The last few packages JAM accumulated, oldest first.
-///
-/// A parent can accumulate in the moment between the builder's tick and the arrival of the
-/// child's message here: the child was anchored where that parent was still in flight, so its
-/// package must chain onto the parent's, but the chain no longer holds it. This buffer is what
-/// keeps that link available; without it the child looks like a chain root and gets submitted
-/// with a link its own anchor proof contradicts.
-struct RecentlyAccumulated<Hash> {
-	entries: VecDeque<AccumulatedPackage<Hash>>,
-}
-
-/// A parent found in [`RecentlyAccumulated`]: everything the chained link needs, plus how far
-/// back it now sits.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct AccumulatedParent {
-	wp_hash: WorkPackageHash,
-	export: Export,
-	/// How many of our blocks accumulated after this one.
-	blocks_ago: usize,
-}
-
-impl<Hash: Copy + PartialEq> RecentlyAccumulated<Hash> {
-	fn new() -> Self {
-		Self { entries: VecDeque::new() }
-	}
-
-	fn remember(&mut self, block_hash: Hash, wp_hash: WorkPackageHash, export: Export) {
-		self.entries.push_back(AccumulatedPackage { block_hash, wp_hash, export });
-		while self.entries.len() > RECENTLY_ACCUMULATED_CAP {
-			self.entries.pop_front();
-		}
-	}
-
-	fn parent(&self, block_hash: Hash) -> Option<AccumulatedParent> {
-		let index = self.entries.iter().position(|entry| entry.block_hash == block_hash)?;
-		Some(AccumulatedParent {
-			wp_hash: self.entries[index].wp_hash,
-			export: self.entries[index].export.clone(),
-			blocks_ago: self.entries.len() - 1 - index,
-		})
-	}
-
-	fn len(&self) -> usize {
-		self.entries.len()
 	}
 }
 
@@ -449,143 +360,12 @@ impl StatusSubscriptions {
 	}
 }
 
-/// How a new block's package links into the chain of in-flight packages.
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Link<Hash> {
-	/// The block builds on the head JAM has accumulated (or on genesis): no prerequisite,
-	/// nothing imported. `drain_accumulated` means this task is still holding the packages for
-	/// that head — the anchor proves they accumulated, so they leave the chain here instead of
-	/// waiting for the para-head subscription to say the same thing.
-	Root { drain_accumulated: bool },
-	/// The block's parent is the chain tip's block: name the tip's package as the prerequisite
-	/// and import its exported header.
-	Chain(WorkPackageHash),
-	/// The block's parent accumulated while the block was on its way over from the builder. The
-	/// link is the ordinary chained one — prerequisite plus import — served from
-	/// [`RecentlyAccumulated`] instead of from the chain.
-	RecentlyAccumulated(AccumulatedParent),
-	/// The block's parent is in flight but its package was never submitted from here — another
-	/// collator's, or ours from before a restart. Start a new chain segment on that package,
-	/// whose export has to be reproduced from the parent's header. `drain_accumulated` means
-	/// this task is still holding packages the anchor proves accumulated; they leave the chain
-	/// here, exactly as they do for [`Link::Root`].
-	Adopt { wp_hash: WorkPackageHash, segroot: SegmentTreeRoot, drain_accumulated: bool },
-	/// The block builds on something this task is not tracking. Builder and manager disagree
-	/// about the chain, which is a bug on one of the two sides.
-	Mismatch { expected: Option<Hash> },
-}
-
-/// Decide the link for a block whose parent the builder saw as still in flight
-/// ([`ParentLink::Tip`]).
+/// The hash JAM keys a work package by: blake2b-256 over its encoding.
 ///
-/// **The anchor state the package carries is the authority here, never this task's newer view
-/// of the para head.** The builder resolved the parent against the head *proven at the anchor*,
-/// and that proof travels inside the PoV: refine checks the block's parent against exactly that
-/// head and takes the import path because of it. A para-head notification that lands here in
-/// the meantime says nothing about the anchor — only that this task has since seen further — so
-/// letting it override the builder would submit a package whose link contradicts its own proof.
-/// That is precisely the failure this function exists to avoid: a root package anchored at a
-/// state proving the head *before* the parent makes refine fail with a missing import, which
-/// zeroes the exports and cascades down every descendant.
-///
-/// Chaining onto a parent that accumulated a moment ago is fully valid: the prerequisite and the
-/// `Indirect` import resolve against recent history, refine imports the parent's header exactly
-/// as it would for a parent still in flight, and accumulate's freshness check finds the stored
-/// head this block's parent is. Only a parent that is in neither the chain nor the buffer is a
-/// genuine disagreement between the two sides.
-fn decide_tip_link<Hash: Copy + PartialEq>(
-	tip: Option<(Hash, WorkPackageHash)>,
-	included_head: Option<Hash>,
-	recently_accumulated: Option<AccumulatedParent>,
-	parent_hash: Hash,
-) -> Link<Hash> {
-	match tip {
-		Some((tip_block, tip_package)) if tip_block == parent_hash => Link::Chain(tip_package),
-		Some((tip_block, _)) => Link::Mismatch { expected: Some(tip_block) },
-		None => match recently_accumulated {
-			Some(parent) => Link::RecentlyAccumulated(parent),
-			None => Link::Mismatch { expected: included_head },
-		},
-	}
-}
-
-/// Decide the link for a block the builder authored on the para head proven at its anchor
-/// ([`ParentLink::Included`]).
-///
-/// The package is a root: the anchor's own proof shows the parent *is* the accumulated head, so
-/// there is nothing in flight left for it to depend on. This task may still be holding the
-/// packages for that head, because accumulation reached the anchor before it reached the
-/// subscription; the anchor has already proved them accumulated, so they are drained rather
-/// than believed. A chain that ends anywhere else holds blocks the anchor says nothing about —
-/// unaccumulated descendants of the parent, which the builder has forgotten and this task has
-/// not — and rooting a sibling next to them would fork our own chain, so that stays the
-/// ordinary mismatch that resynchronises both sides.
-fn decide_included_link<Hash: Copy + PartialEq>(
-	tip: Option<(Hash, WorkPackageHash)>,
-	parent_hash: Hash,
-) -> Link<Hash> {
-	match tip {
-		Some((tip_block, _)) if tip_block == parent_hash => Link::Root { drain_accumulated: true },
-		Some((tip_block, _)) => Link::Mismatch { expected: Some(tip_block) },
-		None => Link::Root { drain_accumulated: false },
-	}
-}
-
-/// Decide the link for a parent whose package the builder knows only from JAM's in-flight
-/// reports — another collator's block, or one of ours from before a restart.
-///
-/// Our own ledger still wins wherever it has an opinion: if that parent is the chain tip then we
-/// submitted its package ourselves and know its hash first-hand, so the reported hash is only a
-/// confirmation.
-///
-/// A chain that ends at the head the *anchor* proves accumulated is the same anchor-owned
-/// invariant [`decide_tip_link`] and [`decide_included_link`] carry, with the two sides the other
-/// way round: here the anchor is ahead of this task rather than behind it. The builder saw our
-/// own block accumulate and another collator's successor take over as the in-flight tip, and it
-/// built on that successor; the para-head notification saying the same thing simply has not
-/// arrived yet. The anchor has already proved those entries accumulated, so they are drained on
-/// its evidence and the reported parent is adopted, instead of the arrival order deciding whether
-/// a perfectly good block survives.
-///
-/// A chain ending anywhere else holds entries the anchor says nothing about — a genuine
-/// disagreement between the two sides, which resynchronising is what resolves.
-fn decide_reported_link<Hash: Copy + PartialEq>(
-	tip: Option<(Hash, WorkPackageHash)>,
-	anchor_included_head: Hash,
-	parent_hash: Hash,
-	wp_hash: WorkPackageHash,
-	segroot: SegmentTreeRoot,
-) -> Link<Hash> {
-	match tip {
-		Some((tip_block, tip_package)) if tip_block == parent_hash => Link::Chain(tip_package),
-		Some((tip_block, _)) if tip_block == anchor_included_head =>
-			Link::Adopt { wp_hash, segroot, drain_accumulated: true },
-		Some((tip_block, _)) => Link::Mismatch { expected: Some(tip_block) },
-		None => Link::Adopt { wp_hash, segroot, drain_accumulated: false },
-	}
-}
-
-/// The parent's export, recomputed from its header and cross-checked against the segment root the
-/// on-chain report for its package commits to.
-///
-/// The recomputation is what makes adopting a package we did not submit possible at all: the
-/// collator never decodes the report's work output, it reproduces the bytes the parent's package
-/// must have exported and checks they hash to the root the chain has already authenticated. A
-/// mismatch means the byte contract and the on-chain reality disagree, and nothing built on that
-/// assumption — least of all the child's import proof — would verify.
-fn adopted_parent_export<Header: HeaderT>(
-	parent_header: &Header,
-	segroot: SegmentTreeRoot,
-) -> Result<Export, String> {
-	let export = export_of(&parent_header.encode())?;
-	if export.segroot != segroot {
-		return Err(format!(
-			"the parent's export root recomputed from its header is {:?}, but its work report \
-			 commits to {segroot:?}",
-			export.segroot,
-		));
-	}
-	Ok(export)
+/// polkajam derives it inside its bundle builder, which phase 5a no longer uses; a test pins the
+/// two against each other so the status subscriptions keep naming the package the node sees.
+fn work_package_hash(package: &WorkPackage) -> WorkPackageHash {
+	WorkPackageHash::from(sp_crypto_hashing::blake2_256(&jam_codec::Encode::encode(package)))
 }
 
 struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
@@ -597,18 +377,14 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	service_code_hash: CodeHash,
 	refine_gas_limit: UnsignedGas,
 	accumulate_gas_limit: UnsignedGas,
-	policy: DropTailOnFailure,
-	rebuild_sender: mpsc::Sender<()>,
+	policy: ReanchorThenForget,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	chain: InFlightChain<Block>,
-	/// The packages that left `chain` because JAM accumulated them, kept just long enough for a
-	/// block anchored while they were still in flight to chain onto one of them.
-	recently_accumulated: RecentlyAccumulated<Block::Hash>,
-	/// The para head last seen in JAM state; `None` until the stream reports one.
+	packages: InFlightPackages<Block>,
+	/// The para head last seen in JAM state, for the log alone; `None` until the stream reports
+	/// one. No decision reads it: it is a strictly later observation than the anchor a package
+	/// carries, and letting it override the anchor is exactly the class of race phase 5 spent
+	/// three fixes on.
 	included_head: Option<Block::Hash>,
-	/// Every para block whose package was submitted, so an accumulated head can be told apart
-	/// from another collator's.
-	submitted_blocks: HashSet<Block::Hash>,
 	statuses: SelectAll<BoxStream<'static, (WorkPackageHash, WorkPackageStatus)>>,
 	/// One handle per live status subscription, fired when its package leaves the chain.
 	subscriptions: StatusSubscriptions,
@@ -620,149 +396,25 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	Jam: JamChainSource + JamStateSource + JamWorkPackageSubmission + 'static,
 {
-	/// A block from the builder: link it into the chain, assemble the bundle, submit, track.
+	/// A block from the builder: assemble its package, submit it, track it.
+	///
+	/// There is no linking step left. The package stands on its own: the parent it declares
+	/// travels inside the PoV, and the parachain service decides at accumulate whether that
+	/// parent is the stored head, a head still to come (buffered) or a fork loser (dropped).
 	async fn on_new_block(&mut self, message: JamCollatorMessage<Block>) {
 		let JamCollatorMessage {
 			parent_header,
-			parent_link,
 			block,
 			proof,
 			context,
 			anchor_state_root,
 			anchor_state_proof,
-			anchor_included_head,
 			anchor_slot,
 			triggered_by,
 		} = message;
 		let block_hash = block.hash();
 		let block_number = *block.header().number();
 		let parent_hash = parent_header.hash();
-
-		// The builder's `ParentLink` is obeyed, not second-guessed: it was resolved against the
-		// para head proven at this package's anchor, and that proof is what refine will check
-		// the block against. Whatever the para-head subscription has told this task since is a
-		// *newer* view than the anchor's, and a newer view cannot invalidate a link the anchor
-		// still proves — see [`decide_tip_link`].
-		let link = match parent_link {
-			ParentLink::Reported { wp_hash, segroot } => decide_reported_link(
-				self.chain.tip_link(),
-				anchor_included_head,
-				parent_hash,
-				wp_hash,
-				segroot,
-			),
-			ParentLink::Tip => decide_tip_link(
-				self.chain.tip_link(),
-				self.included_head,
-				self.recently_accumulated.parent(parent_hash),
-				parent_hash,
-			),
-			ParentLink::Included => decide_included_link(self.chain.tip_link(), parent_hash),
-		};
-		tracing::debug!(
-			target: LOG_TARGET,
-			?block_hash,
-			%block_number,
-			?parent_hash,
-			?parent_link,
-			?anchor_included_head,
-			included_head = ?self.included_head,
-			chain_depth = self.chain.depth(),
-			chain_tip = ?self.chain.tip_link().map(|(block, _)| block),
-			?link,
-			?triggered_by,
-			"Linking a new block into the in-flight chain.",
-		);
-		// The parent's export travels inline with the child's bundle, so it is needed here as
-		// well as its package hash: held for a parent we submitted, recomputed for one we are
-		// adopting on the strength of its report.
-		let (prerequisite, parent_export) = match link {
-			Link::Root { drain_accumulated } => {
-				if drain_accumulated {
-					let drained = self.drain_chain_as_accumulated();
-					tracing::info!(
-						target: LOG_TARGET,
-						?block_hash,
-						%block_number,
-						?parent_hash,
-						?drained,
-						"The anchor proves the parent is the accumulated head while this task \
-						 still held the packages for it; draining them and rooting the new \
-						 package, rather than waiting for the para-head subscription to catch up.",
-					);
-				}
-				(None, None)
-			},
-			Link::Chain(parent_package) =>
-				(Some(parent_package), self.chain.tip().map(|tip| tip.export.clone())),
-			Link::RecentlyAccumulated(parent) => {
-				tracing::info!(
-					target: LOG_TARGET,
-					?block_hash,
-					%block_number,
-					?parent_hash,
-					parent_wp_hash = ?parent.wp_hash,
-					accumulated_blocks_ago = parent.blocks_ago,
-					buffered = self.recently_accumulated.len(),
-					"The parent accumulated while this block was on its way over from the \
-					 builder; linking onto its package all the same — the anchor this package \
-					 carries proves the parent was still in flight, so a chained link is what \
-					 refine verifies and a root package is what it would reject.",
-				);
-				(Some(parent.wp_hash), Some(parent.export))
-			},
-			Link::Adopt { wp_hash, segroot, drain_accumulated } => {
-				// The same invariant the recently-accumulated buffer encodes: this task's
-				// subscription view never overrides the anchor. There the anchor was behind us
-				// and we kept a popped parent linkable; here it is ahead of us, having proved
-				// the entries we still hold accumulated, so they leave on its evidence.
-				if drain_accumulated {
-					let drained = self.drain_chain_as_accumulated();
-					tracing::info!(
-						target: LOG_TARGET,
-						?block_hash,
-						%block_number,
-						?parent_hash,
-						?drained,
-						?anchor_included_head,
-						buffered = self.recently_accumulated.len(),
-						"The anchor proves the packages this task still held accumulated and \
-						 another collator's block took over as the in-flight tip; draining them \
-						 and adopting the reported parent the builder picked on that same anchor, \
-						 rather than waiting for the para-head subscription to catch up.",
-					);
-				}
-				match adopted_parent_export(&parent_header, segroot) {
-					Ok(export) => (Some(wp_hash), Some(export)),
-					Err(error) => {
-						tracing::error!(
-							target: LOG_TARGET,
-							?block_hash,
-							?parent_hash,
-							?wp_hash,
-							error,
-							"The parent's export cannot be reproduced from the header we hold; \
-							 dropping the block rather than submitting a package whose import no \
-							 guarantor could verify.",
-						);
-						return;
-					},
-				}
-			},
-			Link::Mismatch { expected } => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?block_hash,
-					?parent_hash,
-					?expected,
-					chain_depth = self.chain.depth(),
-					"The builder built on a block this task is not tracking; dropping it and \
-					 resynchronising both sides on the accumulated head.",
-				);
-				self.reset_chain("the builder and the collation manager disagree on the chain");
-				return;
-			},
-		};
 
 		let compact_proof =
 			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
@@ -791,22 +443,6 @@ where
 			},
 		};
 
-		// Every package exports its block's header, root case included, so that whoever authors
-		// the next block — us or another collator — has something to chain onto.
-		let encoded_header = block.header().encode();
-		let export = match export_of(&encoded_header) {
-			Ok(export) => export,
-			Err(error) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?block_hash,
-					error,
-					"Failed to build the export segment; dropping the block.",
-				);
-				return;
-			},
-		};
-
 		let source = PackageSource {
 			blocks: vec![block],
 			proof: compact_proof,
@@ -815,7 +451,6 @@ where
 			service_code_hash: self.service_code_hash,
 			refine_gas_limit: self.refine_gas_limit,
 			accumulate_gas_limit: self.accumulate_gas_limit,
-			prerequisite,
 		};
 		let anchored = Anchored {
 			context,
@@ -823,86 +458,68 @@ where
 			head_proof: anchor_state_proof,
 			anchor_slot,
 		};
-		// The parent's segment is handed over inline with the child's bundle, and that is
-		// load-bearing rather than an optimization. Guarantors normally fetch import segments
-		// from DA, but a segment only reaches DA through its own package's availability phase —
-		// which has not happened one tick after the parent was submitted, so segment 0 of the
-		// parent package does not exist in DA at this moment. The submitter is the only party
-		// that holds it (we built the parent block), so it travels in the bundle. No trust is
-		// added: guarantors verify the segment's proof against the segment root the `Indirect`
-		// import resolves to, which the chain itself authenticates through srlookup.
-		let parent_import = parent_export
-			.map(|export| ImportData { segment: export.segment.to_vec(), proof: export.proof });
 		let package = source.package(&anchored);
-		let (wp_hash, bundle) = build_encoded_bundle(
-			&package,
-			Vec::<Vec<u8>>::new(),
-			&[parent_import.into_iter().collect::<Vec<_>>()],
-		);
+		let wp_hash = work_package_hash(&package);
 
 		tracing::info!(
 			target: LOG_TARGET,
 			?block_hash,
 			%block_number,
+			?parent_hash,
 			?wp_hash,
 			core = self.core,
 			anchor = ?anchored.context.anchor,
 			anchor_slot,
-			?prerequisite,
-			import_spec = ?package.items[0].import_segments.first(),
-			exported_header_hash = ?sp_crypto_hashing::blake2_256(&encoded_header),
-			segroot = ?export.segroot,
 			pov_len = package.items[0].payload.0.len(),
-			bundle_len = bundle.len(),
 			anchor_proof_nodes = anchored.head_proof.nodes.len(),
-			"Assembled the work-package bundle for the block.",
+			in_flight = self.packages.len(),
+			?triggered_by,
+			"Assembled the work package for the block.",
 		);
 
-		self.submitted_blocks.insert(block_hash);
 		(self.announce_block)(block_hash, None);
 
 		let submitted_at = jam_slot_at(Timestamp::current());
-		// The entry is recorded even if the submission itself failed. The builder has this block
-		// in its segment either way, so dropping it here would put the two sides on different
-		// chains; the soft-resubmit timer sends the very same bundle again instead, and the
-		// resubmit budget is what eventually gives up on it.
-		self.submit(wp_hash, &bundle, anchored.context.anchor, block_hash).await;
-		self.chain.entries.push_back(InFlight {
+		// The entry is recorded even if the submission itself failed: the soft-resubmit timer is
+		// what retries it, and it can only retry a package this task still holds.
+		self.submit(wp_hash, &package, anchored.context.anchor, block_hash).await;
+		self.packages.entries.push_back(InFlight {
 			block_hash,
 			block_number,
 			parent_hash,
 			wp_hash,
-			bundle,
-			export,
+			package,
 			source,
 			anchored,
 			submitted_at,
 			reported: false,
 			resubmits: 0,
 		});
-		self.log_chain_state("a package was submitted");
+		self.log_state("a package was submitted");
 	}
 
-	/// Submit a bundle and subscribe to its status; `false` means the submission itself failed.
+	/// Submit a package and subscribe to its status; `false` means the submission itself failed.
+	///
+	/// A plain `submitWorkPackage` with no extrinsics: nothing has to be assembled into a bundle
+	/// by hand any more, because the package imports nothing that would have to travel inline.
 	async fn submit(
 		&mut self,
 		wp_hash: WorkPackageHash,
-		bundle: &[u8],
+		package: &WorkPackage,
 		anchor: HeaderHash,
 		block_hash: Block::Hash,
 	) -> bool {
 		let started = Instant::now();
-		let result = self.jam.submit_bundle(self.core, bundle.to_vec()).await;
+		let result = self.jam.submit_work_package(self.core, package, Vec::new()).await;
 		let elapsed_ms = started.elapsed().as_millis();
 		if let Err(error) = result {
 			tracing::warn!(
 				target: LOG_TARGET,
 				?block_hash,
 				?wp_hash,
-				bundle_len = bundle.len(),
 				elapsed_ms,
 				?error,
-				"Bundle submission failed.",
+				"Work-package submission failed.",
 			);
 			return false;
 		}
@@ -912,9 +529,8 @@ where
 			?wp_hash,
 			core = self.core,
 			?anchor,
-			bundle_len = bundle.len(),
 			elapsed_ms,
-			"Submitted the work-package bundle; following its status.",
+			"Submitted the work package; following its status.",
 		);
 
 		match self.jam.work_package_status_stream(wp_hash, anchor, false).await {
@@ -937,7 +553,7 @@ where
 
 	/// A status update for one of the packages in flight.
 	async fn on_status(&mut self, wp_hash: WorkPackageHash, status: WorkPackageStatus) {
-		let Some(index) = self.chain.position_of_package(wp_hash) else {
+		let Some(index) = self.packages.position_of_package(wp_hash) else {
 			tracing::debug!(
 				target: LOG_TARGET,
 				?wp_hash,
@@ -950,65 +566,65 @@ where
 		tracing::info!(
 			target: LOG_TARGET,
 			?wp_hash,
-			block_hash = ?self.chain.entries[index].block_hash,
-			block_number = %self.chain.entries[index].block_number,
+			block_hash = ?self.packages.entries[index].block_hash,
+			block_number = %self.packages.entries[index].block_number,
 			index,
-			chain_depth = self.chain.depth(),
+			in_flight = self.packages.len(),
 			?status,
 			?action,
 			"Work-package status update.",
 		);
 		match action {
 			PolicyAction::Wait => {},
-			PolicyAction::Done => self.chain.entries[index].reported = true,
+			PolicyAction::Done => self.packages.entries[index].reported = true,
 			PolicyAction::Resubmit => self.resubmit(index).await,
-			PolicyAction::DropTail => self.handle_failure(index, &format!("{status:?}")).await,
+			PolicyAction::Reanchor => self.reanchor(index, &format!("{status:?}")).await,
+			PolicyAction::Forget => self.forget(index, &format!("{status:?}")),
 		}
 	}
 
 	/// Once per JAM slot: give the policy a look at every package that has not been reported yet.
 	async fn on_slot_tick(&mut self) {
 		let now = jam_slot_at(Timestamp::current());
-		let overdue: Vec<(usize, PolicyAction)> = self
-			.chain
+		let overdue: Vec<(WorkPackageHash, PolicyAction)> = self
+			.packages
 			.entries
 			.iter()
-			.enumerate()
-			.filter(|(_, entry)| !entry.reported)
-			.map(|(index, entry)| {
+			.filter(|entry| !entry.reported)
+			.map(|entry| {
 				let waiting = now.saturating_sub(entry.submitted_at);
-				(index, self.policy.on_silence(waiting, entry.resubmits))
+				(entry.wp_hash, self.policy.on_silence(waiting, entry.resubmits))
 			})
 			.filter(|(_, action)| !matches!(action, PolicyAction::Wait))
 			.collect();
 
-		for (index, action) in overdue {
+		// Keyed by package hash rather than by index: forgetting one shifts every index after it,
+		// and packages are independent now, so several may come due in the same tick.
+		for (wp_hash, action) in overdue {
+			let Some(index) = self.packages.position_of_package(wp_hash) else { continue };
 			match action {
 				PolicyAction::Resubmit => self.resubmit(index).await,
-				// A drop takes the rest of the chain with it, so the indices collected above stop
-				// meaning anything; the next tick looks at what is left.
-				PolicyAction::DropTail => {
-					self.handle_failure(index, "no report within the resubmit budget").await;
-					break;
-				},
+				PolicyAction::Reanchor =>
+					self.reanchor(index, "no report within the resubmit budget").await,
+				PolicyAction::Forget =>
+					self.forget(index, "no report within the resubmit budget"),
 				PolicyAction::Wait | PolicyAction::Done => {},
 			}
 		}
 	}
 
-	/// Send the very same bundle again.
+	/// Send the very same package again.
 	///
-	/// Same bytes means the same work-package hash, so the submission is idempotent for JAM and —
-	/// this is the point — every child's prerequisite and import still name a package that
-	/// exists. Rebuilding anything would re-hash the package and orphan the whole tail.
+	/// Same bytes means the same work-package hash, so JAM sees one package however often it is
+	/// repeated and the status subscription this task already holds keeps naming it.
 	async fn resubmit(&mut self, index: usize) {
 		let now = jam_slot_at(Timestamp::current());
-		let entry = &mut self.chain.entries[index];
+		let entry = &mut self.packages.entries[index];
 		entry.resubmits += 1;
 		entry.submitted_at = now;
-		let (wp_hash, bundle, anchor, block_hash, resubmits) = (
+		let (wp_hash, package, anchor, block_hash, resubmits) = (
 			entry.wp_hash,
-			entry.bundle.clone(),
+			entry.package.clone(),
 			entry.anchored.context.anchor,
 			entry.block_hash,
 			entry.resubmits,
@@ -1019,48 +635,93 @@ where
 			?wp_hash,
 			index,
 			resubmits,
-			chain_depth = self.chain.depth(),
-			"No report yet; resubmitting the identical bundle.",
+			in_flight = self.packages.len(),
+			"No report yet; resubmitting the identical package.",
 		);
-		self.submit(wp_hash, &bundle, anchor, block_hash).await;
+		self.submit(wp_hash, &package, anchor, block_hash).await;
 	}
 
-	/// A package can no longer be reported.
+	/// Rebuild a package around a fresh anchor and a fresh para-head proof, and submit it as the
+	/// new package it now is.
 	///
-	/// The chain is cut at `index`: every descendant named this package in its prerequisite and
-	/// in its import, so none of them can be reported either. Re-contexting the failed package
-	/// instead would rewrite its bytes and therefore its hash, which is exactly what the
-	/// descendants already committed to — so it is only allowed for a root package that has no
-	/// descendants at all.
-	async fn handle_failure(&mut self, index: usize, reason: &str) {
-		let now = jam_slot_at(Timestamp::current());
-		self.log_deadlines(index, now, reason);
+	/// Phase 5a made this legal for *any* package: a re-anchored package has different bytes and
+	/// therefore a different hash, which used to orphan every child that had named the old one.
+	/// Nothing names a package's hash any more. If the re-anchoring cannot be completed the
+	/// package is forgotten, which is what would have happened anyway.
+	async fn reanchor(&mut self, index: usize, reason: &str) {
+		let entry = &self.packages.entries[index];
+		let block_hash = entry.block_hash;
+		self.log_deadline(index, jam_slot_at(Timestamp::current()), reason);
 
-		if index == 0 && self.chain.depth() == 1 && self.recontext_root().await {
+		let Ok(anchored) =
+			recontext(&*self.jam, self.service_id, self.para_id, &entry.anchored, block_hash).await
+		else {
+			self.forget(index, "the package failed and could not be re-anchored");
+			return;
+		};
+
+		let entry = &self.packages.entries[index];
+		let old_wp_hash = entry.wp_hash;
+		let package = entry.source.package(&anchored);
+		let wp_hash = work_package_hash(&package);
+		let anchor = anchored.context.anchor;
+		tracing::info!(
+			target: LOG_TARGET,
+			?block_hash,
+			?old_wp_hash,
+			new_wp_hash = ?wp_hash,
+			?anchor,
+			anchor_slot = anchored.anchor_slot,
+			reason,
+			"Re-anchored the package; nothing names a package's hash, so this breaks no links.",
+		);
+
+		if !self.submit(wp_hash, &package, anchor, block_hash).await {
+			self.forget(index, "the re-anchored package could not be submitted");
 			return;
 		}
-
-		let cut = self.chain.drop_tail(index);
-		let dropped = self.forget(cut, "dropped");
-		tracing::warn!(
-			target: LOG_TARGET,
-			index,
-			reason,
-			?dropped,
-			remaining = self.chain.depth(),
-			"Dropping the tail of the in-flight chain.",
-		);
-		self.request_rebuild("a package in the chain can no longer be reported");
-		self.log_chain_state("a tail was dropped");
+		// The old package hash is gone, so its subscription has to go with it.
+		self.stop_following(old_wp_hash, "re-anchored");
+		let submitted_at = jam_slot_at(Timestamp::current());
+		let entry = &mut self.packages.entries[index];
+		entry.wp_hash = wp_hash;
+		entry.package = package;
+		entry.anchored = anchored;
+		entry.submitted_at = submitted_at;
+		entry.resubmits += 1;
+		entry.reported = false;
 	}
 
-	/// Which of the two 8-block clocks ran out.
-	fn log_deadlines(&self, index: usize, now: JamSlot, reason: &str) {
-		let entry = &self.chain.entries[index];
+	/// Give up on a package.
+	///
+	/// Nothing else has to be undone — no other package named this one — and the block itself
+	/// stays in the local database, so the next parachain slot simply authors on whatever is
+	/// deepest there. What this does cost is the parachain's progress until somebody resubmits
+	/// the missing package: descendants of the lost block sit in the service's reorder buffer
+	/// until the buffer evicts them. Resubmission by another collator is phase-7 work, so this
+	/// logs loudly enough to be the thing a stalled parachain is diagnosed from.
+	fn forget(&mut self, index: usize, reason: &str) {
+		let entry = self.packages.remove(index);
+		self.stop_following(entry.wp_hash, "forgotten");
+		tracing::warn!(
+			target: LOG_TARGET,
+			block_hash = ?entry.block_hash,
+			block_number = %entry.block_number,
+			parent_hash = ?entry.parent_hash,
+			wp_hash = ?entry.wp_hash,
+			reason,
+			resubmits = entry.resubmits,
+			in_flight = self.packages.len(),
+			"Giving up on a work package. Its block stays in the local database, so authoring \
+			 continues, but nothing this collator does will make that block accumulate.",
+		);
+		self.log_state("a package was forgotten");
+	}
+
+	/// How much of the package's one deadline was left when it failed.
+	fn log_deadline(&self, index: usize, now: JamSlot, reason: &str) {
+		let entry = &self.packages.entries[index];
 		let anchor_age = now.saturating_sub(entry.anchored.anchor_slot);
-		let dependency_age = index
-			.checked_sub(1)
-			.map(|parent| now.saturating_sub(self.chain.entries[parent].submitted_at));
 		tracing::warn!(
 			target: LOG_TARGET,
 			block_hash = ?entry.block_hash,
@@ -1073,61 +734,19 @@ where
 			anchor_slot = entry.anchored.anchor_slot,
 			anchor_age,
 			anchor_expired = anchor_age > REPORT_DEADLINE_SLOTS,
-			dependency_age = ?dependency_age,
-			dependency_expired = ?dependency_age.map(|age| age > REPORT_DEADLINE_SLOTS),
 			deadline_slots = REPORT_DEADLINE_SLOTS,
 			submitted_at = entry.submitted_at,
 			resubmits = entry.resubmits,
-			"A work package failed; here is what each of the two deadlines had left.",
+			"A work package failed; here is what its anchor deadline had left.",
 		);
-	}
-
-	/// The phase-4 heal, which survives only for a childless root package: rebuild it around a
-	/// fresh anchor and a fresh para-head proof and submit it as a new package.
-	async fn recontext_root(&mut self) -> bool {
-		let entry = &self.chain.entries[0];
-		let block_hash = entry.block_hash;
-		let Ok(anchored) =
-			recontext(&*self.jam, self.service_id, self.para_id, &entry.anchored, block_hash).await
-		else {
-			return false;
-		};
-
-		let entry = &self.chain.entries[0];
-		let old_wp_hash = entry.wp_hash;
-		let package = entry.source.package(&anchored);
-		// A root package imports nothing, which is why re-contexting it is safe at all.
-		let (wp_hash, bundle) =
-			build_encoded_bundle(&package, Vec::<Vec<u8>>::new(), &[Vec::new()]);
-		let anchor = anchored.context.anchor;
-		tracing::info!(
-			target: LOG_TARGET,
-			?block_hash,
-			?old_wp_hash,
-			new_wp_hash = ?wp_hash,
-			?anchor,
-			anchor_slot = anchored.anchor_slot,
-			bundle_len = bundle.len(),
-			"Re-contexted the root package; it has no children whose links this could break.",
-		);
-
-		if !self.submit(wp_hash, &bundle, anchor, block_hash).await {
-			return false;
-		}
-		// The old package hash is gone from the chain, so its subscription has to go with it.
-		self.stop_following(old_wp_hash, "re-contexted");
-		let submitted_at = jam_slot_at(Timestamp::current());
-		let entry = &mut self.chain.entries[0];
-		entry.wp_hash = wp_hash;
-		entry.bundle = bundle;
-		entry.anchored = anchored;
-		entry.submitted_at = submitted_at;
-		entry.resubmits += 1;
-		entry.reported = false;
-		true
 	}
 
 	/// The para head advanced in JAM state.
+	///
+	/// Everything at or below the new head's height is settled: the service applies a head only
+	/// if it chains onto the stored one, and sweeps the rest of that height out of its reorder
+	/// buffer. So those packages either just accumulated or lost their fork, and either way this
+	/// task is done with them.
 	fn on_para_head(&mut self, head: &[u8]) {
 		let header = match Block::Header::decode(&mut &head[..]) {
 			Ok(header) => header,
@@ -1142,97 +761,42 @@ where
 			},
 		};
 		let hash = header.hash();
+		let number = *header.number();
 		self.included_head = Some(hash);
 
-		match self.chain.position_of_block(hash) {
-			Some(index) => {
-				let popped = self.chain.pop_through(index);
-				let accumulated = self.remember_accumulated(popped);
-				tracing::info!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					block_number = %header.number(),
-					?accumulated,
-					buffered = self.recently_accumulated.len(),
-					remaining = self.chain.depth(),
-					"Para head advanced in JAM state; our packages accumulated. Their packages \
-					 stay linkable for a few more blocks: a block anchored while they were still \
-					 in flight may be on its way here right now.",
-				);
-			},
-			// The block our chain hangs off, accumulating exactly as it should. It is not one of
-			// ours — we adopted its package from JAM's in-flight reports — but everything we
-			// have in flight was waiting for precisely this and is still perfectly live.
-			None if self.chain.root_parent() == Some(hash) => tracing::info!(
-				target: LOG_TARGET,
-				block_hash = ?hash,
-				block_number = %header.number(),
-				chain_depth = self.chain.depth(),
-				"Para head advanced to the block our in-flight chain is rooted on.",
-			),
-			// Ours, but no longer tracked — a package we dropped the tail around still made it,
-			// or the chain was reset under it. Nothing to heal: the builder is already authoring
-			// from the accumulated head.
-			None if self.submitted_blocks.contains(&hash) => tracing::info!(
-				target: LOG_TARGET,
-				block_hash = ?hash,
-				block_number = %header.number(),
-				chain_depth = self.chain.depth(),
-				"Para head advanced to a block of ours that is no longer in the in-flight chain.",
-			),
-			None => {
-				let dropped = self.chain.block_hashes();
-				tracing::warn!(
-					target: LOG_TARGET,
-					block_hash = ?hash,
-					block_number = %header.number(),
-					?dropped,
-					"Another collator's block won the para head; our whole in-flight chain is \
-					 built on a head JAM did not take.",
-				);
-				self.reset_chain("another collator's block became the para head");
-			},
+		let settled = self.packages.remove_up_to(number);
+		let ours = settled.iter().any(|entry| entry.block_hash == hash);
+		let accumulated: Vec<Block::Hash> = settled
+			.iter()
+			.filter(|entry| entry.block_hash == hash)
+			.map(|entry| entry.block_hash)
+			.collect();
+		let superseded: Vec<Block::Hash> = settled
+			.iter()
+			.filter(|entry| entry.block_hash != hash)
+			.map(|entry| entry.block_hash)
+			.collect();
+		for entry in settled {
+			let why = if entry.block_hash == hash { "accumulated" } else { "superseded" };
+			self.stop_following(entry.wp_hash, why);
 		}
-		self.log_chain_state("the para head advanced");
+
+		tracing::info!(
+			target: LOG_TARGET,
+			block_hash = ?hash,
+			block_number = %number,
+			ours,
+			?accumulated,
+			?superseded,
+			remaining = self.packages.len(),
+			"Para head advanced in JAM state.",
+		);
+		self.log_state("the para head advanced");
 	}
 
-	/// Move the whole chain into the recently-accumulated buffer, on the strength of the anchor
-	/// having proved every block in it accumulated. Returns the drained blocks for logging.
-	fn drain_chain_as_accumulated(&mut self) -> Vec<Block::Hash> {
-		let Some(last) = self.chain.depth().checked_sub(1) else { return Vec::new() };
-		let accumulated = self.chain.pop_through(last);
-		self.remember_accumulated(accumulated)
-	}
-
-	/// Move packages JAM has accumulated out of the chain and into the buffer that keeps them
-	/// linkable, returning their blocks for logging.
-	fn remember_accumulated(&mut self, accumulated: Vec<InFlight<Block>>) -> Vec<Block::Hash> {
-		accumulated
-			.into_iter()
-			.map(|entry| {
-				self.stop_following(entry.wp_hash, "accumulated");
-				self.recently_accumulated.remember(entry.block_hash, entry.wp_hash, entry.export);
-				entry.block_hash
-			})
-			.collect()
-	}
-
-	/// Entries leaving the chain for good: close their status subscriptions and return their
-	/// blocks for logging. Nothing about these stays usable, unlike an accumulated entry whose
-	/// package a child may still chain onto.
-	fn forget(&mut self, entries: Vec<InFlight<Block>>, why: &str) -> Vec<Block::Hash> {
-		entries
-			.into_iter()
-			.map(|entry| {
-				self.stop_following(entry.wp_hash, why);
-				entry.block_hash
-			})
-			.collect()
-	}
-
-	/// Close one package's status subscription. Every path that takes an entry out of the chain
-	/// goes through here: a handle outliving its entry is a subscription the node holds open for
-	/// the rest of the connection's life, and enough of those stop the collator dead.
+	/// Close one package's status subscription. Every path that stops tracking a package goes
+	/// through here: a handle outliving its entry is a subscription the node holds open for the
+	/// rest of the connection's life, and enough of those stop the collator dead.
 	fn stop_following(&mut self, wp_hash: WorkPackageHash, why: &str) {
 		if self.subscriptions.close(wp_hash) {
 			tracing::debug!(
@@ -1245,51 +809,15 @@ where
 		}
 	}
 
-	/// Drop everything in flight and ask the builder to start again from the accumulated head.
-	fn reset_chain(&mut self, why: &str) {
-		let cleared = self.chain.clear();
-		let dropped = self.forget(cleared, "reset");
-		if !dropped.is_empty() {
-			tracing::warn!(
-				target: LOG_TARGET,
-				why,
-				?dropped,
-				"Dropped the whole in-flight chain.",
-			);
-		}
-		self.request_rebuild(why);
-	}
-
-	/// Since 5.2 the builder never re-authors a stalled head on its own, so this is the only
-	/// thing that gets the collator building again after a package is lost.
-	fn request_rebuild(&mut self, why: &str) {
-		match self.rebuild_sender.try_send(()) {
-			Ok(()) => tracing::info!(
-				target: LOG_TARGET,
-				why,
-				"Asked the builder to reset its unincluded segment.",
-			),
-			Err(error) => tracing::warn!(
-				target: LOG_TARGET,
-				why,
-				?error,
-				"Unable to ask the builder for a segment reset.",
-			),
-		}
-	}
-
-	fn log_chain_state(&self, after: &str) {
+	fn log_state(&self, after: &str) {
 		tracing::debug!(
 			target: LOG_TARGET,
 			after,
-			depth = self.chain.depth(),
-			tip = ?self.chain.tip().map(|entry| entry.block_hash),
-			tip_wp_hash = ?self.chain.tip().map(|entry| entry.wp_hash),
-			entries = ?self.chain.block_hashes(),
+			in_flight = self.packages.len(),
+			blocks = ?self.packages.block_hashes(),
 			included_head = ?self.included_head,
-			recently_accumulated = self.recently_accumulated.len(),
 			live_subscriptions = self.subscriptions.len(),
-			"In-flight chain state.",
+			"In-flight work packages.",
 		);
 	}
 }
@@ -1299,8 +827,7 @@ fn hex_prefix(bytes: &[u8]) -> String {
 }
 
 /// The parts of a work package that survive a change of anchor: the built block(s), the
-/// parachain storage proof witnessing them, the work-item settings, and the package this one
-/// chains onto.
+/// parachain storage proof witnessing them, and the work-item settings.
 struct PackageSource<Block> {
 	blocks: Vec<Block>,
 	proof: CompactProof,
@@ -1309,9 +836,6 @@ struct PackageSource<Block> {
 	service_code_hash: CodeHash,
 	refine_gas_limit: UnsignedGas,
 	accumulate_gas_limit: UnsignedGas,
-	/// The parent block's package, when the parent is still in flight. `None` for a package
-	/// built on the head JAM has already accumulated.
-	prerequisite: Option<WorkPackageHash>,
 }
 
 /// A refine context together with the anchor state proof that has to travel with it.
@@ -1342,37 +866,26 @@ impl<Block: BlockT> PackageSource<Block> {
 		}
 		.encode();
 
-		// Same hash in both fields, two of the eight dependencies a package may have: the
-		// prerequisite orders us behind the parent's package, the `Indirect` import is what
-		// actually delivers the parent's header. `Indirect` rather than `Direct` because the
-		// chain validates the work-package-hash-to-segment-root mapping, while a direct root is
-		// an unauthenticated claim by whoever submitted the package.
-		let import_segments = match self.prerequisite {
-			Some(parent) => vec![ImportSpec { root: RootIdentifier::Indirect(parent), index: 0 }]
-				.try_into()
-				.expect("a single import spec always fits; qed"),
-			None => Default::default(),
-		};
+		// Nothing links this package to another: no prerequisite ordering it behind one, no
+		// imported segment carrying a parent's header, nothing exported for a child to import.
+		// The block's parent travels inside the PoV and the parachain service settles the
+		// lineage at accumulate.
 		let work_item = WorkItem {
 			service: self.service_id,
 			code_hash: self.service_code_hash,
 			payload: WorkPayload(payload),
 			refine_gas_limit: self.refine_gas_limit,
 			accumulate_gas_limit: self.accumulate_gas_limit,
-			import_segments,
+			import_segments: Default::default(),
 			extrinsics: Default::default(),
-			// Every block's header is exported, root case included, so that a child always has
-			// something to chain onto.
-			export_count: 1,
+			export_count: 0,
 		};
 
-		let mut context = anchored.context.clone();
-		context.prerequisites = self.prerequisite.into_iter().collect();
 		WorkPackage {
 			authorization: Authorization::default(),
 			auth_code_host: 0,
 			authorizer: fixed_authorizer(),
-			context,
+			context: anchored.context.clone(),
 			items: vec![work_item].try_into().expect("a single work item always fits; qed"),
 		}
 	}
@@ -1497,6 +1010,7 @@ where
 mod tests {
 	use super::*;
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
+	use jam_std_common::build_encoded_bundle;
 	use sp_core::H256;
 
 	fn test_proof() -> StateProof {
@@ -1527,7 +1041,7 @@ mod tests {
 		}
 	}
 
-	fn package_source(prerequisite: Option<WorkPackageHash>) -> PackageSource<TestBlock> {
+	fn package_source() -> PackageSource<TestBlock> {
 		PackageSource {
 			blocks: vec![TestBlock::new(header(1, H256::repeat_byte(7)), vec![])],
 			proof: CompactProof { encoded_nodes: vec![vec![1u8, 2, 3]] },
@@ -1536,31 +1050,25 @@ mod tests {
 			service_code_hash: CodeHash::from([9u8; 32]),
 			refine_gas_limit: 1_000,
 			accumulate_gas_limit: 1_000,
-			prerequisite,
 		}
 	}
 
-	/// A chain of `count` entries whose blocks form a parent/child line, package `k` hashed as
-	/// `[k; 32]`, all submitted in slot `k`.
-	fn test_chain(count: u8) -> InFlightChain<TestBlock> {
-		test_chain_rooted(count, H256::repeat_byte(200))
-	}
-
-	/// The same chain, hanging off a named block — the shape an adopted segment has.
-	fn test_chain_rooted(count: u8, root_parent: H256) -> InFlightChain<TestBlock> {
-		let mut chain = InFlightChain::new();
-		let mut parent_hash = root_parent;
+	/// `count` packages for a parent/child line of blocks, package `k` hashed as `[k; 32]`, all
+	/// submitted in slot `k`. The blocks form a chain because that is what a collator authors;
+	/// the packages themselves are independent, which is the point.
+	fn in_flight(count: u8) -> InFlightPackages<TestBlock> {
+		let mut packages = InFlightPackages::new();
+		let mut parent_hash = H256::repeat_byte(200);
 		for index in 0..count {
 			let block_header = header(u32::from(index) + 1, parent_hash);
 			let block_hash = block_header.hash();
-			chain.entries.push_back(InFlight {
+			packages.entries.push_back(InFlight {
 				block_hash,
 				block_number: *block_header.number(),
 				parent_hash,
 				wp_hash: wp_hash(index),
-				bundle: vec![index],
-				export: export_of(&block_header.encode()).expect("a header fits a segment"),
-				source: package_source(index.checked_sub(1).map(wp_hash)),
+				package: package_source().package(&anchored(JamSlot::from(index))),
+				source: package_source(),
 				anchored: anchored(JamSlot::from(index)),
 				submitted_at: JamSlot::from(index),
 				reported: false,
@@ -1568,441 +1076,120 @@ mod tests {
 			});
 			parent_hash = block_hash;
 		}
-		chain
+		packages
 	}
 
-	/// What the manager does with entries the chain pops as accumulated.
-	fn remember(buffer: &mut RecentlyAccumulated<H256>, accumulated: Vec<InFlight<TestBlock>>) {
-		for entry in accumulated {
-			buffer.remember(entry.block_hash, entry.wp_hash, entry.export);
-		}
-	}
-
-	/// The prerequisite a link turns into at the assembly site.
-	fn prerequisite_of(link: &Link<H256>) -> Option<WorkPackageHash> {
-		match link {
-			Link::Chain(wp_hash) | Link::Adopt { wp_hash, .. } => Some(*wp_hash),
-			Link::RecentlyAccumulated(parent) => Some(parent.wp_hash),
-			Link::Root { .. } | Link::Mismatch { .. } => None,
-		}
-	}
-
-	/// Nothing in flight and a block the builder authored on the accumulated head: the package
-	/// stands on the proof-anchored root, with nothing to depend on and nothing to drain.
+	/// A package stands alone: nothing orders it behind another package, nothing is imported
+	/// into it, and nothing is exported out of it for a child to import. This is the whole of
+	/// what phase 5a changed on the wire.
 	#[test]
-	fn a_block_on_the_accumulated_head_is_a_root_package() {
-		assert_eq!(
-			decide_included_link::<H256>(None, H256::repeat_byte(1)),
-			Link::Root { drain_accumulated: false },
-		);
-	}
-
-	/// The normal pipelined case: the block extends the tip, so the package chains onto the
-	/// tip's package.
-	#[test]
-	fn a_block_on_the_chain_tip_chains_onto_its_package() {
-		let tip_block = H256::repeat_byte(2);
-		assert_eq!(
-			decide_tip_link(
-				Some((tip_block, wp_hash(7))),
-				Some(H256::repeat_byte(1)),
-				None,
-				tip_block,
-			),
-			Link::Chain(wp_hash(7)),
-		);
-	}
-
-	/// The builder authoring on a block that is in neither the chain nor the recently-accumulated
-	/// buffer means the two sides disagree about the chain — after a drop-tail, say — and the
-	/// package must not be submitted: a link to the wrong parent is a package the service will
-	/// reject.
-	#[test]
-	fn a_block_on_neither_is_a_mismatch() {
-		let tip_block = H256::repeat_byte(2);
-		let head = H256::repeat_byte(1);
-		let stranger = H256::repeat_byte(3);
-		assert_eq!(
-			decide_tip_link(Some((tip_block, wp_hash(7))), Some(head), None, stranger),
-			Link::Mismatch { expected: Some(tip_block) },
-		);
-		assert_eq!(
-			decide_tip_link(None, Some(head), None, stranger),
-			Link::Mismatch { expected: Some(head) },
-			"an empty chain and an empty buffer leave nothing the parent could link onto",
-		);
-	}
-
-	/// The race this buffer exists for, as observed live: the builder anchored where the parent
-	/// was still in flight and said `Tip`, but the parent's accumulation reached the para-head
-	/// subscription first, so the chain is already empty when the block lands here. Rooting the
-	/// package is the bug — its anchor proof shows the head *before* the parent, so refine finds
-	/// a parent it never imported, zeroes the exports and takes every descendant down with it.
-	/// The link has to stay chained onto the parent's package.
-	#[test]
-	fn a_parent_that_accumulated_in_transit_still_chains_onto_its_package() {
-		let mut chain = test_chain(1);
-		let parent = chain.entries[0].block_hash;
-		let mut buffer = RecentlyAccumulated::new();
-		remember(&mut buffer, chain.pop_through(0));
-
-		let link = decide_tip_link(chain.tip_link(), Some(parent), buffer.parent(parent), parent);
-
-		let Link::RecentlyAccumulated(accumulated) = &link else {
-			panic!("the parent is in the buffer, so the link chains onto it: {link:?}");
-		};
-		assert_eq!(accumulated.wp_hash, wp_hash(0));
-		assert_eq!(accumulated.blocks_ago, 0);
-		assert_eq!(
-			accumulated.export,
-			export_of(&header(1, H256::repeat_byte(200)).encode()).unwrap(),
-			"the parent's export travels inline with the child, exactly as from the chain",
-		);
-
-		let package = package_source(prerequisite_of(&link)).package(&anchored(11));
-		assert_eq!(package.context.prerequisites.as_ref(), &[wp_hash(0)][..]);
-		assert_eq!(
-			package.items[0].import_segments.first(),
-			Some(&ImportSpec { root: RootIdentifier::Indirect(wp_hash(0)), index: 0 }),
-		);
-	}
-
-	/// The link is decided by the anchor the package carries, so the order the builder's message
-	/// and the para-head notification happen to reach the manager in cannot change it. Both
-	/// orders name the parent's package; only the source of the parent's export differs.
-	#[test]
-	fn the_link_is_the_same_whichever_event_reaches_the_manager_first() {
-		let message_first = {
-			let chain = test_chain(1);
-			let parent = chain.entries[0].block_hash;
-			decide_tip_link(chain.tip_link(), None, None, parent)
-		};
-		let pop_first = {
-			let mut chain = test_chain(1);
-			let parent = chain.entries[0].block_hash;
-			let mut buffer = RecentlyAccumulated::new();
-			remember(&mut buffer, chain.pop_through(0));
-			decide_tip_link(chain.tip_link(), Some(parent), buffer.parent(parent), parent)
-		};
-
-		assert_eq!(message_first, Link::Chain(wp_hash(0)));
-		assert_eq!(prerequisite_of(&message_first), Some(wp_hash(0)));
-		assert_eq!(prerequisite_of(&pop_first), prerequisite_of(&message_first));
-	}
-
-	/// The mirror image of the same race: the anchor proves the parent is the accumulated head
-	/// while this task is still holding the packages for it. The anchor is the authority, so
-	/// they are drained here rather than waited on, and the package is the root the builder said
-	/// it was.
-	#[test]
-	fn an_included_parent_the_chain_still_holds_drains_it_and_roots_the_package() {
-		let mut chain = test_chain(3);
-		let parent = chain.tip().expect("not empty").block_hash;
-
-		assert_eq!(
-			decide_included_link(chain.tip_link(), parent),
-			Link::Root { drain_accumulated: true },
-		);
-
-		let mut buffer = RecentlyAccumulated::new();
-		let last = chain.depth() - 1;
-		remember(&mut buffer, chain.pop_through(last));
-		assert_eq!(chain.depth(), 0);
-		assert_eq!(buffer.parent(parent).map(|parent| parent.wp_hash), Some(wp_hash(2)));
-	}
-
-	/// A chain that still holds unaccumulated descendants of the parent is not behind the
-	/// anchor — it disagrees with the builder, which has forgotten blocks this task is still
-	/// carrying. Rooting a sibling next to them would fork our own chain, so this stays the
-	/// mismatch that resynchronises both sides.
-	#[test]
-	fn an_included_parent_under_live_descendants_is_a_mismatch() {
-		let chain = test_chain(2);
-		let root_parent = chain.root_parent().expect("not empty");
-
-		assert_eq!(
-			decide_included_link(chain.tip_link(), root_parent),
-			Link::Mismatch { expected: Some(chain.entries[1].block_hash) },
-		);
-	}
-
-	/// The buffer covers the transit window between the builder's tick and this task, not the
-	/// whole history, so it stays bounded and drops the oldest entries first.
-	#[test]
-	fn the_recently_accumulated_buffer_keeps_only_the_last_few_packages() {
-		let mut chain = test_chain(RECENTLY_ACCUMULATED_CAP as u8 + 2);
-		let oldest = chain.entries[0].block_hash;
-		let newest = chain.tip().expect("not empty").block_hash;
-		let mut buffer = RecentlyAccumulated::new();
-		let last = chain.depth() - 1;
-		remember(&mut buffer, chain.pop_through(last));
-
-		assert_eq!(buffer.len(), RECENTLY_ACCUMULATED_CAP);
-		assert_eq!(buffer.parent(oldest), None, "the oldest packages are evicted first");
-		assert_eq!(buffer.parent(newest).map(|parent| parent.blocks_ago), Some(0));
-	}
-
-	/// After a restart, or when another collator authored the parent, the chain is empty and the
-	/// only thing naming the parent's package is JAM's in-flight report. Adopting it is what lets
-	/// the collator keep the pipeline going instead of re-rooting on the accumulated head.
-	#[test]
-	fn a_parent_known_only_from_a_report_starts_a_new_chain_segment() {
-		let parent = H256::repeat_byte(4);
-		let segroot = SegmentTreeRoot::from([5u8; 32]);
-
-		assert_eq!(
-			decide_reported_link(None, H256::repeat_byte(1), parent, wp_hash(6), segroot),
-			Link::Adopt { wp_hash: wp_hash(6), segroot, drain_accumulated: false },
-		);
-	}
-
-	/// A reported parent we submitted ourselves is not adopted: we know that package's hash
-	/// first-hand, and going through the report would drop the entry the chain already holds.
-	#[test]
-	fn a_reported_parent_we_already_track_stays_on_the_chain_path() {
-		let tip_block = H256::repeat_byte(2);
-		let segroot = SegmentTreeRoot::from([5u8; 32]);
-
-		assert_eq!(
-			decide_reported_link(
-				Some((tip_block, wp_hash(7))),
-				H256::repeat_byte(1),
-				tip_block,
-				wp_hash(6),
-				segroot,
-			),
-			Link::Chain(wp_hash(7)),
-		);
-		assert_eq!(
-			decide_reported_link(
-				Some((tip_block, wp_hash(7))),
-				H256::repeat_byte(1),
-				H256::repeat_byte(3),
-				wp_hash(6),
-				segroot,
-			),
-			Link::Mismatch { expected: Some(tip_block) },
-			"a chain that ends somewhere else is the usual disagreement, not an adoption",
-		);
-	}
-
-	/// The race observed live twice in one soak (2026-08-29 00:22:24 and 00:23:00): our own
-	/// block is the head the anchor proves accumulated, another collator's successor of it is
-	/// the in-flight tip the anchor's reports name, and the builder correctly builds on that
-	/// successor — but its message reaches this task before the para-head notification for the
-	/// pop does. The anchor is ahead of this task, not in disagreement with it, so the entry it
-	/// proves accumulated is drained and the reported parent adopted. Deciding this from the
-	/// arrival order instead dropped a perfectly good block and resynchronised both sides.
-	#[test]
-	fn a_reported_parent_above_our_just_accumulated_tip_drains_the_chain_and_adopts() {
-		let mut chain = test_chain(1);
-		let our_tip = chain.tip().expect("not empty").block_hash;
-		let their_successor = header(2, our_tip).hash();
-		let segroot = SegmentTreeRoot::from([5u8; 32]);
-
-		assert_eq!(
-			decide_reported_link(
-				chain.tip_link(),
-				our_tip,
-				their_successor,
-				wp_hash(6),
-				segroot,
-			),
-			Link::Adopt { wp_hash: wp_hash(6), segroot, drain_accumulated: true },
-		);
-
-		let mut buffer = RecentlyAccumulated::new();
-		let last = chain.depth() - 1;
-		remember(&mut buffer, chain.pop_through(last));
-		assert_eq!(chain.depth(), 0);
-		assert_eq!(
-			buffer.parent(our_tip).map(|parent| parent.wp_hash),
-			Some(wp_hash(0)),
-			"the drained package stays linkable, as it does on the para-head path",
-		);
-	}
-
-	/// ...and the para-head notification for that same pop, arriving afterwards, must change
-	/// nothing. The head is gone from the chain, it is not the block the adopted segment is
-	/// rooted on, and it is one of ours — which is the branch `on_para_head` takes and the only
-	/// harmless one. The foreign-head branch would reset the chain and throw away the package we
-	/// just adopted onto the other collator's block.
-	#[test]
-	fn the_para_head_pop_after_a_drain_and_adopt_resets_nothing() {
-		let mut chain = test_chain(1);
-		let our_tip = chain.tip().expect("not empty").block_hash;
-		let their_successor = header(2, our_tip).hash();
-		let mut submitted: HashSet<H256> = chain.block_hashes().into_iter().collect();
-		let mut buffer = RecentlyAccumulated::new();
-		let last = chain.depth() - 1;
-		remember(&mut buffer, chain.pop_through(last));
-
-		let adopted = test_chain_rooted(1, their_successor);
-		submitted.insert(adopted.tip().expect("not empty").block_hash);
-
-		assert_eq!(adopted.position_of_block(our_tip), None, "the drain already removed it");
-		assert_eq!(adopted.root_parent(), Some(their_successor));
-		assert!(
-			submitted.contains(&our_tip),
-			"a drained head is still one of ours, so the foreign-head reset cannot fire",
-		);
-		assert!(buffer.parent(our_tip).is_some(), "and it is still linkable for a late child");
-	}
-
-	/// A chain the anchor's included head does *not* cover keeps the old behaviour: the entries
-	/// above that head are live packages the anchor says nothing about, and starting an adopted
-	/// segment beside them would fork our own chain. That is a real desync, and resynchronising
-	/// is what resolves it.
-	#[test]
-	fn a_reported_parent_the_anchor_does_not_prove_us_past_is_still_a_mismatch() {
-		let chain = test_chain(2);
-		let tip = chain.tip().expect("not empty").block_hash;
-		let root_parent = chain.root_parent().expect("not empty");
-		let segroot = SegmentTreeRoot::from([5u8; 32]);
-
-		assert_eq!(
-			decide_reported_link(
-				chain.tip_link(),
-				root_parent,
-				H256::repeat_byte(9),
-				wp_hash(6),
-				segroot,
-			),
-			Link::Mismatch { expected: Some(tip) },
-		);
-	}
-
-	/// Adopting a package means trusting that the parent's header is what that package exported.
-	/// Recomputing the export root from the header we hold and comparing it with the root the
-	/// chain authenticated is the whole check, so it has to accept the real header...
-	#[test]
-	fn the_adopted_parents_export_is_accepted_when_it_reproduces_the_reported_root() {
-		let parent_header = header(4, H256::repeat_byte(7));
-		let export = export_of(&parent_header.encode()).expect("a header fits a segment");
-
-		assert_eq!(adopted_parent_export(&parent_header, export.segroot), Ok(export));
-	}
-
-	/// ...and reject anything else. A mismatch means the byte contract and the on-chain reality
-	/// disagree; the block is dropped because the import proof it would carry could not verify
-	/// against the segment root the `Indirect` import resolves to.
-	#[test]
-	fn an_adopted_parents_export_that_misses_the_reported_root_is_rejected() {
-		let parent_header = header(4, H256::repeat_byte(7));
-
-		assert!(adopted_parent_export(&parent_header, SegmentTreeRoot::from([0xaa; 32])).is_err());
-	}
-
-	/// A chain adopted onto another collator's block is waiting for exactly that block to
-	/// accumulate. Treating its arrival as a foreign head would drop packages that are still in
-	/// flight and perfectly able to accumulate next.
-	#[test]
-	fn the_block_an_adopted_chain_is_rooted_on_is_not_a_foreign_head() {
-		let chain = test_chain(2);
-		let root_parent = chain.entries[0].parent_hash;
-
-		assert_eq!(chain.position_of_block(root_parent), None);
-		assert_eq!(chain.root_parent(), Some(root_parent));
-	}
-
-	/// A chained package carries both halves of the link, and the hash the bundle builder
-	/// returns is the hash of the package encoding — the hash every child will name.
-	#[test]
-	fn a_chained_package_carries_the_prerequisite_and_the_import() {
-		let parent = wp_hash(3);
-		let source = package_source(Some(parent));
-		let package = source.package(&anchored(11));
-
-		assert_eq!(package.context.prerequisites.as_ref(), &[parent][..]);
-		assert_eq!(
-			package.items[0].import_segments.first(),
-			Some(&ImportSpec { root: RootIdentifier::Indirect(parent), index: 0 }),
-		);
-		assert_eq!(package.items[0].import_segments.len(), 1);
-		assert_eq!(package.items[0].export_count, 1, "every block exports its header");
-
-		let parent_export = export_of(&header(1, H256::repeat_byte(7)).encode()).unwrap();
-		let (hash, bundle) = build_encoded_bundle(
-			&package,
-			Vec::<Vec<u8>>::new(),
-			&[vec![ImportData {
-				segment: parent_export.segment.to_vec(),
-				proof: parent_export.proof.clone(),
-			}]],
-		);
-
-		assert_eq!(
-			hash,
-			WorkPackageHash::from(sp_crypto_hashing::blake2_256(
-				&jam_codec::Encode::encode(&package)
-			)),
-		);
-		assert!(
-			bundle
-				.windows(parent_export.segment.len())
-				.any(|window| window == &parent_export.segment[..]),
-			"the parent's segment travels inside the bundle; guarantors cannot fetch it from DA \
-			 yet",
-		);
-	}
-
-	/// A root package has neither half of the link and imports nothing.
-	#[test]
-	fn a_root_package_has_no_prerequisite_and_no_import() {
-		let package = package_source(None).package(&anchored(11));
+	fn a_package_names_no_other_package() {
+		let package = package_source().package(&anchored(11));
 
 		assert!(package.context.prerequisites.as_ref().is_empty());
 		assert!(package.items[0].import_segments.is_empty());
-		assert_eq!(package.items[0].export_count, 1, "the root exports its header too");
+		assert_eq!(package.items[0].export_count, 0);
+		assert!(package.items[0].extrinsics.is_empty());
 	}
 
-	/// The para head lands on an entry: that entry and everything older accumulated with it —
-	/// JAM applies a chain in order, so an older package cannot still be pending.
+	/// The hash is the key everything else uses — the status subscription, the manager's own
+	/// lookup — so it has to be the hash the node derives. polkajam's bundle builder is the
+	/// reference; with no imports and no extrinsics a bundle is just the encoded package, so the
+	/// two must agree exactly.
 	#[test]
-	fn accumulating_a_block_pops_it_and_everything_older() {
-		let mut chain = test_chain(4);
-		let third = chain.entries[2].block_hash;
+	fn the_package_hash_is_the_one_polkajam_derives() {
+		let package = package_source().package(&anchored(11));
 
-		let index = chain.position_of_block(third).expect("the block is in flight");
-		let popped = chain.pop_through(index);
+		let (reference, bundle) =
+			build_encoded_bundle(&package, Vec::<Vec<u8>>::new(), &[Vec::new()]);
 
-		assert_eq!(popped.len(), 3);
-		assert_eq!(chain.depth(), 1);
-		assert_eq!(chain.tip().map(|entry| entry.wp_hash), Some(wp_hash(3)));
+		assert_eq!(work_package_hash(&package), reference);
+		assert_eq!(bundle, jam_codec::Encode::encode(&package), "nothing travels beside it");
 	}
 
-	/// The tip accumulating empties the chain.
+	/// Re-anchoring keeps the block and its witness and changes only the anchor, which is the
+	/// whole reason `PackageSource` is kept alongside the submitted package.
 	#[test]
-	fn accumulating_the_tip_empties_the_chain() {
-		let mut chain = test_chain(3);
-		let tip = chain.tip().expect("not empty").block_hash;
+	fn re_anchoring_changes_the_package_hash_and_nothing_else() {
+		let source = package_source();
+		let first = source.package(&anchored(11));
+		let second = source.package(&anchored(12));
 
-		let index = chain.position_of_block(tip).expect("the block is in flight");
-
-		assert_eq!(chain.pop_through(index).len(), 3);
-		assert_eq!(chain.depth(), 0);
+		assert_ne!(work_package_hash(&first), work_package_hash(&second));
+		assert_eq!(first.items[0].payload.0, second.items[0].payload.0, "the PoV is untouched");
 	}
 
-	/// A head nobody in the chain authored is another collator's; the whole chain is built on a
-	/// head JAM did not take, so none of it can ever accumulate.
+	/// A soft resubmission has to be the *same bytes*: a package rebuilt instead of replayed
+	/// would hash differently, and JAM would see a second package where the collator meant to
+	/// repeat one — a second refine, a second report, and a status subscription following a hash
+	/// nothing else knows about.
 	#[test]
-	fn a_foreign_head_matches_no_entry() {
-		let chain = test_chain(3);
-		assert_eq!(chain.position_of_block(H256::repeat_byte(123)), None);
+	fn a_resubmission_replays_the_stored_package() {
+		let packages = in_flight(1);
+		let entry = &packages.entries[0];
+
+		assert_eq!(work_package_hash(&entry.package), work_package_hash(&entry.package.clone()));
+		assert_eq!(
+			jam_codec::Encode::encode(&entry.package),
+			jam_codec::Encode::encode(&entry.source.package(&entry.anchored)),
+			"the stored package is exactly what the source would build again",
+		);
 	}
 
-	/// A failure cuts the chain at the failed package: its descendants named it in their
-	/// prerequisite and their import, so they die with it, while its ancestors are untouched.
+	/// The para head advancing settles everything at or below its height: the block that became
+	/// the head accumulated, and a package for another block of that height lost the fork — the
+	/// service sweeps it out of its reorder buffer by exactly this rule.
 	#[test]
-	fn dropping_a_tail_removes_the_failed_package_and_its_descendants_only() {
-		let mut chain = test_chain(4);
-		let index = chain.position_of_package(wp_hash(2)).expect("the package is in flight");
+	fn the_new_head_settles_every_package_at_or_below_its_height() {
+		let mut packages = in_flight(4);
+		let third = packages.entries[2].block_number;
 
-		let dropped = chain.drop_tail(index);
+		let settled = packages.remove_up_to(third);
 
-		assert_eq!(dropped.len(), 2);
-		assert_eq!(chain.depth(), 2);
-		assert_eq!(chain.tip().map(|entry| entry.wp_hash), Some(wp_hash(1)));
+		assert_eq!(settled.len(), 3);
+		assert_eq!(packages.len(), 1);
+		assert_eq!(packages.entries[0].wp_hash, wp_hash(3));
+	}
+
+	/// A head deeper than anything this collator has in flight settles the lot; a head below
+	/// them all settles nothing.
+	#[test]
+	fn a_head_past_or_behind_everything_settles_accordingly() {
+		let mut packages = in_flight(3);
+		assert_eq!(packages.remove_up_to(0).len(), 0, "nothing is at or below height zero");
+		assert_eq!(packages.remove_up_to(99).len(), 3);
+		assert_eq!(packages.len(), 0);
+	}
+
+	/// A package that is neither the head nor below it stays in flight even though its block is
+	/// nothing this collator can prove yet: under 5a the service buffers a block whose parent has
+	/// not arrived, so a package one height ahead of the head is not lost, it is early.
+	#[test]
+	fn a_package_above_the_head_is_early_rather_than_lost() {
+		let mut packages = in_flight(2);
+		let first = packages.entries[0].block_number;
+
+		packages.remove_up_to(first);
+
+		assert_eq!(packages.len(), 1);
+		assert_eq!(packages.entries[0].wp_hash, wp_hash(1));
+	}
+
+	/// Forgetting one package must leave every other one exactly where it was: packages are
+	/// independent now, and dropping a "tail" would throw away blocks that can still accumulate.
+	#[test]
+	fn forgetting_one_package_keeps_the_others() {
+		let mut packages = in_flight(4);
+		let index = packages.position_of_package(wp_hash(1)).expect("the package is in flight");
+
+		let forgotten = packages.remove(index);
+
+		assert_eq!(forgotten.wp_hash, wp_hash(1));
+		assert_eq!(packages.len(), 3);
+		assert_eq!(
+			packages.entries.iter().map(|entry| entry.wp_hash).collect::<Vec<_>>(),
+			vec![wp_hash(0), wp_hash(2), wp_hash(3)],
+		);
 	}
 
 	/// A status stream that never ends on its own — which is what a real subscription is, and
@@ -2014,32 +1201,33 @@ mod tests {
 	/// The node closes a status subscription only when the client drops its stream, and it caps a
 	/// connection at 1024 of them. A handle that outlives its entry therefore leaks a
 	/// subscription the node holds open for good: live, after ~1050 packages, every new
-	/// submission failed with "Too many subscriptions on the connection" and drop-tailed
-	/// immediately. Whichever way an entry leaves the chain — accumulated, dropped tail, reset —
-	/// its subscription has to leave with it, and a resubmission must not add a second one.
+	/// submission failed with "Too many subscriptions on the connection". Whichever way a package
+	/// stops being tracked — accumulated, superseded, forgotten, re-anchored — its subscription
+	/// has to go with it, and a resubmission must not add a second one.
 	#[test]
-	fn a_status_subscription_never_outlives_the_entry_it_follows() {
-		let mut chain = test_chain(4);
+	fn a_status_subscription_never_outlives_the_package_it_follows() {
+		let mut packages = in_flight(4);
 		let mut subscriptions = StatusSubscriptions::new();
 		let mut statuses = SelectAll::new();
-		for entry in &chain.entries {
+		for entry in &packages.entries {
 			statuses.push(subscriptions.follow(entry.wp_hash, endless_statuses()));
 		}
 		assert_eq!(subscriptions.len(), 4);
 
-		let resubmitted = chain.tip().expect("not empty").wp_hash;
+		let resubmitted = packages.entries[3].wp_hash;
 		statuses.push(subscriptions.follow(resubmitted, endless_statuses()));
 		assert_eq!(subscriptions.len(), 4, "resubmitting replaces a package's subscription");
 
-		for entry in chain.pop_through(1) {
-			assert!(subscriptions.close(entry.wp_hash), "the accumulated entries are closed");
+		let settled = packages.entries[1].block_number;
+		for entry in packages.remove_up_to(settled) {
+			assert!(subscriptions.close(entry.wp_hash), "the settled packages are closed");
 		}
 		assert_eq!(subscriptions.len(), 2);
 
-		for entry in chain.drop_tail(0) {
-			assert!(subscriptions.close(entry.wp_hash), "and so is a dropped tail");
+		for entry in packages.remove_up_to(99) {
+			assert!(subscriptions.close(entry.wp_hash), "and so is a forgotten one");
 		}
-		assert_eq!(subscriptions.len(), 0, "no handle outlives the chain");
+		assert_eq!(subscriptions.len(), 0, "no handle outlives the packages");
 		assert!(!subscriptions.close(resubmitted), "closing twice is not a leak either");
 	}
 

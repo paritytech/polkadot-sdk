@@ -652,7 +652,6 @@ where
 
 				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
 				let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
-				let (rebuild_sender, rebuild_receiver) = futures::channel::mpsc::channel(4);
 				spawn_essential.spawn_essential(
 					"jam-block-builder",
 					Some("jam"),
@@ -673,7 +672,6 @@ where
 						service_id: jam_params.service_id,
 						jam: jam.clone(),
 						message_sender,
-						rebuild_receiver,
 					})),
 				);
 				spawn_essential.spawn_essential(
@@ -687,7 +685,6 @@ where
 							service_id: jam_params.service_id,
 							core: jam_params.core,
 							message_receiver,
-							rebuild_sender,
 							announce_block,
 							max_resubmits: 3,
 						},

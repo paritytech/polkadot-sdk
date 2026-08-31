@@ -20,13 +20,13 @@
 //! Two tasks form the collator loop:
 //!
 //! - the [builder task](builder_task) authors on a wall-clock parachain-slot timer, anchoring at
-//!   the JAM tip it caches, extending an unincluded segment it rebuilds every tick from JAM's
-//!   in-flight work reports rather than waiting for inclusion, with the shared authoring
+//!   the JAM tip it caches, building on the deepest block the local database holds below the
+//!   head JAM has accumulated rather than waiting for inclusion, with the shared authoring
 //!   primitives and a *mocked* parachain inherent, and feeds the channel;
-//! - the [collation task](collation_task) links each block's work package onto the one before
-//!   it, submits it as a bundle carrying the parent's exported header ([segments](segments)),
-//!   follows `workPackageStatus` for every package in flight, and drives resubmission and
-//!   drop-tail behind a pluggable [policy](resubmission).
+//! - the [collation task](collation_task) turns each block into one independent work package —
+//!   phase 5a links nothing to anything, so there is no prerequisite, no import and no export —
+//!   submits it, follows `workPackageStatus` for every package in flight, and drives
+//!   resubmission and re-anchoring behind a pluggable [policy](resubmission).
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
@@ -34,17 +34,15 @@
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod resubmission;
-pub(crate) mod segments;
 
 use codec::Decode;
 use futures::{Stream, StreamExt};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
 	BlockDesc, HeaderHash, JamStateSource, ServiceId, Slot as JamSlot, StateRootHash, StorageKey,
-	WorkPackageHash,
 };
 use jam_state_helpers::{StateKey, StateProof};
-use jam_types::{RefineContext, SegmentTreeRoot};
+use jam_types::RefineContext;
 use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
 
@@ -64,33 +62,10 @@ pub(crate) const ANCHOR_STATE_PROOF_KEY: &str = "jam/anchor_state_proof";
 /// so this only has to be comfortably large.
 const PROOF_SIZE_LIMIT: u32 = 64 * 1024;
 
-/// How a block's work package attaches to the package of the block it was built on.
-///
-/// The builder resolves this while it picks the parent, in the priority order phase 5 pins:
-/// packages we submitted this session first (JAM has not necessarily reported them yet, so state
-/// cannot see them, but the collation manager holds them), then the packages JAM's in-flight
-/// reports name (what survives a restart and what makes another collator's block extendable),
-/// then the accumulated head.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ParentLink {
-	/// The parent is the para head JAM has accumulated, or genesis: the package is a chain root
-	/// and depends on nothing.
-	Included,
-	/// The parent is a block authored this session, whose package the collation manager tracks.
-	Tip,
-	/// The parent's package is known only from JAM's in-flight reports — another collator's
-	/// block, or one of ours from before a restart. The segment root is what the manager
-	/// re-derives the parent's export against before naming the package.
-	Reported { wp_hash: WorkPackageHash, segroot: SegmentTreeRoot },
-}
-
 /// Message from the builder task to the collation task: one built parachain block plus the JAM
 /// context it was built against.
 pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	pub parent_header: Block::Header,
-	/// How the parent's package is known — the builder's parent resolution, which the manager
-	/// turns into the package's prerequisite and import.
-	pub parent_link: ParentLink,
 	pub block: Block,
 	pub proof: sp_api::StorageProof,
 	/// The refine context captured at build time; the anchor inside it decides the submission
@@ -102,13 +77,9 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// Proof of the para's included head at the anchor, already verified against
 	/// `anchor_state_root`.
 	pub anchor_state_proof: StateProof,
-	/// The para head the anchor proves accumulated — the head the parent above was resolved
-	/// against. The collation manager needs it to tell its own newer-or-older view of the head
-	/// apart from the one the package's proof commits to.
-	pub anchor_included_head: Block::Hash,
 	/// The timeslot of the anchor block, which starts the ~8-block clock the package has to be
-	/// reported within. The collation task needs it to tell an expired anchor apart from an
-	/// expired dependency reference when a package fails.
+	/// reported within. The collation task needs it to tell an expired anchor apart from any
+	/// other reason a package failed.
 	pub anchor_slot: JamSlot,
 	/// The JAM best block that triggered this build (for logging).
 	pub triggered_by: BlockDesc,
