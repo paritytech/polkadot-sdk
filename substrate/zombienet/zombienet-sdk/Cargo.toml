@@ -11,6 +11,7 @@ publish = false
 anyhow = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
+scale-info = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
@@ -18,4 +19,3 @@ zombienet-configuration = { workspace = true }
 
 [features]
 zombie-ci = []
-
