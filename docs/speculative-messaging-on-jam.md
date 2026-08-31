@@ -73,47 +73,74 @@ At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
 
 Every `Requires` source must exist and its root must be present in the ring.
 
+The settlement ring holds the last `W_MAX = 64` enacted roots per para.
+
 The settlement ring represents the last `W` enacted roots per para, keyed at `0x09 ++ para_id`.
 
 ```rust
-/// Keyed by `0x09 ++ SCALE(para_id)`. Appended newest-last, ensuring strict slot-ordering by construction.
+/// Tracks order and capacity.
 ///
-/// A root is evicted `D` slots after the parachain pushes its *subsequent* root. Until then, 
-/// it remains in the ring buffer. This dynamic retention guarantees that the latest root of an 
-/// idle or on-demand parachain never expires, while allowing elastic scaling to adjust the buffer's size.
+/// Key: `0x09 ++ para_id`
+///
+/// Billed: 47 B (never read during settlement)
+spec_msg_cursor: Map<ParaId, Cursor {
+  /// Sequence of next push (wrapping).
+  head: u32,
+  /// Sequence of the oldest entry.
+  tail: u32,
+}>
+
+/// Maps the sequence to the streams root.
 /// 
-/// A block with no new messages pushes nothing.
-/// The `parachain_clean_up` delets the ring as well.
-spec_msg_recent_provides: Map<ParaId, BoundedVec<(StreamsRoot, Slot), W_MAX>>
+/// Key: `0x0b ++ para_id ++ seq`
+///
+/// Billed: 75 B (Read on capacity eviction and lifecycle).
+spec_msg_queue: Map<(ParaId, u32), StreamsRoot>
 
-/// The upper bound on the number of slots between a lift's retarget (package build) 
-/// and its accumulation.
+/// Ensures the `StreamsRoot` is present in the ring.
 ///
-/// Represents the sum of:
-///  `C_H` (anchor recency) + Availability timeout (`U`) + consumer pipeline depth +
-///   censorship margin.
+/// Key: `0x0a ++ para_id ++ root`
 ///
-/// Calculation: `D = 8 + 5 + 9 + 8 = 30` (provisional on `U` with 2 margin slots).
-pub const D: u32 = 32;
-/// Assumed ceiling on concurent cores per parachain. This is not enforced. However,
-/// JAM has 341 cores total.
-///
-/// If Coretime allocates more than `MAX_CORES` to a parachain, the ring will hit `W_MAX`
-/// and safely fall back to oldest-first eviction.
-pub const MAX_CORES: u32 = 20;
-
-/// The absolute maximum capacity of the ring buffer for a single parachain.
-///
-/// This size accommodates a parachain pushing one root per core, per slot, for `D` slots.
-pub const W_MAX: u32 = MAX_CORES * D;
+/// Billed: 75 B (Read only by settlement check).
+spec_msg_member: Map<(ParaId, StreamsRoot), MemberEntry {
+  /// The queue position ensuring duplicate guard and consumer hints about
+  /// live chain sets.
+  seq: u32
+}>
 ```
 
-Under stable block production, the size used is roughtly the number of cores the parachain owns.
-Evection doesn't happen after a fixed amount to account for on-demand parachains.
+The ring capacity is per parachain and strictly position based. A root is only evicted after the parachain pushes `W_MAX (64)`
+new roots. Because eviction requires new messages, a block with no new messages pushes nothing.
+After 64 roots, the ring reaches a maximum capacity of 9747 B.
 
-If the buffer contains `[(root A, slot 10)]`, `root A` remains valid indefinitely.
-The eviction only begins when the parachain pushes its next root. When `root B` lands at `slot 50`,
-root A is scheduled for eviction at `slot 50 + D`.
+**Push Logic**
+
+If a root is repeated, the `MemberEntry` is updated with the new position, leaving the old entry in the
+`spec_msg_queue`.
+
+```rust
+fn push(para: ParaId, root: StreamsRoot) {
+  let mut cursor = spec_msg_cursor.get(para);
+
+  // Eviction
+  while cursor.head.wrapping_sub(cursor.tail) >= W_MAX {
+    let to_evict = spec_msg_queue.get(&(para, cursor.tail));  // 75 B read
+    let entry = spec_msg_member.get(&(para, to_evict));       // 75 B read
+    if entry.seq == cursor.tail {
+      // Head submitted again more recently.
+      spec_msg_member.remove(&(para, to_evict));
+    }
+    spec_msg_queue.remove(&(para, cursor.tail));              // 75 B write
+    spec_msg_member.insert((para, root), MemberEntry { seq: cursor.head}); // 75 B write 
+    cursor.head = cursor.head.wrapping_add(1);
+    spec_msg_cursor.set(para, c); // 47 B write
+  }
+}
+
+When the `parachain_set_head` overwrites a live head, or if `parachain_clean_up` is called, the ring is cleared.
+The teardown process reads the cursor and walks backwards from `head - 1` down to `tail`.
+If the process runs out of gas, the revert leaves the cursor intact. This acts as a sentinel to detect incomplete
+teardown.
 
 > Note: A forced rollback (`ParachainSetHead` from the Coretime chain) isn't applied instantly. Its an upward message,
 replayed at step 7 when the Coretime chain's own package accumulates. Packages accumulate in order within a block,
