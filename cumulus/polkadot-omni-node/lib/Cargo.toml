@@ -35,9 +35,9 @@ scale-info = { workspace = true }
 subxt-metadata = { workspace = true, default-features = true }
 
 # Substrate
-frame-benchmarking = { optional = true, workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
 frame-benchmarking-cli = { workspace = true, default-features = true }
-frame-support = { optional = true, workspace = true, default-features = true }
+frame-support = { workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
@@ -129,16 +129,14 @@ default = []
 rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = [
-	"cumulus-primitives-core/runtime-benchmarks",
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
-	"polkadot-cli/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
+	# Only enable sc-client-db/runtime-benchmarks which is needed for storage
+	# benchmarks (expose_db, expose_storage, expose_shared_trie_cache).
+	# Avoid enabling frame-benchmarking/runtime-benchmarks or frame-support/runtime-benchmarks
+	# here, as those cascade (via proc-macros) into all pallets compiled in the same build,
+	# forcing embedded runtimes (e.g. in polkadot-parachain) to also be compiled with
+	# runtime-benchmarks. The benchmarking host functions and the Benchmark runtime API are
+	# both available from frame-benchmarking without that feature flag.
 	"sc-client-db/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -28,12 +28,7 @@ pub use parachains_common_types::{AccountId, Balance, Hash, Nonce};
 type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-pub type ParachainHostFunctions = (
-	cumulus_client_service::ParachainHostFunctions,
-	sp_statement_store::runtime_api::HostFunctions,
-);
-#[cfg(feature = "runtime-benchmarks")]
+// Always include benchmarking host functions.
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
