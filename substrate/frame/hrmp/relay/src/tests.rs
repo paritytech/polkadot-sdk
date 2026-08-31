@@ -315,7 +315,7 @@ mod establish_system_channel {
 	}
 
 	#[test]
-	fn opens_both_directions_and_reports_only_locally() {
+	fn opens_both_directions_and_reports_the_outcome() {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
 
@@ -328,8 +328,16 @@ mod establish_system_channel {
 				OpenChannels::get(),
 				vec![channel, chan(PARA_B, PARA_A)]
 			);
-			// Nothing goes back: no deposit anywhere depends on the outcome.
-			assert_eq!(take_sent(), vec![]);
+			// Answered, though no deposit depends on it: the parachain cannot see this chain's
+			// registry, and one answer settles both directions of the pair.
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::SystemChannelResponse {
+					channel,
+					message_id: MSG_ID,
+					outcome: Ok(()),
+				})]
+			);
 			assert_eq!(
 				hrmp_events(),
 				vec![Event::SystemChannelOpened { channel, message_id: MSG_ID }]
@@ -337,8 +345,12 @@ mod establish_system_channel {
 		});
 	}
 
+	/// A refusal must reach the parachain, not just this chain's event log. It is the refusal a
+	/// freshly registered para actually hits — it is still onboarding, so this chain will not open
+	/// a channel to it — and without the report the parachain records the pair open against
+	/// nothing.
 	#[test]
-	fn a_refusal_is_a_local_event_too() {
+	fn a_refusal_is_reported_to_the_parachain() {
 		new_test_ext().execute_with(|| {
 			let channel = chan(PARA_A, PARA_B);
 			NextFailure::set(Some(FailureReason::Refused));
@@ -349,7 +361,14 @@ mod establish_system_channel {
 			));
 
 			assert!(!frame_support::storage::unhashed::exists(PARTIAL_WRITE_KEY));
-			assert_eq!(take_sent(), vec![]);
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::SystemChannelResponse {
+					channel,
+					message_id: MSG_ID,
+					outcome: Err(FailureReason::Refused),
+				})]
+			);
 			assert_eq!(
 				hrmp_events(),
 				vec![Event::SystemChannelRejected {

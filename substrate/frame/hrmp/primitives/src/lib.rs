@@ -136,8 +136,14 @@ pub enum MessageToRelayV1 {
 	/// Ask the relay chain to open a deposit-free channel in both directions.
 	///
 	/// Used for channels with or amongst system chains, including the one the Coretime chain
-	/// opens with every para it registers. Unanswered: no deposit is staked on the outcome, so a
-	/// refusal is reported as a relay-chain event rather than costing a round trip.
+	/// opens with every para it registers. Answered with
+	/// [`MessageToParaV1::SystemChannelResponse`].
+	///
+	/// No deposit is staked on the outcome, so the round trip is not about money — it is about the
+	/// parachain not being able to tell "opened" from "refused" otherwise. It cannot see the relay
+	/// chain's state, and the most common refusal is routine rather than exceptional: the chain
+	/// that owns the registry asks for this channel the moment a registration is applied, while the
+	/// new para is still onboarding and the relay chain will not yet open a channel to it.
 	#[codec(index = 4)]
 	EstablishSystemChannel {
 		/// One end of the pair. Both directions are opened.
@@ -212,6 +218,21 @@ pub enum MessageToParaV1 {
 		/// The id of the request this answers, echoed back.
 		message_id: u64,
 		/// Whether the request was dropped.
+		outcome: Outcome,
+	},
+	/// Report how a [`MessageToRelayV1::EstablishSystemChannel`] ended, for **both** directions.
+	///
+	/// `Ok(())` means the relay chain has the pair, so both may be recorded open.
+	/// [`FailureReason::AlreadyExists`] counts as success: it means the channel is there, which is
+	/// the outcome that was asked for. Any other refusal leaves the pair unconfirmed for a retry —
+	/// nothing is staked on it, so there is nothing to release.
+	#[codec(index = 4)]
+	SystemChannelResponse {
+		/// One end of the pair the report is about. It covers both directions.
+		channel: ChannelId,
+		/// The id of the request this answers, echoed back.
+		message_id: u64,
+		/// Whether the relay chain has the pair.
 		outcome: Outcome,
 	},
 }

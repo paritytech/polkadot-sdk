@@ -714,6 +714,51 @@ mod cancel_registration {
 		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id, outcome: Ok(()) })
 	}
 
+	/// A stale verdict settles a *later* request, because responses correlate on
+	/// `(para_id, state)` and the echoed `message_id` is never checked.
+	///
+	/// The doc on `MessageToParaV1` justifies skipping the check with "at most one request per para
+	/// id is ever in flight". That is false for the retry paths: `cancel_registration` sends a
+	/// fresh id while an earlier answer may still be queued. Reachable only when the relay chain's
+	/// replies lag a full `PendingDeadline`, but the cost is a released deposit on a live para.
+	///
+	/// This test asserts what happens **today**. When the fix lands — store the id in `Pending` /
+	/// `Deregistering` and match it — the stale answer is ignored and the final assertions here
+	/// change to "still Pending, deposit still held". See `open.md` B16.
+	#[test]
+	fn a_stale_cancel_verdict_settles_a_later_registration() {
+		build_and_execute(|| {
+			// GIVEN a registration that was cancelled, and the cancellation confirmed.
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
+			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
+			let _ = registrar_events();
+			let _ = take_sent();
+
+			// WHEN the manager registers again, taking a **new** deposit.
+			request_registration(ALICE, para_id, 20, 300);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+
+			// WHEN the *first* cancellation's answer arrives late — same para id, same state, an
+			// id this pallet does not look at.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
+
+			// THEN it settles the second registration: the new deposit is handed back and the
+			// para drops to `Reserved`, while the relay chain may well be holding an
+			// authorization — or have onboarded the para outright.
+			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+		});
+	}
+
 	#[test]
 	fn is_refused_before_the_deadline() {
 		build_and_execute(|| {
@@ -1970,6 +2015,45 @@ mod receiving_a_migration {
 
 	fn migrated(para_id: u32, state: MigratedParaState, locked: bool) -> MigratedPara<AccountId> {
 		MigratedPara { para_id, manager: ALICE, state, locked }
+	}
+
+	/// What actually stops an unprivileged takeover of a live parachain, and what does not.
+	///
+	/// The relay chain's `on_code_upgrade_request` and `on_set_head_request` authorize on
+	/// `is_registered` **alone** — no manager, no lock — and trust this chain's registry. So the
+	/// whole guarantee is that this chain cannot hand out an id some live para already holds.
+	/// Three things could do that, and only two of them are enforced here:
+	///
+	/// - ids **below the public floor** (system chains, which the migration skips) — enforced;
+	/// - ids **this chain knows about** — enforced, `reserve` steps over them;
+	/// - ids live on the relay chain but **absent from this chain's map** (anything the migration
+	///   parked in `FailedParas`) — enforced *only* by the counter being above them.
+	///
+	/// That third one is a consequence of the counter being monotonic, not a rule anybody wrote.
+	/// This test pins it, and pins that `force_set_next_free_para_id` is the one call that can
+	/// break it — which is why it is root-only. See `open.md` B21.
+	#[test]
+	fn reserve_cannot_hand_out_an_id_below_the_floor_or_one_already_known() {
+		build_and_execute(|| {
+			// GIVEN the id counter adopted from the chain the registry came from, above every id
+			// that chain ever allocated.
+			<Registrar as ReceiveMigratedParas>::receive_next_free_para_id(5_000);
+
+			// WHEN ids are handed out. THEN never below the migrated counter, so an id that is
+			// live over there but never arrived here is unreachable.
+			for _ in 0..3 {
+				assert!(reserve_for(ALICE) >= 5_000);
+			}
+
+			// A counter that arrives below the floor cannot reach a system chain's id either.
+			<Registrar as ReceiveMigratedParas>::receive_next_free_para_id(0);
+			assert_eq!(reserve_for(ALICE), FIRST_PARA_ID);
+
+			// And an id this chain already holds is stepped over rather than reissued.
+			let taken = reserve_for(BOB);
+			<Registrar as ReceiveMigratedParas>::receive_next_free_para_id(taken);
+			assert!(reserve_for(ALICE) > taken);
+		});
 	}
 
 	#[test]

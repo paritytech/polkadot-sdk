@@ -75,6 +75,23 @@ fn cancel_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
 	MessageToPara::V1(MessageToParaV1::CancelResponse { channel, message_id: 2, outcome })
 }
 
+fn system_channel_response(
+	channel: ChannelId,
+	message_id: u64,
+	outcome: Outcome,
+) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::SystemChannelResponse { channel, message_id, outcome })
+}
+
+/// Deliver the relay chain's confirmation for a deposit-free pair, which is what promotes both
+/// directions from `Pending` to `Open`.
+fn confirm_system_channel(channel: ChannelId, message_id: u64) {
+	assert_ok!(Hrmp::receive(
+		RuntimeOrigin::root(),
+		system_channel_response(channel, message_id, Ok(()))
+	));
+}
+
 mod origins {
 	use super::*;
 
@@ -553,9 +570,11 @@ mod system_channels {
 		build_and_execute(|| {
 			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 
-			// Both directions, because a one-way system channel is never what was meant.
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
+			// Both directions, because a one-way system channel is never what was meant. Recorded
+			// unconfirmed until the relay chain answers: this chain cannot see its registry, and
+			// the request is genuinely refused while a recipient is still onboarding.
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
+			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Pending));
 			assert_eq!(held(PARA_A), 0);
 			assert_eq!(held(SELF_PARA), 0);
 			assert_eq!(
@@ -565,6 +584,13 @@ mod system_channels {
 					message_id: 0,
 				})]
 			);
+
+			// WHEN the relay chain confirms, one answer settles both directions.
+			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
+			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
+			assert_eq!(held(PARA_A), 0);
+			assert_eq!(held(SELF_PARA), 0);
 		});
 	}
 
@@ -578,6 +604,7 @@ mod system_channels {
 				PARA_A,
 				SYSTEM_PARA,
 			));
+			confirm_system_channel(chan(PARA_A, SYSTEM_PARA), 0);
 			assert_eq!(state_of(chan(PARA_A, SYSTEM_PARA)), Some(ChannelState::Open));
 			assert_eq!(state_of(chan(SYSTEM_PARA, PARA_A)), Some(ChannelState::Open));
 
@@ -587,6 +614,7 @@ mod system_channels {
 				SYSTEM_PARA,
 				PARA_B,
 			));
+			confirm_system_channel(chan(SYSTEM_PARA, PARA_B), 1);
 			assert_eq!(state_of(chan(SYSTEM_PARA, PARA_B)), Some(ChannelState::Open));
 
 			// Deposit-free at both ends by definition, which is why this can stay open.
@@ -637,18 +665,39 @@ mod system_channels {
 			// WHEN the registrar tells this pallet a para is registered.
 			Hrmp::on_registered(PARA_A);
 
-			// THEN this chain has a route to it, in both directions, at no cost. Without that a
-			// para could never `Transact` into here, and the para-origin path above would be
-			// unreachable for it.
+			// THEN the pair is requested but not yet claimed open. A freshly registered para is
+			// still onboarding on the relay chain, which refuses a channel to it for two of its
+			// session boundaries — claiming `Open` here is what made that refusal invisible.
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
+			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Pending));
+			assert_eq!(held(PARA_A), 0);
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
+					channel: chan(SELF_PARA, PARA_A),
+					message_id: 0,
+				})]
+			);
+
+			// WHEN the relay chain confirms, this chain has a route in both directions at no cost.
+			// Without that a para could never `Transact` into here, and the para-origin path above
+			// would be unreachable for it.
+			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
 			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
 			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
 			assert_eq!(held(PARA_A), 0);
 			assert_eq!(
 				hrmp_events(),
-				vec![Event::SystemChannelOpened {
-					channel: chan(SELF_PARA, PARA_A),
-					message_id: 0
-				}]
+				vec![
+					Event::SystemChannelRequested {
+						channel: chan(SELF_PARA, PARA_A),
+						message_id: 0
+					},
+					Event::SystemChannelOpened {
+						channel: chan(SELF_PARA, PARA_A),
+						message_id: 0
+					},
+				]
 			);
 		});
 	}
@@ -675,7 +724,92 @@ mod system_channels {
 			// And the retry works once the transport is back.
 			SendFails::set(false);
 			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
+			confirm_system_channel(chan(SELF_PARA, PARA_A), 1);
 			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
+		});
+	}
+
+	/// The refusal a new para actually hits: the relay chain will not open a channel to a para that
+	/// is still onboarding. The pair must stay unconfirmed and say so, because that is the only
+	/// signal anyone gets that a retry is needed — nothing is staked, so there is nothing to
+	/// release and no deadline to expire.
+	#[test]
+	fn a_refused_pair_stays_unconfirmed_and_can_be_retried() {
+		build_and_execute(|| {
+			Hrmp::on_registered(PARA_A);
+			let _ = take_sent();
+			let _ = hrmp_events();
+
+			// WHEN the relay chain refuses, because the para has not onboarded yet.
+			assert_ok!(Hrmp::receive(
+				RuntimeOrigin::root(),
+				system_channel_response(
+					chan(SELF_PARA, PARA_A),
+					0,
+					Err(FailureReason::InvalidPara)
+				)
+			));
+
+			// THEN neither direction claims to be open, and the refusal is on the record.
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
+			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Pending));
+			assert_eq!(
+				hrmp_events(),
+				vec![Event::SystemChannelRefused {
+					channel: chan(SELF_PARA, PARA_A),
+					message_id: 0,
+					reason: FailureReason::InvalidPara,
+				}]
+			);
+
+			// WHEN the para is live and somebody retries.
+			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
+			confirm_system_channel(chan(SELF_PARA, PARA_A), 1);
+
+			// THEN both directions are open.
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
+			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
+		});
+	}
+
+	/// `AlreadyExists` is the relay chain saying the channel is there, which is the outcome that
+	/// was asked for — so it settles the pair open rather than leaving it unconfirmed forever. Same
+	/// reading `on_cancel_response` gives `NotFound`.
+	#[test]
+	fn already_exists_counts_as_confirmation() {
+		build_and_execute(|| {
+			Hrmp::on_registered(PARA_A);
+			let _ = take_sent();
+			let _ = hrmp_events();
+
+			assert_ok!(Hrmp::receive(
+				RuntimeOrigin::root(),
+				system_channel_response(
+					chan(SELF_PARA, PARA_A),
+					0,
+					Err(FailureReason::AlreadyExists)
+				)
+			));
+
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
+			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
+		});
+	}
+
+	/// A retry for a pair that is already open must not demote it. Re-establishing is deliberately
+	/// allowed, and an in-flight second request whose answer is refused would otherwise knock a
+	/// working control channel back to unconfirmed.
+	#[test]
+	fn a_redundant_retry_does_not_demote_an_open_pair() {
+		build_and_execute(|| {
+			Hrmp::on_registered(PARA_A);
+			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
+
+			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
+			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
+			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
 		});
 	}
 }
@@ -1217,6 +1351,7 @@ mod force_remove_from_every_state {
 	fn a_system_channel_can_be_torn_down_too() {
 		build_and_execute(|| {
 			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
+			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
 
 			// Nothing is in flight for an Open channel, so no deadline applies.
 			assert_ok!(Hrmp::force_remove_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
@@ -1285,6 +1420,9 @@ mod receiving_a_migration {
 			Hrmp::on_registered(PARA_A);
 			let out = chan(SELF_PARA, PARA_A);
 			let back = chan(PARA_A, SELF_PARA);
+			// A migrated para is already live on the relay chain, so its control channel is
+			// confirmed rather than left waiting on an onboarding.
+			confirm_system_channel(out, 0);
 			assert_eq!(state_of(out), Some(ChannelState::Open));
 			let _ = take_sent();
 			let _ = hrmp_events();

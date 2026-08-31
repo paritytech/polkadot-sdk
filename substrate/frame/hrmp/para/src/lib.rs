@@ -299,12 +299,23 @@ pub mod pallet {
 		Cancelled { channel: ChannelId, message_id: u64 },
 		/// The relay chain refused the cancellation. The request stands.
 		CancelFailed { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// A deposit-free channel was opened in both directions.
+		/// A deposit-free channel was requested in both directions, and the relay chain has
+		/// confirmed it.
 		SystemChannelOpened { channel: ChannelId, message_id: u64 },
-		/// A channel with a newly registered para could not be opened.
+		/// A channel with a newly registered para could not be requested at all.
 		///
 		/// Registration itself succeeded. `establish_system_channel` retries.
 		SystemChannelFailed { channel: ChannelId },
+		/// The relay chain refused a deposit-free channel pair. Both directions stay unconfirmed.
+		///
+		/// The ordinary reason is that the para is still onboarding, which takes two of the relay
+		/// chain's session boundaries and longer while its validation code is pre-checked. Nothing
+		/// is staked, so there is nothing to release — `establish_system_channel` retries once the
+		/// para is live.
+		SystemChannelRefused { channel: ChannelId, message_id: u64, reason: FailureReason },
+		/// A deposit-free channel pair was requested. Not open until the relay chain confirms it
+		/// with [`Event::SystemChannelOpened`].
+		SystemChannelRequested { channel: ChannelId, message_id: u64 },
 		/// Governance removed this chain's record of a channel.
 		ChannelForceRemoved { channel: ChannelId },
 		/// A migrated channel was already established here as a deposit-free system channel, so
@@ -531,6 +542,11 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_response(channel, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::SystemChannelResponse {
+					channel,
+					message_id,
+					outcome,
+				}) => Self::on_system_channel_response(channel, message_id, outcome),
 			}
 		}
 
@@ -576,7 +592,7 @@ pub mod pallet {
 
 			let message_id = Self::do_establish_system_channel(sender, recipient)?;
 
-			Self::deposit_event(Event::SystemChannelOpened {
+			Self::deposit_event(Event::SystemChannelRequested {
 				channel: ChannelId { sender, recipient },
 				message_id,
 			});
@@ -727,15 +743,26 @@ impl<T: Config> Pallet<T> {
 		let channel = ChannelId { sender, recipient };
 		let back = ChannelId { sender: recipient, recipient: sender };
 
+		// Recorded as `Pending`, not `Open`: this chain cannot see the relay chain's registry, and
+		// the request is genuinely refused in the ordinary case — the control plane asks for the
+		// channel the moment a registration is applied, while the para is still onboarding.
+		// Claiming `Open` here is how a refusal became invisible: the records said the pair was
+		// live, so nothing indicated a retry was needed. `on_system_channel_response` promotes
+		// them once the relay chain confirms.
+		//
 		// Re-establishing is allowed: a retry after a failed open must be able to make progress,
-		// and a system channel holds no deposit to lose by being overwritten.
+		// and a system channel holds no deposit to lose by being overwritten. An already-`Open`
+		// pair is left alone, so a redundant retry cannot demote a working channel.
 		for id in [channel, back] {
+			if matches!(Channels::<T>::get(id).map(|c| c.state), Some(ChannelState::Open)) {
+				continue;
+			}
 			Channels::<T>::insert(
 				id,
 				ChannelInfo {
 					sender_ticket: None,
 					recipient_ticket: None,
-					state: ChannelState::Open,
+					state: ChannelState::Pending,
 				},
 			);
 		}
@@ -913,6 +940,42 @@ impl<T: Config> Pallet<T> {
 		}
 		Ok(())
 	}
+
+	/// Apply the relay chain's verdict on a deposit-free channel pair.
+	///
+	/// Covers **both** directions: the relay chain opens the pair or neither, so one answer settles
+	/// two records. No deposit is involved, so a refusal releases nothing — it only leaves the pair
+	/// unconfirmed, which is what makes a retry meaningful and visible.
+	fn on_system_channel_response(
+		channel: ChannelId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let back = ChannelId { sender: channel.recipient, recipient: channel.sender };
+
+		match outcome {
+			// `AlreadyExists` is the channel being there, which is the outcome that was asked for.
+			// Same reading `on_cancel_response` gives `NotFound`: the state the caller wanted.
+			Ok(()) | Err(FailureReason::AlreadyExists) => {
+				for id in [channel, back] {
+					// Only a pair this chain is actually waiting on. A record that has moved on —
+					// closed, or torn down by governance — must not be resurrected by a late
+					// answer.
+					if let Some(mut info) = Channels::<T>::get(id) {
+						if matches!(info.state, ChannelState::Pending | ChannelState::Open) {
+							info.state = ChannelState::Open;
+							Channels::<T>::insert(id, info);
+						}
+					}
+				}
+				Self::deposit_event(Event::SystemChannelOpened { channel, message_id });
+			},
+			Err(reason) => {
+				Self::deposit_event(Event::SystemChannelRefused { channel, message_id, reason });
+			},
+		}
+		Ok(())
+	}
 }
 
 /// Open a channel with every para this chain registers.
@@ -922,9 +985,16 @@ impl<T: Config> Pallet<T> {
 /// para-origin path in [`Pallet::open_channel`] reachable at all.
 ///
 /// A failure here must never unwind: the registration has already succeeded by the time this
-/// runs, and a channel that could fail it would make onboarding depend on HRMP capacity. Failures
-/// are reported as [`Event::SystemChannelFailed`] and retried with
+/// runs, and a channel that could fail it would make onboarding depend on HRMP capacity. A
+/// transport failure is reported as [`Event::SystemChannelFailed`] and retried with
 /// [`Pallet::establish_system_channel`].
+///
+/// The pair is only **requested** here, not opened. A para that has just registered is still
+/// onboarding on the relay chain and will be refused a channel for two of its session boundaries,
+/// longer while its validation code is pre-checked — so the relay chain's answer is what promotes
+/// the pair, and a refusal leaves it unconfirmed and says so. Recording it open on the strength of
+/// the request alone is how that refusal used to become invisible: nothing was staked and nothing
+/// expired, so there was no signal that any para had come up without a control plane.
 impl<T: Config> OnParaRegistered for Pallet<T> {
 	fn on_registered(para_id: ParaId) {
 		let here = T::SelfParaId::get();
@@ -936,7 +1006,7 @@ impl<T: Config> OnParaRegistered for Pallet<T> {
 
 		match opened {
 			Ok(message_id) =>
-				Self::deposit_event(Event::SystemChannelOpened { channel, message_id }),
+				Self::deposit_event(Event::SystemChannelRequested { channel, message_id }),
 			Err(_) => Self::deposit_event(Event::SystemChannelFailed { channel }),
 		}
 	}

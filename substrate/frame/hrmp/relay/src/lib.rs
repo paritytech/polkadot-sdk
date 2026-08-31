@@ -235,21 +235,24 @@ pub mod pallet {
 						|c, m, r| Event::CancelRejected { channel: c, message_id: m, reason: r },
 					);
 				},
-				// Unanswered: the outcome is an event on this chain, because no deposit anywhere
-				// depends on it.
-				MessageToRelayV1::EstablishSystemChannel { channel, message_id } => {
-					match Self::guarded(|| T::Registry::establish_system_channel(channel)) {
-						Ok(()) => Self::deposit_event(Event::SystemChannelOpened {
-							channel,
-							message_id,
-						}),
-						Err(reason) => Self::deposit_event(Event::SystemChannelRejected {
-							channel,
-							message_id,
-							reason,
-						}),
-					}
-				},
+				// Answered, like every other request here. No deposit depends on the outcome, but
+				// the parachain cannot see this chain's state, and the refusal it will actually
+				// hit is routine: the control plane asks for this channel as soon as a
+				// registration is applied, while the new para is still onboarding and this chain
+				// will not open a channel to it yet. Without an answer the parachain records the
+				// pair as open against a chain that has nothing, and nothing ever corrects it.
+				MessageToRelayV1::EstablishSystemChannel { channel, message_id } => Self::settle(
+					channel,
+					message_id,
+					Self::guarded(|| T::Registry::establish_system_channel(channel)),
+					|c, m, o| MessageToParaV1::SystemChannelResponse {
+						channel: c,
+						message_id: m,
+						outcome: o,
+					},
+					|c, m| Event::SystemChannelOpened { channel: c, message_id: m },
+					|c, m, r| Event::SystemChannelRejected { channel: c, message_id: m, reason: r },
+				),
 			}
 			Ok(())
 		}

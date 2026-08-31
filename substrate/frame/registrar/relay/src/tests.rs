@@ -396,6 +396,40 @@ mod apply_authorized_code {
 		});
 	}
 
+	/// The pending-registration queue is **global**: one para filling it stops every other para
+	/// registering, network-wide, until governance clears it with `force_drop_pending`. Nothing is
+	/// burned to hold a slot — the deposit is a refundable `Consideration` held on the *other*
+	/// chain — so the cost of doing this is capital, not spend. See `open.md` B19 for the figures.
+	#[test]
+	fn the_pending_queue_is_shared_so_one_para_can_block_another() {
+		new_test_ext().execute_with(|| {
+			// GIVEN the queue filled by paras unrelated to the one below.
+			for para_id in [PARA_A, PARA_B] {
+				let _ = request(para_id, 20, 300);
+			}
+			assert_eq!(PendingRegistrations::<Test>::count(), MAX_PENDING);
+
+			// WHEN a different para asks. `receive` never fails — a refusal is reported, not
+			// raised — so the verdict is what the parachain is told.
+			let victim: ParaId = 2002;
+			let _ = take_sent();
+			let (msg, _) = register_msg(victim, 20, 300);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			// THEN it is turned away for someone else's occupancy, and its deposit is released
+			// rather than held against a registration it never got.
+			assert_eq!(
+				take_sent(),
+				vec![failure_report(victim, FailureReason::TooManyPending)]
+			);
+			assert!(PendingRegistrations::<Test>::get(victim).is_none());
+
+			// And only root can free the slot; the occupier is under no obligation to.
+			assert_ok!(Registrar::force_drop_pending(RuntimeOrigin::root(), PARA_A));
+			assert_eq!(PendingRegistrations::<Test>::count(), MAX_PENDING - 1);
+		});
+	}
+
 	#[test]
 	fn a_registrar_failure_leaves_the_request_pending() {
 		new_test_ext().execute_with(|| {
@@ -414,6 +448,22 @@ mod apply_authorized_code {
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_some());
 			assert_eq!(PendingRegistrations::<Test>::count(), 1);
 			assert!(take_sent().is_empty());
+
+			// Two consequences of "nothing was reported" that are worth stating outright, because
+			// they are the cost of the retry above rather than free (see `open.md` B15):
+			//
+			// 1. The parachain is never told. It sits on a held deposit in `Pending` until its
+			//    manager gives up and cancels — there is no deadline here that would prompt them,
+			//    and the sibling `apply_authorized_code_upgrade` reports its refusals instead.
+			// 2. The entry surviving means this transaction stays valid for the pool. It is
+			//    unsigned and feeless, so nobody is charged for resubmitting it, and the only
+			//    thing bounding a failing upload is that somebody has to keep sending the bytes.
+			assert!(Registrar::authorize_apply_authorized_code(
+				TransactionSource::External,
+				&PARA_A,
+				&blob,
+			)
+			.is_ok());
 
 			RegisterFails::set(false);
 			assert_ok!(Registrar::apply_authorized_code(
