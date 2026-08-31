@@ -169,7 +169,7 @@ mod benchmarks {
 		let (sender, recipient) = pair::<T>();
 		let channel = ChannelId { sender, recipient };
 		opened::<T>(channel)?;
-		Pallet::<T>::close_channel(RawOrigin::Root.into(), sender, recipient)?;
+		Pallet::<T>::close_channel(RawOrigin::Root.into(), sender, recipient, sender)?;
 
 		#[extrinsic_call]
 		_(

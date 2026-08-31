@@ -168,6 +168,38 @@ mod origins {
 		});
 	}
 
+	/// The claimed initiator is not free-form: whoever calls may only name an end they are entitled
+	/// to act for. Either end may close, so this is about the relay chain being told *who asked*
+	/// rather than about authority — but a caller able to claim the other end could pin a close on
+	/// a para that never asked for one.
+	#[test]
+	fn nobody_may_close_as_an_end_they_do_not_act_for() {
+		build_and_execute(|| {
+			let channel = open_channel(PARA_A, PARA_B);
+			assert!(channel.is_participant(PARA_A));
+
+			// A para claiming the other end.
+			assert_noop!(
+				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_B),
+				Error::<Test>::NotOwner
+			);
+			// A manager claiming an end it does not manage. Bob manages PARA_B.
+			assert_noop!(
+				Hrmp::close_channel(RuntimeOrigin::signed(BOB), PARA_A, PARA_B, PARA_A),
+				Error::<Test>::NotOwner
+			);
+			// Nobody may name a para that is not on the channel at all, root included.
+			assert_noop!(
+				Hrmp::close_channel(RuntimeOrigin::root(), PARA_A, PARA_B, PARA_C),
+				Error::<Test>::NotOwner
+			);
+
+			// Root may name either real end: it is governance, or a relay chain asserting which
+			// para relayed the request.
+			assert_ok!(Hrmp::close_channel(RuntimeOrigin::root(), PARA_A, PARA_B, PARA_B));
+		});
+	}
+
 	#[test]
 	fn either_end_may_close_and_the_relay_chain_is_told_which() {
 		build_and_execute(|| {
@@ -175,7 +207,7 @@ mod origins {
 			let channel = open_channel(PARA_A, PARA_B);
 
 			// WHEN the *recipient's* manager closes it.
-			assert_ok!(Hrmp::close_channel(RuntimeOrigin::signed(BOB), PARA_A, PARA_B));
+			assert_ok!(Hrmp::close_channel(RuntimeOrigin::signed(BOB), PARA_A, PARA_B, PARA_B));
 
 			// THEN the relay chain is told B asked, not A: it has to know which end initiated.
 			assert_eq!(
@@ -392,7 +424,7 @@ mod responses {
 			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
 
 			// WHEN a close is merely requested.
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B));
+			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
 
 			// THEN nothing is released: the channel may still be carrying messages.
 			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
@@ -409,7 +441,7 @@ mod responses {
 			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
 
 			// WHEN it confirms instead.
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B));
+			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
 			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_response(channel, Ok(()))));
 
 			// THEN, and only then, both ends are made whole and the record is gone.
@@ -443,7 +475,7 @@ mod responses {
 			// its channels at the session boundary without telling this chain, so the relay
 			// chain's only possible answer to a close is NotFound.
 			let channel = open_channel(PARA_A, PARA_B);
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B));
+			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
 
 			// WHEN the relay chain answers that no such channel exists.
 			assert_ok!(Hrmp::receive(
@@ -536,7 +568,7 @@ mod wrong_state {
 				Error::<Test>::WrongState
 			);
 			assert_noop!(
-				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B),
+				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A),
 				Error::<Test>::WrongState
 			);
 			assert_noop!(
@@ -555,7 +587,7 @@ mod wrong_state {
 				Error::<Test>::NoSuchChannel
 			);
 			assert_noop!(
-				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B),
+				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A),
 				Error::<Test>::NoSuchChannel
 			);
 		});
@@ -920,7 +952,7 @@ mod state_machine {
 					RuntimeOrigin::root(),
 					accept_response(channel, Ok(()))
 				));
-				assert_ok!(Hrmp::close_channel(para_origin(sender), sender, recipient));
+				assert_ok!(Hrmp::close_channel(para_origin(sender), sender, recipient, sender));
 			},
 			"Cancelling" => {
 				open();
@@ -1000,7 +1032,7 @@ mod state_machine {
 				reach(state, PARA_A, PARA_B);
 				check(
 					*close,
-					Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B),
+					Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A),
 					"close_channel",
 					state,
 				);
@@ -1022,7 +1054,7 @@ mod state_machine {
 		build_and_execute(|| {
 			for (what, result) in [
 				("accept", Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B)),
-				("close", Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B)),
+				("close", Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A)),
 				("cancel", Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B)),
 				("force_remove", Hrmp::force_remove_channel(RuntimeOrigin::root(), PARA_A, PARA_B)),
 			] {
@@ -1189,7 +1221,7 @@ mod deposits {
 			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
 			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
 
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B));
+			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
 			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_response(channel, Ok(()))));
 
 			// A close returns both halves, each to the end that paid it.

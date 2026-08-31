@@ -853,10 +853,12 @@ fn closing_returns_both_deposits_only_after_the_relay_chain_confirms() {
 	RegistrarPara::execute_with(|| {
 		assert_eq!(channel_state(channel), Some(ChannelState::Open));
 
+		// Alice manages `a`, so that is the end she may close as.
 		assert_ok!(para::HrmpControl::close_channel(
 			para::RuntimeOrigin::signed(ALICE),
 			a,
 			b,
+			a,
 		));
 	});
 

@@ -454,15 +454,23 @@ pub mod pallet {
 		/// chain accepts today. Nothing is released here: only the relay chain's confirmation
 		/// releases the deposits, because a close that is merely requested must not hand the money
 		/// back while the channel still carries messages.
+		///
+		/// `initiator` is named by the caller rather than inferred from the origin, and the origin
+		/// check is what says whether they may claim it: a para may only close as itself, a manager
+		/// only as the end it manages, and root — governance, or a relay chain relaying a para's own
+		/// request — names it outright. Either end may close, so this is attribution rather than
+		/// authority; but the relay chain records who asked, and inferring it would mean picking a
+		/// default for the one caller that has nothing to infer from.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::close_channel())]
 		pub fn close_channel(
 			origin: OriginFor<T>,
 			sender: ParaId,
 			recipient: ParaId,
+			initiator: ParaId,
 		) -> DispatchResult {
 			let channel = ChannelId { sender, recipient };
-			let initiator = Self::ensure_root_para_or_either_manager(origin, channel)?;
+			Self::ensure_may_close_as(origin, channel, initiator)?;
 			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
 			ensure!(info.state == ChannelState::Open, Error::<T>::WrongState);
 
@@ -801,26 +809,30 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Closing is the one operation both ends may drive, so the relay chain has to be told which
 	/// of them asked.
-	fn ensure_root_para_or_either_manager(
+	fn ensure_may_close_as(
 		origin: frame_system::pallet_prelude::OriginFor<T>,
 		channel: ChannelId,
-	) -> Result<ParaId, sp_runtime::DispatchError> {
+		initiator: ParaId,
+	) -> DispatchResult {
+		ensure!(channel.is_participant(initiator), Error::<T>::NotOwner);
+
 		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
-			ensure!(channel.is_participant(id), Error::<T>::NotOwner);
-			return Ok(id);
+			// A para closes as itself and nobody else.
+			ensure!(id == initiator, Error::<T>::NotOwner);
+			return Ok(());
 		}
 		if let Ok(who) = frame_system::ensure_signed(origin.clone()) {
-			for end in [channel.sender, channel.recipient] {
-				if T::ParaManager::manager_of(end) == Some(who.clone()) {
-					return Ok(end);
-				}
-			}
-			return Err(Error::<T>::NotOwner.into());
+			// A manager closes as the end it manages.
+			ensure!(
+				T::ParaManager::manager_of(initiator) == Some(who),
+				Error::<T>::NotOwner
+			);
+			return Ok(());
 		}
+		// Root names the end outright: either governance, or the relay chain relaying a para's own
+		// request, in which case it is asserting which para asked. Both are trusted to say.
 		frame_system::ensure_root(origin)?;
-		// Root acts on the channel rather than for an end; name the sender, which is the end the
-		// relay chain will accept for either kind of close.
-		Ok(channel.sender)
+		Ok(())
 	}
 
 	/// Read a channel that must be in the state a response expects.
