@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
@@ -59,7 +59,7 @@ use sp_runtime::{
 	traits::{BlockNumberProvider, Hash},
 	Debug, FixedU128, SaturatedConversion,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -201,6 +201,22 @@ pub mod ump_constants {
 	/// starts getting exponentially more expensive.
 	/// `2` means the price starts to increase when queue is half full.
 	pub const THRESHOLD_FACTOR: u32 = 2;
+}
+
+const V3_CLAIM_QUEUE_LOOKAHEAD: u8 = 2;
+const V2_CLAIM_QUEUE_LOOKAHEAD: u8 = 1;
+
+/// The largest `claim_queue_offset` a candidate may declare.
+///
+/// With V3 the collator reads the claim queue at the scheduling parent, which is the fresh tip, so
+/// the bound is just the V3 lookahead. Without V3 it reads at the relay parent, which sits
+/// `relay_parent_offset` blocks behind the tip, so the bound grows by that much.
+fn max_allowed_claim_queue_offset(v3_enabled: bool, relay_parent_offset: u8) -> u8 {
+	if v3_enabled {
+		V3_CLAIM_QUEUE_LOOKAHEAD
+	} else {
+		V2_CLAIM_QUEUE_LOOKAHEAD.saturating_add(relay_parent_offset)
+	}
 }
 
 #[frame_support::pallet]
@@ -628,20 +644,14 @@ pub mod pallet {
 			weight += T::DbWeight::get().reads(1);
 
 			// Ensure `CoreInfo` digest exists only once and validate claim_queue_offset.
-			//
-			// With V3: the collator looks up the claim queue at the scheduling parent
-			// (fresh tip), so the max offset is just the `max_claim_queue_offset()`.
-			// Without V3: the collator looks up at the relay parent which is offset
-			// behind the tip, so the effective max includes relay_parent_offset.
 			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					let mut max_allowed_offset = Self::max_claim_queue_offset();
-					if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
-						max_allowed_offset = max_allowed_offset
-							.saturating_add(T::RelayParentOffset::get().saturated_into::<u8>())
-					}
+					let max_allowed_offset = max_allowed_claim_queue_offset(
+						T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED,
+						T::RelayParentOffset::get().saturated_into::<u8>(),
+					);
 					assert!(
 						core_info.claim_queue_offset.0 <= max_allowed_offset,
 						"claim_queue_offset {} exceeds maximum allowed {}",
@@ -1173,10 +1183,10 @@ impl<T: Config> Pallet<T> {
 	/// runtime API to expose the value to collators.
 	pub fn max_claim_queue_offset() -> u8 {
 		if !T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED {
-			return 1;
+			return V2_CLAIM_QUEUE_LOOKAHEAD;
 		}
 
-		2
+		V3_CLAIM_QUEUE_LOOKAHEAD
 	}
 }
 
@@ -1939,11 +1949,8 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
 			.map(|encoded_message| {
-				VersionedXcm::<()>::decode_all_with_depth_limit(
-					MAX_XCM_DECODE_DEPTH,
-					&mut &encoded_message[..],
-				)
-				.unwrap()
+				VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut &encoded_message[..])
+					.unwrap()
 			})
 			.collect();
 

@@ -112,6 +112,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Test {
 	type WeightInfo = ();
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type ReserveData = ();
 	type Holder = ();
 	#[cfg(feature = "runtime-benchmarks")]

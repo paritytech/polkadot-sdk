@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, StorageAccessKind},
+	access_list::{AccessEntry, AccessList, StorageAccessKind, StorageOp},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -403,6 +403,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if the caller is origin, and this origin is root.
 	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool;
 
+	/// Check if the origin of the whole call stack is root.
+	///
+	/// Unlike [`Self::caller_is_root`], this does not require the caller to be the origin: any
+	/// number of intermediate frames may sit between this contract and the original dispatch.
+	fn origin_is_root(&self) -> bool;
+
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
 
@@ -546,12 +552,19 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Checks if `key` was already accessed in this transaction and inserts it
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the [`StorageAccessKind`]: hot if `key` was already accessed, cold
-	/// otherwise. When `transient` is true, skips the access list and returns
-	/// the `Transient` variant.
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind;
+	/// the slot's [`StorageAccessKind`]. `op` is the operation being performed:
+	/// a write upgrades a slot that had only paid for a read. When
+	/// `transient` is true, skips the access list and returns the `Transient`
+	/// variant.
+	fn touch_storage_access(
+		&mut self,
+		transient: bool,
+		key: &Key,
+		op: StorageOp,
+	) -> StorageAccessKind;
 
-	/// Non-mutating sibling of `touch_storage_access`.
+	/// Non-mutating sibling of `touch_storage_access`: prices the access without
+	/// warming the slot.
 	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
 
 	/// Charges `diff` from the meter.
@@ -1235,6 +1248,15 @@ where
 			input_data,
 			self.exec_config,
 		)? {
+			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
+			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
+			if frame.entry_point == ExportedFunction::Constructor &&
+				self.frames().any(|f| {
+					f.entry_point == ExportedFunction::Constructor &&
+						f.account_id == frame.account_id
+				}) {
+				return Err(Error::<T>::DuplicateContract.into());
+			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {
@@ -1311,6 +1333,7 @@ where
 			transient_storage.start_transaction();
 		});
 		let is_first_frame = self.frames.is_empty();
+		let access_list_checkpoints_len = self.access_list.frame_depth();
 		// Open an access-list frame for nested CALL/CREATE. The first frame
 		// is skipped; its touches land in the bare journal and persist
 		// for the whole transaction.
@@ -1582,6 +1605,11 @@ where
 		} else {
 			self.access_list.rollback_frame();
 		}
+		debug_assert_eq!(
+			self.access_list.frame_depth(),
+			access_list_checkpoints_len,
+			"this frame closed exactly the checkpoint it opened",
+		);
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -2400,6 +2428,10 @@ where
 		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
 	}
 
+	fn origin_is_root(&self) -> bool {
+		self.origin == Origin::Root
+	}
+
 	fn balance(&self) -> U256 {
 		self.account_balance(&self.top_frame().account_id)
 	}
@@ -2608,13 +2640,18 @@ where
 		)
 	}
 
-	fn touch_storage_access(&mut self, transient: bool, key: &Key) -> StorageAccessKind {
+	fn touch_storage_access(
+		&mut self,
+		transient: bool,
+		key: &Key,
+		op: StorageOp,
+	) -> StorageAccessKind {
 		if transient {
 			return StorageAccessKind::Transient;
 		}
 		let address = self.address();
 		StorageAccessKind::Persistent(
-			self.access_list.touch(AccessEntry { address, slot: key.into() }),
+			self.access_list.touch(AccessEntry { address, slot: key.into() }, op),
 		)
 	}
 

@@ -21,8 +21,8 @@ use crate::{
 	EthTransactError, Pallet, RUNTIME_PALLETS_ADDR,
 	address::AddressMapper,
 	evm::{
-		AccessListEntry, AuthorizationListEntry, Bytes, DryRunConfig, GenericTransaction,
-		StateOverride, StateOverrideSet,
+		AccessListEntry, AuthorizationListEntry, Bytes, GenericTransaction, StateOverride,
+		StateOverrideSet,
 	},
 	state_overrides::apply_state_overrides,
 	test_utils::{ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
@@ -151,9 +151,8 @@ fn eth_estimate_gas_short_circuits_simple_transfer() {
 		let alice = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
 		let _ = <Test as Config>::Currency::set_balance(&alice, u64::MAX as u128);
 
-		let estimate =
-			Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), DryRunConfig::default())
-				.expect("simple transfer should be estimable");
+		let estimate = Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), None, None)
+			.expect("simple transfer should be estimable");
 		assert!(!estimate.is_zero(), "simple-transfer estimate must be non-zero");
 	});
 }
@@ -161,7 +160,7 @@ fn eth_estimate_gas_short_circuits_simple_transfer() {
 #[test]
 fn eth_estimate_gas_short_circuit_errors_when_value_exceeds_balance() {
 	ExtBuilder::default().build().execute_with(|| {
-		let err = Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), DryRunConfig::default())
+		let err = Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), None, None)
 			.expect_err("transfer with empty balance must error");
 		match err {
 			EthTransactError::Message(msg) => {
@@ -194,9 +193,7 @@ fn eth_estimate_gas_does_not_leak_state_overrides() {
 			CHARLIE_ADDR,
 			StateOverride { nonce: Some(U256::from(99u8)), ..Default::default() },
 		);
-		let config = DryRunConfig::default().with_state_overrides(overrides);
-
-		Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), config)
+		Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), None, Some(overrides))
 			.expect("simple transfer should be estimable");
 
 		assert_eq!(
