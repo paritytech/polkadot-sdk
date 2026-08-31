@@ -193,7 +193,7 @@ mod pallet {
 				_ => return Err(InvalidTransaction::Call.into()),
 			}
 
-			let _ = Self::validate_unsigned_checks(paged_solution.as_ref())
+			Self::validate_unsigned_checks(paged_solution.as_ref())
 				.map_err(|err| {
 					sublog!(debug, "unsigned", "solution authorization failed due to {:?}", err);
 					err
