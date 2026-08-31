@@ -638,8 +638,8 @@ async fn expect_advertise_segment_msg(
 	) => {
 		assert!(any_peers.iter().any(|p| to.contains(p)));
 		match wire_message {
-			CollationProtocols::V4(protocol_v4::CollationProtocol::CollatorProtocol(message)) => {
-				assert_matches!(message, protocol_v4::CollatorProtocolMessage::AdvertiseSegment { scheduling_parent, candidates, .. } => {
+			CollationProtocols::V4(message) => {
+				assert_matches!(message, protocol_v4::AdvertiseSegment { scheduling_parent, candidates, .. } => {
 					assert_eq!(scheduling_parent, expected_scheduling_parent);
 					assert_eq!(candidates.len(), expected_output_heads.len());
 					for (fingerprint, expected) in candidates.iter().zip(expected_output_heads.iter()) {

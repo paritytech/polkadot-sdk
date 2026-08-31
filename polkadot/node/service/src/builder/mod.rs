@@ -494,6 +494,7 @@ where
 				warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 				block_relay: None,
 				metrics,
+				gap_sync_body_policy: None,
 			})?;
 
 		if config.offchain_worker.enabled {

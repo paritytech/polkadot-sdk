@@ -488,7 +488,7 @@ pub type CollatorProtocolMessage = CollationProtocols<
 	v1::CollatorProtocolMessage,
 	v2::CollatorProtocolMessage,
 	v3_collation::CollatorProtocolMessage,
-	v4_collation::CollatorProtocolMessage,
+	v4_collation::AdvertiseSegment,
 >;
 impl_versioned_collation_full_protocol_from!(
 	CollatorProtocolMessage,
@@ -501,7 +501,7 @@ impl_versioned_collation_try_from!(
 	v1::CollationProtocol::CollatorProtocol(x) => x,
 	v2::CollationProtocol::CollatorProtocol(x) => x,
 	v3_collation::CollationProtocol::CollatorProtocol(x) => x,
-	v4_collation::CollationProtocol::CollatorProtocol(x) => x
+	x => x
 );
 
 /// v1 notification protocol types.
@@ -652,28 +652,29 @@ pub mod v4_collation {
 	use polkadot_primitives::{CandidateDescriptorVersion, Hash, Id as ParaId};
 	use sp_runtime::{traits::ConstU32, BoundedVec};
 
-	/// Network messages used by the collator protocol subsystem.
+	/// Advertise an ordered list of unincluded candidates. The list
+	/// is ordered by age. A length 1 segment is the V3 single-candidate
+	/// equivalent.
+	///
+	/// This is the *only* message on the V4 collation peer-set, so it is a struct
+	/// rather than a single-variant enum: there is nothing to discriminate, and a
+	/// tag byte would carry no information. If V4 ever gains a second message, this
+	/// becomes an enum again and the match sites below regain their inner pattern.
+	///
+	/// V4 has no `Declare` message. Although every `AdvertiseSegment`
+	/// carries a `para_id`, the peer is bound to a single para by its
+	/// first advertisement. Sending a different `para_id` in a
+	/// subsequent message results in disconnection.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum CollatorProtocolMessage {
-		/// Advertise an ordered list of unincluded candidates. The list
-		/// is ordered by age. A length 1 segment is the V3 single-candidate
-		/// equivalent.
-		///
-		/// V4 has no `Declare` message. Although every `AdvertiseSegment`
-		/// carries a `para_id`, the peer is bound to a single para by its
-		/// first advertisement. Sending a different `para_id` in a
-		/// subsequent message results in disconnection.
-		#[codec(index = 5)]
-		AdvertiseSegment {
-			/// Hash of the scheduling parent
-			scheduling_parent: Hash,
-			/// The para this segment collates for.
-			para_id: ParaId,
-			/// Descriptor version for the candidate.
-			candidates_descriptor_version: CandidateDescriptorVersion,
-			/// Candidates ordered by age; the list may have gaps.
-			candidates: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
-		},
+	pub struct AdvertiseSegment {
+		/// Hash of the scheduling parent
+		pub scheduling_parent: Hash,
+		/// The para this segment collates for.
+		pub para_id: ParaId,
+		/// Descriptor version for the candidate.
+		pub candidates_descriptor_version: CandidateDescriptorVersion,
+		/// Candidates ordered by age; the list may have gaps.
+		pub candidates: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
 	}
 
 	/// A single entry in the segment advertised by the collator.
@@ -690,13 +691,10 @@ pub mod v4_collation {
 	}
 
 	/// All network messages on the collation peer-set.
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
-	pub enum CollationProtocol {
-		/// Collator protocol messages
-		#[codec(index = 0)]
-		#[from]
-		CollatorProtocol(CollatorProtocolMessage),
-	}
+	///
+	/// V4 carries exactly one message, so the peer-set type is that message itself:
+	/// neither a wrapper enum nor a message enum earns its tag byte here.
+	pub type CollationProtocol = AdvertiseSegment;
 }
 
 /// v3 network protocol types.

@@ -354,10 +354,10 @@ where
 			let keystore = &params.keystore;
 			let included_block_hash = included_header.hash();
 
-			// Build in a loop until not allowed. Note that the authorities can change
-			// at any block, so we need to re-claim our slot every time.
-			let mut parent_hash = parent_search_result.best_parent_header().hash();
-			let mut parent_header = parent_search_result.best_parent_header().clone();
+			// Note that the authorities can change at any block, so we need to re-claim our slot
+			// on every relay parent.
+			let parent_hash = parent_search_result.best_parent_header().hash();
+			let parent_header = parent_search_result.best_parent_header().clone();
 
 			// Distance from included block to best parent.
 			let initial_parent_depth =

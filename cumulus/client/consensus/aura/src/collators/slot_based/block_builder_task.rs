@@ -54,7 +54,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_api::{ApiExt, ApiRef, CallContext, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
@@ -132,17 +132,104 @@ pub struct BuilderTaskParams<
 	pub max_pov_percentage: Option<u32>,
 }
 
-fn get_best_hash_and_v3_status<Block: BlockT, Client>(
-	para_client: &Arc<Client>,
-) -> (Block::Hash, bool)
+/// Call context for the runtime queries that shape the candidate.
+///
+/// Resolves `:pending_code`, the blob the proposer executes and `ValidationCodeHashProvider` names.
+/// The default offchain context sees `:code` only, shaping the candidate from the outgoing runtime.
+const BLOCK_PRODUCTION_CONTEXT: CallContext = CallContext::Onchain { import: false };
+
+/// A runtime API handle set to [`BLOCK_PRODUCTION_CONTEXT`].
+fn onchain_runtime_api<Block: BlockT, Client>(para_client: &Client) -> ApiRef<'_, Client::Api>
 where
-	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	Client::Api: SchedulingV3EnabledApi<Block>,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: ApiExt<Block>,
 {
-	let para_best_hash = para_client.info().best_hash;
-	let v3_enabled_on_para =
-		para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
-	(para_best_hash, v3_enabled_on_para)
+	let mut api = para_client.runtime_api();
+	api.set_call_context(BLOCK_PRODUCTION_CONTEXT);
+	api
+}
+
+/// The scheduling values that shape the candidate, read from the runtime executing the block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SchedulingParams {
+	v3_enabled: bool,
+	relay_parent_offset: u32,
+}
+
+/// Read the [`SchedulingParams`] from the runtime that will execute the block.
+///
+/// Must be read at the parent we build on, not the best head: the two straddle a runtime upgrade
+/// whenever `find_parent` walks back into an unbackable segment.
+fn scheduling_params_at<Block: BlockT, Client>(
+	para_client: &Client,
+	at: Block::Hash,
+) -> SchedulingParams
+where
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: SchedulingV3EnabledApi<Block> + RelayParentOffsetApi<Block> + ApiExt<Block>,
+{
+	let api = onchain_runtime_api(para_client);
+
+	SchedulingParams {
+		v3_enabled: api.scheduling_v3_enabled(at).unwrap_or(false),
+		relay_parent_offset: api.relay_parent_offset(at).unwrap_or_default(),
+	}
+}
+
+/// Everything the builder needs for one slot, all derived from a single [`SchedulingParams`].
+struct BuildingPrerequisites<Block: BlockT> {
+	/// The relay block the candidate is scheduled at.
+	scheduling_parent_header: RelayHeader,
+	/// Whether scheduling V3 applies to this candidate.
+	v3_enabled: bool,
+	/// Distance from the scheduling parent down to the relay parent.
+	relay_parent_offset: u32,
+	/// The relay parent and the descendants linking it to the scheduling parent.
+	relay_parent_data: RelayParentData,
+	/// The parent to build on, plus the included header at the scheduling parent.
+	parent_search_result: consensus_common::ParentSearchResult<Block>,
+}
+
+/// The relay chain context `params` imply: the scheduling parent, whether V3 applies to it, and the
+/// relay parent with its descendants.
+async fn derive_relay_context<RelayClient>(
+	relay_client: &RelayClient,
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	scheduling_info: &mut SchedulingInfo<RelayClient>,
+	params: SchedulingParams,
+) -> Option<(RelayHeader, bool, RelayParentData)>
+where
+	RelayClient: RelayChainInterface + 'static,
+{
+	let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
+		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled)
+		.await
+	else {
+		tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
+		return None;
+	};
+
+	let max_relay_parent_session_age = if v3_enabled {
+		relay_client
+			.max_relay_parent_session_age(scheduling_parent_header.hash())
+			.await
+			.unwrap_or(0)
+	} else {
+		0
+	};
+
+	let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
+		relay_chain_data_cache,
+		scheduling_parent_header.clone(),
+		params.relay_parent_offset,
+		max_relay_parent_session_age,
+	)
+	.await
+	else {
+		return None;
+	};
+
+	Some((scheduling_parent_header, v3_enabled, relay_parent_data))
 }
 
 /// Fork from the included head once the relay parent of the parablock we'd build on lags the
@@ -220,7 +307,6 @@ struct BuilderEnv<Block: BlockT, P, Client, Backend, RelayClient: RelayChainInte
 
 /// Everything resolved for one slot iteration, up to a successful slot claim.
 struct SlotContext<Block: BlockT, Pub> {
-	para_best_hash: Block::Hash,
 	v3_enabled: bool,
 	scheduling_parent_header: RelayHeader,
 	relay_parent_offset: u32,
@@ -274,52 +360,29 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
-	/// Returns `None` when this slot should be skipped.
-	async fn prepare_slot(&mut self) -> Option<SlotContext<Block, P::Public>> {
-		// Query scheduling parameters at the parachain best head. This assumes they match the para
-		// parent head we build on top of; the only mismatch (a runtime upgrade via an unincluded
-		// candidate) self-corrects once the upgrade is included on the relay chain.
-		let (para_best_hash, v3_enabled_on_para) = get_best_hash_and_v3_status(&self.para_client);
-		let Some((scheduling_parent_header, v3_enabled)) = self
-			.scheduling_info
-			.wait_for_scheduling_parent(&mut self.relay_chain_data_cache, v3_enabled_on_para)
-			.await
-		else {
-			tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
-			return None;
-		};
-		let scheduling_parent_hash = scheduling_parent_header.hash();
+	/// Derive the [`BuildingPrerequisites`] for the current slot. `None` means the slot is skipped.
+	///
+	/// The relay chain context follows the [`SchedulingParams`] of the runtime that executes the
+	/// block, which is only known once the parent is settled. So the first phase derives the
+	/// context from the para best head in order to run the parent search, and the second
+	/// re-derives it from the chosen parent whenever the two disagree, keeping the parent the
+	/// first phase settled on.
+	async fn building_prerequisites(&mut self) -> Option<BuildingPrerequisites<Block>> {
+		let best_hash = self.para_client.info().best_hash;
+		let best_params = scheduling_params_at(&*self.para_client, best_hash);
 
-		self.slot_timer.set_offset_by_scheduling_version(v3_enabled, self.slot_offset);
-
-		let relay_parent_offset = self
-			.para_client
-			.runtime_api()
-			.relay_parent_offset(para_best_hash)
-			.unwrap_or_default();
-		let mut max_relay_parent_session_age = 0;
-		if v3_enabled {
-			max_relay_parent_session_age = self
-				.relay_client
-				.max_relay_parent_session_age(scheduling_parent_hash)
-				.await
-				.unwrap_or(0);
-		}
-		let relay_parent_data = offset_relay_parent_find_descendants(
+		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+			&self.relay_client,
 			&mut self.relay_chain_data_cache,
-			scheduling_parent_header.clone(),
-			relay_parent_offset,
-			max_relay_parent_session_age,
+			&mut self.scheduling_info,
+			best_params,
 		)
-		.await
-		.ok()??;
-		let relay_parent_header = relay_parent_data.relay_parent().clone();
-		let relay_parent_hash = relay_parent_header.hash();
+		.await?;
 
-		let parent_search_params = match v3_enabled {
-			false => ParentSearchParams::V2 { scheduling_parent: relay_parent_hash },
-			true => ParentSearchParams::V3 { scheduling_parent: scheduling_parent_hash },
+		let parent_search_params = if v3_enabled {
+			ParentSearchParams::V3 { scheduling_parent: scheduling_parent_header.hash() }
+		} else {
+			ParentSearchParams::V2 { scheduling_parent: relay_parent_data.relay_parent().hash() }
 		};
 		let parent_search_result = crate::collators::find_parent(
 			&self.relay_client,
@@ -333,6 +396,64 @@ where
 			},
 		)
 		.await?;
+
+		let build_parent_hash = parent_search_result.best_parent_header().hash();
+		let build_params = scheduling_params_at(&*self.para_client, build_parent_hash);
+		if build_parent_hash == best_hash || build_params == best_params {
+			return Some(BuildingPrerequisites {
+				scheduling_parent_header,
+				v3_enabled,
+				relay_parent_offset: best_params.relay_parent_offset,
+				relay_parent_data,
+				parent_search_result,
+			});
+		}
+
+		tracing::info!(
+			target: LOG_TARGET,
+			best = ?best_hash,
+			?build_parent_hash,
+			"Build parent's runtime disagrees with the para best's, re-deriving the relay chain \
+			context from the build parent.",
+		);
+
+		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+			&self.relay_client,
+			&mut self.relay_chain_data_cache,
+			&mut self.scheduling_info,
+			build_params,
+		)
+		.await?;
+
+		Some(BuildingPrerequisites {
+			scheduling_parent_header,
+			v3_enabled,
+			relay_parent_offset: build_params.relay_parent_offset,
+			relay_parent_data,
+			parent_search_result,
+		})
+	}
+
+	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
+	/// Returns `None` when this slot should be skipped.
+	async fn prepare_slot(&mut self) -> Option<SlotContext<Block, P::Public>> {
+		// The relay chain context and the parent to build on. Reads the scheduling parameters from
+		// the runtime that will execute the block, so unlike a plain read at the para best head
+		// this stays correct when a runtime upgrade rides in on an unincluded candidate.
+		let BuildingPrerequisites {
+			scheduling_parent_header,
+			v3_enabled,
+			relay_parent_offset,
+			relay_parent_data,
+			parent_search_result,
+		} = self.building_prerequisites().await?;
+
+		// Set after the derive: a context re-derived from the build parent's runtime can flip
+		// `v3_enabled`, and the timer offset must follow the final value.
+		self.slot_timer.set_offset_by_scheduling_version(v3_enabled, self.slot_offset);
+
+		let relay_parent_header = relay_parent_data.relay_parent().clone();
+		let relay_parent_hash = relay_parent_header.hash();
 
 		// The included header at the relay parent, used for the unincluded-segment length checks —
 		// mirroring the runtime's checks in the `set_validation_data` inherent.
@@ -408,12 +529,10 @@ where
 
 		let included_hash_at_execution = included_header_at_execution.hash();
 
+		if let Ok(authorities) =
+			onchain_runtime_api(&*self.para_client).authorities(initial_parent_hash)
 		{
-			let mut runtime_api = self.para_client.runtime_api();
-			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
-			if let Ok(authorities) = runtime_api.authorities(initial_parent_hash) {
-				self.connection_helper.update::<P>(para_slot.slot, &authorities).await;
-			}
+			self.connection_helper.update::<P>(para_slot.slot, &authorities).await;
 		}
 
 		let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
@@ -453,7 +572,6 @@ where
 		);
 
 		Some(SlotContext {
-			para_best_hash,
 			v3_enabled,
 			scheduling_parent_header,
 			relay_parent_offset,
@@ -483,10 +601,8 @@ where
 		// V3: look up at scheduling_parent (fresh RC tip); the offset is max_claim_queue_offset
 		// since the claim queue is already at the tip. V1/V2: look up at relay_parent, which is
 		// relay_parent_offset blocks behind the tip, so the offset compensates for that.
-		let maybe_max_claim_queue_offset = self
-			.para_client
-			.runtime_api()
-			.max_claim_queue_offset(cx.para_best_hash)
+		let maybe_max_claim_queue_offset = onchain_runtime_api(&*self.para_client)
+			.max_claim_queue_offset(cx.initial_parent_hash)
 			.map(|offset| offset as u32);
 		let (claim_queue_relay_block, claim_queue_offset) = if cx.v3_enabled {
 			(&cx.scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(2))
@@ -799,14 +915,15 @@ where
 				);
 
 				match submission {
-					Some(submission) =>
+					Some(submission) => {
 						if collator_sender.unbounded_send(submission).is_err() {
 							tracing::error!(
 								target: LOG_TARGET,
 								"Unable to send collation to the collation task.",
 							);
 							return;
-						},
+						}
+					},
 					None => tracing::debug!(
 						target: LOG_TARGET,
 						core_index = ?this_core_index,

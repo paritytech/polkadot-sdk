@@ -6,60 +6,34 @@ title: Collation protocol v4 with bounded segment advertisements
 doc:
   - audience: Node Dev
     description: |
-      Introduces collation protocol v4. Collators advertise bounded segments of
-      chained candidates with a single `AdvertiseSegment` message per scheduling
-      parent and core; v4 has no `Declare` and no `CollationSeconded` message. An
-      experimental validator side implements segment handling, fetching candidates
-      referenced by segment advertisements. The collator side stores immutable
-      segments per scheduling parent and core and serves fetches from them. These
-      fetches use a new `/req_collation/3` request-response protocol: requests
-      identify a candidate by scheduling parent, para id and output head data hash
-      instead of relay parent and candidate hash, and responses always include the
-      candidate's parent head data. The
-      collation generation subsystem accepts multi-candidate segments via
-      `SubmitSegment` and distributes them with
-      `CollatorProtocolMessage::DistributeSegment`.
+      This PR adds collation protocol v4 (`/collation/4`). A v4 collator advertises up to
+      `MAX_SEGMENT_LEN` (32) candidates per scheduling parent and core in one `AdvertiseSegment`.
+      There is no `Declare` and no `CollationSeconded` in v4. Collations are fetched over the new
+      `/req_collation/3` protocol. v2/v3 validators get an `AdvertiseCollation` for the segment tip.
 
-      Collation peer-set connections upgrade to the newest common protocol version;
-      peers running older nodes keep being served over v3.
+      v4 is the main collation protocol for collators and for validators running
+      `--experimental-collator-protocol`, v3 and v2 are fallbacks. `PeerSetProtocolNames::new`
+      picks the newest version now. Nodes running the old validator side have to pin v3 with
+      `PeerSetProtocolNames::new_with_main_collation_version`, otherwise v4 advertisements from
+      new collators are dropped. `/req_collation/3` has to be registered with the network, the
+      receiver goes into `OverseerGenArgs::collation_req_v3_receiver`.
 
-      The collation seconded signal is removed end to end: `CollationResult` and
-      `SegmentCollation` lose their `result_sender` field, `CollationSecondedSignal`
-      is deleted, `WaitToAnnounce` and `ServiceInterface::announce_with_barrier` are
-      removed and `CollatorService::new` no longer takes a spawner. The `basic` aura
-      collator announces blocks immediately after building, like the lookahead
-      collator, instead of waiting for a validator to second the collation.
-      Incoming v2/v3 `CollationSeconded` messages are ignored: validators running
-      older versions send them unsolicited and the collator no longer tracks
-      seconding.
-      `RequireSecondedInBlockAnnounce` and `BlockAnnounceData` decoding stay so
-      block announcements from nodes running older versions still validate.
-
-      Chains configured with `CollatorSybilResistance::Unresistant` use
-      `RequireSecondedInBlockAnnounce`, which bounds block-announce spam by refusing
-      announcements at or above the parachain tip unless they carry a seconded
-      statement. Removing the seconded signal means updated collators can no longer
-      produce that proof, so their tip announcements go out empty and are accepted
-      only once the block is backed or included, with `pov-recovery` as the
-      propagation backstop. The spam bound itself is unchanged (it now keys on
-      backing rather than seconding); what changes is that tip gossip waits for
-      backing. Chains using a sybil-resistant collation mechanism such as Aura are
-      unaffected: they use `AssumeSybilResistance`, which accepts empty
-      announcements outright, because only the slot authority can author.
+      - `CollationGenerationMessage::SubmitCollation` is replaced by `SubmitSegment`
+        (`SubmitSegmentParams`, `SegmentCollation`), `CollatorProtocolMessage::DistributeCollation`
+        by `DistributeSegment`. Segments are write-once per (scheduling parent, core).
+      - `CollationResult::result_sender`, `CollationResult::into_inner`,
+        `CollationSecondedSignal` and `TryFrom<&CollationSecondedSignal> for BlockAnnounceData`
+        are removed.
+      - `CandidateDescriptorVersion::Unknown` is now `Unknown(u8)`.
+      - `PeerSet::get_main_version()` is removed. `Requests` and `Protocol` have a new
+        `CollationFetchingV3` variant, `CollationProtocols` has a fourth type parameter for `V4`.
+      - The lookahead collator builds one block per relay parent.
 
   - audience: Node Operator
     description: |
-      Operators of parachains configured with `CollatorSybilResistance::Unresistant`
-      (free-for-all collator sets, without a sybil-resistant authorship mechanism)
-      should expect parachain block announcements to propagate slightly later.
-      Updated collators announce blocks without a seconded statement attached, and
-      such announcements are only accepted at the parachain tip once the block is
-      backed or included on the relay chain; `pov-recovery` covers the gap. Chains
-      using Aura or another sybil-resistant collation mechanism are unaffected.
-
-      No action is required. Nodes running older versions continue to attach
-      seconded statements, and those announcements are still validated, so mixed
-      version networks keep working.
+      No action needed. Validators only negotiate v4 with `--experimental-collator-protocol`
+      (on by default on Kusama). There is no required upgrade order between validators and
+      collators.
 
 crates:
   - name: polkadot-node-network-protocol
@@ -73,8 +47,6 @@ crates:
   - name: polkadot-node-subsystem-types
     bump: major
   - name: cumulus-client-network
-    bump: major
-  - name: cumulus-client-collator
     bump: major
   - name: polkadot-primitives
     bump: major
@@ -91,6 +63,4 @@ crates:
   - name: cumulus-relay-chain-minimal-node
     bump: patch
   - name: polkadot-node-core-pvf-execute-worker
-    bump: patch
-  - name: polkadot-omni-node-lib
     bump: patch
