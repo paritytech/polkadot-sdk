@@ -362,19 +362,9 @@ where
 					})
 					.flatten();
 				let tokio_handle = config.tokio_handle.clone();
-				let mut polkadot_config =
+				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
-
-				// The relay chain side of a collator doesn't listen on WebRTC by default;
-				// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
-				let relay_network_params = &polkadot_cli.base.base.network_params;
-				if config.role.is_authority() &&
-					!relay_network_params.force_enable_webrtc &&
-					relay_network_params.listen_addr.is_empty()
-				{
-					polkadot_config.network.remove_webrtc_addresses();
-				}
 
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
