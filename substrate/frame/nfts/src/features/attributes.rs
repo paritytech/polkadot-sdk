@@ -443,6 +443,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Currency::unreserve(&delegate, deposited);
 			}
 
+			let mut collection_details =
+				Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
+			collection_details.attributes.saturating_reduce(attributes);
+			Collection::<T, I>::insert(collection, &collection_details);
+
 			Self::deposit_event(Event::ItemAttributesApprovalRemoved {
 				collection,
 				item,

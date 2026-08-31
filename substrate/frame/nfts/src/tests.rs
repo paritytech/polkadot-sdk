@@ -1343,6 +1343,61 @@ fn set_external_account_attributes_should_work() {
 }
 
 #[test]
+fn cancel_item_attributes_approval_updates_collection_attribute_count() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+		Balances::make_free_balance_be(&account(2), 100);
+
+		assert_ok!(Nfts::force_create(
+			RuntimeOrigin::root(),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_ok!(Nfts::force_mint(
+			RuntimeOrigin::signed(account(1)),
+			0,
+			0,
+			account(1),
+			default_item_config()
+		));
+		assert_ok!(Nfts::approve_item_attributes(
+			RuntimeOrigin::signed(account(1)),
+			0,
+			0,
+			account(2)
+		));
+		assert_ok!(Nfts::set_attribute(
+			RuntimeOrigin::signed(account(2)),
+			0,
+			Some(0),
+			AttributeNamespace::Account(account(2)),
+			bvec![0],
+			bvec![0],
+		));
+		assert_ok!(Nfts::set_attribute(
+			RuntimeOrigin::signed(account(2)),
+			0,
+			Some(0),
+			AttributeNamespace::Account(account(2)),
+			bvec![1],
+			bvec![0],
+		));
+		assert_eq!(Collection::<Test>::get(0).unwrap().attributes, 2);
+
+		assert_ok!(Nfts::cancel_item_attributes_approval(
+			RuntimeOrigin::signed(account(1)),
+			0,
+			0,
+			account(2),
+			CancelAttributesApprovalWitness { account_attributes: 2 },
+		));
+		assert_eq!(attributes(0), vec![]);
+		assert_eq!(Collection::<Test>::get(0).unwrap().attributes, 0);
+		assert_eq!(Nfts::get_destroy_witness(&0).unwrap().attributes, 0);
+	});
+}
+
+#[test]
 fn validate_deposit_required_setting() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&account(1), 100);
