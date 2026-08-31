@@ -48,7 +48,7 @@ use crate::common::{
 	aura::{AuraIdT, AuraRuntimeApi},
 	types::{ParachainBackend, ParachainClient},
 };
-use codec::Decode;
+use codec::{Decode, DecodeAll};
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
@@ -243,10 +243,43 @@ fn select_parent<'a, Header: HeaderT>(
 }
 
 /// One work package JAM currently has in flight for our service.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct InFlightReport {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InFlightReport<Header: HeaderT> {
 	wp_hash: WorkPackageHash,
 	source: ReportSource,
+	/// The parachain block the report's work digest says its package carries, read best-effort.
+	/// `None` means the digest is in a shape this collator cannot read, which is never an error
+	/// here — see [`decode_digest_head`].
+	head: Option<ReportedHead<Header>>,
+}
+
+/// The parachain block a work digest names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ReportedHead<Header: HeaderT> {
+	hash: Header::Hash,
+	number: <Header as HeaderT>::Number,
+}
+
+/// Read the parachain head out of a work digest's output, best-effort.
+///
+/// The work output belongs to the parachain service and its shape moves with the service — 5a.1
+/// appends the block's number to it — so only the prefix every shape shares is parsed: the para
+/// id and the head data, which *is* the encoded header, and therefore carries both the block hash
+/// and its number without any of the rest being understood.
+///
+/// Anything that does not parse comes back as `None`. This is a logging aid: it must tolerate an
+/// unknown format, a failed refine's error output, and outright garbage, and it must never fail a
+/// tick or feed a decision.
+fn decode_digest_head<Header: HeaderT>(output: &[u8]) -> Option<Header> {
+	let mut input = output;
+	let _para_id = u32::decode(&mut input).ok()?;
+	let head_data = Vec::<u8>::decode(&mut input).ok()?;
+	// Every shape of the output carries the parent head hash behind the head data. Requiring it
+	// stops a short byte string that happens to decode as a vector from being read as a header.
+	if input.len() < 32 {
+		return None;
+	}
+	Header::decode_all(&mut &head_data[..]).ok()
 }
 
 /// Which of JAM's two in-flight state entries a report was read from.
@@ -268,12 +301,13 @@ enum ReportSource {
 /// The read is taken at the cached JAM tip rather than at the package anchor: it belongs to no
 /// package, so the freshest block is the right one to ask (and with `ANCHOR_OFFSET` at zero the
 /// two are the same block anyway).
-async fn monitor_in_flight<Jam: JamStateSource + ?Sized>(
+async fn monitor_in_flight<Header: HeaderT, Jam: JamStateSource + ?Sized>(
 	jam: &Jam,
 	at: HeaderHash,
 	service_id: ServiceId,
-) -> Vec<InFlightReport> {
-	match tokio::time::timeout(MONITOR_BUDGET, read_in_flight_reports(jam, at, service_id)).await {
+) -> Vec<InFlightReport<Header>> {
+	let read = read_in_flight_reports::<Header, Jam>(jam, at, service_id);
+	match tokio::time::timeout(MONITOR_BUDGET, read).await {
 		Ok(Ok(reports)) => reports,
 		Ok(Err(error)) => {
 			tracing::warn!(
@@ -304,11 +338,11 @@ async fn monitor_in_flight<Jam: JamStateSource + ?Sized>(
 /// consume. Nothing in a tick branches on the answer.
 ///
 /// Filtering is by service id, a protocol-level field of a report's per-item digest.
-async fn read_in_flight_reports<Jam: JamStateSource + ?Sized>(
+async fn read_in_flight_reports<Header: HeaderT, Jam: JamStateSource + ?Sized>(
 	jam: &Jam,
 	anchor: HeaderHash,
 	service_id: ServiceId,
-) -> Result<Vec<InFlightReport>, String> {
+) -> Result<Vec<InFlightReport<Header>>, String> {
 	let started = Instant::now();
 	let availability =
 		jam.availability(anchor).await.map_err(|error| format!("availability: {error}"))?;
@@ -326,41 +360,60 @@ async fn read_in_flight_reports<Jam: JamStateSource + ?Sized>(
 		push_report(&mut reports, &record.report, ReportSource::ReadyQueue, service_id);
 	}
 
-	tracing::debug!(
-		target: LOG_TARGET,
-		method = "availability + readyQueue",
-		at = ?anchor,
-		service_id,
-		cores = availability.len(),
-		epoch_phases = ready.len(),
-		from_availability,
-		from_ready_queue = reports.len() - from_availability,
-		?reports,
-		availability_ms,
-		ready_queue_ms,
-		"JAM read: the work packages in flight for our service.",
-	);
+	// The level is the only thing that varies, and `tracing` needs it at the macro's call site.
+	macro_rules! log_read {
+		($message:literal) => {
+			tracing::debug!(
+				target: LOG_TARGET,
+				method = "availability + readyQueue",
+				at = ?anchor,
+				service_id,
+				cores = availability.len(),
+				epoch_phases = ready.len(),
+				from_availability,
+				from_ready_queue = reports.len() - from_availability,
+				unreadable_digests = reports.iter().filter(|report| report.head.is_none()).count(),
+				?reports,
+				availability_ms,
+				ready_queue_ms,
+				$message,
+			)
+		};
+	}
+	if reports.is_empty() {
+		log_read!("JAM read: nothing of ours is in flight — no work package for our service is \
+		           in availability or in the ready queue at this anchor.");
+	} else {
+		log_read!("JAM read: the work packages in flight for our service.");
+	}
 	Ok(reports)
 }
 
 /// Keep a report if it refines something for our service and is not already listed.
 ///
 /// The same package can sit in both state entries across a tick's two reads, and JAM keys them by
-/// package hash, so the hash is what deduplicates.
-fn push_report(
-	reports: &mut Vec<InFlightReport>,
+/// package hash, so the hash is what deduplicates. A report whose digest cannot be read is still
+/// kept: the package is in flight either way, and that is the fact the monitor is there to show.
+fn push_report<Header: HeaderT>(
+	reports: &mut Vec<InFlightReport<Header>>,
 	report: &WorkReport,
 	source: ReportSource,
 	service_id: ServiceId,
 ) {
-	if !report.results.iter().any(|digest| digest.service == service_id) {
+	let Some(digest) = report.results.iter().find(|digest| digest.service == service_id) else {
 		return;
-	}
+	};
 	let wp_hash = report.package_spec.hash;
 	if reports.iter().any(|seen| seen.wp_hash == wp_hash) {
 		return;
 	}
-	reports.push(InFlightReport { wp_hash, source });
+	let head = digest
+		.result
+		.as_ref()
+		.ok()
+		.and_then(|output| decode_digest_head::<Header>(&output.0))
+		.map(|header| ReportedHead { hash: header.hash(), number: *header.number() });
+	reports.push(InFlightReport { wp_hash, source, head });
 }
 
 /// What the builder remembers between ticks.
@@ -662,7 +715,7 @@ where
 		slot_duration.as_duration(),
 		futures::future::join(
 			read_anchor(jam, tip, service_id, para_id_u32),
-			monitor_in_flight(jam, tip.header_hash, service_id),
+			monitor_in_flight::<Block::Header, _>(jam, tip.header_hash, service_id),
 		),
 	)
 	.await
@@ -778,13 +831,42 @@ where
 		return Ok(None);
 	}
 
+	// The monitor's derived events. Nothing branches on them; they are the pre-accumulation view
+	// of the pipeline, which with no links left is the only one there is.
 	for report in &reports {
-		tracing::debug!(
-			target: LOG_TARGET,
-			wp_hash = ?report.wp_hash,
-			source = ?report.source,
-			"A work package is in flight for our service.",
-		);
+		let known = match &report.head {
+			Some(head) => para_client.header(head.hash).ok().flatten().is_some(),
+			None => false,
+		};
+		match &report.head {
+			Some(head) if !known => tracing::warn!(
+				target: LOG_TARGET,
+				wp_hash = ?report.wp_hash,
+				source = ?report.source,
+				head = ?head.hash,
+				head_number = %head.number,
+				?included_hash,
+				"A work package is in flight for a parachain block we do not hold. Somebody's \
+				 chain is ahead of ours and we have not been told about the block — normally the \
+				 announcement is still on its way, but a block withheld on purpose looks exactly \
+				 like this.",
+			),
+			Some(head) => tracing::debug!(
+				target: LOG_TARGET,
+				wp_hash = ?report.wp_hash,
+				source = ?report.source,
+				head = ?head.hash,
+				head_number = %head.number,
+				"A work package is in flight for a block we hold.",
+			),
+			None => tracing::debug!(
+				target: LOG_TARGET,
+				wp_hash = ?report.wp_hash,
+				source = ?report.source,
+				"A work package is in flight; its work digest is in a shape we cannot read, so \
+				 which block it carries is unknown here.",
+			),
+		}
 	}
 
 	if depth >= MAX_UNINCLUDED {
@@ -1168,6 +1250,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::Encode;
 	use cumulus_client_parachain_inherent::{INHERENT_IDENTIFIER, ParachainInherentData};
 	use cumulus_pallet_parachain_system::RelayChainStateProof;
 	use sp_core::H256;
@@ -1241,14 +1324,33 @@ mod tests {
 		.expect("the mocked relay state carries an included para head")
 	}
 
+	/// A work output in the shape the parachain service produces: para id, head data (the
+	/// encoded header itself), the parent head hash, and — since 5a.1 — the block's number.
+	fn work_output(header: &TestHeader, with_number: bool) -> Vec<u8> {
+		let mut output = (0u32, header.encode(), [7u8; 32]).encode();
+		if with_number {
+			output.extend(header.number().encode());
+		}
+		output
+	}
+
 	/// A work report as JAM state holds it, carrying one item refined by `service`.
 	fn work_report(byte: u8, service: ServiceId) -> WorkReport {
+		work_report_with(byte, service, Ok(Default::default()))
+	}
+
+	/// The same, with the refinement result spelled out.
+	fn work_report_with(
+		byte: u8,
+		service: ServiceId,
+		result: Result<jam_types::WorkOutput, jam_types::WorkError>,
+	) -> WorkReport {
 		let digest = jam_types::WorkDigest {
 			service,
 			code_hash: Default::default(),
 			payload_hash: Default::default(),
 			accumulate_gas: 0,
-			result: Ok(Default::default()),
+			result,
 			refine_load: Default::default(),
 		};
 		WorkReport {
@@ -1442,7 +1544,7 @@ mod tests {
 	/// about this parachain, and logging it as ours would make the pipeline view a lie.
 	#[test]
 	fn only_reports_for_our_service_are_kept() {
-		let mut reports = Vec::new();
+		let mut reports: Vec<InFlightReport<TestHeader>> = Vec::new();
 
 		push_report(&mut reports, &work_report(1, 7), ReportSource::Availability, 42);
 		push_report(&mut reports, &work_report(2, 42), ReportSource::Availability, 42);
@@ -1452,6 +1554,7 @@ mod tests {
 			vec![InFlightReport {
 				wp_hash: WorkPackageHash::from([2u8; 32]),
 				source: ReportSource::Availability,
+				head: None,
 			}],
 		);
 	}
@@ -1460,7 +1563,7 @@ mod tests {
 	/// tick reads both; listing it twice would double every package in the monitor's view.
 	#[test]
 	fn a_package_listed_in_both_state_entries_is_kept_once() {
-		let mut reports = Vec::new();
+		let mut reports: Vec<InFlightReport<TestHeader>> = Vec::new();
 
 		push_report(&mut reports, &work_report(1, 42), ReportSource::Availability, 42);
 		push_report(&mut reports, &work_report(1, 42), ReportSource::ReadyQueue, 42);
@@ -1513,6 +1616,67 @@ mod tests {
 				);
 			}
 		}
+	}
+
+	/// The monitor reads which block a package carries out of the work digest, and the shape of
+	/// that output belongs to the service: 5a.1 appends the block number to it. Both shapes have
+	/// to read the same, or the collator would go blind against one version of the service.
+	#[test]
+	fn both_shapes_of_the_work_output_yield_the_same_block() {
+		let header = chain(1).remove(0);
+
+		for with_number in [false, true] {
+			let decoded = decode_digest_head::<TestHeader>(&work_output(&header, with_number))
+				.expect("the shared prefix parses in either shape");
+			assert_eq!(decoded.hash(), header.hash());
+			assert_eq!(*decoded.number(), *header.number());
+		}
+	}
+
+	/// ...and anything else must come back as "unknown", never as a panic and never as an error
+	/// that could reach the tick: a service this collator was not built against, a refine that
+	/// failed, or plain garbage all end up here.
+	#[test]
+	fn an_unreadable_work_output_is_simply_unknown() {
+		let header = chain(1).remove(0);
+		let well_formed = work_output(&header, false);
+
+		for (what, output) in [
+			("empty", Vec::new()),
+			("garbage", vec![0xff; 64]),
+			("truncated head data", well_formed[..well_formed.len() - 40].to_vec()),
+			("a vector that is no header", (0u32, vec![1u8, 2, 3], [0u8; 32]).encode()),
+		] {
+			assert!(
+				decode_digest_head::<TestHeader>(&output).is_none(),
+				"{what} must not be read as a block",
+			);
+		}
+	}
+
+	/// A package whose digest cannot be read is still in flight, and that is the fact the monitor
+	/// exists to show — dropping the report would hide a package from the only pre-accumulation
+	/// view there is. Same for one whose refinement failed outright.
+	#[test]
+	fn a_package_with_an_unreadable_digest_is_still_reported() {
+		let header = chain(1).remove(0);
+		let mut reports: Vec<InFlightReport<TestHeader>> = Vec::new();
+
+		let output = jam_types::WorkOutput(work_output(&header, true));
+		let readable = work_report_with(1, 42, Ok(output));
+		push_report(&mut reports, &readable, ReportSource::Availability, 42);
+		let unreadable = work_report_with(2, 42, Ok(jam_types::WorkOutput(vec![0xff; 8])));
+		push_report(&mut reports, &unreadable, ReportSource::ReadyQueue, 42);
+		let failed = work_report_with(3, 42, Err(jam_types::WorkError::Panic));
+		push_report(&mut reports, &failed, ReportSource::ReadyQueue, 42);
+
+		assert_eq!(reports.len(), 3);
+		assert_eq!(
+			reports[0].head,
+			Some(ReportedHead { hash: header.hash(), number: *header.number() }),
+		);
+		assert_eq!(reports[1].head, None);
+		assert_eq!(reports[2].head, None, "a failed refinement names no block");
 	}
 
 	/// The consensus hook panics unless the block's Aura slot equals the slot it derives from the
