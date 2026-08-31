@@ -237,8 +237,6 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.with_relaychain(|r| {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_genesis_overrides(
 					json!({ "configuration": { "config": { "scheduler_params": { "on_demand_base_fee": ON_DEMAND_BASE_FEE }}}}),
@@ -250,8 +248,6 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(1005)
 				.with_default_command("polkadot-parachain")
-				.with_chain_spec_command("polkadot-parachain export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("coretime-westend-local")
 				.with_collator(|n| n.with_name("coretime"))

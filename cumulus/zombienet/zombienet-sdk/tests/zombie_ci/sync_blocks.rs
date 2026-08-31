@@ -71,8 +71,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_default_resources(|resources| {
@@ -86,8 +84,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_collator(|n| n.with_name("dave").validator(false))

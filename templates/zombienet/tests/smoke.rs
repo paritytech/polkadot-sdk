@@ -52,20 +52,12 @@ mod smoke {
 		para_cmd_args: Option<Vec<(&'static str, &'static str)>>,
 	}
 
-	fn export_chain_spec_command(binary: &str) -> String {
-		format!("{binary} export-chain-spec --chain {{{{chainName}}}}")
-	}
-
 	fn get_config(network_spec: NetworkSpec) -> Result<NetworkConfig, anyhow::Error> {
 		let chain = if network_spec.relaychain_cmd == "polkadot" { "rococo-local" } else { "dev" };
 		let config = NetworkConfigBuilder::new().with_relaychain(|r| {
 			let mut r = r.with_chain(chain).with_default_command(network_spec.relaychain_cmd);
 			if let Some(path) = network_spec.relaychain_spec_path {
 				r = r.with_chain_spec_path(path);
-			} else {
-				r = r
-					.with_chain_spec_command(export_chain_spec_command(network_spec.relaychain_cmd))
-					.chain_spec_command_is_local(true);
 			}
 
 			if let Some(args) = network_spec.relaychain_cmd_args {
@@ -84,10 +76,6 @@ mod smoke {
 				}
 				if let Some(path) = network_spec.para_chain_spec_path {
 					p = p.with_chain_spec_path(path);
-				} else {
-					p = p
-						.with_chain_spec_command(export_chain_spec_command(para_cmd))
-						.chain_spec_command_is_local(true);
 				}
 				p.with_collator(|n| n.with_name("collator"))
 			})

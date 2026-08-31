@@ -25,8 +25,6 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("westend-local") // Use westend-local so the disabling can take effect.
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_genesis_overrides(json!({
@@ -71,8 +69,6 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(1000)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])

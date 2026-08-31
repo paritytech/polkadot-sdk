@@ -31,8 +31,6 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_genesis_overrides(json!({
@@ -72,8 +70,6 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("undying-collator")
-				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(
 					std::env::var("COL_IMAGE")
 						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
@@ -90,8 +86,6 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2001)
 				.with_default_command("undying-collator")
-				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(
 					std::env::var("COL_IMAGE")
 						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
