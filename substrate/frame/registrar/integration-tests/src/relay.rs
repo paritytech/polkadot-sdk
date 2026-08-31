@@ -173,6 +173,7 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Runtime {
+	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -344,6 +345,7 @@ parameter_types! {
 }
 
 impl hrmp::Config for Runtime {
+	type ParaRequests = ();
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
 	type ChannelManager = EnsureRoot<AccountId>;

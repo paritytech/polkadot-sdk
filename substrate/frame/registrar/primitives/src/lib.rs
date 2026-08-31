@@ -406,3 +406,80 @@ pub trait ReceiveMigratedParas {
 	/// Adopt the id counter from the chain the paras came from.
 	fn receive_next_free_para_id(para_id: ParaId);
 }
+
+/// Where a relay chain sends a parachain's *own* registrar requests once the control plane has
+/// moved off it.
+///
+/// The counterpart of `hrmp-primitives`' router, and the mirror image of [`ParachainRegistrar`]:
+/// that one lets the control plane drive the relay chain's registry, this one lets the relay chain
+/// hand a parachain's request to the control plane.
+///
+/// ## Why the relay chain keeps the calls
+///
+/// A parachain can deregister itself, lock and unlock itself, and set its own head by `Transact`ing
+/// on the relay chain's registrar. Filtering those off would make every parachain change the call
+/// it encodes *and* acquire a channel with the control plane first in order to reach it at all. So
+/// the relay chain keeps them and forwards instead: the parachain's encoded call is byte-identical
+/// to today.
+///
+/// Only the **para-origin** paths are forwardable. The manager paths are signed, and a relay chain
+/// whose control plane has moved accepts no signed origins, so a manager cannot get in to be
+/// forwarded — managers move to the control plane outright.
+///
+/// ## What is deliberately absent
+///
+/// No `schedule_code_upgrade`. The relay chain's call carries the whole `ValidationCode`, while the
+/// control plane's protocol carries only a hash and a length and has the blob uploaded separately —
+/// the two shapes cannot be reconciled by forwarding, and pushing megabytes through the messaging
+/// layer is the thing that protocol exists to avoid. That call is filtered instead, which costs
+/// little: a parachain's ordinary upgrade path is `parachain_system`'s
+/// `authorize_upgrade`/`enact_authorized_upgrade`, which never touches the registrar. The registrar's
+/// version is the manager and recovery path, and managers are moving regardless.
+///
+/// `swap` is absent for a different reason: it is being retired, not ported.
+///
+/// ## The mode is a runtime condition
+///
+/// Not a compile-time one — the same runtime owns its own registry before the control plane moves
+/// and forwards afterwards. `()` never goes remote, so a chain that owns its registry is unaffected.
+pub trait ParaRequestRouter {
+	/// Whether a parachain's requests are forwarded rather than applied on this chain.
+	fn is_remote() -> bool {
+		false
+	}
+
+	/// `para_id` asks to be deregistered.
+	#[allow(clippy::result_unit_err)]
+	fn deregister(para_id: ParaId) -> Result<(), ()>;
+
+	/// `para_id` asks to be locked against its manager.
+	#[allow(clippy::result_unit_err)]
+	fn add_lock(para_id: ParaId) -> Result<(), ()>;
+
+	/// `para_id` asks to be unlocked.
+	#[allow(clippy::result_unit_err)]
+	fn remove_lock(para_id: ParaId) -> Result<(), ()>;
+
+	/// `para_id` asks for its head data to be set.
+	#[allow(clippy::result_unit_err)]
+	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> Result<(), ()>;
+}
+
+/// Never goes remote: this chain owns its own registry and applies every request locally.
+impl ParaRequestRouter for () {
+	fn deregister(_: ParaId) -> Result<(), ()> {
+		Err(())
+	}
+
+	fn add_lock(_: ParaId) -> Result<(), ()> {
+		Err(())
+	}
+
+	fn remove_lock(_: ParaId) -> Result<(), ()> {
+		Err(())
+	}
+
+	fn set_current_head(_: ParaId, _: Vec<u8>) -> Result<(), ()> {
+		Err(())
+	}
+}

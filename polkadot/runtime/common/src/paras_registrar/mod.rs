@@ -25,6 +25,7 @@ pub mod migration;
 
 use alloc::vec::Vec;
 use core::result;
+use registrar_primitives::ParaRequestRouter;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -161,6 +162,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
 
+		/// Where a parachain's own registrar requests go once the control plane has moved off this
+		/// chain.
+		///
+		/// `()` — the default everywhere except a chain whose control plane has moved — never goes
+		/// remote, so every request is applied here exactly as before. See
+		/// [`registrar_primitives::ParaRequestRouter`] for which calls are forwardable and why
+		/// `schedule_code_upgrade` is not.
+		type ParaRequests: registrar_primitives::ParaRequestRouter;
+
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -206,6 +216,11 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
+		/// The request could not be handed to the chain that owns the registry.
+		///
+		/// Only reachable once the control plane has moved off this chain. Nothing was written
+		/// here, so the parachain may simply ask again.
+		RequestNotForwarded,
 	}
 
 	/// Pending swap operations.
@@ -310,6 +325,9 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, id)?;
+			if T::ParaRequests::is_remote() {
+				return Self::forward(T::ParaRequests::deregister(id.into()));
+			}
 			Self::do_deregister(id)
 		}
 
@@ -380,7 +398,15 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn remove_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+			// Deliberately not `ensure_root_para_or_owner`: a lock exists to protect the para from
+			// its manager, so the manager may not lift it. That asymmetry is why the forwarded
+			// request is safe to send as the control plane's Root — only a para can reach this call
+			// at all once signed origins are closed, so Root here can only ever mean "the para
+			// asked". The control plane enforces the same rule on its own copy.
 			Self::ensure_root_or_para(origin, para)?;
+			if T::ParaRequests::is_remote() {
+				return Self::forward(T::ParaRequests::remove_lock(para.into()));
+			}
 			<Self as Registrar>::remove_lock(para);
 			Ok(())
 		}
@@ -421,6 +447,9 @@ pub mod pallet {
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn add_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
+			if T::ParaRequests::is_remote() {
+				return Self::forward(T::ParaRequests::add_lock(para.into()));
+			}
 			<Self as Registrar>::apply_lock(para);
 			Ok(())
 		}
@@ -444,6 +473,12 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
+			// Not forwarded, and it cannot be: this call carries the whole validation code, while
+			// the control plane's protocol carries a hash and a length and has the blob uploaded
+			// separately — pushing megabytes through the messaging layer is what that design exists
+			// to avoid. A chain that has moved its control plane filters this call instead. Little
+			// is lost: a parachain's ordinary upgrade path is `parachain_system`'s
+			// `authorize_upgrade`/`enact_authorized_upgrade`, which never touches this pallet.
 			polkadot_runtime_parachains::schedule_code_upgrade::<T>(
 				para,
 				new_code,
@@ -464,6 +499,11 @@ pub mod pallet {
 			new_head: HeadData,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
+			if T::ParaRequests::is_remote() {
+				// Head data travels inline on both sides, so unlike a code upgrade this forwards
+				// as-is.
+				return Self::forward(T::ParaRequests::set_current_head(para.into(), new_head.0));
+			}
 			polkadot_runtime_parachains::set_current_head::<T>(para, new_head);
 			Ok(())
 		}
@@ -669,6 +709,14 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Turn a router verdict into a dispatch result.
+	///
+	/// A refusal means the transport would not take the request, so this chain has written nothing
+	/// and the parachain can ask again.
+	fn forward(sent: Result<(), ()>) -> DispatchResult {
+		sent.map_err(|()| Error::<T>::RequestNotForwarded.into())
+	}
+
 	/// Ensure the origin is one of Root, the `para` owner, or the `para` itself.
 	/// If the origin is the `para` owner, the `para` must be unlocked.
 	fn ensure_root_para_or_owner(

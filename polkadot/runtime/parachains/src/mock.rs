@@ -289,6 +289,7 @@ impl TestUsesOnlyStoredVersionWrapper {
 }
 
 impl crate::hrmp::Config for Test {
+	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;

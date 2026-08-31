@@ -225,6 +225,7 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Test {
+	type ParaRequests = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSwap = (Crowdloan, Slots);
 	type ParaDeposit = ParaDeposit;

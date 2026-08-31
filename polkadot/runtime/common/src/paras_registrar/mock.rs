@@ -150,6 +150,7 @@ parameter_types! {
 }
 
 impl Config for Test {
+	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;

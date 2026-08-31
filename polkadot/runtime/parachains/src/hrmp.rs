@@ -28,6 +28,7 @@ use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
+use hrmp_primitives::ParaRequestRouter;
 use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
@@ -288,6 +289,15 @@ pub mod pallet {
 		/// the default `()` implementation uses the latest XCM version for all parachains.
 		type VersionWrapper: xcm::WrapVersion;
 
+		/// Where a parachain's own HRMP requests go once the control plane has moved off this
+		/// chain.
+		///
+		/// `()` — the default everywhere except a chain whose control plane has moved — never goes
+		/// remote, so every request is applied here exactly as before. See
+		/// [`hrmp_primitives::ParaRequestRouter`] for why the calls stay on this chain rather than
+		/// being filtered off: it is what keeps a parachain's encoded call unchanged.
+		type ParaRequests: hrmp_primitives::ParaRequestRouter;
+
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -368,6 +378,11 @@ pub mod pallet {
 		WrongWitness,
 		/// The channel between these two chains cannot be authorized.
 		ChannelCreationNotAuthorized,
+		/// The request could not be handed to the chain that owns the channels.
+		///
+		/// Only reachable once the control plane has moved off this chain. Nothing was written
+		/// here, so the parachain may simply ask again.
+		RequestNotForwarded,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -521,6 +536,14 @@ pub mod pallet {
 			proposed_max_message_size: u32,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if T::ParaRequests::is_remote() {
+				return Self::forward(T::ParaRequests::open_channel(
+					origin.into(),
+					recipient.into(),
+					proposed_max_capacity,
+					proposed_max_message_size,
+				));
+			}
 			Self::init_open_channel(
 				origin,
 				recipient,
@@ -543,6 +566,12 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::hrmp_accept_open_channel())]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if T::ParaRequests::is_remote() {
+				return Self::forward(T::ParaRequests::accept_open_channel(
+					sender.into(),
+					origin.into(),
+				));
+			}
 			Self::accept_open_channel(origin, sender)?;
 			Self::deposit_event(Event::OpenChannelAccepted { sender, recipient: origin });
 			Ok(())
@@ -559,6 +588,15 @@ pub mod pallet {
 			channel_id: HrmpChannelId,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if T::ParaRequests::is_remote() {
+				return Self::forward(T::ParaRequests::close_channel(
+					origin.into(),
+					hrmp_primitives::ChannelId {
+						sender: channel_id.sender.into(),
+						recipient: channel_id.recipient.into(),
+					},
+				));
+			}
 			Self::close_channel(origin, channel_id.clone())?;
 			Self::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
 			Ok(())
@@ -659,6 +697,19 @@ pub mod pallet {
 			open_requests: u32,
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if T::ParaRequests::is_remote() {
+				// Before the witness check, deliberately: `open_requests` bounds the length of
+				// *this* chain's request list, which is not the list being acted on once the
+				// control plane owns the records. Keeping the parameter is what keeps the
+				// parachain's encoded call unchanged; it is simply not meaningful here.
+				return Self::forward(T::ParaRequests::cancel_open_request(
+					origin.into(),
+					hrmp_primitives::ChannelId {
+						sender: channel_id.sender.into(),
+						recipient: channel_id.recipient.into(),
+					},
+				));
+			}
 			ensure!(
 				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
 					open_requests,
@@ -871,6 +922,14 @@ pub mod pallet {
 			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 
 			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
+
+			if T::ParaRequests::is_remote() {
+				Self::forward(T::ParaRequests::establish_channel_with_system(
+					sender.into(),
+					target_system_chain.into(),
+				))?;
+				return Ok(Pays::Yes.into());
+			}
 
 			let (max_message_size, max_capacity) =
 				T::DefaultChannelSizeAndCapacityWithSystem::get();
@@ -1618,6 +1677,15 @@ impl<T: Config> Pallet<T> {
 	/// para twice and would try to draw on a sovereign account the migration has emptied. The
 	/// zero is also what makes the later close and cancel paths deposit-free, since both unreserve
 	/// exactly what was recorded.
+	/// Turn a router verdict into a dispatch result.
+	///
+	/// A refusal means the transport would not take the request, so this chain has written nothing
+	/// and the parachain can ask again. Deliberately one line in one place: the five forwarding
+	/// arms must not each invent their own error.
+	fn forward(sent: Result<(), ()>) -> DispatchResult {
+		sent.map_err(|()| Error::<T>::RequestNotForwarded.into())
+	}
+
 	fn do_init_open_channel(
 		origin: ParaId,
 		recipient: ParaId,

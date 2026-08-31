@@ -391,3 +391,90 @@ pub trait ReceiveMigratedChannels {
 	/// way the caller is expected to park the record rather than lose it.
 	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
 }
+
+/// Where a relay chain sends a parachain's *own* HRMP requests once the control plane has moved off
+/// it.
+///
+/// The mirror image of [`HrmpRegistry`]: that one lets the control plane drive the relay chain's
+/// registry, this one lets the relay chain hand a parachain's request to the control plane.
+///
+/// ## Why the relay chain keeps the calls at all
+///
+/// A parachain asks for a channel by `Transact`ing `hrmp_init_open_channel` and friends on the relay
+/// chain. Those calls could simply be filtered off, and the parachain told to send to the control
+/// plane instead — but that means every parachain on the network changes the call it encodes, and
+/// acquires a channel with the control plane first in order to reach it at all.
+///
+/// So the relay chain keeps its five para-facing calls and, in remote mode, forwards them. The
+/// parachain's encoded call is byte-identical to today: same pallet index, same call index, same
+/// arguments. Nothing on the parachain side changes.
+///
+/// ## The mode is a runtime condition
+///
+/// Deliberately not a compile-time one. The same runtime serves its own HRMP before the control
+/// plane moves and forwards afterwards, so [`Self::is_remote`] is expected to read whatever says
+/// the move has happened — a migration stage, typically. `()` never goes remote, so a chain that
+/// owns its own HRMP is unaffected by any of this.
+///
+/// ## Failure
+///
+/// `Err(())` means the request could not be handed to the transport. The relay chain has written
+/// nothing at that point, so callers turn it into a dispatch error and the parachain may retry.
+pub trait ParaRequestRouter {
+	/// Whether a parachain's requests are forwarded rather than applied on this chain.
+	fn is_remote() -> bool {
+		false
+	}
+
+	/// `sender` wants a channel to `recipient`.
+	#[allow(clippy::result_unit_err)]
+	fn open_channel(
+		sender: ParaId,
+		recipient: ParaId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), ()>;
+
+	/// `recipient` accepts `sender`'s request.
+	#[allow(clippy::result_unit_err)]
+	fn accept_open_channel(sender: ParaId, recipient: ParaId) -> Result<(), ()>;
+
+	/// `initiator` — either end — closes `channel`.
+	#[allow(clippy::result_unit_err)]
+	fn close_channel(initiator: ParaId, channel: ChannelId) -> Result<(), ()>;
+
+	/// `sender` withdraws its unconfirmed request for `channel`.
+	#[allow(clippy::result_unit_err)]
+	fn cancel_open_request(sender: ParaId, channel: ChannelId) -> Result<(), ()>;
+
+	/// `sender` pairs itself with the system chain `target`, in both directions.
+	#[allow(clippy::result_unit_err)]
+	fn establish_channel_with_system(sender: ParaId, target: ParaId) -> Result<(), ()>;
+}
+
+/// Never goes remote: this chain owns its own HRMP and applies every request locally.
+///
+/// The methods are unreachable rather than unimplemented — nothing calls them while
+/// [`ParaRequestRouter::is_remote`] is `false`, and returning an error is the safe answer if
+/// something ever does.
+impl ParaRequestRouter for () {
+	fn open_channel(_: ParaId, _: ParaId, _: u32, _: u32) -> Result<(), ()> {
+		Err(())
+	}
+
+	fn accept_open_channel(_: ParaId, _: ParaId) -> Result<(), ()> {
+		Err(())
+	}
+
+	fn close_channel(_: ParaId, _: ChannelId) -> Result<(), ()> {
+		Err(())
+	}
+
+	fn cancel_open_request(_: ParaId, _: ChannelId) -> Result<(), ()> {
+		Err(())
+	}
+
+	fn establish_channel_with_system(_: ParaId, _: ParaId) -> Result<(), ()> {
+		Err(())
+	}
+}
