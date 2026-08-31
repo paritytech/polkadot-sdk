@@ -10,7 +10,10 @@ use super::{
 	rpc::Height,
 };
 use anyhow::Context;
-use std::time::Duration;
+use std::{
+	path::{Path, PathBuf},
+	time::Duration,
+};
 use tokio::time::{sleep, Instant};
 
 /// The whole run — network spin-up, parasim registration and block production — has to fit in
@@ -27,19 +30,55 @@ pub const DEADLINE: Duration = Duration::from_secs(25 * 60);
 /// The core parasim guarantees the parachain's work packages on.
 const JAM_CORE: u32 = 0;
 
+/// Set this to a directory to keep every run's work dir: the run then works in a named
+/// subdirectory of it that outlives the run, whether it passed or failed.
+const BASE_DIR_VAR: &str = "JAM_TEST_BASE_DIR";
+
+/// Where one run keeps its chain spec, its collator logs, and — under `zombienet/` — the directory
+/// of every JAM node zombienet spawns for it. One run is one tree.
+enum WorkDir {
+	/// The default: deleted when the run ends.
+	Temporary(tempfile::TempDir),
+	/// Named after the test and kept, because `JAM_TEST_BASE_DIR` is set.
+	Kept(PathBuf),
+}
+
+impl WorkDir {
+	fn create(test: &str) -> anyhow::Result<Self> {
+		let Some(base) = std::env::var_os(BASE_DIR_VAR) else {
+			return Ok(WorkDir::Temporary(
+				tempfile::Builder::new().prefix("jam-collator-test.").tempdir()?,
+			));
+		};
+
+		let started = chrono::Local::now().format("%Y%m%d-%H%M%S");
+		let path = PathBuf::from(base).join(format!("jam-collator-test-{test}-{started}"));
+		std::fs::create_dir_all(&path)
+			.with_context(|| format!("creating the work dir {}", path.display()))?;
+		Ok(WorkDir::Kept(path))
+	}
+
+	fn path(&self) -> &Path {
+		match self {
+			WorkDir::Temporary(dir) => dir.path(),
+			WorkDir::Kept(path) => path,
+		}
+	}
+}
+
 /// A running JAM network plus its collators, kept together so they are torn down together.
 pub struct Run {
 	pub network: JamNetwork,
 	pub collators: Collators,
-	work_dir: tempfile::TempDir,
+	work_dir: WorkDir,
 	pub deadline: Instant,
 }
 
 impl Run {
 	/// Spin everything up and return once all collators are launched.
-	pub async fn start(binaries: &Binaries, collators: usize) -> anyhow::Result<Self> {
+	pub async fn start(test: &str, binaries: &Binaries, collators: usize) -> anyhow::Result<Self> {
 		let deadline = Instant::now() + DEADLINE;
-		let work_dir = tempfile::Builder::new().prefix("jam-collator-test.").tempdir()?;
+		let work_dir = WorkDir::create(test)?;
 		log::info!("work dir: {}", work_dir.path().display());
 
 		let network = JamNetwork::spawn(binaries, work_dir.path(), deadline).await?;
@@ -55,7 +94,7 @@ impl Run {
 	}
 
 	/// Where the chain spec, the collator base paths and every log file live.
-	pub fn work_dir(&self) -> &std::path::Path {
+	pub fn work_dir(&self) -> &Path {
 		self.work_dir.path()
 	}
 
@@ -113,7 +152,7 @@ pub async fn assert_collators_build_blocks(
 
 	let Some(binaries) = super::env::binaries_or_skip(test) else { return Ok(()) };
 
-	let mut run = Run::start(&binaries, collators).await?;
+	let mut run = Run::start(test, &binaries, collators).await?;
 	let result = run.wait_for_blocks(blocks, finalized).await;
 	match result {
 		Ok(height) => {

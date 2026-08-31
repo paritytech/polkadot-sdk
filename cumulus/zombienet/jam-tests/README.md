@@ -39,6 +39,33 @@ them concurrently would fight over CPU and make the six-second slot budget unrea
 any artifact is missing the tests print what they need and pass without running — they never fail
 for a reason unrelated to the collator.
 
+### Keeping the logs
+
+By default a run works in a temporary directory that is deleted when it ends. Set
+`JAM_TEST_BASE_DIR` to keep it instead:
+
+```sh
+export JAM_TEST_BASE_DIR=/home/miszka/parity/46-jam-cummulus-side-2/xxx-logs
+```
+
+Each run then gets its own `$JAM_TEST_BASE_DIR/jam-collator-test-<test>-<YYYYmmdd-HHMMSS>/`, which
+survives whether the test passed or failed. Everything one run produces is inside it:
+
+```
+jam-collator-test-two_jam_collators_build_blocks-20260831-141233/
+	jam-parachain-spec.json   the collators' patched chain spec
+	parasim-service.jam       the copy of the blob that was registered
+	alice.log, bob.log, ...   one log per collator
+	alice/, bob/, ...         one base path per collator
+	zombienet/                the network zombienet spawned: jam0..jam5, jam-or, relay-filler
+```
+
+The zombienet network is given `zombienet/` as its base directory, so its nodes' logs are part of
+the same tree rather than somewhere under `/tmp`. The harness logs the resolved path as
+`work dir: ...` as soon as the run starts.
+
+The demo honours the same variable.
+
 The demo runs the same code path with no assertion, until it is killed:
 
 ```sh

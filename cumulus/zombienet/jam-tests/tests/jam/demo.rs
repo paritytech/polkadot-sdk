@@ -26,7 +26,7 @@ async fn demo() -> Result<(), anyhow::Error> {
 	let Some(binaries) = env::binaries_or_skip("demo") else { return Ok(()) };
 
 	let collators = collator_count();
-	let mut run = Run::start(&binaries, collators).await?;
+	let mut run = Run::start("demo", &binaries, collators).await?;
 	// The demo has no deadline; the one the harness set only covered the start-up it just did.
 	run.deadline = Instant::now() + Duration::from_secs(365 * 24 * 60 * 60);
 
