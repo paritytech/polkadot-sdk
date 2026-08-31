@@ -43,7 +43,7 @@ pub enum Protocol<'a> {
 	Ip6(Ipv6Addr),
 	P2pWebRtcDirect,
 	P2pWebRtcStar,
-	WebRTC,
+	WebRTCDirect,
 	Certhash(Multihash),
 	P2pWebSocketStar,
 	/// Contains the "port" to contact. Similar to TCP or UDP, 0 means "assign me a port".
@@ -130,6 +130,7 @@ impl<'a> From<LibP2pProtocol<'a>> for Protocol<'a> {
 			LibP2pProtocol::Utp => Protocol::Utp,
 			LibP2pProtocol::Ws(str) => Protocol::Ws(str),
 			LibP2pProtocol::Wss(str) => Protocol::Wss(str),
+			LibP2pProtocol::WebRTCDirect => Protocol::WebRTCDirect,
 			protocol => {
 				log::error!(
 					target: LOG_TARGET,
@@ -162,7 +163,7 @@ impl<'a> From<Protocol<'a>> for LibP2pProtocol<'a> {
 			Protocol::P2pWebRtcStar => LibP2pProtocol::P2pWebRtcStar,
 			// Protocol #280 is called `WebRTC` in multiaddr-17.0 and `WebRTCDirect` in
 			// multiaddr-18.1.
-			Protocol::WebRTC => LibP2pProtocol::WebRTCDirect,
+			Protocol::WebRTCDirect => LibP2pProtocol::WebRTCDirect,
 			Protocol::Certhash(multihash) => LibP2pProtocol::Certhash(multihash.into()),
 			Protocol::P2pWebSocketStar => LibP2pProtocol::P2pWebSocketStar,
 			Protocol::Memory(port) => LibP2pProtocol::Memory(port),
