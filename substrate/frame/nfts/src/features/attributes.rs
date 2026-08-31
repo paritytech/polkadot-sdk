@@ -444,16 +444,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 
 			// Keep `CollectionDetails.attributes` in sync with the attributes we
-			// just drained, mirroring `do_clear_attribute`. Without this the
-			// counter stays inflated and the derived destroy witness no longer
-			// matches `Attribute` storage, so the collection can't be destroyed
-			// with a correct witness (see the `BadWitness` check in
-			// `do_destroy_collection`).
+			// just drained. Without this the counter stays inflated and the
+			// derived destroy witness no longer matches `Attribute` storage, so
+			// the collection can't be destroyed with a correct witness (see the
+			// `BadWitness` check in `do_destroy_collection`).
 			if !attributes.is_zero() {
-				let mut collection_details =
-					Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
-				collection_details.attributes.saturating_reduce(attributes);
-				Collection::<T, I>::insert(collection, &collection_details);
+				Collection::<T, I>::try_mutate(collection, |maybe_details| -> DispatchResult {
+					let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
+					details.attributes.saturating_reduce(attributes);
+					Ok(())
+				})?;
 			}
 
 			Self::deposit_event(Event::ItemAttributesApprovalRemoved {
