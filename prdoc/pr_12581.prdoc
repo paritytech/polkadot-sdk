@@ -7,7 +7,14 @@ doc:
     every path: extrinsics, the `fungibles` traits (incl. XCM asset transactors) and the
     `Balanced` imbalance paths. The trait gains a third generic parameter `Balance`; any
     hand-written `impl AssetsCallback<Id, Acct>` must add it (implementations wired only as
-    `CallbackHandle` need no change beyond a recompile).
+    `CallbackHandle` need no change beyond a recompile). Genesis asset creation now fires
+    `created` as well, so a `CallbackHandle` implementing it seeds genesis assets like
+    runtime-created ones; a failure there panics genesis construction.
+
+    On a runtime that wires a log-mirroring `CallbackHandle`, every balance-changing operation
+    deposits an additional `pallet_revive::Event::ContractEmitted` right after the pallet-assets
+    event, so per-extrinsic event count and ordering change for substrate-side consumers. Code
+    asserting on the last emitted event (e.g. `assert_last_event`) must assert presence instead.
 
     `pallet_revive::Pallet::emit_contract_log_outside_frame` is exposed for runtime components that
     mirror non-contract activity as EVM logs from outside any contract call frame. The call tracer gains
@@ -30,6 +37,11 @@ doc:
       - Foreign asset-index mappings must exist before a mirror can resolve a token address. They
         are established by the creation callback, including for genesis-seeded assets; assets that
         predate the callback wiring need the index-map migration to backfill them.
+      - Asset destruction has no mirror: pallet-assets can destroy an asset, but ERC-20 has no
+        equivalent concept, so there is nothing to project `destroy_accounts` onto. Firing a burn
+        log per holder instead would emit an unbounded number of events for a single destruction.
+        Log consumers must drop a token's balances once the asset is destroyed, or an inline id
+        later reused by `force_create` will inherit them.
 crates:
 - name: pallet-assets
   bump: major

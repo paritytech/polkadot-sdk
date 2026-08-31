@@ -136,7 +136,8 @@
 //! ### Callbacks
 //!
 //! Using `CallbackHandle` associated type, user can configure custom callback functions which are
-//! executed when new asset is created or an existing asset is destroyed.
+//! executed when an asset is created or destroyed, and on every balance change: mint, burn,
+//! transfer, and the imbalance deposit and withdraw paths.
 //!
 //! ## Related Modules
 //!

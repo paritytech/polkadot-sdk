@@ -217,6 +217,15 @@ where
 
 /// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change, at
 /// the asset's [`ERC20`] precompile address.
+///
+/// Asset destruction has no mirror: pallet-assets can destroy an asset, but ERC-20 has no
+/// equivalent concept, so there is nothing to project `destroy_accounts` onto, and it fires no
+/// balance-change callback. Firing a burn log per holder instead would emit an unbounded number
+/// of events for a single destruction.
+///
+/// Consumers must therefore treat the token as dead once the asset is destroyed and drop any
+/// log-derived balances for it. For inline-id assets the token address is a function of the asset
+/// id, so an id later reused by `force_create` would otherwise inherit those balances.
 pub struct Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -310,13 +319,15 @@ where
 	) {
 		let Ok(value) = alloy::primitives::U256::try_from(amount) else {
 			frame_support::defensive!(
-				"asset balance exceeds U256; Transfer log dropped (unreachable for balance types up to 256 bit)"
+				"asset balance exceeds U256; Transfer log dropped (unreachable for balance types up to 256 bit)",
+				(id, from, to, amount)
 			);
 			return;
 		};
 		let Some(token) = Self::token_address(id) else {
 			frame_support::defensive!(
-				"asset has no precompile address mapping; Transfer log dropped (unreachable unless a foreign asset predates its mapping migration)"
+				"asset has no precompile address mapping; Transfer log dropped (unreachable unless a foreign asset predates its mapping migration)",
+				(id, from, to, amount)
 			);
 			return;
 		};
