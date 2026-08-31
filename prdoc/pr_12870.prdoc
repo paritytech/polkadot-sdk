@@ -20,10 +20,7 @@ crates:
   bump: major
 - name: sc-network
   bump: major
-# `litep2p` is a public dependency of both crates and moves 0.14 -> 0.15.
 - name: sc-network-types
-  bump: major
-- name: sc-network-bitswap
   bump: major
 - name: sc-service
   bump: patch
