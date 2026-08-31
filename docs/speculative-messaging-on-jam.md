@@ -25,27 +25,38 @@ The Parachain Service work digest gains two fields:
 struct ParachainWorkDigestOk {
   /// ...
   spec_msg_provides: Option<StreamsRoot>,
-  spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 64>,
+  spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), 32>,
 }
 ```
 
 ### Producing Sender `Provides`
 
-The sender runtime maintains its stream MMR frontiers and the commitment tree. After all inner blocks in
-a candidate have executed, the validation wrapper reports the final changed root through
-`set_provides_root`. It may do so once per `Refine`.
+The sender runtime maintains its stream MMR frontiers and the commitment tree.
+When producing a block, the runtime writes the `Provides` root directly into pallet storage and the header digest.
+
+During the PS Refine phase, guarantors execute the PVF. Once execution completes, the `validate_block` wrapper
+reads the root from pallet storage and reports it via the `set_provides_root` host call.
+
+For bundled PoVs, the wrapper carries the last produced `Provides` forward to the call, even when later inner blocks send nothing.
+Intermediate roots are not settlement entries. A consumer that used an intermediate boundary must lift its endpoint
+to the candidate boundary root before it can settle.
+
+During Accumulate, the candidate's head is written for enactment. If a `Provides` root is present, it is pushed into
+the sender's settlement ring (`ring[A]`).
 
 It costs 33 bytes when present.
 
-For a bundle, the wrapper carries the last changed root forward even when later inner blocks send nothing.
-Intermediate roots are not settlement entries. A consumer that used an intermediate boundary must lift
-its endpoint to the candidate-boundary root before it can settle.
-
 ### Producing Receiver `Requires`
 
-The validation wrapper verifies the PoV lifts and declares one `(ParaId, StreamsRoot)` per source parachain,
-via `set_requires_root` host call in Refine. PS Refine copies the entries into `spec_msg_requires` and
-ensures all sources are unique and bounded.
+The collator node picks the target `Provides` depending on the speculation tier and
+consumes a prefix of messages. The runtime consumes the messages and records a `ConsumptionRecord`.
+The collator then generate the Lift proofs and packages them into the PoV.
+
+In the PS Refine, the guarantoors execute the PVF. Then, the `validate_block` wrapper reads the
+`ConsumptionRecords` from the pallet storage with the Lifts from the PoV. It stitches consumption gaps
+to produce a final `Requires` that is set via `set_requires_root`.
+
+PS Refine then enforces that all source parachains in the `Requires` set are unique and bounded to 32 entries.
 
 If the runtime is buggy or verifications are disabled, PS does not guarantee that the PoV lifts or stitches
 actually result in the provided `Requires`. The system relies on the Accumulation phase to verify that the
@@ -57,14 +68,16 @@ actually result in the provided `Requires`. The system relies on the Accumulatio
 fn set_requires_root(entries: &[(ParaId, StreamsRoot)]) -> ();
 ```
 
+During Accumulate, the system checks the settlement ring. It verifies that each declared `(ParaId, StreamsRoot)` is actually
+present in the source's ring (`ring[ParaID]`). The block is enacted only if this check passes.
+
 > PS doesn't enforce the validity of `Requires`. It remains header agnostic (ie, no decoding) and strictly
 > moves opaque 32byte roots.
->
 > Moving the verification into the PS Refine wrapper doens't change the security guarantees.
 > Instead, PS Refine would simply check the collator provided consumption record against
 > the collator provided PoV lifts.
 
-At 36 bytes each, full fan-in costs ~2.3 KiB of the 48 KiB report.
+At 36 bytes each, full fan-in (32 entries) costs ~1.1 KiB of the 48 KiB report.
 
 ## 2. Settlement Ring
 
