@@ -26,8 +26,7 @@ use fatp_common::{
 use futures::{executor::block_on, FutureExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
-	error::{Error as TxPoolError, FullPoolError},
-	MaintainedTransactionPool, TransactionPool, TransactionStatus,
+	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
 use std::thread::sleep;
 use substrate_test_runtime_client::Sr25519Keyring::*;
@@ -59,8 +58,8 @@ fn fatp_limits_no_views_mempool_count() {
 	assert!(results.next().unwrap().is_ok());
 	assert!(results.next().unwrap().is_ok());
 	assert!(matches!(
-		results.next().unwrap().as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::ImmediatelyDropped)
+		results.next().unwrap().as_ref().unwrap_err().0,
+		TxPoolError::ImmediatelyDropped
 	));
 }
 
@@ -150,10 +149,7 @@ fn fatp_limits_ready_count_works_for_submit_at() {
 	))
 	.unwrap();
 
-	assert!(matches!(
-		results[0].as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::ImmediatelyDropped)
-	));
+	assert!(matches!(results[0].as_ref().unwrap_err().0, TxPoolError::ImmediatelyDropped));
 	assert!(results[1].as_ref().is_ok());
 	assert!(results[2].as_ref().is_ok());
 	assert_eq!(block_on(pool.mempool_len()).0, 2);
@@ -187,7 +183,7 @@ fn fatp_limits_ready_count_works_for_submit_and_watch() {
 	let result1 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone()));
 	let result2 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).map(|_| ());
 
-	assert!(matches!(result2.unwrap_err(), FullPoolError::Pool(TxPoolError::ImmediatelyDropped)));
+	assert!(matches!(result2.unwrap_err().0, TxPoolError::ImmediatelyDropped));
 	assert!(result0.is_ok());
 	assert!(result1.is_ok());
 	assert_eq!(block_on(pool.mempool_len()).1, 2);
@@ -456,7 +452,7 @@ fn fatp_limits_watcher_empty_and_full_view_immediately_drops() {
 	let result5 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).map(|_| ());
 
 	// xt5 hits internal mempool limit
-	assert!(matches!(result5.unwrap_err(), FullPoolError::Pool(TxPoolError::ImmediatelyDropped)));
+	assert!(matches!(result5.unwrap_err().0, TxPoolError::ImmediatelyDropped));
 
 	assert_pool_status!(header02e.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header02e.hash(), pool, [xt3, xt4]);
@@ -598,10 +594,7 @@ fn fatp_limits_ready_size_works() {
 
 	let xt3 = large_uxt(3);
 	let result3 = block_on(pool.submit_one(header01.hash(), SOURCE, xt3.clone()));
-	assert!(matches!(
-		result3.as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::ImmediatelyDropped)
-	));
+	assert!(matches!(result3.as_ref().unwrap_err().0, TxPoolError::ImmediatelyDropped));
 }
 
 #[test]

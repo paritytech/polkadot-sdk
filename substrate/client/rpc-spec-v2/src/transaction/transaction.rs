@@ -35,7 +35,8 @@ use super::metrics::{InstanceMetrics, Metrics};
 
 use sc_rpc::utils::{RingBuffer, Subscription};
 use sc_transaction_pool_api::{
-	error::IntoPoolError, TransactionPoolHandle, TransactionSource, TransactionStatus,
+	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
+	TransactionStatus,
 };
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
@@ -45,22 +46,22 @@ use std::sync::Arc;
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
 /// An API for transaction RPC calls.
-pub struct Transaction<Block: BlockT, Client> {
+pub struct Transaction<Pool: ?Sized, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
-	pool: Arc<TransactionPoolHandle<Block>>,
+	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 	/// Metrics for transactions.
 	metrics: Option<Metrics>,
 }
 
-impl<Block: BlockT, Client> Transaction<Block, Client> {
+impl<Pool: ?Sized, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
 	pub fn new(
 		client: Arc<Client>,
-		pool: Arc<TransactionPoolHandle<Block>>,
+		pool: Arc<Pool>,
 		executor: SubscriptionTaskExecutor,
 		metrics: Option<Metrics>,
 	) -> Self {
@@ -76,11 +77,12 @@ impl<Block: BlockT, Client> Transaction<Block, Client> {
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<Block, Client> TransactionApiServer<Block::Hash> for Transaction<Block, Client>
+impl<Pool: ?Sized, Client> TransactionApiServer<BlockHash<Pool>> for Transaction<Pool, Client>
 where
-	Block: BlockT,
-	Block::Hash: Unpin,
-	Client: HeaderBackend<Block> + Send + Sync + 'static,
+	Pool: TransactionPool + Sync + Send + 'static,
+	Pool::Hash: Unpin,
+	<Pool::Block as BlockT>::Hash: Unpin,
+	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
 {
 	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
 		let client = self.client.clone();
@@ -90,14 +92,14 @@ where
 		let mut metrics = InstanceMetrics::new(self.metrics.clone());
 
 		let fut = async move {
-			let decoded_extrinsic = match <Block::Extrinsic>::decode(&mut &xt[..]) {
+			let decoded_extrinsic = match TransactionFor::<Pool>::decode(&mut &xt[..]) {
 				Ok(decoded_extrinsic) => decoded_extrinsic,
 				Err(e) => {
 					log::debug!(target: LOG_TARGET, "Extrinsic bytes cannot be decoded: {:?}", e);
 
 					let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
-					let event = TransactionEvent::Invalid::<Block::Hash>(TransactionError {
+					let event = TransactionEvent::Invalid::<BlockHash<Pool>>(TransactionError {
 						error: "Extrinsic bytes cannot be decoded".into(),
 					});
 
@@ -143,7 +145,7 @@ where
 				Err(err) => {
 					// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
-					let event: TransactionEvent<Block::Hash> = err.into();
+					let event: TransactionEvent<<Pool::Block as BlockT>::Hash> = err.into();
 
 					metrics.register_event(&event);
 

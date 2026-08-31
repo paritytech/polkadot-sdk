@@ -32,7 +32,9 @@ use jsonrpsee::{
 use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, Rng};
 use sc_client_api::BlockchainEvents;
-use sc_transaction_pool_api::{error::IntoPoolError, TransactionPoolHandle, TransactionSource};
+use sc_transaction_pool_api::{
+	error::IntoPoolError, TransactionFor, TransactionPool, TransactionSource,
+};
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
@@ -41,32 +43,32 @@ use std::{collections::HashMap, sync::Arc};
 use super::error::ErrorBroadcast;
 
 /// An API for transaction RPC calls.
-pub struct TransactionBroadcast<Block: BlockT, Client> {
+pub struct TransactionBroadcast<Pool: TransactionPool + ?Sized, Client> {
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
-	pool: Arc<TransactionPoolHandle<Block>>,
+	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 	/// The broadcast operation IDs.
-	broadcast_ids: Arc<RwLock<HashMap<String, BroadcastState<Block>>>>,
+	broadcast_ids: Arc<RwLock<HashMap<String, BroadcastState<Pool>>>>,
 	/// Keep track of how many concurrent operations are active for each connection.
 	rpc_connections: RpcConnections,
 }
 
 /// The state of a broadcast operation.
-struct BroadcastState<Block: BlockT> {
+struct BroadcastState<Pool: TransactionPool + ?Sized> {
 	/// Handle to abort the running future that broadcasts the transaction.
 	handle: AbortHandle,
 	/// Associated tx hash.
-	tx_hash: Block::Hash,
+	tx_hash: <Pool as TransactionPool>::Hash,
 }
 
-impl<Block: BlockT, Client> TransactionBroadcast<Block, Client> {
+impl<Pool: TransactionPool + ?Sized, Client> TransactionBroadcast<Pool, Client> {
 	/// Creates a new [`TransactionBroadcast`].
 	pub fn new(
 		client: Arc<Client>,
-		pool: Arc<TransactionPoolHandle<Block>>,
+		pool: Arc<Pool>,
 		executor: SubscriptionTaskExecutor,
 		max_transactions_per_connection: usize,
 	) -> Self {
@@ -112,11 +114,12 @@ impl<Block: BlockT, Client> TransactionBroadcast<Block, Client> {
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<Block, Client> TransactionBroadcastApiServer for TransactionBroadcast<Block, Client>
+impl<Pool, Client> TransactionBroadcastApiServer for TransactionBroadcast<Pool, Client>
 where
-	Block: BlockT,
-	Block::Hash: Unpin,
-	Client: HeaderBackend<Block> + BlockchainEvents<Block> + Send + Sync + 'static,
+	Pool: TransactionPool + Sync + Send + 'static + ?Sized,
+	Pool::Error: IntoPoolError,
+	<Pool::Block as BlockT>::Hash: Unpin,
+	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,
 {
 	async fn broadcast(&self, ext: &Extensions, bytes: Bytes) -> RpcResult<Option<String>> {
 		let pool = self.pool.clone();
@@ -141,7 +144,7 @@ where
 		// If it does so and if the transaction is invalid, the server should silently do nothing
 		// and the JSON-RPC client is not informed of the problem. Invalid transactions should still
 		// count towards the limit to the number of simultaneously broadcasted transactions.
-		let Ok(decoded_extrinsic) = <Block::Extrinsic>::decode(&mut &bytes[..]) else {
+		let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
 			return Ok(Some(id));
 		};
 		// Save the tx hash to remove it later.
@@ -159,7 +162,7 @@ where
 		// The compiler can no longer deduce the type of the stream and complains
 		// about `one type is more general than the other`.
 		let mut best_block_import_stream: std::pin::Pin<
-			Box<dyn Stream<Item = Block::Hash> + Send>,
+			Box<dyn Stream<Item = <Pool::Block as BlockT>::Hash> + Send>,
 		> = Box::pin(futures::stream::select(
 			futures::stream::iter(std::iter::once(best_hash)),
 			self.client.import_notification_stream().filter_map(|notification| async move {

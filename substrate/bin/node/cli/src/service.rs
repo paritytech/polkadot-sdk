@@ -191,7 +191,7 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		Block,
+		sc_transaction_pool::TransactionPoolHandle<Block>,
 		(
 			impl Fn(
 				sc_rpc::SubscriptionTaskExecutor,

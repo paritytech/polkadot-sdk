@@ -31,7 +31,7 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
-use sc_transaction_pool_api::{InPoolTransaction, TransactionPoolHandle, TxInvalidityReportMap};
+use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
 use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{Proposal, ProposeArgs};
@@ -57,12 +57,12 @@ const DEFAULT_SOFT_DEADLINE_PERCENT: Percent = Percent::from_percent(50);
 const LOG_TARGET: &'static str = "basic-authorship";
 
 /// [`Proposer`] factory.
-pub struct ProposerFactory<Block: BlockT, C> {
+pub struct ProposerFactory<A: ?Sized, C> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	/// The client instance.
 	client: Arc<C>,
 	/// The transaction pool.
-	transaction_pool: Arc<TransactionPoolHandle<Block>>,
+	transaction_pool: Arc<A>,
 	/// Prometheus Link,
 	metrics: PrometheusMetrics,
 	/// The default block size limit.
@@ -81,7 +81,7 @@ pub struct ProposerFactory<Block: BlockT, C> {
 	telemetry: Option<TelemetryHandle>,
 }
 
-impl<Block: BlockT, C> Clone for ProposerFactory<Block, C> {
+impl<A: ?Sized, C> Clone for ProposerFactory<A, C> {
 	fn clone(&self) -> Self {
 		Self {
 			spawn_handle: self.spawn_handle.clone(),
@@ -95,12 +95,12 @@ impl<Block: BlockT, C> Clone for ProposerFactory<Block, C> {
 	}
 }
 
-impl<Block: BlockT, C> ProposerFactory<Block, C> {
+impl<A: ?Sized, C> ProposerFactory<A, C> {
 	/// Create a new proposer factory.
 	pub fn new(
 		spawn_handle: impl SpawnNamed + 'static,
 		client: Arc<C>,
-		transaction_pool: Arc<TransactionPoolHandle<Block>>,
+		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
@@ -120,7 +120,7 @@ impl<Block: BlockT, C> ProposerFactory<Block, C> {
 	pub fn with_proof_recording(
 		spawn_handle: impl SpawnNamed + 'static,
 		client: Arc<C>,
-		transaction_pool: Arc<TransactionPoolHandle<Block>>,
+		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
@@ -155,8 +155,9 @@ impl<Block: BlockT, C> ProposerFactory<Block, C> {
 	}
 }
 
-impl<Block, C> ProposerFactory<Block, C>
+impl<Block, C, A> ProposerFactory<A, C>
 where
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -165,7 +166,7 @@ where
 		&mut self,
 		parent_header: &<Block as BlockT>::Header,
 		now: Box<dyn Fn() -> time::Instant + Send + Sync>,
-	) -> Proposer<Block, C> {
+	) -> Proposer<Block, C, A> {
 		let parent_hash = parent_header.hash();
 
 		info!(
@@ -174,7 +175,7 @@ where
 			parent_header.number()
 		);
 
-		let proposer = Proposer::<_, _> {
+		let proposer = Proposer::<_, _, _> {
 			spawn_handle: self.spawn_handle.clone(),
 			client: self.client.clone(),
 			parent_hash,
@@ -191,14 +192,15 @@ where
 	}
 }
 
-impl<Block, C> sp_consensus::Environment<Block> for ProposerFactory<Block, C>
+impl<A, Block, C> sp_consensus::Environment<Block> for ProposerFactory<A, C>
 where
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
-	type Proposer = Proposer<Block, C>;
+	type Proposer = Proposer<Block, C, A>;
 	type Error = sp_blockchain::Error;
 
 	fn init(&mut self, parent_header: &<Block as BlockT>::Header) -> Self::CreateProposer {
@@ -207,12 +209,12 @@ where
 }
 
 /// The proposer logic.
-pub struct Proposer<Block: BlockT, C> {
+pub struct Proposer<Block: BlockT, C, A: TransactionPool + ?Sized> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	client: Arc<C>,
 	parent_hash: Block::Hash,
 	parent_number: <<Block as BlockT>::Header as HeaderT>::Number,
-	transaction_pool: Arc<TransactionPoolHandle<Block>>,
+	transaction_pool: Arc<A>,
 	now: Box<dyn Fn() -> time::Instant + Send + Sync>,
 	metrics: PrometheusMetrics,
 	default_block_size_limit: usize,
@@ -220,8 +222,9 @@ pub struct Proposer<Block: BlockT, C> {
 	telemetry: Option<TelemetryHandle>,
 }
 
-impl<Block, C> sp_consensus::Proposer<Block> for Proposer<Block, C>
+impl<A, Block, C> sp_consensus::Proposer<Block> for Proposer<Block, C, A>
 where
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -239,8 +242,9 @@ where
 /// It allows us to increase block utilization.
 const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
-impl<Block, C> Proposer<Block, C>
+impl<A, Block, C> Proposer<Block, C, A>
 where
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -580,9 +584,7 @@ mod tests {
 	use parking_lot::Mutex;
 	use sc_client_api::{Backend, TrieCacheContext};
 	use sc_transaction_pool::BasicPool;
-	use sc_transaction_pool_api::{
-		ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionSource,
-	};
+	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
 	use sp_blockchain::HeaderBackend;
 	use sp_consensus::{BlockOrigin, Environment};

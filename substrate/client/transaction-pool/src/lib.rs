@@ -33,8 +33,8 @@ use std::sync::Arc;
 
 pub use api::FullChainApi;
 pub use builder::{
-	Builder, ClientForTransactionPool, FullClientTransactionPool, FullTransactionPool,
-	LocalTransactionPoolHandle, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType,
+	Builder, ClientForTransactionPool, FullClientTransactionPool, TransactionPoolHandle,
+	TransactionPoolOptions, TransactionPoolType,
 };
 pub use common::{error, notification_future};
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};

@@ -29,7 +29,6 @@ use sc_rpc::{
 	statement::{StatementApiServer, StatementStore},
 };
 use sc_rpc_spec_v2::statement::{StatementSpec, StatementSpecApiServer};
-use sc_transaction_pool_api::TransactionPoolHandle;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc};
 use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -38,11 +37,11 @@ use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Block: BlockT, StatementStore> {
+pub(crate) trait BuildRpcExtensions<Client, Backend, Pool: ?Sized, StatementStore> {
 	fn build_rpc_extensions(
 		client: Arc<Client>,
 		backend: Arc<Backend>,
-		pool: Arc<TransactionPoolHandle<Block>>,
+		pool: Arc<Pool>,
 		statement_store: Option<Arc<StatementStore>>,
 		hop_pool: Option<Arc<sc_hop::HopDataPool>>,
 		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
@@ -55,7 +54,7 @@ impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
-		Block,
+		sc_transaction_pool::TransactionPoolHandle<Block>,
 		sc_statement_store::Store,
 	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
@@ -67,7 +66,7 @@ where
 	fn build_rpc_extensions(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		backend: Arc<ParachainBackend<Block>>,
-		pool: Arc<TransactionPoolHandle<Block>>,
+		pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block>>,
 		statement_store: Option<Arc<sc_statement_store::Store>>,
 		hop_pool: Option<Arc<sc_hop::HopDataPool>>,
 		spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,

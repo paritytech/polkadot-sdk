@@ -28,7 +28,7 @@ use sc_consensus_beefy::communication::notification::{
 };
 use sc_consensus_grandpa::FinalityProofProvider;
 pub use sc_rpc::SubscriptionTaskExecutor;
-use sc_transaction_pool_api::TransactionPoolHandle;
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_block_builder::BlockBuilder;
@@ -74,11 +74,11 @@ pub struct BeefyDeps<AuthorityId: AuthorityIdBound> {
 }
 
 /// Full client dependencies
-pub struct FullDeps<C, SC, B, AuthorityId: AuthorityIdBound> {
+pub struct FullDeps<C, P: ?Sized, SC, B, AuthorityId: AuthorityIdBound> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: Arc<TransactionPoolHandle<Block>>,
+	pub pool: Arc<P>,
 	/// The [`SelectChain`] Strategy
 	pub select_chain: SC,
 	/// A copy of the chain spec.
@@ -94,9 +94,10 @@ pub struct FullDeps<C, SC, B, AuthorityId: AuthorityIdBound> {
 }
 
 /// Instantiate all RPC extensions.
-pub fn create_full<C, SC, B, AuthorityId>(
+pub fn create_full<C, P, SC, B, AuthorityId>(
 	FullDeps { client, pool, select_chain, chain_spec, babe, grandpa, beefy, backend }: FullDeps<
 		C,
+		P,
 		SC,
 		B,
 		AuthorityId,
@@ -115,6 +116,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
+	P: TransactionPool + Sync + Send + 'static + ?Sized,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
 	B::State: sc_client_api::StateBackend<sp_runtime::traits::HashingFor<Block>>,

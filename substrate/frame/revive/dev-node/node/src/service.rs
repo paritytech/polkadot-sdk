@@ -42,7 +42,7 @@ pub type Service = sc_service::PartialComponents<
 	FullBackend,
 	FullSelectChain,
 	sc_consensus::DefaultImportQueue<Block>,
-	Block,
+	sc_transaction_pool::TransactionPoolHandle<Block>,
 	Option<Telemetry>,
 >;
 

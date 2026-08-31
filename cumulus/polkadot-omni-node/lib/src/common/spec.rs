@@ -339,7 +339,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
-		Self::Block,
+		TransactionPoolHandle<Self::Block>,
 		Store,
 	>;
 
@@ -514,7 +514,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				}
 			});
 			if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), node_extra_args.hop.as_ref()) {
-				let task = sc_hop::build_maintenance_task::<Self::Block, _>(
+				let task = sc_hop::build_maintenance_task::<Self::Block, _, _>(
 					&client,
 					&transaction_pool,
 					pool.clone(),

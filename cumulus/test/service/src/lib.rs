@@ -115,7 +115,7 @@ pub type ParachainBlockImport =
 	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
 
 /// Transaction pool type used by the test service
-pub type TransactionPool = Arc<sc_transaction_pool::LocalTransactionPoolHandle<Block>>;
+pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block>>;
 
 /// Recovery handle that fails regularly to simulate unavailable povs.
 pub struct FailingRecoveryHandle {
@@ -164,7 +164,7 @@ pub type Service = PartialComponents<
 	Backend,
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
-	Block,
+	sc_transaction_pool::TransactionPoolHandle<Block>,
 	(ParachainBlockImport, SlotBasedBlockImportHandle<Block>),
 >;
 

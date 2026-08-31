@@ -27,7 +27,7 @@ use jsonrpsee::{
 	Extensions,
 };
 
-use sc_transaction_pool_api::{InPoolTransaction, TransactionPoolHandle};
+use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 use sp_api::ApiExt;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
@@ -71,28 +71,29 @@ impl From<Error> for i32 {
 }
 
 /// An implementation of System-specific RPC methods on full client.
-pub struct System<C, Block: traits::Block> {
+pub struct System<P: TransactionPool + ?Sized, C, B> {
 	client: Arc<C>,
-	pool: Arc<TransactionPoolHandle<Block>>,
-	_marker: std::marker::PhantomData<Block>,
+	pool: Arc<P>,
+	_marker: std::marker::PhantomData<B>,
 }
 
-impl<C, Block: traits::Block> System<C, Block> {
+impl<P: TransactionPool + ?Sized, C, B> System<P, C, B> {
 	/// Create new `FullSystem` given client and transaction pool.
-	pub fn new(client: Arc<C>, pool: Arc<TransactionPoolHandle<Block>>) -> Self {
+	pub fn new(client: Arc<C>, pool: Arc<P>) -> Self {
 		Self { client, pool, _marker: Default::default() }
 	}
 }
 
 #[async_trait]
-impl<C, Block, AccountId, Nonce> SystemApiServer<<Block as traits::Block>::Hash, AccountId, Nonce>
-	for System<C, Block>
+impl<P, C, Block, AccountId, Nonce>
+	SystemApiServer<<Block as traits::Block>::Hash, AccountId, Nonce> for System<P, C, Block>
 where
 	C: sp_api::ProvideRuntimeApi<Block>,
 	C: HeaderBackend<Block>,
 	C: Send + Sync + 'static,
 	C::Api: AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BlockBuilder<Block>,
+	P: TransactionPool + 'static + ?Sized,
 	Block: traits::Block,
 	AccountId: Clone + Display + Codec + Send + 'static,
 	Nonce: Clone + Display + Codec + Send + traits::AtLeast32Bit + 'static,
@@ -177,13 +178,9 @@ where
 
 /// Adjust account nonce from state, so that tx with the nonce will be
 /// placed after all ready txpool transactions.
-fn adjust_nonce<Block, AccountId, Nonce>(
-	pool: &TransactionPoolHandle<Block>,
-	account: AccountId,
-	nonce: Nonce,
-) -> Nonce
+fn adjust_nonce<P, AccountId, Nonce>(pool: &P, account: AccountId, nonce: Nonce) -> Nonce
 where
-	Block: traits::Block,
+	P: TransactionPool + ?Sized,
 	AccountId: Clone + std::fmt::Display + Encode,
 	Nonce: Clone + std::fmt::Display + Encode + traits::AtLeast32Bit + 'static,
 {
@@ -223,7 +220,6 @@ mod tests {
 	use futures::executor::block_on;
 	use sc_rpc_api::DenyUnsafe;
 	use sc_transaction_pool::BasicPool;
-	use sc_transaction_pool_api::TransactionPool;
 	use sp_runtime::{
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,

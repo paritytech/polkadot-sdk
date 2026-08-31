@@ -30,8 +30,8 @@ use codec::{Decode, Encode};
 use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscriptionSink};
 use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
-	error::IntoPoolError, InPoolTransaction, TransactionPoolHandle, TransactionSource,
-	TxInvalidityReportMap,
+	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
+	TransactionSource, TxHash, TxInvalidityReportMap,
 };
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -45,22 +45,22 @@ use std::sync::Arc;
 pub use sc_rpc_api::author::*;
 
 /// Authoring API
-pub struct Author<Block: BlockT, Client> {
+pub struct Author<P: ?Sized, Client> {
 	/// Substrate client
 	client: Arc<Client>,
 	/// Transactions pool
-	pool: Arc<TransactionPoolHandle<Block>>,
+	pool: Arc<P>,
 	/// The key store.
 	keystore: KeystorePtr,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 }
 
-impl<Block: BlockT, Client> Author<Block, Client> {
+impl<P: ?Sized, Client> Author<P, Client> {
 	/// Create new instance of Authoring API.
 	pub fn new(
 		client: Arc<Client>,
-		pool: Arc<TransactionPoolHandle<Block>>,
+		pool: Arc<P>,
 		keystore: KeystorePtr,
 		executor: SubscriptionTaskExecutor,
 	) -> Self {
@@ -68,11 +68,13 @@ impl<Block: BlockT, Client> Author<Block, Client> {
 	}
 }
 
-impl<Block: BlockT, Client> Author<Block, Client>
+impl<P: ?Sized, Client> Author<P, Client>
 where
-	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	Client::Api: SessionKeys<Block>,
-	Block::Hash: Unpin,
+	P: TransactionPool + Sync + Send + 'static,
+	Client: HeaderBackend<P::Block> + ProvideRuntimeApi<P::Block> + Send + Sync + 'static,
+	Client::Api: SessionKeys<P::Block>,
+	P::Hash: Unpin,
+	<P::Block as BlockT>::Hash: Unpin,
 {
 	fn rotate_keys_impl(&self, owner: Vec<u8>) -> Result<GeneratedSessionKeys> {
 		let best_block_hash = self.client.info().best_hash;
@@ -81,7 +83,7 @@ where
 		runtime_api.register_extension(KeystoreExt::from(self.keystore.clone()));
 
 		let version = runtime_api
-			.api_version::<dyn SessionKeys<Block>>(best_block_hash)
+			.api_version::<dyn SessionKeys<P::Block>>(best_block_hash)
 			.map_err(|api_err| Error::Client(Box::new(api_err)))?
 			.ok_or_else(|| Error::MissingSessionKeysApi)?;
 
@@ -111,14 +113,15 @@ where
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<Block, Client> AuthorApiServer<Block::Hash, Block::Hash> for Author<Block, Client>
+impl<P, Client> AuthorApiServer<TxHash<P>, BlockHash<P>> for Author<P, Client>
 where
-	Block: BlockT,
-	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	Client::Api: SessionKeys<Block>,
-	Block::Hash: Unpin,
+	P: TransactionPool + Sync + Send + 'static + ?Sized,
+	Client: HeaderBackend<P::Block> + ProvideRuntimeApi<P::Block> + Send + Sync + 'static,
+	Client::Api: SessionKeys<P::Block>,
+	P::Hash: Unpin,
+	<P::Block as BlockT>::Hash: Unpin,
 {
-	async fn submit_extrinsic(&self, ext: Bytes) -> Result<Block::Hash> {
+	async fn submit_extrinsic(&self, ext: Bytes) -> Result<TxHash<P>> {
 		let xt = match Decode::decode(&mut &ext[..]) {
 			Ok(xt) => xt,
 			Err(err) => return Err(Error::Client(Box::new(err)).into()),
@@ -192,8 +195,8 @@ where
 	async fn remove_extrinsic(
 		&self,
 		ext: &Extensions,
-		bytes_or_hash: Vec<hash::ExtrinsicOrHash<Block::Hash>>,
-	) -> Result<Vec<Block::Hash>> {
+		bytes_or_hash: Vec<hash::ExtrinsicOrHash<TxHash<P>>>,
+	) -> Result<Vec<TxHash<P>>> {
 		check_if_safe(ext)?;
 		let hashes = bytes_or_hash
 			.into_iter()
@@ -204,7 +207,7 @@ where
 					Ok((self.pool.hash_of(&xt), None))
 				},
 			})
-			.collect::<Result<TxInvalidityReportMap<Block::Hash>>>()?;
+			.collect::<Result<TxInvalidityReportMap<TxHash<P>>>>()?;
 
 		Ok(self
 			.pool
@@ -217,7 +220,7 @@ where
 
 	fn watch_extrinsic(&self, pending: PendingSubscriptionSink, xt: Bytes) {
 		let best_block_hash = self.client.info().best_hash;
-		let dxt = match <Block::Extrinsic>::decode(&mut &xt[..]).map_err(|e| Error::from(e)) {
+		let dxt = match TransactionFor::<P>::decode(&mut &xt[..]).map_err(|e| Error::from(e)) {
 			Ok(dxt) => dxt,
 			Err(e) => {
 				spawn_subscription_task(&self.executor, pending.reject(e));

@@ -25,8 +25,8 @@ use fatp_common::{
 use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
-	error::{Error as TxPoolError, FullPoolError},
-	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
+	error::Error as TxPoolError, ChainEvent, MaintainedTransactionPool, TransactionPool,
+	TransactionStatus,
 };
 use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{sync::Arc, time::Duration};
@@ -115,9 +115,10 @@ fn fatp_no_view_submit_already_imported_reports_error() {
 	let submission_failing = pool.submit_at(header.hash(), SOURCE, xts1.clone());
 	let results = block_on(submission_failing);
 
-	assert!(results.unwrap().into_iter().all(|r| {
-		matches!(r.unwrap_err(), FullPoolError::Pool(TxPoolError::AlreadyImported(_)))
-	}));
+	assert!(results
+		.unwrap()
+		.into_iter()
+		.all(|r| { matches!(r.unwrap_err().0, TxPoolError::AlreadyImported(_)) }));
 }
 
 #[test]
@@ -189,8 +190,8 @@ fn fatp_one_view_stale_submit_one_fails() {
 
 	// xt0 should be stale
 	assert!(matches!(
-		&results[0].as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Stale,))
+		&results[0].as_ref().unwrap_err().0,
+		TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
 	));
 
 	assert_pool_status!(header.hash(), &pool, 0, 0);
@@ -225,8 +226,8 @@ fn fatp_one_view_stale_submit_many_fails() {
 	assert!(results.pop().unwrap().is_ok());
 	assert!(results.into_iter().all(|r| {
 		matches!(
-			&r.as_ref().unwrap_err(),
-			FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Stale,))
+			&r.as_ref().unwrap_err().0,
+			TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
 		)
 	}));
 
@@ -408,8 +409,8 @@ fn fatp_two_views_submit_many_variations() {
 
 	(0..2).for_each(|i| {
 		assert!(matches!(
-			results[i].as_ref().unwrap_err(),
-			FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Stale,))
+			results[i].as_ref().unwrap_err().0,
+			TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
 		));
 	});
 	// note: tx at 2 is valid at header01a and invalid at header01b
@@ -417,15 +418,9 @@ fn fatp_two_views_submit_many_variations() {
 		assert_eq!(*results[i].as_ref().unwrap(), api.hash_and_length(&xts[i]).0);
 	});
 	// xt0 at index 5 (transaction from the imported block, gets banned when pruned)
-	assert!(matches!(
-		results[5].as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::TemporarilyBanned)
-	));
+	assert!(matches!(results[5].as_ref().unwrap_err().0, TxPoolError::TemporarilyBanned));
 	// xt1 at index 6
-	assert!(matches!(
-		results[6].as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::AlreadyImported(_))
-	));
+	assert!(matches!(results[6].as_ref().unwrap_err().0, TxPoolError::AlreadyImported(_)));
 }
 
 #[test]
@@ -744,8 +739,8 @@ fn fatp_fork_stale_rejected() {
 
 	// xt2 should be stale
 	assert!(matches!(
-		&submission_results[2].as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::InvalidTransaction(InvalidTransaction::Stale,))
+		&submission_results[2].as_ref().unwrap_err().0,
+		TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
 	));
 
 	let event = new_best_block_event(&pool, Some(f03), f13);

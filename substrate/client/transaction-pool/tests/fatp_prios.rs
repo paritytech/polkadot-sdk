@@ -24,8 +24,8 @@ use fatp_common::{invalid_hash, new_best_block_event, TestPoolBuilder, LOG_TARGE
 use futures::{executor::block_on, FutureExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
-	error::{Error as TxPoolError, FullPoolError},
-	LocalTransactionPool, MaintainedTransactionPool, TransactionPool, TransactionStatus,
+	error::Error as TxPoolError, LocalTransactionPool, MaintainedTransactionPool, TransactionPool,
+	TransactionStatus,
 };
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
@@ -456,15 +456,9 @@ fn fatp_prios_watcher_full_mempool_lower_prio_gets_rejected() {
 	assert_ready_iterator!(header02.hash(), pool, [xt0, xt1]);
 
 	let result2 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).map(|_| ());
-	assert!(matches!(
-		result2.as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::ImmediatelyDropped)
-	));
+	assert!(matches!(result2.as_ref().unwrap_err().0, TxPoolError::ImmediatelyDropped));
 	let result3 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).map(|_| ());
-	assert!(matches!(
-		result3.as_ref().unwrap_err(),
-		FullPoolError::Pool(TxPoolError::ImmediatelyDropped)
-	));
+	assert!(matches!(result3.as_ref().unwrap_err().0, TxPoolError::ImmediatelyDropped));
 }
 
 #[test]

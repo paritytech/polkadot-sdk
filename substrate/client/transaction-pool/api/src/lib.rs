@@ -20,7 +20,6 @@
 #![warn(missing_docs)]
 
 pub mod error;
-pub mod transaction;
 
 use async_trait::async_trait;
 use codec::Codec;
@@ -31,8 +30,6 @@ use sp_runtime::traits::{Block as BlockT, Member};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";
-
-pub use transaction::{TimedTransactionSource, Transaction};
 
 pub use sp_runtime::transaction_validity::{
 	TransactionLongevity, TransactionPriority, TransactionSource, TransactionTag,
@@ -462,72 +459,6 @@ impl<T: LocalTransactionPool + ?Sized> LocalTransactionPool for Arc<T> {
 		(**self).submit_local(at, xt)
 	}
 }
-
-/// The transaction pool of a full node, as seen by code that submits and reads transactions.
-///
-/// This pins every associated type of [`MaintainedTransactionPool`] in terms of `Block`, so that
-/// the pool can be handed around as the trait object [`TransactionPoolHandle`]. It is blanket
-/// implemented, so any pool whose associated types line up qualifies; in practice that is the
-/// fork-aware and the single-state pool.
-///
-/// Holding a pool therefore costs a component nothing but a dependency on this crate: none of the
-/// pool's concrete types have to be named at the holding site.
-pub trait FullTransactionPool<Block: BlockT>:
-	MaintainedTransactionPool<
-	Block = Block,
-	Hash = <Block as BlockT>::Hash,
-	InPoolTransaction = Transaction<<Block as BlockT>::Hash, Arc<<Block as BlockT>::Extrinsic>>,
-	Error = crate::error::FullPoolError,
->
-{
-}
-
-impl<Block: BlockT, P> FullTransactionPool<Block> for P where
-	P: MaintainedTransactionPool<
-		Block = Block,
-		Hash = <Block as BlockT>::Hash,
-		InPoolTransaction = Transaction<<Block as BlockT>::Hash, Arc<<Block as BlockT>::Extrinsic>>,
-		Error = crate::error::FullPoolError,
-	>
-{
-}
-
-/// A full node's transaction pool, as a trait object.
-///
-/// This is the type a component should name when it only submits and reads transactions, which is
-/// almost everything holding a pool. It is unsized, so it is always used behind an `Arc`.
-pub type TransactionPoolHandle<Block> = dyn FullTransactionPool<Block>;
-
-/// A [`FullTransactionPool`] that also accepts transactions submitted locally, i.e. by offchain
-/// workers rather than over the network or RPC.
-///
-/// Only the few components that submit locally need this; an `Arc` of it upcasts to an
-/// `Arc<`[`TransactionPoolHandle`]`>` wherever the weaker guarantee is enough.
-pub trait FullClientTransactionPool<Block: BlockT>:
-	FullTransactionPool<Block>
-	+ LocalTransactionPool<
-		Block = Block,
-		Hash = <Block as BlockT>::Hash,
-		Error = crate::error::FullPoolError,
-	>
-{
-}
-
-impl<Block: BlockT, P> FullClientTransactionPool<Block> for P where
-	P: FullTransactionPool<Block>
-		+ LocalTransactionPool<
-			Block = Block,
-			Hash = <Block as BlockT>::Hash,
-			Error = crate::error::FullPoolError,
-		>
-{
-}
-
-/// A full node's transaction pool that also accepts local submissions, as a trait object.
-///
-/// This is what building a pool hands back and what a node keeps hold of, since offchain workers
-/// need it. It is unsized, so it is always used behind an `Arc`.
-pub type LocalTransactionPoolHandle<Block> = dyn FullClientTransactionPool<Block>;
 
 /// An abstraction for [`LocalTransactionPool`]
 ///

@@ -44,7 +44,7 @@ use sc_consensus_grandpa::{
 	FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
 pub use sc_rpc::SubscriptionTaskExecutor;
-use sc_transaction_pool_api::TransactionPoolHandle;
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_block_builder::BlockBuilder;
@@ -95,11 +95,11 @@ pub struct StatementStoreDeps {
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, SC, B, AuthorityId: AuthorityIdBound> {
+pub struct FullDeps<C, P: ?Sized, SC, B, AuthorityId: AuthorityIdBound> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: Arc<TransactionPoolHandle<Block>>,
+	pub pool: Arc<P>,
 	/// The SelectChain Strategy
 	pub select_chain: SC,
 	/// A copy of the chain spec.
@@ -119,7 +119,7 @@ pub struct FullDeps<C, SC, B, AuthorityId: AuthorityIdBound> {
 }
 
 /// Instantiate all Full RPC extensions.
-pub fn create_full<C, SC, B, AuthorityId>(
+pub fn create_full<C, P, SC, B, AuthorityId>(
 	FullDeps {
 		client,
 		pool,
@@ -131,7 +131,7 @@ pub fn create_full<C, SC, B, AuthorityId>(
 		statement_store_deps,
 		backend,
 		mixnet_api,
-	}: FullDeps<C, SC, B, AuthorityId>,
+	}: FullDeps<C, P, SC, B, AuthorityId>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	C: ProvideRuntimeApi<Block>
@@ -147,6 +147,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
+	P: TransactionPool + 'static + ?Sized,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashingFor<Block>>,

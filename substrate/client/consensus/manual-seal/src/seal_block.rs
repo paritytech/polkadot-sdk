@@ -22,7 +22,7 @@ use crate::{rpc, ConsensusDataProvider, CreatedBlock, Error};
 use codec::Encode;
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
-use sc_transaction_pool_api::TransactionPoolHandle;
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{self, BlockOrigin, Environment, ProposeArgs, Proposer, SelectChain};
@@ -36,7 +36,7 @@ use std::{sync::Arc, time::Duration};
 pub const MAX_PROPOSAL_DURATION: u64 = 10;
 
 /// params for sealing a new block
-pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, CIDP> {
+pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, TP: ?Sized, CIDP> {
 	/// if true, empty blocks(without extrinsics) will be created.
 	/// otherwise, will return Error::EmptyTransactionPool.
 	pub create_empty: bool,
@@ -47,7 +47,7 @@ pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, CI
 	/// sender to report errors/success to the rpc.
 	pub sender: rpc::Sender<CreatedBlock<<B as BlockT>::Hash>>,
 	/// transaction pool
-	pub pool: Arc<TransactionPoolHandle<B>>,
+	pub pool: Arc<TP>,
 	/// header backend
 	pub client: Arc<C>,
 	/// Environment trait object for creating a proposer
@@ -63,7 +63,7 @@ pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, CI
 }
 
 /// seals a new block with the given params
-pub async fn seal_block<B, BI, SC, C, E, CIDP>(
+pub async fn seal_block<B, BI, SC, C, E, TP, CIDP>(
 	SealBlockParams {
 		create_empty,
 		finalize,
@@ -76,13 +76,14 @@ pub async fn seal_block<B, BI, SC, C, E, CIDP>(
 		create_inherent_data_providers,
 		consensus_data_provider: digest_provider,
 		mut sender,
-	}: SealBlockParams<'_, B, BI, SC, C, E, CIDP>,
+	}: SealBlockParams<'_, B, BI, SC, C, E, TP, CIDP>,
 ) where
 	B: BlockT,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
 	C: HeaderBackend<B> + ProvideRuntimeApi<B>,
 	E: Environment<B>,
 	E::Proposer: Proposer<B>,
+	TP: TransactionPool<Block = B> + ?Sized,
 	SC: SelectChain<B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 {

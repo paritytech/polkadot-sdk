@@ -83,7 +83,8 @@ use sc_rpc_spec_v2::{
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_tracing::block::TracingExecuteBlock;
-use sc_transaction_pool_api::TransactionPoolHandle;
+use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool_api::MaintainedTransactionPool;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
@@ -690,14 +691,15 @@ where
 }
 
 /// Returns a future that forwards imported transactions to the transaction networking protocol.
-pub async fn propagate_transaction_notifications<Block>(
-	transaction_pool: Arc<TransactionPoolHandle<Block>>,
+pub async fn propagate_transaction_notifications<Block, ExPool>(
+	transaction_pool: Arc<ExPool>,
 	tx_handler_controller: sc_network_transactions::TransactionsHandlerController<
 		<Block as BlockT>::Hash,
 	>,
 	telemetry: Option<TelemetryHandle>,
 ) where
 	Block: BlockT,
+	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized,
 {
 	const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
 

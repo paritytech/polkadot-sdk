@@ -17,8 +17,41 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Transaction pool error.
-//!
-//! The error type itself lives in `sc-transaction-pool-api` so that the pool's trait object can
-//! name it without pulling in this crate; what remains here are the aliases the pool internals use.
 
-pub use sc_transaction_pool_api::error::{FullPoolError as Error, FullPoolResult as Result};
+use sc_transaction_pool_api::error::Error as TxPoolError;
+
+/// Transaction pool result.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Transaction pool error type.
+#[derive(Debug, thiserror::Error, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
+#[allow(missing_docs)]
+pub enum Error {
+	#[error("Transaction pool error: {0}")]
+	Pool(#[from] TxPoolError),
+
+	#[error("Blockchain error: {0}")]
+	Blockchain(#[from] sp_blockchain::Error),
+
+	#[error("Block conversion error: {0}")]
+	BlockIdConversion(String),
+
+	#[error("Runtime error: {0}")]
+	RuntimeApi(String),
+}
+
+impl sc_transaction_pool_api::error::IntoPoolError for Error {
+	fn into_pool_error(self) -> std::result::Result<TxPoolError, Self> {
+		match self {
+			Error::Pool(e) => Ok(e),
+			e => Err(e),
+		}
+	}
+}
+
+impl sc_transaction_pool_api::error::IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.as_ref().to_string()
+	}
+}

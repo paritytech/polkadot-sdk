@@ -5,82 +5,69 @@ doc:
     description: |-
       `TransactionPoolWrapper` existed only to give the boxed transaction pool a sized type that
       could travel through the generic `Arc<Pool>` parameters used across the service builder. The
-      pool is now referenced directly as a trait object and the extra layer of forwarding is gone.
+      pool is now referenced directly as `Arc<dyn FullClientTransactionPool<Block>>`, which
+      `TransactionPoolHandle` aliases, so the extra layer of forwarding is gone.
 
-      The trait object and the types it names moved into `sc-transaction-pool-api`
+      `FullClientTransactionPool` no longer carries a `Client` type parameter. All three of its
+      associated types are projections that discard the client, so `Hash`, `InPoolTransaction` and
+      `Error` are spelled out in terms of `Block` alone. Naming them that way required widening the
+      public API of `sc-transaction-pool`: `sc_transaction_pool::error` and
+      `sc_transaction_pool::Transaction` are now exported.
 
-      `FullClientTransactionPool<Block>` and its alias `TransactionPoolHandle<Block>` now live in
-      `sc-transaction-pool-api` and carry no `Client` parameter: all of the associated types are
-      projections that discard the client, so they are spelled out in terms of `Block` alone. Naming
-      them there required moving two types out of `sc-transaction-pool`, which are re-exported from
-      their old paths:
-
-      - the pool's error enum, now `sc_transaction_pool_api::error::FullPoolError` (still reachable
-        as `sc_transaction_pool::error::Error`),
-      - the in-pool transaction, now `sc_transaction_pool_api::Transaction` together with
-        `TimedTransactionSource` (still reachable as `sc_transaction_pool::Transaction`).
-
-      Components hold the pool as a trait object rather than a generic
-
-      Everything that merely holds a pool now takes `Arc<TransactionPoolHandle<Block>>` instead of
-      being generic over the pool type: the author and `transaction`/`transactionWatch` RPC servers,
-      `System` in `substrate-frame-rpc-system`, `ProposerFactory`/`Proposer`, the manual and instant
-      seal parameters, `sc-hop`'s `RuntimeApiPromoter`, `sc-mixnet::run`, and `sc-service`'s
-      `TransactionPoolAdapter`, `PartialComponents` and metrics. Since these types are no longer
-      parameterized by the pool, none of them needs a `?Sized` relaxation, and a component can hold
-      a pool with no dependency beyond `sc-transaction-pool-api`.
-
-      Client bounds are only where a pool is built
-
-      `BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams` and
+      As a consequence `BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams` and
       `GenRpcModuleParams` no longer carry a transaction pool type parameter, and none of them
-      constrain the client on the pool's behalf any more: the `BlockIdTo` and
+      constrain the client on the transaction pool's behalf any more: the `BlockIdTo` and
       `TaggedTransactionQueue` bounds that only existed to build a pool are gone from
       `build_network`, `build_network_advanced`, `spawn_tasks`, `gen_rpc_module` and from the
-      cumulus `build_network`. The capabilities a client needs to actually construct a pool are
-      spelled out once as `sc_transaction_pool::ClientForTransactionPool`, used by the transaction
-      pool `Builder` and internally by `FullChainApi`, `BasicPool::new_full` and
-      `ForkAwareTxPool::new_full`.
+      cumulus `build_network`.
+
+      The client capabilities needed to actually construct a pool are spelled out once as
+      `sc_transaction_pool::ClientForTransactionPool`, which is used by the transaction pool
+      `Builder` and internally by `FullChainApi`, `BasicPool::new_full` and
+      `ForkAwareTxPool::new_full`. It does not pin the `BlockIdTo` error, so a hand written client
+      is free to choose its own.
+
+      Components that keep the pool behind an `Arc` stay generic over the pool type, so an
+      alternative pool implementation is still free to define its own error and in-pool transaction
+      types. They accept unsized pools now, which is a relaxation and needs no changes on their
+      side.
 
       Migration for nodes outside this repository
 
       - `sc_transaction_pool::Builder::build` hands back an `Arc` already, so drop the surrounding
         `Arc::from(..)` at the construction site.
-      - `TransactionPoolHandle<Block, Client>` is `TransactionPoolHandle<Block>` now, and is best
-        imported from `sc_transaction_pool_api`.
+      - `TransactionPoolHandle<Block, Client>` is `TransactionPoolHandle<Block>` now.
       - Drop the transaction pool type argument where `BuildNetworkParams`,
         `BuildNetworkAdvancedParams`, `SpawnTasksParams` or `GenRpcModuleParams` are named
         explicitly, since the block type now determines it.
-      - In `PartialComponents`, the transaction pool slot is now the block type: pass `Block` where
-        `sc_transaction_pool::TransactionPoolHandle<Block>` used to be.
-      - A node's own `FullDeps`-style RPC struct no longer needs to be generic over the pool. Hold
-        `Arc<TransactionPoolHandle<Block>>` and drop the pool type parameter.
+      - Add `?Sized` to any generic parameter that holds the pool behind an `Arc`, because
+        `TransactionPoolHandle` is a trait object and no longer has a statically known size.
 
 crates:
   - name: sc-transaction-pool
     bump: major
   - name: sc-transaction-pool-api
-    bump: major
+    bump: minor
   - name: sc-service
     bump: major
   - name: sc-rpc
-    bump: major
+    bump: minor
   - name: sc-rpc-spec-v2
-    bump: major
+    bump: minor
   - name: sc-basic-authorship
-    bump: major
+    bump: minor
   - name: sc-consensus-manual-seal
-    bump: major
+    bump: minor
   - name: sc-mixnet
-    bump: major
+    bump: minor
   - name: sc-hop
-    bump: major
+    bump: minor
   - name: substrate-frame-rpc-system
-    bump: major
+    bump: minor
   - name: node-rpc
-    bump: major
+    bump: patch
   - name: polkadot-rpc
-    bump: major
+    bump: minor
   - name: cumulus-client-service
     bump: major
   - name: polkadot-omni-node-lib

@@ -8,23 +8,23 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use sc_transaction_pool_api::TransactionPoolHandle;
+use sc_transaction_pool_api::TransactionPool;
 use solochain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 /// Full client dependencies.
-pub struct FullDeps<C> {
+pub struct FullDeps<C, P: ?Sized> {
 	/// The client instance to use.
 	pub client: Arc<C>,
 	/// Transaction pool instance.
-	pub pool: Arc<TransactionPoolHandle<Block>>,
+	pub pool: Arc<P>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C>(
-	deps: FullDeps<C>,
+pub fn create_full<C, P>(
+	deps: FullDeps<C, P>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	C: ProvideRuntimeApi<Block>,
@@ -33,6 +33,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
+	P: TransactionPool + 'static + ?Sized,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};

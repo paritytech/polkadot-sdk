@@ -23,6 +23,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::RwLock;
 use sc_transaction_pool::{ChainApi, ValidateTransactionPriority};
+use sc_transaction_pool_api::error::IntoMetricsLabel;
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -47,11 +48,21 @@ use substrate_test_runtime_client::{
 };
 
 /// Error type used by [`TestApi`].
-///
-/// This is the pool's own error type, so that a pool built on [`TestApi`] has the same
-/// associated types as a pool built on a real client and can be handed around as a
-/// [`sc_transaction_pool_api::TransactionPoolHandle`].
-pub use sc_transaction_pool_api::error::FullPoolError as Error;
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct Error(#[from] pub sc_transaction_pool_api::error::Error);
+
+impl sc_transaction_pool_api::error::IntoPoolError for Error {
+	fn into_pool_error(self) -> Result<sc_transaction_pool_api::error::Error, Self> {
+		Ok(self.0)
+	}
+}
+
+impl IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.0.to_string()
+	}
+}
 
 pub enum IsBestBlock {
 	Yes,

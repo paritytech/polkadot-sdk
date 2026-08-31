@@ -20,11 +20,12 @@
 
 use crate::{
 	fork_aware_txpool::ForkAwareTxPool as ForkAwareFullPool,
-	graph::{IsValidator, Options},
+	graph::{base_pool::Transaction, IsValidator, Options},
 	single_state_txpool::BasicPool as SingleStateFullPool,
 	LOG_TARGET,
 };
 use prometheus_endpoint::Registry as PrometheusRegistry;
+use sc_transaction_pool_api::{LocalTransactionPool, MaintainedTransactionPool};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
@@ -147,13 +148,50 @@ impl<Block: BlockT, T> ClientForTransactionPool<Block> for T where
 {
 }
 
-/// The trait objects bundling the pool traits, and the handles naming them, all live in
-/// `sc-transaction-pool-api` so that a component can hold a pool without depending on this
-/// crate.
-pub use sc_transaction_pool_api::{
-	FullClientTransactionPool, FullTransactionPool, LocalTransactionPoolHandle,
-	TransactionPoolHandle,
-};
+/// `FullClientTransactionPool` is a trait that combines the functionality of
+/// `MaintainedTransactionPool` and `LocalTransactionPool` for a given `Block`.
+///
+/// This trait defines the requirements for a full client transaction pool, ensuring
+/// that it can handle transactions submission and maintenance.
+///
+/// The associated types are fully determined by `Block`, so the client used to build the pool does
+/// not appear here.
+pub trait FullClientTransactionPool<Block>: MaintainedTransactionPool<
+		Block = Block,
+		Hash = <Block as BlockT>::Hash,
+		InPoolTransaction = Transaction<<Block as BlockT>::Hash, Arc<<Block as BlockT>::Extrinsic>>,
+		Error = crate::error::Error,
+	> + LocalTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash, Error = crate::error::Error>
+where
+	Block: BlockT,
+{
+}
+
+impl<Block, P> FullClientTransactionPool<Block> for P
+where
+	Block: BlockT,
+	P: MaintainedTransactionPool<
+			Block = Block,
+			Hash = <Block as BlockT>::Hash,
+			InPoolTransaction = Transaction<
+				<Block as BlockT>::Hash,
+				Arc<<Block as BlockT>::Extrinsic>,
+			>,
+			Error = crate::error::Error,
+		> + LocalTransactionPool<
+			Block = Block,
+			Hash = <Block as BlockT>::Hash,
+			Error = crate::error::Error,
+		>,
+{
+}
+
+/// The public type alias for the trait object providing the implementation of
+/// `FullClientTransactionPool` for the given `Block` type.
+///
+/// This handle abstracts away the specific type of the transaction pool, e.g. fork-aware or
+/// single-state. It is unsized, so it is always used behind an `Arc`.
+pub type TransactionPoolHandle<Block> = dyn FullClientTransactionPool<Block>;
 
 /// Builder allowing to create specific instance of transaction pool.
 pub struct Builder<'a, Block, Client> {
@@ -202,7 +240,7 @@ where
 	}
 
 	/// Creates an instance of transaction pool.
-	pub fn build(self) -> Arc<LocalTransactionPoolHandle<Block>> {
+	pub fn build(self) -> Arc<TransactionPoolHandle<Block>> {
 		tracing::info!(
 			target: LOG_TARGET,
 			txpool_type = ?self.options.txpool_type,

@@ -51,7 +51,7 @@ pub use self::{
 	rpc::{CreatedBlock, EngineCommand},
 	seal_block::{seal_block, SealBlockParams, MAX_PROPOSAL_DURATION},
 };
-use sc_transaction_pool_api::TransactionPoolHandle;
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 
 const LOG_TARGET: &str = "manual-seal";
@@ -87,7 +87,7 @@ where
 }
 
 /// Params required to start the manual sealing authorship task.
-pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, SC, CS, CIDP> {
+pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP: ?Sized, SC, CS, CIDP> {
 	/// Block import instance.
 	pub block_import: BI,
 
@@ -98,7 +98,7 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, SC, CS, C
 	pub client: Arc<C>,
 
 	/// Shared reference to the transaction pool.
-	pub pool: Arc<TransactionPoolHandle<B>>,
+	pub pool: Arc<TP>,
 
 	/// Stream<Item = EngineCommands>, Basically the receiving end of a channel for sending
 	/// commands to the authorship task.
@@ -115,7 +115,7 @@ pub struct ManualSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, SC, CS, C
 }
 
 /// Params required to start the instant sealing authorship task.
-pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, SC, CIDP> {
+pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, TP: ?Sized, SC, CIDP> {
 	/// Block import instance for well. importing blocks.
 	pub block_import: BI,
 
@@ -126,7 +126,7 @@ pub struct InstantSealParams<B: BlockT, BI, E, C: ProvideRuntimeApi<B>, SC, CIDP
 	pub client: Arc<C>,
 
 	/// Shared reference to the transaction pool.
-	pub pool: Arc<TransactionPoolHandle<B>>,
+	pub pool: Arc<TP>,
 
 	/// SelectChain strategy.
 	pub select_chain: SC,
@@ -151,7 +151,7 @@ pub struct DelayedFinalizeParams<C, S> {
 }
 
 /// Creates the background authorship task for the manually seal engine.
-pub async fn run_manual_seal<B, BI, CB, E, C, SC, CS, CIDP>(
+pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP>(
 	ManualSealParams {
 		mut block_import,
 		mut env,
@@ -161,7 +161,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, SC, CS, CIDP>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: ManualSealParams<B, BI, E, C, SC, CS, CIDP>,
+	}: ManualSealParams<B, BI, E, C, TP, SC, CS, CIDP>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
@@ -171,6 +171,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, SC, CS, CIDP>(
 	E::Proposer: Proposer<B>,
 	CS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 	SC: SelectChain<B> + 'static,
+	TP: TransactionPool<Block = B> + ?Sized,
 	CIDP: CreateInherentDataProviders<B, ()>,
 {
 	while let Some(command) = commands_stream.next().await {
@@ -209,7 +210,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, SC, CS, CIDP>(
 /// runs the background authorship task for the instant seal engine.
 /// instant-seal creates a new block for every transaction imported into
 /// the transaction pool.
-pub async fn run_instant_seal<B, BI, CB, E, C, SC, CIDP>(
+pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP>(
 	InstantSealParams {
 		block_import,
 		env,
@@ -218,7 +219,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, SC, CIDP>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: InstantSealParams<B, BI, E, C, SC, CIDP>,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
@@ -227,6 +228,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, SC, CIDP>(
 	E: Environment<B> + 'static,
 	E::Proposer: Proposer<B>,
 	SC: SelectChain<B> + 'static,
+	TP: TransactionPool<Block = B> + ?Sized,
 	CIDP: CreateInherentDataProviders<B, ()>,
 {
 	// instant-seal creates blocks as soon as transactions are imported
@@ -257,7 +259,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, SC, CIDP>(
 ///
 /// This function will finalize the block immediately as well. If you don't
 /// want this behavior use `run_instant_seal` instead.
-pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, SC, CIDP>(
+pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP>(
 	InstantSealParams {
 		block_import,
 		env,
@@ -266,7 +268,7 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, SC, CIDP>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: InstantSealParams<B, BI, E, C, SC, CIDP>,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
@@ -275,6 +277,7 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, SC, CIDP>(
 	E: Environment<B> + 'static,
 	E::Proposer: Proposer<B>,
 	SC: SelectChain<B> + 'static,
+	TP: TransactionPool<Block = B> + ?Sized,
 	CIDP: CreateInherentDataProviders<B, ()>,
 {
 	// Creates and finalizes blocks as soon as transactions are imported

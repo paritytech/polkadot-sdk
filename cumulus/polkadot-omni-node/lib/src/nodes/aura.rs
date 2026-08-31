@@ -427,7 +427,7 @@ where
 			.transpose()
 			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
-			let task = sc_hop::build_maintenance_task::<Block, _>(
+			let task = sc_hop::build_maintenance_task::<Block, _, _>(
 				&client,
 				&transaction_pool,
 				pool.clone(),
