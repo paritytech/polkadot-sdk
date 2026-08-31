@@ -28,6 +28,7 @@ sc-authority-discovery = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-common = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
@@ -43,7 +44,6 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-rpc-interface = { workspace = true, default-features = true }
 
-array-bytes = { workspace = true, default-features = true }
 async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }

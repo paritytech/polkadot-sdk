@@ -27,8 +27,12 @@ use crate::{Pointer, RIType};
 #[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Result};
 
-// Make sure that our assumptions for storing a pointer + its size in `u64` is valid.
-#[cfg(all(substrate_runtime, not(feature = "disable_target_static_assertions")))]
+// On riscv64, usize is 8 bytes, so these assertions only hold for 32-bit targets.
+#[cfg(all(
+	substrate_runtime,
+	not(feature = "disable_target_static_assertions"),
+	not(target_arch = "riscv64")
+))]
 const _: () = {
 	assert!(core::mem::size_of::<usize>() == core::mem::size_of::<u32>());
 	assert!(core::mem::size_of::<*const u8>() == core::mem::size_of::<u32>());

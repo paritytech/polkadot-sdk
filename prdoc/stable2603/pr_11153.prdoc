@@ -1,0 +1,17 @@
+title: '[eth-rpc]: add resumable block sync and improve CLI arguments'
+doc:
+- audience: Runtime Dev
+  description: |
+    ### Resumable block sync
+    - New block_sync module syncs backward from the latest finalized block to the first EVM block, with restart-safe checkpoint tracking via a sync_state SQLite table.
+    - On restart, fills only the top gap (new blocks) and bottom gap (remaining backfill) without re-syncing completed ranges.
+    - Auto-discovers and persists `first_evm_block` — the lowest block with EVM support on the chain.
+    - Chain identity verification: validates stored genesis hash on startup to detect database reuse across different chains; verifies sync boundary hashes to detect pruned blocks on the connected node.
+
+    ### CLI rework
+    New `--eth-pruning` flag replaces `--database-url`, `--cache-size`, `--index-last-n-blocks`, and `--earliest-receipt-block`:
+    - `--eth-pruning archive` (default): persistent on-disk DB with backward historical sync.
+    - `--eth-pruning <N>`: in-memory DB keeping the latest N blocks.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major

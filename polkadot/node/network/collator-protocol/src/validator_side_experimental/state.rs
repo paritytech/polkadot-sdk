@@ -17,15 +17,16 @@
 use crate::{
 	validator_side::notify_collation_seconded,
 	validator_side_experimental::{
-		collation_manager::CollationManager,
+		collation_manager::{AdvertisementError, CollationManager},
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			CanSecond, CollationFetchResponse, PeerInfo, PeerState, ProspectiveCandidate,
+			TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
 		Metrics, PeerManager,
 	},
+	validator_side_metrics::TimedHandler,
 	LOG_TARGET,
 };
 use fatality::Split;
@@ -38,7 +39,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::recv_runtime};
 use polkadot_primitives::{
-	BlockNumber, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
+	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Id as ParaId,
 };
 use std::time::Duration;
 
@@ -64,6 +66,12 @@ impl<B: Backend> State<B> {
 		&self.metrics
 	}
 
+	/// Publish the current size of the in-memory connected peers store.
+	pub fn note_in_memory_connected_peers(&self) {
+		self.metrics
+			.note_in_memory_connected_peers(self.peer_manager.connected_peer_count());
+	}
+
 	/// Handle a new peer connection.
 	pub async fn handle_peer_connected<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
@@ -71,6 +79,8 @@ impl<B: Backend> State<B> {
 		peer_id: PeerId,
 		version: CollationVersion,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::PeerConnected);
+
 		let outcome = self
 			.peer_manager
 			.try_accept_connection(
@@ -113,6 +123,8 @@ impl<B: Backend> State<B> {
 
 	/// Handle a peer disconnection.
 	pub async fn handle_peer_disconnected(&mut self, peer_id: PeerId) {
+		let _timer = self.metrics.time_handler(TimedHandler::PeerDisconnected);
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?peer_id,
@@ -127,15 +139,20 @@ impl<B: Backend> State<B> {
 	}
 
 	/// Handle a peer's declaration message.
+	/// V4 peers do not declare anymore.
 	pub async fn handle_declare<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
 		para_id: ParaId,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::Declare);
+
 		if !self.peer_manager.declared(sender, peer_id, para_id).await {
 			self.collation_manager.remove_peer(&peer_id);
 		}
+
+		self.metrics.note_collator_peer_count(self.peer_manager.connected_peer_count());
 	}
 
 	/// Handle our view update.
@@ -144,6 +161,8 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		new_view: OurView,
 	) -> FatalResult<()> {
+		let _timer = self.metrics.time_handler(TimedHandler::OurViewChange);
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?new_view,
@@ -161,6 +180,17 @@ impl<B: Backend> State<B> {
 			"Old assignments vs new assignments",
 		);
 
+		if old_assignments != new_assignments {
+			gum::debug!(
+				target: LOG_TARGET,
+				?old_assignments,
+				?new_assignments,
+				"Collator protocol assignments changed",
+			);
+		}
+
+		self.metrics.note_assigned_paras(new_assignments.len());
+
 		let maybe_disconnected_peers =
 			self.peer_manager.scheduled_paras_update(sender, new_assignments).await;
 
@@ -173,6 +203,7 @@ impl<B: Backend> State<B> {
 		}
 
 		self.collation_manager.remove_peers(maybe_disconnected_peers.iter());
+		self.metrics.note_collator_peer_count(self.peer_manager.connected_peer_count());
 
 		Ok(())
 	}
@@ -184,6 +215,8 @@ impl<B: Backend> State<B> {
 		hash: Hash,
 		number: BlockNumber,
 	) -> FatalResult<()> {
+		let _timer = self.metrics.time_handler(TimedHandler::FinalizedBlock);
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?hash,
@@ -199,6 +232,9 @@ impl<B: Backend> State<B> {
 		{
 			err.split()?.log();
 		}
+
+		// Refresh the per-para reputation score distribution metric
+		self.metrics.note_score_distribution(&self.peer_manager.score_distribution());
 
 		// Process potential changes in the registered paras set.
 		let session_index = match recv_runtime(request_session_index_for_child(hash, sender).await)
@@ -222,23 +258,42 @@ impl<B: Backend> State<B> {
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
-		relay_parent: Hash,
-		maybe_prospective_candidate: Option<ProspectiveCandidate>,
+		scheduling_parent: Hash,
+		entries: Vec<ProspectiveCandidate>,
+		descriptor_version: Option<CandidateDescriptorVersion>,
+		// Some for V4 self declaring ad.
+		advertised_para_id: Option<ParaId>,
 	) {
+		let advertisement_log = if advertised_para_id.is_some() {
+			"Received a segment advertisement"
+		} else {
+			"Received advertisement"
+		};
+		let _timer = self.metrics.time_handler(TimedHandler::Advertisement);
+
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
-			?maybe_prospective_candidate,
+			?scheduling_parent,
 			?peer_id,
-			"Received advertisement",
+			advertisement_log,
 		);
 
+		// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
+		// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
+		// releases the slots it held on all the other paras.
+		if let Some(para_id) = advertised_para_id {
+			if !self.peer_manager.declared(sender, peer_id, para_id).await {
+				self.collation_manager.remove_peer(&peer_id);
+				return;
+			}
+		}
+
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
+			self.metrics.on_advertisement_rejected_unconnected_peer();
 			gum::warn!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?peer_id,
-				?maybe_prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
 			return;
@@ -246,10 +301,10 @@ impl<B: Backend> State<B> {
 
 		// Advertised without being declared. Not a big waste of our time, so ignore it.
 		let PeerState::Collating(para_id) = state else {
+			self.metrics.on_advertisement_rejected_undeclared_peer();
 			gum::debug!(
 				target: LOG_TARGET,
-				?relay_parent,
-				?maybe_prospective_candidate,
+				?scheduling_parent,
 				?peer_id,
 				"Received advertisement for undeclared peer",
 			);
@@ -258,26 +313,44 @@ impl<B: Backend> State<B> {
 
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
-		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
+		// Note: `try_accept_segment` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
 		match self
 			.collation_manager
-			.try_accept_advertisement(
+			.try_accept_segment(
 				sender,
-				Advertisement {
-					peer_id,
-					para_id: *para_id,
-					relay_parent,
-					prospective_candidate: maybe_prospective_candidate,
-				},
+				peer_id,
+				*para_id,
+				scheduling_parent,
+				descriptor_version,
+				entries,
 			)
 			.await
 		{
 			Err(err) => {
+				match err {
+					AdvertisementError::Duplicate => {
+						self.metrics.on_advertisement_rejected_duplicate(para_id)
+					},
+					AdvertisementError::OutOfOurView => {
+						self.metrics.on_advertisement_rejected_out_of_view(para_id)
+					},
+					AdvertisementError::PeerLimitReached => {
+						self.metrics.on_advertisement_rejected_peer_limit_reached(para_id)
+					},
+					AdvertisementError::BlockedByBacking => {
+						self.metrics.on_advertisement_rejected_blocked_by_backing(para_id)
+					},
+					AdvertisementError::V1AdvertisementForImplicitParent => {
+						self.metrics.on_advertisement_rejected_v1_for_implicit_parent(para_id)
+					},
+					AdvertisementError::SchedulingParentNotValid => {
+						self.metrics.on_advertisement_rejected_scheduling_parent_invalid(para_id)
+					},
+				}
 				gum::debug!(
 					target: LOG_TARGET,
-					?relay_parent,
-					?maybe_prospective_candidate,
+					?scheduling_parent,
 					?peer_id,
 					?para_id,
 					?err,
@@ -285,10 +358,10 @@ impl<B: Backend> State<B> {
 				);
 			},
 			Ok(()) => {
+				self.metrics.on_advertisement_accepted(para_id);
 				gum::debug!(
 					target: LOG_TARGET,
-					?relay_parent,
-					?maybe_prospective_candidate,
+					?scheduling_parent,
 					?peer_id,
 					?para_id,
 					"Advertisement accepted",
@@ -308,7 +381,8 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		res: CollationFetchResponse,
 	) {
-		let _timer = self.metrics.time_handle_collation_request_result();
+		let _timer = self.metrics.time_handler(TimedHandler::FetchedCollation);
+
 		let fetch_result = res.1.is_ok();
 		let advertisement = res.0;
 
@@ -327,21 +401,25 @@ impl<B: Backend> State<B> {
 			);
 		}
 
-		let can_second = self.collation_manager.note_fetched(sender, res).await;
+		let collation_version = self.peer_manager.get_peer_protocol_version(&advertisement.peer_id);
+		let can_second = self.collation_manager.note_fetched(sender, res, collation_version).await;
 
 		// To be consistent with the old implementation, if the fetch is successful we count the
 		// request as successful, despite we might not be able to second it.
 		let collation_request_metrics_result = if fetch_result { Ok(()) } else { Err(()) };
 		match can_second {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
+				let para_id = candidate_receipt.descriptor.para_id();
 				sender
-					.send_message(CandidateBackingMessage::Second(
-						candidate_receipt.descriptor.relay_parent(),
-						candidate_receipt,
+					.send_message(CandidateBackingMessage::Second {
+						scheduling_parent: candidate_receipt.descriptor().scheduling_parent(),
+						candidate: candidate_receipt,
 						pvd,
 						pov,
-					))
+					})
 					.await;
+
+				self.metrics.on_collation_seconded(&para_id);
 
 				gum::debug!(
 					target: LOG_TARGET,
@@ -358,19 +436,21 @@ impl<B: Backend> State<B> {
 				);
 
 				if let Some(slash) = maybe_slash {
+					self.metrics.on_slash_failed_fetch(&reject_info.para_id);
 					self.peer_manager
 						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 						.await;
 				}
 
 				self.collation_manager.release_slot(
-					&reject_info.relay_parent,
+					&reject_info.scheduling_parent,
 					reject_info.para_id,
 					reject_info.maybe_candidate_hash.as_ref(),
 					reject_info.maybe_output_head_hash,
 				);
 			},
 			CanSecond::BlockedOnParent(parent_hash, reject_info) => {
+				self.metrics.on_collation_blocked_on_parent(&reject_info.para_id);
 				gum::debug!(
 					target: LOG_TARGET,
 					?parent_hash,
@@ -383,33 +463,35 @@ impl<B: Backend> State<B> {
 		self.metrics.on_request(collation_request_metrics_result);
 	}
 
-	pub async fn handle_invalid_collation(&mut self, receipt: CandidateReceipt) {
-		let relay_parent = receipt.descriptor.relay_parent();
+	pub async fn handle_invalid_collation(
+		&mut self,
+		receipt: CandidateReceipt,
+		scheduling_parent: Hash,
+	) {
+		let _timer = self.metrics.time_handler(TimedHandler::InvalidCollation);
+
 		let candidate_hash = receipt.hash();
 
 		gum::debug!(
 			target: LOG_TARGET,
 			para_id = ?receipt.descriptor.para_id(),
-			?relay_parent,
+			?scheduling_parent,
 			?candidate_hash,
 			"Invalid collation",
 		);
 
-		self.collation_manager.release_slot(
-			&relay_parent,
+		let maybe_peer_id = self.collation_manager.release_slot(
+			&scheduling_parent,
 			receipt.descriptor.para_id(),
 			Some(&candidate_hash),
 			Some(receipt.descriptor.para_head()),
 		);
 
-		let Some(peer_id) = self
-			.collation_manager
-			.get_fetched_collation_peer_id(&relay_parent, &candidate_hash)
-		else {
+		let Some(peer_id) = maybe_peer_id else {
 			gum::warn!(
 				target: LOG_TARGET,
 				para_id = ?receipt.descriptor.para_id(),
-				?relay_parent,
+				?scheduling_parent,
 				?candidate_hash,
 				"Could not find the peer id of the invalid collation",
 			);
@@ -418,14 +500,15 @@ impl<B: Backend> State<B> {
 
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?scheduling_parent,
 			?candidate_hash,
 			?peer_id,
 			"Invalid collation reported, slashing peer reputation",
 		);
 
+		self.metrics.on_slash_invalid_collation(&receipt.descriptor.para_id());
 		self.peer_manager
-			.slash_reputation(peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
+			.slash_reputation(&peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
 			.await;
 	}
 
@@ -433,7 +516,10 @@ impl<B: Backend> State<B> {
 		&mut self,
 		sender: &mut Sender,
 		statement: SignedFullStatement,
+		scheduling_parent: Hash,
 	) {
+		let _timer = self.metrics.time_handler(TimedHandler::Seconded);
+
 		let receipt = match statement.payload() {
 			Statement::Seconded(receipt) => receipt,
 			Statement::Valid(_) => {
@@ -447,13 +533,12 @@ impl<B: Backend> State<B> {
 		};
 
 		let candidate_hash = receipt.hash();
-		let relay_parent = receipt.descriptor.relay_parent();
 		let para_id = receipt.descriptor.para_id();
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?para_id,
-			?relay_parent,
+			?scheduling_parent,
 			?candidate_hash,
 			"Collation seconded",
 		);
@@ -462,31 +547,61 @@ impl<B: Backend> State<B> {
 			.collation_manager
 			.note_seconded(
 				sender,
-				&relay_parent,
+				&scheduling_parent,
 				&para_id,
 				&candidate_hash,
 				receipt.descriptor.para_head(),
 			)
 			.await;
 
-		if let Some((peer_id, PeerInfo { version, .. })) = peer_id
-			.and_then(|peer_id| self.peer_manager.peer_info(&peer_id).map(|info| (peer_id, info)))
-		{
-			gum::debug!(
-				target: LOG_TARGET,
-				?para_id,
-				?relay_parent,
-				?candidate_hash,
-				?peer_id,
-				"Notifying collator about seconded collation",
-			);
-			notify_collation_seconded(sender, peer_id, *version, relay_parent, statement).await;
+		match peer_id {
+			Some(peer_id) => match self.peer_manager.peer_info(&peer_id) {
+				Some(PeerInfo { version, .. }) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						?para_id,
+						?scheduling_parent,
+						?candidate_hash,
+						?peer_id,
+						"Notifying collator about seconded collation",
+					);
+					notify_collation_seconded(
+						sender,
+						peer_id,
+						*version,
+						scheduling_parent,
+						statement,
+					)
+					.await;
+				},
+				// We know who fetched it, but they disconnected before we could ack the second.
+				None => {
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						?scheduling_parent,
+						?candidate_hash,
+						?peer_id,
+						"Not notifying collator about seconded collation: peer no longer connected",
+					);
+				},
+			},
+			// No tracked fetcher for this candidate (e.g. its slot was already released).
+			None => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?para_id,
+					?scheduling_parent,
+					?candidate_hash,
+					"Not notifying any collator about seconded collation: fetcher unknown",
+				);
+			},
 		}
 
 		if !unblocked_collations.is_empty() {
 			gum::debug!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?candidate_hash,
 				?para_id,
 				"Seconded candidate unblocked {} collations",
@@ -501,12 +616,16 @@ impl<B: Backend> State<B> {
 		&mut self,
 		sender: &mut Sender,
 	) -> Option<Duration> {
+		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
+
 		let peer_manager = &self.peer_manager;
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
 		};
-		let all_free_slots = self.collation_manager.all_free_slots();
-		let max_reps = self.peer_manager.max_scores_for_paras(all_free_slots).await;
+		let max_reps = self
+			.peer_manager
+			.max_scores_for_paras(self.collation_manager.assignments())
+			.await;
 
 		let metrics = &self.metrics;
 		let create_timer_fn = || metrics.time_collation_request_duration();
@@ -544,22 +663,24 @@ impl<B: Backend> State<B> {
 		for can_second_unblocked in unblocked_collations {
 			match can_second_unblocked {
 				CanSecond::Yes(candidate_receipt, pov, pvd) => {
-					let relay_parent = candidate_receipt.descriptor.relay_parent();
 					let candidate_hash = candidate_receipt.hash();
 					let para_id = candidate_receipt.descriptor.para_id();
+					let scheduling_parent = candidate_receipt.descriptor().scheduling_parent();
 
 					sender
-						.send_message(CandidateBackingMessage::Second(
-							relay_parent,
-							candidate_receipt,
+						.send_message(CandidateBackingMessage::Second {
+							scheduling_parent,
+							candidate: candidate_receipt,
 							pvd,
 							pov,
-						))
+						})
 						.await;
+
+					self.metrics.on_collation_seconded(&para_id);
 
 					gum::debug!(
 						target: LOG_TARGET,
-						?relay_parent,
+						?scheduling_parent,
 						?candidate_hash,
 						?para_id,
 						"Started seconding unblocked collation"
@@ -568,20 +689,21 @@ impl<B: Backend> State<B> {
 				CanSecond::No(maybe_slash, reject_info) => {
 					gum::debug!(
 						target: LOG_TARGET,
-						relay_parent = ?reject_info.relay_parent,
+						scheduling_parent = ?reject_info.scheduling_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
 						para_id = ?reject_info.para_id,
 						"Cannot second unblocked collation"
 					);
 
 					if let Some(slash) = maybe_slash {
+						self.metrics.on_slash_failed_fetch(&reject_info.para_id);
 						self.peer_manager
 							.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 							.await;
 					}
 
 					self.collation_manager.release_slot(
-						&reject_info.relay_parent,
+						&reject_info.scheduling_parent,
 						reject_info.para_id,
 						reject_info.maybe_candidate_hash.as_ref(),
 						reject_info.maybe_output_head_hash,
@@ -590,7 +712,7 @@ impl<B: Backend> State<B> {
 				CanSecond::BlockedOnParent(parent, reject_info) => {
 					gum::warn!(
 						target: LOG_TARGET,
-						relay_parent = ?reject_info.relay_parent,
+						scheduling_parent = ?reject_info.scheduling_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
 						?parent,
 						para_id = ?reject_info.para_id,
@@ -598,7 +720,7 @@ impl<B: Backend> State<B> {
 					);
 
 					self.collation_manager.release_slot(
-						&reject_info.relay_parent,
+						&reject_info.scheduling_parent,
 						reject_info.para_id,
 						reject_info.maybe_candidate_hash.as_ref(),
 						reject_info.maybe_output_head_hash,
@@ -614,8 +736,20 @@ impl<B: Backend> State<B> {
 	}
 
 	#[cfg(test)]
-	pub fn advertisements(&self) -> std::collections::BTreeSet<Advertisement> {
+	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
+	}
+
+	#[cfg(test)]
+	pub fn segments(
+		&self,
+	) -> std::collections::BTreeSet<(Hash, PeerId, Vec<super::common::ProspectiveCandidate>)> {
+		self.collation_manager.segments()
+	}
+
+	#[cfg(test)]
+	pub async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+		self.peer_manager.processed_finalized_block_number().await
 	}
 }
 

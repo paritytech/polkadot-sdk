@@ -34,12 +34,14 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState, Constraints},
-		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
-		CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
-		CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash,
-		Header as RelayHeader, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		slashing,
+		vstaging::RelayParentInfo,
+		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+		DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
+		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -655,17 +657,13 @@ impl RelayChainRpcClient {
 	}
 
 	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_approval_voting_params(
+	pub async fn parachain_host_approval_voting_params(
 		&self,
 		at: RelayHash,
 		_session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_approval_voting_params",
-			at,
-			None::<()>,
-		)
-		.await
+		self.call_remote_runtime_function("ParachainHost_approval_voting_params", at, None::<()>)
+			.await
 	}
 
 	pub async fn parachain_host_para_backing_state(
@@ -777,12 +775,38 @@ impl RelayChainRpcClient {
 		Ok(rx)
 	}
 
+	pub async fn parachain_host_max_relay_parent_session_age(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_max_relay_parent_session_age",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
 	pub async fn parachain_host_para_ids(
 		&self,
 		at: RelayHash,
 	) -> Result<Vec<ParaId>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_para_ids", at, None::<()>)
 			.await
+	}
+
+	pub async fn parachain_host_ancestor_relay_parent_info(
+		&self,
+		at: RelayHash,
+		session_index: SessionIndex,
+		relay_parent: RelayHash,
+	) -> Result<Option<RelayParentInfo<RelayHash, BlockNumber>>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_ancestor_relay_parent_info",
+			at,
+			Some((session_index, relay_parent)),
+		)
+		.await
 	}
 }
 

@@ -16,21 +16,18 @@
 
 //! Disk-backed reputation database for collator protocol.
 
-use crate::{
-	validator_side_experimental::{
-		common::Score,
-		peer_manager::{
-			backend::Backend,
-			db::{Db, ScoreEntry},
-			persistence::{
-				metadata_key, para_list_key, para_reputation_key, PersistenceError, StoredMetadata,
-				StoredParaList, StoredParaReputations,
-			},
-			ReputationUpdate,
+use crate::validator_side_experimental::{
+	common::Score,
+	peer_manager::{
+		backend::Backend,
+		db::{Db, ScoreEntry},
+		persistence::{
+			metadata_key, para_list_key, para_reputation_key, PersistenceError, StoredMetadata,
+			StoredParaList, StoredParaReputations,
 		},
-		ReputationConfig,
+		ReputationUpdate,
 	},
-	LOG_TARGET,
+	ReputationConfig,
 };
 use async_trait::async_trait;
 use codec::{Decode, Encode};
@@ -44,6 +41,8 @@ use std::{
 	sync::Arc,
 };
 use tokio::sync::mpsc;
+
+const LOG_TARGET: &'static str = "parachain::collator-protocol::persistent-db";
 
 /// Describes the context of a persistence operation, used for logging
 /// by the background writer after a disk write completes.
@@ -147,7 +146,7 @@ impl PersistentDb {
 		// Create empty in-memory DB
 		let inner = Db::new(stored_limit_per_para).await;
 
-		let (tx, rx) = mpsc::channel(1);
+		let (tx, rx) = mpsc::channel(3);
 		// Load data from disk into the in-memory DB
 		let mut instance = Self {
 			inner,
@@ -180,6 +179,13 @@ impl PersistentDb {
 	) {
 		while let Some(req) = rx.recv().await {
 			let PersistenceRequest { updates, metadata, para_list, log_info, completion_tx } = req;
+
+			gum::trace!(
+				target: LOG_TARGET,
+				update_type = ?log_info,
+				update_count = updates.len(),
+				"Received PersistenceRequest"
+			);
 
 			let mut db_transaction = DBTransaction::new();
 
@@ -429,6 +435,7 @@ impl Backend for PersistentDb {
 		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
+		now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
 		// Mark all paras in bumps as dirty.
 		for para_id in bumps.keys() {
@@ -437,7 +444,7 @@ impl Backend for PersistentDb {
 
 		// Delegate to inner DB - NO PERSISTENCE HERE
 		// Persistence happens via the periodic timer calling persist()
-		self.inner.process_bumps(leaf_number, bumps, decay_value).await
+		self.inner.process_bumps(leaf_number, bumps, decay_value, now).await
 	}
 
 	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
@@ -507,13 +514,13 @@ mod tests {
 
 			// Process some bumps to add reputation data
 			let bumps = [
-				(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
-				(para_id_200, [(peer2, Score::new(75).unwrap())].into_iter().collect()),
+				(para_id_100, [(peer1, Score::new(50))].into_iter().collect()),
+				(para_id_200, [(peer2, Score::new(75))].into_iter().collect()),
 			]
 			.into_iter()
 			.collect();
 
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 			// Persist to disk
 			let _ = db.persist_and_wait().await;
@@ -526,8 +533,8 @@ mod tests {
 
 			// Verify data was loaded correctly
 			assert_eq!(db.processed_finalized_block_number().await, Some(10));
-			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(50).unwrap()));
-			assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
+			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(50)));
+			assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75)));
 			// Non-existent queries should return None
 			assert_eq!(db.query(&peer1, &para_id_200).await, None);
 			assert_eq!(db.query(&peer2, &para_id_100).await, None);
@@ -547,10 +554,10 @@ mod tests {
 		{
 			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
-			let bumps = [(para_id, [(peer, Score::new(100).unwrap())].into_iter().collect())]
+			let bumps = [(para_id, [(peer, Score::new(100))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 			// Persist initial state
 			let _ = db.persist_and_wait().await;
@@ -561,7 +568,7 @@ mod tests {
 			// 2. Slash (Async)
 			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
-			db.slash(&peer, &para_id, Score::new(30).unwrap()).await;
+			db.slash(&peer, &para_id, Score::new(30)).await;
 
 			sleep(Duration::from_millis(50)).await;
 			handle.abort();
@@ -569,7 +576,7 @@ mod tests {
 
 		// 3. Verify
 		let (db, _) = PersistentDb::new(disk_db, config, 100).await.expect("reload");
-		assert_eq!(db.query(&peer, &para_id).await, Some(Score::new(70).unwrap()));
+		assert_eq!(db.query(&peer, &para_id).await, Some(Score::new(70)));
 	}
 
 	#[tokio::test]
@@ -584,10 +591,10 @@ mod tests {
 		// Create DB and add some reputation
 		{
 			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
-			let bumps = [(para_id, [(peer, Score::new(50).unwrap())].into_iter().collect())]
+			let bumps = [(para_id, [(peer, Score::new(50))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -596,7 +603,7 @@ mod tests {
 		{
 			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
-			db.slash(&peer, &para_id, Score::new(100).unwrap()).await;
+			db.slash(&peer, &para_id, Score::new(100)).await;
 
 			sleep(Duration::from_millis(50)).await;
 			handle.abort();
@@ -628,13 +635,13 @@ mod tests {
 			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			let bumps = [
-				(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
-				(para_id_200, [(peer2, Score::new(75).unwrap())].into_iter().collect()),
-				(para_id_300, [(peer1, Score::new(25).unwrap())].into_iter().collect()),
+				(para_id_100, [(peer1, Score::new(50))].into_iter().collect()),
+				(para_id_200, [(peer2, Score::new(75))].into_iter().collect()),
+				(para_id_300, [(peer1, Score::new(25))].into_iter().collect()),
 			]
 			.into_iter()
 			.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -655,7 +662,7 @@ mod tests {
 
 			// Only para 200 should remain
 			assert_eq!(db.query(&peer1, &para_id_100).await, None);
-			assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
+			assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75)));
 			assert_eq!(db.query(&peer1, &para_id_300).await, None);
 		}
 	}
@@ -677,12 +684,12 @@ mod tests {
 
 			// Add reputation via bumps (these don't trigger immediate persistence)
 			let bumps = [
-				(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
-				(para_id_200, [(peer2, Score::new(75).unwrap())].into_iter().collect()),
+				(para_id_100, [(peer1, Score::new(50))].into_iter().collect()),
+				(para_id_200, [(peer2, Score::new(75))].into_iter().collect()),
 			]
 			.into_iter()
 			.collect();
-			db.process_bumps(15, bumps, None).await;
+			db.process_bumps(15, bumps, None, std::time::Duration::ZERO).await;
 
 			// Now call periodic persist
 			let _ = db.persist_and_wait().await;
@@ -694,8 +701,8 @@ mod tests {
 			let (db, _) = PersistentDb::new(disk_db, config, 100).await.expect("should create db");
 
 			assert_eq!(db.processed_finalized_block_number().await, Some(15));
-			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(50).unwrap()));
-			assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
+			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(50)));
+			assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75)));
 		}
 	}
 
@@ -718,18 +725,16 @@ mod tests {
 			let bumps = [
 				(
 					para_id_100,
-					[(peer1, Score::new(100).unwrap()), (peer2, Score::new(50).unwrap())]
-						.into_iter()
-						.collect(),
+					[(peer1, Score::new(100)), (peer2, Score::new(50))].into_iter().collect(),
 				),
-				(para_id_200, [(peer3, Score::new(200).unwrap())].into_iter().collect()),
+				(para_id_200, [(peer3, Score::new(200))].into_iter().collect()),
 			]
 			.into_iter()
 			.collect();
-			db.process_bumps(20, bumps, None).await;
+			db.process_bumps(20, bumps, None, std::time::Duration::ZERO).await;
 
 			// Slash peer2 (also persists all dirty paras via background writer)
-			db.slash(&peer2, &para_id_100, Score::new(25).unwrap()).await;
+			db.slash(&peer2, &para_id_100, Score::new(25)).await;
 
 			// Wait for background writer to finish
 			sleep(Duration::from_millis(50)).await;
@@ -742,15 +747,15 @@ mod tests {
 
 			// Verify all data survived
 			assert_eq!(db.processed_finalized_block_number().await, Some(20));
-			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(100).unwrap()));
-			assert_eq!(db.query(&peer2, &para_id_100).await, Some(Score::new(25).unwrap()));
-			assert_eq!(db.query(&peer3, &para_id_200).await, Some(Score::new(200).unwrap()));
+			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(100)));
+			assert_eq!(db.query(&peer2, &para_id_100).await, Some(Score::new(25)));
+			assert_eq!(db.query(&peer3, &para_id_200).await, Some(Score::new(200)));
 
 			// Continue with more operations
-			let bumps = [(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect())]
+			let bumps = [(para_id_100, [(peer1, Score::new(50))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(25, bumps, None).await;
+			db.process_bumps(25, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -761,7 +766,7 @@ mod tests {
 
 			assert_eq!(db.processed_finalized_block_number().await, Some(25));
 			// peer1 should now have 100 + 50 = 150
-			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(150).unwrap()));
+			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(150)));
 		}
 	}
 
@@ -778,7 +783,7 @@ mod tests {
 		let original_scores: HashMap<PeerId, Score> = peers
 			.iter()
 			.enumerate()
-			.map(|(i, peer)| (*peer, Score::new((i as u16 + 1) * 100).unwrap()))
+			.map(|(i, peer)| (*peer, Score::new((i as u16 + 1) * 100)))
 			.collect();
 
 		// Store data
@@ -789,7 +794,7 @@ mod tests {
 				[(para_id, original_scores.iter().map(|(peer, score)| (*peer, *score)).collect())]
 					.into_iter()
 					.collect();
-			db.process_bumps(100, bumps, None).await;
+			db.process_bumps(100, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -824,13 +829,13 @@ mod tests {
 			let (mut db, _) =
 				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
 
-			let bumps = [(para_id, [(peer, Score::new(100).unwrap())].into_iter().collect())]
+			let bumps = [(para_id, [(peer, Score::new(100))].into_iter().collect())]
 				.into_iter()
 				.collect();
-			db.process_bumps(10, bumps, None).await;
+			db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 			// Verify in-memory state
-			assert_eq!(db.query(&peer, &para_id).await, Some(Score::new(100).unwrap()));
+			assert_eq!(db.query(&peer, &para_id).await, Some(Score::new(100)));
 
 			// Don't call persist - just drop
 		}
@@ -867,14 +872,14 @@ mod tests {
 						.enumerate()
 						.map(|(peer_idx, peer)| {
 							let score = ((para_idx + 1) * 10 + peer_idx) as u16;
-							(*peer, Score::new(score).unwrap())
+							(*peer, Score::new(score))
 						})
 						.collect();
 					(*para_id, peer_scores)
 				})
 				.collect();
 
-			db.process_bumps(50, bumps, None).await;
+			db.process_bumps(50, bumps, None, std::time::Duration::ZERO).await;
 			let _ = db.persist_and_wait().await;
 			handle.abort();
 		}
@@ -888,7 +893,7 @@ mod tests {
 					let expected_score = ((para_idx + 1) * 10 + peer_idx) as u16;
 					assert_eq!(
 						db.query(peer, para_id).await,
-						Some(Score::new(expected_score).unwrap()),
+						Some(Score::new(expected_score)),
 						"Mismatch for para {} peer {}",
 						para_idx,
 						peer_idx
@@ -911,11 +916,10 @@ mod tests {
 
 		assert!(db.dirty_paras.is_empty(), "Fresh DB should have no dirty paras");
 
-		let bumps_para_100 =
-			[(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect())]
-				.into_iter()
-				.collect();
-		db.process_bumps(10, bumps_para_100, None).await;
+		let bumps_para_100 = [(para_id_100, [(peer1, Score::new(50))].into_iter().collect())]
+			.into_iter()
+			.collect();
+		db.process_bumps(10, bumps_para_100, None, std::time::Duration::ZERO).await;
 
 		assert!(db.dirty_paras.contains(&para_id_100), "Para 100 should be dirty after bump");
 		assert!(!db.dirty_paras.contains(&para_id_200), "Para 200 should NOT be dirty");
@@ -933,7 +937,7 @@ mod tests {
 
 		assert_eq!(
 			reloaded_db.query(&peer1, &para_id_100).await,
-			Some(Score::new(50).unwrap()),
+			Some(Score::new(50)),
 			"Para 100 data should be persisted correctly"
 		);
 
@@ -958,12 +962,12 @@ mod tests {
 		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 		let bumps: BTreeMap<ParaId, HashMap<PeerId, Score>> = [
-			(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
-			(para_id_200, [(peer1, Score::new(75).unwrap())].into_iter().collect()),
+			(para_id_100, [(peer1, Score::new(50))].into_iter().collect()),
+			(para_id_200, [(peer1, Score::new(75))].into_iter().collect()),
 		]
 		.into_iter()
 		.collect();
-		db.process_bumps(10, bumps, None).await;
+		db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 		assert_eq!(db.dirty_paras.len(), 2);
 		assert!(db.dirty_paras.contains(&para_id_100));
@@ -977,7 +981,7 @@ mod tests {
 			"Dirty paras should be cleared after prune_paras persists"
 		);
 
-		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(50).unwrap()));
+		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(50)));
 		assert_eq!(db.query(&peer1, &para_id_200).await, None);
 
 		sleep(Duration::from_millis(50)).await;
@@ -986,7 +990,7 @@ mod tests {
 		let (reloaded, _) =
 			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
 
-		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(50).unwrap()));
+		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(50)));
 		assert_eq!(reloaded.query(&peer1, &para_id_200).await, None);
 	}
 
@@ -1003,25 +1007,25 @@ mod tests {
 		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 		let bumps: BTreeMap<ParaId, HashMap<PeerId, Score>> = [
-			(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
-			(para_id_200, [(peer2, Score::new(75).unwrap())].into_iter().collect()),
+			(para_id_100, [(peer1, Score::new(50))].into_iter().collect()),
+			(para_id_200, [(peer2, Score::new(75))].into_iter().collect()),
 		]
 		.into_iter()
 		.collect();
-		db.process_bumps(10, bumps, None).await;
+		db.process_bumps(10, bumps, None, std::time::Duration::ZERO).await;
 
 		assert!(db.dirty_paras.contains(&para_id_100));
 		assert!(db.dirty_paras.contains(&para_id_200));
 		assert_eq!(db.dirty_paras.len(), 2);
 
-		db.slash(&peer1, &para_id_100, Score::new(30).unwrap()).await;
+		db.slash(&peer1, &para_id_100, Score::new(30)).await;
 
 		assert!(!db.dirty_paras.contains(&para_id_100));
 		assert!(!db.dirty_paras.contains(&para_id_200));
 		assert_eq!(db.dirty_paras.len(), 0);
 
-		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(20).unwrap()));
-		assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
+		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(20)));
+		assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75)));
 
 		sleep(Duration::from_millis(50)).await;
 		handle.abort();
@@ -1029,8 +1033,8 @@ mod tests {
 		let (reloaded, _) =
 			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
 
-		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(20).unwrap()));
-		assert_eq!(reloaded.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
+		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(20)));
+		assert_eq!(reloaded.query(&peer2, &para_id_200).await, Some(Score::new(75)));
 	}
 
 	#[tokio::test]
@@ -1043,22 +1047,22 @@ mod tests {
 		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 		// 1. Initial bump + Async Persist
-		let bumps1 = [(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect())]
+		let bumps1 = [(para_id_100, [(peer1, Score::new(50))].into_iter().collect())]
 			.into_iter()
 			.collect();
-		db.process_bumps(10, bumps1, None).await;
+		db.process_bumps(10, bumps1, None, std::time::Duration::ZERO).await;
 		db.persist_async(None);
 		sleep(Duration::from_millis(50)).await;
 
 		// 2. Slash (Persists immediately)
-		db.slash(&peer1, &para_id_100, Score::new(20).unwrap()).await;
+		db.slash(&peer1, &para_id_100, Score::new(20)).await;
 		sleep(Duration::from_millis(50)).await;
 
 		// 3. New Bump (Memory only)
-		let bumps2 = [(para_id_100, [(peer1, Score::new(15).unwrap())].into_iter().collect())]
+		let bumps2 = [(para_id_100, [(peer1, Score::new(15))].into_iter().collect())]
 			.into_iter()
 			.collect();
-		db.process_bumps(20, bumps2, None).await;
+		db.process_bumps(20, bumps2, None, std::time::Duration::ZERO).await;
 
 		// "Crash" (Abort handle, drop DB)
 		handle.abort();
@@ -1067,7 +1071,7 @@ mod tests {
 		// 4. Verify Disk State
 		let (db, _) = PersistentDb::new(disk_db, config, 100).await.expect("reload");
 		// Should have: 50 (initial) - 20 (slash) = 30. The +15 bump was lost.
-		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(30).unwrap()));
+		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(30)));
 	}
 
 	#[tokio::test]

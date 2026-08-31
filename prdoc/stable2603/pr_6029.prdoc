@@ -1,0 +1,45 @@
+title: Implementation of RFC-123
+doc:
+- audience: Node Dev
+  description: |-
+    Store a runtime upgrade in `:pending_code` before moving it to `:code` in the next block. It's gated by `system_version` of the runtime
+    and is activated for runtimes with `system_version` >= 3.
+crates:
+- name: sc-service
+  bump: major
+- name: cumulus-client-collator
+  bump: patch
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: frame-executive
+  bump: minor
+- name: frame-support
+  bump: patch
+- name: frame-system
+  bump: minor
+- name: sp-core
+  bump: patch
+- name: sp-state-machine
+  bump: major
+- name: sp-storage
+  bump: minor
+- name: frame-benchmarking-cli
+  bump: patch
+- name: frame-system-benchmarking
+  bump: patch
+- name: cumulus-relay-chain-inprocess-interface
+  bump: patch
+- name: sc-client-api
+  bump: major
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sc-rpc
+  bump: patch
+- name: sp-api-proc-macro
+  bump: major
+- name: sp-api
+  bump: major
+- name: sp-version
+  bump: major

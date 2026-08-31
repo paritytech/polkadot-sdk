@@ -608,7 +608,7 @@ pub trait FailedMigrationHandler {
 	fn failed(migration: Option<u32>) -> FailedMigrationHandling;
 }
 
-/// Do now allow any transactions to be processed after a runtime upgrade failed.
+/// Block any transactions to be processed after a migration failed.
 ///
 /// This is **not a sane default**, since it prevents governance intervention.
 pub struct FreezeChainOnFailedMigration;
@@ -616,6 +616,18 @@ pub struct FreezeChainOnFailedMigration;
 impl FailedMigrationHandler for FreezeChainOnFailedMigration {
 	fn failed(_migration: Option<u32>) -> FailedMigrationHandling {
 		FailedMigrationHandling::KeepStuck
+	}
+}
+
+/// Ignore any MBM errors and unlock all calls that were locked during migration.
+///
+/// This implies that any storage invariants that were violated by a faulty MBM could now be exposed
+/// to users via calls. It is equivalent to how a faulty single-block-migration would be handled.
+pub struct ForceUnstuckOnFailedMigration;
+
+impl frame_support::migrations::FailedMigrationHandler for ForceUnstuckOnFailedMigration {
+	fn failed(_migration: Option<u32>) -> FailedMigrationHandling {
+		FailedMigrationHandling::ForceUnstuck
 	}
 }
 
@@ -663,7 +675,9 @@ pub enum FailedMigrationHandling {
 	/// Don't do anything with the cursor and let the handler decide.
 	///
 	/// This can be useful in cases where the other two options would overwrite any changes that
-	/// were done by the handler to the cursor.
+	/// were done by the handler to the cursor. If a handler returns this variant but does nothing,
+	/// then the chain will be stuck in an indefinite "crash loop" and keep emitting
+	/// `UpgradeFailed` events.
 	Ignore,
 }
 

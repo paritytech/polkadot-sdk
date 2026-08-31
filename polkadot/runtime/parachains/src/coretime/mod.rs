@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Extrinsics implementing the relay chain side of the Coretime interface.
+//! This pallet exposes the relay chain coretime functionality to the broker/coretime chain.
+//!
+//! It depends on the scheduler pallet, which does the actual ground work of handling
+//! received core assignments.
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
@@ -34,14 +37,13 @@ use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
 
 use crate::{
-	assigner_coretime::{self, PartsOf57600},
 	initializer::{OnNewSession, SessionChangeNotification},
 	on_demand,
 	origin::{ensure_parachain, Origin},
+	scheduler::{self, PartsOf57600},
 };
 
 mod benchmarking;
-pub mod migration;
 
 const LOG_TARGET: &str = "runtime::parachains::coretime";
 
@@ -115,7 +117,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
+	pub trait Config: frame_system::Config + scheduler::Config + on_demand::Config {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		#[allow(deprecated)]
@@ -164,7 +166,14 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
+	impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
+		fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
+			Self::initializer_on_new_session(notification);
+		}
+	}
+
 	#[pallet::call]
+	/// Extrinsics to be called by the Coretime chain.
 	impl<T: Config> Pallet<T> {
 		/// Request the configuration to be updated with the specified number of cores. Warning:
 		/// Since this only schedules a configuration update, it takes two sessions to come into
@@ -232,13 +241,14 @@ pub mod pallet {
 
 			let core = u32::from(core).into();
 
-			<assigner_coretime::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
+			<scheduler::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
 			Self::deposit_event(Event::<T>::CoreAssigned { core });
 			Ok(())
 		}
 	}
 }
 
+/// Coretime chain communiation.
 impl<T: Config> Pallet<T> {
 	/// Ensure the origin is one of Root or the `para` itself.
 	fn ensure_root_or_para(
@@ -325,12 +335,6 @@ impl<T: Config> Pallet<T> {
 		) {
 			log::error!(target: LOG_TARGET, "Sending `SwapLeases` to coretime chain failed: {:?}", err);
 		}
-	}
-}
-
-impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
-	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
-		Self::initializer_on_new_session(notification);
 	}
 }
 

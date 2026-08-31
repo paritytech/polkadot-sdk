@@ -1,0 +1,10 @@
+title: Don't bubble up errors during collator score parsing in collator protocol
+doc:
+- audience: Node Dev
+  description: |-
+    When starting the node with a warp sync and we hit a period near the `WARP_SYNC_TARGET_BLOCK` (each 512 blocks) we might not be able to call a runtime apis for some blocks, which will yield an error in the collator protocol revamp.
+
+    Don't bubble up such errors to prevent the subsystem from exiting.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

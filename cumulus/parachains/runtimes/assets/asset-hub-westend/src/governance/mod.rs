@@ -78,6 +78,8 @@ impl pallet_whitelist::Config for Runtime {
 		EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
 	>;
 	type DispatchWhitelistedOrigin = EitherOf<EnsureRoot<Self::AccountId>, WhitelistedCaller>;
+	type DeferredDispatchExpiration = ConstU32<{ 28 * RC_DAYS }>;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type Preimages = Preimage;
 }
 
@@ -90,7 +92,7 @@ impl pallet_referenda::Config for Runtime {
 	type SubmitOrigin = frame_system::EnsureSigned<AccountId>;
 	type CancelOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumCanceller>;
 	type KillOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumKiller>;
-	type Slash = Treasury;
+	type Slash = pallet_dap::DapLegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_conviction_voting::VotesOf<Runtime>;
 	type Tally = pallet_conviction_voting::TallyOf<Runtime>;
 	type SubmissionDeposit = SubmissionDeposit;
@@ -136,6 +138,8 @@ impl pallet_treasury::Config for Runtime {
 	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
+	// NOTE: Treasury burn is currently disabled. If ever enabled (`Burn > 0`), wire
+	// `BurnDestination = Dap` so burned funds flow to the DAP buffer instead of being destroyed.
 	type Burn = ();
 	type BurnDestination = ();
 	type MaxApprovals = MaxApprovals;
@@ -196,11 +200,13 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	>;
 	type BountySource = pallet_multi_asset_bounties::BountySourceFromPalletId<
 		TreasuryPalletId,
+		pallet_multi_asset_bounties::BountyAccountPrefix,
 		Runtime,
 		AccountIdToLocalLocation,
 	>;
 	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
 		TreasuryPalletId,
+		pallet_multi_asset_bounties::ChildBountyAccountPrefix,
 		Runtime,
 		AccountIdToLocalLocation,
 	>;

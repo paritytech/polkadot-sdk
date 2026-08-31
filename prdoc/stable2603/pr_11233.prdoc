@@ -1,0 +1,18 @@
+title: Updates PolkaVM to the latest version
+doc:
+- audience: Node Dev
+  description: |-
+    At the same time this prepares Substrate runtimes for PolkaVM 64bit support.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-pallet-parachain-system-proc-macro
+  bump: major
+- name: sc-executor-polkavm
+  bump: major
+- name: sp-runtime-interface-proc-macro
+  bump: major
+- name: sp-runtime-interface
+  bump: major
+- name: substrate-wasm-builder
+  bump: major

@@ -38,9 +38,15 @@ use sp_weights::Weight;
 ///
 /// This extension does not influence any fields of `TransactionValidity` in case the
 /// transaction is valid.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Default, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckWeight<T: Config + Send + Sync>(core::marker::PhantomData<T>);
+
+impl<T: Config + Send + Sync> Default for CheckWeight<T> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
 
 impl<T: Config + Send + Sync> CheckWeight<T>
 where
@@ -147,6 +153,20 @@ where
 	}
 }
 
+/// Returns the weight that `CheckWeight` books for an extrinsic before dispatch.
+pub fn calculate_consumed_extrinsic_weight<Call>(
+	maximum_weight: &BlockWeights,
+	info: &DispatchInfoOf<Call>,
+	len: usize,
+) -> Weight
+where
+	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+	info.total_weight()
+		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
+		.saturating_add_proof_size(len as u64)
+}
+
 /// Checks if the current extrinsic can fit into the block with respect to block weight limits.
 ///
 /// Upon successes, it returns the new block weight as a `Result`.
@@ -159,11 +179,8 @@ pub fn calculate_consumed_weight<Call>(
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	// Also Consider extrinsic length as proof weight.
-	let extrinsic_weight = info
-		.total_weight()
-		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
-		.saturating_add(Weight::from_parts(0, len as u64));
+	// Also consider extrinsic length as proof weight.
+	let extrinsic_weight = calculate_consumed_extrinsic_weight::<Call>(maximum_weight, info, len);
 	let limit_per_class = maximum_weight.get(info.class);
 
 	// add the weight. If class is unlimited, use saturating add instead of checked one.

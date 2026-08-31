@@ -46,7 +46,7 @@ pub struct Cli {
 	/// Number of concurrent workers for statement validation from the network.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long, default_value_t = 1)]
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_NETWORK_WORKERS)]
 	pub statement_network_workers: usize,
 
 	/// Maximum statements per second per peer before rate limiting kicks in.
@@ -55,8 +55,32 @@ pub struct Cli {
 	/// while enforcing the average rate over time.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long, default_value_t = 50_000)]
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_RATE_LIMIT)]
 	pub statement_rate_limit: u32,
+
+	/// Maximum number of statements the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_STATEMENTS)]
+	pub statement_store_max_total_statements: usize,
+
+	/// Maximum total data size (in bytes) the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_SIZE)]
+	pub statement_store_max_total_size: usize,
+
+	/// Number of seconds for which removed statements won't be allowed to be added back.
+	///
+	/// This prevents old statements from being re-propagated on the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
+	pub statement_store_purge_after_sec: u64,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]

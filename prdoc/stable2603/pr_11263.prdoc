@@ -1,0 +1,32 @@
+title: 'XCMP: implement `ConcatenatedOpaqueVersionedXcm` negotiation'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Follow-up for: https://github.com/paritytech/polkadot-sdk/pull/9588
+
+    As part of https://github.com/paritytech/polkadot-sdk/pull/9588 we added a new `ConcatenatedOpaqueVersionedXcm` XCMP page format (which uses double encoded XCMs), but we didn't switch to always using it, since we don't know which parachains support it. This PR introduces a negotiation strategy between parachains in order to switch to using the `ConcatenatedOpaqueVersionedXcm` format when supported.
+
+    The high-level idea is the following:
+    - let's say we have an HRMP channel between parachains A and B
+    - parachain A is updated and starts supporting `ConcatenatedOpaqueVersionedXcm`
+    - when the sending queue is empty, it sends a notification to parachain B that it supports `ConcatenatedOpaqueVersionedXcm`. Basically it sends an empty `ConcatenatedOpaqueVersionedXcm` page. This notification is sent only once during the entire lifetime of the HRMP channel.
+      - if parachain B supports `ConcatenatedOpaqueVersionedXcm`, it starts sending `ConcatenatedOpaqueVersionedXcm` pages to parachain A instead of `ConcatenatedVersionedXcm`
+      - if parachain B doesn't support `ConcatenatedOpaqueVersionedXcm`, it doesn't do anything for the moment and they continue using `ConcatenatedVersionedXcm`. When parachain B is updated, it sends a similar notification to parachain A that it supports `ConcatenatedOpaqueVersionedXcm` (basically it also sends an empty `ConcatenatedOpaqueVersionedXcm` page).
+    - when parachain A receives a `ConcatenatedOpaqueVersionedXcm` page from parachain B, it concludes that parachain B also supports `ConcatenatedOpaqueVersionedXcm` and starts using `ConcatenatedOpaqueVersionedXcm` instead of `ConcatenatedVersionedXcm` when sending messages to parachain B
+
+    The information of whether a recipient parachain supports `ConcatenatedOpaqueVersionedXcm` or if a notification related to the `ConcatenatedOpaqueVersionedXcm` support was sent to it is stored in `OutboundXcmpStatus` by adding a new `flags` field. For this we also need to do a migration (`cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6`).
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch

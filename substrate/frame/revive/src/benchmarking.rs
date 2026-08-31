@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
+	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StorageOp, Warmth},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -117,26 +118,77 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 mod benchmarks {
 	use super::*;
 
-	// The base weight consumed on processing contracts deletion queue.
+	/// The base weight consumed on processing contracts deletion queue.
 	#[benchmark(pov_mode = Measured)]
-	fn on_process_deletion_queue_batch() {
+	fn deletion_queue_batch() {
 		#[block]
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
 	}
 
-	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		ContractInfo::<T>::queue_trie_for_deletion(instance.info()?.trie_id);
+	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
+	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
+	#[benchmark(pov_mode = Measured)]
+	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
+		ContractInfo::<T>::queue_for_deletion(
+			instance.info()?.trie_id,
+			instance.account_id.clone(),
+		);
 
 		#[block]
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
 
+		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn deletion_queue_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+		let instance =
+			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
+		ContractInfo::<T>::queue_for_deletion(
+			instance.info()?.trie_id,
+			instance.account_id.clone(),
+		);
+
+		#[block]
+		{
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
+		}
+
+		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		Ok(())
+	}
+
+	/// Measures the cost of clearing one [`NativeDepositOf`] row during
+	/// [`ContractInfo::process_deletion_queue_batch`]. Pre-populates the contract with `k`
+	/// per-payer rows and queues the contract for deletion with `native_cleared = false` and
+	/// an empty trie. The deletion queue then drains all rows in one go.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn deletion_queue_per_native_deposit_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+		use frame_benchmarking::v2::account;
+
+		// Empty trie: zero items, zero bytes; we only want to measure native-deposit cleanup.
+		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
+		for i in 0..k {
+			let payer: T::AccountId = account("payer", i, 0);
+			NativeDepositOf::<T>::insert(&instance.account_id, &payer, BalanceOf::<T>::default());
+		}
+		ContractInfo::<T>::queue_for_deletion(
+			instance.info()?.trie_id,
+			instance.account_id.clone(),
+		);
+
+		#[block]
+		{
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
+		}
+
+		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
 		Ok(())
 	}
 
@@ -176,10 +228,21 @@ mod benchmarks {
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_init_code_for_runtime_size(c),
+			vec![],
+		)?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
+
+		let code_len = PristineCode::<T>::get(instance.info()?.code_hash)
+			.expect("code should be stored")
+			.len();
+		assert_eq!(
+			code_len, c as usize,
+			"runtime bytecode should be exactly {c} bytes, got {code_len}"
+		);
 
 		#[extrinsic_call]
 		call(
@@ -244,7 +307,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
@@ -263,10 +328,7 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
 			T::Currency::balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>() - value - deposit - code_deposit - mapping_deposit,
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -295,7 +357,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = Origin::EthTransaction(caller.clone());
-		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
@@ -345,7 +409,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
@@ -368,10 +434,7 @@ mod benchmarks {
 		// value was removed from the caller
 		assert_eq!(
 			T::Currency::total_balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>() - value - deposit - code_deposit - mapping_deposit,
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -411,10 +474,7 @@ mod benchmarks {
 		// value and value transferred via call should be removed from the caller
 		assert_eq!(
 			T::Currency::balance(&instance.caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance()
+			caller_funding::<T>() - value - deposit - code_deposit - mapping_deposit,
 		);
 		// contract should have received the value
 		assert_eq!(T::Currency::balance(&instance.account_id), before + value);
@@ -545,6 +605,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
+		if T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::unmap(&caller).unwrap();
+		}
 		assert!(!T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -556,11 +619,51 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		<Contracts<T>>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		assert!(T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
 		assert!(!T::AddressMapper::is_mapped(&caller));
+	}
+
+	/// Worst case: every input account is not eth-derived, not yet mapped, and
+	/// already carries an [`HoldReason::AddressMapping`] hold. The per-account
+	/// loop body in `batch_map_accounts` then both inserts the [`OriginalAccount`]
+	/// entry via `map_no_deposit_unchecked` *and* releases the existing hold.
+	#[benchmark(pov_mode = Measured)]
+	fn batch_map_accounts(a: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+		use frame_benchmarking::v2::account;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+
+		// Matches the deposit that `AccountId32Mapper::map` would normally take.
+		let deposit = T::DepositPerByte::get()
+			.saturating_mul(52u32.into())
+			.saturating_add(T::DepositPerItem::get());
+
+		let mut accounts = Vec::with_capacity(a as usize);
+		for i in 0..a {
+			let account_id: T::AccountId = account("to_map", i, 0);
+			T::Currency::set_balance(&account_id, caller_funding::<T>());
+			T::Currency::hold(&HoldReason::AddressMapping.into(), &account_id, deposit)?;
+			accounts.push(account_id);
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), accounts.clone());
+
+		for account_id in &accounts {
+			assert!(T::AddressMapper::is_mapped(account_id));
+			assert_eq!(
+				T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), account_id),
+				0u32.into(),
+			);
+		}
+
+		Ok(())
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -627,7 +730,9 @@ mod benchmarks {
 		let account_id = account("precompile_to_account_id", 0, 0);
 		let address = {
 			T::Currency::set_balance(&account_id, caller_funding::<T>());
-			T::AddressMapper::map(&account_id).unwrap();
+			if !T::AddressMapper::is_mapped(&account_id) {
+				T::AddressMapper::map(&account_id).unwrap();
+			}
 			T::AddressMapper::to_address(&account_id)
 		};
 
@@ -761,6 +866,29 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn origin_is_root() {
+		let input_bytes =
+			ISystem::ISystemCalls::originIsRoot(ISystem::originIsRootCall {}).abi_encode();
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_origin(ExecOrigin::Root);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		let raw_data = result.unwrap().data;
+		let is_root = Bool::abi_decode(&raw_data).expect("decoding failed");
+		assert!(is_root);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
 		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
@@ -841,7 +969,7 @@ mod benchmarks {
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
-		<T as Config>::AddressMapper::map_no_deposit(&account).unwrap();
+		<T as Config>::AddressMapper::map_no_deposit_unchecked(&account).unwrap();
 
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
@@ -1219,7 +1347,7 @@ mod benchmarks {
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		T::AddressMapper::map_no_deposit(&beneficiary)?;
+		T::AddressMapper::map_no_deposit_unchecked(&beneficiary)?;
 
 		build_runtime!(_runtime, instance, _memory: [vec![0u8; 0], ]);
 		let code_hash = instance.info()?.code_hash;
@@ -1227,6 +1355,12 @@ mod benchmarks {
 		assert!(PristineCode::<T>::get(code_hash).is_some());
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
+
+		let storage_deposit = T::Currency::balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+		);
+		NativeDepositOf::<T>::insert(&instance.account_id, &caller, storage_deposit);
 
 		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
 			weight_limit: Default::default(),
@@ -1308,18 +1442,92 @@ mod benchmarks {
 		);
 	}
 
+	enum TrieFill {
+		Empty,
+		Full,
+	}
+
+	enum SlotAccess {
+		Cold,
+		Hot,
+	}
+
+	fn build_storage_contract<T: Config>(
+		op: StorageOp,
+		fill: TrieFill,
+	) -> Result<(ContractInfo<T>, Vec<u8>, Vec<u8>), BenchmarkError> {
+		let key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
+		let value = vec![1u8; limits::STORAGE_BYTES as usize];
+		let initial_value = match op {
+			StorageOp::Read => value.clone(),
+			StorageOp::Write => vec![42u8; limits::STORAGE_BYTES as usize],
+		};
+
+		let instance = match fill {
+			TrieFill::Full => {
+				Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?
+			},
+			TrieFill::Empty => Contract::<T>::new(VmBinaryModule::dummy(), vec![])?,
+		};
+		let info = instance.info()?;
+		info.bench_write_raw(&key, Some(initial_value), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+		Ok((info, key, value))
+	}
+
+	enum StorageCall {
+		Clear,
+		Contains,
+		Take,
+	}
+
+	fn setup_precompile_bench<T: Config>(
+		op: StorageCall,
+		key_byte: u8,
+		access: SlotAccess,
+	) -> Result<(CallSetup<T>, Key, Vec<u8>), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![key_byte; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		let raw_key = vec![key_byte; max_key_len as usize].into();
+		let input_bytes = match op {
+			StorageCall::Clear => {
+				IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Contains => {
+				IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
+					flags: StorageFlags::empty().bits(),
+					key: raw_key,
+					isFixedKey: false,
+				})
+			},
+			StorageCall::Take => IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
+				flags: StorageFlags::empty().bits(),
+				key: raw_key,
+				isFixedKey: false,
+			}),
+		}
+		.abi_encode();
+
+		let call_setup = CallSetup::<T>::default();
+		if matches!(access, SlotAccess::Hot) {
+			let info = call_setup.contract().info()?;
+			frame_benchmarking::add_to_whitelist_child(
+				info.child_trie_info().storage_key().to_vec(),
+				key.hash(),
+			);
+		}
+		Ok((call_setup, key, input_bytes))
+	}
+
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_empty() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Empty)?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1333,16 +1541,8 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn get_storage_full() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Read, TrieFill::Full)?;
 		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(value.clone()), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
 		#[block]
@@ -1356,16 +1556,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_empty() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES as usize;
-		let value = vec![1u8; max_value_len];
-
-		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Empty)?;
 
 		let val = Some(value.clone());
 		let result;
@@ -1375,22 +1566,13 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
 		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn set_storage_full() -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = vec![0u8; max_key_len as usize];
-		let max_value_len = limits::STORAGE_BYTES;
-		let value = vec![1u8; max_value_len as usize];
-
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
-		let info = instance.info()?;
-		let child_trie_info = info.child_trie_info();
-		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
-			.map_err(|_| "Failed to write to storage during setup.")?;
+		let (info, key, value) = build_storage_contract::<T>(StorageOp::Write, TrieFill::Full)?;
 
 		let val = Some(value.clone());
 		let result;
@@ -1400,7 +1582,100 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(child::get_raw(&child_trie_info, &key).unwrap(), value);
+		assert_eq!(child::get_raw(&info.child_trie_info(), &key).unwrap(), value);
+		Ok(())
+	}
+
+	/// Worst-case lookup keys: differing only at the tail, comparisons walk the whole key.
+	fn shared_prefix_keys(count: usize, suffix_of: impl Fn(u64) -> u64) -> Vec<Vec<u8>> {
+		(0..count as u64)
+			.map(|i| {
+				let mut key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
+				key[limits::STORAGE_KEY_BYTES as usize - 8..]
+					.copy_from_slice(&suffix_of(i).to_be_bytes());
+				key
+			})
+			.collect()
+	}
+
+	/// Probed keys must exist, or reads measure a proof-of-absence walk instead.
+	/// Whitelisting keeps them out of the DB counters and pre-warms the cache.
+	fn setup_stored_keys<T: Config>(
+		count: usize,
+		value_byte: u8,
+		suffix_of: impl Fn(u64) -> u64,
+	) -> Result<(ContractInfo<T>, Vec<Vec<u8>>), BenchmarkError> {
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		let value = vec![value_byte; limits::STORAGE_BYTES as usize];
+		let stored_keys = shared_prefix_keys(count, suffix_of);
+		for key in &stored_keys {
+			info.bench_write_raw(key, Some(value.clone()), false)
+				.map_err(|_| "Failed to write to storage during setup.")?;
+			frame_benchmarking::add_to_whitelist_child(
+				child_trie_info.storage_key().to_vec(),
+				key.clone(),
+			);
+		}
+		Ok((info, stored_keys))
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn overlay_probe_full(
+		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		let value_byte = 42;
+		// One stored key per probe; odd suffixes, so the even fill never overwrites them.
+		let (info, stored_keys) =
+			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
+		let child_trie_info = info.child_trie_info();
+		// The block's PoV budget bounds the overlay entries like the access list cap.
+		let fill_keys = shared_prefix_keys(MAX_ACCESS_LIST_ENTRIES, |i| (i + 1) * 2);
+
+		let mut result = None;
+		#[block]
+		{
+			// The benchmark framework drains the overlay right before the block, so fill here.
+			for key in &fill_keys {
+				child::put_raw(&child_trie_info, key, &[0u8]);
+			}
+			for i in 0..n {
+				let index = i as usize % stored_keys.len();
+				result = child::get_raw(&child_trie_info, &stored_keys[index]);
+			}
+		}
+
+		if n > 0 {
+			let expected = vec![value_byte; limits::STORAGE_BYTES as usize];
+			assert_eq!(result, Some(expected), "the stored value must be read back");
+		}
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn overlay_probe_empty(
+		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		let value_byte = 42;
+		// Reads must cost the same as in `overlay_probe_full`, so their shared cost cancels.
+		let (info, stored_keys) =
+			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
+		let child_trie_info = info.child_trie_info();
+
+		let mut result = None;
+		#[block]
+		{
+			for i in 0..n {
+				let index = i as usize % stored_keys.len();
+				result = child::get_raw(&child_trie_info, &stored_keys[index]);
+			}
+		}
+
+		if n > 0 {
+			let expected = vec![value_byte; limits::STORAGE_BYTES as usize];
+			assert_eq!(result, Some(expected), "the stored value must be read back");
+		}
 		Ok(())
 	}
 
@@ -1441,22 +1716,81 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_set_storage_hot(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+		o: Linear<0, { limits::STORAGE_BYTES }>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
+		let value = vec![1u8; n as usize];
 
-		let input_bytes = IStorage::IStorageCalls::clearStorage(IStorage::clearStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), value.clone(), ]);
+		let info = instance.info()?;
 
-		let mut call_setup = CallSetup::<T>::default();
-		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		info.write(&key, Some(vec![42u8; o as usize]), None, false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash(),
+		);
+
+		// Add the key to access list so the op's touch is hot.
+		runtime.ext().touch_storage_access(false, &key, StorageOp::Write);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_set_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				max_key_len, // value_ptr
+				n,           // value_len
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(info.read(&key).unwrap(), value);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn clear_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Cold)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_none());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn clear_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Clear, key_byte, SlotAccess::Hot)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(false, &key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -1504,20 +1838,49 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
-		let input_bytes = IStorage::IStorageCalls::containsStorage(IStorage::containsStorageCall {
-			flags: StorageFlags::TRANSIENT.bits(),
-			key: vec![0u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
+		let info = instance.info()?;
 
-		let mut call_setup = CallSetup::<T>::default();
+		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash(),
+		);
+
+		runtime.ext().touch_storage_access(false, &key, StorageOp::Read);
+
+		let out_ptr = max_key_len + 4;
+		let result;
+		#[block]
+		{
+			result = runtime.bench_get_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				out_ptr,     // out_ptr
+				max_key_len, // out_len_ptr
+			);
+		}
+
+		assert_ok!(result);
+		assert_eq!(&info.read(&key).unwrap(), &memory[out_ptr as usize..]);
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn contains_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Cold)?;
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1536,21 +1899,38 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
-		let max_key_len = limits::STORAGE_KEY_BYTES;
-		let key = Key::try_from_var(vec![3u8; max_key_len as usize])
-			.map_err(|_| "Key has wrong length")?;
-
-		let input_bytes = IStorage::IStorageCalls::takeStorage(IStorage::takeStorageCall {
-			flags: StorageFlags::empty().bits(),
-			key: vec![3u8; max_key_len as usize].into(),
-			isFixedKey: false,
-		})
-		.abi_encode();
-
-		let mut call_setup = CallSetup::<T>::default();
+	fn contains_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 0;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Contains, key_byte, SlotAccess::Hot)?;
 		let (mut ext, _) = call_setup.ext();
-		ext.set_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(false, &key, StorageOp::Read);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_some());
+
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn take_storage(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Cold)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let result;
@@ -1565,6 +1945,137 @@ mod benchmarks {
 		assert_ok!(result);
 		assert!(ext.get_storage(&key).is_none());
 
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn take_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let key_byte = 3;
+		let (mut call_setup, key, input_bytes) =
+			setup_precompile_bench::<T>(StorageCall::Take, key_byte, SlotAccess::Hot)?;
+		let (mut ext, _) = call_setup.ext();
+		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		ext.touch_storage_access(false, &key, StorageOp::Write);
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkStorage::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		assert_ok!(result);
+		assert!(ext.get_storage(&key).is_none());
+
+		Ok(())
+	}
+
+	fn worst_case_slot() -> crate::access_list::Slot {
+		let key = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+			.expect("key fits STORAGE_KEY_BYTES bound; qed");
+		crate::access_list::Slot::from(&key)
+	}
+
+	fn near_full_access_list() -> crate::access_list::AccessList {
+		let mut al = AccessList::new();
+		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
+			al.touch(
+				AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(i as u64) },
+				StorageOp::Read,
+			);
+		}
+		al
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		// Insert a new entry (u64::MAX is past the fill range, so the touch is cold).
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_cold());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
+		let entry = AccessEntry {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
+		};
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry.clone(), StorageOp::Write);
+		}
+		assert_eq!(
+			outcome,
+			Warmth::Hot { charged: StorageOp::Read },
+			"the fill seeded this entry read-paid"
+		);
+		assert_eq!(
+			al.peek(&entry),
+			Warmth::Hot { charged: StorageOp::Write },
+			"the write upgraded the entry"
+		);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(outcome.is_cold());
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::new();
+		let entry =
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
+		al.touch(entry.clone(), StorageOp::Read);
+		let outcome;
+		#[block]
+		{
+			outcome = al.touch(entry, StorageOp::Read);
+		}
+		assert!(!outcome.is_cold());
+		Ok(())
+	}
+
+	// Per-entry rollback cost, prepaid by every cold touch since a frame revert
+	// can't charge gas itself. Isolated by reverting a frame with exactly one
+	// journaled entry on top of a near-full `AccessList`.
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
+		let mut al = near_full_access_list();
+		al.enter_frame();
+		al.touch(
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) },
+			StorageOp::Read,
+		);
+		#[block]
+		{
+			al.rollback_frame();
+		}
 		Ok(())
 	}
 
@@ -1747,7 +2258,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -1818,7 +2329,7 @@ mod benchmarks {
 
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
-		ext.set_transient_storage(&key, Some(vec![42u8; max_key_len as usize]), false)
+		ext.set_transient_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to transient storage during setup.")?;
 
 		let result;
@@ -2111,7 +2622,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
@@ -2591,10 +3102,11 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
-		let module = VmBinaryModule::sized(n);
-		let mut setup = CallSetup::<T>::new(module);
-		let contract = setup.contract();
+	fn extcodecopy(n: Linear<1_000, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		// The caller contract; `CallSetup` whitelists its `AccountInfoOf`.
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::dummy());
+		// Copy a contract other than the caller, so its `AccountInfoOf` read is counted.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::sized(n), vec![])?;
 
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
@@ -2603,7 +3115,7 @@ mod benchmarks {
 		let _ = interpreter.stack.push(U256::from(n));
 		let _ = interpreter.stack.push(U256::from(0u32));
 		let _ = interpreter.stack.push(U256::from(0u32));
-		let _ = interpreter.stack.push(contract.address);
+		let _ = interpreter.stack.push(target.address);
 
 		let result;
 		#[block]
@@ -2614,8 +3126,8 @@ mod benchmarks {
 		assert!(result.is_continue());
 		assert_eq!(
 			*interpreter.memory.slice(0..n as usize),
-			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],
-			"Memory should contain the contract's code after extcodecopy"
+			PristineCode::<T>::get(target.info()?.code_hash).unwrap()[0..n as usize],
+			"Memory should contain the target contract's code after extcodecopy"
 		);
 
 		Ok(())
@@ -2666,6 +3178,177 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v3_migration_step() {
+		use crate::migrations::v3;
+		// Remove all pre-existing accounts
+		let _ = frame_system::Account::<T>::clear(u32::MAX, None);
+
+		let account = account::<T::AccountId>("target", 0, 0);
+		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
+			.expect("should mint into account");
+
+		// clear the mapping so the migration has work to do
+		let addr = T::AddressMapper::to_address(&account);
+		crate::OriginalAccount::<T>::remove(addr);
+
+		assert!(!T::AddressMapper::is_mapped(&account));
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v3::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert!(T::AddressMapper::is_mapped(&account));
+
+		// uses twice the weight: once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
+	}
+
+	/// One iteration of v4 phase 1: credit the uploader's [`NativeDepositOf`] bucket.
+	///
+	/// Seeds two codes and primes the cursor with the first stored entry so the benched
+	/// iteration exercises the `iter_from` path that dominates phase 1 in production.
+	#[benchmark]
+	fn v4_code_upload_step() {
+		use crate::migrations::v4;
+
+		let _ = CodeInfoOf::<T>::clear(u32::MAX, None);
+
+		let owner: T::AccountId = whitelisted_caller();
+		let deposit: BalanceOf<T> = 1_000u32.into();
+
+		let pallet_account = Pallet::<T>::account_id();
+		T::Currency::mint_into(&pallet_account, Pallet::<T>::min_balance()).unwrap();
+		T::Currency::mint_into(&pallet_account, deposit).unwrap();
+		T::Currency::hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account, deposit)
+			.unwrap();
+
+		CodeInfoOf::<T>::insert(
+			H256::from([1u8; 32]),
+			CodeInfo::<T>::new_with_deposit(owner.clone(), deposit),
+		);
+		CodeInfoOf::<T>::insert(
+			H256::from([2u8; 32]),
+			CodeInfo::<T>::new_with_deposit(owner.clone(), deposit),
+		);
+
+		let first = match v4::Migration::<T>::step_once(None) {
+			Some(v4::Cursor::CodeUpload(h)) => h,
+			other => panic!("expected CodeUpload cursor, got {other:?}"),
+		};
+		let cursor = Some(v4::Cursor::CodeUpload(first));
+
+		#[block]
+		{
+			let _ = v4::Migration::<T>::step_once(cursor);
+		}
+
+		assert_eq!(
+			NativeDepositOf::<T>::get(&pallet_account, &owner),
+			deposit + deposit,
+			"both code uploads credited to owner",
+		);
+	}
+
+	/// One iteration of v4 phase 2: burn native hold, mint and hold PGAS for a single contract.
+	///
+	/// Seeds two contracts and primes the cursor with the first stored entry so the benched
+	/// iteration exercises the `iter_from` path that dominates phase 2 in production.
+	#[benchmark]
+	fn v4_contract_step() {
+		use crate::migrations::v4;
+
+		let _ = AccountInfoOf::<T>::clear(u32::MAX, None);
+
+		let code_hash = H256::from([0u8; 32]);
+		let deposit: BalanceOf<T> = 1_000u32.into();
+
+		for byte in [0x41u8, 0x42u8] {
+			let addr = H160::from([byte; 20]);
+			let contract_account = T::AddressMapper::to_account_id(&addr);
+			let info =
+				ContractInfo::<T>::new(&addr, 1u32.into(), code_hash).expect("fresh contract info");
+			AccountInfoOf::<T>::insert(
+				addr,
+				crate::storage::AccountInfo::<T> {
+					account_type: crate::storage::AccountType::Contract(info),
+					dust: 0,
+				},
+			);
+			T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance()).unwrap();
+			T::Currency::mint_into(&contract_account, deposit).unwrap();
+			T::Currency::hold(
+				&HoldReason::StorageDepositReserve.into(),
+				&contract_account,
+				deposit,
+			)
+			.unwrap();
+		}
+
+		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))) {
+			Some(v4::Cursor::Contract(Some(addr))) => addr,
+			other => panic!("expected Contract cursor, got {other:?}"),
+		};
+		let cursor = Some(v4::Cursor::Contract(Some(first)));
+
+		#[block]
+		{
+			let _ = v4::Migration::<T>::step_once(cursor);
+		}
+
+		// `migrate_native_to_pgas` is a no-op for `Deposit = ()`, so the hold only clears on
+		// PGAS-backed runtimes. On non-PGAS runtimes the benchmark still measures the iter cost.
+		if T::Deposit::SUPPORTS_PGAS {
+			for byte in [0x41u8, 0x42u8] {
+				let addr = H160::from([byte; 20]);
+				let contract_account = T::AddressMapper::to_account_id(&addr);
+				assert_eq!(
+					T::Currency::balance_on_hold(
+						&HoldReason::StorageDepositReserve.into(),
+						&contract_account,
+					),
+					0u32.into(),
+					"native storage deposit burned for {addr:?}",
+				);
+			}
+		}
+	}
+
+	/// One iteration of v4 phase 3: rewrite a legacy [`v4::old::DeletionQueue`] entry into the
+	/// new [`DeletionQueue`] format.
+	///
+	/// Seeds two legacy entries and primes the cursor with the first stored entry so the benched
+	/// iteration exercises the `iter_from` path.
+	#[benchmark]
+	fn v4_deletion_queue_step() {
+		use crate::migrations::v4;
+
+		let _ = v4::old::DeletionQueue::<T>::clear(u32::MAX, None);
+
+		let trie_a: TrieId = vec![0xAAu8; 16].try_into().unwrap();
+		let trie_b: TrieId = vec![0xBBu8; 24].try_into().unwrap();
+		v4::old::DeletionQueue::<T>::insert(0u32, trie_a);
+		v4::old::DeletionQueue::<T>::insert(1u32, trie_b);
+
+		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))) {
+			Some(v4::Cursor::DeletionQueue(Some(key))) => key,
+			other => panic!("expected DeletionQueue cursor, got {other:?}"),
+		};
+		let cursor = Some(v4::Cursor::DeletionQueue(Some(first)));
+
+		#[block]
+		{
+			let _ = v4::Migration::<T>::step_once(cursor);
+		}
+
+		assert!(
+			DeletionQueue::<T>::get(0u32).is_some() && DeletionQueue::<T>::get(1u32).is_some(),
+			"both legacy entries rewritten into the new format",
+		);
 	}
 
 	/// Helper function to create a test signer for finalize_block benchmark

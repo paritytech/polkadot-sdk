@@ -1,0 +1,11 @@
+title: Report back when candidate is rejected.
+doc:
+- audience: Node Dev
+  description: |
+    When the backing subsystem rejects a candidate due to descriptor version
+    acceptance failure, it now sends `CollatorProtocolMessage::Invalid` back to
+    the collator protocol so the collator's reputation is penalized. Previously
+    this case silently dropped the candidate with no feedback.
+crates:
+- name: polkadot-node-core-backing
+  bump: patch

@@ -24,12 +24,12 @@ rand = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
+sp-core = { features = ["std"], workspace = true, default-features = true }
 
 [dev-dependencies]
 sc-keystore = { workspace = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
-sp-core = { features = ["std"], workspace = true, default-features = true }
 
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }

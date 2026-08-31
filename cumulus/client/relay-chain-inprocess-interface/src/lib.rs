@@ -37,7 +37,7 @@ use cumulus_relay_chain_interface::{
 	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
-use polkadot_primitives::CandidateEvent;
+use polkadot_primitives::{vstaging::RelayParentInfo, CandidateEvent, NodeFeatures};
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,
@@ -86,7 +86,7 @@ impl RelayChainInProcessInterface {
 #[async_trait]
 impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
-		Ok(self.full_client.runtime_version_at(relay_parent)?)
+		Ok(self.full_client.runtime_version_at(relay_parent, CallContext::Offchain)?)
 	}
 
 	async fn retrieve_dmq_contents(
@@ -347,6 +347,27 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 
 	async fn candidate_events(&self, hash: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		Ok(self.full_client.runtime_api().candidate_events(hash)?)
+	}
+
+	async fn max_relay_parent_session_age(&self, at: PHash) -> RelayChainResult<u32> {
+		Ok(self.full_client.runtime_api().max_relay_parent_session_age(at)?)
+	}
+
+	async fn node_features(&self, at: PHash) -> RelayChainResult<NodeFeatures> {
+		Ok(self.full_client.runtime_api().node_features(at)?)
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: PHash,
+		session_index: SessionIndex,
+		relay_parent: PHash,
+	) -> RelayChainResult<Option<RelayParentInfo<PHash, BlockNumber>>> {
+		Ok(self.full_client.runtime_api().ancestor_relay_parent_info(
+			at,
+			session_index,
+			relay_parent,
+		)?)
 	}
 }
 

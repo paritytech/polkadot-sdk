@@ -16,7 +16,14 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::configuration::{self, migration::v11::V11HostConfiguration, Config, Pallet};
+use crate::configuration::{
+	self,
+	migration::{
+		v11::V11HostConfiguration,
+		v13::{V12HostConfiguration, V12SchedulerParams},
+	},
+	Config, Pallet,
+};
 use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration,
@@ -24,11 +31,8 @@ use frame_support::{
 	traits::{Defensive, UncheckedOnRuntimeUpgrade},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::SchedulerParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
-
-type V12HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
 
 mod v11 {
 	use super::*;
@@ -144,7 +148,7 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					node_features                            : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
 					#[allow(deprecated)]
-					scheduler_params: SchedulerParams {
+					scheduler_params: V12SchedulerParams {
 							group_rotation_frequency             : pre.group_rotation_frequency,
 							paras_availability_period            : pre.paras_availability_period,
 							max_validators_per_core              : pre.max_validators_per_core,

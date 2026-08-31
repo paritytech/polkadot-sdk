@@ -244,11 +244,15 @@ pub enum ValidationProtocols<V3> {
 
 /// A protocol-versioned type for collation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CollationProtocols<V1, V2> {
+pub enum CollationProtocols<V1, V2, V3, V4> {
 	/// V1 type.
 	V1(V1),
 	/// V2 type.
 	V2(V2),
+	/// V3 type.
+	V3(V3),
+	/// V4 type.
+	V4(V4),
 }
 
 impl<V3: Clone> ValidationProtocols<&'_ V3> {
@@ -260,12 +264,16 @@ impl<V3: Clone> ValidationProtocols<&'_ V3> {
 	}
 }
 
-impl<V1: Clone, V2: Clone> CollationProtocols<&'_ V1, &'_ V2> {
+impl<V1: Clone, V2: Clone, V3: Clone, V4: Clone>
+	CollationProtocols<&'_ V1, &'_ V2, &'_ V3, &'_ V4>
+{
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> CollationProtocols<V1, V2> {
+	pub fn clone_inner(&self) -> CollationProtocols<V1, V2, V3, V4> {
 		match *self {
 			CollationProtocols::V1(inner) => CollationProtocols::V1(inner.clone()),
 			CollationProtocols::V2(inner) => CollationProtocols::V2(inner.clone()),
+			CollationProtocols::V3(inner) => CollationProtocols::V3(inner.clone()),
+			CollationProtocols::V4(inner) => CollationProtocols::V4(inner.clone()),
 		}
 	}
 }
@@ -280,8 +288,12 @@ impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
 }
 
 /// All supported versions of the collation protocol message.
-pub type VersionedCollationProtocol =
-	CollationProtocols<v1::CollationProtocol, v2::CollationProtocol>;
+pub type VersionedCollationProtocol = CollationProtocols<
+	v1::CollationProtocol,
+	v2::CollationProtocol,
+	v3_collation::CollationProtocol,
+	v4_collation::CollationProtocol,
+>;
 
 impl From<v1::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v1: v1::CollationProtocol) -> Self {
@@ -292,6 +304,18 @@ impl From<v1::CollationProtocol> for VersionedCollationProtocol {
 impl From<v2::CollationProtocol> for VersionedCollationProtocol {
 	fn from(v2: v2::CollationProtocol) -> Self {
 		VersionedCollationProtocol::V2(v2)
+	}
+}
+
+impl From<v3_collation::CollationProtocol> for VersionedCollationProtocol {
+	fn from(v3: v3_collation::CollationProtocol) -> Self {
+		VersionedCollationProtocol::V3(v3)
+	}
+}
+
+impl From<v4_collation::CollationProtocol> for VersionedCollationProtocol {
+	fn from(v4: v4_collation::CollationProtocol) -> Self {
+		VersionedCollationProtocol::V4(v4)
 	}
 }
 
@@ -314,6 +338,8 @@ macro_rules! impl_versioned_collation_full_protocol_from {
 				match versioned_from {
 					CollationProtocols::V1(x) => CollationProtocols::V1(x.into()),
 					CollationProtocols::V2(x) => CollationProtocols::V2(x.into()),
+					CollationProtocols::V3(x) => CollationProtocols::V3(x.into()),
+					CollationProtocols::V4(x) => CollationProtocols::V4(x.into()),
 				}
 			}
 		}
@@ -363,7 +389,9 @@ macro_rules! impl_versioned_collation_try_from {
 		$from:ty,
 		$out:ty,
 		$v1_pat:pat => $v1_out:expr,
-		$v2_pat:pat => $v2_out:expr
+		$v2_pat:pat => $v2_out:expr,
+		$v3_pat:pat => $v3_out:expr,
+		$v4_pat:pat => $v4_out:expr
 	) => {
 		impl TryFrom<$from> for $out {
 			type Error = crate::WrongVariant;
@@ -373,6 +401,8 @@ macro_rules! impl_versioned_collation_try_from {
 				match x {
 					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out)),
 					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out)),
+					CollationProtocols::V3($v3_pat) => Ok(CollationProtocols::V3($v3_out)),
+					CollationProtocols::V4($v4_pat) => Ok(CollationProtocols::V4($v4_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -386,6 +416,8 @@ macro_rules! impl_versioned_collation_try_from {
 				match x {
 					CollationProtocols::V1($v1_pat) => Ok(CollationProtocols::V1($v1_out.clone())),
 					CollationProtocols::V2($v2_pat) => Ok(CollationProtocols::V2($v2_out.clone())),
+					CollationProtocols::V3($v3_pat) => Ok(CollationProtocols::V3($v3_out.clone())),
+					CollationProtocols::V4($v4_pat) => Ok(CollationProtocols::V4($v4_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -452,8 +484,12 @@ impl<'a> TryFrom<&'a VersionedValidationProtocol> for GossipSupportNetworkMessag
 }
 
 /// Version-annotated messages used by the collator protocol subsystem.
-pub type CollatorProtocolMessage =
-	CollationProtocols<v1::CollatorProtocolMessage, v2::CollatorProtocolMessage>;
+pub type CollatorProtocolMessage = CollationProtocols<
+	v1::CollatorProtocolMessage,
+	v2::CollatorProtocolMessage,
+	v3_collation::CollatorProtocolMessage,
+	v4_collation::AdvertiseSegment,
+>;
 impl_versioned_collation_full_protocol_from!(
 	CollatorProtocolMessage,
 	VersionedCollationProtocol,
@@ -463,7 +499,9 @@ impl_versioned_collation_try_from!(
 	VersionedCollationProtocol,
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) => x,
-	v2::CollationProtocol::CollatorProtocol(x) => x
+	v2::CollationProtocol::CollatorProtocol(x) => x,
+	v3_collation::CollationProtocol::CollatorProtocol(x) => x,
+	x => x
 );
 
 /// v1 notification protocol types.
@@ -532,8 +570,8 @@ pub mod v2 {
 		/// declared that they are a collator with given ID.
 		#[codec(index = 1)]
 		AdvertiseCollation {
-			/// Hash of the relay parent advertised collation is based on.
-			relay_parent: Hash,
+			/// Hash of the scheduling parent - used for validator assignment.
+			scheduling_parent: Hash,
 			/// Candidate hash.
 			candidate_hash: CandidateHash,
 			/// Parachain head data hash before candidate execution.
@@ -552,6 +590,111 @@ pub mod v2 {
 		#[from]
 		CollatorProtocol(CollatorProtocolMessage),
 	}
+}
+
+/// v3 collation protocol types.
+pub mod v3_collation {
+	use codec::{Decode, Encode};
+
+	use polkadot_primitives::{
+		CandidateDescriptorVersion, CandidateHash, CollatorId, CollatorSignature, Hash,
+		Id as ParaId,
+	};
+
+	use polkadot_node_primitives::UncheckedSignedFullStatement;
+
+	/// This part of the protocol did not change from v2, so just alias it in v3.
+	pub use super::v2::declare_signature_payload;
+
+	/// Network messages used by the collator protocol subsystem
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub enum CollatorProtocolMessage {
+		/// Declare the intent to advertise collations under a collator ID, attaching a
+		/// signature of the `PeerId` of the node using the given collator ID key.
+		#[codec(index = 0)]
+		Declare(CollatorId, ParaId, CollatorSignature),
+		/// Advertise a collation to a validator. Can only be sent once the peer has
+		/// declared that they are a collator with given ID.
+		#[codec(index = 1)]
+		AdvertiseCollation {
+			/// Hash of the scheduling parent - used for validator assignment.
+			/// For non-v3 descriptors, this must be equal to the relay parent.
+			scheduling_parent: Hash,
+			/// Candidate hash.
+			candidate_hash: CandidateHash,
+			/// Parachain head data hash before candidate execution.
+			parent_head_data_hash: Hash,
+			/// The version of the candidate descriptor.
+			candidate_descriptor_version: CandidateDescriptorVersion,
+			/// The relay parent of the candidate.
+			relay_parent: Hash,
+		},
+		/// A collation sent to a validator was seconded.
+		#[codec(index = 4)]
+		CollationSeconded(Hash, UncheckedSignedFullStatement),
+	}
+
+	/// All network messages on the collation peer-set.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
+	pub enum CollationProtocol {
+		/// Collator protocol messages
+		#[codec(index = 0)]
+		#[from]
+		CollatorProtocol(CollatorProtocolMessage),
+	}
+}
+
+/// v4 collation protocol types.
+pub mod v4_collation {
+	use codec::{Decode, Encode};
+	// Re-exported so external code can name the bound on `AdvertiseSegment::candidates`.
+	pub use polkadot_node_primitives::MAX_SEGMENT_LEN;
+	use polkadot_primitives::{CandidateDescriptorVersion, Hash, Id as ParaId};
+	use sp_runtime::{traits::ConstU32, BoundedVec};
+
+	/// Advertise an ordered list of unincluded candidates. The list
+	/// is ordered by age. A length 1 segment is the V3 single-candidate
+	/// equivalent.
+	///
+	/// This is the *only* message on the V4 collation peer-set, so it is a struct
+	/// rather than a single-variant enum: there is nothing to discriminate, and a
+	/// tag byte would carry no information. If V4 ever gains a second message, this
+	/// becomes an enum again and the match sites below regain their inner pattern.
+	///
+	/// V4 has no `Declare` message. Although every `AdvertiseSegment`
+	/// carries a `para_id`, the peer is bound to a single para by its
+	/// first advertisement. Sending a different `para_id` in a
+	/// subsequent message results in disconnection.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub struct AdvertiseSegment {
+		/// Hash of the scheduling parent
+		pub scheduling_parent: Hash,
+		/// The para this segment collates for.
+		pub para_id: ParaId,
+		/// Descriptor version for the candidate.
+		pub candidates_descriptor_version: CandidateDescriptorVersion,
+		/// Candidates ordered by age; the list may have gaps.
+		pub candidates: BoundedVec<CandidateFingerprint, ConstU32<MAX_SEGMENT_LEN>>,
+	}
+
+	/// A single entry in the segment advertised by the collator.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub struct CandidateFingerprint {
+		/// Unique and stable identifier of the underlying parachain
+		/// block. Because it's stable across resubmissions this will
+		/// be used for deduplication against validator's fragment chain.
+		pub output_head_data_hash: Hash,
+		/// Parachain head data hash before candidate execution.
+		pub parent_head_data_hash: Hash,
+		/// The claim queue offset.
+		pub claim_queue_offset: u8,
+	}
+
+	/// All network messages on the collation peer-set.
+	///
+	/// V4 carries exactly one message, so the peer-set type is that message itself:
+	/// neither a wrapper enum nor a message enum earns its tag byte here.
+	pub type CollationProtocol = AdvertiseSegment;
 }
 
 /// v3 network protocol types.
@@ -668,11 +811,11 @@ pub mod v3 {
 	/// of the statements backing it.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub struct BackedCandidateManifest {
-		/// The relay-parent of the candidate.
-		pub relay_parent: Hash,
+		/// The scheduling-parent of the candidate.
+		pub scheduling_parent: Hash,
 		/// The hash of the candidate.
 		pub candidate_hash: CandidateHash,
-		/// The group index backing the candidate at the relay-parent.
+		/// The group index backing the candidate at the scheduling-parent.
 		pub group_index: GroupIndex,
 		/// The para ID of the candidate. It is illegal for this to
 		/// be a para ID which is not assigned to the group indicated
@@ -681,12 +824,12 @@ pub mod v3 {
 		/// The head-data corresponding to the candidate.
 		pub parent_head_data_hash: Hash,
 		/// A statement filter which indicates which validators in the
-		/// para's group at the relay-parent have validated this candidate
+		/// para's group at the scheduling-parent have validated this candidate
 		/// and issued statements about it, to the advertiser's knowledge.
 		///
 		/// This MUST have exactly the minimum amount of bytes
 		/// necessary to represent the number of validators in the assigned
-		/// backing group as-of the relay-parent.
+		/// backing group as-of the scheduling-parent.
 		pub statement_knowledge: StatementFilter,
 	}
 
@@ -696,12 +839,12 @@ pub mod v3 {
 		/// The hash of the candidate.
 		pub candidate_hash: CandidateHash,
 		/// A statement filter which indicates which validators in the
-		/// para's group at the relay-parent have validated this candidate
+		/// para's group at the scheduling-parent have validated this candidate
 		/// and issued statements about it, to the advertiser's knowledge.
 		///
 		/// This MUST have exactly the minimum amount of bytes
 		/// necessary to represent the number of validators in the assigned
-		/// backing group as-of the relay-parent.
+		/// backing group as-of the scheduling-parent.
 		pub statement_knowledge: StatementFilter,
 	}
 

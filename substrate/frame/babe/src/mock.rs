@@ -304,6 +304,21 @@ pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
 	new_test_ext_with_pairs(authorities_len).1
 }
 
+pub fn build_and_execute(authorities_len: usize, test: impl FnOnce()) {
+	new_test_ext(authorities_len).execute_with(|| {
+		test();
+		Babe::do_try_state().expect("All invariants must hold after a test");
+	})
+}
+
+pub fn build_and_execute_with_pairs(authorities_len: usize, test: impl FnOnce(Vec<AuthorityPair>)) {
+	let (pairs, mut ext) = new_test_ext_with_pairs(authorities_len);
+	ext.execute_with(|| {
+		test(pairs);
+		Babe::do_try_state().expect("All invariants must hold after a test");
+	})
+}
+
 pub fn new_test_ext_with_pairs(
 	authorities_len: usize,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
@@ -356,6 +371,16 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 	};
 
 	staking_config.assimilate_storage(&mut t).unwrap();
+
+	pallet_babe::GenesisConfig::<Test> {
+		epoch_config: sp_consensus_babe::BabeEpochConfiguration {
+			c: (1, 4),
+			allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
+		},
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	t.into()
 }

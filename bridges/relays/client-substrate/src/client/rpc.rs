@@ -35,7 +35,6 @@ use crate::{
 	TransactionTracker, UnsignedTransaction,
 };
 
-use async_std::sync::{Arc, Mutex, RwLock};
 use async_trait::async_trait;
 use bp_runtime::HeaderIdProvider;
 use codec::Encode;
@@ -58,7 +57,8 @@ use sp_runtime::{
 };
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
-use std::{cmp::Ordering, future::Future, marker::PhantomData};
+use std::{cmp::Ordering, future::Future, marker::PhantomData, sync::Arc};
+use tokio::sync::{Mutex, RwLock};
 
 const MAX_SUBSCRIPTION_CAPACITY: usize = 4096;
 
@@ -88,8 +88,7 @@ pub struct RpcClient<C: Chain> {
 
 /// Client data, shared by all `RpcClient` clones.
 struct ClientData {
-	/// Tokio runtime handle.
-	tokio: Arc<tokio::runtime::Runtime>,
+	tokio: tokio::runtime::Handle,
 	/// Substrate RPC client.
 	client: Arc<WsClient>,
 }
@@ -128,7 +127,7 @@ impl<C: Chain> RpcClient<C> {
 				),
 			}
 
-			async_std::task::sleep(RECONNECT_DELAY).await;
+			tokio::time::sleep(RECONNECT_DELAY).await;
 		}
 	}
 
@@ -195,8 +194,10 @@ impl<C: Chain> RpcClient<C> {
 	/// Build client to use in connection.
 	async fn build_client(
 		params: &ConnectionParams,
-	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
-		let tokio = tokio::runtime::Runtime::new()?;
+	) -> Result<(tokio::runtime::Handle, Arc<WsClient>)> {
+		let tokio = tokio::runtime::Handle::try_current().map_err(|e| {
+			Error::Custom(format!("Failed to obtain current tokio runtime handle: {e}"))
+		})?;
 		let uri = params.uri.clone();
 		tracing::info!(target: "bridge", node=%C::NAME, %uri, "Connecting");
 
@@ -209,7 +210,7 @@ impl<C: Chain> RpcClient<C> {
 			})
 			.await??;
 
-		Ok((Arc::new(tokio), Arc::new(client)))
+		Ok((tokio, Arc::new(client)))
 	}
 
 	/// Execute jsonrpsee future in tokio context.
@@ -677,7 +678,7 @@ mod tests {
 			.0
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn ensure_correct_runtime_version_works() {
 		// when we are configured to use auto version
 		assert!(matches!(

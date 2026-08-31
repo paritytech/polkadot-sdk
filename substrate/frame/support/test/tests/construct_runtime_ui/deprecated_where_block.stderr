@@ -961,7 +961,7 @@ help: the trait `Config` is not implemented for `Runtime`
 help: the trait `Serialize` is implemented for `GenesisConfig<T>`
     --> $WORKSPACE/substrate/frame/system/src/lib.rs
      |
- 299 | #[frame_support::pallet]
+ 300 | #[frame_support::pallet]
      | ^^^^^^^^^^^^^^^^^^^^^^^^
      = note: required for `GenesisConfig<Runtime>` to implement `Serialize`
 note: required by a bound in `frame_support::sp_runtime::serde::ser::SerializeStruct::serialize_field`

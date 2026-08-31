@@ -18,13 +18,26 @@
 
 //! RPC middleware to collect prometheus metrics on RPC calls.
 
-use std::time::Instant;
+use std::{sync::LazyLock, time::Instant};
 
 use jsonrpsee::{types::Request, MethodResponse};
+use prometheus::core::{GenericCounter, GenericGauge};
 use prometheus_endpoint::{
 	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
 	U64,
 };
+
+/// Total number of RPC threads created.
+pub(crate) static RPC_THREADS_TOTAL: LazyLock<GenericCounter<U64>> = LazyLock::new(|| {
+	GenericCounter::new("substrate_rpc_threads_total", "Total number of RPC threads created")
+		.expect("Creating of statics doesn't fail. qed")
+});
+
+/// Number of RPC threads currently alive.
+pub(crate) static RPC_THREADS_ALIVE: LazyLock<GenericGauge<U64>> = LazyLock::new(|| {
+	GenericGauge::new("substrate_rpc_threads_alive", "Number of RPC threads currently alive")
+		.expect("Creating of statics doesn't fail. qed")
+});
 
 /// Histogram time buckets in microseconds.
 const HISTOGRAM_BUCKETS: [f64; 11] = [
@@ -51,6 +64,10 @@ pub struct RpcMetrics {
 	calls_started: CounterVec<U64>,
 	/// Number of calls completed.
 	calls_finished: CounterVec<U64>,
+	/// Number of calls rejected due to rate limiting.
+	calls_rejected: CounterVec<U64>,
+	/// Number of rate limit retries.
+	calls_retried: CounterVec<U64>,
 	/// Number of Websocket sessions opened.
 	ws_sessions_opened: Option<Counter<U64>>,
 	/// Number of Websocket sessions closed.
@@ -63,6 +80,10 @@ impl RpcMetrics {
 	/// Create an instance of metrics
 	pub fn new(metrics_registry: Option<&Registry>) -> Result<Option<Self>, PrometheusError> {
 		if let Some(metrics_registry) = metrics_registry {
+			// Register RPC thread metrics
+			metrics_registry.register(Box::new(RPC_THREADS_TOTAL.clone()))?;
+			metrics_registry.register(Box::new(RPC_THREADS_ALIVE.clone()))?;
+
 			Ok(Some(Self {
 				calls_time: register(
 					HistogramVec::new(
@@ -92,6 +113,26 @@ impl RpcMetrics {
 							"Number of processed RPC calls (unique un-batched requests)",
 						),
 						&["protocol", "method", "is_error", "is_rate_limited"],
+					)?,
+					metrics_registry,
+				)?,
+				calls_rejected: register(
+					CounterVec::new(
+						Opts::new(
+							"substrate_rpc_calls_rejected",
+							"Number of RPC calls rejected due to rate limiting",
+						),
+						&["protocol", "method"],
+					)?,
+					metrics_registry,
+				)?,
+				calls_retried: register(
+					CounterVec::new(
+						Opts::new(
+							"substrate_rpc_calls_retried",
+							"Number of rate limit retries for RPC calls",
+						),
+						&["protocol", "method"],
 					)?,
 					metrics_registry,
 				)?,
@@ -148,6 +189,28 @@ impl RpcMetrics {
 		);
 
 		self.calls_started
+			.with_label_values(&[transport_label, req.method_name()])
+			.inc();
+	}
+
+	pub(crate) fn on_rejected(&self, req: &Request, transport_label: &'static str) {
+		log::trace!(
+			target: "rpc_metrics",
+			"[{transport_label}] {} call rejected due to rate limiting",
+			req.method_name(),
+		);
+		self.calls_rejected
+			.with_label_values(&[transport_label, req.method_name()])
+			.inc();
+	}
+
+	pub(crate) fn on_retry(&self, req: &Request, transport_label: &'static str) {
+		log::trace!(
+			target: "rpc_metrics",
+			"[{transport_label}] {} call retrying due to rate limiting",
+			req.method_name(),
+		);
+		self.calls_retried
 			.with_label_values(&[transport_label, req.method_name()])
 			.inc();
 	}
@@ -213,6 +276,14 @@ impl Metrics {
 
 	pub(crate) fn on_call(&self, req: &Request) {
 		self.inner.on_call(req, self.transport_label)
+	}
+
+	pub(crate) fn on_rejected(&self, req: &Request) {
+		self.inner.on_rejected(req, self.transport_label)
+	}
+
+	pub(crate) fn on_retry(&self, req: &Request) {
+		self.inner.on_retry(req, self.transport_label)
 	}
 
 	pub(crate) fn on_response(

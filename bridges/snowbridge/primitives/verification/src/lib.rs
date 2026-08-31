@@ -9,6 +9,8 @@ use snowbridge_beacon_primitives::{BeaconHeader, ExecutionProof};
 use sp_core::{H160, H256};
 use sp_std::prelude::*;
 
+pub mod receipt;
+
 /// A trait for verifying inbound messages from Ethereum.
 pub trait Verifier {
 	fn verify(event: &Log, proof: &Proof) -> Result<(), VerificationError>;
@@ -27,6 +29,9 @@ pub enum VerificationError {
 	InvalidProof,
 	/// Unable to verify the execution header with ancestry proof
 	InvalidExecutionProof(#[codec(skip)] &'static str),
+	/// The verifier is halted. Proofs cannot be verified while the bridge is in an emergency
+	/// halted state (e.g. a compromised beacon light client).
+	Halted,
 }
 
 /// A bridge message from the Gateway contract on Ethereum
@@ -44,6 +49,7 @@ pub struct Log {
 	pub address: H160,
 	pub topics: Vec<H256>,
 	pub data: Vec<u8>,
+	pub tx_index: u64,
 }
 
 /// Inclusion proof for a transaction receipt

@@ -1,0 +1,10 @@
+title: try state check for pallet babe
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces the try_state hook to pallet-babe to verify all key storage invariants.
+
+    closes part of https://github.com/paritytech/polkadot-sdk/issues/239
+crates:
+- name: pallet-babe
+  bump: minor

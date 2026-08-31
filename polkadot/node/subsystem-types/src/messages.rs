@@ -24,6 +24,7 @@
 
 use futures::channel::oneshot;
 use sc_network::{Multiaddr, ReputationChange};
+use sp_runtime::{traits::ConstU32, BoundedVec};
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -37,23 +38,23 @@ use polkadot_node_primitives::{
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
-	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
-	SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD, SubmitCollationParams,
-	ValidationResult,
+	DisputeMessage, DisputeStatus, ErasureChunk, PoV, SignedDisputeStatement, SignedFullStatement,
+	SignedFullStatementWithPVD, SubmitSegmentParams, ValidationResult, MAX_SEGMENT_LEN,
 };
 use polkadot_primitives::{
 	self,
 	async_backing::{self, Constraints},
-	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
-	CandidateReceiptV2 as CandidateReceipt,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
+	CoalescedApprovalCandidateHashes, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
+	HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo,
+	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -71,12 +72,29 @@ pub use network_bridge_event::NetworkBridgeEvent;
 pub struct CanSecondRequest {
 	/// Para id of the candidate.
 	pub candidate_para_id: ParaId,
-	/// The relay-parent of the candidate.
-	pub candidate_relay_parent: Hash,
+	/// The scheduling parent of the candidate (for V3, may differ from execution relay_parent).
+	pub candidate_scheduling_parent: Hash,
 	/// Hash of the candidate.
 	pub candidate_hash: CandidateHash,
 	/// Parent head data hash.
 	pub parent_head_data_hash: Hash,
+}
+
+/// A reference to a backable candidate along with its scheduling parent.
+///
+/// The scheduling parent determines which validator group is responsible
+/// for backing this candidate and is used to look up per-scheduling-parent state.
+///
+/// This is distinct from `BackedCandidate` which includes the full candidate
+/// data and backing signatures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BackableCandidateRef {
+	/// The hash of the candidate that can be backed.
+	pub candidate_hash: CandidateHash,
+	/// The scheduling parent hash used for validator group assignment.
+	/// For V3 candidates, this may differ from the candidate's relay_parent.
+	/// For V1/V2 candidates, this equals the relay_parent.
+	pub scheduling_parent: Hash,
 }
 
 /// Messages received by the Candidate Backing subsystem.
@@ -84,15 +102,21 @@ pub struct CanSecondRequest {
 pub enum CandidateBackingMessage {
 	/// Requests a set of backable candidates attested by the subsystem.
 	///
+	/// The input is a map from `ParaId` to a vector of backable candidate references.
+	/// Each reference contains the candidate hash and its scheduling parent (used for
+	/// validator group assignment).
+	///
 	/// The order of candidates of the same para must be preserved in the response.
 	/// If a backed candidate of a para cannot be retrieved, the response should not contain any
 	/// candidates of the same para that follow it in the input vector. In other words, assuming
 	/// candidates are supplied in dependency order, we must ensure that this dependency order is
 	/// preserved.
-	GetBackableCandidates(
-		HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
-		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
-	),
+	GetBackableCandidates {
+		/// Map from para ID to backable candidate references with their scheduling parents.
+		candidates: HashMap<ParaId, Vec<BackableCandidateRef>>,
+		/// Channel to send the backed candidates (with full signatures).
+		sender: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
+	},
 	/// Request the subsystem to check whether it's allowed to second given candidate.
 	/// The rule is to only fetch collations that can either be directly chained to any
 	/// FragmentChain in the view or there is at least one FragmentChain where this candidate is a
@@ -103,13 +127,29 @@ pub enum CandidateBackingMessage {
 	/// parent.
 	CanSecond(CanSecondRequest, oneshot::Sender<bool>),
 	/// Note that the Candidate Backing subsystem should second the given candidate in the context
-	/// of the given relay-parent (ref. by hash). This candidate must be validated.
-	Second(Hash, CandidateReceipt, PersistedValidationData, PoV),
+	/// of the given scheduling parent (ref. by hash). This candidate must be validated.
+	Second {
+		/// The scheduling parent hash (determines validator group assignment).
+		/// TODO: Once node feature is assumed to be enabled, remove this redundant field and use
+		/// scheduling_parent of the descriptor directly: <https://github.com/paritytech/polkadot-sdk/issues/10883#issue-3844123650>
+		scheduling_parent: Hash,
+		/// The candidate to second.
+		candidate: CandidateReceipt,
+		/// Persisted validation data.
+		pvd: PersistedValidationData,
+		/// Proof of validity.
+		pov: PoV,
+	},
 	/// Note a validator's statement about a particular candidate in the context of the given
-	/// relay-parent. Disagreements about validity must be escalated to a broader check by the
+	/// scheduling parent. Disagreements about validity must be escalated to a broader check by the
 	/// Disputes Subsystem, though that escalation is deferred until the approval voting stage to
 	/// guarantee availability. Agreements are simply tallied until a quorum is reached.
-	Statement(Hash, SignedFullStatementWithPVD),
+	Statement {
+		/// The scheduling parent hash (determines validator group context).
+		scheduling_parent: Hash,
+		/// The signed statement with persisted validation data.
+		statement: SignedFullStatementWithPVD,
+	},
 }
 
 /// Blanket error for validation failing for internal reasons.
@@ -164,8 +204,12 @@ pub enum CandidateValidationMessage {
 		candidate_receipt: CandidateReceipt,
 		/// The proof-of-validity
 		pov: Arc<PoV>,
-		/// Session's executor parameters
-		executor_params: ExecutorParams,
+		/// Scheduling session index for this candidate. For V1 descriptors this
+		/// equals the relay-parent session and serves as fallback for both
+		/// execution and scheduling session. For V2+, sessions are in the
+		/// descriptor and this field is ignored. Can be removed once V1 support
+		/// is dropped.
+		scheduling_session_index: SessionIndex,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
@@ -223,6 +267,55 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 	}
 }
 
+/// A fully built segment entry.
+/// The collator protocol assembles a `CandidateReceipt` from these
+/// fields and the segment level commons.
+#[derive(Debug)]
+pub struct SegmentEntry {
+	/// Relay parent the candidate builds on.
+	pub relay_parent: Hash,
+	/// The relay parent's session index.
+	pub session_index: SessionIndex,
+	/// Hash of the validation code the candidate is validated against.
+	pub validation_code_hash: ValidationCodeHash,
+	/// Hash of the candidate's persisted validation data.
+	pub persisted_validation_data_hash: Hash,
+	/// Erasure root of the candidate's available data.
+	pub erasure_root: Hash,
+	/// Hash of the candidate commitments.
+	pub commitments_hash: Hash,
+	/// Hash of the parachain head data produced by the candidate. Stable
+	/// across resubmissions; doubles as the fingerprint identity and the
+	/// collation storage key.
+	pub output_head_data_hash: Hash,
+	/// Proof of validity for the candidate.
+	pub pov: PoV,
+	/// Parachain head data before candidate execution.
+	pub parent_head_data: HeadData,
+}
+
+/// The candidates of one `DistributeSegment` message, shaped by descriptor
+/// version.
+#[derive(Debug)]
+pub enum Segment {
+	/// A V2-descriptor segment: exactly one candidate, always built. The
+	/// entry's `relay_parent` doubles as the scheduling parent.
+	V2(SegmentEntry),
+	/// A V3-descriptor segment: candidates ordered by age, sharing one
+	/// scheduling parent.
+	V3 {
+		/// The scheduling parent shared by all candidates in the segment.
+		scheduling_parent: Hash,
+		/// The scheduling parent's session index.
+		scheduling_session: SessionIndex,
+		/// Ordered candidates; the list may have gaps. Every entry is fully
+		/// built. When on-demand candidate building lands, entries become
+		/// fingerprint advertisements materialized at fetch time, and
+		/// `SegmentEntry` leaves this message entirely.
+		candidates: BoundedVec<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>,
+	},
+}
+
 /// Messages received by the Collator Protocol subsystem.
 #[derive(Debug, derive_more::From)]
 pub enum CollatorProtocolMessage {
@@ -231,24 +324,17 @@ pub enum CollatorProtocolMessage {
 	/// all, and only by the Collation Generation subsystem. As such, it will overwrite the value
 	/// of the previous signal.
 	///
-	/// This should be sent before any `DistributeCollation` message.
+	/// This should be sent before any `DistributeSegment` message.
 	CollateOn(ParaId),
-	/// Provide a collation to distribute to validators with an optional result sender.
-	DistributeCollation {
-		/// The receipt of the candidate.
-		candidate_receipt: CandidateReceipt,
-		/// The hash of the parent head-data.
-		/// Here to avoid computing the hash of the parent head data twice.
-		parent_head_data_hash: Hash,
-		/// Proof of validity.
-		pov: PoV,
-		/// This parent head-data is needed for elastic scaling.
-		parent_head_data: HeadData,
-		/// The result sender should be informed when at least one parachain validator seconded the
-		/// collation. It is also completely okay to just drop the sender.
-		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
-		/// The core index where the candidate should be backed.
+	/// Provide an ordered list of collations to the validators.
+	DistributeSegment {
+		/// Core index on which every candidate is to be backed on.
 		core_index: CoreIndex,
+		/// Id of the parachain the candidates are for
+		para_id: ParaId,
+		/// The segment: scheduling context and candidates, shaped by
+		/// descriptor version.
+		segment: Segment,
 	},
 	/// Get a network bridge update.
 	#[from]
@@ -256,7 +342,7 @@ pub enum CollatorProtocolMessage {
 	/// We recommended a particular candidate to be seconded, but it was invalid; penalize the
 	/// collator.
 	///
-	/// The hash is the relay parent.
+	/// The hash is the scheduling parent.
 	Invalid(Hash, CandidateReceipt),
 	/// The candidate we recommended to be seconded was validated successfully.
 	///
@@ -795,6 +881,17 @@ pub enum RuntimeApiRequest {
 	UnappliedSlashesV2(
 		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	),
+	/// Get the maximum relay parent session age allowed for parachain blocks.
+	/// `V16`
+	MaxRelayParentSessionAge(SessionIndex, RuntimeApiSender<u32>),
+	/// Look up relay parent info for an **ancestor** block. A block is not in its
+	/// own `AllowedRelayParents`, so querying a block about itself returns `None`.
+	/// Use the node-side `check_relay_parent_session` utility for the general case. `V16`
+	AncestorRelayParentInfo(
+		SessionIndex,
+		Hash,
+		RuntimeApiSender<Option<RelayParentInfo<Hash, BlockNumber>>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -850,6 +947,12 @@ impl RuntimeApiRequest {
 
 	/// `UnappliedSlashesV2`
 	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
+
+	/// `MaxRelayParentSessionAge`
+	pub const MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT: u32 = 16;
+
+	/// `AncestorRelayParentInfo`
+	pub const ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT: u32 = 16;
 }
 
 /// A message to the Runtime API subsystem.
@@ -923,11 +1026,12 @@ pub enum CollationGenerationMessage {
 	Initialize(CollationGenerationConfig),
 	/// Reinitialize the collation generation subsystem, overriding the existing config.
 	Reinitialize(CollationGenerationConfig),
-	/// Submit a collation to the subsystem. This will package it into a signed
-	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
+	/// Submit a segment of collations that share a scheduling parent and target core. Each
+	/// collation is packaged into a signed [`CommittedCandidateReceipt`] and distributed to
+	/// validators, in the order they appear in [`SubmitSegmentParams::collations`].
 	///
 	/// If sent before `Initialize`, this will be ignored.
-	SubmitCollation(SubmitCollationParams),
+	SubmitSegment(SubmitSegmentParams),
 }
 
 /// The result type of [`ApprovalVotingMessage::ImportAssignment`] request.
@@ -1026,7 +1130,9 @@ pub enum ApprovalVotingParallelMessage {
 	/// Gets mapped into `ApprovalVotingMessage::GetApprovalSignaturesForCandidate`
 	GetApprovalSignaturesForCandidate(
 		CandidateHash,
-		oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
+		oneshot::Sender<
+			HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
+		>,
 	),
 	/// Gets mapped into `ApprovalDistributionMessage::NewBlocks`
 	NewBlocks(Vec<BlockApprovalMeta>),
@@ -1208,7 +1314,9 @@ pub enum ApprovalVotingMessage {
 	/// requires calling into `approval-distribution`: Calls should be infrequent and bounded.
 	GetApprovalSignaturesForCandidate(
 		CandidateHash,
-		oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
+		oneshot::Sender<
+			HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
+		>,
 	),
 }
 
@@ -1285,8 +1393,8 @@ pub enum HypotheticalCandidate {
 		candidate_para: ParaId,
 		/// The claimed head-data hash of the candidate.
 		parent_head_data_hash: Hash,
-		/// The claimed relay parent of the candidate.
-		candidate_relay_parent: Hash,
+		/// The claimed scheduling parent of the candidate.
+		candidate_scheduling_parent: Hash,
 	},
 }
 
@@ -1319,14 +1427,18 @@ impl HypotheticalCandidate {
 		}
 	}
 
-	/// Get candidate's relay parent.
-	pub fn relay_parent(&self) -> Hash {
+	/// Get candidate's scheduling parent.
+	///
+	/// For `Complete` candidates, this is the scheduling parent from the descriptor
+	/// (which equals relay_parent for V1/V2 descriptors).
+	/// For `Incomplete` candidates, this is the claimed scheduling parent.
+	pub fn scheduling_parent(&self) -> Hash {
 		match *self {
 			HypotheticalCandidate::Complete { ref receipt, .. } => {
-				receipt.descriptor.relay_parent()
+				receipt.descriptor.scheduling_parent()
 			},
-			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } => {
-				candidate_relay_parent
+			HypotheticalCandidate::Incomplete { candidate_scheduling_parent, .. } => {
+				candidate_scheduling_parent
 			},
 		}
 	}
@@ -1390,6 +1502,8 @@ pub struct ProspectiveValidationDataRequest {
 	pub para_id: ParaId,
 	/// The relay-parent of the candidate.
 	pub candidate_relay_parent: Hash,
+	/// The session index of the candidate's relay parent
+	pub session_index: SessionIndex,
 	/// The parent head-data.
 	pub parent_head_data: ParentHeadData,
 }
@@ -1437,20 +1551,26 @@ pub enum ProspectiveParachainsMessage {
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	CandidateBacked(ParaId, CandidateHash),
-	/// Try getting N backable candidate hashes along with their relay parents for the given
-	/// parachain, under the given relay-parent hash, which is a descendant of the given ancestors.
+	/// Get N backable candidate references with their scheduling parents for the given
+	/// parachain, under the given relay chain leaf hash.
+	///
 	/// Timed out ancestors should not be included in the collection.
 	/// N should represent the number of scheduled cores of this ParaId.
 	/// A timed out ancestor frees the cores of all of its descendants, so if there's a hole in the
 	/// supplied ancestor path, we'll get candidates that backfill those timed out slots first. It
 	/// may also return less/no candidates, if there aren't enough backable candidates recorded.
-	GetBackableCandidates(
-		Hash,
-		ParaId,
-		u32,
-		Ancestors,
-		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
-	),
+	GetBackableCandidates {
+		/// The relay chain leaf hash under which to query. Must be an active leaf.
+		leaf: Hash,
+		/// The parachain to get backable candidates for.
+		para_id: ParaId,
+		/// The maximum number of candidates to return.
+		count: u32,
+		/// Required ancestor path for the candidates.
+		ancestors: Ancestors,
+		/// Channel to send the result.
+		sender: oneshot::Sender<Vec<BackableCandidateRef>>,
+	},
 	/// Get the hypothetical or actual membership of candidates with the given properties
 	/// under the specified active leave's fragment chain.
 	///

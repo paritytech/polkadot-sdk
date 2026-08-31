@@ -15,6 +15,7 @@ workspace = true
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true }
 log = { workspace = true }
 rustc-hex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -54,7 +55,7 @@ pallet-babe = { optional = true, workspace = true }
 
 polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
-k256 = { features = ["alloc", "ecdsa"], workspace = true }
+registrar-primitives = { workspace = true }
 
 slot-range-helper = { workspace = true }
 xcm = { workspace = true }
@@ -98,6 +99,7 @@ std = [
 	"pallet-vesting/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
+	"registrar-primitives/std",
 	"rustc-hex/std",
 	"scale-info/std",
 	"k256/std",

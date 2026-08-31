@@ -24,12 +24,18 @@
 //! The sender is responsible for getting our vote out, see `sender`. The receiver handles
 //! incoming [`DisputeRequest`](v1::DisputeRequest)s and offers spam protection, see `receiver`.
 
-use std::time::Duration;
+use std::{
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+	time::Duration,
+};
 
 use futures::{channel::mpsc, FutureExt, StreamExt, TryFutureExt};
 
 use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
-use polkadot_node_subsystem_util::nesting_sender::NestingSender;
+use polkadot_node_subsystem_util::{nesting_sender::NestingSender, request_node_features};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::request_response::{incoming::IncomingRequestReceiver, v1};
@@ -39,6 +45,7 @@ use polkadot_node_subsystem::{
 	SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{runtime, runtime::RuntimeInfo};
+use polkadot_primitives::node_features::FeatureIndex;
 
 /// ## The sender [`DisputeSender`]
 ///
@@ -132,6 +139,11 @@ pub struct DisputeDistributionSubsystem<AD> {
 
 	/// Metrics for this subsystem.
 	metrics: Metrics,
+
+	/// Monotonic flag: set to `true` once any activated leaf has the `CandidateReceiptV3`
+	/// node feature enabled. Shared with the receiver task via `Arc<AtomicBool>`.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
+	v3_ever_seen: Arc<AtomicBool>,
 }
 
 #[overseer::subsystem(DisputeDistribution, error = SubsystemError, prefix = self::overseer)]
@@ -176,6 +188,7 @@ where
 			req_receiver: Some(req_receiver),
 			authority_discovery,
 			metrics,
+			v3_ever_seen: Arc::new(AtomicBool::new(false)),
 		}
 	}
 
@@ -188,6 +201,7 @@ where
 				.expect("Must be provided on `new` and we take ownership here. qed."),
 			self.authority_discovery.clone(),
 			self.metrics.clone(),
+			self.v3_ever_seen.clone(),
 		);
 		ctx.spawn("disputes-receiver", receiver.run().boxed())
 			.map_err(FatalError::SpawnTask)?;
@@ -240,8 +254,38 @@ where
 	) -> Result<SignalResult> {
 		match signal {
 			OverseerSignal::Conclude => return Ok(SignalResult::Conclude),
-			OverseerSignal::ActiveLeaves(update) => {
-				self.disputes_sender.update_leaves(ctx, &mut self.runtime, update).await?;
+			OverseerSignal::ActiveLeaves(ref update) => {
+				// Detect V3 node feature on activated leaves (same approach as
+				// dispute-coordinator and candidate-validation).
+				if !self.v3_ever_seen.load(Ordering::Relaxed) {
+					if let Some(ref activated) = update.activated {
+						if let Ok(session_index) = self
+							.runtime
+							.get_session_index_for_child(ctx.sender(), activated.hash)
+							.await
+						{
+							if let Ok(Ok(features)) =
+								request_node_features(activated.hash, session_index, ctx.sender())
+									.await
+									.await
+							{
+								if FeatureIndex::CandidateReceiptV3.is_set(&features) {
+									gum::info!(
+										target: LOG_TARGET,
+										?session_index,
+										"CandidateReceiptV3 node feature detected in \
+										 dispute-distribution",
+									);
+									self.v3_ever_seen.store(true, Ordering::Relaxed);
+								}
+							}
+						}
+					}
+				}
+
+				self.disputes_sender
+					.update_leaves(ctx, &mut self.runtime, update.clone())
+					.await?;
 			},
 			OverseerSignal::BlockFinalized(_, _) => {},
 		};
@@ -256,7 +300,10 @@ where
 	) -> Result<()> {
 		match msg {
 			DisputeDistributionMessage::SendDispute(dispute_msg) => {
-				self.disputes_sender.start_sender(ctx, &mut self.runtime, dispute_msg).await?
+				let v3_ever_seen = self.v3_ever_seen.load(Ordering::Relaxed);
+				self.disputes_sender
+					.start_sender(ctx, &mut self.runtime, dispute_msg, v3_ever_seen)
+					.await?
 			},
 		}
 		Ok(())

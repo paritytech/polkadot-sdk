@@ -1,0 +1,14 @@
+title: Add CandidateDescriptorV3 support to experimental validator
+doc:
+- audience: Node Dev
+  description: |-
+    Adds CandidateDescriptorV3 support to the experimental validator-side collator protocol.
+
+    Fixes: #11084
+crates:
+- name: polkadot-node-core-backing
+  bump: minor
+- name: polkadot-collator-protocol
+  bump: minor
+- name: polkadot-primitives
+  bump: minor

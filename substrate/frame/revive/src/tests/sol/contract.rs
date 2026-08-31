@@ -26,7 +26,7 @@ use crate::{
 	evm::{decode_revert_reason, fees::InfoT},
 	metering::TransactionLimits,
 	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
-	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, Test, builder},
+	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, builder},
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -34,7 +34,7 @@ use alloy_core::{
 };
 use frame_support::{
 	assert_err,
-	traits::fungible::{Balanced, Mutate},
+	traits::fungible::{Balanced, Inspect, Mutate},
 };
 use itertools::Itertools;
 use pallet_revive_fixtures::{Callee, Caller, FixtureType, Host, compile_module_with_type};
@@ -221,7 +221,6 @@ fn deploy_revert() {
 
 // This test has a `caller` contract calling into a `callee` contract which then executes the
 // INVALID opcode. INVALID consumes all gas which means that it will error with OutOfGas.
-#[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
@@ -233,6 +232,9 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
+		// Pass a large gas stipend to the callee
+		let gas_limit = 200_000_000_000u64;
+
 		// Instantiate the callee contract, which can echo a value.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
@@ -241,23 +243,29 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr)
+		let contract_result = builder::bare_call(caller_addr)
 			.data(
 				Caller::normalCall {
 					_callee: callee_addr.0.into(),
 					_value: 0,
 					_data: Callee::invalidCall {}.abi_encode().into(),
-					_gas: u64::MAX,
+					_gas: gas_limit,
 				}
 				.abi_encode(),
 			)
-			.build_and_unwrap_result();
-		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+			.build();
 
-		assert!(!result.success, "Invalid opcode should propagate as error");
-
-		let data = result.output.as_ref();
-		assert!(data.iter().all(|&x| x == 0), "Returned data should be empty")
+		let result = contract_result.result.expect("Outer call should succeed");
+		assert!(
+			contract_result.gas_consumed > gas_limit as u128,
+			"Inner call should consume all forwarded gas. Consumed: {}, Limit: {}",
+			contract_result.gas_consumed,
+			gas_limit
+		);
+		let decoded = Caller::normalCall::abi_decode_returns(&result.data)
+			.expect("Should decode return data");
+		assert!(!decoded.success, "INVALID opcode should cause inner call to fail");
+		assert!(decoded.output.is_empty(), "Output should be empty on INVALID opcode");
 	});
 }
 
@@ -268,7 +276,7 @@ fn invalid_opcode_evm() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// Instantiate the callee contract, which can echo a value.
+		// Instantiate the callee contract.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
@@ -290,7 +298,7 @@ fn call_stop_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// Instantiate the callee contract, which can echo a value.
+		// Instantiate the callee contract.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
@@ -693,6 +701,188 @@ fn instantiate_from_constructor_works() {
 	});
 }
 
+/// Root creates a contract via nested CREATE in block N and destroys it via the
+/// system precompile in block N+1. Exercises the full `do_terminate` path under
+/// Root and confirms the deposit waiver holds across both calls.
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn root_call_can_create_and_destroy_in_next_block(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	use crate::{
+		AccountInfo, HoldReason, Pallet,
+		address::AddressMapper,
+		test_utils::DJANGO_ADDR,
+		tests::{System, initialize_block, test_utils::get_balance_on_hold},
+	};
+	use alloy_core::primitives::Address;
+	use pallet_revive_fixtures::{
+		NestedChild::{NestedChildCalls, destroyViaPrecompileCall},
+		NestedDeployer::{NestedDeployerCalls, deployChildCall},
+	};
+
+	let (code, _) = compile_module_with_type("NestedDeployer", caller_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+
+		if caller_type == FixtureType::Resolc {
+			let (child_code, _) = compile_module_with_type("NestedChild", callee_type).unwrap();
+			Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		}
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
+
+		// Snapshot balances/holds the two Root calls must not touch.
+		let storage_hold = HoldReason::StorageDepositReserve.into();
+		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
+		let pallet_account = Pallet::<Test>::account_id();
+		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
+		let deployer_free_before = <<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
+		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
+
+		// Block 1: Root creates the child via nested CREATE.
+		let create_result = builder::bare_call(addr)
+			.origin(RuntimeOrigin::root())
+			.data(NestedDeployerCalls::deployChild(deployChildCall {}).abi_encode())
+			.build_and_unwrap_result();
+		assert!(!create_result.did_revert());
+		let returned: Address = deployChildCall::abi_decode_returns(&create_result.data).unwrap();
+		let child_addr = H160::from_slice(returned.as_slice());
+		assert!(AccountInfo::<Test>::load_contract(&child_addr).is_some());
+
+		// Deposits stayed waived across the Root create.
+		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+
+		// Block 2: Root tells the child to self-terminate via the system precompile.
+		initialize_block(System::block_number() + 1);
+		let destroy_result = builder::bare_call(child_addr)
+			.origin(RuntimeOrigin::root())
+			.data(
+				NestedChildCalls::destroyViaPrecompile(destroyViaPrecompileCall {
+					beneficiary: DJANGO_ADDR.0.into(),
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!destroy_result.did_revert(), "Root cross-tx terminate should succeed");
+
+		assert!(
+			AccountInfo::<Test>::load_contract(&child_addr).is_none(),
+			"child must be destroyed by the cross-block terminate call",
+		);
+
+		// Deposits stayed waived across both Root calls.
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+		if caller_type == FixtureType::Solc {
+			assert_eq!(
+				get_balance_on_hold(&upload_hold, &pallet_account),
+				pallet_upload_hold_before
+			);
+		}
+	});
+}
+
+/// Sibling of the cross-block test, but using the Solidity `selfdestruct` opcode
+/// (`only_if_same_tx: true`). To actually reach `do_terminate` past the EIP-6780
+/// gate at [exec.rs] `contracts_to_destroy`, creation and destruction must
+/// happen in the same tx — covers the `only_if_same_tx: true` branch.
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn root_call_can_create_and_destroy_in_same_tx(caller_type: FixtureType, callee_type: FixtureType) {
+	use crate::{
+		AccountInfo, HoldReason, Pallet, address::AddressMapper, test_utils::DJANGO_ADDR,
+		tests::test_utils::get_balance_on_hold,
+	};
+	use alloy_core::primitives::Address;
+	use pallet_revive_fixtures::NestedDeployer::{NestedDeployerCalls, deployAndDestroyChildCall};
+
+	let (code, _) = compile_module_with_type("NestedDeployer", caller_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+
+		if caller_type == FixtureType::Resolc {
+			let (child_code, _) = compile_module_with_type("NestedChild", callee_type).unwrap();
+			Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		}
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000_000_000);
+
+		let storage_hold = HoldReason::StorageDepositReserve.into();
+		let upload_hold = HoldReason::CodeUploadDepositReserve.into();
+		let pallet_account = Pallet::<Test>::account_id();
+		let deployer_storage_hold_before = get_balance_on_hold(&storage_hold, &account_id);
+		let deployer_free_before = <<Test as Config>::Currency as Inspect<_>>::balance(&account_id);
+		let pallet_upload_hold_before = get_balance_on_hold(&upload_hold, &pallet_account);
+
+		let result = builder::bare_call(addr)
+			.origin(RuntimeOrigin::root())
+			.data(
+				NestedDeployerCalls::deployAndDestroyChild(deployAndDestroyChildCall {
+					beneficiary: DJANGO_ADDR.0.into(),
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "Root nested CREATE + SELFDESTRUCT should succeed");
+
+		let returned: Address =
+			deployAndDestroyChildCall::abi_decode_returns(&result.data).unwrap();
+		let child_addr = H160::from_slice(returned.as_slice());
+
+		// EIP-6780: created-and-destroyed in the same tx must actually remove the
+		// contract. Before the do_terminate fix this silently failed under Root and
+		// the ContractInfo stayed put.
+		assert!(
+			AccountInfo::<Test>::load_contract(&child_addr).is_none(),
+			"child contract must have been terminated, not silently left on-chain",
+		);
+
+		let child_id = <Test as crate::Config>::AddressMapper::to_account_id(&child_addr);
+		assert_eq!(get_balance_on_hold(&storage_hold, &child_id), 0);
+		assert_eq!(get_balance_on_hold(&storage_hold, &account_id), deployer_storage_hold_before);
+		assert_eq!(
+			<<Test as Config>::Currency as Inspect<_>>::balance(&account_id),
+			deployer_free_before,
+		);
+		if caller_type == FixtureType::Solc {
+			assert_eq!(
+				get_balance_on_hold(&upload_hold, &pallet_account),
+				pallet_upload_hold_before
+			);
+		}
+	});
+}
+
 /// No resolc caller since the subcall limiting is not implemented on resolc, yet.
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
@@ -815,4 +1005,50 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 			assert_eq!(case.result, result);
 		});
 	}
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+fn delegatecall_with_large_deposit_limit_succeeds(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		// Use a very large deposit limit to trigger the bug scenario
+		let large_deposit_limit: u128 = u64::MAX as _;
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: large_deposit_limit,
+			})
+			.build();
+
+		// The call must succeed - before the fix, this would fail with OutOfGas
+		let exec_result = result.result.expect("call must not fail");
+		let decoded = Caller::delegateCall::abi_decode_returns(&exec_result.data).unwrap();
+		assert!(decoded.success, "delegatecall must succeed");
+
+		let echo_result = Callee::echoCall::abi_decode_returns(&decoded.output).unwrap();
+		assert_eq!(echo_result, 42, "echo must return the magic number");
+	});
 }

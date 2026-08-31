@@ -78,8 +78,6 @@ struct TestConfig {
 	group_size: usize,
 	// whether the local node should be a validator
 	local_validator: LocalRole,
-	// allow v2 descriptors (feature bit)
-	allow_v2_descriptors: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -173,11 +171,7 @@ impl TestState {
 			random_seed: [0u8; 32],
 		};
 
-		let mut node_features = NodeFeatures::new();
-		if config.allow_v2_descriptors {
-			node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
-			node_features.set(FeatureIndex::CandidateReceiptV2 as usize, true);
-		}
+		let node_features = NodeFeatures::new();
 
 		TestState { config, local, validators, session_info, req_sender, node_features }
 	}

@@ -72,6 +72,7 @@ use sc_network_sync::{
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		chain_sync::GapSyncBodyPolicy,
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		warp::{
 			EncodedProof, VerificationResult, Verifier as WarpVerifier, WarpSyncConfig,
@@ -757,6 +758,9 @@ pub struct FullPeerConfig {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: Option<u32>,
+	/// Gap sync body policy override. `None` derives the default from `blocks_pruning`:
+	/// archive nodes backfill the whole gap with bodies, pruned nodes headers only.
+	pub gap_sync_body_policy: Option<GapSyncBodyPolicy>,
 	/// Block announce validator.
 	pub block_announce_validator: Option<Box<dyn BlockAnnounceValidator<Block> + Send + Sync>>,
 	/// List of notification protocols that the network must support.
@@ -779,6 +783,8 @@ pub struct FullPeerConfig {
 	pub target_header: Option<<Block as BlockT>::Header>,
 	/// Force genesis even in case of warp & light state sync.
 	pub force_genesis: bool,
+	/// If true, the import queue will not handle justification imports.
+	pub disable_justification_import: bool,
 }
 
 #[async_trait::async_trait]
@@ -854,6 +860,8 @@ pub trait TestNetFactory: Default + Sized + Send {
 			.make_verifier(PeersClient { client: client.clone(), backend: backend.clone() }, &data);
 		let verifier = VerifierAdapter::new(verifier);
 
+		let justification_import =
+			if config.disable_justification_import { None } else { justification_import };
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
 			Box::new(block_import.clone()),
@@ -988,7 +996,13 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
-			archive_blocks: config.blocks_pruning.is_none(),
+			gap_sync_body_policy: {
+				let policy = config.gap_sync_body_policy.unwrap_or(match config.blocks_pruning {
+					None => GapSyncBodyPolicy::All,
+					Some(_) => GapSyncBodyPolicy::HeadersOnly,
+				});
+				Arc::new(move || Ok(policy))
+			},
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
@@ -1048,7 +1062,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			fork_id,
 			metrics_registry: None,
 			block_announce_config,
-			bitswap_config: None,
+			ipfs_config: None,
 			notification_metrics: NotificationMetrics::new(None),
 		})
 		.unwrap();

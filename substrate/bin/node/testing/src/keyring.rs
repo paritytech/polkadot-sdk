@@ -75,7 +75,7 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 /// Returns transaction extra.
 pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 	(
-		frame_system::AuthorizeCall::new(),
+		(kitchensink_runtime::ScarcityTxExtension::new(None), frame_system::AuthorizeCall::new()),
 		frame_system::CheckNonZeroSender::new(),
 		frame_system::CheckSpecVersion::new(),
 		frame_system::CheckTxVersion::new(),
@@ -131,10 +131,9 @@ pub fn sign(
 			.into()
 		},
 		ExtrinsicFormat::Bare => generic::UncheckedExtrinsic::new_bare(xt.function).into(),
-		ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic::from_parts(
-			xt.function,
-			generic::Preamble::General(ext_version, tx_ext),
-		)
-		.into(),
+		ExtrinsicFormat::General(tx_ext) => {
+			generic::UncheckedExtrinsic::from_parts(xt.function, generic::Preamble::General(tx_ext))
+				.into()
+		},
 	}
 }

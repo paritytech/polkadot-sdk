@@ -1022,6 +1022,13 @@ fn build_bloaty_blob(
 		}
 	}
 
+	// `--target` for the Riscv runtime points at a JSON target spec produced by
+	// `polkavm-linker`. Newer cargo requires opting into those explicitly, older cargo
+	// does not know the flag at all, so ask this cargo which of the two it is.
+	if matches!(target, RuntimeTarget::Riscv) && cargo_cmd.supports_json_target_spec() {
+		build_cmd.arg("-Z").arg("json-target-spec");
+	}
+
 	// Inherit jobserver in child cargo command to ensure we don't try to use more concurrency than
 	// available
 	if let Some(c) = get_jobserver() {
@@ -1068,7 +1075,7 @@ fn build_bloaty_blob(
 
 				let program = match polkavm_linker::program_from_elf(
 					config,
-					TargetInstructionSet::Latest,
+					TargetInstructionSet::JamV1,
 					&blob_bytes,
 				) {
 					Ok(program) => program,

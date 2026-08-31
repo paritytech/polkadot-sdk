@@ -42,7 +42,7 @@ pub trait Environment<C>: Send + Sync + 'static {
 
 	/// Sleep given amount of time.
 	async fn sleep(&mut self, duration: Duration) {
-		async_std::task::sleep(duration).await
+		tokio::time::sleep(duration).await
 	}
 
 	/// Abort current process. Called when guard condition check fails.
@@ -56,7 +56,7 @@ pub fn abort_on_spec_version_change<C: Chain>(
 	mut env: impl Environment<C>,
 	expected_spec_version: u32,
 ) {
-	async_std::task::spawn(async move {
+	tokio::spawn(async move {
 		tracing::info!(
 			target: "bridge-guard",
 			node=%C::NAME,
@@ -138,13 +138,13 @@ pub(crate) mod tests {
 		async fn abort(&mut self) {
 			let _ = self.aborted_tx.send(()).await;
 			// simulate process abort :)
-			async_std::task::sleep(Duration::from_secs(60)).await;
+			tokio::time::sleep(Duration::from_secs(60)).await;
 		}
 	}
 
 	#[test]
 	fn aborts_when_spec_version_is_changed() {
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let (
 				(mut runtime_version_tx, runtime_version_rx),
 				(slept_tx, mut slept_rx),
@@ -170,7 +170,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn does_not_aborts_when_spec_version_is_unchanged() {
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let (
 				(mut runtime_version_tx, runtime_version_rx),
 				(slept_tx, mut slept_rx),
