@@ -42,7 +42,7 @@ Intermediate roots are not settlement entries. A consumer that used an intermedi
 to the candidate boundary root before it can settle.
 
 During Accumulate, the candidate's head is written for enactment. If a `Provides` root is present, it is pushed into
-the sender's settlement ring (`ring[A]`).
+the sender's settlement ring (`ring[A]`). Therefore, a root enters the ring only for a candidate that enacted.
 
 It costs 33 bytes when present.
 
@@ -52,9 +52,12 @@ The collator node picks the target `Provides` depending on the speculation tier 
 consumes a prefix of messages. The runtime consumes the messages and records a `ConsumptionRecord`.
 The collator then generate the Lift proofs and packages them into the PoV.
 
-In the PS Refine, the guarantoors execute the PVF. Then, the `validate_block` wrapper reads the
+In the PS Refine, the guarantors execute the PVF. Then, the `validate_block` wrapper reads the
 `ConsumptionRecords` from the pallet storage with the Lifts from the PoV. It stitches consumption gaps
 to produce a final `Requires` that is set via `set_requires_root`.
+
+For a bundle, the wrapper unions the per-block consumption records into one entry per source,
+keeping the latest root per source.
 
 PS Refine then enforces that all source parachains in the `Requires` set are unique and bounded to 32 entries.
 
@@ -73,11 +76,17 @@ present in the source's ring (`ring[ParaID]`). The block is enacted only if this
 
 > PS doesn't enforce the validity of `Requires`. It remains header agnostic (ie, no decoding) and strictly
 > moves opaque 32byte roots.
-> Moving the verification into the PS Refine wrapper doens't change the security guarantees.
+> Moving the verification into the PS Refine wrapper doesn't change the security guarantees.
 > Instead, PS Refine would simply check the collator provided consumption record against
 > the collator provided PoV lifts.
 
 At 36 bytes each, full fan-in (32 entries) costs ~1.1 KiB of the 48 KiB report.
+
+```rust
+/// Declares the candidate's provides root
+/// May be called at most once per Refine. Omitted when the candidate sent nothing.
+fn set_provides_root(root: StreamsRoot) -> ();
+```
 
 ## 2. Settlement Ring
 
@@ -401,8 +410,6 @@ const BOOTNODES_KEY: &[u8] = b"bootnodes/v1";
 
 /// Ephemeral record of a parachain's active bootnodes.
 struct AddressRecord {
-    /// The para ID this record belongs to.
-    para_id: u32,
     /// The timeslot after which this entire record is invalid and should be dropped.
     expires_at: Timeslot,
     /// Up to 4 active bootnodes.
@@ -417,7 +424,7 @@ struct Bootnode {
     /// A monotonic sequence number to prevent replay attacks.
     seq: u64,
     /// Proof of possession. The node must sign:
-    /// `("bootnode-pop-v1", jam_genesis_hash, AddressRecord::para_id, Bootnode::seq, Bootnode::addr)`
+    /// `("bootnode-pop-v1", jam_genesis_hash, para_id from the key, Bootnode::seq, Bootnode::addr)`
     /// This proves the node owner consents to being a bootnode for this specific broadcast.
     sig: Ed25519Signature,
 }
