@@ -72,7 +72,10 @@ mod benchmarks {
 		assert!(T::Verifier::queued_score().is_none());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::submit_unsigned(RawOrigin::None.into(), Box::new(solution)));
+			assert_ok!(Pallet::<T>::submit_unsigned(
+				RawOrigin::Authorized.into(),
+				Box::new(solution)
+			));
 		}
 
 		// something is queued
