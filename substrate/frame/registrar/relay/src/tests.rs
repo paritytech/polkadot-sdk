@@ -756,6 +756,28 @@ mod cancel_deregistration {
 	}
 
 	#[test]
+	fn a_chase_up_for_a_para_the_registry_knows_only_by_lifecycle_is_confirmed() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a para this chain knows about but holds no manager record for. That is what
+			// every para looks like once the registry itself has moved to the parachain: the
+			// lifecycle stays here, the manager does not.
+			AlreadyKnown::set(vec![PARA_A]);
+			assert!(Managers::get().is_empty());
+
+			// WHEN the parachain chases up a deregistration whose verdict it never got.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), chase_up_msg(PARA_A)));
+
+			// THEN it is told the para is still registered. Answering `NotRegistered` here would
+			// have the parachain release both deposits and drop its record of a live parachain.
+			assert_eq!(take_sent(), vec![chase_up_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationCancelled { para_id: PARA_A, message_id: CHASE_UP_ID }]
+			);
+		});
+	}
+
+	#[test]
 	fn only_the_parachain_may_chase_up() {
 		new_test_ext().execute_with(|| {
 			assert_noop!(

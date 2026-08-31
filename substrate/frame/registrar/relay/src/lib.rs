@@ -602,8 +602,14 @@ pub mod pallet {
 		/// [`Self::on_cancel_request`]: a para still in the registry was not deregistered, so the
 		/// parachain may safely go back to registered; one that is gone was, its report was lost,
 		/// and the deposits are owed after all.
+		///
+		/// The test is [`ParachainRegistrar::is_registered`], which also consults the lifecycle,
+		/// and never `manager_of`. A chain that has moved its registry to the parachain keeps only
+		/// the lifecycle, so `manager_of` answers `None` for every para that predates the move —
+		/// which would tell the parachain that a live parachain had been deregistered, releasing
+		/// its deposits and dropping the only registry entry it has left.
 		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
-			if T::Registrar::manager_of(para_id).is_some() {
+			if T::Registrar::is_registered(para_id) {
 				Self::report_cancel_deregistration(para_id, message_id, Ok(()));
 				return Self::deposit_event(Event::DeregistrationCancelled { para_id, message_id });
 			}
