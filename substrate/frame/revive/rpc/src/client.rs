@@ -63,7 +63,7 @@ use subxt::{
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
 use version_aware_runtime_api::{
-	CallRecordedOutput, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
+	CallRecordedOutput, TraceEntry, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
 };
 
 /// The substrate block number type.
@@ -152,8 +152,8 @@ pub enum ClientError {
 	ContractNotFound,
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
-	/// The transaction exists but a recorder-less replay could not produce its trace.
-	#[error("Trace unavailable: replay without proof recorder may have dropped it")]
+	/// The transaction exists but the node could not produce its trace.
+	#[error("trace unavailable: the node could not produce a trace for this transaction")]
 	TraceUnavailable,
 	/// The transaction fee could not be found
 	#[error("transactionFeePaid event not found")]
@@ -1139,7 +1139,7 @@ impl Client {
 			return Ok(vec![]);
 		}
 
-		let CallRecordedOutput { value: traces, degraded } = self
+		let CallRecordedOutput { value: trace_entries, degraded } = self
 			.runtime_api(parent_hash)
 			.await?
 			.trace_block(block, config, block_hash)
@@ -1152,12 +1152,18 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let mut entries = traces
+		let mut entries = trace_entries
 			.into_iter()
-			.filter_map(|(index, trace)| {
+			.filter_map(|(index, entry)| {
 				let index = index as usize;
 				let tx_hash = hashes.remove(&index)?;
-				Some((index, TransactionTrace { tx_hash, outcome: TraceOutcome::Trace(trace) }))
+				let outcome = match entry {
+					TraceEntry::Traced(trace) => TraceOutcome::Trace(trace),
+					TraceEntry::NotTraced => {
+						TraceOutcome::Error(ClientError::TraceUnavailable.to_string())
+					},
+				};
+				Some((index, TransactionTrace { tx_hash, outcome }))
 			})
 			.collect::<Vec<_>>();
 
@@ -1187,15 +1193,16 @@ impl Client {
 
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
-		let CallRecordedOutput { value: trace, degraded } = self
+		let CallRecordedOutput { value: entry, degraded } = self
 			.runtime_api(parent_hash)
 			.await?
 			.trace_tx(block, transaction_index, config, block_hash)
 			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_tx"))?
 			.await?;
 
-		match trace {
-			Some(trace) => Ok(trace),
+		match entry {
+			Some(TraceEntry::Traced(trace)) => Ok(trace),
+			Some(TraceEntry::NotTraced) => Err(ClientError::TraceUnavailable),
 			None if degraded => Err(ClientError::TraceUnavailable),
 			None => Err(ClientError::EthExtrinsicNotFound),
 		}
