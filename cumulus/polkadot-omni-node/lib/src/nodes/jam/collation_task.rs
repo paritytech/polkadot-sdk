@@ -307,7 +307,7 @@ impl<Block: BlockT> InFlightPackages<Block> {
 ///
 /// A subscription is closed on the node only when the client drops its stream, and the stream is
 /// dropped out of the select only when it *ends* — which a server-side status stream never does
-/// on its own. So every package leaving the chain has to have its stream ended here. Without
+/// on its own. So every package this task stops tracking has to have its stream ended here. Without
 /// that the node keeps every subscription this collator ever opened and refuses new ones past
 /// its per-connection cap, at which point every further package fails the moment it is
 /// submitted (observed live after ~1050 packages: `Too many subscriptions on the connection`).
@@ -379,7 +379,7 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	/// three fixes on.
 	included_head: Option<Block::Hash>,
 	statuses: SelectAll<BoxStream<'static, (WorkPackageHash, WorkPackageStatus)>>,
-	/// One handle per live status subscription, fired when its package leaves the chain.
+	/// One handle per live status subscription, fired when its package stops being tracked.
 	subscriptions: StatusSubscriptions,
 }
 
