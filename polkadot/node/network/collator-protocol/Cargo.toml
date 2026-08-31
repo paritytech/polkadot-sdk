@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "32.1.0"
+version = "33.0.0"
 description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
 authors.workspace = true
 edition.workspace = true
@@ -15,24 +15,36 @@ workspace = true
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
+gum.workspace = true
+gum.default-features = true
 schnellru = { workspace = true }
-
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-consensus-slots = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
+sp-consensus-babe.workspace = true
+sp-consensus-babe.default-features = true
+sp-consensus-slots.workspace = true
+sp-consensus-slots.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-keystore.workspace = true
+sp-keystore.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-timestamp.workspace = true
+sp-timestamp.default-features = true
 
 codec = { workspace = true }
 fatality = { workspace = true }
-polkadot-node-clock = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-clock.workspace = true
+polkadot-node-clock.default-features = true
+polkadot-node-network-protocol.workspace = true
+polkadot-node-network-protocol.default-features = true
+polkadot-node-primitives.workspace = true
+polkadot-node-primitives.default-features = true
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-util.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
@@ -42,19 +54,19 @@ assert_matches = { workspace = true }
 futures-timer = { workspace = true }
 kvdb-memorydb = { workspace = true }
 rstest = { workspace = true }
-sc-network-types = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
+sc-network-types = { default-features = true, path = "../../../../substrate/client/network/types" }
+sp-tracing = { path = "../../../../substrate/primitives/tracing", default-features = false }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 codec = { features = ["std"], workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
+sc-network = { default-features = true, path = "../../../../substrate/client/network" }
+sp-core = { features = ["std"], default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
 
 itertools = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 
 [features]
 default = []
