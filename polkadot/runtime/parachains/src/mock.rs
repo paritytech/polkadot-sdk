@@ -289,6 +289,7 @@ impl TestUsesOnlyStoredVersionWrapper {
 }
 
 impl crate::hrmp::Config for Test {
+	type ParaSelfOrigin = crate::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;

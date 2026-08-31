@@ -150,6 +150,7 @@ parameter_types! {
 }
 
 impl Config for Test {
+	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;

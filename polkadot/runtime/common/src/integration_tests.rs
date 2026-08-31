@@ -225,6 +225,7 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Test {
+	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSwap = (Crowdloan, Slots);

@@ -74,3 +74,29 @@ impl From<u32> for Origin {
 		Origin::Parachain(id.into())
 	}
 }
+
+/// The [`EnsureOrigin`] form of [`ensure_parachain`]: a parachain acting as itself, resolved to its
+/// id.
+///
+/// Exists so a pallet can take *which* para origins it accepts as configuration rather than
+/// hard-coding this one. That is what lets a relay chain whose control plane has moved elsewhere
+/// admit a second, narrower para origin for a chosen few calls without widening every other call
+/// that accepts a parachain.
+pub struct EnsureParachain;
+
+impl<O: Into<Result<Origin, O>> + From<Origin>> frame_support::traits::EnsureOrigin<O>
+	for EnsureParachain
+{
+	type Success = ParaId;
+
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		o.into().map(|Origin::Parachain(id)| id)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		// A para id has no canonical "successful" value; benchmarks that need one build the origin
+		// themselves.
+		Err(())
+	}
+}

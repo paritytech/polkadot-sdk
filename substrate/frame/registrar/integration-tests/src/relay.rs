@@ -173,6 +173,7 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Runtime {
+	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
@@ -345,6 +346,7 @@ parameter_types! {
 }
 
 impl hrmp::Config for Runtime {
+	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;

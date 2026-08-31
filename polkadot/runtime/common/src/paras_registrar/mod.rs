@@ -25,6 +25,7 @@ pub mod migration;
 
 use alloc::vec::Vec;
 use core::result;
+use frame_support::traits::EnsureOrigin;
 use registrar_primitives::ParaRequestRouter;
 use frame_support::{
 	dispatch::DispatchResult,
@@ -161,6 +162,19 @@ pub mod pallet {
 		/// The deposit to be paid per byte stored on chain.
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
+
+		/// Which para origin the calls a parachain dispatches **for itself** accept.
+		///
+		/// `EnsureParachain` — the default, and today's behaviour — accepts
+		/// `parachains_origin::Origin::Parachain`. A relay chain whose control plane has moved sets
+		/// this to also accept the narrower origin it hands non-system paras. Only the four
+		/// forwardable calls consult it, through `ensure_root_or_self_para`; `swap` and
+		/// `schedule_code_upgrade` keep `ensure_root_or_para` and so stay closed by origin as well
+		/// as by filter.
+		type ParaSelfOrigin: EnsureOrigin<
+			<Self as Config>::RuntimeOrigin,
+			Success = ParaId,
+		>;
 
 		/// Where a parachain's own registrar requests go once the control plane has moved off this
 		/// chain.
@@ -324,7 +338,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, id)?;
+			Self::ensure_root_self_para_or_owner(origin, id)?;
 			if T::ParaRequests::is_remote() {
 				return Self::forward(T::ParaRequests::deregister(id.into()));
 			}
@@ -403,7 +417,7 @@ pub mod pallet {
 			// request is safe to send as the control plane's Root — only a para can reach this call
 			// at all once signed origins are closed, so Root here can only ever mean "the para
 			// asked". The control plane enforces the same rule on its own copy.
-			Self::ensure_root_or_para(origin, para)?;
+			Self::ensure_root_or_self_para(origin, para)?;
 			if T::ParaRequests::is_remote() {
 				return Self::forward(T::ParaRequests::remove_lock(para.into()));
 			}
@@ -446,7 +460,7 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn add_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
+			Self::ensure_root_self_para_or_owner(origin, para)?;
 			if T::ParaRequests::is_remote() {
 				return Self::forward(T::ParaRequests::add_lock(para.into()));
 			}
@@ -498,7 +512,7 @@ pub mod pallet {
 			para: ParaId,
 			new_head: HeadData,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
+			Self::ensure_root_self_para_or_owner(origin, para)?;
 			if T::ParaRequests::is_remote() {
 				// Head data travels inline on both sides, so unlike a code upgrade this forwards
 				// as-is.
@@ -709,6 +723,41 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Like [`Self::ensure_root_or_para`], but also accepting the narrower origin a relay chain
+	/// hands a non-system parachain once its control plane has moved.
+	///
+	/// Deliberately separate rather than folded into `ensure_root_or_para`: that one is also used by
+	/// `swap` and `schedule_code_upgrade`, which are not forwardable and must stay unreachable by
+	/// origin as well as by filter. Widening it would quietly reopen both.
+	fn ensure_root_or_self_para(
+		origin: <T as frame_system::Config>::RuntimeOrigin,
+		id: ParaId,
+	) -> DispatchResult {
+		if let Ok(caller) =
+			T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin.clone()))
+		{
+			ensure!(caller == id, Error::<T>::NotOwner);
+			return Ok(());
+		}
+		Self::ensure_root_or_para(origin, id)
+	}
+
+	/// As [`Self::ensure_root_para_or_owner`], for the forwardable calls. See
+	/// [`Self::ensure_root_or_self_para`] for why this is a separate path.
+	fn ensure_root_self_para_or_owner(
+		origin: <T as frame_system::Config>::RuntimeOrigin,
+		id: ParaId,
+	) -> DispatchResult {
+		if let Ok(who) = ensure_signed(origin.clone()) {
+			let para_info = Paras::<T>::get(id).ok_or(Error::<T>::NotRegistered)?;
+			if para_info.manager == who {
+				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
+				return Ok(());
+			}
+		}
+		Self::ensure_root_or_self_para(origin, id)
+	}
+
 	/// Turn a router verdict into a dispatch result.
 	///
 	/// A refusal means the transport would not take the request, so this chain has written nothing

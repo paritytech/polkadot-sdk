@@ -16,7 +16,7 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	dmp, ensure_parachain, initializer, paras,
+	dmp, initializer, paras,
 };
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
@@ -289,6 +289,18 @@ pub mod pallet {
 		/// the default `()` implementation uses the latest XCM version for all parachains.
 		type VersionWrapper: xcm::WrapVersion;
 
+		/// Which para origin the calls a parachain dispatches **for itself** accept.
+		///
+		/// `EnsureParachain` — the default, and today's behaviour — accepts
+		/// `parachains_origin::Origin::Parachain`. A relay chain whose control plane has moved sets
+		/// this to also accept the narrower origin it hands non-system paras, so those calls stay
+		/// reachable while every other call that accepts a parachain does not widen.
+		///
+		/// Every para-facing call in this pallet is forwardable, so all five consult it. The calls
+		/// that do not — the `force_*` family, `poke_channel_deposits` — take root or a signed
+		/// origin and never a parachain, so there is nothing here to widen for them.
+		type ParaSelfOrigin: EnsureOrigin<<Self as Config>::RuntimeOrigin, Success = ParaId>;
+
 		/// Where a parachain's own HRMP requests go once the control plane has moved off this
 		/// chain.
 		///
@@ -535,7 +547,8 @@ pub mod pallet {
 			proposed_max_capacity: u32,
 			proposed_max_message_size: u32,
 		) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin =
+				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
 			if T::ParaRequests::is_remote() {
 				return Self::forward(T::ParaRequests::open_channel(
 					origin.into(),
@@ -565,7 +578,8 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::hrmp_accept_open_channel())]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin =
+				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
 			if T::ParaRequests::is_remote() {
 				return Self::forward(T::ParaRequests::accept_open_channel(
 					sender.into(),
@@ -587,7 +601,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			channel_id: HrmpChannelId,
 		) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin =
+				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
 			if T::ParaRequests::is_remote() {
 				return Self::forward(T::ParaRequests::close_channel(
 					origin.into(),
@@ -696,7 +711,8 @@ pub mod pallet {
 			channel_id: HrmpChannelId,
 			open_requests: u32,
 		) -> DispatchResult {
-			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let origin =
+				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
 			if T::ParaRequests::is_remote() {
 				// Before the witness check, deliberately: `open_requests` bounds the length of
 				// *this* chain's request list, which is not the list being acted on once the
@@ -919,7 +935,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			target_system_chain: ParaId,
 		) -> DispatchResultWithPostInfo {
-			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			let sender =
+				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
 
 			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 

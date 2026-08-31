@@ -1426,6 +1426,7 @@ parameter_types! {
 }
 
 impl parachains_hrmp::Config for Runtime {
+	type ParaSelfOrigin = runtime_parachains::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
@@ -1546,6 +1547,7 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Runtime {
+	type ParaSelfOrigin = runtime_parachains::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;

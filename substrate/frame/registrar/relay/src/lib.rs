@@ -213,6 +213,37 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// The origin a **non-system** parachain gets on this chain.
+	///
+	/// Distinct from `parachains_origin::Origin::Parachain`, which stays system-chains-only, and
+	/// that separation is the whole point. Once the control plane moves, the relay chain keeps a
+	/// handful of para-facing calls whose bodies forward the request onward — but eleven calls
+	/// accept `Origin::Parachain`, and the XCM origin converter cannot see which call is being
+	/// dispatched, so it can only ever hand a para one origin type. Giving them this one instead
+	/// means a pallet that has no `EnsureOrigin` for it simply cannot be reached, which makes
+	/// "a pallet nobody remembered to filter" a compile-time impossibility rather than an audit
+	/// item.
+	///
+	/// Declared here rather than in a pallet of its own because this pallet is already the relay
+	/// chain's half of the control plane, and both `paras_registrar` and `hrmp` accept it through
+	/// a configurable origin check — neither has to name the type.
+	#[pallet::origin]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Debug,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
+	pub enum Origin {
+		/// A parachain acting for itself, asking the control plane for something.
+		Para(ParaId),
+	}
+
 	/// Registrations waiting on their validation code, by para id.
 	///
 	/// Counted so [`Config::MaxPendingRegistrations`] can be enforced with a single read.
