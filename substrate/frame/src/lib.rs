@@ -574,10 +574,6 @@ pub mod derive {
 
 /// All hashing related components.
 ///
-/// Free functions (`blake2_256`, `twox_128`, …) are re-exported from
-/// [`sp_io::hashing`] so that runtime code uses host functions rather than the
-/// pure-wasm implementations in `sp_crypto_hashing`.
-///
 /// This is already part of the main [`prelude`].
 pub mod hashing {
 	pub use sp_core::{H160, H256, H512, U256, U512};
