@@ -12,16 +12,16 @@ doc:
       the runtime before calling host functions, using the new `is_signature_normalized()` helper.
       No new host function versions are introduced.
 
-      **Note:** `ecdsa_verify` v2 calls `Pair::verify()`, which now implicitly uses `k256`
-      after the sp-core unification. This is accepted because the mathematical result is
-      identical — both libraries implement the same secp256k1 curve operations.
+      `ecdsa_verify` v2 continues to accept high-S signatures. `Pair` normalizes high-S
+      signatures internally and adjusts the recovery ID before using `k256`, preserving the
+      existing host function semantics.
 
       **sp_core::ecdsa** A helper function `is_signature_normalized()` is available for checking
       whether a 65-byte ECDSA signature has its S value in the lower half of the curve order,
       using k256's built-in `normalize_s()` internally. Runtimes call this before the existing
       host functions to enforce low-S where desired. `Pair::sign_prehashed()` performs
-      explicit low-S normalization and includes a debug assertion. The `Drop` impl for
-      `GenericPair` is removed since k256's `SigningKey` implements `ZeroizeOnDrop`.
+      explicit low-S normalization. The `Drop` impl for `GenericPair` is removed since k256's
+      `SigningKey` implements `ZeroizeOnDrop`.
 
       **claims-pallet** Migrated from `secp256k1` to `k256`. `eth_recover()` now rejects
       high-S signatures using `sp_core::ecdsa::is_signature_normalized()` before calling
@@ -33,8 +33,9 @@ doc:
       **pallet-revive** `recover_eth_address()` rejects high-S signatures before calling
       `secp256k1_ecdsa_recover`, matching Ethereum post-Homestead validation (EIP-2). A
       `log::debug!` message is emitted when a high-S signature is rejected. The `ECRecover`
-      precompile now also rejects high-S signatures. The `ecdsa_recover()` syscall exposed to
-      smart contracts enforces low-S as well. The unused `secp256k1` dev-dependency is removed.
+      precompile and the `ecdsa_recover()` syscall continue to accept high-S signatures because
+      they expose raw recovery rather than Ethereum transaction validation. The unused
+      `secp256k1` dev-dependency is removed.
 
       **sp-consensus-beefy** `ecdsa_crypto::BeefyAuthorityId::verify()` rejects high-S
       signatures before recovery using `sp_core::ecdsa::is_signature_normalized()`, ensuring
@@ -42,15 +43,13 @@ doc:
 
       **sp-runtime (MultiSignature)** `MultiSignature::verify()` now rejects high-S signatures
       for both `Ecdsa` and `Eth` variants before calling the recovery host functions. This
-      enforces BIP-62 / EIP-2 canonical signatures at the `MultiSignature` level.
+      enforces BIP-62 / EIP-2 canonical signatures at the `MultiSignature` level. The direct
+      `Verify` implementation for `sp_core::ecdsa::Signature` applies the same check.
 
       **sp-io host function docs** All ECDSA host functions (`ecdsa_verify`, `ecdsa_verify_prehashed`,
       `secp256k1_ecdsa_recover`, `secp256k1_ecdsa_recover_compressed`) now document that they
       do **not** enforce low-S normalization. Callers should check
       `sp_core::ecdsa::is_signature_normalized()` before calling if canonical signatures are required.
-
-      **pallet-contracts** The `ecdsa_recover()` syscall now rejects high-S signatures before
-      calling `secp256k1_ecdsa_recover_compressed`.
 
       **sp-application-crypto** `RuntimePublic::verify()` and `RuntimePublic::verify_proof_of_possession()`
       for ECDSA keys now reject high-S signatures before calling the `ecdsa_verify` host function.
@@ -87,8 +86,6 @@ crates:
   - name: pallet-revive
     bump: patch
   - name: sp-consensus-beefy
-    bump: patch
-  - name: pallet-contracts
     bump: patch
   - name: sp-application-crypto
     bump: patch

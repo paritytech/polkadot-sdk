@@ -145,6 +145,13 @@ impl<PUBLIC: From<VerifyingKey>> GenericSignature<PUBLIC> {
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<PUBLIC> {
 		let rid = k256::ecdsa::RecoveryId::from_byte(self.0[64])?;
 		let sig = k256::ecdsa::Signature::from_bytes((&self.0[..64]).into()).ok()?;
+		// Recovery is a primitive operation and historically accepted high-S signatures. k256's
+		// verifier rejects them, so normalize here and adjust the recovery ID to preserve behavior.
+		let (sig, rid) = if let Some(normalized) = sig.normalize_s() {
+			(normalized, k256::ecdsa::RecoveryId::new(!rid.is_y_odd(), rid.is_x_reduced()))
+		} else {
+			(sig, rid)
+		};
 		VerifyingKey::recover_from_prehash(message, &sig, rid).map(From::from).ok()
 	}
 }
@@ -408,9 +415,12 @@ where
 			.sign_prehash_recoverable(message)
 			.expect("Signing can't fail when using 32 bytes message hash. qed.");
 
-		// k256 normalizes via RFC 6979 but we explicitly ensure low-S
+		// k256 currently returns low-S signatures, but keep the normalization explicit.
 		let (normalized_sig, adjusted_v) = if let Some(normalized) = raw_sig.normalize_s() {
-			(normalized, k256::ecdsa::RecoveryId::from_byte(recovery_id.to_byte() ^ 1).unwrap())
+			(
+				normalized,
+				k256::ecdsa::RecoveryId::new(!recovery_id.is_y_odd(), recovery_id.is_x_reduced()),
+			)
 		} else {
 			(raw_sig, recovery_id)
 		};
@@ -882,15 +892,20 @@ mod test {
 			}
 		}
 
-		let mut malleable_sig = [0u8; 65];
-		malleable_sig[0..32].copy_from_slice(&sig.0[0..32]);
-		malleable_sig[32..64].copy_from_slice(&s_prime);
-		malleable_sig[64] = sig.0[64] ^ 1;
+		let mut malleable_sig_bytes = [0u8; 65];
+		malleable_sig_bytes[0..32].copy_from_slice(&sig.0[0..32]);
+		malleable_sig_bytes[32..64].copy_from_slice(&s_prime);
+		malleable_sig_bytes[64] = sig.0[64] ^ 1;
 
 		// The malleable signature should have high-S (since original was low-S, complement is high)
 		assert!(
-			!is_signature_normalized(&malleable_sig),
+			!is_signature_normalized(&malleable_sig_bytes),
 			"malleable signature should be rejected as high-S"
 		);
+
+		// Raw recovery continues to accept high-S signatures. Protocols that require low-S enforce
+		// it before calling recovery.
+		let malleable_sig = Signature::from_raw(malleable_sig_bytes);
+		assert!(Pair::verify_prehashed(&malleable_sig, &msg, &pair.public()));
 	}
 }

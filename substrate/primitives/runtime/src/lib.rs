@@ -1273,7 +1273,7 @@ mod tests {
 
 	/// Helper: compute high-S malleable variant of a 65-byte ECDSA signature.
 	/// Returns `s' = order - s` with `v' = v ^ 1`.
-	fn make_high_s_signature(sig: &[u8; 65]) -> [u8; 65] {
+	pub(crate) fn make_high_s_signature(sig: &[u8; 65]) -> [u8; 65] {
 		// secp256k1 curve order N
 		let order: [u8; 32] = [
 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,

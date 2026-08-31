@@ -44,8 +44,8 @@ fn bench_claim_value<T: Config>() -> BalanceOf<T> {
 }
 
 fn create_claim<T: Config>(input: u32) -> DispatchResult {
-	let secret_key = SigningKey::from_slice(&keccak_256(&input.encode()))
-		.expect("32 bytes, within curve order");
+	let secret_key =
+		SigningKey::from_slice(&keccak_256(&input.encode())).expect("32 bytes, within curve order");
 	let eth_address = eth(&secret_key);
 	let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 	super::Pallet::<T>::mint_claim(
@@ -59,8 +59,8 @@ fn create_claim<T: Config>(input: u32) -> DispatchResult {
 }
 
 fn create_claim_attest<T: Config>(input: u32) -> DispatchResult {
-	let secret_key = SigningKey::from_slice(&keccak_256(&input.encode()))
-		.expect("32 bytes, within curve order");
+	let secret_key =
+		SigningKey::from_slice(&keccak_256(&input.encode())).expect("32 bytes, within curve order");
 	let eth_address = eth(&secret_key);
 	let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 	super::Pallet::<T>::mint_claim(
@@ -94,8 +94,8 @@ mod benchmarks {
 			create_claim::<T>(c)?;
 			create_claim_attest::<T>(u32::MAX - c)?;
 		}
-		let secret_key = SigningKey::from_slice(&keccak_256(&c.encode()))
-			.expect("32 bytes, within curve order");
+		let secret_key =
+			SigningKey::from_slice(&keccak_256(&c.encode())).expect("32 bytes, within curve order");
 		let eth_address = eth(&secret_key);
 		let account: T::AccountId = account("user", c, SEED);
 		let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
@@ -239,9 +239,8 @@ mod benchmarks {
 			.expect("32 bytes, within curve order");
 		let eth_address = eth(&secret_key);
 
-		let new_secret_key =
-			SigningKey::from_slice(&keccak_256(&(u32::MAX / 2).encode()))
-				.expect("32 bytes, within curve order");
+		let new_secret_key = SigningKey::from_slice(&keccak_256(&(u32::MAX / 2).encode()))
+			.expect("32 bytes, within curve order");
 		let new_eth_address = eth(&new_secret_key);
 
 		let account: T::AccountId = account("user", c, SEED);
@@ -275,8 +274,8 @@ mod benchmarks {
 	#[benchmark(extra)]
 	fn eth_recover(i: Linear<0, 1_000>) {
 		// Crate signature
-		let secret_key = SigningKey::from_slice(&keccak_256(&i.encode()))
-			.expect("32 bytes, within curve order");
+		let secret_key =
+			SigningKey::from_slice(&keccak_256(&i.encode())).expect("32 bytes, within curve order");
 		let account: T::AccountId = account("user", i, SEED);
 		let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
 		let data = account.using_encoded(to_ascii_hex);

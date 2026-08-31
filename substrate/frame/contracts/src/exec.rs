@@ -1555,10 +1555,6 @@ where
 	}
 
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()> {
-		// Reject high-S signatures (EIP-2 / BIP-62 malleability protection)
-		if !sp_core::ecdsa::is_signature_normalized(signature) {
-			return Err(());
-		}
 		secp256k1_ecdsa_recover_compressed(signature, message_hash).map_err(|_| ())
 	}
 

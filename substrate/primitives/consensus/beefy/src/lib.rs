@@ -153,10 +153,7 @@ pub mod ecdsa_crypto {
 				return false;
 			}
 			let msg_hash = keccak_256(msg);
-			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
-				sig_array,
-				&msg_hash,
-			) {
+			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_array, &msg_hash) {
 				Ok(raw_pubkey) => raw_pubkey.as_ref() == AsRef::<[u8]>::as_ref(self),
 				_ => false,
 			}
@@ -697,9 +694,8 @@ mod tests {
 		malleable_bytes[32..64].copy_from_slice(&s_prime);
 		malleable_bytes[64] = sig_bytes[64] ^ 1;
 
-		let malleable_sig = ecdsa_crypto::Signature::from(
-			sp_core::ecdsa::Signature::from_raw(malleable_bytes),
-		);
+		let malleable_sig =
+			ecdsa_crypto::Signature::from(sp_core::ecdsa::Signature::from_raw(malleable_bytes));
 
 		// High-S signature should be rejected
 		assert!(

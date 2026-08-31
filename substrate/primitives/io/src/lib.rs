@@ -1297,16 +1297,16 @@ pub trait Crypto {
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Result<[u8; 64], EcdsaVerifyError>> {
-		let rid = RecoveryId::try_from(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_digest(*msg);
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
 		#[cfg(feature = "std")]
 		let ctx = secp256k1::SECP256K1;
 		#[cfg(not(feature = "std"))]
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
-		let pubkey = ctx.recover_ecdsa(msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		let mut res = [0u8; 64];
 		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
 		Ok(res)
@@ -1353,16 +1353,16 @@ pub trait Crypto {
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Result<[u8; 33], EcdsaVerifyError>> {
-		let rid = RecoveryId::try_from(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_digest(*msg);
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
 		#[cfg(feature = "std")]
 		let ctx = secp256k1::SECP256K1;
 		#[cfg(not(feature = "std"))]
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
-		let pubkey = ctx.recover_ecdsa(msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		Ok(pubkey.serialize())
 	}
 
@@ -2220,5 +2220,45 @@ mod tests {
 		let sig = pair.sign_prehashed(&msg);
 
 		assert!(crypto::ecdsa_verify_prehashed(&sig, &msg, &pair.public()));
+	}
+
+	#[test]
+	fn ecdsa_verify_accepts_high_s_signatures() {
+		fn make_high_s(sig: &ecdsa::Signature) -> ecdsa::Signature {
+			let order: [u8; 32] = [
+				0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+				0xd0, 0x36, 0x41, 0x41,
+			];
+			let s: [u8; 32] = sig.0[32..64].try_into().expect("slice has fixed length");
+			let mut high_s = [0u8; 32];
+			let mut borrow = 0i16;
+			for i in (0..32).rev() {
+				let diff = order[i] as i16 - s[i] as i16 - borrow;
+				if diff < 0 {
+					high_s[i] = (diff + 256) as u8;
+					borrow = 1;
+				} else {
+					high_s[i] = diff as u8;
+					borrow = 0;
+				}
+			}
+
+			let mut result = sig.0;
+			result[32..64].copy_from_slice(&high_s);
+			result[64] ^= 1;
+			ecdsa::Signature::from_raw(result)
+		}
+
+		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
+		let message = b"test message";
+		let signature = make_high_s(&pair.sign(message));
+		assert!(!ecdsa::is_signature_normalized(&signature.0));
+		assert!(crypto::ecdsa_verify(&signature, message, &pair.public()));
+
+		let prehash = sp_crypto_hashing::blake2_256(message);
+		let signature = make_high_s(&pair.sign_prehashed(&prehash));
+		assert!(!ecdsa::is_signature_normalized(&signature.0));
+		assert!(crypto::ecdsa_verify_prehashed(&signature, &prehash, &pair.public()));
 	}
 }
