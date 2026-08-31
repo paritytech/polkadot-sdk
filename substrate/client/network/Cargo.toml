@@ -36,12 +36,14 @@ either = { workspace = true, default-features = true }
 fnv = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
+hmac = { workspace = true }
 ip_network = { workspace = true }
 libp2p = { features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"], workspace = true }
 linked_hash_set = { workspace = true }
 litep2p = { workspace = true }
 log = { workspace = true, default-features = true }
 mockall = { workspace = true }
+p256 = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 partial_sort = { workspace = true }
 pin-project = { workspace = true }
@@ -55,6 +57,7 @@ sc-utils = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
+sha2 = { workspace = true, default-features = true, features = ["oid"] }
 smallvec = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
@@ -67,6 +70,7 @@ tokio-stream = { workspace = true }
 unsigned-varint = { features = ["asynchronous_codec", "futures"], workspace = true }
 void = { workspace = true }
 wasm-timer = { workspace = true }
+x509-cert = { features = ["std"], workspace = true }
 zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
