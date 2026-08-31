@@ -884,6 +884,11 @@ impl VersionAwareRuntimeApiProvider {
 		Self { api, rpc_client, cache: Arc::new(Mutex::new(HashMap::new())) }
 	}
 
+	/// The subxt client this provider computes capabilities through.
+	pub(crate) fn api(&self) -> &OnlineClient<SrcChainConfig> {
+		&self.api
+	}
+
 	/// Returns the version-aware runtime API of the given block, computing and caching the
 	/// capabilities of its runtime spec version if they are not cached yet.
 	pub async fn at(&self, block_hash: H256) -> Result<VersionAwareRuntimeApi, ClientError> {

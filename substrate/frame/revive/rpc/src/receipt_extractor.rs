@@ -268,6 +268,12 @@ impl ReceiptExtractor {
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
+		let chain_id = {
+			let query = crate::subxt_client::constants().revive().chain_id().unvalidated();
+			let at_block = runtime_api_provider.api().at_current_block().await?;
+			at_block.constants().entry(query)?
+		};
+
 		let provider = runtime_api_provider.clone();
 		let fetch_eth_block_hash = Arc::new(move |substrate_block_hash, substrate_block_number| {
 			let provider = provider.clone();
@@ -332,11 +338,6 @@ impl ReceiptExtractor {
 
 			Box::pin(fut) as Pin<Box<_>>
 		});
-
-		let chain_id = {
-			let query = crate::subxt_client::constants().revive().chain_id().unvalidated();
-			api.constants().at(&query)?
-		};
 
 		Ok(Self {
 			fetch_receipt_data,
