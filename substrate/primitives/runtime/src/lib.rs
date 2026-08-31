@@ -1310,7 +1310,7 @@ mod tests {
 		let account = multi_signer.into_account();
 
 		// Low-S signature verifies
-		let multi_sig = MultiSignature::from(signature.clone());
+		let multi_sig = MultiSignature::from(signature);
 		assert!(multi_sig.verify(msg, &account));
 
 		// Construct high-S malleable variant
@@ -1333,7 +1333,7 @@ mod tests {
 		let account = multi_signer.into_account();
 
 		// Low-S signature verifies
-		let multi_sig = MultiSignature::Eth(signature.clone());
+		let multi_sig = MultiSignature::Eth(signature);
 		assert!(multi_sig.verify(msg, &account));
 
 		// Construct high-S malleable variant
