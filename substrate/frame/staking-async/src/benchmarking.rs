@@ -147,6 +147,14 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	let incentive_weight = BalanceOf::<T>::from(100u64);
 	ErasValidatorIncentiveWeight::<T>::insert(planned_era, &v_stash, incentive_weight);
 	ErasSumValidatorIncentiveWeight::<T>::insert(planned_era, incentive_weight);
+	// Populate the weighted-points denominator so the (default) weighted-points payout path
+	// finds a non-zero share and exercises the incentive transfer. Single validator with
+	// `validator_points` points: sum == weight × points.
+	let validator_points = BalanceOf::<T>::from(10u64);
+	ErasSumWeightedPoints::<T>::insert(
+		planned_era,
+		incentive_weight.saturating_mul(validator_points),
+	);
 
 	Ok((v_stash, nominators, planned_era))
 }
@@ -732,6 +740,14 @@ mod benchmarks {
 
 		let caller = whitelisted_caller();
 		let balance_before = asset::stakeable_balance::<T>(&validator);
+		// Incentive pot is funded in the setup; track it to ensure the worst-case payout
+		// actually performs the validator-incentive transfer (and so the benchmark weight
+		// covers it).
+		let incentive_pot = crate::reward::EraRewardManager::<T>::create(
+			current_era,
+			RewardKind::ValidatorSelfStake,
+		);
+		let incentive_pot_before = asset::stakeable_balance::<T>(&incentive_pot);
 		let mut nominator_balances_before = Vec::new();
 		for (stash, _) in &nominators {
 			let balance = asset::stakeable_balance::<T>(stash);
@@ -745,6 +761,11 @@ mod benchmarks {
 		ensure!(
 			balance_before < balance_after,
 			"Balance of validator stash should have increased after payout.",
+		);
+		ensure!(
+			asset::stakeable_balance::<T>(&incentive_pot) < incentive_pot_before,
+			"Incentive pot should have decreased: the validator-incentive transfer must run \
+			 so its cost is captured by this benchmark.",
 		);
 		for ((stash, _), balance_before) in nominators.iter().zip(nominator_balances_before.iter())
 		{
@@ -1199,7 +1220,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn rc_on_session_report() -> Result<(), BenchmarkError> {
+	fn rc_on_session_report(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
 		let initial_planned_era = Rotator::<T>::planned_era();
 		let initial_active_era = Rotator::<T>::active_era();
 
@@ -1217,9 +1240,24 @@ mod benchmarks {
 		);
 
 		//  receive a session report with timestamp that actives the previous one.
-		let validator_points = (0..T::MaxValidatorSet::get())
-			.map(|v| (account::<T::AccountId>("random", v, SEED), v))
+		// `v` is the number of active validators in the report — on Polkadot bounded by
+		// `MaxValidatorSet` since each must hold at least `MinValidatorBond` (~10k DOT).
+		let validator_points = (0..v)
+			.map(|i| (account::<T::AccountId>("random", i, SEED), i))
 			.collect::<Vec<_>>();
+
+		// Populate ErasValidatorIncentiveWeight for every account in the report so the
+		// incremental-denominator accumulation inside `reward_active_era` performs the
+		// worst-case lookup-and-add per validator.
+		let active_era = Rotator::<T>::active_era();
+		for (who, _) in &validator_points {
+			ErasValidatorIncentiveWeight::<T>::insert(
+				active_era,
+				who,
+				BalanceOf::<T>::from(100u64),
+			);
+		}
+
 		let activation_timestamp = Some((1u64, initial_planned_era + 1));
 		let report = rc_client::SessionReport {
 			end_index: 42,
@@ -1316,6 +1354,10 @@ mod benchmarks {
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 		ErasNominatorsSlashable::<T>::insert(era, true);
 		ErasSumValidatorIncentiveWeight::<T>::insert(era, total_incentive_weight);
+		ErasSumWeightedPoints::<T>::insert(
+			era,
+			total_incentive_weight.saturating_mul(BalanceOf::<T>::from(7u32)),
+		);
 		ErasValidatorIncentiveBudget::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
 
 		era

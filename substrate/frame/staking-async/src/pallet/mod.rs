@@ -74,7 +74,7 @@ pub mod pallet {
 	/// Dimensionless weight from the validator self-stake incentive curve. Same underlying type as
 	/// `BalanceOf<T>` for arithmetic compatibility, but represents the output of the sqrt weight
 	/// function.
-	type IncentiveWeight<T> = BalanceOf<T>;
+	pub(crate) type IncentiveWeight<T> = BalanceOf<T>;
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -100,7 +100,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(18);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -578,6 +578,37 @@ pub mod pallet {
 		IncentiveWeight<T>,
 		OptionQuery,
 	>;
+
+	/// Running sum of `validator_incentive_weight × era_points` across all validators
+	/// with non-zero era points for the era.
+	///
+	/// Maintained incrementally inside [`session_rotation::Eras::reward_active_era`] every
+	/// time validator points are credited. Used as the denominator of the weighted-points
+	/// share that determines each validator's slice of [`ErasValidatorIncentiveBudget`].
+	#[pallet::storage]
+	pub type ErasSumWeightedPoints<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
+
+	/// Cutoff era from which the validator self-stake incentive switches to the
+	/// weighted-points formula.
+	///
+	/// `None` is the pre-migration state for chains whose storage predates this item. Until the
+	/// migration records a cutoff, [`session_rotation::Eras::uses_weighted_points`] treats all
+	/// eras as weighted-points eras. Chains initialized with this storage item set the cutoff to
+	/// `0` in `genesis_build`, and the upgrade migration leaves any existing value untouched.
+	///
+	/// See [`session_rotation::Eras::uses_weighted_points`] for the exact semantics and
+	/// the rationale for the cutoff.
+	///
+	/// TODO(staking-async): remove this storage item, the legacy stake-only branch in
+	/// [`crate::Pallet::calculate_validator_incentive_for_page`], the
+	/// [`session_rotation::Eras::uses_weighted_points`] cutoff helper, and the
+	/// [`crate::migrations::SetWeightedPointsFormulaStartEra`] migration once
+	/// [`Config::HistoryDepth`] eras have elapsed since the upgrade — i.e. once the cutoff
+	/// satisfies `cutoff <= active_era - HistoryDepth`, at which point no pre-cutoff era
+	/// remains claimable and every live era uses the weighted-points formula.
+	#[pallet::storage]
+	pub type WeightedPointsFormulaStartEra<T: Config> = StorageValue<_, EraIndex, OptionQuery>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -1232,6 +1263,11 @@ pub mod pallet {
 				})
 			}
 
+			// Chains initialized with this storage item maintain `ErasSumWeightedPoints` from
+			// era 0. Pin the cutoff to the first era so every era uses the weighted-points formula
+			// and the idempotent migration only acts on chains whose storage predates this item.
+			WeightedPointsFormulaStartEra::<T>::put(0);
+
 			let (active_era, session_index, timestamp) = self.active_era;
 			ActiveEra::<T>::put(ActiveEraInfo { index: active_era, start: Some(timestamp) });
 			// at genesis, we do not have any new planned era.
@@ -1623,6 +1659,7 @@ pub mod pallet {
 					ErasNominatorsSlashable::<T>::remove(era);
 					ErasValidatorIncentiveBudget::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
+					ErasSumWeightedPoints::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},

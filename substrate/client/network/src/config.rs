@@ -424,7 +424,7 @@ where
 }
 
 /// Write secret bytes to a file.
-fn write_secret_file<P>(path: P, sk_bytes: &[u8]) -> io::Result<()>
+pub(super) fn write_secret_file<P>(path: P, sk_bytes: &[u8]) -> io::Result<()>
 where
 	P: AsRef<Path>,
 {
@@ -618,6 +618,9 @@ pub struct NetworkConfiguration {
 	/// Multiaddresses to listen for incoming connections.
 	pub listen_addresses: Vec<Multiaddr>,
 
+	/// Allow WebRtc addresses, this is an experimental feature.
+	pub experimental_webrtc: bool,
+
 	/// Multiaddresses to advertise. Detected automatically if empty.
 	pub public_addresses: Vec<Multiaddr>,
 
@@ -706,6 +709,7 @@ impl NetworkConfiguration {
 		Self {
 			net_config_path,
 			listen_addresses: Vec::new(),
+			experimental_webrtc: false,
 			public_addresses: Vec::new(),
 			boot_nodes: Vec::new(),
 			node_key,
