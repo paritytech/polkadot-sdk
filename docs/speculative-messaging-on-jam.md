@@ -122,6 +122,113 @@ Moments later in the same round, Coretime's replay rolls A back and clears the r
 Since this represents a tiny window of exposure relying on accumulation ordering and only reachable via Coretime intervention, at MVP
 this is accepted rather than solved (ie draining Coretime's commands before any settlement runs).
 
+## Buffering
+
+A candidate that passes every check except settlement (ie, `Provides` entry
+is not yet in the ring) is rejected today. The slot is burned and the work must be redone.
+Buffering stores the work digest and applies it later, once the root arrives.
+
+The first buffered entry must target the parachain's enacted head and all other
+entries must form a valid chain. We allow a maximum of two fork lanes. If a collator wants to abandon a branch,
+they can offer a competing one immediately without waiting for the first to expire.
+These forks can either process different messages (different `Requires`) or build a different head from the
+exact same messages (same `Requires`).
+
+Whichever fork settles first (evaluated FIFO by lane) invalidates the other. Forks are designed to be an edge case,
+not the standard operating model.
+
+Before any work items are applied, the buffered chain is walked from the front. The root parent
+must still be the enacted head and the front entry must not be expired (either failure will drop the chain).
+Then each entry's Accumulate is rerun against the current state. An entry that settles is applied and removed.
+An entry still missing its root stays buffered and ends the walk. Any other failure drops the chain.
+
+A chain front entry that is older than `buffered_at + K slots` is dropped when the next work item
+is accumulated. Buffered bytes are billed to the para's balance and are capped at `MAX_BUFFERED_BYTES` per parachain.
+An entry is never replaced or refreshed.
+
+Buffering never holds up the canonical chain. An entry is never replaced or refreshed.
+
+**Gas Model**
+
+The buffer walk happens before the new work item that brought the gas, but it can only spend the leftover
+gas that the item doesn't need for itself. Collators need to pad the work item to cover this walk.
+Because the buffer is in consensus state, they can read the exact cost at their anchor and fund it perfectly.
+If the gas only covers part of the buffer, the walk settles what i can and pauses. Nothing is destroyed,
+and the remainder waits for the next item.
+After the walk, the new item is processed. It is either applied directly if it sits on the enacted head, or
+buffered as a chain extension if it builds on the tip.
+Ultimately, an under gassed item will never cause the buffer to be dropped, and the buffer walk will never starve the item that paid for it.
+
+Parachains can also push the buffer forward without submitting a new candidate. A settlement-only package carries
+no work digest and no parent head. Because it has no parent head, it can't fail the parent-head check,
+guaranteeing it reaches the walk phase and delivers gas.
+
+Like normal work items, they are autorizer-gated produced by active collators . They require a core slot, refine gas and the
+walk's declared gas (which is cheeper than rebuilding).
+
+```rust
+/// Refine output handled to Accumulate.
+enum RefineOutput {
+    /// Full work digest.
+    Candidate(ParachainWorkDigest),
+    /// Settlement only to run the buffer walk with this item's declared gas.
+    SettleOnly,
+}
+
+/// Depth of buffered chain (per fork lane).
+pub const MAX_CHAIN_SIZE: u8 = 16;
+/// Maximum number of fork lanes.
+///
+/// This supports two forks which are common on polkadot
+/// with elastic scaling where 1 chain doesn't get finalized
+/// and a collator starts building a different chain:
+///
+/// ```ignore
+///  A -> B -> C -> D
+///    -> B' -> D'
+/// ```
+///
+/// However it doesn't support more compeating forks.
+pub const MAX_FORKS: u8 = 2;
+/// Total buffered amount per para (includes everything buffering related).
+pub const MAX_BUFFERED_BYTES: u32 = TBD;
+
+Map<ParaId, Cursor {
+    /// The start positon.
+    start: u8,
+    /// Number of elements buffered.
+    /// Supports two lane of forks.
+    len: [u8; 2],
+    /// Position where the chain diverge.
+    /// The position is <= `Cursor::len[0]`. The lane 1
+    /// exists only in `[fork_at, len[1])`
+    fork_at: u8,
+    /// Head hash of last entry. Ensures next buffered
+    /// digest forms a valid chain.
+    tip_head: [H256; 2],
+    /// If the last work digest carries a code upgrade signal
+    /// this must be last entry in the buffered chain. Every buffered
+    /// entry carry a code_hash gainst which it was validated. Any
+    /// successor would be validated against the old code.
+    tip_terminal: [bool; 2],
+    /// The parent the first entry(s), neede for making sure the buffered
+    /// element is still based on the canonical chain.
+    root_parent: H256,
+}
+Map<(ParaId, u8 /*position*/, u8 /*fork lane 0/1*/), Held {
+    /// The stored work digest.
+    digest: ParachainWorkDigest,
+    /// Validation code this entry was refined against.
+    code_hash: H256,
+    /// The head of the entry. Ensures a valid link is formed.
+    head_hash: H256,
+    /// The slot in which this buffered entry was added.
+    /// The full fork dies when the front entry expires
+    /// at `buffered_at + K`.
+    buffered_at: TimeSlot,
+}
+```
+
 ## Speculation Tiers
 
 Each tier is named after the sender-side event the consumer trusts:
