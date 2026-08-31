@@ -82,7 +82,7 @@ crates:
   - name: sp-runtime
     bump: major
   - name: polkadot-runtime-common
-    bump: patch
+    bump: minor
   - name: pallet-revive
     bump: patch
   - name: sp-consensus-beefy
