@@ -99,6 +99,13 @@ pub(crate) fn para_head_state_key(service_id: ServiceId, para_id: u32) -> StateK
 /// Returns the proof to ship inside the PoV together with the value it proves; `None` means the
 /// proof shows the para has no head yet, which is how a first block is recognised. Verifying
 /// with the very code the service runs means a proof refine would reject never leaves the node.
+///
+/// Phase 5a kept this proof deliberately even though it decides nothing about lineage any more —
+/// that is the parachain service's job at accumulate, and a block whose parent is not the proven
+/// head is now perfectly legal (it is buffered, not rejected). The proof stays because it
+/// exercises the in-core proof-read path the real PVF's `jam_chain_read` will need, and because
+/// it is what lets refine tell a parachain's very first block from any other. Costing about
+/// eleven trie nodes a package, that is worth keeping running.
 pub(crate) async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
 	jam: &Jam,
 	anchor: HeaderHash,
