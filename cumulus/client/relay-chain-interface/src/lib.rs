@@ -303,19 +303,11 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Build a synchronous, proof-recording prover over the relay chain's state at `relay_parent`,
 	/// for the `read_relay_chain_state` host function. Cumulus wraps this into the additional-data
-	/// recorder; this trait stays free of any additional-data types.
-	///
-	/// The default returns an error: only interfaces that can read relay state synchronously
-	/// during block execution (the in-process interface) support this. The RPC interface cannot,
-	/// so it keeps the default.
+	/// recorder.
 	async fn relay_state_prover(
 		&self,
-		_relay_parent: PHash,
-	) -> RelayChainResult<Box<dyn RelayStateProver>> {
-		Err(RelayChainError::GenericError(
-			"relay_state_prover is not supported by this relay chain interface".to_string(),
-		))
-	}
+		relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>>;
 
 	/// Returns the validation code hash for the given `para_id` using the given
 	/// `occupied_core_assumption`.

@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex, Hash};
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
-	ChildInfo, OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
+	ChildInfo, OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult, RelayStateProver,
 };
 use cumulus_test_service::runtime::{Block, Header};
 use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
@@ -113,6 +113,13 @@ impl DummyRelayChainInterface {
 
 #[async_trait]
 impl RelayChainInterface for DummyRelayChainInterface {
+	async fn relay_state_prover(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>> {
+		unimplemented!()
+	}
+
 	async fn validators(&self, _: PHash) -> RelayChainResult<Vec<ValidatorId>> {
 		Ok(self.data.lock().validators.clone())
 	}

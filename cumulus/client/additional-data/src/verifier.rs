@@ -112,7 +112,7 @@ where
 		return None;
 	}
 	let mut map = BTreeMap::new();
-	map.insert(RELAY_PROOF_KEY.into(), (root.clone(), proof).encode());
+	map.insert(RELAY_PROOF_KEY.into(), (*root, proof).encode());
 	Some(map)
 }
 
@@ -134,5 +134,5 @@ where
 	if !db.contains(root, EMPTY_PREFIX) {
 		return None;
 	}
-	Some(TrieBackendBuilder::new(db, root.clone()).with_recorder(recorder).build())
+	Some(TrieBackendBuilder::new(db, *root).with_recorder(recorder).build())
 }

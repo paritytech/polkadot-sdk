@@ -27,8 +27,8 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{
 	ChildInfo, CommittedCandidateReceipt, CoreIndex, OccupiedCoreAssumption, OverseerHandle,
-	PHeader, ParaId, RelayChainInterface, RelayChainResult, SessionIndex, StorageValue,
-	ValidatorId,
+	PHeader, ParaId, RelayChainInterface, RelayChainResult, RelayStateProver, SessionIndex,
+	StorageValue, ValidatorId,
 };
 use cumulus_test_client::{
 	runtime::{Block, Header},
@@ -102,6 +102,13 @@ impl Relaychain {
 
 #[async_trait]
 impl RelayChainInterface for Relaychain {
+	async fn relay_state_prover(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>> {
+		unimplemented!()
+	}
+
 	async fn validators(&self, _: PHash) -> RelayChainResult<Vec<ValidatorId>> {
 		unimplemented!("Not needed for test")
 	}

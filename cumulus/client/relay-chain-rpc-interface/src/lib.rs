@@ -19,24 +19,30 @@ use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		SessionIndex, ValidationCodeHash, ValidatorId,
+		Block as RelayBlock, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as RelayHash,
+		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
+		ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	BlockNumber, ChildInfo, CoreIndex, CoreState, PHeader, RelayChainError, RelayChainInterface,
-	RelayChainResult,
+	BlockNumber, ChildInfo, CoreIndex, CoreState, PHash, PHeader, RelayChainError,
+	RelayChainInterface, RelayChainResult, RelayStateProver,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
 use sc_client_api::StorageProof;
-use sp_state_machine::StorageValue;
+use sp_runtime::traits::HashingFor;
+use sp_state_machine::{read_proof_check, StorageValue};
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
-use std::{collections::btree_map::BTreeMap, pin::Pin};
+use std::{
+	collections::{btree_map::BTreeMap, BTreeSet},
+	pin::Pin,
+	sync::{Arc, Mutex},
+};
 
 use cumulus_primitives_core::relay_chain::{vstaging::RelayParentInfo, BlockId, NodeFeatures};
 pub use url::Url;
@@ -60,6 +66,73 @@ pub struct RelayChainRpcInterface {
 impl RelayChainRpcInterface {
 	pub fn new(rpc_client: RelayChainRpcClient, overseer_handle: Handle) -> Self {
 		Self { rpc_client, overseer_handle }
+	}
+}
+
+/// A [`RelayStateProver`] backed by an RPC connection to a relay-chain full node.
+///
+/// [`RelayStateProver::read`] is synchronous — it is called by the parachain runtime during block
+/// execution, through the `read_relay_chain_state` host function — but the underlying relay reads
+/// go over an async RPC. Each read therefore blocks on the async `state_getReadProof` call. The RPC
+/// client is channel-based (it forwards requests to a background worker that owns the connection),
+/// so a plain `futures` executor is enough to drive the request to completion and no tokio runtime
+/// handle is needed. The value is read back from — and authenticated against — the returned proof,
+/// and the touched trie nodes are accumulated, so
+/// [`proof_snapshot`](RelayStateProver::proof_snapshot) can hand back a storage proof of exactly
+/// what was read.
+struct RpcStateProver {
+	rpc_client: RelayChainRpcClient,
+	relay_parent: PHash,
+	/// The `relay_parent_storage_root` the reads are proven against.
+	root: PHash,
+	/// The trie nodes touched by all reads so far.
+	recorded: Arc<Mutex<BTreeSet<Vec<u8>>>>,
+}
+
+impl RelayStateProver for RpcStateProver {
+	fn read(&self, key: &[u8]) -> RelayChainResult<Option<Vec<u8>>> {
+		// Block on the async RPC to fetch a read proof for `key` at the relay parent.
+		let read_proof = futures::executor::block_on(
+			self.rpc_client
+				.state_get_read_proof(vec![StorageKey(key.to_vec())], Some(self.relay_parent)),
+		)?;
+		let nodes: Vec<Vec<u8>> =
+			read_proof.proof.into_iter().map(|bytes| bytes.to_vec()).collect();
+
+		// Accumulate the touched nodes so `proof_snapshot` can reassemble a proof of every read.
+		self.recorded
+			.lock()
+			.expect("relay-state prover mutex poisoned; qed")
+			.extend(nodes.iter().cloned());
+
+		// Read the value back out of — and authenticated against — the returned proof and root.
+		read_proof_check::<HashingFor<RelayBlock>, _>(self.root, StorageProof::new(nodes), [key])
+			.map_err(|e| {
+				RelayChainError::GenericError(format!("relay-state read proof check failed: {e}"))
+			})
+			.map(|mut values| values.remove(key).flatten())
+	}
+
+	fn root(&self) -> PHash {
+		self.root
+	}
+
+	fn proof_snapshot(&self) -> Box<dyn Fn() -> StorageProof + Send> {
+		let recorded = self.recorded.clone();
+		Box::new(move || {
+			StorageProof::new(
+				recorded.lock().expect("relay-state prover mutex poisoned; qed").iter().cloned(),
+			)
+		})
+	}
+
+	fn proof_size(&self) -> usize {
+		self.recorded
+			.lock()
+			.expect("relay-state prover mutex poisoned; qed")
+			.iter()
+			.map(|node| node.len())
+			.sum()
 	}
 }
 
@@ -209,6 +282,30 @@ impl RelayChainInterface for RelayChainRpcInterface {
 			.map(|read_proof| {
 				StorageProof::new(read_proof.proof.into_iter().map(|bytes| bytes.to_vec()))
 			})
+	}
+
+	async fn relay_state_prover(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>> {
+		// The reads are proven against the `relay_parent_storage_root`, i.e. the state root of the
+		// relay block at `relay_parent`.
+		let root = self
+			.header(BlockId::Hash(relay_parent))
+			.await?
+			.ok_or_else(|| {
+				RelayChainError::GenericError(format!(
+					"Cannot build a relay-state prover: relay header {relay_parent} not found"
+				))
+			})?
+			.state_root;
+
+		Ok(Box::new(RpcStateProver {
+			rpc_client: self.rpc_client.clone(),
+			relay_parent,
+			root,
+			recorded: Arc::new(Mutex::new(BTreeSet::new())),
+		}))
 	}
 
 	async fn prove_child_read(
