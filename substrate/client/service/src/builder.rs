@@ -446,6 +446,33 @@ where
 	)
 }
 
+/// The client capabilities every service entry point relies on.
+///
+/// It is blanket implemented, so every full client qualifies. Having it as a single bound keeps
+/// the client bounds readable at [`build_network`], [`build_network_advanced`], [`spawn_tasks`]
+/// and [`gen_rpc_module`], each of which adds only the few capabilities it genuinely needs on top.
+pub trait ClientForService<Block: BlockT>:
+	ProvideRuntimeApi<Block>
+	+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+	+ HeaderBackend<Block>
+	+ BlockBackend<Block>
+	+ ProofProvider<Block>
+	+ BlockchainEvents<Block>
+	+ 'static
+{
+}
+
+impl<Block: BlockT, T> ClientForService<Block> for T where
+	T: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ ProofProvider<Block>
+		+ BlockchainEvents<Block>
+		+ 'static
+{
+}
+
 /// Parameters to pass into [`spawn_tasks`].
 pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TRpc, Backend> {
 	/// The service configuration.
@@ -498,19 +525,12 @@ pub fn spawn_tasks<TBl, TBackend, TRpc, TCl>(
 	}: SpawnTasksParams<TBl, TCl, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
-	TCl: ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: ClientForService<TBl>
 		+ Chain<TBl>
-		+ BlockBackend<TBl>
-		+ ProofProvider<TBl>
-		+ HeaderBackend<TBl>
-		+ BlockchainEvents<TBl>
 		+ ExecutorProvider<TBl>
 		+ UsageProvider<TBl>
 		+ StorageProvider<TBl, TBackend>
-		+ CallApiAt<TBl>
-		+ Send
-		+ 'static,
+		+ CallApiAt<TBl>,
 	<TCl as ProvideRuntimeApi<TBl>>::Api:
 		sp_api::Metadata<TBl> + sp_session::SessionKeys<TBl> + sp_api::ApiExt<TBl>,
 	TBl: BlockT,
@@ -840,18 +860,10 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc>(
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
-	TCl: ProvideRuntimeApi<TBl>
-		+ BlockchainEvents<TBl>
-		+ HeaderBackend<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: ClientForService<TBl>
 		+ ExecutorProvider<TBl>
 		+ CallApiAt<TBl>
-		+ ProofProvider<TBl>
-		+ StorageProvider<TBl, TBackend>
-		+ BlockBackend<TBl>
-		+ Send
-		+ Sync
-		+ 'static,
+		+ StorageProvider<TBl, TBackend>,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
 	TBl::Hash: Unpin,
@@ -1020,14 +1032,7 @@ pub fn build_network<Block, Net, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
+	Client: ClientForService<Block> + Chain<Block>,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -1186,14 +1191,7 @@ pub fn build_network_advanced<Block, Net, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
+	Client: ClientForService<Block> + Chain<Block>,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
