@@ -18,6 +18,11 @@ const BLOCKS: u64 = 30;
 const FINALIZED: u64 = 25;
 
 #[tokio::test(flavor = "multi_thread")]
+async fn one_jam_collator_builds_blocks() -> Result<(), anyhow::Error> {
+	assert_collators_build_blocks("one_jam_collator_builds_blocks", 1, BLOCKS, FINALIZED).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn two_jam_collators_build_blocks() -> Result<(), anyhow::Error> {
 	assert_collators_build_blocks("two_jam_collators_build_blocks", 2, BLOCKS, FINALIZED).await
 }
