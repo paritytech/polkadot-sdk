@@ -22,7 +22,10 @@ doc:
 crates:
 - name: sc-cli
   bump: major
+  validate: false
 - name: sc-network
   bump: major
+  validate: false
 - name: sc-network-types
   bump: major
+  validate: false
