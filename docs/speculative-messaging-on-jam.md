@@ -13,6 +13,19 @@ Therefore, we introduce on-chain settlement from the MVP. The sender `StreamsRoo
 the consumer `Requires` field (ie `(ParaId, StreamsRoot)`) is checked against the ring. The same
 mechanism handles settlement for all speculation tiers.
 
+## Contents
+
+1. [`Provides` and `Requires`](#1-provides-and-requires)
+2. [Settlement Ring](#2-settlement-ring)
+3. [Buffering](#3-buffering)
+4. [PS Topological Sort](#4-ps-topological-sort)
+5. [Bootnodes Discovery via Para-Owned KV](#5-bootnodes-discovery-via-para-owned-kv)
+6. [Speculation Tiers](#6-speculation-tiers)
+7. [Execution: End to End](#7-execution-end-to-end)
+8. [Forced Recovery](#8-forced-recovery)
+9. [Super Chains](#9-super-chains)
+- [Appendix](#appendix)
+
 ## Changes at MVP Tier
 
 We are releasing with the Enacted tier (HRMP parity) from day 0. The changes needed from PS:
@@ -287,7 +300,7 @@ Map<(ParaId, u8 /*position*/, u8 /*fork lane 0/1*/), Held {
 }
 ```
 
-### 4. PS Topological Sort
+## 4. PS Topological Sort
 
 Within one JAM block, the PS `Accumulate` processes digests in the order JAM provides (core order for
 newly available reports, plus ready-queue releases). If sender A and consumer B land in the same block
@@ -313,7 +326,7 @@ the acyclic part is already emitted in sorted order and the remaining nodes are 
 order. Only the cyclic digests lose the reorder benefit, while the rest of the block is unaffected.
 The cyclic digests themselves miss settlement, are buffered, deadlock on each other and expire after `K` slots.
 
-## 5. Bootnodes Discovery
+## 5. Bootnodes Discovery via Para-Owned KV
 
 Speculative messaging relies on two mechanisms to fetch messages:
 - request-response `/spec-msg/exchange` protocol (same as v0.5 SpecMsg design)
@@ -357,7 +370,7 @@ is registered new collators and nodes can join by reading the `AddressRecord` un
 
 > Note: KV writes are charged and skipped on **insufficient balance**.
 
-## Speculation Tiers
+## 6. Speculation Tiers
 
 Each tier is named after the sender-side event the consumer trusts:
 **Enacted, then Guaranteed, then Announced, then Imported and Fused**.
@@ -390,7 +403,6 @@ settlement check reads A's root before the update and B is rejected.
   - Announced roots represent fetching hints. Before `Refine`, the package builder must retarget
   the lifts to the final candidate root. An intermediate announced root must never be writted directly into `Requires`.
   The `/spec-msg/announce` carries the exact `work_package_hash` and the final `StreamsRoot`.
-
   - latency: saves 2 or 4 slots
   - risk: if settlement fails `B` burns its slot (`A` can die or `A` lands later)
   - relies on llv2 ack / slashing since building block `A` is cheap
@@ -398,12 +410,14 @@ settlement check reads A's root before the update and B is rejected.
     - 1. `prerequisites` fields: work package hash is distributed offchain via `/spec-msg/announce` (capped at `J = 8`)
     - 2. PS Buffering 
 
-- **Tier 3: InCore Imported**: delivery via in-core segment import
+**Tiers with lower implementation priority**
+
+- **Tier 3: InCore Imported/DA Layer**: delivery via in-core segment import
   - B's report names A's segment root. JAM parks the report in the ready queue until the segement dependency is resolved
   - B can't accumulate before A, the ring still guards cases when `A` is rejected
   - If `A` segments never become available, `B` package isn't refined and the slot isn't burned
   - Needs to a segment framing to export the speculative messages, which can land at a later time
-  - latency: same as `Tier 2: Announced`
+  - latency: **Same as T0/T1**
   - race condition: doesn't apply since `B`'s report has a prerequisite on `A`
 
 - **Tier 4: Fused / SuperChains**
@@ -427,51 +441,7 @@ to Accumulate within 1-2 slot delay until `B` accumulates.
   and just expires at `buffered_at + K`. Then, `B` forks immediately at T0 tier and rebuilds on the second buffered lane.
 - If `B`'s head doesn't advance after its package accumulates, then `B` burns the slot and conservatively rebuilds against T0
 
-## Bootnodes Discovery
-
-Speculative messaging relies on two mechanisms to fetch messages:
-- request-response `/spec-msg/exchange` protocol (same as v0.5 SpecMsg design)
-- (from Tier 3) PVF exported payloads to DA as framed segments
-  The DA exports are added from `Tier 3` and offers a bootnode agnostic fallback to fetch messages.
-
-Therefore, the parachain must discover bootnodes before communicating on the p2p layer.
-The para's runtime maintains its list in the existing KV store (tag `0x08`):
-
-```rust
-/// Full storage key: 0x08 ++ SCALE((para_id, BOOTNODES_KEY)).
-const BOOTNODES_KEY: &[u8] = b"bootnodes/v1";
-
-/// Ephemeral record of a parachain's active bootnodes.
-struct AddressRecord {
-    /// The timeslot after which this entire record is invalid and should be dropped.
-    expires_at: Timeslot,
-    /// Up to 4 active bootnodes.
-    bootnodes: BoundedVec<Bootnode, 4>,
-}
-
-struct Bootnode {
-    /// The network address (must NOT contain a peer ID).
-    addr: Multiaddr,
-    /// The public key from which the node's peer ID is derived.
-    node_key: Ed25519Public,
-    /// A monotonic sequence number to prevent replay attacks.
-    seq: u64,
-    /// Proof of possession. The node must sign:
-    /// `("bootnode-pop-v1", jam_genesis_hash, para_id from the key, Bootnode::seq, Bootnode::addr)`
-    /// This proves the node owner consents to being a bootnode for this specific broadcast.
-    sig: Ed25519Signature,
-}
-```
-
-The parachain service doesn't verify the `AddressRecord` fields. The admission of a new
-address into the book is part of the Parachain runtime logic.
-
-Initially the chain operator will setup the network via an explicit `--bootnodes` CLI flag. Once the chain
-is registered new collators and nodes can join by reading the `AddressRecord` under the storage key.
-
-> Note: KV writes are charged and skipped on **insufficient balance**.
-
-## 4. Execution: End to End
+## 7. Execution: End to End
 
 1. **A:** runtime appends outbound messages to per-destination stream MMRs
    - Output: The runtime writes `StreamsRoot` into the pallet storage (and header digest). During the PS
@@ -488,9 +458,9 @@ is registered new collators and nodes can join by reading the `AddressRecord` un
    - in-core the validation wrapper verifies the PoV-carried lifts, stitches bundle intervals and gap
    proofs, and synthesizes each source's `(ParaId, StreamsRoot)` via `set_requires_root`. Failures
    abort with `RefineLog`.
-   - on-chain, §5.1 step 6 checks each named root is in its source's ring, then B enacts.
+   - on-chain, the settlement check (§2) verifies each named root is in its source's ring, then B enacts.
 
-## Forced Recovery
+## 8. Forced Recovery
 
 `parachain_set_head` rolls back A's enacted history causing two side effects:
 - Every consumer channel desyncs. The sender's next root will not extend the roots consumers are already following.
@@ -514,7 +484,7 @@ already delivered, but previously delivered messages always stand.
 > Note: A dormant chain's ring persists, meaning its final messages remain drainable at the Enacted tier.
 The `parachain_clean_up` routine removes the ring, permanently ending drainability.
 
-## 12. Super Chains
+## 9. Super Chains
 
 A superchain pair consumes each other's speculative output every step (A consumes B in this block and B consumes an earlier A block).
 Because of how it's designed, this loop works safely on JAM.
