@@ -1,0 +1,16 @@
+title: 'pallet-nfts: decrement the attribute count when cancelling an attributes approval'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `do_cancel_item_attributes_approval` drained the delegate's attributes and unreserved their
+    deposits without decrementing `CollectionDetails.attributes`, so the counter stayed above the
+    number of stored attributes and `DestroyWitness.attributes` reported the inflated value. It is
+    now reduced by the number of drained entries, matching `do_clear_attribute`.
+- audience: Runtime User
+  description: |-
+    A caller that derives the destroy witness from stored attributes rather than from
+    `get_destroy_witness` is no longer rejected with `BadWitness` after an attributes approval was
+    cancelled.
+crates:
+- name: pallet-nfts
+  bump: patch
