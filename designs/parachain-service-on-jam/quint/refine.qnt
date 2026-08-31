@@ -43,14 +43,6 @@ module refine {
       | _ => acc
   })
 
-  /// Per §4.3: each `set_validator_keys` chunk contains at most 30 keys.
-  pure def setValidatorKeysChunkOk(msgs: List[UpwardMessage]): bool =
-  msgs.foldl(true, (acc, m) => match m {
-      | SetValidatorKeys(payload) =>
-      acc and (payload.keys.length() <= SetValidatorKeysMaxKeys)
-      | _ => acc
-  })
-
   /// Per §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
   /// A queue that hands the core to another service must be exactly
   /// `AuthorizerQueueLength`: the service can no longer re-present a short one
@@ -64,10 +56,15 @@ module refine {
     | _ => acc
   })
 
-  /// Combined Refine-side well-formedness for emitted upward messages.
-  pure def wellFormedUpwardMessages(msgs: List[UpwardMessage]): bool =
-  setValidatorKeysCount(msgs) <= 1 and
-  setValidatorKeysChunkOk(msgs)
+  /// Per §4.3: a `SetValidatorKeys` chunk holds at most
+  /// `SetValidatorKeysMaxKeys` keys. Refine checks the length explicitly and
+  /// rejects a longer chunk with `TooManyValidatorKeys`.
+  pure def setValidatorKeysWithinCap(msgs: List[UpwardMessage]): bool =
+  msgs.foldl(true, (acc, m) => match m {
+    | SetValidatorKeys(payload) =>
+    acc and (payload.keys.length() <= SetValidatorKeysMaxKeys)
+    | _ => acc
+  })
 
   /// Actual SCALE-encoded size of one upward message, used by the 48 KiB
   /// result-blob budget check (§4.1 step 7). Every variant is measured from
@@ -127,14 +124,27 @@ module refine {
     | UpgradeService(p) => 48 + compactLen(p.len)
   }
 
-  /// `true` iff the work result (`paraId` + `vch` + `parentHeadHash` +
-  /// worst-case `head_data` + upward messages) plus a worst-case auth
-  /// trace would exceed `MaxReportVarSize`.
-  pure def resultExceedsBudget(msgs: List[UpwardMessage]): bool = {
+  /// Summed SCALE-encoded size of the upward messages themselves, excluding the
+  /// enclosing vector's length prefix.
+  pure def upwardMessagesTotalSize(msgs: List[UpwardMessage]): int =
+  msgs.foldl(0, (acc, m) => acc + upwardMessageSize(m))
+
+  /// `true` iff the upward messages exceed the parachain's 40 KiB budget. The
+  /// vector's length prefix is not charged against the budget.
+  pure def exceedsUpwardMessagesBudget(msgs: List[UpwardMessage]): bool =
+  upwardMessagesTotalSize(msgs) > MaxUpwardMessagesSize
+
+  /// `true` iff the whole Refine output (`paraId` + `vch` + `parentHeadHash` +
+  /// worst-case `head_data` + upward messages) plus a worst-case auth trace
+  /// would exceed `MaxReportVarSize`. Backstop on the 48 KiB Gray Paper limit:
+  /// `MaxUpwardMessagesSize` is chosen so this cannot trigger, so it fires only
+  /// if that budget or one of the sizes below is ever set inconsistently.
+  pure def refineOutputExceedsBudget(msgs: List[UpwardMessage]): bool = {
     val headDataMax = 4098    // BoundedVec<u8, 4096> worst case
     val authTraceMax = 256
     val resultBase = 4 + 32 + 32 + headDataMax
-    val msgsSize = msgs.foldl(2, (acc, m) => acc + upwardMessageSize(m))
+    // The encoded blob does carry the vector's length prefix, 2 B worst case.
+    val msgsSize = 2 + upwardMessagesTotalSize(msgs)
     resultBase + msgsSize + authTraceMax > MaxReportVarSize
   }
 
@@ -223,13 +233,17 @@ module refine {
       | PvfOk =>
         if (msgs.length() > MaxUpwardMessages)
         Some(refineErr(para_id, TooManyUpwardMessages))
-        else if (not(wellFormedUpwardMessages(msgs)))
-        Some(refineErr(para_id, SetValidatorKeysTooManyKeys))
+        else if (setValidatorKeysCount(msgs) > 1)
+        Some(refineErr(para_id, SetValidatorKeysRepeated))
+        else if (not(setValidatorKeysWithinCap(msgs)))
+        Some(refineErr(para_id, TooManyValidatorKeys))
         else if (not(wellFormedAssignQueues(msgs)))
         Some(refineErr(para_id, InvalidAuthorizerQueue))
         else if (violatesParachainRestrictions(msgs, para_id))
         Some(refineErr(para_id, RestrictedHostFunction))
-        else if (resultExceedsBudget(msgs))
+        else if (exceedsUpwardMessagesBudget(msgs))
+        Some(refineErr(para_id, UpwardMessagesTooLarge))
+        else if (refineOutputExceedsBudget(msgs))
         Some(refineErr(para_id, RefineOutputTooLarge))
         else
         // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a

@@ -109,6 +109,10 @@ module types {
   /// Combined cap on a work-report's auth-trace + result blobs.
   pure val MaxReportVarSize: int = 48 * 1024
 
+  /// Cap on the summed SCALE-encoded size of the upward messages one Refine
+  /// invocation may emit.
+  pure val MaxUpwardMessagesSize: int = 40 * 1024
+
   /// Per-call cap on `set_validator_keys` chunks (design §4.3).
   pure val SetValidatorKeysMaxKeys: int = 30
 

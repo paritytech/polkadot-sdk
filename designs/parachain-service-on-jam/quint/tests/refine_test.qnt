@@ -151,6 +151,31 @@ module refine_test {
     }
   }
 
+  /// §4.3: Refine checks the `SetValidatorKeys` chunk length explicitly and
+  /// rejects a chunk over `SetValidatorKeysMaxKeys` with `TooManyValidatorKeys`.
+  /// Exactly 30 keys refines fine. The cap and the once-per-Refine rule are
+  /// separate rules with separate errors.
+  run setValidatorKeysChunkCapTest = {
+    val capKeys = range(0, SetValidatorKeysMaxKeys).foldl(List(), (acc, _) => acc.append(0))
+    val overKeys = range(0, SetValidatorKeysMaxKeys + 1).foldl(List(), (acc, _) => acc.append(0))
+    val atCap = SetValidatorKeys({ keys: capKeys, isLast: true })
+    val overCap = SetValidatorKeys({ keys: overKeys, isLast: true })
+    all {
+      assert(capKeys.length() == 30),
+      assert(overKeys.length() == 31),
+      // 31 keys: rejected by the explicit length check.
+      assert(refineWithMsgs(initialState, AssetHubParaId, List(overCap))
+        == WorkOk(refineErr(AssetHubParaId, TooManyValidatorKeys))),
+      // 30 keys: at the cap, so not rejected by any Refine check.
+      assert(isOkDigest(refineWithMsgs(initialState, AssetHubParaId, List(atCap)))),
+      // The cap is per chunk, not per invocation: two at-cap chunks trip the
+      // separate repeat rule instead.
+      assert(refineWithMsgs(initialState, AssetHubParaId, List(atCap, atCap))
+        == WorkOk(refineErr(AssetHubParaId, SetValidatorKeysRepeated))),
+      init
+    }
+  }
+
   /// §4.3: naming a `para_id` the caller may not touch makes REFINE fail with
   /// `RestrictedHostFunction`, so the message never reaches Accumulate at all.
   /// Naming itself, or being the Coretime chain, refines fine.

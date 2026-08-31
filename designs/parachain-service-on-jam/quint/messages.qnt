@@ -30,13 +30,15 @@ module messages {
   | InvalidCodeHash
   // PVF aborted itself via report_error(data). Payload ≤ 1024 B.
   | Opaque(int)
-  // A `set_validator_keys` chunk exceeded 30 keys, or
-  // `set_validator_keys` was called more than once in a single
-  // Refine invocation.
-  | SetValidatorKeysTooManyKeys
-  // The PVF emitted more than `MaxUpwardMessages` (1024) upward messages
+  // set_validator_keys was called more than once in a single Refine invocation.
+  | SetValidatorKeysRepeated
+  // A SetValidatorKeys chunk carried more than `SetValidatorKeysMaxKeys` keys.
+  | TooManyValidatorKeys
+  // The PVF emitted more than `MaxUpwardMessages` upward messages
   // in a single Refine invocation (§4.3).
   | TooManyUpwardMessages
+  // The parachain's 40 KiB upward-message budget was exceeded.
+  | UpwardMessagesTooLarge
   // The PVF invoked a host function restricted to another parachain (Asset Hub
   // or the Coretime chain), or named a `para_id` it may not act for (§4.3).
   | RestrictedHostFunction
@@ -152,8 +154,8 @@ module messages {
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
   // The JAM `transfer` call replaying a `TransferOut` upward message
   // returned an error. `id` is the caller-supplied identifier from the
-  // `TransferOut`, echoed back so the parachain can match the failure to its
-  // own record. See §5.1 step 7.
+  // `TransferOut`, echoed back so Asset Hub can match the failure to its
+  // request. See §5.1 step 7.
   | TransferFailed({ id: int, error: TransferError })
   // A `forget` removed the last referencer without expunging the preimage;
   // the caller must `forget(hash, len)` again at `due` to free it. See §6.1.
@@ -163,7 +165,9 @@ module messages {
   | ServiceSolicitFailed({ service: ServiceId, error: ServiceSolicitError })
   | ServiceEjectFailed({ service: ServiceId, error: ServiceEjectError })
   | ServiceSupervisorFailed({ service: ServiceId, error: ServiceSupervisorError })
-  // Announces a create_service outcome to Asset Hub, echoing its id.
+  // Announces a CreateService outcome to Asset Hub. `id` is the caller-supplied
+  // identifier from the CreateService, echoed back so Asset Hub can match the
+  // outcome to its request.
   | ServiceCreation({ id: int, result: ServiceCreationResult })
   // `parachain_clean_up` rejected: the parachain still holds state beyond its
   // baseline and validation code(s) and must release the rest first. See §6.4.
@@ -190,8 +194,8 @@ module messages {
   | EjectService({ service: ServiceId })
   // set_service_supervisor(service, newSupervisor).
   | SetServiceSupervisor({ service: ServiceId, newSupervisor: ServiceId })
-  // create_service(...): `id` is Asset Hub's own, echoed back in the
-  // ServiceCreation entry that announces the assigned ServiceId to it.
+  // `id` is a caller-supplied identifier, echoed back in the ServiceCreation
+  // entry so Asset Hub can match the outcome to its request.
   | CreateService({
       codeHash: Hash, len: int, minItemGas: int, minMemoGas: int, id: int,
       // Index to create the service at, in JAM's protected range.
@@ -217,7 +221,9 @@ module messages {
   // memo is supplied. `source = None` means this service, matching JAM's self
   // sentinel. The two selectors choose the balance on each side: which of
   // source's is debited and which of dest's receives the funds; true means the
-  // supervisor balance (§5.1 outgoing transfers).
+  // supervisor balance (§5.1 outgoing transfers). `id` is a caller-supplied
+  // identifier, echoed back in the TransferFailed entry so Asset Hub can match
+  // a failure to its request.
   | TransferOut({
       source: Option[ServiceId], dest: ServiceId, amount: Balance, id: int,
       sourceSupervisorBalance: bool, destSupervisorBalance: bool,

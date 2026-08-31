@@ -252,13 +252,16 @@ enum RefineLog {
     /// Opaque payload with which the PVF aborted itself via `report_error(data)`
     /// (max 1024 bytes). See §4.2.
     Opaque(BoundedVec<u8, 1024>),
-    /// A `set_validator_keys` chunk contained more than 30 keys, or
     /// `set_validator_keys` was called more than once in a single Refine
     /// invocation. See §4.3, §5.3.
-    SetValidatorKeysTooManyKeys,
-    /// The PVF emitted more than 1024 upward messages in a single Refine
-    /// invocation. See §4.3.
+    SetValidatorKeysRepeated,
+    /// A `SetValidatorKeys` chunk carried more than 30 keys. See §4.3, §5.3.
+    TooManyValidatorKeys,
+    /// The PVF emitted more than `MAX_UPWARD_MESSAGES` upward messages in a
+    /// single Refine invocation. See §4.3.
     TooManyUpwardMessages,
+    /// The parachain's 40 KiB upward-message budget was exceeded. See §4.3.
+    UpwardMessagesTooLarge,
     /// The PVF invoked a host function restricted to another parachain (Asset
     /// Hub or the Coretime chain), or named a `para_id` it may not act for.
     /// See §4.3.
@@ -266,7 +269,9 @@ enum RefineLog {
     /// The work item payload failed to decode into a `ParachainCandidate`.
     /// See §4.1 step 3.
     MalformedPayload,
-    /// See §4.3.
+    /// An `AssignCore` carried an empty queue, or more than `AUTH_QUEUE_SIZE`
+    /// hashes, or fewer than `AUTH_QUEUE_SIZE` hashes while handing the core to
+    /// another assigner. See §4.3.
     InvalidAuthorizerQueue,
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
     /// Paper's 48 KiB. See §4.1.
@@ -307,8 +312,8 @@ enum AccumulateLog {
     /// The new code's preimage is not available for lookup. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
     /// The JAM `transfer` call replaying a `TransferOut` failed. `id` is the
-    /// caller-supplied identifier from the `TransferOut`, echoed back so the
-    /// parachain can match the failure to its own record. See §5.1 step 7.
+    /// caller-supplied identifier from the `TransferOut`, echoed back so Asset
+    /// Hub can match the failure to its request. See §5.1 step 7.
     TransferFailed { id: Compact<u64>, error: TransferError },
     /// A `forget` left the preimage in place. It must be forgotten again at
     /// `due`. See §6.1.
@@ -322,8 +327,9 @@ enum AccumulateLog {
     ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
     /// A `set_service_supervisor` failed.
     ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
-    /// Announces a `create_service` outcome to Asset Hub, echoing its `id`.
-    ///
+    /// Announces a `CreateService` outcome to Asset Hub. `id` is the
+    /// caller-supplied identifier from the `CreateService`, echoed back so Asset
+    /// Hub can match the outcome to its request.
     ServiceCreation { id: Compact<u64>, result: ServiceCreationResult },
     /// `parachain_clean_up` was rejected because the parachain still holds state
     /// beyond its baseline and validation code(s); it must release the rest
@@ -576,20 +582,22 @@ enum ParachainWorkDigest {
 }
 
 enum UpwardMessage {
-    /// From `request_code_upgrade`: start a PVF code upgrade (see §5.2).
+    /// Start a PVF code upgrade (see §5.2).
     RequestCodeUpgrade { hash: ValidationCodeHash, len: Compact<u32> },
-    /// From `solicit`. See §6.1 for a `Parachain` target.
+    /// Request a preimage, charged to the target's state balance. See §6.1 for a
+    /// `Parachain` target. A `Service` target requests into that service's own
+    /// store and is **Asset Hub only**.
     Solicit { target: Target, hash: Hash, len: Compact<u32> },
-    /// From `eject_service`: destroy an empty supervised service, crediting its
-    /// balances to this service.
+    /// Destroy an empty supervised service, crediting its balances to this
+    /// service. **Asset Hub only.**
     EjectService { service: ServiceId },
-    /// From `set_service_supervisor`: hand a supervised service to another
-    /// supervisor, or to itself to set it free.
+    /// Hand a supervised service to another supervisor, or to itself to set it
+    /// free. **Asset Hub only.**
     SetServiceSupervisor { service: ServiceId, new_supervisor: ServiceId },
-    /// From `create_service`: create a service supervised by this one, funded
-    /// from this service's balance. `id` is Asset Hub's own, echoed back in the
-    /// `ServiceCreation` log entry that announces the assigned `ServiceId` to
-    /// it.
+    /// Create a service supervised by this one, funded from this service's
+    /// balance. `id` is a caller-supplied identifier, echoed back in the
+    /// `ServiceCreation` log entry so Asset Hub can match the outcome to its
+    /// request. **Asset Hub only.**
     CreateService {
         code_hash: Hash,
         len: Compact<u32>,
@@ -601,29 +609,30 @@ enum UpwardMessage {
         source_supervisor_balance: bool,
         new_supervisor_balance: bool,
     },
-    /// From `forget`: release a previously solicited preimage. `para_id` names
-    /// whose reference is released and whose `used_state_balance` is refunded,
-    /// since only that parachain was ever charged for it. Removing the last
-    /// referencer may need a follow-up `forget` (two-step expunge; see §6.1).
-    /// For that parachain's active or pending validation code it only clears
-    /// `pinned` (§5.2).
-    /// From `forget`. See §6.1 for a `Parachain` target.
+    /// Release a previously solicited preimage. The target names whose reference
+    /// is released and whose `used_state_balance` is refunded, since only that
+    /// parachain was ever charged for it. Removing the last referencer may need
+    /// a follow-up `Forget` (two-step expunge, see §6.1). For that parachain's
+    /// active or pending validation code it only clears `pinned` (§5.2). A
+    /// `Service` target is **Asset Hub only**.
     Forget { target: Target, hash: Hash, len: Compact<u32> },
-    /// From `remove_service_storage`.
+    /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
-    /// From `kv_set`: upsert `key_value_storage[(para_id, key)] = value`.
-    /// Accumulate replays it with delta state-balance charging (see §6.1).
+    /// Upsert `key_value_storage[(para_id, key)] = value`. Accumulate replays it
+    /// with delta state-balance charging (see §6.1).
     SetKV { key: Vec<u8>, value: Vec<u8> },
-    /// From `kv_remove`: remove `key_value_storage[(para_id, key)]`, refunding
-    /// its footprint to `para_id` (see §6.1).
+    /// Remove `key_value_storage[(para_id, key)]`, refunding its footprint to
+    /// `para_id` (see §6.1).
     RemoveKV { para_id: ParaId, key: Vec<u8> },
-    /// From `transfer_out`: transfer balance to another JAM service.
+    /// Transfer balance to another JAM service.
     /// `deferred` is `None` for a plain move and `Some((memo, gas))` for a
     /// deferred transfer. JAM ignores the gas limit when no memo is supplied.
     /// `source = None` means this service, matching JAM's self sentinel. The
     /// two selectors choose the balance on each side: which of `source`'s is
     /// debited, and which of `dest`'s receives the funds. True means the
-    /// supervisor balance. See §5.1 step 7.
+    /// supervisor balance. `id` is a caller-supplied identifier, echoed back in
+    /// the `TransferFailed` log entry so Asset Hub can match a failure to its
+    /// request. See §5.1 step 7. **Asset Hub only.**
     TransferOut {
         source: Option<ServiceId>,
         dest: ServiceId,
@@ -633,36 +642,51 @@ enum UpwardMessage {
         dest_supervisor_balance: bool,
         deferred: Option<(Memo, u64)>,
     },
-    /// From `assign_core`: schedule a core's `assign` (queue + assigner). See §7.1.
+    /// Schedule a core's JAM `assign` (queue + assigner). A queue violating
+    /// either length rule below aborts Refine with
+    /// `Err(RefineLog::InvalidAuthorizerQueue)`. See §7.1.
+    /// **Coretime chain only.**
     AssignCore {
         core: CoreIndex,
-        /// As emitted by the PVF, so any length is representable; Refine is
-        /// what holds it to 1..`AUTH_QUEUE_SIZE`. See §4.3.
+        /// As emitted by the PVF, so any length is representable. Refine holds
+        /// it to 1 to `AUTH_QUEUE_SIZE` hashes and rejects any other length,
+        /// empty included. See §4.3.
         queue: Vec<AuthorizerHash>,
+        /// `None` leaves this service as the core's assigner, the common
+        /// queue-rotation case. `Some(s)` hands the core to `s`, which is
+        /// one-way: the service is no longer the assigner afterwards and so
+        /// cannot re-present a short queue, which is why `Some(s)` requires an
+        /// exactly `AUTH_QUEUE_SIZE`-hash queue.
         new_assigner: Option<ServiceId>,
         /// Timeslot at which the queue should be applied.
         jam_slot: Timeslot,
     },
-    /// From `set_validator_keys`. See §5.3.
+    /// Append a chunk of upcoming validator keys to `staged_validator_keys`.
+    /// `keys` holds at most 30 keys, and a longer chunk aborts Refine with
+    /// `Err(RefineLog::TooManyValidatorKeys)`. May be sent at most once per
+    /// Refine invocation, and a repeat aborts Refine with
+    /// `Err(RefineLog::SetValidatorKeysRepeated)`. See §5.3.
+    /// **Asset Hub only.**
     SetValidatorKeys { keys: Vec<ValidatorKey>, is_last: bool },
-    /// From `clean_up_buckets_up_to`: remove every `incoming_transfers` bucket
-    /// up to and including this bucket id. See §5.1.
+    /// Remove every `incoming_transfers` bucket up to and including this bucket
+    /// id. See §5.1. **Asset Hub only.**
     CleanUpBucketsUpTo(BucketId),
-    /// From `parachain_service_upgrade`. See §5.4.
+    /// Replace the Parachain Service's own service code. See §5.4.
+    /// **Asset Hub only.**
     UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
-    /// From `parachain_set_head`: upsert a parachain's head data.
+    /// Upsert a parachain's head data. **Coretime chain only.**
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
-    /// From `parachain_set_validation_code`: upsert a parachain's
-    /// validation code hash. The service must solicit the validation
-    /// code preimage.
+    /// Upsert a parachain's validation code hash. The service must solicit the
+    /// validation code preimage. **Coretime chain only.**
     ParachainSetValidationCode {
         para_id: ParaId,
         new_validation_code_hash: ValidationCodeHash,
         new_validation_code_len: Compact<u32>,
     },
-    /// From `parachain_clean_up`: remove all per-parachain state.
+    /// Remove all per-parachain state. **Coretime chain only.**
     ParachainCleanUp(ParaId),
-    /// From `parachain_set_state_balance`. See §6.1.
+    /// Overwrite `ParaInfo[para_id].total_state_balance`. See §6.1.
+    /// **Coretime chain only.**
     ParachainSetStateBalance { para_id: ParaId, new_total: Compact<Balance> },
 }
 ```
@@ -711,7 +735,9 @@ index `item_index` the Parachain Service performs:
 8. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget; if not, aborts with
-   `Err(RefineLog::RefineOutputTooLarge)`.
+   `Err(RefineLog::RefineOutputTooLarge)`. Parachain-driven overflow (upward
+   messages exceeding the 40 KiB budget) aborts earlier with
+   `Err(RefineLog::UpwardMessagesTooLarge)` inside `send_upward_message`.
 
 Because Refine is stateless, it cannot write to service storage.
 
@@ -774,33 +800,22 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
-| `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
-| `solicit(target: Target, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit`. A `Parachain` target requests the preimage for that parachain, charged to its `used_state_balance` (see §6.1). Idempotent: no-op if it is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For that parachain's own active/pending validation code it only sets `pinned` to true (§5.2). A `Service` target requests into that service's store instead, charged against **its** balance, and is **Asset Hub only**. |
-| `forget(target: Target, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget`. A `Parachain` target drops that parachain's referencer from this service's own store (see §6.1). Idempotent: no-op if it is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). A `Service` target forgets in that service's store instead and is **Asset Hub only**. |
-| `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
-| `kv_remove(para_id: ParaId, key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent: no-op if the key is absent. |
-| `remove_service_storage(service: ServiceId, key: Vec<u8>)` | `()` | Delete `key` from a supervised service's own storage (Asset Hub only). Idempotent: no-op if the key is absent. |
-| `eject_service(service: ServiceId)` | `()` | Destroy a supervised service, crediting its regular and supervisor balances to this service's regular balance (Asset Hub only). Requires the service to hold no storage or preimage requests, and to have been created before this timeslot. |
-| `set_service_supervisor(service: ServiceId, new_supervisor: ServiceId)` | `()` | Hand a supervised service to `new_supervisor`, or name the service itself to set it free (Asset Hub only). `new_supervisor` must exist. One-way: the Parachain Service immediately loses every operation on that service, `eject_service` included, so whatever it funded into the service is forfeit. |
-| `create_service(code_hash: Hash, len: u32, min_item_gas: u64, min_memo_gas: u64, id: u64, desired_id: Option<ServiceId>, source_supervisor_balance: bool, new_supervisor_balance: bool)` | `()` | Create a service supervised by this one (Asset Hub only), funded with its threshold balance from this service. The two flags choose which balance is debited here and which the new service is funded into. `desired_id` names an index in JAM's protected range. `id` is Asset Hub's own, echoed back in the `AccumulateLog::ServiceCreation` entry that announces the assigned `ServiceId` to it. |
-| `transfer_out(source: Option<ServiceId>, dest: ServiceId, amount: Balance, id: u64, source_supervisor_balance: bool, dest_supervisor_balance: bool, deferred: Option<(Memo, u64)>)` | `()` | Transfer balance between JAM services (Asset Hub only). `source = None` means this service; the two `*_supervisor_balance` flags choose which balance is debited on `source` and credited on `dest` (`true` = the supervisor balance); `deferred` selects between JAM's plain-move and deferred-transfer modes; `id` is caller-chosen and echoed back in `AccumulateLog::TransferFailed` if the transfer fails. See §5.1 step 7. |
-| `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` for `jam_slot` (Coretime chain only); queue and assigner are written together, as JAM's `assign` does. See §5.1 for when it fires and §7.1 for how a short queue fills the 80 slots. A queue outside 1 to `AUTH_QUEUE_SIZE` hashes, empty included, aborts Refine as `Err(RefineLog::InvalidAuthorizerQueue)`. Re-scheduling a core replaces its entry, so the last call wins. `new_assigner = None` keeps this service as the assigner; `Some(s)` hands the core to `s` and requires an exactly `AUTH_QUEUE_SIZE`-hash queue, since the service can no longer re-present a short one after giving the core away. |
-| `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Aborts Refine as `Err(RefineLog::SetValidatorKeysTooManyKeys)` if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
-| `clean_up_buckets_up_to(bucket_id: BucketId)` | `()` | Remove every `incoming_transfers` bucket up to and including `bucket_id`, marking those transfers consumed (Asset Hub only). See §5.1. |
-| `parachain_service_upgrade(code_hash: Hash, len: u32, min_acc_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_acc_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call unless the new code's preimage is available for lookup. See §5.4. |
-| `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`; any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
-| `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
-| `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
-| `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
-| `parachain_set_state_balance(para_id: ParaId, new_total: Balance)` | `()` | Overwrite `ParaInfo[para_id].total_state_balance` (Coretime chain only). On rejection an `AccumulateLog::StateBalanceUpdateRejected` is appended to the parachain's log. See §6.1. |
+| `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
+| `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 
-Host functions that are restricted to specific parachains (e.g. Coretime chain, Asset Hub)
-will abort with an error when called by any other parachain. Likewise, a host function
-taking a `para_id` aborts unless it names the calling parachain, except from the
-Coretime chain, which may name any parachain (§6.4).
+`UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
+stable, so a message's `encoded_size()` is computable inside the PVF. The 40 KiB
+budget counts the encoded messages alone.
 
-A single Refine invocation may emit at most **1024 upward messages**. If the PVF
-exceeds this, the invocation fails with `Err(RefineLog::TooManyUpwardMessages)`.
+Variants marked **Asset Hub only** or **Coretime chain only** are accepted from
+that parachain alone. A variant carrying a `para_id` is further restricted to the
+calling parachain, except from the Coretime chain, which may name any parachain
+(§6.4). Violating either rule aborts Refine with
+`Err(RefineLog::RestrictedHostFunction)`.
+
+A single Refine invocation may emit at most `MAX_UPWARD_MESSAGES = 1024` upward
+messages. If the PVF exceeds this, the invocation fails with
+`Err(RefineLog::TooManyUpwardMessages)`.
 This bounds the number of side effects Accumulate must replay per work item,
 independently of the 48 KiB combined-result-blob budget.
 
