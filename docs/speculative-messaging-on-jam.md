@@ -136,6 +136,15 @@ fn push(para: ParaId, root: StreamsRoot) {
     spec_msg_cursor.set(para, c); // 47 B write
   }
 }
+```
+
+| per para                | one-item ring (W = 64)          | this layout (point reads)          |
+|-------------------------|---------------------------------|------------------------------------|
+| settle, per `Requires`  | 2,345 B read                    | 75 B read                          |
+| push                    | 2,345 B read + 2,345 B write    | 197 B read + 197 B write, 2 dels   |
+| teardown                | 1 delete                        | 65 reads (~4.85 KB) + 129 deletes  |
+| resident footprint      | 2,345 B, self-pruning           | 9,647 B, ratchets until teardown   |
+
 
 When the `parachain_set_head` overwrites a live head, or if `parachain_clean_up` is called, the ring is cleared.
 The teardown process reads the cursor and walks backwards from `head - 1` down to `tail`.
