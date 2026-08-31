@@ -48,7 +48,7 @@ use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
-use futures::{FutureExt, StreamExt, channel::mpsc, stream::FusedStream};
+use futures::{FutureExt, StreamExt, channel::mpsc};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
 	BlockDesc, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
@@ -92,11 +92,6 @@ const ANCHOR_OFFSET: u32 = 0;
 /// wall-clock timer keeps ticking regardless, so it needs to be told when the tip it caches went
 /// stale (JAM stalled, or the subscription died silently) rather than anchoring against it.
 const MAX_TIP_LAG_SLOTS: JamSlot = 2;
-/// How long a tick waits for the JAM block of its own slot to reach the tip cache.
-///
-/// That block normally arrives a fraction of a second after the slot boundary; the bound is
-/// there only to cap a stalled network, and on timeout the tick anchors at the tip it has.
-const CURRENT_SLOT_TIP_WAIT: Duration = Duration::from_secs(2);
 /// Sanity bound on the number of in-flight blocks.
 ///
 /// The runtime's consensus hook owns capacity for real (`can_build_upon`); this only stops a
@@ -536,80 +531,6 @@ fn tip_is_fresh(wall_jam_slot: JamSlot, tip_slot: JamSlot) -> bool {
 	wall_jam_slot.saturating_sub(tip_slot) <= MAX_TIP_LAG_SLOTS
 }
 
-/// Whether a JAM tip is the block of the wall-clock slot the tick belongs to, or a later one.
-///
-/// Both halves of the current-slot wait ask this: whether the cached tip needs a wait at all,
-/// and whether an update off the subscription ends one.
-fn tip_covers_slot(wall_jam_slot: JamSlot, tip_slot: JamSlot) -> bool {
-	tip_slot >= wall_jam_slot
-}
-
-/// How one tick's wait for the JAM block of its own slot went; the per-tick log line shows it.
-#[derive(Clone, Copy, Debug)]
-struct TipWait {
-	/// The cached tip's slot when the tick started.
-	tip_slot_before: JamSlot,
-	waited_ms: u128,
-	/// Whether the anchor ended up covering the tick's own JAM slot.
-	achieved: bool,
-}
-
-/// Wait — for at most `bound` — until the tip cache holds the JAM block of the tick's own slot,
-/// and return the tip to anchor at. `None` means the subscription ended, which is fatal.
-///
-/// The tick fires exactly on the para-slot boundary, while the JAM block of that same slot is
-/// still being produced, so the cached tip is reliably one slot behind. That costs more than
-/// freshness: the anchor has to carry the *previous* slot's work-package reports, and the report
-/// of a package submitted in slot s-1 lands in the block of slot s — the very block this waits
-/// for. Anchored a slot early, a second collator never sees the first one's block in flight, so
-/// it correlates nothing, builds a sibling off the included head every slot, and loses every
-/// accumulate race. The relay slot-based collator waits for the current relay block for the same
-/// reason (`slot_based/scheduling.rs`, the v2 branch of `wait_for_scheduling_parent`).
-async fn wait_for_current_slot_tip<S>(
-	best_blocks: &mut S,
-	cached: BlockDesc,
-	wall_jam_slot: JamSlot,
-	bound: Duration,
-) -> Option<(BlockDesc, TipWait)>
-where
-	S: FusedStream<Item = BlockDesc> + Unpin,
-{
-	let tip_slot_before = cached.slot;
-	let mut tip = cached;
-	if tip_covers_slot(wall_jam_slot, tip.slot) {
-		return Some((tip, TipWait { tip_slot_before, waited_ms: 0, achieved: true }));
-	}
-
-	let started = Instant::now();
-	let mut deadline = futures_timer::Delay::new(bound).fuse();
-	loop {
-		futures::select! {
-			update = best_blocks.next() => {
-				let update = update?;
-				tracing::debug!(target: LOG_TARGET, ?update, "JAM tip cached while waiting.");
-				if update.slot > tip.slot {
-					tip = update;
-				}
-				if tip_covers_slot(wall_jam_slot, tip.slot) {
-					let waited_ms = started.elapsed().as_millis();
-					return Some((tip, TipWait { tip_slot_before, waited_ms, achieved: true }));
-				}
-			},
-			_ = deadline => {
-				let waited_ms = started.elapsed().as_millis();
-				tracing::info!(
-					target: LOG_TARGET,
-					wall_jam_slot,
-					?tip,
-					waited_ms,
-					"No JAM block for this slot arrived in time; anchoring at the tip we have.",
-				);
-				return Some((tip, TipWait { tip_slot_before, waited_ms, achieved: false }));
-			},
-		}
-	}
-}
-
 /// Run one JAM read, logging the method, the block it was read at, what came back and the
 /// round-trip: latency is a first-class debugging signal on this path.
 async fn jam_read<T, F>(method: &'static str, at: HeaderHash, read: F) -> Result<T, String>
@@ -693,7 +614,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		slot_duration = slot_duration.as_millis(),
 		anchor_offset = ANCHOR_OFFSET,
 		max_tip_lag_slots = MAX_TIP_LAG_SLOTS,
-		current_slot_tip_wait_ms = CURRENT_SLOT_TIP_WAIT.as_millis(),
 		"JAM builder task started; building one block per parachain slot.",
 	);
 
@@ -744,29 +664,18 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			}
 		}
 
-		// Captured before the wait below, so waiting never moves the slot this tick claims.
+		// Captured once, before anything else: the block's Aura slot, its timestamp and the
+		// mocked inherent's fake relay slot all derive from this instant and have to agree, so
+		// re-reading the clock after an await would let a tick claim the following slot.
 		let now = Timestamp::current();
 
-		let Some(cached) = cached_tip else {
+		let Some(tip) = cached_tip else {
 			tracing::debug!(
 				target: LOG_TARGET,
 				"No JAM best block seen yet; skipping this parachain slot.",
 			);
 			continue;
 		};
-
-		let Some((tip, wait)) = wait_for_current_slot_tip(
-			&mut best_blocks,
-			cached,
-			jam_slot_at(now),
-			CURRENT_SLOT_TIP_WAIT,
-		)
-		.await
-		else {
-			tracing::error!(target: LOG_TARGET, "JAM best-block stream ended.");
-			return;
-		};
-		cached_tip = Some(tip);
 
 		match run_tick::<Block, RuntimeApi, AuraId, _, _, _>(
 			&para_client,
@@ -780,7 +689,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			slot_duration,
 			tip,
 			now,
-			wait,
 			&mut state,
 		)
 		.await
@@ -830,7 +738,6 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	slot_duration: SlotDuration,
 	tip: BlockDesc,
 	now: Timestamp,
-	wait: TipWait,
 	state: &mut BuilderState<Block::Header>,
 ) -> Result<Option<JamCollatorMessage<Block>>, String>
 where
@@ -854,10 +761,6 @@ where
 		?tip,
 		tip_lag_slots = wall_jam_slot.saturating_sub(tip.slot),
 		tip_fresh = tip_is_fresh(wall_jam_slot, tip.slot),
-		tip_slot_before = wait.tip_slot_before,
-		tip_slot_after = tip.slot,
-		waited_ms = wait.waited_ms,
-		achieved = wait.achieved,
 		segment_depth = state.segment.depth(),
 		"Parachain slot tick.",
 	);
@@ -1695,124 +1598,6 @@ mod tests {
 		assert!(tip_is_fresh(100, 100));
 		assert!(tip_is_fresh(100, 100 - MAX_TIP_LAG_SLOTS));
 		assert!(!tip_is_fresh(100, 100 - MAX_TIP_LAG_SLOTS - 1));
-	}
-
-	/// Short enough to keep the timeout tests quick; the wait logic does not read the constant.
-	const TEST_WAIT_BOUND: Duration = Duration::from_millis(50);
-
-	/// A JAM best-block update at `slot`.
-	fn jam_block(slot: JamSlot) -> BlockDesc {
-		BlockDesc { header_hash: HeaderHash([slot as u8; 32]), slot }
-	}
-
-	/// A best-block subscription that yields `updates` and then goes quiet: a live subscription
-	/// stops delivering, it does not end.
-	fn subscription(updates: Vec<BlockDesc>) -> impl FusedStream<Item = BlockDesc> + Unpin {
-		Box::pin(futures::stream::iter(updates).chain(futures::stream::pending())).fuse()
-	}
-
-	/// Nothing to wait for: the cached tip already covers the tick's slot.
-	#[tokio::test]
-	async fn a_tip_from_the_ticks_own_slot_is_anchored_at_straight_away() {
-		let (tip, wait) = wait_for_current_slot_tip(
-			&mut subscription(vec![]),
-			jam_block(100),
-			100,
-			TEST_WAIT_BOUND,
-		)
-		.await
-		.expect("the subscription is alive");
-
-		assert_eq!(tip.slot, 100);
-		assert!(wait.achieved);
-		assert_eq!(wait.waited_ms, 0);
-	}
-
-	/// The whole point of the wait: the tick fires on the slot boundary while the JAM block of
-	/// that slot is still being produced, so the cached tip is one slot behind and misses the
-	/// reports of the packages submitted in the previous slot — the ones another collator's
-	/// block is only visible through.
-	#[tokio::test]
-	async fn a_tip_behind_the_wall_clock_waits_for_this_slots_block() {
-		let (tip, wait) = wait_for_current_slot_tip(
-			&mut subscription(vec![jam_block(100)]),
-			jam_block(99),
-			100,
-			TEST_WAIT_BOUND,
-		)
-		.await
-		.expect("the subscription is alive");
-
-		assert_eq!(tip.slot, 100);
-		assert!(wait.achieved);
-		assert_eq!(wait.tip_slot_before, 99);
-	}
-
-	/// JAM may produce no block in a slot and the subscription coalesces updates, so the first
-	/// block at or past the tick's slot ends the wait; holding out for an exact match would
-	/// burn the whole bound for nothing.
-	#[tokio::test]
-	async fn a_block_past_the_ticks_slot_ends_the_wait_too() {
-		let (tip, wait) = wait_for_current_slot_tip(
-			&mut subscription(vec![jam_block(103)]),
-			jam_block(99),
-			100,
-			TEST_WAIT_BOUND,
-		)
-		.await
-		.expect("the subscription is alive");
-
-		assert_eq!(tip.slot, 103);
-		assert!(wait.achieved);
-	}
-
-	/// A block that is itself behind the tick's slot cannot carry the previous slot's reports,
-	/// so it does not end the wait — it only replaces the older cached tip as the fallback.
-	#[tokio::test]
-	async fn a_block_still_behind_the_ticks_slot_does_not_end_the_wait() {
-		let (tip, wait) = wait_for_current_slot_tip(
-			&mut subscription(vec![jam_block(98)]),
-			jam_block(97),
-			100,
-			TEST_WAIT_BOUND,
-		)
-		.await
-		.expect("the subscription is alive");
-
-		assert_eq!(tip.slot, 98);
-		assert!(!wait.achieved);
-		assert_eq!(wait.tip_slot_before, 97);
-	}
-
-	/// A possible fork beats a skipped slot: when no block arrives the tick still builds, on the
-	/// tip it already had, exactly as it did before the wait existed.
-	#[tokio::test]
-	async fn the_wait_is_bounded_and_falls_back_to_the_cached_tip() {
-		let (tip, wait) = wait_for_current_slot_tip(
-			&mut subscription(vec![]),
-			jam_block(99),
-			100,
-			TEST_WAIT_BOUND,
-		)
-		.await
-		.expect("the subscription is alive");
-
-		assert_eq!(tip.slot, 99);
-		assert!(!wait.achieved);
-		assert!(wait.waited_ms > 0);
-	}
-
-	/// A subscription that ended leaves the builder with no tip cache at all, so the wait has to
-	/// report it to its caller instead of sitting out the bound.
-	#[tokio::test]
-	async fn a_subscription_that_ended_is_reported_rather_than_waited_out() {
-		let mut ended = futures::stream::iter(Vec::<BlockDesc>::new()).fuse();
-
-		assert!(
-			wait_for_current_slot_tip(&mut ended, jam_block(99), 100, TEST_WAIT_BOUND)
-				.await
-				.is_none()
-		);
 	}
 
 	/// The timer has to land on the next slot boundary; being early would make the tick derive
