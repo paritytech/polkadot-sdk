@@ -38,7 +38,7 @@
 //! the following is the idea of how to implement multi-page unsigned, which we don't have.
 //!
 //! All validators will run their miners and compute the full paginated solution. They submit all
-//! pages as individual unsigned transactions to their local tx-pool.
+//! pages as individual authorized transactions to their local tx-pool.
 //!
 //! Upon validation, if any page is now present the corresponding transaction is dropped.
 //!
@@ -89,7 +89,7 @@ mod pallet {
 		CommonError,
 	};
 	use frame_support::pallet_prelude::*;
-	use frame_system::{offchain::CreateBare, pallet_prelude::*};
+	use frame_system::{offchain::CreateAuthorizedTransaction, pallet_prelude::*};
 	use sp_runtime::traits::SaturatedConversion;
 	use sp_std::prelude::*;
 
@@ -104,7 +104,7 @@ mod pallet {
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: crate::Config + CreateBare<Call<Self>> {
+	pub trait Config: crate::Config + CreateAuthorizedTransaction<Call<Self>> {
 		/// The repeat threshold of the offchain worker.
 		///
 		/// For example, if it is `5`, that means that at least 5 blocks will elapse between
@@ -152,12 +152,14 @@ mod pallet {
 		/// 1, 2, 3], with 3 being msp. But, in this case, then the `paged_raw_solution.pages` is
 		/// expected to correspond to `[snapshot(2), snapshot(3)]`.
 		#[pallet::weight((UnsignedWeightsOf::<T>::submit_unsigned(), DispatchClass::Operational))]
+		#[pallet::weight_of_authorize(UnsignedWeightsOf::<T>::authorize_submit_unsigned())]
+		#[pallet::authorize(Self::authorize_submit_unsigned)]
 		#[pallet::call_index(0)]
 		pub fn submit_unsigned(
 			origin: OriginFor<T>,
 			paged_solution: Box<PagedRawSolution<T::MinerConfig>>,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			ensure_authorized(origin)?;
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
@@ -180,56 +182,39 @@ mod pallet {
 		}
 	}
 
-	#[allow(deprecated)]
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_unsigned { paged_solution, .. } = call {
-				match source {
-					TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-					_ => return InvalidTransaction::Call.into(),
-				}
-
-				let _ = Self::validate_unsigned_checks(paged_solution.as_ref())
-					.map_err(|err| {
-						sublog!(
-							debug,
-							"unsigned",
-							"unsigned transaction validation failed due to {:?}",
-							err
-						);
-						err
-					})
-					.map_err(base_error_to_invalid)?;
-
-				ValidTransaction::with_tag_prefix("OffchainElection")
-					// The higher the score.minimal_stake, the better a paged_solution is.
-					.priority(
-						T::MinerTxPriority::get()
-							.saturating_add(paged_solution.score.minimal_stake.saturated_into()),
-					)
-					// Used to deduplicate unsigned solutions: each validator should produce one
-					// paged_solution per round at most, and solutions are not propagate.
-					.and_provides(paged_solution.round)
-					// Transaction should stay in the pool for the duration of the unsigned phase.
-					.longevity(T::UnsignedPhase::get().saturated_into::<u64>())
-					// We don't propagate this. This can never be validated at a remote node.
-					.propagate(false)
-					.build()
-			} else {
-				InvalidTransaction::Call.into()
+	impl<T: Config> Pallet<T> {
+		/// Authorization logic for the [`Call::submit_unsigned`] call.
+		fn authorize_submit_unsigned(
+			source: TransactionSource,
+			paged_solution: &Box<PagedRawSolution<T::MinerConfig>>,
+		) -> TransactionValidityWithRefund {
+			match source {
+				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+				_ => return Err(InvalidTransaction::Call.into()),
 			}
-		}
 
-		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-			if let Call::submit_unsigned { paged_solution, .. } = call {
-				Self::validate_unsigned_checks(paged_solution.as_ref())
-					.map_err(base_error_to_invalid)
-					.map_err(Into::into)
-			} else {
-				Err(InvalidTransaction::Call.into())
-			}
+			let _ = Self::validate_unsigned_checks(paged_solution.as_ref())
+				.map_err(|err| {
+					sublog!(debug, "unsigned", "solution authorization failed due to {:?}", err);
+					err
+				})
+				.map_err(base_error_to_invalid)?;
+
+			ValidTransaction::with_tag_prefix("OffchainElection")
+				// The higher the score.minimal_stake, the better a paged_solution is.
+				.priority(
+					T::MinerTxPriority::get()
+						.saturating_add(paged_solution.score.minimal_stake.saturated_into()),
+				)
+				// Used to deduplicate unsigned solutions: each validator should produce one
+				// paged_solution per round at most, and solutions are not propagate.
+				.and_provides(paged_solution.round)
+				// Transaction should stay in the pool for the duration of the unsigned phase.
+				.longevity(T::UnsignedPhase::get().saturated_into::<u64>())
+				// We don't propagate this. This can never be validated at a remote node.
+				.propagate(false)
+				.build()
+				.map(|validity| (validity, Weight::zero()))
 		}
 	}
 
@@ -326,8 +311,7 @@ mod pallet {
 			};
 		}
 
-		/// The checks that should happen in the `ValidateUnsigned`'s `pre_dispatch` and
-		/// `validate_unsigned` functions.
+		/// The checks that should happen in the authorize callback.
 		///
 		/// These check both for snapshot independent checks, and some checks that are specific to
 		/// the unsigned phase.
@@ -372,11 +356,12 @@ mod pallet {
 
 #[cfg(test)]
 #[allow(deprecated)]
-mod validate_unsigned {
+mod authorize {
 	use frame_election_provider_support::Support;
 	use frame_support::{
 		pallet_prelude::InvalidTransaction,
-		unsigned::{TransactionSource, TransactionValidityError, ValidateUnsigned},
+		traits::Authorize,
+		unsigned::{TransactionSource, TransactionValidityError},
 	};
 
 	use super::Call;
@@ -409,9 +394,9 @@ mod validate_unsigned {
 				minimal_stake: base_minimal_stake - 1,
 				..Default::default()
 			});
-			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(attempt) };
 			assert_eq!(
-				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(2)),
 			);
 
@@ -420,9 +405,9 @@ mod validate_unsigned {
 				minimal_stake: base_minimal_stake + 1,
 				..Default::default()
 			});
-			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(attempt) };
 			assert_eq!(
-				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(4)),
 			);
 
@@ -438,8 +423,8 @@ mod validate_unsigned {
 
 			paged.score =
 				ElectionScore { minimal_stake: base_minimal_stake + 1, ..Default::default() };
-			let call = Call::submit_unsigned { paged_solution: Box::new(paged) };
-			assert!(UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).is_ok());
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(paged) };
+			assert!(call.authorize(TransactionSource::Local).unwrap().is_ok());
 		})
 	}
 
@@ -451,10 +436,10 @@ mod validate_unsigned {
 			let mut attempt =
 				fake_solution(ElectionScore { minimal_stake: 5, ..Default::default() });
 			attempt.round += 1;
-			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(attempt) };
 
 			assert_eq!(
-				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				// WrongRound is index 1
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(1)),
 			);
@@ -468,26 +453,26 @@ mod validate_unsigned {
 			// page count.
 			roll_to_unsigned_open();
 			let attempt = mine_full_solution().unwrap();
-			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(attempt) };
 
 			assert_eq!(
-				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				// WrongPageCount is index 3
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(3)),
 			);
 
 			let attempt = mine_solution(2).unwrap();
-			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(attempt) };
 
 			assert_eq!(
-				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(3)),
 			);
 
 			let attempt = mine_solution(1).unwrap();
-			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(attempt) };
 
-			assert!(UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).is_ok(),);
+			assert!(call.authorize(TransactionSource::Local).unwrap().is_ok(),);
 		})
 	}
 
@@ -501,10 +486,10 @@ mod validate_unsigned {
 				0,
 			);
 
-			let call = Call::submit_unsigned { paged_solution: Box::new(paged) };
+			let call = Call::<Runtime>::submit_unsigned { paged_solution: Box::new(paged) };
 
 			assert_eq!(
-				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				// WrongWinnerCount is index 4
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(4)),
 			);
@@ -515,21 +500,18 @@ mod validate_unsigned {
 	fn retracts_wrong_phase() {
 		ExtBuilder::mock_signed().signed_phase(5, 6).build_and_execute(|| {
 			let solution = raw_paged_solution_low_score();
-			let call = Call::submit_unsigned { paged_solution: Box::new(solution.clone()) };
+			let call =
+				Call::<Runtime>::submit_unsigned { paged_solution: Box::new(solution.clone()) };
 
 			// initial
 			assert_eq!(MultiBlock::current_phase(), Phase::Off);
 			assert!(matches!(
-				<UnsignedPallet as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				// because EarlySubmission is index 0.
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 			assert!(matches!(
-				<UnsignedPallet as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
+				call.authorize(TransactionSource::InBlock).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 
@@ -537,15 +519,11 @@ mod validate_unsigned {
 			roll_to_signed_open();
 			assert!(MultiBlock::current_phase().is_signed());
 			assert!(matches!(
-				<UnsignedPallet as ValidateUnsigned>::validate_unsigned(
-					TransactionSource::Local,
-					&call
-				)
-				.unwrap_err(),
+				call.authorize(TransactionSource::Local).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 			assert!(matches!(
-				<UnsignedPallet as ValidateUnsigned>::pre_dispatch(&call).unwrap_err(),
+				call.authorize(TransactionSource::InBlock).unwrap().unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Custom(0))
 			));
 
@@ -553,11 +531,8 @@ mod validate_unsigned {
 			roll_to_unsigned_open();
 			assert!(MultiBlock::current_phase().is_unsigned());
 
-			assert_ok!(<UnsignedPallet as ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call
-			));
-			assert_ok!(<UnsignedPallet as ValidateUnsigned>::pre_dispatch(&call));
+			assert_ok!(call.authorize(TransactionSource::Local).unwrap());
+			assert_ok!(call.authorize(TransactionSource::InBlock).unwrap());
 		})
 	}
 
@@ -572,15 +547,11 @@ mod validate_unsigned {
 
 				let solution =
 					fake_solution(ElectionScore { minimal_stake: 5, ..Default::default() });
-				let call = Call::submit_unsigned { paged_solution: Box::new(solution.clone()) };
+				let call =
+					Call::<Runtime>::submit_unsigned { paged_solution: Box::new(solution.clone()) };
 
 				assert_eq!(
-					<UnsignedPallet as ValidateUnsigned>::validate_unsigned(
-						TransactionSource::Local,
-						&call
-					)
-					.unwrap()
-					.priority,
+					call.authorize(TransactionSource::Local).unwrap().unwrap().0.priority,
 					25
 				);
 			})

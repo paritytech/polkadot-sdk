@@ -107,7 +107,7 @@ impl pallet_election_provider_multi_block_unsigned::WeightInfo for MultiBlockEle
 		// here.
 		Default::default()
 	}
-	fn validate_unsigned() -> Weight {
+	fn authorize_submit_unsigned() -> Weight {
 		unreachable!()
 	}
 }

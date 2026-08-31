@@ -60,7 +60,8 @@ use sp_runtime::{
 pub use staking::*;
 use std::{sync::Arc, vec};
 
-pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+pub type TxExtension = frame_system::AuthorizeCall<Runtime>;
+pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, TxExtension>;
 
 pub type Balance = u64;
 pub type AccountId = u64;
@@ -322,12 +323,23 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		Extrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		TxExtension::new()
 	}
 }
 
@@ -760,7 +772,7 @@ pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>
 				.into_iter()
 				.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
 				.for_each(|xt| {
-					xt.function.dispatch(frame_system::RawOrigin::None.into()).unwrap();
+					xt.function.dispatch(frame_system::RawOrigin::Authorized.into()).unwrap();
 				});
 			pool.try_write().unwrap().transactions.clear();
 		}
