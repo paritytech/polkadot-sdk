@@ -142,6 +142,11 @@ type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 type CallOf<T> = <T as Config>::RuntimeCall;
 
+/// Topics of a contract log, bounded to the limit the `LOG` opcode enforces.
+pub type ContractLogTopics = BoundedVec<H256, ConstU32<{ limits::NUM_EVENT_TOPICS }>>;
+/// Data payload of a contract log, bounded to the limit the `LOG` opcode enforces.
+pub type ContractLogData = BoundedVec<u8, ConstU32<{ limits::EVENT_BYTES }>>;
+
 /// Used as a sentinel value when reading and writing contract memory.
 ///
 /// It is usually used to signal `None` to a contract when only a primitive is allowed
@@ -2650,7 +2655,14 @@ impl<T: Config> Pallet<T> {
 	/// transaction, and deposited as [`Event::ContractEmitted`]. For log-mirroring runtime
 	/// components. Contract execution keeps its own in-frame path (`Ext::deposit_event`),
 	/// which differs only in the tracer hook it calls.
-	pub fn emit_contract_log_outside_frame(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
+	///
+	/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
+	/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
+	pub fn emit_contract_log_outside_frame(
+		contract: H160,
+		topics: ContractLogTopics,
+		data: ContractLogData,
+	) {
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<T>::event_count();
 			tracer.log_event_outside_frame(contract, &topics, &data, log_index);
@@ -2658,7 +2670,11 @@ impl<T: Config> Pallet<T> {
 
 		evm::block_storage::capture_ethereum_log(&contract, &data, &topics);
 
-		Self::deposit_event(Event::ContractEmitted { contract, data, topics });
+		Self::deposit_event(Event::ContractEmitted {
+			contract,
+			data: data.into_inner(),
+			topics: topics.into_inner(),
+		});
 	}
 
 	/// Convert a native balance to EVM balance.

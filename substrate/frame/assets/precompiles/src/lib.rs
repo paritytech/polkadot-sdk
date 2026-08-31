@@ -335,11 +335,17 @@ where
 			.into_log_data()
 			.split();
 		let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
-		pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(
-			token,
-			topics,
-			data.to_vec(),
-		);
+		let (Ok(topics), Ok(data)) = (
+			pallet_revive::ContractLogTopics::try_from(topics),
+			pallet_revive::ContractLogData::try_from(data.to_vec()),
+		) else {
+			frame_support::defensive!(
+				"Transfer log exceeds the contract-log topic or data bound; log dropped (unreachable: 3 topics, 32 bytes)",
+				(id, from, to, amount)
+			);
+			return;
+		};
+		pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(token, topics, data);
 	}
 }
 

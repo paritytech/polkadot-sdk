@@ -750,8 +750,8 @@ fn tracing_a_log_emitted_outside_a_call_frame_does_not_panic() {
 		trace(&mut tracer, || {
 			Pallet::<Test>::emit_contract_log_outside_frame(
 				H160::from_low_u64_be(0x1234),
-				vec![H256::repeat_byte(0x11)],
-				vec![1, 2, 3],
+				vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+				vec![1, 2, 3].try_into().unwrap(),
 			);
 		});
 
