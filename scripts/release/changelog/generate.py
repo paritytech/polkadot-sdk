@@ -45,6 +45,17 @@ AUDIENCE_ALIASES = {re.sub(r"[\W_]", "", a).lower(): a for a in CANONICAL_AUDIEN
 TRUNCATION_LADDER = (700, 550, 450, 400, 350, 300, 250)
 BUMP_RANK = {"major": 3, "minor": 2, "patch": 1, "none": 0}
 CRATE_LIST_CAP = 6
+# Within each topic section (release body and CHANGELOG.md alike), entries are
+# subgrouped by audience ("🛠️ `Runtime Dev`"), so the label is read once per
+# subgroup instead of once per entry.
+# Stable icon per audience for the subgroup headings; the text label always stays
+# alongside so the heading remains searchable.
+AUDIENCE_ICONS = {
+    "Node Dev": "🔧",
+    "Runtime Dev": "🛠️",
+    "Node Operator": "🖥️",
+    "Runtime User": "👤",
+}
 # Legacy prdocs escaped tera-significant text for the old pipeline ({{ "{{" }}closure...);
 # the new pipeline never tera-processes prdoc content, so unescape it back.
 TERA_ESCAPE_RE = re.compile(r'\{\{\s*"(\{\{|\}\})"\s*\}\}')
@@ -501,11 +512,47 @@ def first_line(text, limit=200):
     return line if len(line) <= limit else line[: limit - 1].rstrip() + "…"
 
 
-def audience_tags(entry):
-    """Plain-text audience tags. Deliberately not images: text is Ctrl+F-able in the
-    browser, costs fewer characters against the body budget, and needs no external
-    image host."""
-    return "<sub>" + " ".join(f"`{a}`" for a in entry["audiences"]) + "</sub>"
+def audience_heading(audience):
+    icon = AUDIENCE_ICONS.get(audience)
+    return f"{icon + ' ' if icon else ''}`{audience}`"
+
+
+def doc_for_audience(entry, audience):
+    """The doc item written for `audience` (prdocs carry one per audience), falling
+    back to the first one."""
+    for doc in entry["docs"]:
+        if audience in doc["audiences"]:
+            return doc
+    return entry["docs"][0] if entry["docs"] else None
+
+
+def group_by_audience(group):
+    """Partition one topic's entries into audience subgroups, largest audience first.
+    Every entry appears exactly once: under the most common of its own audiences within
+    this topic, so a multi-audience entry lands in the topic's dominant subgroup rather
+    than being duplicated a few lines apart. Entries without any audience come last,
+    keyed None (rendered without a subgroup heading)."""
+    counts = {}
+    for e in group:
+        for a in e["audiences"]:
+            counts[a] = counts.get(a, 0) + 1
+
+    def rank(audience):
+        canon = (CANONICAL_AUDIENCES.index(audience) if audience in CANONICAL_AUDIENCES
+                 else len(CANONICAL_AUDIENCES))
+        return (-counts[audience], canon, audience)
+
+    buckets = {a: [] for a in sorted(counts, key=rank)}
+    orphans = []
+    for e in group:
+        if e["audiences"]:
+            buckets[min(e["audiences"], key=rank)].append(e)
+        else:
+            orphans.append(e)
+    subgroups = [(a, entries) for a, entries in buckets.items() if entries]
+    if orphans:
+        subgroups.append((None, orphans))
+    return subgroups
 
 
 SCHEMA_PATH = "scripts/release/changelog/schema.json"
@@ -585,13 +632,19 @@ def render_migrations_section(entries, full=False):
     return lines
 
 
-def render_entry_body(entry, limit, drop_low):
+def render_entry_body(entry, limit, drop_low, audience=None):
+    """One condensed entry. `audience` is the enclosing subgroup: it selects which doc
+    item's description to show and, when the entry targets further audiences, adds a
+    small cross-reference (multi-audience entries render once, not per subgroup)."""
     lines = [f"#### {'💥 ' if entry['breaking'] else ''}[#{entry['pr']}]({entry['url']}): {entry['title']}"]
-    if entry["audiences"]:
-        lines.append(audience_tags(entry))
+    if audience is not None:
+        others = [a for a in entry["audiences"] if a != audience]
+        if others:
+            lines.append("<sub>Also for " + ", ".join(f"`{a}`" for a in others) + "</sub>")
     lines.append("")
 
-    description = entry["docs"][0]["description"] if entry["docs"] else ""
+    doc = doc_for_audience(entry, audience) if audience else (entry["docs"][0] if entry["docs"] else None)
+    description = doc["description"] if doc else ""
     if (limit > 0 and description
             and not (drop_low and max_bump_rank(entry["crates"]) <= BUMP_RANK["patch"])):
         text, truncated = truncate_markdown(rendered_description(description), limit)
@@ -632,6 +685,21 @@ def group_by_topic(entries, topics):
     return groups
 
 
+def render_topic_sections(entries, topics, render_entry):
+    """Topic sections shared by the body and CHANGELOG.md. `render_entry(entry, audience)`
+    renders one entry; `audience` is the enclosing subgroup (None for entries whose
+    prdoc names no audience, rendered last without a subgroup heading)."""
+    lines = []
+    for topic, group in group_by_topic(entries, topics):
+        lines += [f"### {topic['label']}", ""]
+        for audience, sub in group_by_audience(group):
+            if audience is not None:
+                lines += [audience_heading(audience), ""]
+            for e in sub:
+                lines += render_entry(e, audience)
+    return lines
+
+
 def render_body_fragment(entries, topics, tag, limit, drop_low):
     lines = [asset_note(tag), ""]
     lines += render_breaking_section(entries)
@@ -639,18 +707,15 @@ def render_body_fragment(entries, topics, tag, limit, drop_low):
     # minor/patch bumps), so the index renders regardless of the breaking count.
     lines += render_migrations_section(entries)
     lines += ["## Changelog", ""]
-    for topic, group in group_by_topic(entries, topics):
-        lines += [f"### {topic['label']}", ""]
-        for e in group:
-            lines += render_entry_body(e, limit, drop_low)
+    lines += render_topic_sections(
+        entries, topics,
+        lambda e, audience: render_entry_body(e, limit, drop_low, audience),
+    )
     return "\n".join(lines).rstrip() + "\n"
 
 
 def render_full_entry(entry):
-    lines = [f"#### {'💥 ' if entry['breaking'] else ''}[#{entry['pr']}]({entry['url']}): {entry['title']}"]
-    if entry["audiences"]:
-        lines.append(audience_tags(entry))
-    lines.append("")
+    lines = [f"#### {'💥 ' if entry['breaking'] else ''}[#{entry['pr']}]({entry['url']}): {entry['title']}", ""]
     multi = len(entry["docs"]) > 1
     for doc in entry["docs"]:
         if multi or doc["title"]:
@@ -688,10 +753,7 @@ def render_full_changelog(entries, topics, tag, previous_tag, audience_descripti
     lines += render_breaking_section(entries, cap=0)
     lines += render_migrations_section(entries, full=True)
     lines += ["## Changes by Topic", ""]
-    for topic, group in group_by_topic(entries, topics):
-        lines += [f"### {topic['label']}", ""]
-        for e in group:
-            lines += render_full_entry(e)
+    lines += render_topic_sections(entries, topics, lambda e, _audience: render_full_entry(e))
     lines += ["## Appendix: Changes by Audience", ""]
     audiences = [a for a in CANONICAL_AUDIENCES if any(a in e["audiences"] for e in entries)]
     audiences += sorted(
