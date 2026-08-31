@@ -29,6 +29,20 @@ doc:
     trust-backed and pool asset instances (inline-id) and for the foreign-assets instance
     (foreign-id, via `ForeignIdConfig` and the foreign asset-index map).
 
+    Logs emitted with no ethereum transaction open — a mirror fired from a plain extrinsic or an XCM
+    balance change — have no receipt to attach to, so they are buffered per block and flushed in
+    `on_finalize` as one synthetic transaction, entering the block's `logs_bloom`, `receipts_root`
+    and transaction trie. It is an unsigned legacy transaction distinguished only by
+    `nonce = block_number`, is not executable, and reports a zero sender; eth-rpc rebuilds the same
+    payload from block number and chain id to recover its hash and serves those logs against it via
+    `eth_getLogs` and `eth_getTransactionReceipt`. Consumers therefore see one more transaction in
+    such a block than it has real ethereum transactions. A new `Config` item `MaxOutsideFrameLogs`
+    bounds the buffer so the `on_finalize` drain weight can be reserved in `on_initialize`; a log
+    arriving past the cap is dropped with a warning, leaving a balance event with no matching
+    `Transfer`. Setting it to zero disables the mechanism, so logs emitted outside an ethereum
+    transaction — including `LOG` opcodes from a contract invoked through `Revive::call` — stay
+    substrate-only, as they were before.
+
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
         same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
