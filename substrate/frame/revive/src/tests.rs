@@ -775,7 +775,11 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 
 		// No ethereum transaction this block: a runtime component mirrors a balance change as a
 		// log, outside any ethereum call frame.
-		Pallet::<Test>::emit_contract_log_outside_frame(contract, vec![topic], vec![1, 2, 3]);
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			contract,
+			vec![topic].try_into().unwrap(),
+			vec![1, 2, 3].try_into().unwrap(),
+		);
 
 		// The log is parked in the block-level buffer until finalization.
 		assert_eq!(OutsideFrameLogCount::<Test>::get(), 1);

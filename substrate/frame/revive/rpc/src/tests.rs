@@ -1432,7 +1432,7 @@ async fn test_outside_of_frame_log_served_via_synthetic_tx() -> anyhow::Result<(
 
 	let alice = subxt_signer::sr25519::dev::alice();
 	let params = subxt::config::polkadot::PolkadotExtrinsicParamsBuilder::new().build();
-	let signed = node_client.tx().create_signed(&call, &alice, params).await?;
+	let signed = node_client.tx().await?.create_signed(&call, &alice, params).await?;
 	let mut progress = signed.submit_and_watch().await?;
 	let in_block = loop {
 		match progress.next().await {
@@ -1445,13 +1445,13 @@ async fn test_outside_of_frame_log_served_via_synthetic_tx() -> anyhow::Result<(
 		}
 	};
 	in_block.wait_for_success().await?;
-	let block_number = node_client.blocks().at(in_block.block_hash()).await?.number();
+	let block_number = node_client.at_block(in_block.block_hash()).await?.block_number();
 
 	// The eth block number equals the substrate block number.
 	let topic0 = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
 	let filter = Filter::new()
-		.from_block(BlockNumberOrTag::Number(block_number as u64))
-		.to_block(BlockNumberOrTag::Number(block_number as u64));
+		.from_block(BlockNumberOrTag::Number(block_number))
+		.to_block(BlockNumberOrTag::Number(block_number));
 
 	// eth-rpc indexes substrate blocks asynchronously; poll until the block is synced and the log
 	// appears (tolerating transient "block not yet indexed" errors from `eth_getLogs`).
