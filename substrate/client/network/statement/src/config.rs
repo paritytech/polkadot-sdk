@@ -26,6 +26,15 @@ pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis
 /// Maximum allowed size for a statement notification.
 pub const MAX_STATEMENT_NOTIFICATION_SIZE: u64 = 1024 * 1024;
 
+/// Minimum wire size of a valid statement: field-count prefix, `AuthenticityProof` and `Expiry`.
+pub const MIN_ENCODED_STATEMENT_SIZE: usize = 108;
+
+/// Most statements a sender can pack into a full [`MAX_STATEMENT_NOTIFICATION_SIZE`]
+/// notification. A batch declaring more is rejected before decoding.
+pub const MAX_STATEMENTS_PER_NOTIFICATION: usize = (MAX_STATEMENT_NOTIFICATION_SIZE as usize -
+	crate::V1_ENVELOPE_OVERHEAD) /
+	MIN_ENCODED_STATEMENT_SIZE;
+
 /// Soft limit on encoded statement chunks held in flight across all peers, shared by initial-sync
 /// and propagation sends. Since admission is checked before adding the next whole notification, it
 /// may be exceeded by less than one maximum-sized notification.
@@ -56,3 +65,34 @@ pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expec
 /// Default gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward
 /// a statement to for a given topic.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use codec::Encode;
+	use sp_statement_store::{Proof, Statement};
+
+	#[test]
+	fn min_encoded_statement_size_matches_encoder() {
+		// The smallest statement admission accepts: a proof and an expiry.
+		let min = [
+			Proof::Sr25519 { signature: [0u8; 64], signer: [0u8; 32] },
+			Proof::Ed25519 { signature: [0u8; 64], signer: [0u8; 32] },
+			Proof::Secp256k1Ecdsa { signature: [0u8; 65], signer: [0u8; 33] },
+		]
+		.into_iter()
+		.map(|proof| {
+			// Stops compiling when a `Proof` variant is added, so the list above stays complete.
+			match proof {
+				Proof::Sr25519 { .. } | Proof::Ed25519 { .. } | Proof::Secp256k1Ecdsa { .. } => (),
+			}
+			let mut statement = Statement::new();
+			statement.set_proof(proof);
+			statement.set_expiry(0);
+			statement.encode().len()
+		})
+		.min()
+		.expect("the proof list is nonempty");
+		assert_eq!(min, MIN_ENCODED_STATEMENT_SIZE);
+	}
+}
