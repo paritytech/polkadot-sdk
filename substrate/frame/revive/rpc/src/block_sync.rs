@@ -19,7 +19,7 @@
 
 use crate::{
 	BlockInfoProvider,
-	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
+	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber, runtime_api::RuntimeApi},
 };
 use pallet_revive::evm::H256;
 use tokio::sync::mpsc;
@@ -125,10 +125,10 @@ impl Client {
 						 (node may have pruned it — use an archive node with --eth-pruning archive)");
 					ClientError::SyncBoundaryMismatch
 				})?;
-				if block.hash() != stored_hash {
+				if block.block_hash() != stored_hash {
 					log::error!(target: LOG_TARGET,
 						"Boundary #{num}: hash mismatch — stored {stored_hash:?}, \
-						 chain {:?}", block.hash());
+						 chain {:?}", block.block_hash());
 					return Err(ClientError::SyncBoundaryMismatch);
 				}
 				Ok(())
@@ -169,8 +169,10 @@ impl Client {
 	async fn sync_backward_inner(&self) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
 		let latest_finalized_block = self.latest_finalized_block().await;
-		let latest_finalized =
-			SyncCheckpoint::new(latest_finalized_block.number(), latest_finalized_block.hash());
+		let latest_finalized = SyncCheckpoint::new(
+			latest_finalized_block.block_number(),
+			latest_finalized_block.block_hash(),
+		);
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
@@ -308,18 +310,17 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
-			let block_number = block.number();
-			let block_hash = block.hash();
+			let block_number = block.block_number();
+			let block_hash = block.block_hash();
 
-			let ethereum_hash = match self
-				.runtime_api(block_hash)
+			let ethereum_hash = match RuntimeApi::new((*block).clone())
 				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
 				.await
 			{
 				Ok(h) => h,
 				Err(err) => {
-					log::error!(target: LOG_TARGET,	"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
-					break Err(err.into());
+					log::error!(target: LOG_TARGET, "⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
+					break Err(err);
 				},
 			};
 
@@ -369,7 +370,7 @@ impl Client {
 			}
 
 			if block_number > to {
-				let parent_hash = block.header().parent_hash;
+				let parent_hash = block.block_header().await?.parent_hash;
 				match self
 					.block_provider()
 					.block_by_hash(&parent_hash)

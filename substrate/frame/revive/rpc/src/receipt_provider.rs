@@ -21,6 +21,7 @@ use crate::{
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
+use futures::future::OptionFuture;
 use pallet_revive::evm::TransactionSigned;
 use sp_core::{H256, U256};
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
@@ -140,10 +141,10 @@ pub trait BlockInfo {
 
 impl BlockInfo for SubstrateBlock {
 	fn hash(&self) -> H256 {
-		SubstrateBlock::hash(self)
+		self.block_hash()
 	}
 	fn number(&self) -> SubstrateBlockNumber {
-		SubstrateBlock::number(self)
+		self.block_number()
 	}
 }
 
@@ -221,10 +222,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::Number(block_number) => {
-				let Ok(block_number) = u32::try_from(*block_number) else {
-					return false;
-				};
-				self.receipt_extractor.is_before_first_evm_block(block_number)
+				self.receipt_extractor.is_before_first_evm_block(*block_number)
 			},
 			BlockNumberOrTag::Latest |
 			BlockNumberOrTag::Finalized |
@@ -261,7 +259,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			match self.block_provider.block_by_number(block_number).await.ok().flatten() {
 				Some(block) => self
 					.receipt_extractor
-					.get_ethereum_block_hash(&block.hash(), block_number as u64)
+					.get_ethereum_block_hash(&block.hash(), block_number)
 					.await
 					.is_some(),
 				None => false,
@@ -714,22 +712,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Get logs that match the given filter.
 	///
 	/// `resolve_block_number` converts a [`BlockNumberOrTag`] to a concrete block number.
-	pub async fn logs(
+	pub async fn logs<Fut>(
 		&self,
 		filter: Option<Filter>,
-		resolve_block_number: impl Fn(BlockNumberOrTag) -> anyhow::Result<U256>,
-	) -> anyhow::Result<Vec<Log>> {
+		resolve_block_number: impl Fn(BlockNumberOrTag) -> Fut,
+	) -> anyhow::Result<Vec<Log>>
+	where
+		Fut: Future<Output = anyhow::Result<U256>>,
+	{
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
 		let filter = filter.unwrap_or_default();
-		let latest_block = U256::from(self.block_provider.latest_block_number().await);
 
 		match filter.block_option {
 			FilterBlockOption::AtBlockHash(hash) => {
 				qb.push(" AND block_hash = ").push_bind(hash.as_slice().to_vec());
 			},
 			FilterBlockOption::Range { from_block, to_block } => {
-				let from_block = from_block.map(&resolve_block_number).transpose()?;
-				let to_block = to_block.map(&resolve_block_number).transpose()?;
+				let from_block =
+					OptionFuture::from(from_block.map(&resolve_block_number)).await.transpose()?;
+				let to_block =
+					OptionFuture::from(to_block.map(&resolve_block_number)).await.transpose()?;
+
+				// Read the latest block *after* resolving the tags.
+				let latest_block = U256::from(self.block_provider.latest_block_number().await);
 
 				match (from_block, to_block) {
 					(Some(block), _) | (_, Some(block)) if block > latest_block => {
@@ -982,14 +987,14 @@ mod tests {
 	/// Test resolver that handles Latest → `latest` and Earliest → 0.
 	fn mock_resolve_block_number_with_latest(
 		latest: u64,
-	) -> impl Fn(BlockNumberOrTag) -> anyhow::Result<U256> {
-		move |block: BlockNumberOrTag| match block {
-			BlockNumberOrTag::Number(v) => Ok(U256::from(v)),
-			BlockNumberOrTag::Earliest => Ok(U256::zero()),
-			BlockNumberOrTag::Latest => Ok(U256::from(latest)),
-			BlockNumberOrTag::Finalized | BlockNumberOrTag::Safe | BlockNumberOrTag::Pending => {
-				anyhow::bail!("Unsupported tag: {block:?}")
-			},
+	) -> impl Fn(BlockNumberOrTag) -> std::future::Ready<anyhow::Result<U256>> {
+		move |block: BlockNumberOrTag| {
+			std::future::ready(Ok(match block {
+				BlockNumberOrTag::Number(v) => U256::from(v),
+				BlockNumberOrTag::Earliest => U256::zero(),
+				// The mock only tracks `latest`, so the remaining tags resolve to it.
+				_ => U256::from(latest),
+			}))
 		}
 	}
 
@@ -1390,6 +1395,59 @@ mod tests {
 			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+
+		for tag in [
+			BlockNumberOrTag::Latest,
+			BlockNumberOrTag::Finalized,
+			BlockNumberOrTag::Safe,
+			BlockNumberOrTag::Pending,
+		] {
+			let logs = provider
+				.logs(Some(Filter::new().from_block(tag)), &resolve_block_number)
+				.await?;
+			assert_eq!(logs, vec![log2.clone()], "tag {tag:?} should resolve to the latest block");
+		}
+
+		let logs = provider
+			.logs(
+				Some(
+					Filter::new()
+						.from_block(log1.block_number.as_u64())
+						.to_block(log1.block_number.as_u64()),
+				),
+				&resolve_block_number,
+			)
+			.await?;
+		assert_eq!(logs, vec![log1.clone()], "from == to selects the single block");
+
+		let result = provider
+			.logs(
+				Some(
+					Filter::new()
+						.from_block(log2.block_number.as_u64())
+						.to_block(log1.block_number.as_u64()),
+				),
+				&resolve_block_number,
+			)
+			.await;
+		assert!(result.is_err(), "from > to should be rejected");
+
+		let result = provider
+			.logs(
+				Some(Filter::new().from_block(log2.block_number.as_u64() + 100)),
+				&resolve_block_number,
+			)
+			.await;
+		assert!(result.is_err(), "block number beyond latest should be rejected");
+
+		let failing = |_: BlockNumberOrTag| {
+			std::future::ready(Err::<U256, anyhow::Error>(anyhow::anyhow!("resolver failed")))
+		};
+		let result = provider
+			.logs(Some(Filter::new().from_block(BlockNumberOrTag::Latest)), &failing)
+			.await;
+		assert!(result.is_err(), "a resolver error should propagate");
+
 		Ok(())
 	}
 
@@ -1492,7 +1550,7 @@ mod tests {
 		};
 
 		// Insert the log
-		let block = MockBlockInfo { hash: substrate_hash, number: block_number as u32 };
+		let block = MockBlockInfo { hash: substrate_hash, number: block_number };
 		let receipts = vec![(
 			TransactionSigned::default(),
 			ReceiptInfo {
@@ -1684,7 +1742,7 @@ mod tests {
 		// The oldest block (1) should have been evicted, keeping blocks 2..=MAX+1.
 		assert!(!map.contains_key(&1));
 		assert!(map.contains_key(&2));
-		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u32 + 1)));
+		assert!(map.contains_key(&(MAX_CACHED_BLOCKS as u64 + 1)));
 		drop(map);
 
 		// All blocks are still in the DB.
@@ -1759,7 +1817,7 @@ mod tests {
 
 		let mut tx_offset = 0;
 		for (i, (n_tx, n_logs)) in cases.into_iter().enumerate() {
-			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u32 + 1 };
+			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u64 + 1 };
 			let ethereum_hash = make_hash(i, 0xff);
 			let receipts = make_receipts(tx_offset, n_tx, n_logs);
 			tx_offset += n_tx;
@@ -1834,7 +1892,7 @@ mod tests {
 		let mut block_mappings = Vec::new();
 
 		for i in 0..n_blocks {
-			let block = MockBlockInfo { hash: make_hash(i, 0xAA), number: i as u32 + 1 };
+			let block = MockBlockInfo { hash: make_hash(i, 0xAA), number: i as u64 + 1 };
 			let ethereum_hash = make_hash(i, 0xBB);
 			let receipts = make_receipts(i * n_tx_per_block, n_tx_per_block, n_logs_per_receipt);
 			provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;

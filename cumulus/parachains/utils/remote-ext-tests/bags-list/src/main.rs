@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Remote tests for bags-list pallet.
 
@@ -29,14 +29,14 @@ enum Command {
 #[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = "PascalCase")]
 enum Runtime {
-	Westend,
+	WestendAssetHub,
 }
 
 #[derive(Parser)]
 struct Cli {
-	#[arg(long, short, default_value = "wss://westend-rpc.polkadot.io:443")]
+	#[arg(long, short, default_value = "wss://westend-asset-hub-rpc.polkadot.io:443")]
 	uri: String,
-	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Runtime::Westend)]
+	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Runtime::WestendAssetHub)]
 	runtime: Runtime,
 	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Command::SanityCheck)]
 	command: Command,
@@ -58,27 +58,27 @@ async fn main() {
 
 	use pallet_bags_list_remote_tests::*;
 	match options.runtime {
-		Runtime::Westend => sp_core::crypto::set_default_ss58_version(
-			<westend_runtime::Runtime as frame_system::Config>::SS58Prefix::get()
+		Runtime::WestendAssetHub => sp_core::crypto::set_default_ss58_version(
+			<asset_hub_westend_runtime::Runtime as frame_system::Config>::SS58Prefix::get()
 				.try_into()
 				.unwrap(),
 		),
 	};
 
 	match (options.runtime, options.command) {
-		(Runtime::Westend, Command::CheckMigration) => {
-			use westend_runtime::{Block, Runtime};
-			use westend_runtime_constants::currency::UNITS;
+		(Runtime::WestendAssetHub, Command::CheckMigration) => {
+			use asset_hub_westend_runtime::{Block, Runtime};
+			use testnet_parachains_constants::westend::currency::UNITS;
 			migration::execute::<Runtime, Block>(UNITS as u64, "WND", options.uri.clone()).await;
 		},
-		(Runtime::Westend, Command::SanityCheck) => {
-			use westend_runtime::{Block, Runtime};
-			use westend_runtime_constants::currency::UNITS;
+		(Runtime::WestendAssetHub, Command::SanityCheck) => {
+			use asset_hub_westend_runtime::{Block, Runtime};
+			use testnet_parachains_constants::westend::currency::UNITS;
 			try_state::execute::<Runtime, Block>(UNITS as u64, "WND", options.uri.clone()).await;
 		},
-		(Runtime::Westend, Command::Snapshot) => {
-			use westend_runtime::{Block, Runtime};
-			use westend_runtime_constants::currency::UNITS;
+		(Runtime::WestendAssetHub, Command::Snapshot) => {
+			use asset_hub_westend_runtime::{Block, Runtime};
+			use testnet_parachains_constants::westend::currency::UNITS;
 			snapshot::execute::<Runtime, Block>(
 				options.snapshot_limit,
 				UNITS.try_into().unwrap(),

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[zombienet_sdk::subxt::subxt(
-	runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale"
+	runtime_metadata_path = "metadata-files/asset-hub-westend-local.scale",
+	crate = "::zombienet_sdk::subxt::ext::subxt_core"
 )]
 mod ahw {}
 

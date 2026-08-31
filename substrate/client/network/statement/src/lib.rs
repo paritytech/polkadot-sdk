@@ -973,7 +973,7 @@ where
 	///   joined.
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
-			SyncEvent::PeerConnected(remote) => {
+			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
 				if self.sync.is_major_syncing() {
 					log::trace!(
 						target: LOG_TARGET,
@@ -4107,9 +4107,18 @@ mod tests {
 		let peer2 = PeerId::random();
 		let peer3 = PeerId::random();
 
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer1));
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer2));
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer3));
+		handler.handle_sync_event(SyncEvent::PeerConnected {
+			peer_id: peer1,
+			roles: sc_network::Roles::FULL,
+		});
+		handler.handle_sync_event(SyncEvent::PeerConnected {
+			peer_id: peer2,
+			roles: sc_network::Roles::FULL,
+		});
+		handler.handle_sync_event(SyncEvent::PeerConnected {
+			peer_id: peer3,
+			roles: sc_network::Roles::FULL,
+		});
 
 		// No network calls while major sync is active
 		assert!(network.get_added_reserved().is_empty());

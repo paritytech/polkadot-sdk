@@ -128,7 +128,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.chain_spec_command_is_local(true)
 				.with_default_image(polkadot_image.as_str())
 				.with_validator(|node| {
-					node.with_name("alice").with_args(vec![("-lruntime=debug,xcm=trace").into()])
+					node.with_name("alice")
+						// Set Alice's initial balance to 200 WND, the original value before the
+						// removal of the staking pallet from the RC.
+						.with_initial_balance(200_000_000_000_000u128)
+						.with_args(vec![("-lruntime=debug,xcm=trace").into()])
 				})
 				.with_validator(|node| {
 					node.with_name("bob")

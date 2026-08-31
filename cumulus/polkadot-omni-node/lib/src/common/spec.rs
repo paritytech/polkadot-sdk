@@ -51,6 +51,9 @@ use sc_network::{
 };
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
+use sc_storage_chain_sync::{
+	IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport, SyncingHandle,
+};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
@@ -59,7 +62,12 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{
+	future::Future,
+	pin::Pin,
+	sync::{Arc, OnceLock},
+	time::Duration,
+};
 
 // Override default idle connection timeout of 10 seconds to give IPFS clients more
 // time to query data over Bitswap. This is needed when manually adding our node
@@ -124,27 +132,47 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 }
 
 pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
-	type BlockImport: sc_consensus::BlockImport<Block> + Clone + Send + Sync;
+	type BlockImport: sc_consensus::BlockImport<Block, Error = sp_consensus::Error>
+		+ Clone
+		+ Send
+		+ Sync;
 	type BlockImportAuxiliaryData;
 
+	/// Build the path-specific outer block import on top of the supplied
+	/// `StorageChainBlockImport`.
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
 }
 
 pub(crate) struct ClientBlockImport;
 
-impl<Block: BlockT, RuntimeApi> InitBlockImport<Block, RuntimeApi> for ClientBlockImport
+impl<Block, RuntimeApi> InitBlockImport<Block, RuntimeApi> for ClientBlockImport
 where
+	Block: BlockT<Hash = sc_client_db::DbHash>,
 	RuntimeApi: Send + ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	type BlockImport = Arc<ParachainClient<Block, RuntimeApi>>;
+	type BlockImport = StorageChainBlockImport<
+		Block,
+		Arc<ParachainClient<Block, RuntimeApi>>,
+		ParachainClient<Block, RuntimeApi>,
+	>;
 	type BlockImportAuxiliaryData = ();
 
 	fn init_block_import(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
+		_client: Arc<ParachainClient<Block, RuntimeApi>>,
+		storage_chain_block_import: StorageChainBlockImport<
+			Block,
+			Arc<ParachainClient<Block, RuntimeApi>>,
+			ParachainClient<Block, RuntimeApi>,
+		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		Ok((client.clone(), ()))
+		Ok((storage_chain_block_import, ()))
 	}
 }
 
@@ -270,10 +298,21 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let (block_import, block_import_auxiliary_data) =
-			Self::InitBlockImport::init_block_import(client.clone())?;
+		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
+		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());
 
-		let block_import = ParachainBlockImport::new(block_import, backend.clone());
+		let fetcher = IndexedTransactionFetcher::new(
+			Arc::clone(&network_handle),
+			Arc::clone(&syncing_handle),
+		);
+
+		let storage_chain_block_import =
+			StorageChainBlockImport::new(client.clone(), client.clone(), fetcher);
+
+		let (outer_block_import, block_import_auxiliary_data) =
+			Self::InitBlockImport::init_block_import(client.clone(), storage_chain_block_import)?;
+
+		let block_import = ParachainBlockImport::new(outer_block_import, backend.clone());
 
 		let import_queue = Self::BuildImportQueue::build_import_queue(
 			client.clone(),
@@ -291,7 +330,14 @@ pub(crate) trait BaseNodeSpec {
 			task_manager,
 			transaction_pool,
 			select_chain: (),
-			other: (block_import, telemetry, telemetry_worker_handle, block_import_auxiliary_data),
+			other: (
+				block_import,
+				telemetry,
+				telemetry_worker_handle,
+				block_import_auxiliary_data,
+				network_handle,
+				syncing_handle,
+			),
 		})
 	}
 }
@@ -351,9 +397,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let parachain_public_addresses = parachain_config.network.public_addresses.clone();
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
+
 			let params = Self::new_partial(&parachain_config)?;
-			let (block_import, mut telemetry, telemetry_worker_handle, block_import_auxiliary_data) =
-				params.other;
+			let (
+				block_import,
+				mut telemetry,
+				telemetry_worker_handle,
+				block_import_auxiliary_data,
+				network_handle,
+				syncing_handle,
+			) = params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
@@ -412,6 +465,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					metrics,
 				})
 				.await?;
+
+			let _ = network_handle
+				.set(network.clone() as Arc<dyn sc_network::NetworkRequest + Send + Sync>);
+			let _ = syncing_handle.set(sync_service.clone()
+				as Arc<dyn sc_storage_chain_sync::BitswapPeerSource + Send + Sync>);
+
 			let peer_id = relay_chain_network.local_peer_id();
 
 			if validator && node_extra_args.collator_reserved_slots > 0 {
@@ -598,7 +657,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				import_queue: import_queue_service,
 				relay_chain_slot_duration,
 				recovery_handle: Box::new(overseer_handle.clone()),
-				sync_service,
+				sync_service: sync_service.clone(),
 				prometheus_registry: prometheus_registry.as_ref(),
 			})?;
 
@@ -611,7 +670,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				relay_chain_fork_id,
 				relay_chain_network,
 				request_receiver: paranode_rx,
-				parachain_network: network,
+				parachain_network: network.clone(),
 				advertise_non_global_ips,
 				parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
 				parachain_fork_id,

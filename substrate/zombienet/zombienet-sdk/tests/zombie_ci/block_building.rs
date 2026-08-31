@@ -8,9 +8,11 @@ use crate::utils::{
 	DEFAULT_SUBSTRATE_IMAGE, INTEGRATION_IMAGE_ENV, NODE_ROLE_METRIC, PEER_COUNT_METRIC,
 };
 use anyhow::{anyhow, Result};
-use subxt::{config::substrate::SubstrateConfig, dynamic::tx, OnlineClient};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::{Arg, NetworkConfig, NetworkConfigBuilder, NetworkNode};
+use zombienet_sdk::{
+	subxt::{self, config::substrate::SubstrateConfig, dynamic::tx, OnlineClient},
+	subxt_signer::sr25519::dev,
+	Arg, NetworkConfig, NetworkConfigBuilder, NetworkNode,
+};
 
 const NODE_NAMES: [&str; 2] = ["alice", "bob"];
 
