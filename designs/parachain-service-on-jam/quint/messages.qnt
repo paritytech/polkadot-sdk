@@ -30,13 +30,15 @@ module messages {
   | InvalidCodeHash
   // PVF aborted itself via report_error(data). Payload ≤ 1024 B.
   | Opaque(int)
-  // A `set_validator_keys` chunk exceeded 30 keys, or
-  // `set_validator_keys` was called more than once in a single
-  // Refine invocation.
-  | SetValidatorKeysTooManyKeys
-  // The PVF emitted more than `MaxUpwardMessages` (1024) upward messages
+  // set_validator_keys was called more than once in a single Refine invocation.
+  | SetValidatorKeysRepeated
+  // A SetValidatorKeys chunk carried more than `SetValidatorKeysMaxKeys` keys.
+  | TooManyValidatorKeys
+  // The PVF emitted more than `MaxUpwardMessages` upward messages
   // in a single Refine invocation (§4.3).
   | TooManyUpwardMessages
+  // The parachain's 40 KiB upward-message budget was exceeded.
+  | UpwardMessagesTooLarge
   // The PVF invoked a host function restricted to another parachain (Asset Hub
   // or the Coretime chain), or named a `para_id` it may not act for (§4.3).
   | RestrictedHostFunction
@@ -60,6 +62,56 @@ module messages {
   | FromSolicit({ hash: Hash, len: int })
   | FromSetKV({ keyHash: KvKeyHash })
 
+  /// What a `forget` acts on: a parachain's share of this service's own store,
+  /// or a supervised service's store.
+  type Target =
+  | Parachain(ParaId)
+  | Service(ServiceId)
+
+  /// Why a `forget` or `remove_service_storage` against a supervised service's
+  /// store failed.
+  type ServiceStoreError =
+  | StoreUnknownService
+  | StoreNotSupervised
+  // `forget` naming a preimage the target never requested: JAM's transition
+  // has no clause for an absent request, so it returns HUH.
+  | StoreNotRequested
+
+  /// Why a `Service`-targeted `solicit` failed.
+  type ServiceSolicitError =
+  | SolicitUnknownService
+  | SolicitNotSupervised
+  // Would leave the target below its threshold balance.
+  | TargetCannotAfford
+  // The target already has a live request not awaiting re-solicitation.
+  | AlreadySolicited
+
+  /// Why an `eject_service` failed.
+  type ServiceEjectError =
+  | EjectUnknownService
+  | EjectNotSupervised
+  // Still holds storage or preimage requests.
+  | NotEmpty
+  // Created in this timeslot.
+  | CreatedThisSlot
+  // The Parachain Service named itself.
+  | TargetIsSelf
+
+  /// Why a `set_service_supervisor` failed.
+  type ServiceSupervisorError =
+  | HandoffUnknownService
+  // The proposed new supervisor does not exist.
+  | HandoffUnknownNewSupervisor
+  | HandoffNotSupervised
+
+  /// How a `create_service` turned out. The only operation logging a success,
+  /// since Asset Hub needs the assigned id announced to it.
+  type ServiceCreationResult =
+  | Created(ServiceId)
+  | CannotAfford
+  // A desiredId in the protected range that is already in use.
+  | IdTaken
+
   /// Why a JAM `transfer` replaying a `TransferOut` failed.
   /// See §5.1 outgoing transfers.
   type TransferError =
@@ -75,7 +127,8 @@ module messages {
   | DestinationNotSupervised
   // The supplied gas is below dest's `min_memo_gas`.
   | GasBelowDestinationMinimum
-  // The transfer would leave the service below its threshold balance.
+  // The source service cannot cover the amount: the debited balance is too
+  // small, or the transfer would leave it below its threshold balance.
   | InsufficientServiceBalance
 
   type AccumulateLog =
@@ -101,12 +154,21 @@ module messages {
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
   // The JAM `transfer` call replaying a `TransferOut` upward message
   // returned an error. `id` is the caller-supplied identifier from the
-  // `TransferOut`, echoed back so the parachain can match the failure to its
-  // own record. See §5.1 step 7.
+  // `TransferOut`, echoed back so Asset Hub can match the failure to its
+  // request. See §5.1 step 7.
   | TransferFailed({ id: int, error: TransferError })
   // A `forget` removed the last referencer without expunging the preimage;
   // the caller must `forget(hash, len)` again at `due` to free it. See §6.1.
   | ForgetAgainAt({ hash: Hash, len: int, due: Timeslot })
+  // Failures of the supervised-service operations, one per operation.
+  | ServiceStoreFailed({ service: ServiceId, error: ServiceStoreError })
+  | ServiceSolicitFailed({ service: ServiceId, error: ServiceSolicitError })
+  | ServiceEjectFailed({ service: ServiceId, error: ServiceEjectError })
+  | ServiceSupervisorFailed({ service: ServiceId, error: ServiceSupervisorError })
+  // Announces a CreateService outcome to Asset Hub. `id` is the caller-supplied
+  // identifier from the CreateService, echoed back so Asset Hub can match the
+  // outcome to its request.
+  | ServiceCreation({ id: int, result: ServiceCreationResult })
   // `parachain_clean_up` rejected: the parachain still holds state beyond its
   // baseline and validation code(s) and must release the rest first. See §6.4.
   | TooMuchStateHeld
@@ -126,11 +188,27 @@ module messages {
     // request_code_upgrade(hash, len): start a PVF code upgrade (§5.2).
     | RequestCodeUpgrade({ hash: ValidationCodeHash, len: int })
   // solicit(hash, len)
-  | Solicit({ hash: Hash, len: int })
+  // solicit(target, hash, len): §6.1 for a Parachain target.
+  | Solicit({ target: Target, hash: Hash, len: int })
+  // eject_service(service).
+  | EjectService({ service: ServiceId })
+  // set_service_supervisor(service, newSupervisor).
+  | SetServiceSupervisor({ service: ServiceId, newSupervisor: ServiceId })
+  // `id` is a caller-supplied identifier, echoed back in the ServiceCreation
+  // entry so Asset Hub can match the outcome to its request.
+  | CreateService({
+      codeHash: Hash, len: int, minItemGas: int, minMemoGas: int, id: int,
+      // Index to create the service at, in JAM's protected range.
+      desiredId: Option[ServiceId],
+      sourceSupervisorBalance: bool, newSupervisorBalance: bool
+    })
   // forget(para_id, hash, len). `paraId` names whose reference is released; a
   // para may only name itself, while the Coretime chain may name any para, which
   // is how a para that can no longer produce blocks gets drained (§6.4).
-  | Forget({ paraId: ParaId, hash: Hash, len: int })
+  // forget(target, hash, len): §6.1 for a Parachain target.
+  | Forget({ target: Target, hash: Hash, len: int })
+  // remove_service_storage(service, key).
+  | RemoveServiceStorage({ service: ServiceId, key: List[int] })
   // kv_set(key, value): write to key_value_storage.
   | SetKV({ key: List[int], value: List[int] })
   // kv_remove(para_id, key): remove from key_value_storage. Same `paraId`
@@ -143,7 +221,9 @@ module messages {
   // memo is supplied. `source = None` means this service, matching JAM's self
   // sentinel. The two selectors choose the balance on each side: which of
   // source's is debited and which of dest's receives the funds; true means the
-  // supervisor balance (§5.1 outgoing transfers).
+  // supervisor balance (§5.1 outgoing transfers). `id` is a caller-supplied
+  // identifier, echoed back in the TransferFailed entry so Asset Hub can match
+  // a failure to its request.
   | TransferOut({
       source: Option[ServiceId], dest: ServiceId, amount: Balance, id: int,
       sourceSupervisorBalance: bool, destSupervisorBalance: bool,
@@ -173,8 +253,8 @@ module messages {
   })
   // set_validator_keys(chunk, is_last): Asset Hub only.
   | SetValidatorKeys({ keys: List[ValidatorKey], isLast: bool })
-  // consume_transfers_up_to(index): Asset Hub only.
-  | ConsumeTransfersUpTo(int)
+  // clean_up_buckets_up_to(bucket_id): Asset Hub only.
+  | CleanUpBucketsUpTo(BucketId)
   // parachain_set_head(para_id, new_head): Coretime only.
   | ParachainSetHead({ paraId: ParaId, newHead: HeadData })
   // parachain_set_validation_code(para_id, new_hash, new_len): Coretime only.
@@ -254,8 +334,15 @@ module messages {
   match m {
     | TransferOut(_) => true
     | SetValidatorKeys(_) => true
-    | ConsumeTransfersUpTo(_) => true
+    | CleanUpBucketsUpTo(_) => true
     | UpgradeService(_) => true
+    | RemoveServiceStorage(_) => true
+    | EjectService(_) => true
+    | CreateService(_) => true
+    | SetServiceSupervisor(_) => true
+    // Only a Service target; a Parachain target keeps the §6.1 rules.
+    | Forget(p) => match p.target { | Service(_) => true | Parachain(_) => false }
+    | Solicit(p) => match p.target { | Service(_) => true | Parachain(_) => false }
     | _ => false
   }
 
@@ -277,7 +364,16 @@ module messages {
   pure def targetsForeignPara(m: UpwardMessage, para_id: ParaId): bool =
   para_id != CoretimeParaId and
   (match m {
-    | Forget(p) => p.paraId != para_id
+    | Forget(p) => match p.target {
+      | Parachain(target) => target != para_id
+      | Service(_) => false
+    }
+    // Same rule as `Forget`: a para may only name itself, so it cannot charge
+    // another's balance, while Coretime may name any para.
+    | Solicit(p) => match p.target {
+      | Parachain(target) => target != para_id
+      | Service(_) => false
+    }
     | RemoveKV(p) => p.paraId != para_id
     | _ => false
   })

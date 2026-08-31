@@ -1,5 +1,5 @@
-// Draining the incoming-transfer queue: `consume_transfers_up_to`,
-// lookup-anchor clamping, and the refund side of admission (design 5.1).
+// Cleaning up the incoming-transfer queue: `clean_up_buckets_up_to`, bucket
+// closing, and the refund side of admission (design 5.1).
 module transfer_drain_test {
   import types.* from "../types"
   import messages.* from "../messages"
@@ -9,62 +9,82 @@ module transfer_drain_test {
   import main.* from "../main"
   import support.* from "./support"
 
-  /// `consume_transfers_up_to(slot)` drops whole buckets up to and including
-  /// `slot`, re-heads the chain, and clears it once nothing survives.
-  run consumeDrainsBucketsUpToSlotTest = {
-    val a = applyIncomingTransfer(initialState, 1,
+  /// `clean_up_buckets_up_to(bucket_id)` removes whole buckets up to and
+  /// including `bucket_id`, re-heads the queue, and clears the endpoints once
+  /// nothing survives. Ids then restart at 0, so a drained queue leaves no
+  /// numbering to carry forward.
+  run cleanUpRemovesBucketsUpToIdTest = {
+    // Three separate invocations, so three closed buckets: 0, 1, 2.
+    val a = applyIncomingTransfer(initialState,
       { from: MkServiceId(0), amount: 500, memo: 0 })
-    val b = applyIncomingTransfer(a, 4, { from: MkServiceId(0), amount: 500, memo: 0 })
-    val c = applyIncomingTransfer(b, 9, { from: MkServiceId(0), amount: 500, memo: 0 })
-    val partial = dropBucketsUpTo(c, 4, 9)  // anchor 9: no clamp, drops slots 1 and 4
-    val everything = dropBucketsUpTo(c, 9, 9)  // drains the chain
+    val b = applyIncomingTransfer(a, { from: MkServiceId(0), amount: 500, memo: 1 })
+    val c = applyIncomingTransfer(b, { from: MkServiceId(0), amount: 500, memo: 2 })
+    val partial = cleanUpBucketsUpTo(c, 1)
+    val everything = cleanUpBucketsUpTo(c, 2)
+    val refilled = applyIncomingTransfer(everything,
+      { from: MkServiceId(0), amount: 500, memo: 3 })
     all {
-      assert(c.incomingTransferChain == Some({ firstSlot: 1, lastSlot: 9, count: 3 })),
-      assert(partial.incomingTransfers.keys() == Set(9)),
-      assert(partial.incomingTransferChain == Some({ firstSlot: 9, lastSlot: 9, count: 1 })),
+      assert(c.incomingTransfers.keys() == Set(0, 1, 2)),
+      assert(c.incomingTransferBuckets ==
+        Some({ firstBucket: 0, lastBucket: 2, count: 3 })),
+      assert(partial.incomingTransfers.keys() == Set(2)),
+      assert(partial.incomingTransferBuckets ==
+        Some({ firstBucket: 2, lastBucket: 2, count: 1 })),
       assert(everything.incomingTransfers.keys() == Set()),
-      assert(everything.incomingTransferChain == None),
+      assert(everything.incomingTransferBuckets == None),
+      // Fully drained, so the next arrival numbers from 0 again.
+      assert(refilled.incomingTransfers.keys() == Set(0)),
+      assert(refilled.incomingTransferBuckets ==
+        Some({ firstBucket: 0, lastBucket: 0, count: 1 })),
       init
     }
   }
 
-  /// §5.1: `consume_transfers_up_to` is clamped to the candidate's lookup-anchor.
-  /// Asset Hub cannot have read a bucket newer than the anchor it built on, so a
-  /// slot beyond it must not drain buckets it never observed. Buckets at or below
-  /// the anchor are still drained normally.
-  run consumeIsClampedToAnchorTest = {
+  /// §5.1: naming a bucket id cannot destroy a transfer the candidate never saw.
+  /// A bucket only takes arrivals within the invocation that opened it, so
+  /// anything arriving after the candidate's read lands in a strictly higher id.
+  /// This is why `clean_up_buckets_up_to` needs no lookup-anchor clamp: here the
+  /// candidate read buckets 0 and 1, a third arrived meanwhile, and cleaning up
+  /// to 1 leaves that third one untouched.
+  run cleanUpCannotReachLaterBucketsTest = {
     val ah = AssetHubParaId
     val ahCode: ValidationCodeHash = { vchBytes: 2 }
     val big = IncomingTransferEntryFootprint
     val from = MkServiceId(3)
-    // Two buckets: one at slot 1, one at slot 9.
-    val seeded = applyIncomingTransfer(
-      applyIncomingTransfer(initialState, 1, { from: from, amount: big, memo: 0 }),
-      9, { from: from, amount: big, memo: 0 })
-    // A candidate anchored at 5 asking to consume everything up to 9.
+    // What the candidate read: buckets 0 and 1.
+    val read = applyIncomingTransfer(
+      applyIncomingTransfer(initialState, { from: from, amount: big, memo: 0 }),
+      { from: from, amount: big, memo: 1 })
+    // A later invocation, after that read: bucket 2.
+    val seeded = applyIncomingTransfer(read, { from: from, amount: big, memo: 2 })
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
       validationCode: { hash: ahCode, len: FixedCodeLen },
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
-      upwardMessages: List(ConsumeTransfersUpTo(9)),
+      upwardMessages: List(CleanUpBucketsUpTo(1)),
       lookupAnchor: 5
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 10)
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 10, Map())
     all {
-      assert(seeded.incomingTransfers.keys() == Set(1, 9)),
-      // Clamped to 5: bucket 1 drained, bucket 9 survives.
-      assert(out.state.incomingTransfers.keys() == Set(9)),
+      assert(read.incomingTransfers.keys() == Set(0, 1)),
+      assert(seeded.incomingTransfers.keys() == Set(0, 1, 2)),
+      // The two it read are gone; the one it never saw survives intact.
+      assert(out.state.incomingTransfers.keys() == Set(2)),
+      assert(out.state.incomingTransfers.get(2) ==
+        List({ from: from, amount: big, memo: 2 })),
+      assert(out.state.incomingTransferBuckets ==
+        Some({ firstBucket: 2, lastBucket: 2, count: 1 })),
       init
     }
   }
 
   /// §5.1: removing the unreserved transfers restores the state balance to
   /// exactly its pre-charge value, while the reserved queue stays untouched.
-  /// §5.1: full queue, three more entries pushed, then the three oldest entries
-  /// drained on the next round. The queue is full again and the state balance is
-  /// back to its pre-charge value.
+  /// Full queue, three more entries pushed, then the three oldest buckets cleaned
+  /// up on the next round. The queue is back to the reservation size and the state
+  /// balance is back to its pre-charge value.
   run drainingUnreservedRestoresBalanceTest = {
     val ah = AssetHubParaId
     val ahCode: ValidationCodeHash = { vchBytes: 2 }
@@ -73,31 +93,30 @@ module transfer_drain_test {
     val used0 = full.paraInfo(ah).usedStateBalance
     val total0 = full.paraInfo(ah).totalStateBalance
     // Full queue (count `MaxIncomingTransfers`), then three more entries, each
-    // in its own fresh slot past the tail.
+    // arriving in its own invocation so each opens its own bucket.
     val seeded = List(
       { from: MkServiceId(3), amount: big * 100, memo: 0 },
       { from: MkServiceId(4), amount: big * 100, memo: 0 },
       { from: MkServiceId(5), amount: big * 100, memo: 0 })
-      .foldl(full, (acc, t) =>
-        applyIncomingTransfer(acc, queuedTransferCount(acc), t))
-    // Next round, drain the first three entries: `consume_transfers_up_to`
-    // removes buckets from the oldest slot up, so slots 0..2 go and the queue
+      .foldl(full, (acc, t) => applyIncomingTransfer(acc, t))
+    // Next round, clean up the first three entries: `clean_up_buckets_up_to`
+    // removes buckets from the oldest id up, so buckets 0..2 go and the queue
     // returns to the reservation size.
     val ok: ParachainWorkDigestOk = {
       paraId: ah,
       validationCode: { hash: ahCode, len: FixedCodeLen },
       parentHeadHash: headHash(seeded.paraInfo(ah).headData),
       headData: seeded.paraInfo(ah).headData + 1,
-      upwardMessages: List(ConsumeTransfersUpTo(2)),
+      upwardMessages: List(CleanUpBucketsUpTo(2)),
       lookupAnchor: 2
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 3)
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 3, Map())
     all {
       // The three extra entries were charged their per-bucket cost.
       assert(seeded.paraInfo(ah).usedStateBalance == used0 + 3 * big),
       assert(seeded.paraInfo(ah).totalStateBalance == total0 + 3 * big),
-      // Draining the first three leaves the queue full again...
+      // Cleaning up the first three leaves the queue at the reservation again...
       assert(queuedTransferCount(out.state) == MaxIncomingTransfers),
       // ...with no extra state usage.
       assert(out.state.paraInfo(ah).usedStateBalance == used0),
@@ -106,12 +125,12 @@ module transfer_drain_test {
     }
   }
 
-  /// §5.1: admitting and draining move `used` and `total` by the same per-bucket
-  /// cost, so the available state balance never changes and draining frees nothing
-  /// for the rest of the candidate. Replay order therefore does not matter, and no
-  /// ordering rule is needed. Breaks if the credit is ever tied to the transfer's
-  /// `amount` again.
-  run consumeTransfersOrderIsUnobservableTest = {
+  /// §5.1: admitting and cleaning up move `used` and `total` by the same
+  /// per-bucket cost, so the available state balance never changes and cleaning up
+  /// frees nothing for the rest of the candidate. Replay order therefore does not
+  /// matter, and no ordering rule is needed. Breaks if the credit is ever tied to
+  /// the transfer's `amount` again.
+  run cleanUpOrderIsUnobservableTest = {
     val ah = AssetHubParaId
     val ahCode: ValidationCodeHash = { vchBytes: 2 }
     val big = IncomingTransferEntryFootprint
@@ -120,7 +139,7 @@ module transfer_drain_test {
     // One unreserved entry, charged to Asset Hub, then pin the allowance so the
     // solicit only fits once that entry is refunded.
     val paid = applyIncomingTransfer(
-      fullTransferQueue, MaxIncomingTransfers, { from: MkServiceId(3), amount: big, memo: 0 })
+      fullTransferQueue, { from: MkServiceId(3), amount: big, memo: 0 })
     val pi = paid.paraInfo(ah)
     val tight =
       { ...paid,
@@ -137,17 +156,19 @@ module transfer_drain_test {
     pure def replay(msgs: List[UpwardMessage]): ParachainServiceState =
       accumulateOnePackage(
         tight, { result: WorkOk(Ok(candidate(msgs))), authTrace: 0 },
-        Set(), None, FixedCodeLen, MaxIncomingTransfers + 1).state
-    val consumeFirst =
-      replay(List(ConsumeTransfersUpTo(MaxIncomingTransfers), Solicit({ hash: h, len: len })))
+        Set(), None, FixedCodeLen, MaxIncomingTransfers + 1, Map()).state
+    val cleanFirst =
+      replay(List(CleanUpBucketsUpTo(MaxIncomingTransfers),
+                  Solicit({ target: Parachain(ah), hash: h, len: len })))
     val solicitFirst =
-      replay(List(Solicit({ hash: h, len: len }), ConsumeTransfersUpTo(MaxIncomingTransfers)))
+      replay(List(Solicit({ target: Parachain(ah), hash: h, len: len }),
+                  CleanUpBucketsUpTo(MaxIncomingTransfers)))
     all {
-      // The allowance is one short of the solicit, and draining does not help.
+      // The allowance is one short of the solicit, and cleaning up does not help.
       assert(not(tight.paraInfo(ah).hasHeadroom(preimageFootprint(len)))),
-      assert(not(consumeFirst.hasReferencer(h, len, ah))),
+      assert(not(cleanFirst.hasReferencer(h, len, ah))),
       // Both emission orders land on exactly the same state.
-      assert(consumeFirst == solicitFirst),
+      assert(cleanFirst == solicitFirst),
       init
     }
   }

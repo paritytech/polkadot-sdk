@@ -72,7 +72,7 @@ module accumulate_test {
       UpgradeService({ codeHash: newCode, len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 })
     init
       // Make the new service code available, so the upgrade's own preconditions hold.
-      .then(applyHappyPath(ah, ahCode, List(Solicit({ hash: newCode, len: FixedCodeLen }))))
+      .then(applyHappyPath(ah, ahCode, List(Solicit({ target: Parachain(ah), hash: newCode, len: FixedCodeLen }))))
       .then(provide(newCode, FixedCodeLen))
       .then(expectThat(all {
         svc.preimageAvailable(newCode, FixedCodeLen),
@@ -108,7 +108,7 @@ module accumulate_test {
       lookupAnchor: 500
     }
     val out = accumulateOnePackage(
-      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), None, FixedCodeLen, 500)
+      seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), None, FixedCodeLen, 500, Map())
     all {
       assert(seeded.paraLog(para).length() == 1),
       // Nothing at all changed, and the old entry survived.

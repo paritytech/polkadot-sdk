@@ -69,21 +69,23 @@ module state {
 
   type ParachainServiceState = {
     parachains: ParaId -> ParaInfo,
-    // Incoming transfers for Asset Hub, bucketed by arrival timeslot (§3.1).
-    // Arrivals sharing a slot append to the same bucket, so they add no storage
-    // item. `nextSlot` chains a bucket to the next occupied one, `None` at the
-    // tail: JAM storage has no prefix iteration, so the order cannot be
-    // recovered from key enumeration.
-    incomingTransfers: Timeslot -> {
-        transfers: List[{ from: ServiceId, amount: Balance, memo: Memo }],
-        nextSlot: Option[Timeslot]
-    },
-    // Head and tail of the bucket chain, `None` when the queue is empty.
+    // Incoming transfers for Asset Hub, held in fixed-size buckets keyed by an
+    // allocated bucket id (§3.1). Arrivals append to the bucket the current
+    // accumulate invocation opened. A bucket is closed once it holds
+    // `MaxTransfersPerBucket` transfers or that invocation ends; the next arrival
+    // then opens the following id. Ids are contiguous, so the queue order is the
+    // id order and enumerating it needs no per-bucket successor pointer, which
+    // JAM storage could not substitute for anyway: it has no prefix iteration.
+    incomingTransfers:
+      BucketId -> List[{ from: ServiceId, amount: Balance, memo: Memo }],
+    // First and last bucket id, `None` when the queue is empty — in real state
+    // that is the storage key being absent, not an encoded `Option` tag. Ids
+    // restart at 0 once a clean-up empties the queue, so they stay small.
     // `count` is the total number of queued transfers across every bucket. It is
-    // maintained on append and drain so the §5.1 admission bound is an O(1) read;
-    // deriving it would mean walking the chain, defeating the bucketing.
-    incomingTransferChain:
-      Option[{ firstSlot: Timeslot, lastSlot: Timeslot, count: int }],
+    // maintained on append and clean-up so the §5.1 admission bound is an O(1)
+    // read; deriving it would mean reading every bucket, defeating the bucketing.
+    incomingTransferBuckets:
+      Option[{ firstBucket: BucketId, lastBucket: BucketId, count: int }],
     parachainLog: ParaId -> ParachainLog,
     preimageRegistry: (Hash, int) -> PreimageEntry,
     // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
@@ -122,7 +124,7 @@ module state {
   pure val emptyState: ParachainServiceState = {
     parachains: Map(),
     incomingTransfers: Map(),
-    incomingTransferChain: None,
+    incomingTransferBuckets: None,
     parachainLog: Map(),
     preimageRegistry: Map(),
     pendingAssigns: Map(),
@@ -151,38 +153,42 @@ module state {
   /// Total transfers held across every bucket (§5.1 admission counts transfers,
   /// not buckets).
   pure def queuedTransferCount(s: ParachainServiceState): int =
-  match s.incomingTransferChain { | None => 0 | Some(c) => c.count }
+  match s.incomingTransferBuckets { | None => 0 | Some(b) => b.count }
 
-  /// The same total computed the slow way, by walking every bucket. Used only by
+  /// The same total computed the slow way, by reading every bucket. Used only by
   /// the invariant that pins the counter against the buckets it summarises.
   pure def queuedTransferCountWalked(s: ParachainServiceState): int =
   s.incomingTransfers.keys().fold(0, (acc, k) =>
-    acc + s.incomingTransfers.get(k).transfers.length())
+    acc + s.incomingTransfers.get(k).length())
 
-  /// Walk the bucket chain from `firstSlot`, dropping every bucket whose slot is
-  /// `<= slot` (§5.1 `consume_transfers_up_to`). Returns the surviving map and
-  /// the new chain endpoints, `None` once the chain is exhausted.
-  pure def dropBucketsUpTo(
-    s: ParachainServiceState, slot: Timeslot, anchor: Timeslot
+  /// The bucket id the next arrival opens: one past the tail, or 0 on an empty
+  /// queue, since a clean-up that empties it clears the endpoints (§5.1).
+  pure def nextBucketId(s: ParachainServiceState): BucketId =
+  match s.incomingTransferBuckets { | None => 0 | Some(b) => b.lastBucket + 1 }
+
+  /// Remove every bucket up to and including `upTo` (§5.1
+  /// `clean_up_buckets_up_to`), re-heading the queue at the first survivor and
+  /// clearing the endpoints once nothing remains.
+  pure def cleanUpBucketsUpTo(
+    s: ParachainServiceState, upTo: BucketId
   ): ParachainServiceState = {
-    // §5.1: never drain past the candidate's lookup-anchor.
-    val upTo = if (slot > anchor) anchor else slot
     val survivors = s.incomingTransfers.mapFilterKeys(k => k > upTo)
-    match s.incomingTransferChain {
+    match s.incomingTransferBuckets {
       | None => s
-      | Some(chain) =>
+      | Some(buckets) =>
         if (survivors.keys() == Set())
-          { ...s, incomingTransfers: Map(), incomingTransferChain: None }
+          { ...s, incomingTransfers: Map(), incomingTransferBuckets: None }
         else {
-          // The chain is ordered, so the first survivor is the smallest key left.
+          // What survives is a suffix, so its first id is the smallest left.
           val newFirst =
-            survivors.keys().fold(chain.lastSlot, (m, k) => if (k < m) k else m)
-          val dropped = s.incomingTransfers.keys().fold(0, (acc, k) =>
-            if (k <= upTo) acc + s.incomingTransfers.get(k).transfers.length() else acc)
+            survivors.keys().fold(buckets.lastBucket, (m, k) => if (k < m) k else m)
+          val removed = s.incomingTransfers.keys().fold(0, (acc, k) =>
+            if (k <= upTo) acc + s.incomingTransfers.get(k).length() else acc)
           { ...s,
             incomingTransfers: survivors,
-            incomingTransferChain:
-              Some({ ...chain, firstSlot: newFirst, count: chain.count - dropped }) }
+            incomingTransferBuckets:
+              Some({ ...buckets, firstBucket: newFirst,
+                     count: buckets.count - removed }) }
         }
     }
   }
@@ -266,6 +272,12 @@ module state {
   /// charged at their actual `compactLen`. The InsufficientStateBalance body is
   /// its reason's 1 B discriminant plus a 32 B hash (FromSolicit's preimage
   /// hash, FromSetKV's key hash). `StagedValidatorKeysOverflow` is nullary.
+  
+  /// Payload octets a `ServiceCreationResult` carries beyond its discriminant:
+  /// the assigned ServiceId on `Created`, nothing on the failures.
+  pure def creationPayload(r: ServiceCreationResult): int =
+  match r { | Created(_) => 4 | _ => 0 }
+
   pure def accumulateLogSize(e: AccumulateLog): int =
   1 + match e {
     | InsufficientStateBalance(r) =>
@@ -283,6 +295,13 @@ module state {
     | TransferFailed(p) => compactLen(p.id) + 1
     // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
     | ForgetAgainAt(p) => 32 + compactLen(p.len) + 4
+    // service 4 + error tag 1, for each of the four failure entries.
+    | ServiceStoreFailed(_) => 5
+    | ServiceSolicitFailed(_) => 5
+    | ServiceEjectFailed(_) => 5
+    | ServiceSupervisorFailed(_) => 5
+    // id Compact<u64> + result (1 tag, + 4 when Created).
+    | ServiceCreation(p) => compactLen(p.id) + 1 + creationPayload(p.result)
     | TooMuchStateHeld => 0
   }
 

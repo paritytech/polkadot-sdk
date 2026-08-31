@@ -19,6 +19,7 @@ module accumulate {
   import validator_keys.* from "./validator_keys"
   import management.* from "./management"
   import head_commitment.* from "./head_commitment"
+  import foreign_services.* from "./foreign_services"
 
   /// Per-work-package accumulate outcome.
   type AccumulateOutcome = {
@@ -31,7 +32,9 @@ module accumulate {
     // JAM `assign` host-function calls made while replaying upward messages.
     jamAssigns: List[AssignCall],
     // Log entries to append against the para's `parachain_log`.
-    logs: List[AccumulateLog]
+    logs: List[AccumulateLog],
+    // Supervised JAM services, which the §6.5 operations mutate.
+    foreign: ForeignServices
   }
 
   /// Result of accumulating ONE work package's `ParachainWorkDigest` against
@@ -45,7 +48,8 @@ module accumulate {
     // The `(para, lookup-anchor)` this package pruned its log against, if it
     // processed a candidate (`None` for a JAM-substituted `WorkErr`). The
     // caller folds it into the ghost `logPrunedBelow`.
-    logPruned: Option[(ParaId, Timeslot)]
+    logPruned: Option[(ParaId, Timeslot)],
+    foreign: ForeignServices
   }
 
   /// Result of accumulating ALL of a block's work packages in sequence.
@@ -57,7 +61,8 @@ module accumulate {
     jamAssigns: List[AssignCall],
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record, in
     // order; the caller folds these into the ghost `logPrunedBelow`.
-    logPruned: List[(ParaId, Timeslot)]
+    logPruned: List[(ParaId, Timeslot)],
+    foreign: ForeignServices
   }
 
   /// Outcome of a whole block's Accumulate (`accumulateBlock`): the new state
@@ -75,7 +80,8 @@ module accumulate {
     results: List[WorkResult],
     // The 32-byte value `accumulate` returns: the head commitment (§5.5).
     // `None` when no head changed and the service returns no hash.
-    headRoot: Option[MerkleHash]
+    headRoot: Option[MerkleHash],
+    foreign: ForeignServices
   }
 
   // ---- Replay a single upward message -----------------------------------
@@ -97,10 +103,16 @@ module accumulate {
           jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(d.log)
+          logs: acc.logs.appendOption(d.log),
+          foreign: acc.foreign
       }
       | Solicit(payload) =>
-      val pi = acc.state.paraInfo(para_id)
+      match payload.target {
+      | Service(s) =>
+      val o = foreignSolicit(acc.foreign, s, payload.hash, payload.len, now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | Parachain(target) =>
+      val pi = acc.state.paraInfo(target)
       val activeVc = pi.validationCode
       val isActive =
         match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
@@ -117,32 +129,50 @@ module accumulate {
         { ...acc,
           state: { ...acc.state,
             parachains: acc.state.parachains.put(
-              para_id,
+              target,
               { ...pi, validationCode:
                 match activeVc { | Some(vc) => Some({ ...vc, pinned: true }) | None => activeVc } }) } }
       } else if (isPending) {
         { ...acc,
           state: { ...acc.state,
             parachains: acc.state.parachains.put(
-              para_id,
+              target,
               { ...pi, pendingUpgrade:
                 match pi.pendingUpgrade {
                   | None => None
                   | Some(pair) => Some(({ ...pair._1, pinned: true }, pair._2))
                 } }) } }
       } else {
-        val d = acc.state.addReferencer(para_id, payload.hash, payload.len)
+        val d = acc.state.addReferencer(target, payload.hash, payload.len)
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
           jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
           jamForget: acc.jamForget,
           jamAssigns: acc.jamAssigns,
-          logs: acc.logs.appendOption(d.log)
+          logs: acc.logs.appendOption(d.log),
+          foreign: acc.foreign
         }
       }
+      }
+      | EjectService(payload) =>
+      val o = foreignEject(acc.foreign, payload.service, now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | CreateService(payload) =>
+      val o = foreignCreate(
+        acc.foreign, payload.codeHash, payload.len, payload.id, payload.desiredId,
+        now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | SetServiceSupervisor(payload) =>
+      val o = foreignSetSupervisor(
+        acc.foreign, payload.service, payload.newSupervisor)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Forget(payload) =>
-      val target = payload.paraId
+      match payload.target {
+      | Service(s) =>
+      val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      | Parachain(target) =>
       if (not(acc.state.isLive(target))) acc
       else {
         val pi = acc.state.paraInfo(target)
@@ -184,9 +214,11 @@ module accumulate {
             jamSolicit: acc.jamSolicit,
             jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
             jamAssigns: acc.jamAssigns,
-            logs: acc.logs.appendOption(d.log)
+            logs: acc.logs.appendOption(d.log),
+            foreign: acc.foreign
           }
         }
+      }
       }
       | SetValidatorKeys(payload) =>
       // Both Refine and `accumulateOkPrefix`'s service-restriction check
@@ -200,7 +232,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.appendOption(o.log)
+        logs: acc.logs.appendOption(o.log),
+        foreign: acc.foreign
       }
       | ParachainSetStateBalance(payload) =>
       // §6.1: only legal from Coretime chain (rights check is in §6).
@@ -212,7 +245,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs)
+        logs: acc.logs.concat(o.logs),
+        foreign: acc.foreign
       }
       | ParachainSetHead(payload) =>
       val o = parachainSetHead(acc.state, payload.paraId, payload.newHead)
@@ -228,7 +262,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit.union(o.jamSolicit),
         jamForget: acc.jamForget.union(o.jamForget),
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs)
+        logs: acc.logs.concat(o.logs),
+        foreign: acc.foreign
       }
       | ParachainCleanUp(paraId) =>
       val o = parachainCleanUp(acc.state, paraId, now)
@@ -238,7 +273,8 @@ module accumulate {
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget.union(o.jamForget),
         jamAssigns: acc.jamAssigns,
-        logs: acc.logs.concat(o.logs)
+        logs: acc.logs.concat(o.logs),
+        foreign: acc.foreign
       }
       | TransferOut(payload) =>
       if (payload.source.optionGetOr(ParachainServiceId) != ParachainServiceId)
@@ -294,16 +330,15 @@ module accumulate {
               acc.state.pendingAssignCores.put(payload.core, payload.jamSlot)
           }
         }
-      | ConsumeTransfersUpTo(slot) =>
-      // Asset Hub drains whole buckets up to and including `slot`, clamped to the
-      // candidate's lookup-anchor inside `dropBucketsUpTo`. Both Refine and
-      // `accumulateOkPrefix`'s service-restriction check (§4.3) reject
-      // non-Asset-Hub origins before we reach this branch.
+      | CleanUpBucketsUpTo(bucketId) =>
+      // Asset Hub removes whole buckets up to and including `bucketId`. Both
+      // Refine and `accumulateOkPrefix`'s service-restriction check (§4.3)
+      // reject non-Asset-Hub origins before we reach this branch.
       {
         val before = queuedTransferCount(acc.state)
-        val drained = dropBucketsUpTo(acc.state, slot, lookupAnchor)
+        val cleaned = cleanUpBucketsUpTo(acc.state, bucketId)
         { ...acc,
-          state: reattributeTransferQueue(drained, before, queuedTransferCount(drained)) }
+          state: reattributeTransferQueue(cleaned, before, queuedTransferCount(cleaned)) }
       }
       | UpgradeService(payload) =>
       // §5.4: Asset Hub-initiated service code upgrade. Accumulate verifies
@@ -325,6 +360,9 @@ module accumulate {
         state: d.state,
         logs: acc.logs.appendOption(d.log)
       }
+      | RemoveServiceStorage(payload) =>
+      val o = foreignRemoveStorage(acc.foreign, payload.service, payload.key)
+      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | RemoveKV(payload) =>
       if (not(acc.state.isLive(payload.paraId))) acc
       else {
@@ -423,7 +461,8 @@ module accumulate {
     solicited: Set[(ParaId, Hash, int)],
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
-    now: Timeslot
+    now: Timeslot,
+    foreign: ForeignServices
   ): PerPackageOutcome = {
     match wr.result {
       // §3.3: gray paper `WorkExecResult::Error`: JAM substituted an
@@ -434,7 +473,8 @@ module accumulate {
           solicited: solicited,
           jamDesignate: prevDesignate,
           jamAssigns: List(),
-          logPruned: None
+          logPruned: None,
+          foreign: foreign
         }
       | WorkOk(digest) =>
         match digest {
@@ -451,7 +491,8 @@ module accumulate {
               solicited: solicited,
               jamDesignate: prevDesignate,
               jamAssigns: List(),
-              logPruned: None
+              logPruned: None,
+              foreign: foreign
             }
           | Ok(ok) =>
             val pre = accumulateOkPrefix(state, ok, codeLen, now)
@@ -467,7 +508,8 @@ module accumulate {
                 solicited: solicited,
                 jamDesignate: prevDesignate,
                 jamAssigns: List(),
-                logPruned: None
+                logPruned: None,
+                foreign: foreign
               }
             } else {
               val baseAcc = {
@@ -476,15 +518,26 @@ module accumulate {
                 jamSolicit: pre.jamSolicit,
                 jamForget: pre.jamForget,
                 jamAssigns: List(),
-                logs: pre.logs
+                logs: pre.logs,
+                foreign: foreign
               }
               val acc = ok.upwardMessages.foldl(baseAcc, (a, m) =>
                 applyUpwardMessage(a, ok.paraId, codeLen, now, ok.lookupAnchor, m))
               // `Solicit` is always for the caller itself; `Forget` names its
               // target, so a Coretime-driven forget clears the TARGET's entry.
               val newSolicited = ok.upwardMessages.foldl(solicited, (s, m) => match m {
-                | Solicit(p) => s.union(Set((ok.paraId, p.hash, p.len)))
-                | Forget(p) => s.exclude(Set((p.paraId, p.hash, p.len)))
+                // Records the TARGET, so a Coretime-delegated solicit lands on
+                // the para actually charged. A Service target is not in our
+                // registry at all.
+                | Solicit(p) => match p.target {
+                  | Parachain(target) => s.union(Set((target, p.hash, p.len)))
+                  | Service(_) => s
+                }
+                | Forget(p) => match p.target {
+                  | Parachain(target) => s.exclude(Set((target, p.hash, p.len)))
+                  // Not our store, so the ghost set is untouched.
+                  | Service(_) => s
+                }
                 | _ => s
               })
               // The lookup-anchor prune already ran inside `accumulateOkPrefix`,
@@ -494,7 +547,8 @@ module accumulate {
                 solicited: newSolicited,
                 jamDesignate: acc.jamDesignate,
                 jamAssigns: acc.jamAssigns,
-                logPruned: Some((ok.paraId, ok.lookupAnchor))
+                logPruned: Some((ok.paraId, ok.lookupAnchor)),
+                foreign: acc.foreign
               }
             }
         }
@@ -508,22 +562,25 @@ module accumulate {
     prevDesignate: Option[List[ValidatorKey]],
     codeLen: int,
     now: Timeslot,
-    packages: List[WorkResult]
+    packages: List[WorkResult],
+    foreign: ForeignServices
   ): MultiPackageOutcome = {
     packages.foldl(
       { state: state,
         solicited: solicited,
         jamDesignate: prevDesignate,
         jamAssigns: List(),
-        logPruned: List() },
+        logPruned: List(),
+        foreign: foreign },
       (acc, p) => {
         val out = accumulateOnePackage(
-          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now)
+          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign)
         { state: out.state,
           solicited: out.solicited,
           jamDesignate: out.jamDesignate,
           jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
-          logPruned: acc.logPruned.appendOption(out.logPruned)
+          logPruned: acc.logPruned.appendOption(out.logPruned),
+          foreign: out.foreign
         }
       })
   }
@@ -569,49 +626,70 @@ module accumulate {
     )
   }
 
-  /// §5.1 incoming-transfer processing.
-  pure def applyIncomingTransfer(
+  /// §5.1: admit one transfer into `open`, the bucket the current accumulate
+  /// invocation is filling (`None` before it has opened one). Returns the new
+  /// state paired with the bucket left open for the next arrival.
+  pure def admitIncomingTransfer(
     s: ParachainServiceState,
-    now: Timeslot,
+    open: Option[BucketId],
     t: { from: ServiceId, amount: Balance, memo: Memo }
-  ): ParachainServiceState = {
+  ): (ParachainServiceState, Option[BucketId]) = {
     val count = queuedTransferCount(s)
     // §5.1: inside the reservation the entry is already paid for.
     val reserved = count < MaxIncomingTransfers
     val admitted = reserved or t.amount >= IncomingTransferEntryFootprint
-    if (not(admitted)) s
+    if (not(admitted)) (s, open)
     else {
-      val queued =
-      match s.incomingTransferChain {
-        // Empty queue: `now` becomes the only bucket, so both endpoints.
-        | None =>
-          { ...s,
-            incomingTransfers:
-              s.incomingTransfers.put(now, { transfers: List(t), nextSlot: None }),
-            incomingTransferChain: Some({ firstSlot: now, lastSlot: now, count: 1 }) }
-        | Some(chain) =>
-          if (chain.lastSlot == now) {
-            // Same slot as the tail: append in place, no new storage item.
-            val bucket = s.incomingTransfers.get(now)
-            { ...s,
-              incomingTransfers: s.incomingTransfers.put(
-                now, { ...bucket, transfers: bucket.transfers.append(t) }),
-              incomingTransferChain: Some({ ...chain, count: chain.count + 1 }) }
-          } else {
-            // New bucket at `now`; link the old tail to it and move `lastSlot`.
-            val oldTail = s.incomingTransfers.get(chain.lastSlot)
-            { ...s,
-              incomingTransfers: s.incomingTransfers
-                .put(chain.lastSlot, { ...oldTail, nextSlot: Some(now) })
-                .put(now, { transfers: List(t), nextSlot: None }),
-              incomingTransferChain:
-                Some({ ...chain, lastSlot: now, count: chain.count + 1 }) }
-          }
+      // The invocation's own bucket takes it while below capacity; filling it
+      // closes it, so the next arrival opens the following id. Buckets left by
+      // earlier invocations are already closed and never reopened.
+      val target =
+        match open {
+          | Some(b) =>
+            if (s.incomingTransfers.get(b).length() < MaxTransfersPerBucket) b
+            else nextBucketId(s)
+          | None => nextBucketId(s)
+        }
+      val bucket =
+        if (s.incomingTransfers.keys().contains(target)) s.incomingTransfers.get(target)
+        else List()
+      // `target` is always the tail: either the bucket this invocation opened
+      // last, or the fresh id one past it.
+      val queued = {
+        ...s,
+        incomingTransfers: s.incomingTransfers.put(target, bucket.append(t)),
+        incomingTransferBuckets: Some({
+          firstBucket:
+            match s.incomingTransferBuckets {
+              | None => target
+              | Some(bk) => bk.firstBucket
+            },
+          lastBucket: target,
+          count: count + 1
+        })
       }
-      if (reserved) queued
-      else queued.reattributeTransferQueue(count, count + 1)
+      val charged =
+        if (reserved) queued
+        else queued.reattributeTransferQueue(count, count + 1)
+      (charged, Some(target))
     }
   }
+
+  /// §5.1 incoming-transfer processing for ONE accumulate invocation: admit `ts`
+  /// in order, packing the admitted ones into buckets this invocation opens.
+  pure def applyIncomingTransfers(
+    s: ParachainServiceState,
+    ts: List[{ from: ServiceId, amount: Balance, memo: Memo }]
+  ): ParachainServiceState = {
+    val start: (ParachainServiceState, Option[BucketId]) = (s, None)
+    ts.foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t))._1
+  }
+
+  /// One transfer arriving on its own, i.e. an invocation carrying just it.
+  pure def applyIncomingTransfer(
+    s: ParachainServiceState,
+    t: { from: ServiceId, amount: Balance, memo: Memo }
+  ): ParachainServiceState = applyIncomingTransfers(s, List(t))
 
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
   /// (flush due authorizer queues), then accumulate the block's work packages.
@@ -621,10 +699,12 @@ module accumulate {
     staging: List[ValidatorKey],
     solicited: Set[(ParaId, Hash, int)],
     codeLen: int,
-    packages: List[WorkResult]
+    packages: List[WorkResult],
+    foreign: ForeignServices
   ): BlockOutcome = {
     val flushed = applyAlwaysAccumulate(state, now)
-    val acc = accumulateAll(flushed.state, solicited, None, codeLen, now, packages)
+    val acc =
+      accumulateAll(flushed.state, solicited, None, codeLen, now, packages, foreign)
     {
       state: acc.state,
       staging: match acc.jamDesignate {
@@ -635,7 +715,8 @@ module accumulate {
       assigns: flushed.assigns.concat(acc.jamAssigns),
       logPruned: acc.logPruned,
       results: packages,
-      headRoot: headCommitment(state, acc.state)
+      headRoot: headCommitment(state, acc.state),
+      foreign: acc.foreign
     }
   }
 }

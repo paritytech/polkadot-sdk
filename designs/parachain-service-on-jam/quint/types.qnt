@@ -21,12 +21,18 @@ module types {
   /// typechecker catches, not a discipline new code has to remember. An ITF
   /// trace still names the domain, since the field name is the domain.
   ///
-  /// `Hash` keys `preimage_registry` (§6.1), `HeadHash` is `hash(head_data)`
-  /// (§5.1), `KvKeyHash` is the `blake2_256` key hash a rejected `kv_set` logs
-  /// (§6.1), and `MerkleHash` is a head-commitment tree element (§5.5).
+  /// `Hash` keys `preimage_registry` (§6.1), `HeadHash` is the `blake2b-256`
+  /// `hash(head_data)` the parent-head check compares (§5.1), `KvKeyHash` is
+  /// the `blake2_256` key hash a rejected `kv_set` logs (§6.1), and the two
+  /// `keccak_256` domains of §5.5 are `LeafHeadHash`, the head hash a
+  /// commitment leaf carries, and `MerkleHash`, a tree element. The two head
+  /// hashes are separate types because they digest the same `head_data` under
+  /// different functions, so a commitment leaf must never be checked against a
+  /// candidate's declared parent head.
   type Hash = { hashBytes: int }
   type HeadHash = { headBytes: int }
   type KvKeyHash = { kvKeyBytes: int }
+  type LeafHeadHash = { leafHeadBytes: int }
   type MerkleHash = { merkleBytes: int }
   type ValidationCodeHash = { vchBytes: int }
   type AuthorizerHash = { authBytes: int }
@@ -53,9 +59,18 @@ module types {
   /// assigner, so applying a core's queue re-asserts this id as the assigner.
   pure val ParachainServiceId: ServiceId = MkServiceId(1)
 
+  /// Lowest service index a non-privileged service may be created at; below it
+  /// only the registrar may place one (gray paper `C_minpublicindex = 2^16`).
+  /// Services the Parachain Service creates therefore land at or above this.
+  pure val MinPublicServiceIndex: int = 65536
+
   type CoreIndex = int
   type Timeslot = int
   type Balance = int
+
+  /// Key of one `incoming_transfers` bucket: a `u64` the service allocates by
+  /// incrementing, deliberately unrelated to the arrival timeslot (§3.1).
+  type BucketId = int
 
   /// Head data is opaque to the service; the design caps it at 4 KiB but
   /// we only model equality and a derived hash.
@@ -94,6 +109,10 @@ module types {
   /// Combined cap on a work-report's auth-trace + result blobs.
   pure val MaxReportVarSize: int = 48 * 1024
 
+  /// Cap on the summed SCALE-encoded size of the upward messages one Refine
+  /// invocation may emit.
+  pure val MaxUpwardMessagesSize: int = 40 * 1024
+
   /// Per-call cap on `set_validator_keys` chunks (design §4.3).
   pure val SetValidatorKeysMaxKeys: int = 30
 
@@ -129,16 +148,23 @@ module types {
   /// footprint is computed from this constant, so changing it moves that too.
   pure val MaxIncomingTransfers: int = 1000
 
+  /// §3.1 cap on the transfers one `incoming_transfers` bucket may hold, so
+  /// Asset Hub can bound the read of any single bucket regardless of how many
+  /// transfers arrive at once. A bucket that reaches this many is closed and the
+  /// next arrival opens a fresh id (§5.1).
+  pure val MaxTransfersPerBucket: int = 512
+
   /// Value octets of one `incoming_transfers` entry:
   /// `ServiceId 4 + Amount (Compact<u64> worst case 9) + Memo 128`.
   pure val IncomingTransferValueOctets: int = 4 + 9 + 128
 
   /// Octets of one worst-case `incoming_transfers` bucket: a bucket holding a
   /// single transfer (maximal fragmentation, §6.1): JAM's per-entry overhead (34),
-  /// the key (1 B tag + 4 B `Timeslot`), the `Vec` length prefix (1), the transfer
-  /// itself, and `Some(next_slot)` (5).
+  /// the key (1 B tag + 8 B `BucketId`), the `Vec` length prefix (1), and the
+  /// transfer itself. `MaxTransfersPerBucket` bounds how much a bucket may hold,
+  /// not how little, so it does not move this figure.
   pure val IncomingTransferBucketOctets: int =
-    34 + 5 + 1 + IncomingTransferValueOctets + 5
+    34 + 9 + 1 + IncomingTransferValueOctets
 
   /// Full balance-unit cost of one worst-case bucket (§6.1): its octets plus the
   /// one storage item it occupies.
@@ -188,12 +214,16 @@ module types {
     | None => Set()
   }
 
-  // --- Abstract hash function ---------------------------------------------
+  // --- Abstract hash functions ---------------------------------------------
   //
-  // We model `blake2b-256(head_data)` as an injective function; we only need
-  // equality semantics for the parent-head check (§5.1, step 3).
+  // Both digest `head_data` injectively, since only equality semantics matter,
+  // but they stand for different real functions and so land in different
+  // domains: `blake2b-256` for the parent-head check (§5.1 step 3) and
+  // `keccak_256` for the head a commitment leaf carries (§5.5).
 
   pure def headHash(h: HeadData): HeadHash = { headBytes: h }
+
+  pure def leafHeadHash(h: HeadData): LeafHeadHash = { leafHeadBytes: h }
 
   /// Abstract hash of a byte list, modelling blake2-256 for KV key hashing.
   /// Injective within the model's small key space.

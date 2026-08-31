@@ -29,9 +29,6 @@
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
 8. [Messaging](#8-messaging)
-   - 8.1 [Current Limitations](#81-current-limitations)
-   - 8.2 [Proposed Solution: Full XCMP](#82-proposed-solution-full-xcmp)
-   - 8.3 [Speculative Messaging (MVP)](#83-speculative-messaging-mvp)
 9. [References](#9-references)
 
 ---
@@ -157,10 +154,11 @@ Even in blocks where no parachain candidate becomes available, it still needs an
 to apply privileged control-plane updates such as authorizer queue changes, validator-key updates,
 and other service-level bookkeeping that must take effect without waiting for a parachain block.
 
-This, together with the host calls the service forwards, presupposes three privileged
+This, together with the host calls the service forwards, presupposes four privileged
 registrations in JAM's protocol state: membership in the always-accumulate set (with a gas
-allowance), being the **delegator** (required for `designate`, §5.3), and being the registered
-**assigner** of every core it manages (required for `assign`, §7.1).
+allowance), being the **delegator** (required for `designate`, §5.3), being the registered
+**assigner** of every core it manages (required for `assign`, §7.1), and being the
+**registrar** (required for `create_service`'s `desired_id`, §6.5).
 
 ### 3.1 Service State Layout
 
@@ -172,12 +170,14 @@ struct ParachainServiceState {
     /// All registered parachains and their current metadata.
     parachains: Map<ParaId, ParaInfo>,
 
-    /// Incoming transfers for Asset Hub, bucketed by arrival timeslot and
-    /// chained through `next_slot`. Maintained in §5.1.
-    incoming_transfers: Map<Timeslot, IncomingTransfers>,
+    /// Incoming transfers for Asset Hub, held in fixed-size buckets keyed by an
+    /// allocated bucket id. Maintained in §5.1.
+    incoming_transfers: Map<BucketId, IncomingTransfers>,
 
-    /// Head and tail of the `incoming_transfers` chain.
-    incoming_transfer_chain: Option<IncomingTransferChain>,
+    /// First and last bucket id of the `incoming_transfers` queue. Its storage
+    /// key is absent while the queue is empty, which is how "no queue" is
+    /// represented.
+    incoming_transfer_buckets: IncomingTransferBuckets,
 
     /// Per-parachain log, keyed only by ParaId. Each entry carries its
     /// Timeslot inline; multiple entries may share a timeslot (e.g. several
@@ -211,12 +211,6 @@ struct ParachainServiceState {
     ///
     /// See §6.1 for the per-entry formula.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
-
-    /// Service-global generation allocator: the last generation issued.
-    /// Starts at 0 so the first allocation is 1 (ie generation 0 is invalid).
-    /// This ensures a rollback cant re-mint a value the consumer trusted in the past. 
-    /// See §8.3.
-    next_generation: Generation,
 }
 
 enum LogEntry {
@@ -258,13 +252,16 @@ enum RefineLog {
     /// Opaque payload with which the PVF aborted itself via `report_error(data)`
     /// (max 1024 bytes). See §4.2.
     Opaque(BoundedVec<u8, 1024>),
-    /// A `set_validator_keys` chunk contained more than 30 keys, or
     /// `set_validator_keys` was called more than once in a single Refine
     /// invocation. See §4.3, §5.3.
-    SetValidatorKeysTooManyKeys,
-    /// The PVF emitted more than 1024 upward messages in a single Refine
-    /// invocation. See §4.3.
+    SetValidatorKeysRepeated,
+    /// A `SetValidatorKeys` chunk carried more than 30 keys. See §4.3, §5.3.
+    TooManyValidatorKeys,
+    /// The PVF emitted more than `MAX_UPWARD_MESSAGES` upward messages in a
+    /// single Refine invocation. See §4.3.
     TooManyUpwardMessages,
+    /// The parachain's 40 KiB upward-message budget was exceeded. See §4.3.
+    UpwardMessagesTooLarge,
     /// The PVF invoked a host function restricted to another parachain (Asset
     /// Hub or the Coretime chain), or named a `para_id` it may not act for.
     /// See §4.3.
@@ -272,7 +269,9 @@ enum RefineLog {
     /// The work item payload failed to decode into a `ParachainCandidate`.
     /// See §4.1 step 3.
     MalformedPayload,
-    /// See §4.3.
+    /// An `AssignCore` carried an empty queue, or more than `AUTH_QUEUE_SIZE`
+    /// hashes, or fewer than `AUTH_QUEUE_SIZE` hashes while handing the core to
+    /// another assigner. See §4.3.
     InvalidAuthorizerQueue,
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
     /// Paper's 48 KiB. See §4.1.
@@ -280,21 +279,6 @@ enum RefineLog {
     /// The PVF exited without calling `set_parent_head_hash` and/or `set_head`
     /// exactly once. Both head declarations are mandatory. See §4.2.
     MissingHeadDeclaration,
-    /// A spec-msg enactment proof failed to verify (malformed, off-path, or
-    /// the belt entry names another service). See §8.3.
-    InvalidEnactmentProof,
-    /// A spec-msg enactment proof exceeded `MAX_PROOF_BYTES`. See §8.3.
-    ProofTooLarge,
-    /// The invocation touched more distinct `(ParaId, Generation)` sources
-    /// than `declare_budget` declared, or more than `MAX_SOURCES`. See §4.3, §8.3.
-    TooManySources,
-    /// `set_requires_root` was called more than once, or its entries repeat
-    /// a `(ParaId, Generation)` pair. See §4.3.
-    DuplicateRequiresEntry,
-    /// A spec-msg input named generation 0, which is reserved-invalid. See §8.3.
-    InvalidGeneration,
-    /// A spec-msg host function was called before `declare_budget`. See §4.3.
-    MissingBudget,
 }
 
 /// Why a state-balance reservation failed (see §6.1).
@@ -328,16 +312,91 @@ enum AccumulateLog {
     /// The new code's preimage is not available for lookup. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
     /// The JAM `transfer` call replaying a `TransferOut` failed. `id` is the
-    /// caller-supplied identifier from the `TransferOut`, echoed back so the
-    /// parachain can match the failure to its own record. See §5.1 step 7.
+    /// caller-supplied identifier from the `TransferOut`, echoed back so Asset
+    /// Hub can match the failure to its request. See §5.1 step 7.
     TransferFailed { id: Compact<u64>, error: TransferError },
-    /// A `forget` removed the last referencer without expunging the preimage.
-    /// See §6.1.
+    /// A `forget` left the preimage in place. It must be forgotten again at
+    /// `due`. See §6.1.
     ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
+    /// A `forget` or `remove_service_storage` on a supervised service's store
+    /// failed.
+    ServiceStoreFailed { service: ServiceId, error: ServiceStoreError },
+    /// A `Service`-targeted `solicit` failed.
+    ServiceSolicitFailed { service: ServiceId, error: ServiceSolicitError },
+    /// An `eject_service` failed.
+    ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
+    /// A `set_service_supervisor` failed.
+    ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
+    /// Announces a `CreateService` outcome to Asset Hub. `id` is the
+    /// caller-supplied identifier from the `CreateService`, echoed back so Asset
+    /// Hub can match the outcome to its request.
+    ServiceCreation { id: Compact<u64>, result: ServiceCreationResult },
     /// `parachain_clean_up` was rejected because the parachain still holds state
     /// beyond its baseline and validation code(s); it must release the rest
     /// first. See §6.4.
     TooMuchStateHeld,
+}
+
+/// What a `forget` acts on: a registered parachain's share of this service's
+/// own store, or a supervised service's store.
+enum Target {
+    Parachain(ParaId),
+    Service(ServiceId),
+}
+
+/// Why a `forget` or `remove_service_storage` against a supervised service's
+/// store failed.
+enum ServiceStoreError {
+    /// The named service does not exist.
+    UnknownService,
+    /// The Parachain Service is not its effective supervisor.
+    NotSupervised,
+    /// A `forget` naming a preimage the target never requested.
+    NotRequested,
+}
+
+/// Why a `Service`-targeted `solicit` failed.
+enum ServiceSolicitError {
+    UnknownService,
+    NotSupervised,
+    /// The request would leave the target below its threshold balance.
+    TargetCannotAfford,
+    /// The target already has a live request for this preimage that is not
+    /// awaiting re-solicitation.
+    AlreadySolicited,
+}
+
+/// Why an `eject_service` failed.
+enum ServiceEjectError {
+    UnknownService,
+    NotSupervised,
+    /// The service still holds storage or preimage requests, and must be
+    /// emptied first.
+    NotEmpty,
+    /// The service was created in this timeslot.
+    CreatedThisSlot,
+    /// The Parachain Service named itself.
+    TargetIsSelf,
+}
+
+/// Why a `set_service_supervisor` failed.
+enum ServiceSupervisorError {
+    /// The named service does not exist.
+    UnknownService,
+    /// The proposed new supervisor does not exist.
+    UnknownNewSupervisor,
+    /// The Parachain Service is not its effective supervisor.
+    NotSupervised,
+}
+
+/// How a `create_service` turned out.
+enum ServiceCreationResult {
+    /// Succeeded, carrying the id JAM assigned.
+    Created(ServiceId),
+    /// The Parachain Service cannot fund the new service.
+    CannotAfford,
+    /// A `desired_id` in the protected range that is already in use.
+    IdTaken,
 }
 
 /// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 7.
@@ -355,7 +414,9 @@ enum TransferError {
     DestinationNotSupervised,
     /// The supplied gas is below `dest`'s `min_memo_gas`.
     GasBelowDestinationMinimum,
-    /// The transfer would leave the Parachain Service below its threshold balance.
+    /// The `source` service cannot cover `amount`, either because the debited
+    /// balance is too small or because the transfer would leave it below its
+    /// threshold balance.
     InsufficientServiceBalance,
 }
 
@@ -375,18 +436,18 @@ struct PendingAssign {
     assigner: Option<ServiceId>,
 }
 
-/// One slot's bucket in the `incoming_transfers` chain.
-struct IncomingTransfers {
-    /// Transfers that arrived in this slot, in arrival order.
-    transfers: Vec<(ServiceId, Amount, Memo)>,
-    /// Next occupied slot, `None` at the tail.
-    next_slot: Option<Timeslot>,
-}
+/// Key of one `incoming_transfers` bucket. See §5.1.
+type BucketId = u64;
 
-/// Endpoints of the `incoming_transfers` chain.
-struct IncomingTransferChain {
-    first_slot: Timeslot,
-    last_slot: Timeslot,
+/// One fixed-size bucket in the `incoming_transfers` queue, in arrival order.
+type IncomingTransfers =
+    BoundedVec<(ServiceId, Amount, Memo), MAX_TRANSFERS_PER_BUCKET>;
+
+/// Endpoints of the `incoming_transfers` queue. The occupied ids are exactly
+/// `first_bucket ..= last_bucket`. Absent from state while the queue is empty.
+struct IncomingTransferBuckets {
+    first_bucket: BucketId,
+    last_bucket: BucketId,
     /// Total queued transfers across every bucket.
     count: u32,
 }
@@ -394,14 +455,6 @@ struct IncomingTransferChain {
 /// Head data is capped at 4 KiB to bound the per-parachain footprint that
 /// `ParaInfo` contributes to the baseline state-balance reservation (see §6.1).
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
-
-/// A parachain history generation, allocated from `next_generation`.
-/// 0 is reserved/invalid everywhere. See §8.3.
-type Generation = u64;
-
-/// A sender's commitment over all of its outbound message streams,
-/// carried in its header's SPMS digest. See §8.3.
-type StreamsRoot = [u8; 32];
 
 /// Fixed 128-byte transfer memo, matching Gray Paper `C_memosize = 128`.
 type Memo = [u8; 128];
@@ -421,10 +474,6 @@ struct ValidationCode {
 }
 
 struct ParaInfo {
-    /// The parachain's history generation, allocated at `ParaInfo` creation
-    /// and re-allocated on every history discontinuity (§6, §8.3).
-    /// The first field to ensure we can partially read from a fixed-offset.
-    generation: Generation,
     /// Current head data (output of last included block).
     head_data: HeadData,
     /// Currently active validation code, or `None` for a freshly-registered
@@ -462,9 +511,8 @@ singletons; the tag prepended to the encoded map key for map entries).
 | `0x04` | `preimage_registry` |
 | `0x05` | `staged_validator_keys` |
 | `0x06` | `incoming_transfers` |
-| `0x07` | `incoming_transfer_chain` |
+| `0x07` | `incoming_transfer_buckets` |
 | `0x08` | `key_value_storage` |
-| `0x09` | `next_generation` |
 
 ### 3.2 Work Items
 
@@ -521,12 +569,6 @@ enum ParachainWorkDigest {
         upward_messages: Vec<UpwardMessage>,
         /// The work package's lookup-anchor timeslot.
         lookup_anchor: Timeslot,
-        /// Speculative-messaging sources this candidate consumed, unique on
-        /// the pair, at most `MAX_SOURCES = 64` entries.
-        /// (full set is 770 bytes of the 48 KiB budget).
-        /// Every entry is checked against the source's live generation before the head
-        /// write (§5.1 step 6). Empty when nothing was consumed. See §8.3.
-        spec_msg_requires: Vec<(ParaId, Generation)>,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
@@ -540,33 +582,57 @@ enum ParachainWorkDigest {
 }
 
 enum UpwardMessage {
-    /// From `request_code_upgrade`: start a PVF code upgrade (see §5.2).
+    /// Start a PVF code upgrade (see §5.2).
     RequestCodeUpgrade { hash: ValidationCodeHash, len: Compact<u32> },
-    /// From `solicit`: request a preimage be made available in the
-    /// parachain's own preimage store. Accumulate forwards this to JAM
-    /// and increments `ParaInfo.used_state_balance` (rejected if it
-    /// would exceed `total_state_balance`). See §6.1.
-    Solicit { hash: Hash, len: Compact<u32> },
-    /// From `forget`: release a previously solicited preimage. `para_id` names
-    /// whose reference is released and whose `used_state_balance` is refunded,
-    /// since only that parachain was ever charged for it. Removing the last
-    /// referencer may need a follow-up `forget` (two-step expunge; see §6.1).
-    /// For that parachain's active or pending validation code it only clears
-    /// `pinned` (§5.2).
-    Forget { para_id: ParaId, hash: Hash, len: Compact<u32> },
-    /// From `kv_set`: upsert `key_value_storage[(para_id, key)] = value`.
-    /// Accumulate replays it with delta state-balance charging (see §6.1).
+    /// Request a preimage, charged to the target's state balance. See §6.1 for a
+    /// `Parachain` target. A `Service` target requests into that service's own
+    /// store and is **Asset Hub only**.
+    Solicit { target: Target, hash: Hash, len: Compact<u32> },
+    /// Destroy an empty supervised service, crediting its balances to this
+    /// service. **Asset Hub only.**
+    EjectService { service: ServiceId },
+    /// Hand a supervised service to another supervisor, or to itself to set it
+    /// free. **Asset Hub only.**
+    SetServiceSupervisor { service: ServiceId, new_supervisor: ServiceId },
+    /// Create a service supervised by this one, funded from this service's
+    /// balance. `id` is a caller-supplied identifier, echoed back in the
+    /// `ServiceCreation` log entry so Asset Hub can match the outcome to its
+    /// request. **Asset Hub only.**
+    CreateService {
+        code_hash: Hash,
+        len: Compact<u32>,
+        min_item_gas: u64,
+        min_memo_gas: u64,
+        id: Compact<u64>,
+        /// Index to create the service at, in JAM's protected range.
+        desired_id: Option<ServiceId>,
+        source_supervisor_balance: bool,
+        new_supervisor_balance: bool,
+    },
+    /// Release a previously solicited preimage. The target names whose reference
+    /// is released and whose `used_state_balance` is refunded, since only that
+    /// parachain was ever charged for it. Removing the last referencer may need
+    /// a follow-up `Forget` (two-step expunge, see §6.1). For that parachain's
+    /// active or pending validation code it only clears `pinned` (§5.2). A
+    /// `Service` target is **Asset Hub only**.
+    Forget { target: Target, hash: Hash, len: Compact<u32> },
+    /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
+    RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
+    /// Upsert `key_value_storage[(para_id, key)] = value`. Accumulate replays it
+    /// with delta state-balance charging (see §6.1).
     SetKV { key: Vec<u8>, value: Vec<u8> },
-    /// From `kv_remove`: remove `key_value_storage[(para_id, key)]`, refunding
-    /// its footprint to `para_id` (see §6.1).
+    /// Remove `key_value_storage[(para_id, key)]`, refunding its footprint to
+    /// `para_id` (see §6.1).
     RemoveKV { para_id: ParaId, key: Vec<u8> },
-    /// From `transfer_out`: transfer balance to another JAM service.
+    /// Transfer balance to another JAM service.
     /// `deferred` is `None` for a plain move and `Some((memo, gas))` for a
     /// deferred transfer. JAM ignores the gas limit when no memo is supplied.
     /// `source = None` means this service, matching JAM's self sentinel. The
     /// two selectors choose the balance on each side: which of `source`'s is
     /// debited, and which of `dest`'s receives the funds. True means the
-    /// supervisor balance. See §5.1 step 7.
+    /// supervisor balance. `id` is a caller-supplied identifier, echoed back in
+    /// the `TransferFailed` log entry so Asset Hub can match a failure to its
+    /// request. See §5.1 step 7. **Asset Hub only.**
     TransferOut {
         source: Option<ServiceId>,
         dest: ServiceId,
@@ -576,36 +642,51 @@ enum UpwardMessage {
         dest_supervisor_balance: bool,
         deferred: Option<(Memo, u64)>,
     },
-    /// From `assign_core`: schedule a core's `assign` (queue + assigner). See §7.1.
+    /// Schedule a core's JAM `assign` (queue + assigner). A queue violating
+    /// either length rule below aborts Refine with
+    /// `Err(RefineLog::InvalidAuthorizerQueue)`. See §7.1.
+    /// **Coretime chain only.**
     AssignCore {
         core: CoreIndex,
-        /// As emitted by the PVF, so any length is representable; Refine is
-        /// what holds it to 1..`AUTH_QUEUE_SIZE`. See §4.3.
+        /// As emitted by the PVF, so any length is representable. Refine holds
+        /// it to 1 to `AUTH_QUEUE_SIZE` hashes and rejects any other length,
+        /// empty included. See §4.3.
         queue: Vec<AuthorizerHash>,
+        /// `None` leaves this service as the core's assigner, the common
+        /// queue-rotation case. `Some(s)` hands the core to `s`, which is
+        /// one-way: the service is no longer the assigner afterwards and so
+        /// cannot re-present a short queue, which is why `Some(s)` requires an
+        /// exactly `AUTH_QUEUE_SIZE`-hash queue.
         new_assigner: Option<ServiceId>,
         /// Timeslot at which the queue should be applied.
         jam_slot: Timeslot,
     },
-    /// From `set_validator_keys`. See §5.3.
+    /// Append a chunk of upcoming validator keys to `staged_validator_keys`.
+    /// `keys` holds at most 30 keys, and a longer chunk aborts Refine with
+    /// `Err(RefineLog::TooManyValidatorKeys)`. May be sent at most once per
+    /// Refine invocation, and a repeat aborts Refine with
+    /// `Err(RefineLog::SetValidatorKeysRepeated)`. See §5.3.
+    /// **Asset Hub only.**
     SetValidatorKeys { keys: Vec<ValidatorKey>, is_last: bool },
-    /// From `consume_transfers_up_to`: drop every `incoming_transfers` bucket
-    /// up to and including this slot. See §5.1.
-    ConsumeTransfersUpTo(Timeslot),
-    /// From `parachain_service_upgrade`. See §5.4.
+    /// Remove every `incoming_transfers` bucket up to and including this bucket
+    /// id. See §5.1. **Asset Hub only.**
+    CleanUpBucketsUpTo(BucketId),
+    /// Replace the Parachain Service's own service code. See §5.4.
+    /// **Asset Hub only.**
     UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
-    /// From `parachain_set_head`: upsert a parachain's head data.
+    /// Upsert a parachain's head data. **Coretime chain only.**
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
-    /// From `parachain_set_validation_code`: upsert a parachain's
-    /// validation code hash. The service must solicit the validation
-    /// code preimage.
+    /// Upsert a parachain's validation code hash. The service must solicit the
+    /// validation code preimage. **Coretime chain only.**
     ParachainSetValidationCode {
         para_id: ParaId,
         new_validation_code_hash: ValidationCodeHash,
         new_validation_code_len: Compact<u32>,
     },
-    /// From `parachain_clean_up`: remove all per-parachain state.
+    /// Remove all per-parachain state. **Coretime chain only.**
     ParachainCleanUp(ParaId),
-    /// From `parachain_set_state_balance`. See §6.1.
+    /// Overwrite `ParaInfo[para_id].total_state_balance`. See §6.1.
+    /// **Coretime chain only.**
     ParachainSetStateBalance { para_id: ParaId, new_total: Compact<Balance> },
 }
 ```
@@ -654,7 +735,9 @@ index `item_index` the Parachain Service performs:
 8. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget; if not, aborts with
-   `Err(RefineLog::RefineOutputTooLarge)`.
+   `Err(RefineLog::RefineOutputTooLarge)`. Parachain-driven overflow (upward
+   messages exceeding the 40 KiB budget) aborts earlier with
+   `Err(RefineLog::UpwardMessagesTooLarge)` inside `send_upward_message`.
 
 Because Refine is stateless, it cannot write to service storage.
 
@@ -707,7 +790,6 @@ These forward the full JAM fetch functionality to the PVF:
 | `work_item_summary(index: u32)` | `Option<WorkItemSummary>` | Summary of a specific work item by index |
 | `work_item_payload(index: u32)` | `Option<Vec<u8>>` | Payload of a specific work item by index |
 | `import_segment(index: u32)` | `Option<Vec<u8>>` | A specific import segment, by its index in the work item's import manifest. Indices `0 .. import_count` enumerate the work item's segments in manifest order. |
-| `verify_enacted_root(para_id: ParaId, proof: EnactmentProof)` | `Option<(StreamsRoot, Generation)>` | Prove that `para_id` enacted a header carrying an SPMS digest, walking `proof` from the anchor's accumulation-output-log super-peak down to the header preimage (§8.3). The anchor is implicit and the belt entry's service id is checked against this service's own id, never against package data. Malformed input aborts Refine (`InvalidEnactmentProof`, `ProofTooLarge`, `TooManySources`, `InvalidGeneration`); `None` means no proof was supplied. Requires a prior `declare_budget`. |
 
 #### Side-effect host functions
 
@@ -718,32 +800,22 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
-| `declare_budget(distinct_sources: u8)` | `()` | Declare how many distinct `(ParaId, Generation)` sources this Refine invocation may touch, across `verify_enacted_root` calls and requires entries (repeated pairs are memoized and charged once). Required before the first spec-msg call. Otherwise, aborts Refine with `Err(RefineLog::MissingBudget)`. A PVF making no spec-msg calls never needs it. At most `MAX_SOURCES = 64`. See §8.3. |
-| `set_requires_root(entries: Vec<(ParaId, Generation)>)` | `()` | Declare the spec-msg sources this candidate consumed, one call carrying the whole set. A second call aborts Refine. Entries must be unique on the pair. A duplicate pair results in `Err(RefineLog::DuplicateRequiresEntry)` rather than deduping silently. Forwarded to Accumulate as `ParachainWorkDigest.spec_msg_requires` and checked before the head write (§5.1 step 6). See §8.3. |
-| `request_code_upgrade(hash: ValidationCodeHash, len: u32)` | `()` | Signal a PVF code upgrade request. See §5.2. |
-| `solicit(hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `solicit` (see §6.1). Idempotent: no-op if the parachain is already in `preimage_registry[hash].referencers`. May fail with `InsufficientStateBalance`. For the parachain's own active/pending validation code it only sets `pinned` to true (§5.2). |
-| `forget(para_id: ParaId, hash: Hash, len: u32)` | `()` | Mediated forward of JAM's `forget` (see §6.1). Idempotent: no-op if `para_id` is not in `preimage_registry[hash].referencers`. May name that parachain's own active/pending validation code, where it only sets `pinned` to false (§5.2). |
-| `kv_set(key: Vec<u8>, value: Vec<u8>)` | `()` | Upsert `key_value_storage[(para_id, key)] = value`, delta-charged against `used_state_balance` (see §6.1). May fail with `InsufficientStateBalance` when a size increase would exceed `total_state_balance`. |
-| `kv_remove(para_id: ParaId, key: Vec<u8>)` | `()` | Remove `key_value_storage[(para_id, key)]`, refunding its footprint (see §6.1). Idempotent: no-op if the key is absent. |
-| `transfer_out(source: Option<ServiceId>, dest: ServiceId, amount: Balance, id: u64, source_supervisor_balance: bool, dest_supervisor_balance: bool, deferred: Option<(Memo, u64)>)` | `()` | Transfer balance between JAM services (Asset Hub only). `source = None` means this service; the two `*_supervisor_balance` flags choose which balance is debited on `source` and credited on `dest` (`true` = the supervisor balance); `deferred` selects between JAM's plain-move and deferred-transfer modes; `id` is caller-chosen and echoed back in `AccumulateLog::TransferFailed` if the transfer fails. See §5.1 step 7. |
-| `assign_core(core: CoreIndex, queue: Vec<AuthorizerHash>, new_assigner: Option<ServiceId>, jam_slot: Timeslot)` | `()` | Schedule a core's `assign` for `jam_slot` (Coretime chain only); queue and assigner are written together, as JAM's `assign` does. See §5.1 for when it fires and §7.1 for how a short queue fills the 80 slots. A queue outside 1 to `AUTH_QUEUE_SIZE` hashes, empty included, aborts Refine as `Err(RefineLog::InvalidAuthorizerQueue)`. Re-scheduling a core replaces its entry, so the last call wins. `new_assigner = None` keeps this service as the assigner; `Some(s)` hands the core to `s` and requires an exactly `AUTH_QUEUE_SIZE`-hash queue, since the service can no longer re-present a short one after giving the core away. |
-| `set_validator_keys(keys: Vec<ValidatorKey>, is_last: bool)` | `()` | Append a chunk of upcoming validator keys to `staged_validator_keys` (Asset Hub only); see §5.3. Aborts Refine as `Err(RefineLog::SetValidatorKeysTooManyKeys)` if `keys` contains more than **30 keys** or if called more than once per Refine invocation. |
-| `consume_transfers_up_to(slot: Timeslot)` | `()` | Drop every queued transfer bucket up to and including `slot`, marking those transfers consumed (Asset Hub only). `slot` is clamped to the candidate's lookup-anchor. See §5.1. |
-| `parachain_service_upgrade(code_hash: Hash, len: u32, min_acc_gas: u64, min_memo_gas: u64)` | `()` | Replace the Parachain Service's own service code by forwarding JAM `upgrade(code_hash, min_acc_gas, min_memo_gas)` (Asset Hub only). `len` is the new code's SCALE-encoded byte length. Accumulate rejects the call unless the new code's preimage is available for lookup. See §5.4. |
-| `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`; any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
-| `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
-| `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash, new_validation_code_len: u32)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). `new_validation_code_len` is the byte length of the PVF preimage, used by the service to solicit the preimage from JAM and to charge the para's `used_state_balance` for it. Used for both initial registration and forced code replacement. See §6. |
-| `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
-| `parachain_set_state_balance(para_id: ParaId, new_total: Balance)` | `()` | Overwrite `ParaInfo[para_id].total_state_balance` (Coretime chain only). On rejection an `AccumulateLog::StateBalanceUpdateRejected` is appended to the parachain's log. See §6.1. |
-| `parachain_bump_generation(para_id: ParaId)` | `()` | Allocate a fresh history generation for a parachain without touching its head data (Coretime chain only), for discontinuities that rewrite nothing. See §6, §8.3. |
+| `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
+| `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 
-Host functions that are restricted to specific parachains (e.g. Coretime chain, Asset Hub)
-will abort with an error when called by any other parachain. Likewise, a host function
-taking a `para_id` aborts unless it names the calling parachain, except from the
-Coretime chain, which may name any parachain (§6.4).
+`UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
+stable, so a message's `encoded_size()` is computable inside the PVF. The 40 KiB
+budget counts the encoded messages alone.
 
-A single Refine invocation may emit at most **1024 upward messages**. If the PVF
-exceeds this, the invocation fails with `Err(RefineLog::TooManyUpwardMessages)`.
+Variants marked **Asset Hub only** or **Coretime chain only** are accepted from
+that parachain alone. A variant carrying a `para_id` is further restricted to the
+calling parachain, except from the Coretime chain, which may name any parachain
+(§6.4). Violating either rule aborts Refine with
+`Err(RefineLog::RestrictedHostFunction)`.
+
+A single Refine invocation may emit at most `MAX_UPWARD_MESSAGES = 1024` upward
+messages. If the PVF exceeds this, the invocation fails with
+`Err(RefineLog::TooManyUpwardMessages)`.
 This bounds the number of side effects Accumulate must replay per work item,
 independently of the 48 KiB combined-result-blob budget.
 
@@ -782,40 +854,31 @@ JAM credits a transfer's balance to the destination service unconditionally, bef
 service's code runs and even if that code panics or runs out of gas. The service
 therefore **cannot refuse or fail an incoming transfer**. Its only decision is whether to
 *record* one in `incoming_transfers` for Asset Hub to act on, so handling is **best
-effort**: the funds are kept either way, and a transfer that cannot pay for an
-unreserved slot simply goes unrecorded.
+effort**: the funds are kept either way.
 
 `MAX_INCOMING_TRANSFERS` is the portion of the queue Asset Hub pre-provisions in its
 baseline (§6.1), not a hard cap. While the queue holds fewer than that many transfers, a
-new one is recorded unconditionally: the storage it occupies is already paid for. At or
-above the bound the slot is not provisioned, so the transfer is recorded only if its
-`amount` covers the cost of its own queue entry (the per-bucket figure derived in §6.1).
+new one is recorded unconditionally, since the storage it occupies is already paid for.
+Once it already holds `MAX_INCOMING_TRANSFERS`, every further transfer is unprovisioned
+and is recorded only if its `amount` covers its own entry's cost (the per-bucket figure
+derived in §6.1). One that does not is dropped, with no record and no log entry.
+Admitting one raises Asset Hub's `used_state_balance` and `total_state_balance` alike by
+that entry cost, and clean-up lowers both by the same, so its available state balance is
+unchanged whatever the queue holds.
 
-The queue beyond the reserved portion is therefore self-funding rather than bounded.
-Each extra entry raises the service's `min_balance`, and the transfer that created it
-credited at least that much, so the service can never be pushed below its threshold by
-accepting one.
+Recording appends to the bucket the current accumulate invocation opened. A bucket is
+closed once it holds `MAX_TRANSFERS_PER_BUCKET` transfers or the invocation that opened
+it ends. The next arrival opens `last_bucket + 1`, or `0` when the queue is empty. Ids
+are thus contiguous, so Asset Hub enumerates the queue from the two endpoints alone, and
+the cap bounds what reading any one bucket can cost.
 
-Admitting an unreserved entry raises both Asset Hub's `used_state_balance` and its
-`total_state_balance` by the entry's per-bucket cost, not by `amount`, and draining lowers
-both. Its available state balance is therefore the same whatever the queue holds. The
-charge is `max(0, count - MAX_INCOMING_TRANSFERS)` entries, so admission and draining
-cannot drift.
+`clean_up_buckets_up_to(bucket_id)` removes whole buckets from `first_bucket` up to and
+including `bucket_id` and points `first_bucket` at the first survivor. Once nothing
+remains, the `incoming_transfer_buckets` entry is removed, so ids restart from `0` rather
+than increasing forever.
 
-Recording appends to the bucket at `now` when `last_slot == Some(now)`, so further
-arrivals in the same slot add no storage item. That is the point of bucketing. A flat
-`Vec` would rewrite the entire queue on every arrival, and that cost lands in
-`min_memo_gas`. Otherwise a fresh bucket is inserted at `now` with `next_slot = None`,
-the previous tail's `next_slot` becomes `Some(now)`, and `last_slot` becomes `now`,
-along with `first_slot` if the queue was empty.
-
-A transfer arriving past the reserved portion without covering its own slot is dropped:
-no record is written and nothing is logged.
-
-`consume_transfers_up_to(slot)` removes whole buckets up to and including `slot`, first
-clamping `slot` to the candidate's lookup-anchor. Draining then walks
-the chain from `first_slot` via `next_slot`, points `first_slot` at the first surviving
-bucket, and clears `incoming_transfer_chain` if none remain.
+As long as the JAM block the parachain references only ever advances, this is safe: it can
+only ever name buckets it has actually seen, so nothing it has not read is removed.
 
 **`min_memo_gas` must be benchmarked** against the real cost of admitting one transfer,
 and `MAX_INCOMING_TRANSFERS` derived from it.
@@ -853,19 +916,12 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    result's `(validation_code_hash, len)` pair matches either the active
    `ParaInfo.validation_code` or the pending upgrade's code. If it matches neither,
    the candidate is rejected.
-6. **Requires check + head data update + code upgrade check**: If the digest carries
-   `spec_msg_requires` entries, every named source's `ParaInfo` must exist with a
-   `generation` equal to the provided one. On the first failing entry the candidate is
-   rejected silently, like every other rejection above (§8.3).
-   
-   The check sits here and not earlier so that it is the last gate (passing implies enacting) and runs
-   before the head write (a rejected consumer never publishes a root of its own).
-
-   Then writes the new `head_data` from the work digest into `ParaInfo` for the
-   parachain and immediately checks whether the candidate was validated with the
-   pending new PVF code. If so, activate the new code, release the old code (see
-   §6.1), and clear `pending_upgrade`. This must happen here because later candidates
-   from the same parachain in the same block may already use the new code.
+6. **Head data update + code upgrade check**: Writes the new `head_data` from the
+   work digest into `ParaInfo` for the parachain and immediately checks whether the
+   candidate was validated with the pending new PVF code. If so, activate the new
+   code, release the old code (see §6.1), and clear `pending_upgrade`. This must
+   happen here because later candidates from the same parachain in the same block
+   may already use the new code.
 7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work digest, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
@@ -1135,7 +1191,7 @@ enum MerkleTree {
 }
 ```
 
-- A leaf's `head_hash` is `blake2b-256` of the parachain's `head_data`.
+- A leaf's `head_hash` is `keccak_256` of the parachain's `head_data`.
 - Every element's hash is `keccak_256` (as specified by Ethereum) of its SCALE encoding.
   The variant discriminant is therefore covered by the hash, so a leaf hash can never
   collide with a node hash. A `Leaf` encodes to 37 octets (discriminant, 4-octet
@@ -1154,10 +1210,6 @@ not change in that block, not that it holds any particular value. Proving a para
 current head therefore means locating the most recent block whose tree carries a leaf
 for it, and proving against that block's root.
 
-Speculative messaging (§8.3) builds its enactment proofs against this exact layout: the
-leaf encoding, the hash function, and the ordering above are consumed by other
-parachains' PVFs, so they should be treated as a frozen interface.
-
 ---
 
 ## 6. Parachain Management
@@ -1166,16 +1218,15 @@ Parachain lifecycle and management is driven by the **Coretime chain**, which ow
 policy layer: ParaId allocation, deposits, and deciding when to create, overwrite, or
 clean up a parachain's state.
 
-The Parachain Service exposes five low-level, idempotent host functions that drive
+The Parachain Service exposes four low-level, idempotent host functions that drive
 state-balance management, registration, forced updates, and deregistration:
 
 - `parachain_set_state_balance(para_id, new_total)`: set the parachain's quota
 - `parachain_set_head(para_id, new_head)`: upsert head data
 - `parachain_set_validation_code(para_id, new_validation_code_hash, new_validation_code_len)`: upsert validation code
-- `parachain_bump_generation(para_id)`: allocate a fresh history generation (§8.3)
 - `parachain_clean_up(para_id)`: remove all per-parachain state
 
-All five are Coretime-chain-only; the Parachain Service performs no rights-checking
+All four are Coretime-chain-only; the Parachain Service performs no rights-checking
 of its own and in particular **does not enforce ParaId uniqueness**. The Coretime
 chain is the sole authority on which `ParaId`s are live and who owns them.
 `parachain_set_state_balance` is the sole creator of `ParaInfo` (see §6.1);
@@ -1184,10 +1235,6 @@ silently no-op when invoked on a `ParaId` whose `ParaInfo` doesn't exist yet, so
 Coretime must call `parachain_set_state_balance` first in any registration
 sequence. On an existing `ParaId`, `parachain_set_head` /
 `parachain_set_validation_code` simply overwrite (useful for forced recovery).
-
-The `parachain_set_state_balance` allocates the initial generation when it creates `ParaInfo`
-and `parachain_set_head` allocates a fresh one if it overwrote a live head. This ensures
-speculative messaging doesn't consume an older rollbacked root.
 
 ### 6.1 State-Balance Accounting
 
@@ -1308,17 +1355,16 @@ that `Compact<Balance>` is sized at its worst case of 9 B:
 JAM per-entry octet overhead                                       =      34
 map tag                                                            =       1
 ParaId (key)                                                       =       4
-generation: Generation (u64, §8.3)                                 =       8
 head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098
 validation_code: Option<ValidationCode> = 1 + 32 + 4 + 1           =      38
 pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42
 total_state_balance: Compact<Balance>                              =       9
 used_state_balance: Compact<Balance>                               =       9
 is_deregistering: bool                                             =       1
-                                                          octets       4 244
+                                                          octets       4 236
                                                           1 item          10
                                                                      -------
-                                                                       4 254
+                                                                       4 246
 ```
 
 `(ParaId, parachain_log[para_id])` entry, value + key bounded by a flat 64 KiB cap,
@@ -1340,14 +1386,14 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
                                                                       65 585
 ```
 
-**`baseline_footprint = 4 254 + 65 585 = 69 839`** balance units per parachain.
+**`baseline_footprint = 4 246 + 65 585 = 69 831`** balance units per parachain.
 
 #### Asset Hub baseline footprint
 
 Asset Hub additionally owns the service-global state items as privileged caller. Its
 `total_state_balance` must cover them, provisioned at genesis. Each is billed as a
 general-storage entry (§6.1), so a `Map` costs one entry per key it holds while a
-`BoundedVec` or `Option` costs one entry in total.
+`BoundedVec` or a singleton costs one entry in total.
 
 Of these only `incoming_transfers` grows with the transfer bound. Taking
 `CoreCount = 341`, `AuthorizerHash = 32 B`, `ServiceId = 4 B`, `Memo = 128 B`,
@@ -1361,40 +1407,38 @@ pending_assigns: Map<CoreIndex, PendingAssign>  · 341 items
   341 × (34 + 3 (key) + 2 + 79 × 32 + 5 (Option<ServiceId>))  octets    877 052
 pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  · 1 item
   34 + 1 (key) + 2 + 341 × (2 + 4)                         octets      2 083
-incoming_transfer_chain: Option<IncomingTransferChain>  · 1 item
-  34 + 1 (key) + 1 + 4 + 4 + 4 (count)                     octets         48
-next_generation: Generation (§8.3)  · 1 item
-  34 + 1 (key) + 8                                         octets         43
-                                                  octets subtotal   1 222 991
-                                                    345 items × 10      3 450
+incoming_transfer_buckets: IncomingTransferBuckets  · 1 item
+  34 + 1 (key) + 8 + 8 + 4 (count)                         octets         55
+                                                  octets subtotal   1 222 955
+                                                    344 items × 10      3 440
                                                                     ---------
-                                                                    1 226 441
+                                                                    1 226 395
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
-fragmentation**: every transfer alone in its own slot, so each pays a full bucket. Any
-real distribution shares buckets and costs strictly less, so bounding the total transfer
-count suffices. No separate bound on the number of slots is needed, since occupied slots
-can never exceed the transfer count.
+fragmentation**: every transfer alone in its own bucket, which is what one transfer per
+accumulate invocation produces. `MAX_TRANSFERS_PER_BUCKET` does not improve this, since
+it limits how much a single bucket can hold, not how little. Bounding the total transfer
+count therefore bounds the bucket count too, since a bucket always holds at least a transfer.
 
 ```
-incoming_transfers: Map<Timeslot, IncomingTransfers>  — worst case N items
-  N × (34 + 5 (key) + 1 + 141 (transfer) + 5 (next_slot))       186 × N
+incoming_transfers: Map<BucketId, IncomingTransfers>  — worst case N items
+  N × (34 + 9 (key) + 1 + 141 (transfer))                       185 × N
   N storage items × 10                                           10 × N
                                                               ---------
-                                                              196 × N
+                                                              195 × N
 ```
 
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 226 441 + 196 × N
+asset_hub_global_items = 1 226 395 + 195 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation: each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 226 441 + 196 000 = 1 422 441`, or
+(§5.1). At `N = 1000` the reservation is `1 226 395 + 195 000 = 1 421 395`, or
 **≈ 1.36 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
@@ -1755,163 +1799,6 @@ The exact host functions for HRMP channel management (open, accept, close) and X
 handling are not yet specified. Additional host functions will likely be needed once the
 messaging model is finalized.
 
-### 8.3 Speculative Messaging (MVP)
-
-[Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md)
-is our primary candidate for offchain message communication. For the initial release, the
-speculation happens at **accumulation tier**, where consumer verifies messages against
-a sender root that is already enacted.
-
-The design uses entirely the functionality from this document, without relying on JAM changes.
-
-The sender's only consensus-side commitment is a digest item in its own header (`StreamsRoot`).
-The `StreamsRoot` is provable via enactment: §5.5 puts the sender's new head into this
-service's per-block accumulation output, JAM's accumulation-output log puts that output
-under the anchor's super-peak, and the consumer's Refine walks down from the super-peak it
-gets from `work_package_context()` (§4.3).
-
-#### Service Difference
-
-**Host calls (§4.3)** — three Refine calls plus one Coretime-only management call:
-
-- `verify_enacted_root(para_id, proof) -> Option<(StreamsRoot, Generation)> - In Refine, verifies the enactment proof and extracts the `StreamsRoot` and `Generation` from header digest
-- `declare_budget(distinct_sources: u8)` - In Refine, reserves sufficient gas for distinct calls to `verify_enacted_root`
-- `set_requires_root(entries: Vec<(ParaId, Generation)>)` - In Refine, sets in one call the block's requires
-- `parachain_bump_generation(para_id)` - In Accumulate (Coretime), bumps the generation number without touching head data  
-
-**Refine failures (§3.1)** - The following refine logs caused by `verify_enacted_root` failures: `InvalidEnactmentProof`, `ProofTooLarge`, `TooManySources`,
-`DuplicateRequiresEntry`, `InvalidGeneration`, `MissingBudget`.
-
-**Accumulate (§5.1 step 6)** - Every specified generation inside the `requires` field must exist with
-an equial `generation` inside `ParaInfo`.
-
-**Management calls (§6)** — `parachain_set_state_balance` allocates the initial generation when it creates `ParaInfo`
-and `parachain_set_head` allocates a fresh one on live head overwrote
-
-**Footprint (§6.1)** — +8 baseline bytes per para (`ParaInfo.generation`) and one 8-byte
-singleton (`next_generation`).
-Constants: `MAX_SOURCES = 64`, `MAX_PROOF_BYTES` (TBD), `MAX_VERIFICATION_HASHES` (TBD).
-
-#### The sender's commitment
-
-The sender's runtime folds outbound messages into per-destination stream MMRs and commits
-them under a single root, carried in a digest item of its own header:
-
-```rust
-const SPMS_ENGINE_ID: [u8; 4] = *b"SPMS";
-
-/// A digest item in the parachain header (the sender's consensus side)
-enum SpmsDigest {
-    /// Encodes to u8.
-    V0 {
-        /// Sender `generation` same as above.
-        generation: u64,
-        /// The root of the sender's outbound message streams.
-        streams_root: H256
-    },
-}
-```
-Only the final block of a PoV bundle is provable, intermediate roots are never consumed.
-
-#### The proof path
-
-A consumer proves a sender's root in-core, one proof per consumed source in its PoV:
-
-```
-anchor super-peak                      RefineContext: validated by JAM at inclusion
-
-  ->belt leaf                          the enacting block's accumulation output
-                                       walked via `EnactmentProof::belt_path` 
-
-    → (ParachainService, heads_root)   this service's per-block output (§5.5)
-                                       matched against `EnactmentProof::heads_root`
-
-      → Leaf { para_id, head_hash }    walked via `EnactmentProof::heads_path`,
-                                       keccak path in the changed-heads tree
-
-        → header preimage              hashes to head_hash
-  
-          → SpmsDigest                 the (StreamsRoot, Generation)
-```
-
-```rust
-/// Carried in the consumer's PoV, one per consumed source.
-struct EnactmentProof {
-    /// Path from the anchor's super-peak to the enacting block's entry in the
-    /// accumulation-output log.
-    /// 
-    /// TODO-GrayPaper: We need the exact format and hash function.
-    belt_path: Vec<u8>,
-
-    /// PS's per-block accumulation output for that block.
-    heads_root: Hash,
-
-    /// keccak path in the changed-heads tree to `Leaf { para_id, head_hash }`.
-    heads_path: Vec<Hash>,
-
-    /// Full header preimage; must hash to `head_hash`.
-    /// The SPMS digest `(generation, streams_root)` is extracted out of it.
-    header: Vec<u8>,
-}
-```
-
-
-
-The walk lives in the service's Refine wrapper, exposed as `verify_enacted_root` (§4.3),
-never in guest code. Then the message Lifts verify against the root as on Polkadot.
-Settlement replaces only the liveness check and never message verification.
-A guest that skips lift verification is broken either way.
-
-The anchor must be matched against the last 8 JAM blocks at guarantee time.
-This needs to take into account AURA authorizer which makes the anchor double as the slot claim, which could 
-shrink the collator window from 8 to its own rotation run.
-
-> Unknown: The verification gas is unknown, and now needs `keccak_256` for the belt and
-> heads paths, BLAKE2b for the lifts.
-
-#### Generations
-
-A generation (§3.1) marks one continuous stretch of a parachain's history. It is allocated
-service-globally, never per-para, so no rollback anywhere can re-mint a value a consumer
-has already trusted. A consumer learns a root's generation from the SPMS digest it was committed in, 
-and names it in its requires entry.
-
-#### The requires check
-
-The consumer names each consumed source as a `(ParaId, Generation)` digest entry (§3.3),
-and Accumulate checks every entry against the source's live generation at the head of §5.1
-step 6. The rejection is **silent**, like every other Accumulate rejection. The consumer's node
-needs no log entry to diagnose it since generations are monotonic. If the candidate did not
-enact and the named generation is no longer the latest one from `ParaInfo`, then the source
-rolled back and channel is frozen.
-
-#### Refine budget
-
-`declare_budget` (§4.3) must be called before the first spec-msg call.
-Verification work is additionally capped by a `MAX_VERIFICATION_HASHES` constant covering the belt walk,
-the heads path, the header hash and the message lifts, and proof blobs by `MAX_PROOF_BYTES`.
-
-#### Deliberately absent
-
-- **No per-sender root cell, no per-enactment state write.** The output log is the cell.
-- **No `set_provides_root`, no provides field in the digest.** Enactment commits the root.
-- **No ring of recently-enacted roots.** That funds the speculation tiers (consuming roots
-  before they enact), out of MVP scope; they will land in the next PS version.
-- **No log entry on a requires rejection.** A rejected candidate changes nothing. The consumer's node derives the diagnosis from block-end state.
-- **No payloads, archives or discovery in consensus.** Distribution is node-side, in the
-  port document.
-
-#### Open items
-
-- `TODO(GP)`: cite that the super-peak in `RefineContext` is validated against recent
-  history at report inclusion — the soundness root of the whole proof path.
-- `TODO(GP)`: the accumulation-output-log proof format and hash function.
-- `TODO(GP)`: whether the newest recent-history entry carries a usable super-peak or gets
-  it one block late, like the posterior state root (decides the minimum anchor age).
-- `TODO(measure)`: PVM keccak/BLAKE2b throughput against `MAX_VERIFICATION_HASHES` at a
-  useful fan-in — the one number that can sink the tier.
-- `TODO(measure)`: the gas-per-byte read rate, deciding the generation read's home above.
-
 ---
 
 ## 9. References
@@ -1925,5 +1812,3 @@ the heads path, the header hash and the message lifts, and proof blobs by `MAX_P
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/): Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
-- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md): The stream/lift messaging design ported in §8.3
-- [Speculative Messaging on JAM](https://github.com/paritytech/polkadot-sdk/pull/12809): The full JAM port — transport, archives, discovery, recovery, speculation tiers

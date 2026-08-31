@@ -28,7 +28,7 @@ module main {
   /// every state mutation in the model flows through `stepRefineAccumulate`
   /// Coretime and Asset Hub act as ordinary parachains whose PVFs emit
   /// privileged upward messages (Coretime: `ParachainSet*`, Asset Hub:
-  /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `ConsumeTransfersUpTo`).
+  /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `CleanUpBucketsUpTo`).
   /// Per-para balance budget at init: baseline + headroom for the active
   /// code preimage + headroom for one pending-upgrade code preimage + a
   /// small buffer for other state (solicited preimages used by tests, etc.).
@@ -63,6 +63,7 @@ module main {
     lastStepWorkResults' = List(),
     lastStepAssigns' = List(),
     lastHeadRoot' = None,
+    foreignServices' = Map(),
     logPrunedBelow' = Map()
   }
 
@@ -240,7 +241,8 @@ module main {
       else if (numPkgs == 1) List(wp1Wr)
       else List(wp1Wr, wp2Wr)
     val blockOut = accumulateBlock(
-      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages)
+      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
+      foreignServices)
 
     // Fold each candidate's `(para, lookup-anchor)` into the ghost
     // `logPrunedBelow`; a later package for the same para wins.
@@ -256,18 +258,25 @@ module main {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastHeadRoot' = blockOut.headRoot,
+      foreignServices' = blockOut.foreign,
       logPrunedBelow' = newLogPrunedBelow
     }
   }
 
   // --- Step (b): another service sends an OnTransfer into Asset Hub ----
+  // One step is one accumulate invocation, so the transfers it carries share the
+  // buckets it opens; a later step's arrivals can never reopen them (§5.1).
   action stepIncomingTransfer = {
     val senderPool: Set[ServiceId] = Set(MkServiceId(0), MkServiceId(3), MkServiceId(7))
     nondet senderId = oneOf(senderPool)
     nondet amount = oneOf(Set(0, 100, 10000))
     nondet memo = oneOf(Set(0, 1, 2))
+    // Batch sizes above one exercise the in-invocation packing.
+    nondet extra = oneOf(Set(0, 1))
+    val t = { from: senderId, amount: amount, memo: memo }
     all {
-      svc' = applyIncomingTransfer(svc, now, { from: senderId, amount: amount, memo: memo }),
+      svc' = applyIncomingTransfers(
+        svc, if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 })),
       now' = now,
       jamStagingSet' = jamStagingSet,
       solicitedSet' = solicitedSet,
@@ -276,6 +285,7 @@ module main {
       lastStepAssigns' = List(),
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
+      foreignServices' = foreignServices,
       logPrunedBelow' = logPrunedBelow
     }
   }
@@ -297,6 +307,7 @@ module main {
       lastStepAssigns' = List(),
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
+      foreignServices' = foreignServices,
       logPrunedBelow' = logPrunedBelow
     }
   }
@@ -344,12 +355,31 @@ module main {
     Set(
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen }),
       RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
-      Solicit({ hash: anyHash, len: 1024 }),
-      Forget({ paraId: para_id, hash: anyHash, len: 1024 }),
+      Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
+      Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       // Solicit/forget of the para's OWN active code, exercising the
       // `pinned` path (§5.2).
-      Solicit({ hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      Forget({ paraId: para_id, hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      Solicit({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      Forget({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      // AH-only operations on a supervised service.
+      Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+      Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
+      RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
+      EjectService({ service: MkServiceId(4) }),
+      SetServiceSupervisor({
+        service: MkServiceId(4), newSupervisor: MkServiceId(4)
+      }),
+      CreateService({
+        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
+        id: 1, desiredId: None,
+        sourceSupervisorBalance: false, newSupervisorBalance: false
+      }),
+      // Registrar-only protected index (§6.5).
+      CreateService({
+        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
+        id: 2, desiredId: Some(MkServiceId(42)),
+        sourceSupervisorBalance: false, newSupervisorBalance: false
+      }),
       // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
       // modes: a deferred transfer (memo + gas) and a plain move (neither),
       // the self-moves between the service's own two balances, and a foreign
@@ -372,7 +402,10 @@ module main {
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),
-      ConsumeTransfersUpTo(0),
+      // Clean up just the head bucket, and a cut deep enough to reach mid-queue
+      // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
+      CleanUpBucketsUpTo(0),
+      CleanUpBucketsUpTo(2),
       UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
       UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
       // Assignments of every kind: tiles directly (1), kept and rotated (3),
@@ -407,8 +440,8 @@ module main {
       // Coretime chain, which drains a para that can no longer release its own
       // state, and rejected as `RestrictedHostFunction` from every other caller.
       // Both outcomes are reachable since the emitting para is sampled.
-      Forget({ paraId: MkParaId(3), hash: anyHash, len: 1024 }),
-      Forget({ paraId: MkParaId(3), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
+      Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
+      Forget({ target: Parachain(MkParaId(3)), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
       // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
       // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.

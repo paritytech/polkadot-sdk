@@ -10,9 +10,14 @@ module state_vars {
   import types.* from "./types"
   import messages.* from "./messages"
   import state.* from "./state"
+  import foreign_services.* from "./foreign_services"
 
   var svc: ParachainServiceState
   var now: Timeslot
+
+  /// JAM services the Parachain Service supervises (§6.5). These are JAM
+  /// accounts rather than service storage, so they sit beside `svc`.
+  var foreignServices: ForeignServices
 
   /// JAM `stagingset` mirror so we can observe `designate` effects.
   var jamStagingSet: List[ValidatorKey]

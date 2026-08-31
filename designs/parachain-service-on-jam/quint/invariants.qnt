@@ -9,6 +9,23 @@ module invariants {
   import state_balance.* from "./state_balance"
   import state_vars.* from "./state_vars"
   import head_commitment.* from "./head_commitment"
+  import foreign_services.* from "./foreign_services"
+
+  /// §6.5: every service this model created is supervised by the Parachain
+  /// Service, unless supervision was explicitly handed away, in which case the
+  /// service supervises itself. No third party ever appears, because only
+  /// `set_service_supervisor` can move the link and the model only ever names
+  /// the service itself.
+  val foreign_supervisor_is_us_or_self: bool =
+  foreignServices.keys().forall(s =>
+    effectiveSupervisor(foreignServices, s) == ParachainServiceId
+      or effectiveSupervisor(foreignServices, s) == s)
+
+  /// The Parachain Service never appears among the services it supervises.
+  /// `eject_service` refuses to name self, and a `desired_id` naming our own
+  /// index is refused as `IdTaken` even though it sits in the protected range.
+  val foreign_excludes_self: bool =
+  not(foreignServices.keys().contains(ParachainServiceId))
 
   /// The hash `accumulate` returned is exactly the commitment over the heads
   /// that changed in the step (§5.5): `None` when none changed, the single
@@ -304,44 +321,34 @@ module invariants {
     })
 
   /// The maintained `count` equals the transfers actually held across the buckets.
-  /// It is incremented on append and decremented on drain rather than derived, so
-  /// this is what stops the two drifting apart.
+  /// It is incremented on append and decremented on clean-up rather than derived,
+  /// so this is what stops the two drifting apart.
   val incoming_transfer_count_consistent: bool =
     queuedTransferCount(svc) == queuedTransferCountWalked(svc)
 
-  /// The bucket chain is well formed: endpoints exist and bound every occupied
-  /// slot, only the tail has `nextSlot == None`, and every other bucket links
-  /// forward to a later occupied slot.
-  val incoming_transfers_chain_consistent: bool =
-    match svc.incomingTransferChain {
-      // No chain iff no buckets.
+  /// The bucket endpoints are well formed: the occupied ids are exactly the
+  /// contiguous range they bound. Contiguity is what lets Asset Hub enumerate the
+  /// queue from the two endpoints alone, with no per-bucket successor pointer, and
+  /// what makes `cleanUpBucketsUpTo`'s cut a prefix.
+  val incoming_transfers_buckets_consistent: bool =
+    match svc.incomingTransferBuckets {
+      // No endpoints iff no buckets.
       | None => svc.incomingTransfers.keys() == Set()
-      | Some(chain) =>
-        svc.incomingTransfers.keys() != Set() and
-        // Endpoints are real buckets, and bound every occupied slot.
-        svc.incomingTransfers.keys().contains(chain.firstSlot) and
-        svc.incomingTransfers.keys().contains(chain.lastSlot) and
-        svc.incomingTransfers.keys().forall(k =>
-          k >= chain.firstSlot and k <= chain.lastSlot) and
-        // The tail terminates the chain...
-        svc.incomingTransfers.get(chain.lastSlot).nextSlot == None and
-        // ...and every other bucket carries on to a successor.
-        svc.incomingTransfers.keys().forall(k =>
-          k == chain.lastSlot or
-          svc.incomingTransfers.get(k).nextSlot != None) and
-        // Every non-tail bucket links to a later, occupied slot.
-        svc.incomingTransfers.keys().forall(k =>
-          match svc.incomingTransfers.get(k).nextSlot {
-            | None => true
-            | Some(nxt) => nxt > k and svc.incomingTransfers.keys().contains(nxt)
-          }) and
-        // The links must hit exactly the non-head buckets.
-        svc.incomingTransfers.keys().fold(Set(), (acc, k) =>
-          match svc.incomingTransfers.get(k).nextSlot {
-            | Some(nxt) => acc.union(Set(nxt))
-            | None => acc
-          }) == svc.incomingTransfers.keys().exclude(Set(chain.firstSlot))
+      | Some(buckets) =>
+        buckets.firstBucket <= buckets.lastBucket and
+        svc.incomingTransfers.keys() ==
+          buckets.firstBucket.to(buckets.lastBucket)
     }
+
+  /// §3.1: every bucket holds at least one transfer and never more than
+  /// `MaxTransfersPerBucket`, which is what lets Asset Hub bound the cost of
+  /// reading any single bucket. Buckets are never empty either: one is only
+  /// created by the arrival it holds, and clean-up removes whole buckets.
+  val incoming_transfer_bucket_bounded: bool =
+    svc.incomingTransfers.keys().forall(k => {
+      val held = svc.incomingTransfers.get(k).length()
+      held > 0 and held <= MaxTransfersPerBucket
+    })
 
 
   /// A cached assign holds a non-empty queue within JAM's queue length.
@@ -441,10 +448,13 @@ module invariants {
     code_activation_releases_old,
     head_state_matches_outcomes,
     head_commitment_matches_changed_heads,
+    foreign_supervisor_is_us_or_self,
+    foreign_excludes_self,
     parent_head_continuity,
     refine_error_logged,
     incoming_transfer_count_consistent,
-    incoming_transfers_chain_consistent,
+    incoming_transfers_buckets_consistent,
+    incoming_transfer_bucket_bounded,
     pending_authorizer_queue_bounded,
     pending_authorizer_cores_consistent,
     pending_authorizer_apply_at_future,

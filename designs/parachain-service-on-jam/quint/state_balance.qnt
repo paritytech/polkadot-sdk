@@ -35,14 +35,13 @@ module state_balance {
       CoreCount * (34 + 3 + 2 + AuthorizerQueueLength * 32 + 5)
     // (u16 CoreIndex 2 + Timeslot 4) per core.
     val pendingAssignCores = VecEntryOverhead + CoreCount * 6
-    // Head/tail pointer: 34 + 1 (key) + 1 (Option tag) + first_slot 4 + last_slot 4
-    // + count 4.
-    val transferChain = 34 + 1 + 1 + 4 + 4 + 4
-    // Fixed storage items: the two BoundedVecs, the chain pointer, and one per
+    // Endpoint pointer: 34 + 1 (key) + first_bucket 8 + last_bucket 8 + count 4.
+    val transferBuckets = 34 + 1 + 8 + 8 + 4
+    // Fixed storage items: the two BoundedVecs, the endpoint pointer, and one per
     // core for pendingAssigns. The transfer buckets are counted per transfer below.
     val fixedItems = 3 + CoreCount
     val fixed =
-      stagedKeys + pendingAssigns + pendingAssignCores + transferChain + fixedItems * 10
+      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets + fixedItems * 10
     // Worst case one bucket per transfer, each costing a full bucket.
     fixed + MaxIncomingTransfers * IncomingTransferEntryFootprint
   }
@@ -78,7 +77,8 @@ module state_balance {
   /// Apply the change in that charge after `count` moved. The transfer funds the
   /// entry, so Asset Hub's allowance rises with the charge and falls with the
   /// refund: both move by the per-bucket cost and nothing else. Admission and
-  /// draining both go through here, so the two cannot drift.
+  /// clean-up both route through here and only ever apply the difference of
+  /// `excessTransferFootprint`, so neither keeps a tally that could drift.
   pure def reattributeTransferQueue(
     s: ParachainServiceState, oldCount: int, newCount: int
   ): ParachainServiceState = {
