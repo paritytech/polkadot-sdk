@@ -22,12 +22,18 @@
 //! is demoted to a tip cache that the tick reads synchronously; the anchor is that cached tip.
 //!
 //! Per tick: read the para head JAM has accumulated, pick the parent to author on out of the
-//! blocks the local database holds below that head ([`select_parent`]), ask the runtime whether
-//! one more block fits on top (`can_build_upon` — capacity and velocity are runtime-owned),
-//! author, import, and hand `(block, proof, context)` to the collation task. Authoring never
-//! waits for inclusion and, since phase 5a, never waits on JAM state for its parent either: work
-//! packages carry no links to each other, so the only thing the builder needs from JAM is the
-//! accumulated head it prunes and anchors against.
+//! blocks the local database holds below that head ([`choose_parent`] over [`select_parent`]),
+//! ask the runtime whether one more block fits on top (`can_build_upon` — capacity and velocity
+//! are runtime-owned), author, import, and hand `(block, proof, context)` to the collation task.
+//! Authoring never waits for inclusion and, since phase 5a, never waits on JAM state for its
+//! parent either: work packages carry no links to each other, so the only thing the builder needs
+//! from JAM is the accumulated head it prunes and anchors against.
+//!
+//! The one thing that head is still needed for is liveness. A work package the collation manager
+//! gives up on leaves a block that will never accumulate, and the deepest-block rule would keep
+//! authoring on top of it forever. So when the accumulated head has stood still for
+//! [`STALL_REROOT_SLOTS`] para slots, the builder abandons the branch above it and authors a
+//! *sibling* of the stuck block instead, then stays on that new branch until the head moves.
 //!
 //! JAM's in-flight work reports are still read every tick, but purely as a **monitor**: with no
 //! links left, that log line is the only pre-accumulate view of the pipeline. Nothing in the tick
@@ -102,6 +108,16 @@ const MAX_TIP_LAG_SLOTS: JamSlot = 2;
 /// Comfortably under a parachain slot: the monitor exists to log the pipeline, and a tick that
 /// waited on it would have made it a dependency of authoring, which phase 5a explicitly is not.
 const MONITOR_BUDGET: Duration = Duration::from_secs(2);
+/// How long the accumulated head may stand still before the builder authors a sibling of it
+/// instead of extending its own stuck branch.
+///
+/// A package this collator gave up on leaves a block nothing will ever accumulate, and every
+/// block authored on top of it inherits that: the parachain service buffers the descendants, the
+/// head never moves, and the runtime's capacity gate stops authoring a few blocks later. Losing a
+/// package is benign and regular, so this has to fire; the bound sits comfortably above the
+/// normal inclusion trail (about two slots) plus the collation manager's resubmit budget, so it
+/// only ever fires on a package that is genuinely lost.
+const STALL_REROOT_SLOTS: u64 = 8;
 /// Sanity bound on the number of in-flight blocks.
 ///
 /// The runtime's consensus hook owns capacity for real (`can_build_upon`); this only stops a
@@ -220,7 +236,8 @@ fn local_descendants<Block: NodeBlock>(
 ///    as the database does not change.
 ///
 /// `None` means the local database holds nothing below the accumulated head, so the next block is
-/// a direct child of it.
+/// a direct child of it. What the tick actually authors on is [`choose_parent`], which overrides
+/// this answer when the accumulated head has stood still for too long.
 fn select_parent<'a, Header: HeaderT>(
 	descendants: &'a [Descendant<Header>],
 	ours: &VecDeque<Header::Hash>,
@@ -238,6 +255,57 @@ fn select_parent<'a, Header: HeaderT>(
 		}
 	}
 	best
+}
+
+/// Where the block being authored hangs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ParentSource {
+	/// The head JAM has accumulated, or genesis while there is none: a root block, because the
+	/// local database holds nothing below that head.
+	AccumulatedHead,
+	/// The deepest block the local database holds below the accumulated head — the ordinary,
+	/// pipelined case.
+	Deepest,
+	/// The accumulated head again, deliberately, because it has stood still too long: this
+	/// authors a *sibling* of the block that is stuck, abandoning the branch above it.
+	Reroot,
+	/// Our own block on the branch an earlier tick re-rooted onto.
+	Rerooted,
+}
+
+/// The block one tick authors on. `None` is the accumulated head itself.
+///
+/// Ordinarily this is [`select_parent`]'s answer. The two other cases are the way out of a stall:
+///
+/// - the head has not moved for [`STALL_REROOT_SLOTS`] para slots and there is a branch above it,
+///   so the branch is abandoned and a sibling of the stuck block authored instead. Nothing else
+///   in phase 5a gets past a package nobody will resubmit; accumulate's freshness check referees
+///   between the two branches, and any of our newer blocks that can still apply wait in the
+///   service's reorder buffer meanwhile.
+/// - a previous tick already re-rooted, and this one stays on the branch it started
+///   (`committed`). Without that the abandoned branch — still the deeper of the two — would be
+///   re-selected every slot and a fresh sibling authored every slot, which extends nothing.
+///
+/// The stall check comes first on purpose: the clock is restarted when a re-root is authored, so
+/// a branch that itself goes nowhere is abandoned in turn after another full window.
+fn choose_parent<'a, Header: HeaderT>(
+	descendants: &'a [Descendant<Header>],
+	ours: &VecDeque<Header::Hash>,
+	committed: Option<&'a Descendant<Header>>,
+	stalled_for: u64,
+) -> (Option<&'a Descendant<Header>>, ParentSource) {
+	let selected = select_parent(descendants, ours);
+	let depth = selected.map_or(0, |parent| parent.depth);
+	// Nothing above the head means there is nothing to abandon: the next block is already its
+	// child, and re-rooting would be a no-op.
+	if stalled_for >= STALL_REROOT_SLOTS && depth > 0 {
+		return (None, ParentSource::Reroot);
+	}
+	match (committed, selected) {
+		(Some(parent), _) => (Some(parent), ParentSource::Rerooted),
+		(None, Some(parent)) => (Some(parent), ParentSource::Deepest),
+		(None, None) => (None, ParentSource::AccumulatedHead),
+	}
 }
 
 /// One work package JAM currently has in flight for our service.
@@ -425,6 +493,20 @@ struct BuilderState<Header: HeaderT> {
 	/// peer's at the same depth, so it needs no pruning beyond that cap: a block below the
 	/// accumulated head never turns up among its descendants again.
 	own_recent: VecDeque<Header::Hash>,
+	/// The para slot the accumulated head last moved in, which is what the stall clock counts
+	/// from. `None` only before the first tick.
+	head_advanced_at: Option<Slot>,
+	/// The branch started on a stuck accumulated head, while it is still stuck.
+	rerooted: Option<Reroot<Header::Hash>>,
+}
+
+/// The branch this collator started on an accumulated head that would not move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Reroot<Hash> {
+	/// The last block authored on that branch — the next one extends it.
+	tip: Hash,
+	/// Its depth below the accumulated head.
+	depth: usize,
 }
 
 impl<Header: HeaderT> BuilderState<Header> {
@@ -432,6 +514,52 @@ impl<Header: HeaderT> BuilderState<Header> {
 		self.own_recent.push_back(block_hash);
 		while self.own_recent.len() > MAX_UNINCLUDED {
 			self.own_recent.pop_front();
+		}
+	}
+
+	/// Fold this tick's reading of the accumulated head into the stall clock, and say how many
+	/// para slots that head has stood still *as of now*.
+	///
+	/// The clock is restarted before the answer is taken, so the tick that sees the head move
+	/// reports no stall at all: the branch above the new head is fresh, and reporting the stall
+	/// that just ended would abandon it on the very tick the parachain recovered.
+	///
+	/// Slot numbers rather than a tick count: a skipped tick — a stale JAM tip, a read that ran
+	/// over its budget — must not buy a stuck branch extra time.
+	fn note_head(&mut self, moved: HeadMove, para_slot: Slot) -> u64 {
+		if moved != HeadMove::Unchanged {
+			// The way out worked, or was never needed: release the branch and restart the clock.
+			self.rerooted = None;
+			self.head_advanced_at = Some(para_slot);
+		}
+		// The `None` case is the first tick of all: start the clock here rather than count a
+		// stall from the epoch.
+		let since = *self.head_advanced_at.get_or_insert(para_slot);
+		(*para_slot).saturating_sub(*since)
+	}
+
+	/// Record where an authored block leaves the branch commitment: a block authored on a stuck
+	/// head *starts* one — and restarts the stall clock, so the new branch gets a full window
+	/// before it is abandoned in turn — while one authored on an existing branch extends it.
+	fn note_authored(
+		&mut self,
+		source: ParentSource,
+		block_hash: Header::Hash,
+		para_slot: Slot,
+	) {
+		self.remember_authored(block_hash);
+		match source {
+			ParentSource::Reroot => {
+				self.head_advanced_at = Some(para_slot);
+				self.rerooted = Some(Reroot { tip: block_hash, depth: 1 });
+			},
+			ParentSource::Rerooted => {
+				if let Some(reroot) = self.rerooted.as_mut() {
+					reroot.tip = block_hash;
+					reroot.depth += 1;
+				}
+			},
+			ParentSource::AccumulatedHead | ParentSource::Deepest => {},
 		}
 	}
 }
@@ -556,8 +684,13 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	// Nothing here survives a restart, and nothing needs to: every tick reads the accumulated
 	// head from JAM and finds the blocks above it in the local database, which is also how this
 	// collator extends a block another one authored.
-	let mut state =
-		BuilderState { last_claimed_slot: None, included: None, own_recent: VecDeque::new() };
+	let mut state = BuilderState {
+		last_claimed_slot: None,
+		included: None,
+		own_recent: VecDeque::new(),
+		head_advanced_at: None,
+		rerooted: None,
+	};
 	let mut cached_tip: Option<BlockDesc> = None;
 	loop {
 		let mut next_tick = futures_timer::Delay::new(time_until_next_para_slot(
@@ -758,6 +891,7 @@ where
 	let head_before = state.included.as_ref().map(|header| header.hash());
 	let moved = head_move(state.included.as_ref(), included_head.as_ref(), &state.own_recent);
 	state.included = included_head;
+	let stalled_for = state.note_head(moved, para_slot);
 	// The level is the only thing that varies, and `tracing` needs it at the macro's call site.
 	macro_rules! log_head_move {
 		($level:ident) => {
@@ -768,6 +902,8 @@ where
 				head_after = ?state.included.as_ref().map(|header| header.hash()),
 				head_number = ?state.included.as_ref().map(|header| *header.number()),
 				own_recent = ?state.own_recent,
+				stalled_for,
+				stall_reroot_slots = STALL_REROOT_SLOTS,
 				"The para head JAM has accumulated.",
 			)
 		};
@@ -792,25 +928,41 @@ where
 	let included_hash = included_header.hash();
 
 	let descendants = local_descendants::<Block>(para_backend, included_hash);
-	let selected = select_parent(&descendants, &state.own_recent);
-	let (parent_header, depth) = match selected {
+	// The branch a previous tick re-rooted onto, if its tip is still a block we hold.
+	let committed = state.rerooted.and_then(|reroot| {
+		let header = para_client.header(reroot.tip).ok().flatten()?;
+		Some(Descendant { header, depth: reroot.depth })
+	});
+	let (chosen, parent_source) =
+		choose_parent(&descendants, &state.own_recent, committed.as_ref(), stalled_for);
+	let (parent_header, depth) = match chosen {
 		Some(parent) => (parent.header.clone(), parent.depth),
 		None => (included_header.clone(), 0),
 	};
 	let parent_hash = parent_header.hash();
-	let parent_source = match (depth, state.included.is_some()) {
-		(0, false) => "genesis",
-		(0, true) => "accumulated head",
-		_ if state.own_recent.contains(&parent_hash) => "our own in-flight block",
-		_ => "another collator's in-flight block",
-	};
+	if parent_source == ParentSource::Reroot {
+		let abandoned = select_parent(&descendants, &state.own_recent);
+		tracing::warn!(
+			target: LOG_TARGET,
+			stuck_head = ?included_hash,
+			stuck_head_number = %included_header.number(),
+			stalled_for,
+			stall_reroot_slots = STALL_REROOT_SLOTS,
+			abandoned_tip = ?abandoned.map(|parent| parent.header.hash()),
+			abandoned_depth = abandoned.map_or(0, |parent| parent.depth),
+			"The para head JAM has accumulated has not moved for too long; the branch above it \
+			 carries a work package nobody is going to report. Abandoning that branch and \
+			 authoring a sibling of the stuck block instead.",
+		);
+	}
 	tracing::debug!(
 		target: LOG_TARGET,
-		parent_source,
+		?parent_source,
 		parent = ?parent_hash,
 		parent_number = %parent_header.number(),
 		depth,
 		?included_hash,
+		stalled_for,
 		local_descendants = descendants.len(),
 		siblings_at_depth = descendants.iter().filter(|other| other.depth == depth).count(),
 		"Parent selected out of the blocks the local database holds below the accumulated head.",
@@ -938,7 +1090,7 @@ where
 		timestamp = now.as_millis(),
 		parent = ?parent_hash,
 		parent_number = %parent_header.number(),
-		parent_source,
+		?parent_source,
 		depth,
 		"Building a parachain block against the JAM anchor.",
 	);
@@ -1003,7 +1155,7 @@ where
 		.map_err(|e| format!("import: {e}"))?;
 
 	state.last_claimed_slot = Some(para_slot);
-	state.remember_authored(block.hash());
+	state.note_authored(parent_source, block.hash(), para_slot);
 	tracing::info!(
 		target: LOG_TARGET,
 		block_hash = ?block.hash(),
@@ -1012,6 +1164,7 @@ where
 		proof_nodes = proof.iter_nodes().count(),
 		anchor_proof_nodes = anchor_state_proof.nodes.len(),
 		depth = depth + 1,
+		?parent_source,
 		"Built and imported a parachain block.",
 	);
 
@@ -1458,6 +1611,154 @@ mod tests {
 		assert_eq!(select_parent(&reversed, &ours_none).unwrap().header.hash(), theirs.hash());
 	}
 
+	/// A fresh builder, as `run_builder_task` starts one.
+	fn builder_state() -> BuilderState<TestHeader> {
+		BuilderState {
+			last_claimed_slot: None,
+			included: None,
+			own_recent: VecDeque::new(),
+			head_advanced_at: None,
+			rerooted: None,
+		}
+	}
+
+	/// The stall boundary decides how long a lost work package holds the parachain up, so it has
+	/// to be exact: one slot short of the bound the collator keeps waiting, at the bound it acts.
+	#[test]
+	fn the_stall_bound_is_where_re_rooting_starts() {
+		let chain = chain(1);
+		let above_the_head = descendants(&[(&chain[0], 1)]);
+		let ours = VecDeque::new();
+
+		assert_eq!(
+			choose_parent(&above_the_head, &ours, None, STALL_REROOT_SLOTS - 1).1,
+			ParentSource::Deepest,
+			"one slot short of the bound the branch is still given the benefit of the doubt",
+		);
+		assert_eq!(
+			choose_parent(&above_the_head, &ours, None, STALL_REROOT_SLOTS).1,
+			ParentSource::Reroot,
+		);
+	}
+
+	/// Re-rooting authors on the stuck head itself — a sibling of the block whose package is
+	/// lost — which is the only thing that can move the head on.
+	#[test]
+	fn re_rooting_authors_on_the_stuck_head_itself() {
+		let chain = chain(3);
+		let branch = descendants(&[(&chain[0], 1), (&chain[1], 2), (&chain[2], 3)]);
+
+		let mine = ours(&[&chain[0]]);
+
+		let (parent, source) = choose_parent(&branch, &mine, None, STALL_REROOT_SLOTS);
+
+		assert_eq!(source, ParentSource::Reroot);
+		assert!(parent.is_none(), "no descendant at all: the parent is the accumulated head");
+	}
+
+	/// With nothing above the head there is no branch to abandon — the next block is already its
+	/// child — so a stall must not turn into a decision at all, however long it has lasted.
+	#[test]
+	fn a_head_with_nothing_above_it_is_never_re_rooted() {
+		let (parent, source) =
+			choose_parent::<TestHeader>(&[], &VecDeque::new(), None, STALL_REROOT_SLOTS * 10);
+
+		assert_eq!(source, ParentSource::AccumulatedHead);
+		assert!(parent.is_none());
+	}
+
+	/// Having re-rooted, the collator has to *extend* the branch it started, not start another
+	/// one every slot: the abandoned branch is still the deeper of the two, so the plain
+	/// deepest-block rule would author a fresh sibling of the stuck block every single slot and
+	/// never get anywhere.
+	#[test]
+	fn a_re_rooted_branch_is_extended_rather_than_started_again() {
+		let chain = chain(3);
+		let abandoned = descendants(&[(&chain[0], 1), (&chain[1], 2), (&chain[2], 3)]);
+		let sibling = sibling(&chain[0]);
+		let committed = Descendant { header: sibling.clone(), depth: 1 };
+
+		let (parent, source) =
+			choose_parent(&abandoned, &VecDeque::new(), Some(&committed), 0);
+
+		assert_eq!(source, ParentSource::Rerooted);
+		assert_eq!(parent.map(|parent| parent.header.hash()), Some(sibling.hash()));
+	}
+
+	/// ...but a branch that goes nowhere either must not be clung to forever: once the stall
+	/// clock — restarted when the re-root was authored — runs out again, the new branch is
+	/// abandoned in its turn.
+	#[test]
+	fn a_re_rooted_branch_that_also_stalls_is_abandoned_in_turn() {
+		let chain = chain(2);
+		let above_the_head = descendants(&[(&chain[0], 1), (&chain[1], 2)]);
+		let committed = Descendant { header: sibling(&chain[0]), depth: 1 };
+
+		let (parent, source) =
+			choose_parent(&above_the_head, &VecDeque::new(), Some(&committed), STALL_REROOT_SLOTS);
+
+		assert_eq!(source, ParentSource::Reroot);
+		assert!(parent.is_none());
+	}
+
+	/// The stall clock counts para slots, not ticks, so a skipped tick cannot buy the stuck
+	/// branch extra time — and a head that moved has to reset it, or a parachain that is running
+	/// perfectly well would re-root every `STALL_REROOT_SLOTS` slots.
+	#[test]
+	fn the_stall_clock_counts_slots_and_a_moving_head_resets_it() {
+		let mut state = builder_state();
+
+		assert_eq!(state.note_head(HeadMove::Unchanged, Slot::from(100)), 0, "the first tick");
+		assert_eq!(state.note_head(HeadMove::Unchanged, Slot::from(101)), 1);
+		// Slots 102..104 are skipped ticks: the clock keeps counting them all the same.
+		assert_eq!(state.note_head(HeadMove::Unchanged, Slot::from(105)), 5);
+
+		assert_eq!(
+			state.note_head(HeadMove::Ours, Slot::from(106)),
+			0,
+			"the tick that sees the head move reports no stall: the branch above the new head is \
+			 fresh, and re-rooting it would abandon a perfectly good block the moment the \
+			 parachain recovered",
+		);
+		assert_eq!(state.note_head(HeadMove::Unchanged, Slot::from(107)), 1, "counted from 106");
+	}
+
+	/// A head that moved also releases the branch commitment: whatever the re-root was for is
+	/// over, and the next tick is free to pick the deepest block again.
+	#[test]
+	fn a_moving_head_releases_the_re_rooted_branch() {
+		let mut state = builder_state();
+		state.note_head(HeadMove::Unchanged, Slot::from(100));
+		state.note_authored(ParentSource::Reroot, H256::repeat_byte(1), Slot::from(108));
+
+		assert_eq!(
+			state.rerooted,
+			Some(Reroot { tip: H256::repeat_byte(1), depth: 1 }),
+			"authoring the re-root starts the branch",
+		);
+		assert_eq!(
+			state.note_head(HeadMove::Unchanged, Slot::from(109)),
+			1,
+			"and restarts the clock, so the new branch gets a full window of its own",
+		);
+
+		state.note_head(HeadMove::Foreign, Slot::from(110));
+
+		assert_eq!(state.rerooted, None);
+	}
+
+	/// Each further block on the re-rooted branch extends it, and its depth has to keep counting
+	/// from the stuck head — that depth is what the capacity tripwire and the runtime's own gate
+	/// are told about.
+	#[test]
+	fn blocks_on_the_re_rooted_branch_deepen_it() {
+		let mut state = builder_state();
+		state.note_authored(ParentSource::Reroot, H256::repeat_byte(1), Slot::from(100));
+		state.note_authored(ParentSource::Rerooted, H256::repeat_byte(2), Slot::from(101));
+
+		assert_eq!(state.rerooted, Some(Reroot { tip: H256::repeat_byte(2), depth: 2 }));
+	}
+
 	/// The head standing still is the common tick and must stay quiet in the log; the two ways it
 	/// moves are worth a line each, and only the log distinguishes them.
 	#[test]
@@ -1492,11 +1793,7 @@ mod tests {
 	#[test]
 	fn the_remembered_blocks_stay_bounded() {
 		let chain = chain(MAX_UNINCLUDED as u32 + 2);
-		let mut state = BuilderState::<TestHeader> {
-			last_claimed_slot: None,
-			included: None,
-			own_recent: VecDeque::new(),
-		};
+		let mut state = builder_state();
 
 		for header in &chain {
 			state.remember_authored(header.hash());

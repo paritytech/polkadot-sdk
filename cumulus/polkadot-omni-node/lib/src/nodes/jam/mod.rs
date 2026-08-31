@@ -20,8 +20,9 @@
 //! Two tasks form the collator loop:
 //!
 //! - the [builder task](builder_task) authors on a wall-clock parachain-slot timer, anchoring at
-//!   the JAM tip it caches, building on the deepest block the local database holds below the
-//!   head JAM has accumulated rather than waiting for inclusion, with the shared authoring
+//!   the JAM tip it caches, building on the deepest block the local database holds below the head
+//!   JAM has accumulated rather than waiting for inclusion — or on a sibling of that head once it
+//!   has stood still long enough to say the branch above it is lost — with the shared authoring
 //!   primitives and a *mocked* parachain inherent, and feeds the channel;
 //! - the [collation task](collation_task) turns each block into one independent work package —
 //!   phase 5a links nothing to anything, so there is no prerequisite, no import and no export —
