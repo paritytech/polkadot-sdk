@@ -193,12 +193,14 @@ where
 			},
 
 			// ERC20 functions
-			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
+			IERC20Calls::transfer(call) => Self::transfer(asset_id, contract_addr, call, env),
 			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
 			IERC20Calls::balanceOf(call) => Self::balance_of(asset_id, call, env),
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
-			IERC20Calls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+			IERC20Calls::transferFrom(call) => {
+				Self::transfer_from(asset_id, contract_addr, call, env)
+			},
 
 			// ERC20Permit functions (EIP-2612)
 			IERC20Calls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
@@ -331,22 +333,35 @@ where
 			);
 			return;
 		};
-		let (topics, data) = IERC20Events::Transfer(IERC20::Transfer { from, to, value })
-			.into_log_data()
-			.split();
-		let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
-		let (Ok(topics), Ok(data)) = (
-			pallet_revive::ContractLogTopics::try_from(topics),
-			pallet_revive::ContractLogData::try_from(data.to_vec()),
-		) else {
-			frame_support::defensive!(
-				"Transfer log exceeds the contract-log topic or data bound; log dropped (unreachable: 3 topics, 32 bytes)",
-				(id, from, to, amount)
-			);
-			return;
-		};
-		pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(token, topics, data);
+		emit_transfer_log::<Runtime>(token, from, to, value);
 	}
+}
+
+/// Emit the canonical ERC-20 `Transfer` log for `token`.
+///
+/// The single place the log bytes are built, so the mirror and the precompile's own EIP-20
+/// zero-value log cannot drift apart.
+fn emit_transfer_log<Runtime: pallet_revive::Config>(
+	token: H160,
+	from: alloy::primitives::Address,
+	to: alloy::primitives::Address,
+	value: alloy::primitives::U256,
+) {
+	let (topics, data) = IERC20Events::Transfer(IERC20::Transfer { from, to, value })
+		.into_log_data()
+		.split();
+	let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
+	let (Ok(topics), Ok(data)) = (
+		pallet_revive::ContractLogTopics::try_from(topics),
+		pallet_revive::ContractLogData::try_from(data.to_vec()),
+	) else {
+		frame_support::defensive!(
+			"Transfer log exceeds the contract-log topic or data bound; log dropped (unreachable: 3 topics, 32 bytes)",
+			(token, from, to, value)
+		);
+		return;
+	};
+	pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(token, topics, data);
 }
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
@@ -403,6 +418,7 @@ where
 	/// Execute the transfer call.
 	fn transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
+		contract_addr: H160,
 		call: &IERC20::transferCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
@@ -422,7 +438,7 @@ where
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
-			asset_id.clone(),
+			asset_id,
 			&from_account,
 			&dest,
 			amount,
@@ -431,16 +447,13 @@ where
 		)?;
 
 		// A zero-value transfer is a no-op in `do_transfer` and fires no callback, but EIP-20
-		// requires it to still emit a `Transfer` log. Invoke the instance's own callback (the same
-		// one `do_transfer` uses for non-zero), so the log is identical; its cost is already
-		// accounted for by `transfer()` above.
+		// requires it to still emit a `Transfer` log. Emit it here rather than invoking
+		// `CallbackHandle`: that is the whole callback tuple, and reporting a balance change the
+		// pallet did not perform to every observer wired on the instance is not this precompile's
+		// to do. `contract_addr` is the address the caller invoked, so the log lands on the right
+		// token by construction. Its cost is accounted for by `transfer()` above.
 		if call.value.is_zero() {
-			<Runtime as Config<Instance>>::CallbackHandle::transferred(
-				&asset_id,
-				&from_account,
-				&dest,
-				amount,
-			);
+			emit_transfer_log::<Runtime>(contract_addr, from.0.into(), call.to, call.value);
 		}
 
 		Ok(IERC20::transferCall::abi_encode_returns(&true))
@@ -587,6 +600,7 @@ where
 	/// Execute the transfer_from call.
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
+		contract_addr: H160,
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
@@ -604,7 +618,7 @@ where
 
 		let approval_amount = Self::to_balance(call.value)?;
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
-			asset_id.clone(),
+			asset_id,
 			&from,
 			&spender,
 			&to,
@@ -612,16 +626,10 @@ where
 		)?;
 
 		// A zero-value transfer is a no-op in `do_transfer_approved` and fires no callback, but
-		// EIP-20 requires it to still emit a `Transfer` log. Invoke the instance's own callback
-		// (the same one used for non-zero), so the log is identical; its cost is already accounted
-		// for by `transfer_approved()` above.
+		// EIP-20 requires it to still emit a `Transfer` log; see `transfer` for why this is emitted
+		// directly rather than through `CallbackHandle`.
 		if call.value.is_zero() {
-			<Runtime as Config<Instance>>::CallbackHandle::transferred(
-				&asset_id,
-				&from,
-				&to,
-				approval_amount,
-			);
+			emit_transfer_log::<Runtime>(contract_addr, call.from, call.to, call.value);
 		}
 
 		Ok(IERC20::transferFromCall::abi_encode_returns(&true))

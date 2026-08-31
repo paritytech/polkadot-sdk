@@ -231,10 +231,12 @@ fn precompile_zero_value_transfer_emits_log(asset_index: u16) {
 			&ExecConfig::new_substrate_tx(),
 		);
 
-		// Emitted at the callback's canonical token address (asset id 0, trust-backed prefix),
-		// regardless of which precompile alias was called, matching the non-zero path.
+		// Emitted at the address the caller invoked, as EIP-20 requires: a `Transfer` log for
+		// token X belongs at token X. The mock is the only place these can differ — it gives one
+		// assets instance two precompile aliases, whereas a runtime pairs each instance with
+		// exactly one `ERC20` and one matching callback config.
 		assert_contract_event(
-			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
+			asset_addr,
 			IERC20Events::Transfer(IERC20::Transfer {
 				from: from_addr.0.into(),
 				to: to_addr.0.into(),
@@ -473,9 +475,10 @@ fn precompile_zero_value_transfer_from_emits_log(asset_index: u16) {
 			&ExecConfig::new_substrate_tx(),
 		);
 
-		// Emitted at the callback's canonical token address, regardless of the alias called.
+		// Emitted at the address the caller invoked; see
+		// `precompile_zero_value_transfer_emits_log`.
 		assert_contract_event(
-			H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX)),
+			asset_addr,
 			IERC20Events::Transfer(IERC20::Transfer {
 				from: owner_addr.0.into(),
 				to: other_addr.0.into(),
