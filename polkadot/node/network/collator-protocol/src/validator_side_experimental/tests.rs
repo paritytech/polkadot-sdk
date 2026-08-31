@@ -1280,6 +1280,7 @@ async fn test_connection_flow() {
 	let db = Db::new(MAX_STORED_SCORES_PER_PARA).await;
 	let mut state = make_state(db, &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
+	assert!(state.take_replan());
 
 	let first_peer = PeerId::random();
 	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
@@ -1392,6 +1393,7 @@ async fn test_connection_flow() {
 	// The new peer will be disconnected if it switches the paraid.
 	state.handle_declare(&mut sender, new_peer, 200.into()).await;
 	test_state.assert_peers_disconnected([new_peer]).await;
+	assert!(!state.take_replan());
 	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().skip(1).collect());
 }
 
@@ -2048,6 +2050,7 @@ async fn test_advertisement_rejections() {
 	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 
+	assert!(state.take_replan());
 	let peer_id = PeerId::random();
 
 	let (ccr, adv) = dummy_candidate(
@@ -2145,6 +2148,7 @@ async fn test_advertisement_rejections() {
 			None,
 		)
 		.await;
+	assert!(!state.take_replan());
 
 	// Let's add a new peerid then.
 	let peer_id = PeerId::random();
@@ -2161,6 +2165,7 @@ async fn test_advertisement_rejections() {
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	assert_eq!(state.advertisements(), [adv].into());
+	assert!(state.take_replan());
 
 	// Duplicate advertisement. Only one fetch request will be launched.
 	state
@@ -2174,6 +2179,7 @@ async fn test_advertisement_rejections() {
 		)
 		.await;
 	assert_eq!(state.advertisements(), [adv].into());
+	assert!(!state.take_replan());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
 	// Segment entitlements are spent at launch.
@@ -2192,6 +2198,7 @@ async fn test_advertisement_rejections() {
 		)
 		.await;
 	assert!(state.advertisements().is_empty());
+	assert!(!state.take_replan());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
@@ -2201,6 +2208,7 @@ async fn test_advertisement_rejections() {
 		.await;
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
+	assert!(state.take_replan());
 	state
 		.handle_advertisement(
 			&mut sender,
@@ -2211,6 +2219,8 @@ async fn test_advertisement_rejections() {
 			None,
 		)
 		.await;
+
+	assert!(!state.take_replan());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
@@ -2231,6 +2241,7 @@ async fn test_advertisement_rejections() {
 			None,
 		)
 		.await;
+	assert!(!state.take_replan());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	assert!(state.advertisements().is_empty());
 	test_state.assert_no_messages().await;
@@ -2252,6 +2263,7 @@ async fn test_advertisement_rejections() {
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
+	assert!(!state.take_replan());
 }
 
 #[tokio::test]
@@ -2324,8 +2336,12 @@ async fn test_collation_fetch_failure() {
 		test_state.handle_advertisement(&mut state, adv).await;
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		test_state.assert_collation_request(adv).await;
+		// The accepted advertisement armed the planner; drain before the conclusion check.
+		assert!(state.take_replan());
 
 		state.handle_fetched_collation(&mut sender, (adv, err)).await;
+		// Every fetch conclusion re-arms the planner.
+		assert!(state.take_replan());
 		// Once it failed, we no longer retry it.
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		assert_eq!(db.witnessed_slash(), maybe_slash.map(|score| (peer_id, adv.para_id, score)));
@@ -2838,9 +2854,11 @@ async fn test_invalid_collation() {
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
+	assert!(state.take_replan());
 
 	let parent = bad_receipt.descriptor.scheduling_parent();
 	state.handle_invalid_collation(bad_receipt, parent).await;
+	assert!(state.take_replan());
 
 	// Bad peer was slashed.
 	assert_eq!(db.witnessed_slash().unwrap(), (bad_peer, 100.into(), INVALID_COLLATION_SLASH));
@@ -3014,6 +3032,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 
 	test_state.assert_no_messages().await;
+	assert!(state.take_replan());
 
 	if valid_parent {
 		let parent = first_ccr.descriptor.relay_parent();
@@ -3050,6 +3069,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			.second_collation(&mut state, second_peer, CollationVersion::V2, second_ccr, parent)
 			.await;
 		test_state.assert_no_messages().await;
+		assert!(!state.take_replan());
 
 		// These claims are not getting freed, since the collations were valid, so we can't launch
 		// more collation requests.
@@ -3058,6 +3078,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	} else {
 		let parent = first_ccr.descriptor.relay_parent();
 		state.handle_invalid_collation(first_ccr.to_plain(), parent).await;
+		assert!(state.take_replan());
 		assert_eq!(
 			db.witnessed_slash().unwrap(),
 			(first_peer, 100.into(), INVALID_COLLATION_SLASH)
@@ -3404,6 +3425,7 @@ async fn test_view_update_preserves_relay_parent_state() {
 	let db = MockDb::default();
 	let mut state = make_state(db.clone(), &mut test_state, leaf_a).await;
 	let mut sender = test_state.sender.clone();
+	assert!(state.take_replan());
 
 	let peer = peer_id(1);
 
@@ -3422,6 +3444,7 @@ async fn test_view_update_preserves_relay_parent_state() {
 	test_state.handle_advertisement(&mut state, adv_a).await;
 
 	assert_eq!(state.advertisements(), [adv_a].into());
+	assert!(state.take_replan());
 
 	// Now activate a new leaf B which has A in its allowed ancestry
 	test_state.rp_info.insert(
@@ -3436,6 +3459,7 @@ async fn test_view_update_preserves_relay_parent_state() {
 	);
 
 	test_state.activate_leaf(&mut state, 11).await;
+	assert!(state.take_replan());
 
 	// Advertisement A should still be there
 	assert_eq!(state.advertisements(), [adv_a].into());
@@ -3782,6 +3806,7 @@ async fn v4_whole_segment_stored_and_byte_deduped() {
 		state.handle_peer_connected(&mut sender, peer, CollationVersion::V4).await;
 		state.handle_declare(&mut sender, peer, 100.into()).await;
 	}
+	assert!(state.take_replan());
 
 	let fps: Vec<_> = (0xa1..=0xa3).map(|s| v4_fingerprint(s)).collect();
 	let entries: Vec<_> = fps.iter().map(v4_entry).collect();
@@ -3791,12 +3816,14 @@ async fn v4_whole_segment_stored_and_byte_deduped() {
 		.await;
 	// No CanSecond for a V4 advertisement, and all three entries are stored.
 	test_state.assert_no_messages().await;
+	assert!(state.take_replan());
 	assert_eq!(state.segments(), [(scheduling_parent, peer_a, entries.clone())].into());
 
 	// Byte-identical re-advertisement while stored: Duplicate, nothing changes.
 	test_state
 		.send_v4_segment(&mut state, peer_a, scheduling_parent, fps.clone(), 100.into())
 		.await;
+	assert!(!state.take_replan());
 	assert_eq!(state.segments(), [(scheduling_parent, peer_a, entries.clone())].into());
 
 	// A prefix shares every parablock but differs in bytes: not a duplicate.
@@ -3812,6 +3839,7 @@ async fn v4_whole_segment_stored_and_byte_deduped() {
 		]
 		.into()
 	);
+	assert!(state.take_replan());
 	test_state.assert_no_messages().await;
 }
 

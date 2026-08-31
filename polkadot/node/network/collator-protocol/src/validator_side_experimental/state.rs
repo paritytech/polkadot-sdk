@@ -612,6 +612,14 @@ impl<B: Backend> State<B> {
 		}
 	}
 
+	pub fn take_replan(&mut self) -> bool {
+		self.collation_manager.take_replan()
+	}
+
+	pub fn mark_replan(&mut self) {
+		self.collation_manager.mark_replan()
+	}
+
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,

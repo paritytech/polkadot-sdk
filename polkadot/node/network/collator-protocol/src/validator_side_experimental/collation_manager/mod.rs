@@ -151,6 +151,9 @@ pub struct CollationManager {
 	// Refreshed wholesale at leaf activation (which doubles as pruning); topped up
 	// with the output head of each candidate we second ourselves;
 	para_knowledge: HashMap<ParaId, HashSet<Hash>>,
+	// Set by mutations that can enable a fetch launch; consumed by the main
+	// loop to decide whether to run a planner pass.
+	replan: bool,
 }
 
 impl CollationManager {
@@ -173,11 +176,20 @@ impl CollationManager {
 			network_error_freq: gum::Freq::new(),
 			canceled_freq: gum::Freq::new(),
 			para_knowledge: HashMap::new(),
+			replan: false,
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
 
 		Ok(instance)
+	}
+
+	pub fn take_replan(&mut self) -> bool {
+		std::mem::take(&mut self.replan)
+	}
+
+	pub fn mark_replan(&mut self) {
+		self.replan = true;
 	}
 
 	pub async fn update_view<Sender: CollatorProtocolSenderTrait>(
@@ -349,6 +361,7 @@ impl CollationManager {
 			}
 		}
 
+		self.mark_replan();
 		Ok(())
 	}
 
@@ -408,8 +421,8 @@ impl CollationManager {
 	) -> std::result::Result<(), AdvertisementError> {
 		// Segments are homogeneous by construction: one message, one claim shape.
 		debug_assert!(
-			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. }))
-				|| entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. }))
+			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. })) ||
+				entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. }))
 		);
 
 		let segment = StoredSegment {
@@ -427,8 +440,8 @@ impl CollationManager {
 
 		// V3 candidate descriptors require scheduling_parent to be the block from the last
 		// finished relay chain slot.
-		if segment.descriptor_version == Some(CandidateDescriptorVersion::V3)
-			&& !is_scheduling_parent_valid(
+		if segment.descriptor_version == Some(CandidateDescriptorVersion::V3) &&
+			!is_scheduling_parent_valid(
 				&*self.clock,
 				&scheduling_parent,
 				&self.leaf_scheduling_info,
@@ -481,6 +494,7 @@ impl CollationManager {
 		}
 
 		per_sp.add_segment(segment, peer_id);
+		self.mark_replan();
 		Ok(())
 	}
 
@@ -703,6 +717,7 @@ impl CollationManager {
 		let mut reject_info = SecondingRejectionInfo::from(&advertisement);
 
 		self.fetching.note_completed(&advertisement);
+		self.mark_replan();
 
 		// A fetch concluded: reclaim consumed segments everywhere. The flag is the
 		// logical removal (consumed segments are already invisible via `live_segments`);
@@ -848,7 +863,10 @@ impl CollationManager {
 			});
 		}
 
-		released.map(|info| info.peer_id)
+		released.map(|info| {
+			self.mark_replan();
+			info.peer_id
+		})
 	}
 
 	pub async fn note_seconded<Sender: CollatorProtocolSenderTrait>(
@@ -1035,11 +1053,11 @@ impl CollationManager {
 		// V1 has no candidate hash to dedup by, so at most one V1 fetch may be in-flight or
 		// already fetched per (sp, para). Multiple peers may hold V1 ads for the same
 		// (sp, para); we must filter out *all* V1 ads for that (sp, para) once one is taken.
-		let v1_blocked = per_sp.fetched_collations.values().any(|info| info.para_id == para_id)
-			|| self.fetching.iter().any(|adv| {
-				adv.scheduling_parent == scheduling_parent
-					&& adv.para_id == para_id
-					&& adv.prospective_candidate.is_none()
+		let v1_blocked = per_sp.fetched_collations.values().any(|info| info.para_id == para_id) ||
+			self.fetching.iter().any(|adv| {
+				adv.scheduling_parent == scheduling_parent &&
+					adv.para_id == para_id &&
+					adv.prospective_candidate.is_none()
 			});
 		let fetching = &self.fetching;
 		Either::Right(per_sp.peer_advertisements.iter().flat_map(move |(peer_id, peer_ads)| {
@@ -1290,6 +1308,7 @@ impl CollationManager {
 
 	fn remove_blocked_collations(&mut self, id: BlockedCollationId) {
 		let Some(blocked) = self.blocked_from_seconding.remove(&id) else { return };
+		self.mark_replan();
 
 		for collation in blocked {
 			let candidate_hash = collation.candidate_receipt.hash();
@@ -1656,8 +1675,8 @@ impl PeerAdvertisements {
 		// Byte-dedup against currently stored segments only (consumed segments are gone, so
 		// a re-advertisement after launch is accepted as a fresh entitlement).
 		if self.live_segments().any(|(_, stored_segment)| {
-			segment.descriptor_version == stored_segment.descriptor_version
-				&& segment.entries == stored_segment.entries
+			segment.descriptor_version == stored_segment.descriptor_version &&
+				segment.entries == stored_segment.entries
 		}) {
 			return Err(AdvertisementError::Duplicate);
 		}
@@ -2071,6 +2090,7 @@ mod tests {
 			network_error_freq: gum::Freq::new(),
 			canceled_freq: gum::Freq::new(),
 			para_knowledge: HashMap::new(),
+			replan: false,
 		};
 
 		// No advertisements - returns Left(None).
@@ -2324,6 +2344,7 @@ mod tests {
 			network_error_freq: gum::Freq::new(),
 			canceled_freq: gum::Freq::new(),
 			para_knowledge: HashMap::new(),
+			replan: false,
 		}
 	}
 
@@ -2680,5 +2701,42 @@ mod tests {
 			manager.known_output_heads(para_id),
 			[Hash::repeat_byte(0xd1), Hash::repeat_byte(0xd3)].into()
 		);
+	}
+
+	#[test]
+	fn replan_flag_mutators() {
+		let sp = Hash::repeat_byte(1);
+		let para_id: ParaId = 100.into();
+		let mut manager = test_collation_manager(sp);
+
+		// Not set by construction; mark/take round-trip.
+		assert!(!manager.take_replan());
+
+		// release_slot marks only when an entry is actually freed.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(2));
+		manager.release_slot(&sp, para_id, Some(&candidate_hash), None);
+		assert!(!manager.take_replan());
+
+		manager.per_scheduling_parent.get_mut(&sp).unwrap().fetched_collations.insert(
+			candidate_hash,
+			FetchedCollationInfo {
+				peer_id: PeerId::random(),
+				para_id,
+				output_head_hash: Hash::repeat_byte(3),
+			},
+		);
+		manager.release_slot(&sp, para_id, Some(&candidate_hash), None);
+		assert!(manager.take_replan());
+
+		//(blocked children, no fetched entry) must also re-arm.
+		let parent_head = Hash::repeat_byte(4);
+		manager
+			.blocked_from_seconding
+			.insert(BlockedCollationId { para_id, parent_head_data_hash: parent_head }, vec![]);
+		manager.release_slot(&sp, para_id, None, Some(parent_head));
+		assert!(manager.take_replan());
+
+		manager.remove_peer(&PeerId::random());
+		assert!(!manager.take_replan());
 	}
 }
