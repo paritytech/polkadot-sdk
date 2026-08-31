@@ -405,9 +405,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Hashes of blocks that are being downloaded or have been downloaded and are queued for
 	/// import, each mapped to the size in bytes of the block data held in memory for it.
 	queue_blocks: HashMap<B::Hash, usize>,
-	/// Sum of the values in `queue_blocks`, maintained incrementally.
-	queued_block_bytes: usize,
-	/// Upper bound on `queued_block_bytes` before block download applies backpressure.
+	/// Upper bound on the queued block bytes before block download applies backpressure.
 	/// Zero disables the limit, leaving `MAX_IMPORTING_BLOCKS` as the only bound.
 	max_queued_block_bytes: usize,
 	/// A pending attempt to start the state sync.
@@ -786,17 +784,20 @@ where
 
 		let mut has_error = false;
 		for (_, hash) in &results {
-			if let Some(bytes) = self.queue_blocks.remove(hash) {
-				self.queued_block_bytes = self.queued_block_bytes.saturating_sub(bytes);
+			if self.queue_blocks.remove(hash).is_some() {
 				if let Some(metrics) = &self.metrics {
 					metrics.queued_blocks.dec();
-					metrics.queued_block_bytes.set(self.queued_block_bytes as u64);
 				}
 			}
 			self.blocks.clear_queued(hash);
 			if let Some(gap_sync) = &mut self.gap_sync {
 				gap_sync.blocks.clear_queued(hash);
 			}
+		}
+
+		let queued_block_bytes = self.queued_block_bytes() as u64;
+		if let Some(metrics) = &self.metrics {
+			metrics.queued_block_bytes.set(queued_block_bytes);
 		}
 		for (result, hash) in results {
 			if has_error {
@@ -1092,7 +1093,6 @@ where
 			extra_justifications: ExtraRequests::new("justification", metrics_registry),
 			mode,
 			queue_blocks: Default::default(),
-			queued_block_bytes: 0,
 			max_queued_block_bytes,
 			pending_state_sync_attempt: None,
 			fork_targets: Default::default(),
@@ -1742,20 +1742,14 @@ where
 			self.on_block_queued(h, n)
 		}
 		for block in &new_blocks {
-			let bytes = incoming_block_bytes::<B>(block);
-			// Keyed by hash, so a repeat within `new_blocks` overwrites rather than adds. Add
-			// once per hash to pair with the single subtraction it gets on import, otherwise
-			// the total drifts up for good and latches the limit shut. Like the block count,
-			// this measures the queue and not the vector below, which keeps both copies.
-			if self.queue_blocks.insert(block.hash, bytes).is_none() {
-				self.queued_block_bytes = self.queued_block_bytes.saturating_add(bytes);
-			}
+			self.queue_blocks.insert(block.hash, incoming_block_bytes::<B>(block));
 		}
+		let queued_block_bytes = self.queued_block_bytes() as u64;
 		if let Some(metrics) = &self.metrics {
 			metrics
 				.queued_blocks
 				.set(self.queue_blocks.len().try_into().unwrap_or(u64::MAX));
-			metrics.queued_block_bytes.set(self.queued_block_bytes as u64);
+			metrics.queued_block_bytes.set(queued_block_bytes);
 		}
 
 		self.actions.push(SyncingAction::ImportBlocks { origin, blocks: new_blocks })
@@ -1985,6 +1979,16 @@ where
 		.collect()
 	}
 
+	/// Total size in bytes of the block data currently queued for import.
+	///
+	/// Summed from `queue_blocks` on demand rather than kept as a running total. The map is
+	/// bounded by `MAX_IMPORTING_BLOCKS`, so the sum is cheap, and it cannot drift from the
+	/// queue it describes - a total that did would gate block requests on a queue that is not
+	/// there, leaving sync unable to ask for anything and nothing to drain it.
+	fn queued_block_bytes(&self) -> usize {
+		self.queue_blocks.values().sum()
+	}
+
 	/// Get block requests scheduled by sync to be sent out.
 	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		if self.allowed_requests.is_empty() || self.state_sync.is_some() {
@@ -1996,12 +2000,14 @@ where
 			return Vec::new();
 		}
 
-		if self.max_queued_block_bytes > 0 && self.queued_block_bytes > self.max_queued_block_bytes {
+		let queued_block_bytes = self.queued_block_bytes();
+		if self.max_queued_block_bytes > 0 && queued_block_bytes > self.max_queued_block_bytes {
 			trace!(
 				target: LOG_TARGET,
-				"Too many block bytes in the queue: {} > {}.",
-				self.queued_block_bytes,
+				"Too many block bytes in the queue: {} > {} ({} blocks).",
+				queued_block_bytes,
 				self.max_queued_block_bytes,
+				self.queue_blocks.len(),
 			);
 			return Vec::new();
 		}
@@ -2022,8 +2028,7 @@ where
 		// block size. Convert the byte budget into a block count using the average size of the
 		// blocks currently queued, so that chains with large blocks stop reading ahead sooner.
 		// Falls back to the count limit alone while nothing is queued to average over.
-		let max_download_ahead = match self.queued_block_bytes.checked_div(self.queue_blocks.len())
-		{
+		let max_download_ahead = match queued_block_bytes.checked_div(self.queue_blocks.len()) {
 			Some(average) if average > 0 && self.max_queued_block_bytes > 0 => {
 				let budget = (self.max_queued_block_bytes / average).max(1);
 				MAX_DOWNLOAD_AHEAD.min(budget.try_into().unwrap_or(u32::MAX))
