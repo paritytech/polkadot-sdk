@@ -292,16 +292,9 @@ impl<Block: BlockT> InFlightPackages<Block> {
 		&mut self,
 		number: <Block::Header as HeaderT>::Number,
 	) -> Vec<InFlight<Block>> {
-		let mut settled = Vec::new();
-		let mut remaining = VecDeque::with_capacity(self.entries.len());
-		while let Some(entry) = self.entries.pop_front() {
-			if entry.block_number <= number {
-				settled.push(entry);
-			} else {
-				remaining.push_back(entry);
-			}
-		}
-		self.entries = remaining;
+		let (settled, remaining): (Vec<_>, Vec<_>) =
+			self.entries.drain(..).partition(|entry| entry.block_number <= number);
+		self.entries = remaining.into();
 		settled
 	}
 
@@ -765,12 +758,7 @@ where
 		self.included_head = Some(hash);
 
 		let settled = self.packages.remove_up_to(number);
-		let ours = settled.iter().any(|entry| entry.block_hash == hash);
-		let accumulated: Vec<Block::Hash> = settled
-			.iter()
-			.filter(|entry| entry.block_hash == hash)
-			.map(|entry| entry.block_hash)
-			.collect();
+		let accumulated = settled.iter().any(|entry| entry.block_hash == hash);
 		let superseded: Vec<Block::Hash> = settled
 			.iter()
 			.filter(|entry| entry.block_hash != hash)
@@ -785,11 +773,11 @@ where
 			target: LOG_TARGET,
 			block_hash = ?hash,
 			block_number = %number,
-			ours,
-			?accumulated,
+			accumulated,
 			?superseded,
 			remaining = self.packages.len(),
-			"Para head advanced in JAM state.",
+			"Para head advanced in JAM state; a package of ours accumulated if `accumulated`, and \
+			 anything of ours at or below that height is settled either way.",
 		);
 		self.log_state("the para head advanced");
 	}

@@ -144,14 +144,12 @@ fn head_move<Header: HeaderT>(
 	after: Option<&Header>,
 	ours: &VecDeque<Header::Hash>,
 ) -> HeadMove {
-	let after = match after {
-		Some(after) => after,
-		None => return HeadMove::Unchanged,
-	};
-	if before.map(|header| header.hash()) == Some(after.hash()) {
-		return HeadMove::Unchanged;
+	let hash = |header: Option<&Header>| header.map(|header| header.hash());
+	match hash(after) {
+		after if after == hash(before) => HeadMove::Unchanged,
+		Some(after) if ours.contains(&after) => HeadMove::Ours,
+		_ => HeadMove::Foreign,
 	}
-	if ours.contains(&after.hash()) { HeadMove::Ours } else { HeadMove::Foreign }
 }
 
 /// One block the local database holds below the accumulated head.
@@ -759,9 +757,7 @@ where
 
 	let head_before = state.included.as_ref().map(|header| header.hash());
 	let moved = head_move(state.included.as_ref(), included_head.as_ref(), &state.own_recent);
-	if included_head.is_some() {
-		state.included = included_head;
-	}
+	state.included = included_head;
 	// The level is the only thing that varies, and `tracing` needs it at the macro's call site.
 	macro_rules! log_head_move {
 		($level:ident) => {
@@ -1477,8 +1473,9 @@ mod tests {
 		);
 		assert_eq!(
 			head_move(Some(&chain[0]), None, &mine),
-			HeadMove::Unchanged,
-			"a tick that could not read the head has not seen it move",
+			HeadMove::Foreign,
+			"a head that vanished is nothing we authored — it cannot happen, and if it did the \
+			 log is where it should show up",
 		);
 	}
 
