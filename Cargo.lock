@@ -18407,6 +18407,7 @@ dependencies = [
 name = "polkadot-statement-distribution"
 version = "7.0.0"
 dependencies = [
+ "arrayvec 0.7.6",
  "assert_matches",
  "async-channel 1.9.0",
  "bitvec",

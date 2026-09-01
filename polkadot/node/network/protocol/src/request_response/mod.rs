@@ -148,7 +148,7 @@ const ATTESTED_CANDIDATE_TIMEOUT: Duration = Duration::from_millis(2500);
 /// data quickly in full to at least some peers (as this will reduce load on us as they then can
 /// start serving the data). So this value is a tradeoff. 5 seems to be sensible. So we would need
 /// to have 5 slow nodes connected, to delay transfer for others by `ATTESTED_CANDIDATE_TIMEOUT`.
-pub const MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS: u32 = 5;
+pub const MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS: u32 = 8;
 
 /// Response size limit for responses of POV like data.
 ///
