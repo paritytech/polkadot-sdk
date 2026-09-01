@@ -33,6 +33,8 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace".into()),
@@ -69,6 +71,8 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("test-parachain")
+				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug".into()),

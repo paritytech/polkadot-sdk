@@ -37,6 +37,8 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
 					("--experimental-collator-protocol").into(),
@@ -61,6 +63,10 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(PRE_APPROVED_UMP_SIGNAL_PARA_ID)
 				.with_default_command("polkadot-parachain")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
+				)
+				.chain_spec_command_is_local(true)
 				.with_collator(|n| {
 					n.with_name("collator-pre-approved-ump")
 						.with_image(PRE_APPROVED_UMP_SIGNAL_COLLATOR_IMAGE)
@@ -70,6 +76,10 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(V1_PARA_ID)
 				.with_default_command("polkadot-parachain")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
+				)
+				.chain_spec_command_is_local(true)
 				.with_collator(|n| {
 					n.with_name("collator-v1")
 						.with_image(V1_COLLATOR_IMAGE)
