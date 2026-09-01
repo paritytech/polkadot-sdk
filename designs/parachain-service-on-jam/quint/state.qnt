@@ -111,6 +111,16 @@ module state {
     // Per-parachain key/value store (design §3.1, §6.1). Keyed by
     // (ParaId, user_key); each entry is billed under the sole-user rule.
     keyValueStorage: (ParaId, List[int]) -> List[int],
+    // §8.3 settlement ring, mirroring the three storage maps under tags
+    // `0x09`–`0x0b`. `specMsgCursor` tracks order and capacity (never read by
+    // the settlement check); `specMsgMember` is the membership index, present
+    // iff the root is one of the sender's last `SpecMsgRingCapacity` enacted
+    // roots, and the ONLY entry settlement reads; `specMsgQueue` maps ring
+    // position to root, read only on eviction and teardown. The ring's §6.1
+    // state-balance billing (9,647 octets at capacity) is not modeled yet.
+    specMsgCursor: ParaId -> { head: int, tail: int },
+    specMsgMember: (ParaId, StreamsRoot) -> { seq: int },
+    specMsgQueue: (ParaId, int) -> StreamsRoot,
     // MODEL-ONLY ghost state, NOT part of the service's real storage or
     // footprint. The spec keeps no bookkeeping for the two-step forget and
     // reads request status from JAM's `query` (§6.1); the model stands that in
@@ -132,6 +142,9 @@ module state {
     stagedValidatorKeys: List(),
     serviceCodeHash: { hashBytes: 0 },
     keyValueStorage: Map(),
+    specMsgCursor: Map(),
+    specMsgMember: Map(),
+    specMsgQueue: Map(),
     preimageStatus: Map()
   }
 
@@ -442,4 +455,68 @@ module state {
       para_id, s.parachainLog.get(para_id).select(e => e._1 >= threshold)
     )
   }
+
+  // --- Speculative-messaging settlement ring (§8.3) -----------------------
+
+  /// §5.1 step 6: the settlement check. One `specMsgMember` point read per
+  /// `Requires` entry: every named `(source, root)` must be one of the
+  /// source's last `SpecMsgRingCapacity` enacted roots. `true` on an empty
+  /// requires list (a candidate that consumed nothing always settles).
+  pure def specMsgSettles(
+    s: ParachainServiceState, requires: List[(ParaId, StreamsRoot)]
+  ): bool =
+  requires.foldl(true, (acc, e) => acc and s.specMsgMember.keys().contains(e))
+
+  /// §8.3 push: run on enactment for a candidate carrying a `Provides` root
+  /// (§5.1 step 6, after the head write). Evicts the oldest position first
+  /// when the ring is at capacity; eviction is strictly position-based, so a
+  /// root leaves only after `SpecMsgRingCapacity` newer pushes. At most one
+  /// eviction is ever needed since roots are pushed one at a time.
+  ///
+  /// A repeated root only moves its `specMsgMember` entry to the new
+  /// position; the old `specMsgQueue` entry stays until its position is
+  /// evicted, and that eviction leaves the membership alive because its `seq`
+  /// no longer matches the evicted position.
+  pure def specMsgPush(
+    s: ParachainServiceState, para: ParaId, root: StreamsRoot
+  ): ParachainServiceState = {
+    val cursor =
+      if (s.specMsgCursor.keys().contains(para)) s.specMsgCursor.get(para)
+      else { head: 0, tail: 0 }
+    val atCapacity = cursor.head - cursor.tail >= SpecMsgRingCapacity
+    val evicted =
+      if (not(atCapacity)) s
+      else {
+        val victim = s.specMsgQueue.get((para, cursor.tail))
+        { ...s,
+          specMsgQueue: s.specMsgQueue.mapRemove((para, cursor.tail)),
+          specMsgMember:
+            // The victim root may have been re-pushed since; its membership
+            // then points at the newer position and survives this eviction.
+            if (s.specMsgMember.get((para, victim)).seq == cursor.tail)
+              s.specMsgMember.mapRemove((para, victim))
+            else s.specMsgMember }
+      }
+    { ...evicted,
+      specMsgQueue: evicted.specMsgQueue.put((para, cursor.head), root),
+      specMsgMember: evicted.specMsgMember.put((para, root), { seq: cursor.head }),
+      specMsgCursor: evicted.specMsgCursor.put(para, {
+        head: cursor.head + 1,
+        tail: if (atCapacity) cursor.tail + 1 else cursor.tail
+      }) }
+  }
+
+  /// §6 / §8.3 teardown: drop `para`'s whole ring. Run when a
+  /// `parachain_set_head` overwrites a live head and when `parachain_clean_up`
+  /// begins deregistering the parachain, so no consumer can settle against a
+  /// rolled-back or removed history. (The real service walks the queue from
+  /// `head - 1` down to `tail` with a gas sentinel; the model tears down
+  /// atomically.)
+  pure def specMsgClearRing(
+    s: ParachainServiceState, para: ParaId
+  ): ParachainServiceState =
+  { ...s,
+    specMsgCursor: s.specMsgCursor.mapRemove(para),
+    specMsgMember: s.specMsgMember.mapFilterKeys(k => k._1 != para),
+    specMsgQueue: s.specMsgQueue.mapFilterKeys(k => k._1 != para) }
 }
