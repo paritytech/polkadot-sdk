@@ -189,6 +189,14 @@ pub mod pallet {
 	pub type PreimageFor<T: Config> =
 		StorageMap<_, Identity, (T::Hash, u32), BoundedVec<u8, ConstU32<MAX_SIZE>>>;
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Register a preimage on-chain.
@@ -587,5 +595,77 @@ impl<T: Config> StorePreimage for Pallet<T> {
 		// Should never fail if authorization check is skipped.
 		let res = Self::do_unnote_preimage(hash, None);
 		debug_assert!(res.is_ok(), "unnote_preimage failed - request outstanding?");
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Invariants that must hold before and after every state transition of this pallet.
+	///
+	/// A hash's status lives in exactly one of `StatusFor` (deprecated) and `RequestStatusFor`;
+	/// both are treated as sources of truth since the migration between them is lazy.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		// A status recording a stored preimage must have its bytes present at the same length.
+		#[allow(deprecated)]
+		for (hash, status) in StatusFor::<T>::iter() {
+			ensure!(
+				!RequestStatusFor::<T>::contains_key(hash),
+				"A hash must not be in both `StatusFor` and `RequestStatusFor`"
+			);
+			if let Some(len) = Self::old_status_len(&status) {
+				ensure!(
+					PreimageFor::<T>::contains_key((hash, len)),
+					"A noted preimage must be present in `PreimageFor`"
+				);
+			}
+		}
+		for (hash, status) in RequestStatusFor::<T>::iter() {
+			if let Some(len) = Self::status_len(&status) {
+				ensure!(
+					PreimageFor::<T>::contains_key((hash, len)),
+					"A noted preimage must be present in `PreimageFor`"
+				);
+			}
+		}
+
+		// Every stored preimage must have a status recording it at the same length.
+		for ((hash, len), _) in PreimageFor::<T>::iter() {
+			ensure!(
+				Self::request_status_len(&hash) == Some(len),
+				"Every stored preimage must have a status recording it at the same length"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// The preimage length recorded by a current `RequestStatus`, or `None` if no preimage is
+	/// noted.
+	fn status_len(status: &RequestStatus<T::AccountId, TicketOf<T>>) -> Option<u32> {
+		match status {
+			RequestStatus::Unrequested { len, .. } => Some(*len),
+			RequestStatus::Requested { maybe_len, .. } => *maybe_len,
+		}
+	}
+
+	/// The preimage length recorded by a legacy `OldRequestStatus`, or `None` if none is noted.
+	#[allow(deprecated)]
+	fn old_status_len(status: &OldRequestStatus<T::AccountId, BalanceOf<T>>) -> Option<u32> {
+		match status {
+			OldRequestStatus::Unrequested { len, .. } => Some(*len),
+			OldRequestStatus::Requested { len, .. } => *len,
+		}
+	}
+
+	/// The preimage length recorded for `hash` in either status map, if any.
+	#[allow(deprecated)]
+	fn request_status_len(hash: &T::Hash) -> Option<u32> {
+		if let Some(status) = RequestStatusFor::<T>::get(hash) {
+			Self::status_len(&status)
+		} else if let Some(status) = StatusFor::<T>::get(hash) {
+			Self::old_status_len(&status)
+		} else {
+			None
+		}
 	}
 }
