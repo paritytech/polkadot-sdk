@@ -16,8 +16,8 @@
 #        polkajam-testnet --num-ordinary-nodes 1        # RPC on ws://127.0.0.1:19800
 #      (In sandboxes without userfaultfd: POLKAVM_BACKEND=interpreter POLKAVM_ALLOW_INSECURE=1.)
 #   2. The parasim service registered on it (parachain-service repo):
-#        jamt create-service <parasim-service.jam> 1000000000000000 \
-#            --register=parasim --raw --force-core 0 --id 5
+#        jamt --force-core 0 create-service <parasim-service.jam> 1000000000000000 \
+#            --register=parasim --raw --id 5
 #      Register from a COPY of the blob: PVM builds are not byte-deterministic and a later
 #      cargo run can rewrite the blob after its hash was registered, leaving the service
 #      without a resolvable code preimage ("Service code not found").
@@ -113,9 +113,9 @@ if [[ -z "${JAM_SERVICE_ID:-}" && -n "${JAMT_BIN:-}" && -n "${PARASIM_BLOB:-}" ]
 	cp "$PARASIM_BLOB" "$WORK_DIR/parasim-service.jam"
 	for _ in 1 2 3 4 5; do
 		# `jamt --id` must be unused and below 65536; retry to survive a random collision.
-		if JAM_SERVICE_ID="$("$JAMT_BIN" --rpc "$JAM_RPC" create-service \
+		if JAM_SERVICE_ID="$("$JAMT_BIN" --rpc "$JAM_RPC" --force-core 0 create-service \
 			"$WORK_DIR/parasim-service.jam" 1000000000000000 \
-			--register=parasim --raw --force-core 0 --id "$((100 + RANDOM % 10000))")"; then
+			--register=parasim --raw --id "$((100 + RANDOM % 10000))")"; then
 			break
 		fi
 	done

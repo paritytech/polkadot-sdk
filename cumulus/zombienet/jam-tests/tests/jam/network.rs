@@ -134,7 +134,7 @@ impl JamNetwork {
 		run_step(
 			&format!("jamt create-service: parasim as service {}", self.service_id),
 			Command::new(&binaries.jamt)
-				.args(["--rpc", &self.rpc_url, "create-service"])
+				.args(["--rpc", &self.rpc_url, "--force-core", "0", "create-service"])
 				.arg(&blob)
 				.args([
 					PARASIM_ENDOWMENT,
@@ -142,8 +142,6 @@ impl JamNetwork {
 					"--raw",
 					"--id",
 					&self.service_id.to_string(),
-					"--force-core",
-					"0",
 				])
 				.envs(polkavm_env()),
 		)
