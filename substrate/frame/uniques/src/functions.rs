@@ -20,11 +20,81 @@
 use super::*;
 use frame_support::{
 	ensure,
-	traits::{ExistenceRequirement, Get},
+	traits::{
+		tokens::fungible::{InspectHold, Mutate, MutateHold},
+		Get,
+	},
 };
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// The hold reason used for all native-token deposits taken by this pallet.
+	pub(crate) fn deposit_reason() -> T::RuntimeHoldReason {
+		HoldReason::<I>::Deposit.into()
+	}
+
+	/// Take a native-token deposit of `amount` from `who` as a hold.
+	///
+	/// A zero amount is a no-op (mirrors `reserve`), so callers that may pass a zero deposit (e.g.
+	/// force-created collections) do not fail on provider-less accounts.
+	pub(crate) fn hold_deposit(
+		who: &T::AccountId,
+		amount: DepositBalanceOf<T, I>,
+	) -> DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+		T::Currency::hold(&Self::deposit_reason(), who, amount)
+	}
+
+	/// Release a native-token deposit of `amount` previously taken from `who`.
+	///
+	/// Drains the new hold first, then unreserves any remainder from a pre-migration legacy
+	/// reserve. This lazily migrates old reserves to holds: new deposits are taken as holds, and
+	/// pre-existing reserves are released here as the entities holding them are torn down.
+	pub(crate) fn release_deposit(who: &T::AccountId, amount: DepositBalanceOf<T, I>) {
+		let reason = Self::deposit_reason();
+		let from_hold = amount.min(T::Currency::balance_on_hold(&reason, who));
+		if !from_hold.is_zero() {
+			let r = T::Currency::release(&reason, who, from_hold, BestEffort);
+			debug_assert!(r.is_ok());
+		}
+		let from_reserve = amount.saturating_sub(from_hold);
+		if !from_reserve.is_zero() {
+			let remaining = T::OldCurrency::unreserve(who, from_reserve);
+			debug_assert!(remaining.is_zero());
+		}
+	}
+
+	/// Move a native-token deposit of `amount` from `from` to `to`, keeping it on deposit.
+	///
+	/// Mirrors [`Self::release_deposit`]'s lazy migration: the held portion is moved as a hold and
+	/// any legacy-reserved remainder is repatriated as a reserve on `to`.
+	pub(crate) fn repatriate_deposit(
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: DepositBalanceOf<T, I>,
+	) -> DispatchResult {
+		let reason = Self::deposit_reason();
+		let from_hold = amount.min(T::Currency::balance_on_hold(&reason, from));
+		if !from_hold.is_zero() {
+			T::Currency::transfer_on_hold(
+				&reason,
+				from,
+				to,
+				from_hold,
+				Exact,
+				OnHold,
+				Fortitude::Polite,
+			)?;
+		}
+		let from_reserve = amount.saturating_sub(from_hold);
+		if !from_reserve.is_zero() {
+			T::OldCurrency::repatriate_reserved(from, to, from_reserve, Reserved)?;
+		}
+		Ok(())
+	}
+
 	/// Perform a transfer of an item from one account to another within a collection.
 	///
 	/// # Errors
@@ -91,7 +161,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		ensure!(!Collection::<T, I>::contains_key(collection.clone()), Error::<T, I>::InUse);
 
-		T::Currency::reserve(&owner, deposit)?;
+		Self::hold_deposit(&owner, deposit)?;
 
 		Collection::<T, I>::insert(
 			collection.clone(),
@@ -152,7 +222,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			#[allow(deprecated)]
 			Attribute::<T, I>::remove_prefix((&collection,), None);
 			CollectionAccount::<T, I>::remove(&collection_details.owner, &collection);
-			T::Currency::unreserve(&collection_details.owner, collection_details.total_deposit);
+			Self::release_deposit(&collection_details.owner, collection_details.total_deposit);
 			CollectionMaxSupply::<T, I>::remove(&collection);
 
 			Self::deposit_event(Event::Destroyed { collection });
@@ -208,7 +278,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					true => Zero::zero(),
 					false => T::ItemDeposit::get(),
 				};
-				T::Currency::reserve(&collection_details.owner, deposit)?;
+				Self::hold_deposit(&collection_details.owner, deposit)?;
 				collection_details.total_deposit += deposit;
 
 				let owner = owner.clone();
@@ -249,7 +319,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				with_details(collection_details, &details)?;
 
 				// Return the deposit.
-				T::Currency::unreserve(&collection_details.owner, details.deposit);
+				Self::release_deposit(&collection_details.owner, details.deposit);
 				collection_details.total_deposit.saturating_reduce(details.deposit);
 				collection_details.items.saturating_dec();
 				Ok(details.owner)
@@ -328,12 +398,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(only_buyer == buyer, Error::<T, I>::NoPermission);
 		}
 
-		T::Currency::transfer(
-			&buyer,
-			&details.owner,
-			price_info.0,
-			ExistenceRequirement::KeepAlive,
-		)?;
+		T::Currency::transfer(&buyer, &details.owner, price_info.0, Preservation::Preserve)?;
 
 		let old_owner = details.owner.clone();
 

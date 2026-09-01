@@ -26,7 +26,9 @@ use scale_info::TypeInfo;
 
 /// A type alias for handling balance deposits.
 pub type DepositBalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as frame_support::traits::fungible::Inspect<
+		<T as SystemConfig>::AccountId,
+	>>::Balance;
 /// A type alias representing the details of a collection.
 pub type CollectionDetailsFor<T, I> =
 	CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
@@ -34,7 +36,9 @@ pub type CollectionDetailsFor<T, I> =
 pub type ItemDetailsFor<T, I> = ItemDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
 /// A type alias to represent the price of an item.
 pub type ItemPrice<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as frame_support::traits::fungible::Inspect<
+		<T as SystemConfig>::AccountId,
+	>>::Balance;
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct CollectionDetails<AccountId, DepositBalance> {
