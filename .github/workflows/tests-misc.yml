@@ -123,7 +123,7 @@ jobs:
 
   cargo-check-benches:
     needs: [preflight]
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    if: ${{ needs.preflight.outputs.changes_rust && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
     timeout-minutes: 60
     strategy:
       matrix:
