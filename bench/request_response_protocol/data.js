@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788275348487,
+  "lastUpdate": 1788283122152,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -119987,6 +119987,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2633858351,
             "range": "± 17244369",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "660711460960b74167e4c9b249bed3b57725cd36",
+          "message": "sp-statement-store: reject non-contributory X25519 keys (#12983)\n\n- Reject non-contributory X25519 shared secrets before key derivation\nand decryption.\n- Return the existing `BadData` error for invalid ephemeral public keys.\n- Add regression coverage for an all-zero ephemeral public key.\n\nX25519 low-order public keys can produce an all-zero shared secret. This\nchange uses `SharedSecret::was_contributory()` to reject that result\nbefore it is passed to the KDF.",
+          "timestamp": "2026-09-01T15:16:25Z",
+          "tree_id": "ad2b90bafa42a207f59807c34de49c8f160f0278",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/660711460960b74167e4c9b249bed3b57725cd36"
+        },
+        "date": 1788283084270,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 27274211,
+            "range": "± 1238253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22313733,
+            "range": "± 821837",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23138630,
+            "range": "± 302434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28331432,
+            "range": "± 247865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65378830,
+            "range": "± 811193",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 439640179,
+            "range": "± 8757224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2750933185,
+            "range": "± 112106919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18515460,
+            "range": "± 251047",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19685103,
+            "range": "± 391050",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20203749,
+            "range": "± 448521",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24299756,
+            "range": "± 989339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67579970,
+            "range": "± 940137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 398756229,
+            "range": "± 5811758",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2878832923,
+            "range": "± 28677382",
             "unit": "ns/iter"
           }
         ]
