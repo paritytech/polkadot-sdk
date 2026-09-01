@@ -315,8 +315,7 @@ async fn run_inner<Context>(
 
 		// Trigger the advertisement fetching logic only when something happened that
 		// can make a new fetch possible: every such mutation sets the replan flag.
-		if state.take_replan() {
-			let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
+		if let Some(maybe_delay) = state.maybe_replan(ctx.sender()).await {
 			timer = create_timer(
 				&*clock,
 				maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)),

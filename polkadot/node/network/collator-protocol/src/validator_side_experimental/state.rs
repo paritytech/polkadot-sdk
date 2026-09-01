@@ -30,11 +30,14 @@ use crate::{
 	LOG_TARGET,
 };
 use fatality::Split;
-use futures::stream::FusedStream;
+use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
-	messages::{CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
+	messages::{
+		CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage,
+	},
 	CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::recv_runtime};
@@ -42,7 +45,10 @@ use polkadot_primitives::{
 	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId,
 };
-use std::time::Duration;
+use std::{
+	collections::{HashMap, HashSet},
+	time::Duration,
+};
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
@@ -612,17 +618,49 @@ impl<B: Backend> State<B> {
 		}
 	}
 
+	pub fn mark_replan(&mut self) {
+		self.collation_manager.mark_replan()
+	}
+
+	#[cfg(test)]
 	pub fn take_replan(&mut self) -> bool {
 		self.collation_manager.take_replan()
 	}
 
-	pub fn mark_replan(&mut self) {
-		self.collation_manager.mark_replan()
+	/// Runs a planner pass if a launch-enabling mutation happened since the last one.
+	/// Outer `None`: no pass ran. Inner value: the pass's fetch-delay, as before.
+	pub async fn maybe_replan<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+	) -> Option<Option<Duration>> {
+		if !self.collation_manager.take_replan() {
+			return None;
+		}
+		let paras: Vec<ParaId> = self.collation_manager.assignments().into_iter().collect();
+		if paras.is_empty() {
+			return None;
+		}
+		let (tx, rx) = oneshot::channel();
+		sender
+			.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads(paras, tx))
+			.await;
+		let pp_known = match rx.await {
+			Ok(known) => known,
+			Err(_) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					"GetKnownOutputHeads responder dropped; skipping planner pass",
+				);
+				return None;
+			},
+		};
+		Some(self.try_launch_new_fetch_requests(sender, &pp_known).await)
 	}
 
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
+		pp_known: &HashMap<ParaId, HashSet<Hash>>,
 	) -> Option<Duration> {
 		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
 
@@ -641,6 +679,7 @@ impl<B: Backend> State<B> {
 		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
 			connected_rep_query_fn,
 			max_reps,
+			pp_known,
 			create_timer_fn,
 		);
 
