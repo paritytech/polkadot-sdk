@@ -671,6 +671,14 @@ where
 	fn handle_connect_disconnect(&mut self, ev: NetworkBridgeEvent<GossipSupportNetworkMessage>) {
 		match ev {
 			NetworkBridgeEvent::PeerConnected(peer_id, _, _, o_authority) => {
+				// Remove the previous authority ids first so they don't linger orphaned in
+				// `connected_authorities`.
+				if let Some(prev_authority_ids) = self.connected_peers.remove(&peer_id) {
+					prev_authority_ids.iter().for_each(|a| {
+						self.connected_authorities.remove(a);
+					});
+				}
+
 				if let Some(authority_ids) = o_authority {
 					authority_ids.iter().for_each(|a| {
 						self.connected_authorities.insert(a.clone(), peer_id);
