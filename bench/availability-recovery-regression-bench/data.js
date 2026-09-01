@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788276417531,
+  "lastUpdate": 1788285511342,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6c01d65fb821be787b894d513604d1c532220746",
-          "message": "ci: improve try-runtime snapshot caching strategy (#10972)\n\nSplit check-runtime-migration into two jobs, similarly to what runtimes\nrepo already does:\n- `prepare-snapshots`: creates snapshots only when cache miss\n- `check-runtime-migration`: restores cached snapshots, runs checks\n\nCache strategy changes:\n- Restore uses prefix key (matches any date, enables fallback to older\nsnapshots)\n- Save uses dated key (fresh snapshots don't overwrite until successful)\n- Scheduled runs skip cache check, always create fresh snapshots\n- PRs reuse existing snapshots, only create if cache is empty\n\nThis prevents multiple concurrent jobs from hammering RPC endpoints when\ncache misses occur, and provides automatic fallback to older snapshots\nwhen daily refresh fails.\n\nNote that this is a behavioral change: PRs now match any date and not\ntoday-only, falling back to the most recent snapshot.",
-          "timestamp": "2026-02-04T05:32:25Z",
-          "tree_id": "ebbc361570d0c8da8ef43b5f1c3c797f92859c28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6c01d65fb821be787b894d513604d1c532220746"
-        },
-        "date": 1770187309321,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.263915447200002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12173551596666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13651585840000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "dr333ws"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "684e208deff04c83f047fc7ec36e0ccd6cf4588d",
+          "message": "sc-rpc-server: bound the cardinality of the RPC metrics `method` label (#13045)\n\nThe `substrate_rpc_calls_*` metrics used the requested method name as\nthe `method` label without restricting it to registered methods, so the\nlabel cardinality was unbounded.\n\nBound it to the registered method set and record everything else as\n`unknown`, so the series count stays finite. Additive and backwards\ncompatible (an unconfigured `RpcMetrics` keeps the old behaviour), so\n`minor`.",
+          "timestamp": "2026-09-01T16:23:51Z",
+          "tree_id": "23770e29dfa5ff5b5abb56d20afda212851ef38d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/684e208deff04c83f047fc7ec36e0ccd6cf4588d"
+        },
+        "date": 1788285471195,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14059351193333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.352397586866669,
             "unit": "seconds"
           }
         ]
