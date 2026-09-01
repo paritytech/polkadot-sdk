@@ -879,8 +879,8 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
 		affinity_topics: cli.statement_affinity_topics.clone(),
-		bloom_false_pos_rate: sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,
-		bloom_seed: None,
+		bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,
+		bloom_seed: cli.statement_bloom_seed,
 		replication_factor: cli.statement_replication_factor,
 		gossip_target: cli.statement_gossip_target,
 	};
