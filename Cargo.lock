@@ -6295,6 +6295,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dimpl"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fa936d6931067b24f3467ae6d1747a7985b5713aec477aacea2d1d8995234e8"
+dependencies = [
+ "arrayvec 0.7.6",
+ "log",
+ "nom 8.0.0",
+ "once_cell",
+ "rand 0.9.0",
+ "subtle 2.6.1",
+ "time",
+]
+
+[[package]]
 name = "directories"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9403,6 +9418,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "is"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cff4e962dd367e3b1c478f67c24a35e7120ec767090cb61305b855db9a529c4"
+dependencies = [
+ "crc",
+ "serde",
+ "str0m-proto",
+ "subtle 2.6.1",
+ "tracing",
+]
+
+[[package]]
 name = "is-terminal"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10788,15 +10816,18 @@ dependencies = [
  "prost 0.13.5",
  "prost-build 0.14.1",
  "rand 0.8.5",
+ "ring 0.17.14",
  "serde",
  "sha2 0.11.0",
  "simple-dns",
  "smallvec",
  "snow",
  "socket2",
+ "str0m",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
+ "tokio-tungstenite 0.27.0",
  "tokio-util",
  "tracing",
  "uint 0.10.0",
@@ -12101,6 +12132,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
+name = "openssl-src"
+version = "300.6.1+3.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46eb8fb9fb3b61ce1c0f8a026c4c1a0714d3a9e138e7fbde78753ce2babc3846"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.115"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12108,6 +12148,7 @@ checksum = "158fe5b292746440aa6e7a7e690e55aeb72d41505e2804c23c6973ad0e9c9781"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -23136,6 +23177,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sctp-proto"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a22cbe1d867f74fc377b9e63ac74457ea7dcfda23a0deaba6af083ad7e060019"
+dependencies = [
+ "bytes",
+ "crc",
+ "log",
+ "rand 0.9.0",
+ "rustc-hash 2.1.1",
+ "slab",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "sec1"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -26589,6 +26645,55 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "str0m"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fed3d9290b349b6da18fd640d81a950e4b256dba80e36982be61ae6ef98fb025"
+dependencies = [
+ "arrayvec 0.7.6",
+ "base64ct",
+ "combine",
+ "dimpl",
+ "fastrand",
+ "is",
+ "sctp-proto",
+ "serde",
+ "str0m-openssl",
+ "str0m-proto",
+ "subtle 2.6.1",
+ "time",
+ "tracing",
+]
+
+[[package]]
+name = "str0m-openssl"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcdf445983145434702fb35a17ce81f922023ed23950542c6d8d88a4709acda7"
+dependencies = [
+ "libc",
+ "openssl",
+ "openssl-sys",
+ "str0m-proto",
+ "tracing",
+]
+
+[[package]]
+name = "str0m-proto"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c99c3d805532aebd04585ba54e97e958c382759fb8f52256e289a49233f7e05b"
+dependencies = [
+ "base64ct",
+ "dimpl",
+ "fastrand",
+ "openssl",
+ "serde",
+ "subtle 2.6.1",
+ "time",
 ]
 
 [[package]]
