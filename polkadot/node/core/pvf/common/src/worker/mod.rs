@@ -34,7 +34,7 @@ use std::{
 		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
 	},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
@@ -43,7 +43,7 @@ use std::{
 /// spawning the desired worker.
 #[macro_export]
 macro_rules! decl_worker_main {
-	($expected_command:expr, $entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
+	($worker_kind:expr, $expected_command:expr, $entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
 		fn get_full_version() -> String {
 			format!("{}-{}", $worker_version, $worker_version_hash)
 		}
@@ -67,6 +67,7 @@ macro_rules! decl_worker_main {
 				return;
 			}
 
+			let mut do_security_checks = false;
 			match args[1].as_ref() {
 				"--help" | "-h" => {
 					print_help($expected_command);
@@ -81,7 +82,9 @@ macro_rules! decl_worker_main {
 					println!("{}", get_full_version());
 					return;
 				},
-
+				"--check-security-features" => {
+					do_security_checks = true;
+				},
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) = security::landlock::check_can_fully_enable() {
@@ -180,12 +183,17 @@ macro_rules! decl_worker_main {
 				}
 				i += 1;
 			}
-			let socket_path = socket_path.expect("the --socket-path argument is required");
 			let worker_dir_path =
 				worker_dir_path.expect("the --worker-dir-path argument is required");
-
-			let socket_path = std::path::Path::new(socket_path).to_owned();
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
+
+			if do_security_checks {
+				let ok = $crate::worker::check_security_status($worker_kind, &worker_dir_path);
+				std::process::exit(if ok { 0 } else { 1 });
+			}
+
+			let socket_path = socket_path.expect("the --socket-path argument is required");
+			let socket_path = std::path::Path::new(socket_path).to_owned();
 
 			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
 		}
@@ -299,6 +307,58 @@ pub struct WorkerInfo {
 	pub worker_dir_path: PathBuf,
 }
 
+/// Performs security checks on a worker binary and its working directory, without requiring a
+/// connection to a PVF host. Used by the `--check-security-features` CLI flag so that the node
+/// can verify its configured workers before starting.
+///
+/// Returns `true` if the worker dir is usable. Issues with optional sandboxing features are
+/// logged but do not affect the result, mirroring the best-effort approach described in
+/// [`crate::SecurityStatus`].
+pub fn check_security_status(worker_kind: WorkerKind, worker_dir_path: &Path) -> bool {
+	gum::debug!(
+		target: LOG_TARGET,
+		?worker_kind,
+		?worker_dir_path,
+		"performing security checks for worker",
+	);
+
+	if let Err(err) = std::fs::read_dir(worker_dir_path) {
+		gum::error!(
+			target: LOG_TARGET,
+			?worker_kind,
+			?worker_dir_path,
+			"could not read worker dir: {}",
+			err,
+		);
+		return false;
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		if let Err(err) = security::landlock::check_can_fully_enable() {
+			gum::warn!(target: LOG_TARGET, ?worker_kind, "cannot fully enable landlock: {}", err);
+		}
+		if let Err(err) = security::change_root::check_can_fully_enable(worker_dir_path) {
+			gum::warn!(
+				target: LOG_TARGET,
+				?worker_kind,
+				"cannot fully unshare and change root: {}",
+				err
+			);
+		}
+		// SAFETY: called from a single-threaded context, as required.
+		if let Err(err) = unsafe { security::clone::check_can_fully_clone() } {
+			gum::warn!(target: LOG_TARGET, ?worker_kind, "cannot fully clone: {}", err);
+		}
+	}
+	#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+	if let Err(err) = security::seccomp::check_can_fully_enable() {
+		gum::warn!(target: LOG_TARGET, ?worker_kind, "cannot fully enable seccomp: {}", err);
+	}
+
+	true
+}
+
 // NOTE: The worker version must be passed in so that we accurately get the version of the worker,
 // and not the version that this crate was compiled with.
 //
@@ -317,6 +377,29 @@ pub fn run_worker<F>(
 ) where
 	F: FnMut(UnixStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
 {
+	let (stream, worker_info, security_status) = do_security_checks(
+		worker_kind,
+		socket_path,
+		worker_dir_path.clone(),
+		node_version,
+		worker_version,
+	);
+
+	// Run the main worker loop.
+	let err = event_loop(stream, &worker_info, security_status)
+		// It's never `Ok` because it's `Ok(Never)`.
+		.unwrap_err();
+
+	worker_shutdown(worker_info, &err.to_string());
+}
+
+pub fn do_security_checks(
+	worker_kind: WorkerKind,
+	socket_path: PathBuf,
+	worker_dir_path: PathBuf,
+	node_version: Option<&str>,
+	worker_version: Option<&str>,
+) -> (UnixStream, WorkerInfo, SecurityStatus) {
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 	let mut worker_info = WorkerInfo {
 		pid: std::process::id(),
@@ -450,12 +533,7 @@ pub fn run_worker<F>(
 		}
 	}
 
-	// Run the main worker loop.
-	let err = event_loop(stream, &worker_info, security_status)
-		// It's never `Ok` because it's `Ok(Never)`.
-		.unwrap_err();
-
-	worker_shutdown(worker_info, &err.to_string());
+	(stream, worker_info, security_status)
 }
 
 /// Provide a consistent message on unexpected worker shutdown.
@@ -835,5 +913,32 @@ mod tests {
 		tx.send(()).unwrap();
 		let result = cpu_time_monitor_loop(cpu_time_start, timeout, rx);
 		assert_eq!(result, None);
+	}
+
+	#[test]
+	fn check_security_status_fails_for_missing_worker_dir() {
+		let missing_dir = std::env::temp_dir().join("pvf-common-tests-nonexistent-worker-dir");
+		let _ = std::fs::remove_dir_all(&missing_dir);
+		std::thread::Builder::new()
+			.stack_size(16 * 1024 * 1024)
+			.spawn(move || {
+				assert!(!check_security_status(WorkerKind::Execute, &missing_dir));
+			})
+			.unwrap()
+			.join()
+			.unwrap();
+	}
+
+	#[test]
+	fn check_security_status_passes_for_existing_worker_dir() {
+		std::thread::Builder::new()
+			.stack_size(16 * 1024 * 1024)
+			.spawn(|| {
+				assert!(check_security_status(WorkerKind::Execute, &std::env::temp_dir()));
+				assert!(check_security_status(WorkerKind::Prepare, &std::env::temp_dir()));
+			})
+			.unwrap()
+			.join()
+			.unwrap();
 	}
 }

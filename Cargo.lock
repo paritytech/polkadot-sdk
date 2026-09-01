@@ -16509,6 +16509,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 31.0.1",
  "substrate-build-script-utils",
+ "tempfile",
  "thiserror 1.0.65",
 ]
 
