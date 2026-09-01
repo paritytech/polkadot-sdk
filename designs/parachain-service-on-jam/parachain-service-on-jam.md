@@ -545,7 +545,7 @@ sourced from the authorizer config, which is pinned by the Coretime chain (see �
 Parachain Service enforces that every authorizer config begins with a `Vec<ParaId>` whose
 length matches the number of work items in the package, so that work item `item_index` is
 authoritatively bound to `authorized_paras[item_index]`. Refine reads this prefix via
-`auth_config()` and uses it to populate `ParachainWorkDigest.para_id`.
+`fetch` and uses it to populate `ParachainWorkDigest.para_id`.
 
 ### 3.3 Work Digest
 
@@ -721,7 +721,7 @@ to **48 KiB** by the Gray Paper.
 Refine is invoked **per work item** by JAM. For each work item at
 index `item_index` the Parachain Service performs:
 
-1. Reads the authorizer config via `auth_config()` and decodes the `authorized_paras`
+1. Reads the authorizer config via `fetch` and decodes the `authorized_paras`
    prefix (§3.2). A config not prefixed with a `Vec<ParaId>` panics (§4.2) rather than
    logging: there is no authoritative `para_id` to attribute an entry to.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
@@ -776,35 +776,33 @@ function. **Hashing**, and **signature verification** are expected to
 move into PVM guest code, since transpilation to native code should bring acceptable performance,
 though benchmarks are needed to confirm exact numbers.
 
-#### Data access
+Every host function is imported at a **fixed index**. Those forwarding a JAM host call keep
+its Gray Paper index. Those native to the Parachain Service are numbered from 100 up.
 
-These forward the full JAM fetch functionality to the PVF:
+#### JAM host functions
 
-| Host function | Returns | Purpose |
+Forwarded unchanged. Signatures and operands are specified in the Gray Paper and are
+not restated here:
+
+| Index | Host function | Purpose |
 |---|---|---|
-| `lookup(hash: Hash)` | `Option<Vec<u8>>` | Fetch a preimage (e.g. PVF code) |
-| `foreign_lookup(service: ServiceId, hash: Hash)` | `Option<Vec<u8>>` | Fetch a preimage from another service's store |
-| `gas()` | `u64` | Query the remaining gas budget |
-| `work_package()` | `WorkPackage` | Access the full encoded work package |
-| `work_package_context()` | `RefineContext` | Access the refinement context: anchor (hash, timeslot, posterior state-root, accumulation-output-log super-peak), lookup-anchor (hash, timeslot, posterior state-root), prerequisites |
-| `auth_config()` | `Vec<u8>` | Access the authorizer config blob |
-| `auth_token()` | `Vec<u8>` | Access the authorization token blob |
-| `work_items_summary()` | `Vec<WorkItemSummary>` | Summary of all work items (service, code hash, gas limits, export/import/extrinsic counts, payload length) |
-| `work_item_summary(index: u32)` | `Option<WorkItemSummary>` | Summary of a specific work item by index |
-| `work_item_payload(index: u32)` | `Option<Vec<u8>>` | Payload of a specific work item by index |
-| `import_segment(index: u32)` | `Option<Vec<u8>>` | A specific import segment, by its index in the work item's import manifest. Indices `0 .. import_count` enumerate the work item's segments in manifest order. |
+| 0 | `gas` | The remaining gas budget. |
+| 1 | `grow_heap` | Expand the RW data region. |
+| 2 | `fetch` | Read the work package and its context: the package itself, the refine context, the authorizer config and token, the work-item summaries and payloads, and the import segments. |
+| 7 | `historical_lookup` | Read a service's preimage store at the lookup-anchor; serves both own and foreign lookups. |
+| 8 | `export` | Write a segment to the JAM Data Lake, e.g. an outbound XCMP payload. |
 
-#### Side-effect host functions
+#### Parachain Service host functions
 
-These produce effects carried in the work digest and applied by Accumulate:
+Native to the service. Their effects are carried in the work digest and applied by
+Accumulate:
 
-| Host function | Returns | Purpose |
-|---|---|---|
-| `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
-| `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
-| `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
-| `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
-| `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
+| Index | Host function | Returns | Purpose |
+|---|---|---|---|
+| 100 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
+| 101 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
+| 102 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
+| 103 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the PVF. The 40 KiB
@@ -926,9 +924,9 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    happen here because later candidates from the same parachain in the same block
    may already use the new code.
 7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
-   the work digest, applying the effects of each side-effect host function the PVF
-   invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
-   key updates, etc.). See the side-effect host function table in §4.3 for the full list.
+   the work digest, applying the effects each one the PVF emitted during Refine carries
+   (code upgrades, transfers, authorizer queue updates, validator key updates, etc.).
+   See the `UpwardMessage` variants in §4.3 for the full list.
    This replay may itself emit further `AccumulateLog` events for the work package.
 
 All `AccumulateLog` events emitted while processing a work package (necessarily from
