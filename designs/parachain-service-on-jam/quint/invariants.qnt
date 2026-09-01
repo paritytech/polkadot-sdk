@@ -266,39 +266,60 @@ module invariants {
   /// Parent-head continuity (§5.1 step 3): replay the block's head-affecting
   /// operations in order and confirm the result matches the stored heads. Start
   /// from the pre-block heads; for each `Ok` work result, apply it ONLY if its
-  /// para is live and its declared parent matches that para's current head
-  /// (step 3). If accepted, write its new head (step 6) then replay its
-  /// `parachain_set_head` messages (step 7). A rejected candidate (stale parent)
-  /// is ignored entirely (its head update AND its upward messages), just as
-  /// Accumulate never replays a rejected candidate's messages. This is what lets a
+  /// para is live, its declared parent matches that para's current head
+  /// (step 3), and its `Requires` entries settle against the ring as of that
+  /// digest (step 6, §8.3) — settlement is the one Accumulate rejection Refine
+  /// cannot pre-filter, so the mirror must carry the ring: pushes from earlier
+  /// accepted digests in the same block included, threaded through the real
+  /// ring functions so eviction stays exact. If accepted, write its new head
+  /// and push its `Provides` root (step 6), then replay its
+  /// `parachain_set_head` messages (step 7), each clearing its target's ring
+  /// (§6, §8.3). A rejected candidate (stale parent or missed settlement) is
+  /// ignored entirely (its head update, its push, AND its upward messages),
+  /// just as Accumulate never applies a rejected candidate. This is what lets a
   /// forced `parachain_set_head` survive a same-block candidate built on a
   /// superseded head, while a candidate legitimately continuing the current head
   /// is allowed.
+  ///
+  /// `ParachainCleanUp`'s ring teardown is deliberately NOT mirrored: the
+  /// step's menu only cleans up paras the requires menu never names as a
+  /// source (see `arbitraryMessages` / `specMsgRequiresMenu`), so the ring a
+  /// clean-up tears down can never decide a later settlement here.
   val parent_head_continuity: bool = {
     val initialHeads = prevSvc.parachains.keys().mapBy(p => prevSvc.paraInfo(p).headData)
-    val replayedHeads =
-      lastStepWorkResults.foldl(initialHeads, (heads, r) => match r.result {
-        | WorkErr => heads
+    val replayed =
+      lastStepWorkResults.foldl((initialHeads, prevSvc), (acc, r) => match r.result {
+        | WorkErr => acc
         | WorkOk(digest) => match digest {
-          | Err(_) => heads
+          | Err(_) => acc
           | Ok(ok) =>
-            if (not(heads.keys().contains(ok.paraId))) heads
-            else if (ok.parentHeadHash != headHash(heads.get(ok.paraId))) heads
-            else
-              // Accepted: write the new head (step 6), then replay its forced
-              // `parachain_set_head` messages (step 7), each a no-op for a
-              // non-live target.
-              ok.upwardMessages.foldl(heads.put(ok.paraId, ok.headData), (h, m) =>
+            if (not(acc._1.keys().contains(ok.paraId))) acc
+            else if (ok.parentHeadHash != headHash(acc._1.get(ok.paraId))) acc
+            else if (not(specMsgSettles(acc._2, ok.specMsgRequires))) acc
+            else {
+              // Accepted: write the new head and push the `Provides` root
+              // (step 6), then replay its forced `parachain_set_head`
+              // messages (step 7), each a no-op for a non-live target.
+              val pushed = match ok.specMsgProvides {
+                | Some(root) => specMsgPush(acc._2, ok.paraId, root)
+                | None => acc._2
+              }
+              ok.upwardMessages.foldl(
+                (acc._1.put(ok.paraId, ok.headData), pushed), (h, m) =>
                 match m {
                   | ParachainSetHead(pl) =>
-                    if (h.keys().contains(pl.paraId)) h.put(pl.paraId, pl.newHead) else h
+                    if (h._1.keys().contains(pl.paraId))
+                      (h._1.put(pl.paraId, pl.newHead),
+                       specMsgClearRing(h._2, pl.paraId))
+                    else h
                   | _ => h
                 })
+            }
         }
       })
     prevSvc.parachains.keys().forall(p =>
       if (not(svc.parachains.keys().contains(p))) true
-      else replayedHeads.get(p) == svc.paraInfo(p).headData)
+      else replayed._1.get(p) == svc.paraInfo(p).headData)
   }
 
   /// For every Refine Err in lastStepWorkResults targeting a registered para,
@@ -429,6 +450,39 @@ module invariants {
         | _ => true
       })
 
+  /// §8.3 settlement-ring shape. For every para with a cursor, the window is
+  /// within `SpecMsgRingCapacity` and `specMsgQueue` holds exactly positions
+  /// `tail .. head-1`; every queue or member entry belongs to a para with a
+  /// cursor; membership is exactly the set of roots in the live window, each
+  /// member entry pointing at a live queue position that holds its root
+  /// (the newest one, per the §8.3 re-push rule).
+  val spec_msg_ring_coherent: bool = and {
+    svc.specMsgCursor.keys().forall(p => {
+      val c = svc.specMsgCursor.get(p)
+      and {
+        c.tail <= c.head,
+        c.head - c.tail <= SpecMsgRingCapacity,
+        svc.specMsgQueue.keys().filter(k => k._1 == p)
+          == c.tail.to(c.head - 1).map(i => (p, i))
+      }
+    }),
+    svc.specMsgQueue.keys().forall(k => svc.specMsgCursor.keys().contains(k._1)),
+    svc.specMsgMember.keys().forall(k => svc.specMsgCursor.keys().contains(k._1)),
+    svc.specMsgMember.keys().forall(k => {
+      val seq = svc.specMsgMember.get(k).seq
+      svc.specMsgQueue.keys().contains((k._1, seq)) and
+      svc.specMsgQueue.get((k._1, seq)) == k._2
+    }),
+    svc.specMsgQueue.keys().forall(k =>
+      svc.specMsgMember.keys().contains((k._1, svc.specMsgQueue.get(k))))
+  }
+
+  /// §8.3: a settlement ring exists only for a live parachain. Teardown runs
+  /// inside `parachainCleanUp`, so a removed para must leave no ring behind
+  /// (a live para with an EMPTY ring is fine: forced `set_head` clears it).
+  val spec_msg_ring_only_for_live: bool =
+    svc.specMsgCursor.keys().forall(p => svc.parachains.keys().contains(p))
+
   /// Composite invariant: every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
@@ -462,6 +516,8 @@ module invariants {
     staged_validator_keys_bounded,
     accumulate_log_batch_nonempty,
     parachain_log_within_capacity,
-    parachain_log_above_lookup
+    parachain_log_above_lookup,
+    spec_msg_ring_coherent,
+    spec_msg_ring_only_for_live
   }
 }
