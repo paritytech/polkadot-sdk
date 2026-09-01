@@ -41,31 +41,72 @@ pub struct Collators {
 pub struct JamTarget {
 	pub rpc_url: String,
 	pub service_id: u32,
+	/// The copy of the authorizer blob whose hash the paras' cores were assigned from. The
+	/// collators must hash the very same bytes — PVM builds are not byte-deterministic, so the
+	/// build output is not a safe substitute.
+	pub authorizer_blob: PathBuf,
+}
+
+/// One parachain of a run: the id it collates under, the core its work packages are authorized
+/// on, and the dev accounts that collate for it.
+#[derive(Clone, Debug)]
+pub struct Para {
+	pub id: u32,
 	pub core: u32,
+	/// Indices into [`chain_spec::DEV_ACCOUNTS`], in the order the AURA round-robin walks them.
+	pub collators: Vec<usize>,
+}
+
+impl Para {
+	/// The single para the collator-progress tests run: para 0 on core 0, collated by the first
+	/// `count` dev accounts.
+	pub fn single(count: usize) -> Self {
+		Para { id: 0, core: 0, collators: (0..count).collect() }
+	}
+
+	/// The collator set as `parasim-tool --collators` and `--jam-collators` spell it.
+	///
+	/// Every collator of the para is started with this exact string, and the core is assigned with
+	/// it too: a name's position in the list is the collator index the authorizer hash commits to,
+	/// so a list that differs anywhere is a different hash.
+	pub fn collator_names(&self) -> String {
+		let names: Vec<String> =
+			self.collators.iter().map(|index| chain_spec::dev_name(*index)).collect();
+		names.join(",")
+	}
 }
 
 impl Collators {
-	/// Build the chain spec and start `count` collators in `work_dir`.
+	/// Build `para`'s chain spec and start one collator per dev account in its set.
 	pub fn spawn(
 		binaries: &Binaries,
 		work_dir: &Path,
-		count: usize,
+		para: &Para,
 		jam: &JamTarget,
 	) -> anyhow::Result<Self> {
-		let spec = work_dir.join("jam-parachain-spec.json");
-		chain_spec::build(&binaries.omni_node, &binaries.runtime_wasm, &spec, count)?;
+		let spec = work_dir.join(format!("jam-parachain-{}-spec.json", para.id));
+		chain_spec::build(
+			&binaries.omni_node,
+			&binaries.runtime_wasm,
+			&spec,
+			para.id,
+			&para.collators,
+		)?;
 
+		let count = para.collators.len();
+		let collator_names = para.collator_names();
 		let first_port = NEXT_PORT.fetch_add(count as u16 * PORTS_PER_COLLATOR, Ordering::Relaxed);
 		let mut collators = Vec::with_capacity(count);
 		let mut bootnode: Option<String> = None;
 
-		for index in 0..count {
-			let name = chain_spec::DEV_ACCOUNTS[index].to_string().to_lowercase();
+		for (index, account) in para.collators.iter().copied().enumerate() {
+			let name = chain_spec::dev_name(account);
 			let base_path = work_dir.join(&name);
 			let p2p_port = first_port + index as u16 * PORTS_PER_COLLATOR;
 			let rpc_port = p2p_port + 1;
 			let prometheus_port = p2p_port + 2;
 			let peer_id = node_key(&binaries.omni_node, &base_path, &spec)?;
+			insert_collator_key(&binaries.omni_node, &base_path, &spec, account)?;
 
 			let log_path = work_dir.join(format!("{name}.log"));
 			let log = File::create(&log_path)?;
@@ -76,7 +117,7 @@ impl Collators {
 				.arg(&spec)
 				.arg("--base-path")
 				.arg(&base_path)
-				.args(["--collator", &chain_spec::dev_account_flag(index), "--force-authoring"])
+				.args(["--collator", &chain_spec::dev_account_flag(account), "--force-authoring"])
 				.args(["--port", &p2p_port.to_string()])
 				.args(["--rpc-port", &rpc_port.to_string()])
 				// Every collator needs its own metrics port; they would otherwise all try to bind
@@ -84,6 +125,11 @@ impl Collators {
 				.args(["--prometheus-port", &prometheus_port.to_string()])
 				.args(["--jam-rpc-urls", &jam.rpc_url])
 				.args(["--jam-service-id", &jam.service_id.to_string()])
+				// The core is not named: the collator finds it by scanning the authorizer pools
+				// for the hash these two arguments produce.
+				.args(["--jam-collators", &collator_names])
+				.arg("--jam-authorizer-blob")
+				.arg(&jam.authorizer_blob)
 				// Discovery is explicit: without this the collators would find, and try to sync
 				// with, any other parachain node running on this machine.
 				.arg("--no-mdns")
@@ -188,6 +234,59 @@ fn node_key(omni_node: &Path, base_path: &Path, spec: &Path) -> anyhow::Result<S
 		.arg(&key_file))?;
 	anyhow::ensure!(!peer_id.is_empty(), "no peer id for the key at {}", key_file.display());
 	Ok(peer_id)
+}
+
+/// Give the collator the ed25519 key it signs work packages with: key type `coll`, derived from
+/// the same `//<Name>` seed as everything else it runs as.
+///
+/// `--alice` only ever produces an in-memory sr25519 aura key, so without this the on-disk
+/// keystore holds nothing the AURA authorizer would accept and the collator refuses to start.
+/// Re-inserting the same suri rewrites the same file, which is what makes a re-run against an
+/// existing work dir safe.
+fn insert_collator_key(
+	omni_node: &Path,
+	base_path: &Path,
+	spec: &Path,
+	account: usize,
+) -> anyhow::Result<()> {
+	let name = chain_spec::dev_name(account);
+	let suri = chain_spec::dev_suri(account);
+	let started = std::time::Instant::now();
+
+	run(Command::new(omni_node)
+		.args(["key", "insert", "--base-path"])
+		.arg(base_path)
+		.arg("--chain")
+		.arg(spec)
+		.args(["--scheme", "ed25519", "--key-type", "coll", "--suri", &suri]))?;
+
+	// `key insert` prints nothing on success, and a keystore the node then finds empty is a
+	// collator that signs nothing — so read the file back rather than trust the exit code.
+	let key_file = collator_key_file(base_path)
+		.with_context(|| format!("`key insert` left no coll key under {}", base_path.display()))?;
+	log::info!(
+		"collator {name}: coll key {suri} -> {} in {:?}",
+		key_file.display(),
+		started.elapsed()
+	);
+	Ok(())
+}
+
+/// The `coll` keystore file, if there is one. File names are the key type id followed by the
+/// public key, and `636f6c6c` is `"coll"` in hex.
+fn collator_key_file(base_path: &Path) -> Option<PathBuf> {
+	let chains = std::fs::read_dir(base_path.join("chains")).ok()?;
+	chains
+		.flatten()
+		.filter_map(|chain| std::fs::read_dir(chain.path().join("keystore")).ok())
+		.flatten()
+		.flatten()
+		.map(|entry| entry.path())
+		.find(|path| {
+			path.file_name()
+				.and_then(|name| name.to_str())
+				.is_some_and(|name| name.starts_with("636f6c6c"))
+		})
 }
 
 /// Run a command to completion and return its trimmed stdout.
