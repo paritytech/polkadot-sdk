@@ -1477,9 +1477,9 @@ appended to the parachain log; otherwise the write is applied and
 `used_state_balance` is bumped atomically. Baseline-covered state is
 pre-charged and needs no per-write check.
 
-Because every growth is pre-checked, a state write never fails on balance
-grounds. A defensive write-time balance failure indicates a bookkeeping bug and
-can leave the entire service stuck until manual intervention.
+JAM's `write` returns `StorageFull` when the service's own balance cannot cover
+the new footprint. Seeing it indicates a bookkeeping bug and can leave the entire
+service stuck until manual intervention.
 
 ### 6.2 Registration
 
