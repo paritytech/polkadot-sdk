@@ -212,6 +212,42 @@ fn extract_eth_transacts<C: OfflineClientAtBlockT<SrcChainConfig>>(
 	Ok((extrinsics, undecoded_extrinsic))
 }
 
+/// Reconcile the runtime's per-transaction gas entries against the ethereum transactions decoded
+/// from the block body, splitting off the synthetic transaction's trailing entry.
+///
+/// The runtime emits one entry per ethereum transaction, and — when the block has outside-of-frame
+/// logs — one extra trailing entry for the synthetic transaction carrying them. So `receipt_data`
+/// holds either `extrinsics_len` entries or `extrinsics_len + 1`.
+///
+/// An extrinsic the metadata cannot decode produces the same `+ 1` without a synthetic transaction,
+/// since the runtime counted a transaction this side dropped. The two are indistinguishable from
+/// the lengths alone, so `undecoded_extrinsic` suppresses the split: taking the entry would pair
+/// every later transaction with the wrong gas info and serve the dropped transaction's logs under
+/// the synthetic hash. Erroring keeps metadata skew as loud as it was before the synthetic
+/// transaction existed.
+fn split_receipt_data(
+	mut receipt_data: Vec<ReceiptGasInfoV1>,
+	extrinsics_len: usize,
+	undecoded_extrinsic: bool,
+) -> Result<(Vec<ReceiptGasInfoV1>, Option<ReceiptGasInfoV1>), ClientError> {
+	let synthetic_gas_info = if !undecoded_extrinsic && receipt_data.len() == extrinsics_len + 1 {
+		receipt_data.pop()
+	} else {
+		None
+	};
+
+	if receipt_data.len() != extrinsics_len {
+		log::error!(
+			target: LOG_TARGET,
+			"Receipt data length ({}) does not match extrinsics length ({extrinsics_len})",
+			receipt_data.len(),
+		);
+		return Err(ClientError::ReceiptDataLengthMismatch);
+	}
+
+	Ok((receipt_data, synthetic_gas_info))
+}
+
 type FetchReceiptDataFn = Arc<
 	dyn Fn(SubstrateBlock) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfoV1>>> + Send>>
 		+ Send
@@ -607,10 +643,7 @@ impl ReceiptExtractor {
 	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info and
 	/// extrinsic index, plus the optional trailing gas entry for the block's synthetic transaction.
 	///
-	/// The runtime emits one `ReceiptGasInfo` per ethereum transaction, and — when a block has
-	/// outside-of-frame logs — one extra trailing entry for the synthetic transaction that carries
-	/// them. So `receipt_data.len()` is either `extrinsics.len()` (no synthetic) or
-	/// `extrinsics.len() + 1` (synthetic present, its gas entry is the last one).
+	/// See [`split_receipt_data`] for how the gas entries are matched up.
 	async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
@@ -621,40 +654,29 @@ impl ReceiptExtractor {
 		})?;
 
 		let block_number = block.block_number();
-		let (extrinsics, _) = extract_eth_transacts(&block_extrinsics, block_number)?;
+		let (extrinsics, undecoded_extrinsic) =
+			extract_eth_transacts(&block_extrinsics, block_number)?;
 
 		// Queried unconditionally: a block with no ethereum transactions can still carry a
 		// synthetic transaction for its outside-of-frame logs.
-		let mut receipt_data = (self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {
+		let receipt_data = (self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {
 			log::trace!(target: LOG_TARGET,
 				"Receipt data not found for block #{} ({:?})",
 				block.block_number(), block.block_hash());
 			ClientError::ReceiptDataNotFound
 		})?;
 
-		// Split off the synthetic transaction's trailing gas entry, if present.
-		let synthetic_gas_info =
-			if receipt_data.len() == extrinsics.len() + 1 { receipt_data.pop() } else { None };
+		let (receipt_data, synthetic_gas_info) =
+			split_receipt_data(receipt_data, extrinsics.len(), undecoded_extrinsic)?;
 
-		// Sanity check we received enough data from the pallet revive.
-		if receipt_data.len() != extrinsics.len() {
-			log::error!(
-				target: LOG_TARGET,
-				"Receipt data length ({}) does not match extrinsics length ({})",
-				receipt_data.len(),
-				extrinsics.len()
-			);
-			Err(ClientError::ReceiptDataLengthMismatch)
-		} else {
-			Ok((
-				extrinsics
-					.into_iter()
-					.zip(receipt_data)
-					.map(|((call, ext_idx), rec)| (call, rec, ext_idx))
-					.collect(),
-				synthetic_gas_info,
-			))
-		}
+		Ok((
+			extrinsics
+				.into_iter()
+				.zip(receipt_data)
+				.map(|((call, ext_idx), rec)| (call, rec, ext_idx))
+				.collect(),
+			synthetic_gas_info,
+		))
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] for a specific transaction in a
@@ -1150,5 +1172,65 @@ mod tests {
 		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
 		assert_eq!(calls[0].0.payload, ETH_TRANSACT_PAYLOAD, "the call fields are decoded");
 		assert!(undecoded, "it may be a revive one, so report it");
+	}
+
+	/// `n` distinguishable gas entries, so a mispairing shows up as a wrong value.
+	fn gas_infos(n: usize) -> Vec<ReceiptGasInfoV1> {
+		(0..n)
+			.map(|i| ReceiptGasInfoV1 {
+				gas_used: U256::from(i),
+				effective_gas_price: U256::from(1_000_000_000u64),
+			})
+			.collect()
+	}
+
+	#[test]
+	fn split_receipt_data_without_a_synthetic_entry() {
+		let (data, synthetic) = split_receipt_data(gas_infos(2), 2, false).unwrap();
+
+		assert_eq!(data, gas_infos(2), "every entry belongs to an ethereum transaction");
+		assert!(synthetic.is_none());
+	}
+
+	#[test]
+	fn split_receipt_data_takes_the_trailing_synthetic_entry() {
+		let (data, synthetic) = split_receipt_data(gas_infos(3), 2, false).unwrap();
+
+		assert_eq!(data, gas_infos(2), "the transactions keep their own entries in order");
+		assert_eq!(synthetic.unwrap().gas_used, U256::from(2), "the last entry is the synthetic");
+	}
+
+	#[test]
+	fn split_receipt_data_rejects_a_trailing_entry_left_by_an_undecodable_extrinsic() {
+		// A dropped `eth_transact` leaves the same `+ 1` a synthetic transaction does. Taking it
+		// would pair every later transaction with the preceding one's gas info and serve the
+		// dropped transaction's logs under the synthetic hash, so this must stay an error.
+		let err = split_receipt_data(gas_infos(3), 2, true).unwrap_err();
+
+		assert!(matches!(err, ClientError::ReceiptDataLengthMismatch));
+	}
+
+	#[test]
+	fn split_receipt_data_rejects_an_undecodable_extrinsic_alongside_a_synthetic_entry() {
+		let err = split_receipt_data(gas_infos(4), 2, true).unwrap_err();
+
+		assert!(matches!(err, ClientError::ReceiptDataLengthMismatch));
+	}
+
+	#[test]
+	fn split_receipt_data_accepts_an_undecodable_non_ethereum_extrinsic() {
+		// The dropped extrinsic was not an `eth_transact`, so the runtime never counted it and the
+		// lengths still line up.
+		let (data, synthetic) = split_receipt_data(gas_infos(2), 2, true).unwrap();
+
+		assert_eq!(data, gas_infos(2));
+		assert!(synthetic.is_none());
+	}
+
+	#[test]
+	fn split_receipt_data_rejects_fewer_entries_than_transactions() {
+		let err = split_receipt_data(gas_infos(1), 2, false).unwrap_err();
+
+		assert!(matches!(err, ClientError::ReceiptDataLengthMismatch));
 	}
 }
