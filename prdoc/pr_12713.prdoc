@@ -1,0 +1,10 @@
+title: 'pallet-identity: add try_state invariant checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a `try_state` hook to `pallet-identity` (issue #239) that asserts `SubsOf` and `SuperOf` are consistent in both directions (every sub points back to its super and every super lists its subs), and that each identity's judgements are strictly sorted by registrar index. The checks run under the `try-runtime` feature, and also after every unit test. The change is additive with no migration or weight changes.
+
+crates:
+- name: pallet-identity
+  bump: minor
