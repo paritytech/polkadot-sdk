@@ -1,0 +1,13 @@
+title: "zombienet-sdk-tests: fall back gracefully when CARGO_WORKSPACE_ROOT_DIR is unset"
+
+doc:
+  - audience: Node Dev
+    description: |
+      build.rs no longer panics when CARGO_WORKSPACE_ROOT_DIR isn't set (only
+      provided via this repo's .cargo/config.toml, absent in some build
+      environments). It now falls back to locating the workspace root from
+      CARGO_MANIFEST_DIR, which cargo always guarantees.
+
+crates:
+  - name: polkadot-zombienet-sdk-tests
+    bump: none

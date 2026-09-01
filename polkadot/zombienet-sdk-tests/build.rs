@@ -31,10 +31,24 @@ fn wasm_sub_path(chain: &str) -> String {
 	format!("{package}/{runtime_name}.wasm")
 }
 
+fn workspace_root() -> PathBuf {
+	if let Ok(dir) = env::var("CARGO_WORKSPACE_ROOT_DIR") {
+		return PathBuf::from(dir.trim_end_matches('/'));
+	}
+	let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("cargo always sets this");
+	PathBuf::from(&manifest_dir)
+		.ancestors()
+		.find(|dir| {
+			fs::read_to_string(dir.join("Cargo.toml")).is_ok_and(|s| s.contains("[workspace]"))
+		})
+		.expect("workspace root not found by walking up from CARGO_MANIFEST_DIR")
+		.to_path_buf()
+}
+
 fn find_wasm(chain: &str) -> Option<PathBuf> {
 	const PROFILES: [&str; 2] = ["release", "testnet"];
-	let manifest_path = env::var("CARGO_WORKSPACE_ROOT_DIR").unwrap();
-	let manifest_path = manifest_path.strip_suffix('/').unwrap();
+	let manifest_path = workspace_root();
+	let manifest_path = manifest_path.display();
 	debug_output!("manifest_path is  : {}", manifest_path);
 
 	let sub_path = wasm_sub_path(chain);
