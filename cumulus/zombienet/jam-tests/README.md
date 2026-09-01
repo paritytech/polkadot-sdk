@@ -230,6 +230,17 @@ With the mesh intact they are no slower than the two-collator case. Across all t
 validator held `6 peers (5 vals)` for the entire run, where before it decayed to `4 peers
 (3 vals)` within a few minutes and never recovered.
 
+### Current status of the core tests
+
+All three pass, and the two runs of the stall test reached the same head numbers at the same
+points, so the timings below are what a healthy stack does rather than one lucky run:
+
+| test | wall clock | what it observed |
+| --- | --- | --- |
+| `two_paras_on_two_cores_build_blocks` | 328s | both paras best 30 / finalized 27, JAM head #28 each, neither collator knowing the other's head |
+| `freeing_the_core_freezes_the_para_head_until_it_is_assigned_again` | 386s | six more heads drained through after the free, then frozen at #12 for 90s while nine blocks were authored and six re-rooted; #13 within 72s of the re-assign |
+| `moving_the_para_to_the_other_core_keeps_its_head_moving` | 356s | head #5 to #28 with no pause; the collator saw both cores and stayed on core 0, and submitted to core 1 42s (seven JAM slots, the pool drain) after core 0 was freed |
+
 ### What upstream support should replace
 
 * The relay chain filler node, once a jamchain can be spawned on its own.
