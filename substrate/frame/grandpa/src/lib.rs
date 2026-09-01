@@ -510,6 +510,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// No change should be signaled while any change is pending. Returns
 	/// an error if a change is already pending.
+	///
+	/// **Important:** This method does NOT increment `CurrentSetId`. If your
+	/// runtime does not use `pallet_session` (which handles the set_id
+	/// increment in `on_new_session`), use
+	/// [`Self::schedule_change_incrementing_set_id`] instead.
 	pub fn schedule_change(
 		next_authorities: AuthorityList,
 		in_blocks: BlockNumberFor<T>,
@@ -547,6 +552,30 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Err(Error::<T>::ChangePending.into())
 		}
+	}
+
+	/// Schedule a GRANDPA authority change and increment `CurrentSetId`.
+	///
+	/// This is the correct API for runtimes that manage authority rotation
+	/// directly (without `pallet_session`). Using bare `schedule_change()`
+	/// without incrementing `CurrentSetId` causes the GRANDPA voter to
+	/// get out of sync — it will keep voting with the old set_id while
+	/// the runtime has already enacted the new authority set.
+	///
+	/// Returns the new `SetId` on success.
+	///
+	/// See <https://github.com/paritytech/polkadot-sdk/issues/7363>.
+	pub fn schedule_change_incrementing_set_id(
+		next_authorities: AuthorityList,
+		in_blocks: BlockNumberFor<T>,
+		forced: Option<BlockNumberFor<T>>,
+	) -> Result<SetId, DispatchError> {
+		Self::schedule_change(next_authorities, in_blocks, forced)?;
+		let new_set_id = CurrentSetId::<T>::mutate(|id| {
+			*id += 1;
+			*id
+		});
+		Ok(new_set_id)
 	}
 
 	/// Deposit one of this module's logs.
