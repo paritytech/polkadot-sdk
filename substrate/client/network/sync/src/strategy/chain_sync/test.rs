@@ -1693,6 +1693,156 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 }
 
 #[test]
+fn empty_response_to_regular_block_request_gets_mild_penalty() {
+	sp_tracing::try_init_simple();
+
+	let client2 = TestClientBuilder::new().build();
+	let blocks = (0..4).map(|_| build_block(&client2, None, false)).collect::<Vec<_>>();
+	let empty_client = Arc::new(TestClientBuilder::new().build());
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		empty_client.clone(),
+		1,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+	let best_block = blocks[3].clone();
+	sync.add_peer(peer_id1, best_block.hash(), *best_block.header().number());
+	sync.peers.get_mut(&peer_id1).unwrap().state = PeerSyncState::Available;
+	sync.peers.get_mut(&peer_id1).unwrap().common_number = 0;
+
+	// The range is inferred from the peer's announced best number, not offered by it, so
+	// an empty answer means "I do not have those blocks", not misbehavior.
+	let request = get_block_request(&mut sync, FromBlock::Hash(best_block.hash()), 4, &peer_id1);
+	let empty_response = BlockResponse::<Block> { id: 0, blocks: Vec::new() };
+	assert_eq!(
+		sync.on_block_data(&peer_id1, Some(request), empty_response),
+		Err(BadPeer(peer_id1, rep::NO_BLOCKS_IN_RANGE)),
+	);
+
+	// The syncing engine drops bad peers; peer removal frees the in-flight range, so the
+	// identical request goes out to the next peer.
+	sync.remove_peer(&peer_id1);
+	let peer_id2 = PeerId::random();
+	sync.add_peer(peer_id2, best_block.hash(), *best_block.header().number());
+	sync.peers.get_mut(&peer_id2).unwrap().state = PeerSyncState::Available;
+	sync.peers.get_mut(&peer_id2).unwrap().common_number = 0;
+	get_block_request(&mut sync, FromBlock::Hash(best_block.hash()), 4, &peer_id2);
+}
+
+#[test]
+fn non_empty_wrong_block_response_still_gets_the_harsh_penalty() {
+	sp_tracing::try_init_simple();
+
+	let client2 = TestClientBuilder::new().build();
+	let blocks = (0..4).map(|_| build_block(&client2, None, false)).collect::<Vec<_>>();
+	let empty_client = Arc::new(TestClientBuilder::new().build());
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		empty_client.clone(),
+		1,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+	let best_block = blocks[3].clone();
+	sync.add_peer(peer_id1, best_block.hash(), *best_block.header().number());
+	sync.peers.get_mut(&peer_id1).unwrap().state = PeerSyncState::Available;
+	sync.peers.get_mut(&peer_id1).unwrap().common_number = 0;
+
+	// A non-empty response whose first block is not the one requested is a genuine
+	// protocol violation and keeps the ban-grade verdict from `validate_blocks`.
+	let request = get_block_request(&mut sync, FromBlock::Hash(best_block.hash()), 4, &peer_id1);
+	let response = create_block_response(vec![blocks[1].clone()]);
+	assert_eq!(
+		sync.on_block_data(&peer_id1, Some(request), response),
+		Err(BadPeer(peer_id1, rep::NOT_REQUESTED)),
+	);
+}
+
+#[test]
+fn empty_response_to_header_only_gap_request_gets_mild_penalty() {
+	sp_tracing::try_init_simple();
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	client.finalize_block(blocks[9].hash(), None).unwrap();
+
+	// `HeadersOnly` strips the BODY bit, so #12917's body-only guard does not apply and
+	// the empty response would otherwise fall through to `NOT_REQUESTED`.
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		2,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	sync.gap_sync = Some(GapSync {
+		best_queued_number: 6,
+		target: 9,
+		blocks: BlockCollection::new(),
+		stats: GapSyncStats::new(),
+	});
+
+	let peer_id1 = PeerId::random();
+	sync.add_peer(peer_id1, blocks[9].hash(), 10);
+	let request = get_block_request(&mut sync, FromBlock::Number(8), 2, &peer_id1);
+	assert!(!request.fields.contains(BlockAttributes::BODY));
+
+	let empty_response = BlockResponse::<Block> { id: 0, blocks: Vec::new() };
+	assert_eq!(
+		sync.on_block_data(&peer_id1, Some(request), empty_response),
+		Err(BadPeer(peer_id1, rep::NO_BLOCKS_IN_RANGE)),
+	);
+
+	// Peer removal frees the in-flight gap range for the next peer.
+	sync.remove_peer(&peer_id1);
+	let peer_id2 = PeerId::random();
+	sync.add_peer(peer_id2, blocks[9].hash(), 10);
+	get_block_request(&mut sync, FromBlock::Number(8), 2, &peer_id2);
+}
+
+#[test]
+fn empty_response_penalty_does_not_ban_an_honest_peer() {
+	// Intent pin: nothing in-tree connects these constants to the peer store's ban
+	// threshold, so a later "cleanup" could silently re-merge them. An honest peer that
+	// repeatedly lacks the requested range must not be banned; a peer sending
+	// unrequested data still must be.
+	let threshold = sc_network::peer_store::BANNED_THRESHOLD as i64;
+	let mild = rep::NO_BLOCKS_IN_RANGE.value as i64;
+	let harsh = rep::NOT_REQUESTED.value as i64;
+
+	assert!(mild > harsh, "the empty-response penalty must be milder than NOT_REQUESTED");
+	assert!(
+		3 * harsh < threshold,
+		"NOT_REQUESTED is expected to ban within three responses; if this changed, revisit \
+		 the reasoning in the doc comment on NO_BLOCKS_IN_RANGE",
+	);
+	assert!(10 * mild > threshold, "ten empty responses must not ban an honest peer",);
+}
+
+#[test]
 fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 	sp_tracing::try_init_simple();
 
