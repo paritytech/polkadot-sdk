@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788260541639,
+  "lastUpdate": 1788276511099,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a78b18a5cc547141bfd5c10eb17593239e1e2509",
-          "message": "benchmarking: fix DB read/write counts (#10947)\n\nPR #10802 added `reset_read_write_count()` at the end of commit_db() to\nprevent warmup operations from appearing in benchmarking results.\nHowever, commit_db is called twice: one on `on_before_start()` closure\nbefore benchmark, and one after benchmark execution after benchmark.\nThis PR whitelists the warmup key used in commit_db so that it doesn't\nappear in the read/write count.\n\nWe also regenerated staking-async weights (wrongly benchmarked in\n#10802) and conviction-voting to check both v1 and v2 benchmarking.\n\nDriven-by: update `try-runtime-cli` to v0.10.1 as an attempt to fix the\nissue for which CI regularly fails in the check-migration (WAH) job in\n./try-runtime create-snapshot --uri\nwss://westend-asset-hub-rpc.polkadot.io:443 snapshot.raw`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-03T17:57:06Z",
-          "tree_id": "3370bccb812c896e324de40f014df2faaa6beb9c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a78b18a5cc547141bfd5c10eb17593239e1e2509"
-        },
-        "date": 1770148121310,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63642.23,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002013321,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.67715161265,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.847365602669967,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8121427327999713,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005439340679999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.687998257333264,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001923306,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3634530295099987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6541105759500008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6407872858799992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001923306,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002013321,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6942810251999982,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.7905575705600016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "022ef2df06121bd594c7653c6e1708690959340b",
+          "message": "ci: update ai review action (#13046)\n\nNow it uses public action so should work\n\ncc https://github.com/paritytech/devops/issues/5505",
+          "timestamp": "2026-09-01T13:57:09Z",
+          "tree_id": "6003ca24ddc28d3e81d31cfcac6250d1bc7a04de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/022ef2df06121bd594c7653c6e1708690959340b"
+        },
+        "date": 1788276473583,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63560.03999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020718369999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020718369999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8208387049500003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019635239999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019635239999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4078816863099908,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.442755903869962,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.004954527980000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8239468903099985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8054132273299714,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.8017806703600012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.77794019663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.38493616362284,
             "unit": "seconds"
           }
         ]
