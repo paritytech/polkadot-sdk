@@ -461,6 +461,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					metrics,
+					gap_sync_body_policy: Some(crate::common::gap_sync_body_policy_provider(
+						client.clone(),
+						parachain_config.blocks_pruning,
+					)),
 				})
 				.await?;
 

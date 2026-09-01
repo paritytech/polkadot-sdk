@@ -81,7 +81,6 @@ members = [
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
-	"cumulus/pallets/dmp-queue",
 	"cumulus/pallets/parachain-system",
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
@@ -678,25 +677,25 @@ anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
 aquamarine = { version = "0.5.0" }
 arbitrary = { version = "1.3.2" }
-ark-bls12-377 = { version = "0.5.0", default-features = false }
-ark-bls12-377-ext = { version = "0.5.2", default-features = false }
-ark-bls12-381 = { version = "0.5.0", default-features = false }
-ark-bls12-381-ext = { version = "0.5.2", default-features = false }
-ark-bw6-761 = { version = "0.5.0", default-features = false }
-ark-bw6-761-ext = { version = "0.5.2", default-features = false }
-ark-ec = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-377 = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-377-ext = { version = "0.5.2", default-features = false }
-ark-ed-on-bls12-381-bandersnatch = { version = "0.5.0", default-features = false }
-ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.5.2", default-features = false }
-ark-ff = { version = "0.5.0", default-features = false }
-ark-pallas = { version = "0.5.0", default-features = false }
-ark-pallas-ext = { version = "0.5.2", default-features = false }
-ark-scale = { version = "0.0.13", default-features = false }
-ark-std = { version = "0.5.0", default-features = false }
-ark-vesta = { version = "0.5.0", default-features = false }
-ark-vesta-ext = { version = "0.5.2", default-features = false }
-ark-vrf = { version = "0.5.0", default-features = false }
+ark-bls12-377 = { version = "0.6.0", default-features = false }
+ark-bls12-377-ext = { version = "0.6.0", default-features = false }
+ark-bls12-381 = { version = "0.6.0", default-features = false }
+ark-bls12-381-ext = { version = "0.6.0", default-features = false }
+ark-bw6-761 = { version = "0.6.0", default-features = false }
+ark-bw6-761-ext = { version = "0.6.0", default-features = false }
+ark-ec = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-377 = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-377-ext = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.6.0", default-features = false }
+ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.6.0", default-features = false }
+ark-ff = { version = "0.6.0", default-features = false }
+ark-pallas = { version = "0.6.0", default-features = false }
+ark-pallas-ext = { version = "0.6.0", default-features = false }
+ark-scale = { version = "0.0.14", default-features = false }
+ark-std = { version = "0.6.0", default-features = false }
+ark-vesta = { version = "0.6.0", default-features = false }
+ark-vesta-ext = { version = "0.6.0", default-features = false }
+ark-vrf = { version = "0.5.3", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
@@ -936,7 +935,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.14.3", features = ["rsa", "webrtc", "websocket"] }
+litep2p = { version = "0.15.1", features = ["rsa", "webrtc", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
