@@ -16,6 +16,7 @@
 
 //! Version 5 of the Cross-Consensus Message format data structures.
 
+#[allow(deprecated)]
 pub use super::v3::GetWeight;
 use super::v4::{
 	Instruction as OldInstruction, PalletInfo as OldPalletInfo,

@@ -16,6 +16,7 @@
 
 //! Cross-Consensus Message format data structures.
 
+#[allow(deprecated)]
 pub use crate::v3::{Error as OldError, SendError, XcmHash};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::result;
@@ -178,6 +179,7 @@ pub enum Error {
 	ExceedsStackLimit,
 }
 
+#[allow(deprecated)]
 impl TryFrom<OldError> for Error {
 	type Error = ();
 	fn try_from(old_error: OldError) -> result::Result<Error, ()> {
@@ -227,6 +229,7 @@ impl TryFrom<OldError> for Error {
 	}
 }
 
+#[allow(deprecated)]
 impl From<SendError> for Error {
 	fn from(e: SendError) -> Self {
 		match e {

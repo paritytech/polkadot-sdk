@@ -15,17 +15,18 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Version 4 of the Cross-Consensus Message format data structures.
-
+#[allow(deprecated)]
 pub use super::v3::GetWeight;
-use super::{
-	v3::{
-		Instruction as OldInstruction, PalletInfo as OldPalletInfo,
-		QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse, Xcm as OldXcm,
-	},
-	v5::{
-		Instruction as NewInstruction, PalletInfo as NewPalletInfo,
-		QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
-	},
+#[allow(deprecated)]
+use super::v3::{
+	Instruction as OldInstruction, MaybeErrorCode as OldMaybeErrorCode,
+	OriginKind as OldOriginKind, PalletInfo as OldPalletInfo,
+	QueryResponseInfo as OldQueryResponseInfo, Response as OldResponse,
+	WeightLimit as OldWeightLimit, Xcm as OldXcm,
+};
+use super::v5::{
+	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
+	QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 };
 use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
@@ -56,8 +57,117 @@ pub use traits::{
 	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
-// These parts of XCM v3 are unchanged in XCM v4, and are re-imported here.
-pub use super::v3::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
+
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum MaybeErrorCode {
+	Success,
+	Error(BoundedVec<u8, MaxDispatchErrorLen>),
+	TruncatedError(BoundedVec<u8, MaxDispatchErrorLen>),
+}
+
+impl From<Vec<u8>> for MaybeErrorCode {
+	fn from(v: Vec<u8>) -> Self {
+		match BoundedVec::try_from(v) {
+			Ok(error) => MaybeErrorCode::Error(error),
+			Err(error) => MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error)),
+		}
+	}
+}
+
+impl Default for MaybeErrorCode {
+	fn default() -> MaybeErrorCode {
+		MaybeErrorCode::Success
+	}
+}
+impl From<OldMaybeErrorCode> for MaybeErrorCode {
+	fn from(old: OldMaybeErrorCode) -> Self {
+		match old {
+			OldMaybeErrorCode::Success => MaybeErrorCode::Success,
+			OldMaybeErrorCode::Error(error) => error.to_vec().into(),
+			OldMaybeErrorCode::TruncatedError(error) => {
+				MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error.into_inner()))
+			},
+		}
+	}
+}
+
+/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum OriginKind {
+	/// Origin should just be the native dispatch origin representation for the sender in the
+	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
+	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
+	/// primary/native dispatch origin form.
+	Native,
+
+	/// Origin should just be the standard account-based origin with the sovereign account of
+	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
+	SovereignAccount,
+
+	/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
+	/// This will not usually be an available option.
+	Superuser,
+
+	/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
+	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
+	/// the `pallet_xcm::Origin::Xcm` type.
+	Xcm,
+}
+
+impl From<OldOriginKind> for OriginKind {
+	fn from(old: OldOriginKind) -> Self {
+		match old {
+			OldOriginKind::Native => Self::Native,
+			OldOriginKind::SovereignAccount => Self::SovereignAccount,
+			OldOriginKind::Superuser => Self::Superuser,
+			OldOriginKind::Xcm => Self::Xcm,
+		}
+	}
+}
+
+/// An optional weight limit.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum WeightLimit {
+	/// No weight limit imposed.
+	Unlimited,
+	/// Weight limit imposed of the inner value.
+	Limited(Weight),
+}
+
+impl From<Option<Weight>> for WeightLimit {
+	fn from(x: Option<Weight>) -> Self {
+		match x {
+			Some(w) => WeightLimit::Limited(w),
+			None => WeightLimit::Unlimited,
+		}
+	}
+}
+
+impl From<WeightLimit> for Option<Weight> {
+	fn from(x: WeightLimit) -> Self {
+		match x {
+			WeightLimit::Limited(w) => Some(w),
+			WeightLimit::Unlimited => None,
+		}
+	}
+}
+
+impl From<OldWeightLimit> for WeightLimit {
+	fn from(old: OldWeightLimit) -> Self {
+		match old {
+			OldWeightLimit::Unlimited => WeightLimit::Unlimited,
+			OldWeightLimit::Limited(w) => WeightLimit::Limited(w),
+		}
+	}
+}
 
 /// This module's XCM version.
 pub const VERSION: super::Version = 4;
@@ -216,6 +326,7 @@ pub mod prelude {
 
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
+	pub MaxDispatchErrorLen: u32 = 128;
 	pub MaxPalletsInfo: u32 = 64;
 }
 
@@ -329,7 +440,7 @@ impl TryFrom<OldResponse> for Response {
 					BoundedVec::<PalletInfo, MaxPalletsInfo>::try_from(inner).map_err(|_| ())?,
 				)
 			},
-			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error),
+			DispatchResult(maybe_error) => Self::DispatchResult(maybe_error.into()),
 		})
 	}
 }
@@ -1465,10 +1576,10 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
-			InitiateTransfer { .. } |
-			PayFees { .. } |
-			SetHints { .. } |
-			ExecuteWithOrigin { .. } => {
+			InitiateTransfer { .. }
+			| PayFees { .. }
+			| SetHints { .. }
+			| ExecuteWithOrigin { .. } => {
 				tracing::debug!(target: "xcm::versions::v5tov4", ?new_instruction, "not supported by v4");
 				return Err(());
 			},
@@ -1517,8 +1628,10 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelClosing { initiator, sender, recipient } => {
 				Self::HrmpChannelClosing { initiator, sender, recipient }
 			},
-			Transact { origin_kind, require_weight_at_most, call } => {
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
+			Transact { origin_kind, require_weight_at_most, call } => Self::Transact {
+				origin_kind: origin_kind.into(),
+				require_weight_at_most,
+				call: call.into(),
 			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
@@ -1590,7 +1703,9 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			ExpectError(maybe_error) => Self::ExpectError(
 				maybe_error.map(|error| error.try_into()).transpose().map_err(|_| ())?,
 			),
-			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
+			ExpectTransactStatus(maybe_error_code) => {
+				Self::ExpectTransactStatus(maybe_error_code.into())
+			},
 			QueryPallet { module_name, response_info } => Self::QueryPallet {
 				module_name,
 				response_info: response_info.try_into().map_err(|_| ())?,
@@ -1631,7 +1746,7 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			ClearTopic => Self::ClearTopic,
 			AliasOrigin(location) => Self::AliasOrigin(location.try_into().map_err(|_| ())?),
 			UnpaidExecution { weight_limit, check_origin } => Self::UnpaidExecution {
-				weight_limit,
+				weight_limit: weight_limit.into(),
 				check_origin: check_origin
 					.map(|location| location.try_into())
 					.transpose()
@@ -1703,7 +1818,7 @@ mod tests {
 			OldInstruction::ClearOrigin,
 			OldInstruction::BuyExecution {
 				fees: (OldHere, 1u128).into(),
-				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)),
+				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)).into(),
 			},
 			OldInstruction::DepositAsset {
 				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),
