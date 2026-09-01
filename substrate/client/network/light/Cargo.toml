@@ -32,3 +32,8 @@ thiserror = { workspace = true }
 
 [build-dependencies]
 prost-build = { workspace = true }
+
+[dev-dependencies]
+sc-block-builder = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
