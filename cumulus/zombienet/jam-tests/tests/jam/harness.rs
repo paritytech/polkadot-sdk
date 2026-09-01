@@ -6,7 +6,7 @@
 use super::{
 	collators::{Collators, JamTarget, Para, POLL_INTERVAL},
 	env::Binaries,
-	network::JamNetwork,
+	network::{JamNetwork, ParaHead},
 	rpc::{CollatorRpc, Height},
 };
 use anyhow::Context;
@@ -63,6 +63,32 @@ impl WorkDir {
 	}
 }
 
+/// One reading of a para: where its own chain is, and where JAM thinks it is.
+///
+/// The two move independently, and every phase-6 assertion is about how: authoring is local and
+/// carries on regardless, while the accumulated head only moves when a work package made it all
+/// the way through JAM.
+#[derive(Clone, Debug)]
+pub struct ParaProgress {
+	pub height: Height,
+	pub jam_head: Option<ParaHead>,
+}
+
+impl std::fmt::Display for ParaProgress {
+	fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			formatter,
+			"best {} finalized {}, JAM head {}",
+			self.height.best,
+			self.height.finalized,
+			match &self.jam_head {
+				Some(head) => head.to_string(),
+				None => "none".to_string(),
+			}
+		)
+	}
+}
+
 /// One parachain of a run: what it is, and the collators authoring it.
 pub struct ParaRun {
 	pub para: Para,
@@ -75,6 +101,7 @@ pub struct Run {
 	pub network: JamNetwork,
 	/// One entry per para, in the order they were started.
 	pub paras: Vec<ParaRun>,
+	pub binaries: Binaries,
 	work_dir: WorkDir,
 	pub deadline: Instant,
 }
@@ -105,7 +132,12 @@ impl Run {
 			started.push(ParaRun { para, collators });
 		}
 
-		Ok(Run { network, paras: started, work_dir, deadline })
+		Ok(Run { network, paras: started, binaries: binaries.clone(), work_dir, deadline })
+	}
+
+	/// Give a run more wall clock than [`DEADLINE`], for a test that waits out several phases.
+	pub fn extend_deadline(&mut self, extra: Duration) {
+		self.deadline += extra;
 	}
 
 	/// Where the chain specs, the collator base paths and every log file live.
@@ -162,6 +194,99 @@ impl Run {
 		))
 	}
 
+	/// One reading of para `index`: how far its own chain has got, and the head JAM holds for it.
+	pub async fn sample(&self, index: usize, rpc: &CollatorRpc) -> anyhow::Result<ParaProgress> {
+		let para = self.paras.get(index).context("no para with that index")?;
+		let height = rpc.height().await?;
+		let jam_head = self.network.para_head(&self.binaries, para.para.id)?;
+		Ok(ParaProgress { height, jam_head })
+	}
+
+	/// Poll para `index` until `reached` accepts a reading, or the budget runs out.
+	///
+	/// A failed read is retried rather than fatal: both RPCs are remote, and one dropped call says
+	/// nothing about the para. A collator that has *exited* is fatal, and is checked every round.
+	async fn wait_until(
+		&mut self,
+		index: usize,
+		rpc: &CollatorRpc,
+		what: &str,
+		budget: Duration,
+		mut reached: impl FnMut(&ParaProgress) -> bool,
+	) -> anyhow::Result<ParaProgress> {
+		let id = self.paras[index].para.id;
+		let started = Instant::now();
+		let until = (started + budget).min(self.deadline);
+		let mut last = None;
+		let mut failure = None;
+
+		log::info!("{what}: watching para {id}, budget {budget:?}");
+		while Instant::now() < until {
+			self.check_all_running()?;
+			match self.sample(index, rpc).await {
+				Ok(progress) => {
+					log::info!("{what}: para {id} at {progress} after {:?}", started.elapsed());
+					if reached(&progress) {
+						log::info!("{what}: reached after {:?}", started.elapsed());
+						return Ok(progress);
+					}
+					last = Some(progress);
+				},
+				Err(problem) => {
+					log::warn!("{what}: reading para {id} failed: {problem:#}");
+					failure = Some(problem);
+				},
+			}
+			sleep(POLL_INTERVAL).await;
+		}
+
+		Err(anyhow::anyhow!(
+			"{what}: nothing in {:?}; para {id} was last at {}{}",
+			started.elapsed(),
+			last.map_or("no reading at all".to_string(), |progress| progress.to_string()),
+			failure.map_or(String::new(), |problem| format!(" (last read failed: {problem:#})")),
+		))
+	}
+
+	/// Wait until JAM has accumulated a head of at least `number` for para `index`.
+	pub async fn wait_for_jam_head(
+		&mut self,
+		index: usize,
+		rpc: &CollatorRpc,
+		number: u64,
+		budget: Duration,
+	) -> anyhow::Result<ParaProgress> {
+		let what = format!("JAM should accumulate head #{number}");
+		self.wait_until(index, rpc, &what, budget, |progress| {
+			progress.jam_head.as_ref().is_some_and(|head| head.number >= number)
+		})
+		.await
+	}
+
+	/// Wait until JAM's head for para `index` has stood still for `still_for`.
+	///
+	/// Standing still is what a stall looks like from the chain: nothing announces that packages
+	/// stopped being reported, the head simply stops moving. The reading returned is the frozen
+	/// head, and the collator's own heights in it are what say whether authoring carried on.
+	pub async fn wait_for_frozen_jam_head(
+		&mut self,
+		index: usize,
+		rpc: &CollatorRpc,
+		still_for: Duration,
+		budget: Duration,
+	) -> anyhow::Result<ParaProgress> {
+		let what = format!("the JAM head should stand still for {still_for:?}");
+		let mut standing: Option<(Option<ParaHead>, Instant)> = None;
+		self.wait_until(index, rpc, &what, budget, |progress| match &standing {
+			Some((head, since)) if *head == progress.jam_head => since.elapsed() >= still_for,
+			_ => {
+				standing = Some((progress.jam_head.clone(), Instant::now()));
+				false
+			},
+		})
+		.await
+	}
+
 	/// Where every para has got to, as one line.
 	pub fn describe(&self, heights: &[Height]) -> String {
 		self.paras
@@ -204,6 +329,32 @@ pub async fn assert_collators_build_blocks(
 	assert_paras_build_blocks(test, vec![Para::single(collators)], blocks, finalized).await
 }
 
+/// Start logging and resolve the artifacts, or explain what is missing and skip the test.
+pub fn setup(test: &str) -> Option<Binaries> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+	super::env::binaries_or_skip(test)
+}
+
+/// Tear a run down, attaching the logs to whatever it failed on.
+///
+/// One message, reason first: anyhow prints the outermost context before its cause, so wrapping
+/// would bury the reason under forty lines of log.
+pub async fn finish(run: Run, result: anyhow::Result<()>) -> anyhow::Result<()> {
+	match result {
+		Ok(()) => {
+			run.shutdown().await;
+			Ok(())
+		},
+		Err(error) => {
+			let report = format!("{error}\n\n{}", run.diagnostics());
+			run.shutdown().await;
+			Err(anyhow::anyhow!(report))
+		},
+	}
+}
+
 /// Run one collator set per para and assert every parachain keeps moving.
 pub async fn assert_paras_build_blocks(
 	test: &str,
@@ -211,26 +362,10 @@ pub async fn assert_paras_build_blocks(
 	blocks: u64,
 	finalized: u64,
 ) -> anyhow::Result<()> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
-
-	let Some(binaries) = super::env::binaries_or_skip(test) else { return Ok(()) };
+	let Some(binaries) = setup(test) else { return Ok(()) };
 
 	let mut run = Run::start(test, &binaries, paras).await?;
-	let result = run.wait_for_blocks(blocks, finalized).await;
-	match result {
-		Ok(heights) => {
-			log::info!("{test}: {}", run.describe(&heights));
-			run.shutdown().await;
-			Ok(())
-		},
-		Err(error) => {
-			// One message, reason first: anyhow prints the outermost context before its cause, so
-			// wrapping would bury the reason under forty lines of log.
-			let report = format!("{error}\n\n{}", run.diagnostics());
-			run.shutdown().await;
-			Err(anyhow::anyhow!(report))
-		},
-	}
+	let heights = run.wait_for_blocks(blocks, finalized).await;
+	let result = heights.map(|heights| log::info!("{test}: {}", run.describe(&heights)));
+	finish(run, result).await
 }

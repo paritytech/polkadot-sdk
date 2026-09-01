@@ -205,12 +205,7 @@ impl JamNetwork {
 
 		for (assigned, para) in paras.iter().enumerate() {
 			let names = para.collator_names();
-			run_step(
-				&format!("assign-core: para {} onto core {} for {names}", para.id, para.core),
-				self.parasim_tool(binaries)
-					.args(["--collators", &names])
-					.args(["assign-core", &para.id.to_string(), &para.core.to_string()]),
-			)?;
+			self.assign_core(binaries, para, para.core)?;
 
 			if assigned + 1 == CORE_COUNT {
 				log::warn!(
@@ -229,6 +224,56 @@ impl JamNetwork {
 			)?;
 		}
 		Ok(())
+	}
+
+	/// Point `core`'s authorizer queue at `para`'s AURA authorizer.
+	///
+	/// Which lane the command travels down is not this caller's business: `parasim-tool` reads who
+	/// holds the core's assigner privilege and either rides an unassigned core as a bootstrap
+	/// instruction (service 0 still assigns it) or puts the command in an AURA package's token
+	/// (parasim assigns it). It returns only once the core's *pool* holds the new authorizer, so
+	/// afterwards the core really can carry the para's packages.
+	pub fn assign_core(&self, binaries: &Binaries, para: &Para, core: u32) -> anyhow::Result<()> {
+		let names = para.collator_names();
+		run_step(
+			&format!("assign-core: para {} onto core {core} for {names}", para.id),
+			self.parasim_tool(binaries)
+				.args(["--collators", &names])
+				.args(["assign-core", &para.id.to_string(), &core.to_string()])
+				.args(["--via-para", &para.id.to_string()]),
+		)
+	}
+
+	/// Return `core` to the unassigned authorizer, so its pool drains over the next few blocks.
+	///
+	/// Only a core parasim was granted can be freed this way, and the command rides the core
+	/// itself: it is a control package under the AURA authorizer that is about to go away, signed
+	/// by `para`'s own collator set. Returns once the pool holds the unassigned authorizer, which
+	/// is the moment the drain of the old one starts being visible.
+	pub fn free_core(&self, binaries: &Binaries, para: &Para, core: u32) -> anyhow::Result<()> {
+		let names = para.collator_names();
+		run_step(
+			&format!("free-core: core {core}, carried under para {}'s authorizer", para.id),
+			self.parasim_tool(binaries)
+				.args(["--collators", &names])
+				.args(["free-core", &core.to_string()])
+				.args(["--via-para", &para.id.to_string()]),
+		)
+	}
+
+	/// The parachain head parasim has accumulated for `para`, or `None` while it has none.
+	///
+	/// This is the completion signal of the whole pipeline: JAM emits no "accumulated" event, so a
+	/// para head that moves is the only proof that a work package was guaranteed, reported and
+	/// accumulated. Reading it out of service storage rather than out of a collator's log is what
+	/// makes an assertion about it an assertion about the chain.
+	pub fn para_head(&self, binaries: &Binaries, para: u32) -> anyhow::Result<Option<ParaHead>> {
+		let what = format!("display-key parahead: para {para}");
+		let output = capture_step(
+			&what,
+			self.parasim_tool(binaries).args(["display-key", "parahead", &para.to_string()]),
+		)?;
+		parse_para_head(&output).with_context(|| format!("{what}: reading\n{output}"))
 	}
 
 	/// A `parasim-tool` invocation carrying the arguments every phase-6 command needs.
@@ -299,9 +344,21 @@ fn copy_aside(blob: &Path, work_dir: &Path) -> anyhow::Result<PathBuf> {
 fn run_step(what: &str, command: &mut Command) -> anyhow::Result<()> {
 	log::info!("{what}: running {command:?}");
 	let started = std::time::Instant::now();
+	let stdout = capture_step(what, command)?;
+	log::info!("{what}: ok in {:?}\n{stdout}", started.elapsed());
+	Ok(())
+}
+
+/// Run one step and hand back its stdout, for the reads whose value the caller parses.
+///
+/// Quieter than [`run_step`] because a state read happens on a poll loop: the caller logs the
+/// value it extracted instead, and the full transcript stays at `debug`. A non-zero exit is still
+/// fatal, and still carries the whole transcript.
+fn capture_step(what: &str, command: &mut Command) -> anyhow::Result<String> {
+	let started = std::time::Instant::now();
 	let output = command.output().with_context(|| format!("{what}: running {command:?}"))?;
 	let elapsed = started.elapsed();
-	let stdout = String::from_utf8_lossy(&output.stdout);
+	let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
 	let stderr = String::from_utf8_lossy(&output.stderr);
 
 	anyhow::ensure!(
@@ -309,6 +366,99 @@ fn run_step(what: &str, command: &mut Command) -> anyhow::Result<()> {
 		"{what} failed ({}) after {elapsed:?}:\n{stdout}{stderr}",
 		output.status,
 	);
-	log::info!("{what}: ok in {elapsed:?}\n{stdout}{stderr}");
-	Ok(())
+	if !stderr.trim().is_empty() {
+		log::info!("{what}: stderr\n{stderr}");
+	}
+	log::debug!("{what}: ok in {elapsed:?}\n{stdout}");
+	Ok(stdout)
+}
+
+/// A parachain head as JAM has accumulated it: the tip parasim believes the chain has reached.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParaHead {
+	pub number: u64,
+	/// The block hash, `0x`-prefixed, in the same spelling a collator's RPC uses.
+	pub hash: String,
+}
+
+impl std::fmt::Display for ParaHead {
+	fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(formatter, "#{} {}", self.number, self.hash)
+	}
+}
+
+/// Pull the accumulated head out of `parasim-tool display-key parahead`'s report.
+///
+/// The head is a substrate header the tool decodes for us, so only its hash and number are read
+/// back. An unrecognised report is an error rather than "no head": the two mean opposite things to
+/// a stall assertion, and a tool whose output has moved on should say so loudly.
+fn parse_para_head(output: &str) -> anyhow::Result<Option<ParaHead>> {
+	if output.contains("no entry:") {
+		return Ok(None);
+	}
+	let (_, header) = output
+		.split_once("head (substrate header)")
+		.context("no decoded header in the report")?;
+	let field = |name: &str| {
+		header
+			.lines()
+			.find_map(|line| line.trim().strip_prefix(name))
+			.map(str::trim)
+			.with_context(|| format!("the decoded header has no {name}"))
+	};
+
+	Ok(Some(ParaHead {
+		number: field("number")?.parse().context("the header's number is not a number")?,
+		hash: field("hash")?.to_string(),
+	}))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Verbatim output of `parasim-tool display-key parahead 0`, trimmed of the long hex.
+	const REPORT: &str = "\
+block       0xaaaa
+service     5
+para        0
+service key 0xbbbb
+state key   0xcccc
+
+ParaInfo    123 bytes
+  head_data           99 bytes
+  validation_code     None
+  pending_upgrade     None
+  total_state_balance 0
+  used_state_balance  0
+  is_deregistering    false
+
+head (substrate header)
+  hash        0xdddd
+  parent_hash 0xeeee
+  number      17
+  state_root  0xffff
+  encoded     0x0102
+";
+
+	#[test]
+	fn the_accumulated_head_is_read_out_of_the_report() {
+		let head = parse_para_head(REPORT).expect("the report parses").expect("there is a head");
+		// `parent_hash` and `state_root` sit either side of the two fields wanted, so a parser
+		// matching on a prefix could pick up the wrong line without ever failing.
+		assert_eq!(head, ParaHead { number: 17, hash: "0xdddd".to_string() });
+	}
+
+	#[test]
+	fn a_para_with_no_head_yet_is_not_a_head_of_zero() {
+		// Height zero is a real head — the genesis one — so "nothing accumulated yet" has to stay
+		// distinguishable from it, or a stall would read as progress.
+		let empty = "block       0xaaaa\n\nno entry: para 0 has no head at this block\n";
+		assert_eq!(parse_para_head(empty).expect("the report parses"), None);
+	}
+
+	#[test]
+	fn an_unrecognised_report_is_an_error() {
+		assert!(parse_para_head("ParaInfo    123 bytes\n  (undecodable)\n").is_err());
+	}
 }

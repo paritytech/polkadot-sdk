@@ -174,6 +174,24 @@ impl Collators {
 		Ok(())
 	}
 
+	/// Every line of every collator's log that contains all of `needles`.
+	///
+	/// For the few things no state read can show — which core a submission went to, that the
+	/// builder re-rooted onto a stuck head — the collator's own log is the only witness.
+	pub fn log_lines_with(&self, needles: &[&str]) -> Vec<String> {
+		self.collators
+			.iter()
+			.flat_map(|collator| {
+				let contents = std::fs::read_to_string(&collator.log_path).unwrap_or_default();
+				contents
+					.lines()
+					.filter(|line| needles.iter().all(|needle| line.contains(needle)))
+					.map(|line| format!("{}: {line}", collator.name))
+					.collect::<Vec<_>>()
+			})
+			.collect()
+	}
+
 	/// The tail of every collator log, for a failure message.
 	pub fn log_tails(&self, lines: usize) -> String {
 		self.collators
