@@ -529,7 +529,6 @@ pub mod pallet {
 			};
 			Paras::<T>::insert(para_id, info);
 
-			// A transport failure returns `Err` and unwinds the new deadline with it.
 			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
 				para_id,
