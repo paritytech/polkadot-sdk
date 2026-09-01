@@ -55,6 +55,12 @@ module messages {
   // `set_head` was called with head data beyond the 4 KiB `HeadData` bound
   // (§4.3).
   | HeadDataTooLarge
+  // `set_provides_root` or `set_requires_root` was called more than once in
+  // a single Refine invocation (§4.3, §8.3).
+  | SpecMsgCallRepeated
+  // A `set_requires_root` set exceeded `MaxRequiresSources`, repeated a
+  // source `ParaId`, or named the candidate's own `para_id` (§4.3, §8.3).
+  | SpecMsgInvalidRequires
 
   // --- Accumulate-side log payloads ---------------------------------------
 
@@ -283,7 +289,15 @@ module messages {
     parentHeadHash: HeadHash,
     headData: HeadData,
     upwardMessages: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    // §8.3: the root this candidate publishes to consumers, `None` when it
+    // sent nothing. Pushed into the sender's settlement ring on enactment
+    // (§5.1 step 6), so a root enters the ring only for an enacted candidate.
+    specMsgProvides: Option[StreamsRoot],
+    // §8.3: one entry per source consumed from. Digest fields rather than
+    // upward messages because Accumulate settlement-checks them BEFORE the
+    // head write (§5.1 step 6); upward messages replay after it (step 7).
+    specMsgRequires: List[(ParaId, StreamsRoot)]
   }
 
   /// Refine output per work item: a success digest or a Refine error.
