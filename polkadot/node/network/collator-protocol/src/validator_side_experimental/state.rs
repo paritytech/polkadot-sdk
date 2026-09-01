@@ -618,34 +618,43 @@ impl<B: Backend> State<B> {
 		}
 	}
 
-	/// Fresh prospective-parachains knowledge for the paras we may fetch for, queried right before
-	/// a launch pass. Deliberately not cached: a snapshot goes stale within a block and makes us
-	/// re-fetch heads other validators already got backed. Queried here — in the run loop, where
-	/// the overseer is concurrently pumped — so the launch itself stays a synchronous, pure state
-	/// transition. Empty when we have no assignments.
-	pub async fn known_output_heads<Sender: CollatorProtocolSenderTrait>(
+	pub fn mark_replan(&mut self) {
+		self.collation_manager.mark_replan()
+	}
+
+	#[cfg(test)]
+	pub fn take_replan(&mut self) -> bool {
+		self.collation_manager.take_replan()
+	}
+
+	/// Runs a planner pass if a launch-enabling mutation happened since the last one.
+	/// Outer `None`: no pass ran. Inner value: the pass's fetch-delay, as before.
+	pub async fn maybe_replan<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-	) -> HashMap<ParaId, HashSet<Hash>> {
+	) -> Option<Option<Duration>> {
+		if !self.collation_manager.take_replan() {
+			return None;
+		}
 		let paras: Vec<ParaId> = self.collation_manager.assignments().into_iter().collect();
 		if paras.is_empty() {
-			return HashMap::new();
+			return None;
 		}
 		let (tx, rx) = oneshot::channel();
 		sender
 			.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads(paras, tx))
 			.await;
-		match rx.await {
-			Ok(knowledge) => knowledge,
-			Err(err) => {
+		let pp_known = match rx.await {
+			Ok(known) => known,
+			Err(_) => {
 				gum::warn!(
 					target: LOG_TARGET,
-					?err,
-					"GetKnownOutputHeads responder dropped; treating PP knowledge as empty this pass",
+					"GetKnownOutputHeads responder dropped; skipping planner pass",
 				);
-				HashMap::new()
+				return None;
 			},
-		}
+		};
+		Some(self.try_launch_new_fetch_requests(sender, &pp_known).await)
 	}
 
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
@@ -668,9 +677,9 @@ impl<B: Backend> State<B> {
 		let create_timer_fn = || metrics.time_collation_request_duration();
 
 		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
-			pp_known,
 			connected_rep_query_fn,
 			max_reps,
+			pp_known,
 			create_timer_fn,
 		);
 

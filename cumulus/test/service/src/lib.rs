@@ -360,7 +360,7 @@ where
 		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 	tracing::info!("Parachain id: {:?}", para_id);
 
-	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -374,6 +374,7 @@ where
 			metrics: Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
+			gap_sync_body_policy: None,
 		})
 		.await?;
 

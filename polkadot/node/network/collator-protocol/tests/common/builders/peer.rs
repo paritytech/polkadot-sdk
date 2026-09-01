@@ -94,7 +94,7 @@ impl Peer {
 				protocol_v1::CollatorProtocolMessage,
 				protocol_v2::CollatorProtocolMessage,
 				protocol_v3::CollatorProtocolMessage,
-				protocol_v4::CollatorProtocolMessage,
+				protocol_v4::AdvertiseSegment,
 			>,
 		>,
 	) -> CollatorProtocolMessage {
@@ -260,15 +260,14 @@ impl Peer {
 			ProtocolVersion::V4,
 			"advertise_segment requires a peer constructed with ProtocolVersion::V4"
 		);
-		let proto =
-			CollationProtocols::V4(protocol_v4::CollatorProtocolMessage::AdvertiseSegment {
-				scheduling_parent,
-				para_id: self.para,
-				candidates_descriptor_version: descriptor_version,
-				candidates: fingerprints
-					.try_into()
-					.expect("test segment length within MAX_SEGMENT_LEN"),
-			});
+		let proto = CollationProtocols::V4(protocol_v4::AdvertiseSegment {
+			scheduling_parent,
+			para_id: self.para,
+			candidates_descriptor_version: descriptor_version,
+			candidates: fingerprints
+				.try_into()
+				.expect("test segment length within MAX_SEGMENT_LEN"),
+		});
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
 }

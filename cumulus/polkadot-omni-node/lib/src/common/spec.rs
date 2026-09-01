@@ -52,7 +52,7 @@ use sc_network::{
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_storage_chain_sync::{
-	IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport, SyncingHandle,
+	BitswapHandleSlot, IndexedTransactionFetcher, StorageChainBlockImport,
 };
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
@@ -298,13 +298,9 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
-		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());
+		let bitswap_slot: BitswapHandleSlot = Arc::new(OnceLock::new());
 
-		let fetcher = IndexedTransactionFetcher::new(
-			Arc::clone(&network_handle),
-			Arc::clone(&syncing_handle),
-		);
+		let fetcher = IndexedTransactionFetcher::new(Arc::clone(&bitswap_slot));
 
 		let storage_chain_block_import =
 			StorageChainBlockImport::new(client.clone(), client.clone(), fetcher);
@@ -335,8 +331,7 @@ pub(crate) trait BaseNodeSpec {
 				telemetry,
 				telemetry_worker_handle,
 				block_import_auxiliary_data,
-				network_handle,
-				syncing_handle,
+				bitswap_slot,
 			),
 		})
 	}
@@ -402,8 +397,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				mut telemetry,
 				telemetry_worker_handle,
 				block_import_auxiliary_data,
-				network_handle,
-				syncing_handle,
+				bitswap_slot,
 			) = params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
@@ -448,7 +442,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				(proto, config)
 			});
 
-			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
 					net_config,
@@ -460,13 +454,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					metrics,
+					gap_sync_body_policy: Some(crate::common::gap_sync_body_policy_provider(
+						client.clone(),
+						parachain_config.blocks_pruning,
+					)),
 				})
 				.await?;
 
-			let _ = network_handle
-				.set(network.clone() as Arc<dyn sc_network::NetworkRequest + Send + Sync>);
-			let _ = syncing_handle.set(sync_service.clone()
-				as Arc<dyn sc_storage_chain_sync::BitswapPeerSource + Send + Sync>);
+			if let Some(handle) = bitswap_handle {
+				let _ = bitswap_slot.set(Arc::new(handle));
+			}
 
 			let peer_id = relay_chain_network.local_peer_id();
 

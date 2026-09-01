@@ -219,6 +219,11 @@ async fn build_relay_parent_ancestry(
 	let mut current_rp = relay_parent;
 	while ancestry.len() <= ancestry_lookback {
 		let Some(header) = relay_client.header(RelayBlockId::hash(current_rp)).await? else {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?current_rp,
+				"Relay chain header missing while walking the allowed ancestry.",
+			);
 			break;
 		};
 
@@ -346,6 +351,8 @@ async fn get_relay_parent<Block: BlockT>(
 	Ok(None)
 }
 
+/// True if `header`'s relay parent is a known ancestor of `scheduling_parent` on the relay chain,
+/// i.e. one the relay chain still accepts candidates on.
 async fn has_ancestor_relay_parent_info<Block: BlockT>(
 	relay_client: &impl RelayChainInterface,
 	scheduling_parent: RelayHash,
