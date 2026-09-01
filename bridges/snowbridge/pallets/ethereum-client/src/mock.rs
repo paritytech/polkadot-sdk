@@ -32,6 +32,14 @@ pub fn load_checkpoint_update_fixture(
 	load_fixture("initial-checkpoint.json".to_string()).unwrap()
 }
 
+/// Real Gloas checkpoint from the Platåberget testnet, slot 116768. Its sync-committee
+/// branch is at gindex 2945 and its `block_roots` branch at 352, so loading it through
+/// `force_checkpoint` exercises the Gloas arms of both selectors.
+pub fn load_gloas_checkpoint_fixture(
+) -> snowbridge_beacon_primitives::CheckpointUpdate<{ config::SYNC_COMMITTEE_SIZE }> {
+	load_fixture("gloas-checkpoint.json".to_string()).unwrap()
+}
+
 pub fn load_sync_committee_update_fixture() -> snowbridge_beacon_primitives::Update<
 	{ config::SYNC_COMMITTEE_SIZE },
 	{ config::SYNC_COMMITTEE_BITS_SIZE },
@@ -138,9 +146,25 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 0,
 		},
+		// These epochs are squeezed between two constraints. The existing fixtures reach
+		// epoch 258 (`next-sync-committee-update.json`), so fulu and gloas must sit above
+		// that or those fixtures change fork era. Real Gloas testnet slots are around epoch
+		// 3624, so gloas must sit below that or the Gloas fixtures are rejected by the
+		// variant/era cross-check. gloas is after fulu so fork-boundary tests have a
+		// boundary to cross.
+		//
+		// Trap when adding a fixture above epoch 2000: the gindices would not change, since
+		// Fulu shares Electra's and there is deliberately no `fulu` arm in the
+		// `*_gindex_at_slot` helpers. Only `select_fork_version` differs, so the sync
+		// committee signature would fail and it would look like a bad signature rather than
+		// a fork-schedule problem.
 		fulu: Fork {
 			version: hex!("06000000"),
-			epoch: 100000000,
+			epoch: 2000,
+		},
+		gloas: Fork {
+			version: hex!("07000000"),
+			epoch: 3000,
 		}
 	};
 }

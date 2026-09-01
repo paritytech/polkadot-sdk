@@ -119,6 +119,7 @@ mod benchmarks {
 			deneb: Fork { version: hex!("04000000"), epoch: 0 },
 			electra: Fork { version: hex!("05000000"), epoch: 80000000000 },
 			fulu: Fork { version: hex!("06000000"), epoch: 80000000001 },
+			gloas: Fork { version: hex!("07000000"), epoch: 80000000001 },
 		};
 		let finalized_root_gindex = EthereumBeaconClient::<T>::finalized_root_gindex_at_slot(
 			update.attested_header.slot,

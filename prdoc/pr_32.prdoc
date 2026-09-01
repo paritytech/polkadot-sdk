@@ -1,0 +1,58 @@
+title: 'snowbridge: Ethereum Gloas support in the beacon light client'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client. Two
+    EIPs affect it independently.
+
+    EIP-7688 turns `BeaconState` and `BeaconBlockBody` into progressive containers, so every
+    generalized index moves even where the field itself is unchanged: `finalized_checkpoint.root`
+    169 -> 735, `current_sync_committee` 86 -> 2945, `next_sync_committee` 87 -> 2946, and
+    `block_roots` 69 -> 352. The first three are published in the light-client spec; `block_roots`
+    is not, because the ancestry proof is a Snowbridge addition. A stale 69 there breaks every
+    ancestry proof and `force_checkpoint` with it, so 352 is confirmed against a live Gloas
+    client rather than derived alone.
+
+    EIP-7732 removes `execution_payload` from `BeaconBlockBody`, so the body no longer commits
+    to an `ExecutionPayloadHeader` and therefore no longer to a `receipts_root`. It commits only
+    to an execution block hash, at gindex 2856. A Gloas execution proof now carries the canonical
+    RLP of the execution header, authenticated by `keccak256(bytes) == committed hash`, and the
+    `receipts_root` is read out of those authenticated bytes.
+
+    Breaking changes in `snowbridge-beacon-primitives`:
+
+    - `ForkVersions` gains a `gloas` field. Every runtime, mock and benchmark configuration must
+      set it.
+    - `VersionedExecutionPayloadHeader` gains a `Gloas(BoundedVec<u8, ConstU32<1024>>)` variant.
+      It is appended, so existing SCALE encodings continue to decode.
+    - `hash_tree_root()`, `receipts_root()`, `block_hash()` and `block_number()` are removed from
+      `VersionedExecutionPayloadHeader`. `commitment()` replaces them, returning an opaque
+      `ExecutionCommitment` that carries both the merkle leaf and the receipts root that leaf
+      authenticates. The receipts root is reachable only through the consuming
+      `receipts_root_once_proven()`, so it cannot be read off a proof that was never verified.
+
+    In `snowbridge-pallet-ethereum-client`, `execution_header_gindex()` becomes
+    `execution_commitment_gindex(is_gloas)` — after Gloas the commitment is a different field,
+    not just a different index — and `verify_execution_proof` returns the authenticated
+    `receipts_root` instead of `()`.
+
+    A proof whose variant disagrees with the fork era of its beacon header slot is rejected, so
+    a submitter cannot select their own verification path. The Gloas fork version and epoch are
+    placeholders until the fork is scheduled; until then no epoch selects Gloas and Gloas proofs
+    are refused rather than mis-verified.
+
+    Not included: weights are still measured on pre-Gloas inputs and must be regenerated before
+    this is relied on in production, and the relayer-side changes are separate.
+crates:
+- name: snowbridge-beacon-primitives
+  bump: major
+- name: snowbridge-pallet-ethereum-client
+  bump: major
+- name: snowbridge-pallet-inbound-queue
+  bump: none
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: none
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
