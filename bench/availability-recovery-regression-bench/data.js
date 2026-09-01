@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788246411886,
+  "lastUpdate": 1788260447457,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4535807e489a0e71e15e420729ee2d09efa32195",
-          "message": "auth-discovery: Ensure DHT published addresses have ports (#10954)\n\nWe have seen instances in production where validators will propagate\nmultiaddresses without ports.\nThese addresses are effectively unreachable from the networking layer\nperspective.\nThey might be discovered via:\n- identify protocol\n- or simply a wrongly configured CLI for public addresses\n\nTo close the gap on this issue, this PR checks that the published\naddresses will always contain a port.\n\nCloses:\n- https://github.com/paritytech/polkadot-sdk/issues/10466\n\nPart of:\n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-03T21:52:12Z",
-          "tree_id": "4ea966b3227373ed5ba3c795f900f32ecaecde86",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4535807e489a0e71e15e420729ee2d09efa32195"
-        },
-        "date": 1770160092485,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.437140654366669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11936476379999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14501532856666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3cd96d6d78e9838875840da192d48f19788f96cb",
+          "message": "Remove deprecated BuildModuleGenesisStorage (#12990)\n\n## Summary\n\nRemoved `sp_runtime::BuildModuleGenesisStorage`, deprecated since\nDecember 2023 in favour of `BuildStorage`. There are no remaining\nin-repo callers.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-09-01T09:11:12Z",
+          "tree_id": "24265346602eeaf91ae2c9b6d224996cbaf92906",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3cd96d6d78e9838875840da192d48f19788f96cb"
+        },
+        "date": 1788260409781,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.888958458866668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14364612403333332,
             "unit": "seconds"
           }
         ]
