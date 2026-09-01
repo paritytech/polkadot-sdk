@@ -248,8 +248,8 @@ where
 
 	let (stop_handle, server_handle) = stop_channel();
 	let rpc_api = build_rpc_api(rpc_api);
-	// Bound the metrics `method` label to the registered methods; otherwise an
-	// unauthenticated caller can OOM the node via unbounded label cardinality.
+	// Bound the metrics `method` label to the registered methods so its
+	// cardinality stays finite (unknown names collapse to `"unknown"`).
 	let metrics = metrics.map(|m| {
 		let known: Vec<&'static str> = rpc_api.method_names().collect();
 		m.with_known_methods(known)

@@ -78,7 +78,7 @@ pub struct RpcMetrics {
 	ws_sessions_closed: Option<Counter<U64>>,
 	/// Histogram over RPC websocket sessions.
 	ws_sessions_time: HistogramVec,
-	/// Bounds the `method` label so untrusted callers cannot mint unbounded series.
+	/// Bounds the `method` label to keep series cardinality finite.
 	/// Empty = not configured: fall back to the raw name (old behaviour).
 	known_methods: Arc<HashSet<&'static str>>,
 }
@@ -375,8 +375,8 @@ mod tests {
 			m.on_call(&req(name), "ws");
 		}
 		m.on_call(&req("state_getStorage"), "ws");
-		// 1000 distinct junk names collapse to a single `unknown` series; plus the
-		// one known method actually called = 2. Without the fix this would be 1001.
+		// 1000 distinct unregistered names collapse to a single `unknown` series,
+		// plus the one registered method actually called = 2.
 		let families = m.calls_started.collect();
 		let series = families.iter().map(|f| f.get_metric().len()).sum::<usize>();
 		assert_eq!(series, 2);
