@@ -559,28 +559,192 @@ to the Enacted tier and is not part of the MVP or the design above.
 
 ### Alternative Verification
 
-The RefineContext carries the anchor's accumulation-output-log super peak. The verification
-can happen in-core of the receiver parachain. Since speculation happens at enactment, the
-super peak contains the sender parachain header hash. The receiver node passes in its PoV
-an enactment proof which walks the super peak to the sender header hash, plus the full sender header.
-The receiver then extracts from the SPMS digest the `StreamsRoot` and compares against its `Provides`.
+The RefineContext carries the anchor's accumulation-output-log super peak, authenticated by JAM.
+Verification happens in-core, in the receiver parachain's Refine. Since speculation happens at
+enactment, the super peak commits to what PS accumulated at the sender's enacting block.
+
+During Accumulate, at the same point where a `Provides` root is pushed into the sender's ring,
+PS also emits `Leaf { para_id, streams_root }` into a per-block provides tree. Its root is
+committed next to the changed-heads root in PS's accumulation output:
+
+```
+output = keccak("ps-out-v1" ++ heads_root ++ provides_root)
+```
+
+A provides leaf exists only for a candidate that enacted, and it carries exactly the value the
+sender reported via `set_provides_root`: the same value ring settlement checks. No header is
+involved anywhere.
+
+The changed-heads *tree* stays byte identical, but the output commitment changes shape: every
+existing belt consumer (light clients, bridges) that walked `belt leaf → heads_root` directly
+must be upgraded to supply the `provides_root` sibling and the version tag. This is a
+coordinated format migration, not a drop-in change.
+
+**Tree construction (consensus rules).** The provides tree is a binary keccak tree with
+mandatory domain separation:
+
+- leaf: `keccak(0x00 ++ para_id ++ streams_root)`
+- interior node: `keccak(0x01 ++ left ++ right)`
+
+Leaves are sorted by `para_id`; a para enacting multiple candidates in one block contributes
+multiple leaves, ordered by accumulation order. A single-leaf tree's root is the leaf hash. A
+block in which no para provides commits the constant
+`EMPTY_PROVIDES_ROOT = keccak("ps-provides-empty-v1")`, so the output shape never varies and a
+heads-only commitment can never be reinterpreted. The in-block `(service, output)` pairs tree
+uses the same leaf/interior tags. The tags are not optional: without them a 64-byte leaf
+encoding is byte identical to an interior preimage and interior-as-leaf forgeries open up.
+Sorted leaves also make non-membership provable ("para A provided nothing at this block"),
+usable for the §8 channel-freeze policy.
 
 Walking the super-peak:
 
 ```
-anchor super-peak → belt leaf → (PS, heads_root) → Leaf { para_id, head_hash }
-  → header preimage → SPMS digest → StreamsRootA
+anchor super-peak → belt leaf → (PS, output) pair → provides_root → Leaf { para_id, streams_root }
 ```
 
+### Proof Format
+
+Every path carries its position; side bits at each level derive from the index, so hashing is
+never commutative and every leaf is position bound.
+
 ```rust
+/// Depth caps, enforced before any hashing. An oversize or malformed proof
+/// aborts Refine with `RefineLog`; no panics, checked index arithmetic only.
+const MAX_BELT_DEPTH: usize = 64;     // u64 leaf index bounds the MMR
+const MAX_PAIRS_DEPTH: usize = 16;    // services accumulating per block
+const MAX_PROVIDES_DEPTH: usize = 16; // provides leaves per block
+
 struct EnactmentProof {
-    /// Path from the anchor's super-peak to the enacting block's entry.
-    belt_path: Vec<u8>,
-    /// PS's per-block accumulation output for that block.
+    /// Position of the enacting block's belt leaf in the accumulation-output log.
+    belt_leaf_index: u64,
+    /// Intra-peak siblings, `<= MAX_BELT_DEPTH`.
+    belt_peak_path: Vec<Hash>,
+    /// Remaining peak bag, folded per `belt_leaf_index`, `<= MAX_BELT_DEPTH`.
+    belt_peaks: Vec<Hash>,
+    /// Position of the `(PS, output)` pair in the block's pairs tree.
+    pairs_index: u16,
+    /// Siblings in the pairs tree, `<= MAX_PAIRS_DEPTH`.
+    pairs_path: Vec<Hash>,
+    /// PS's changed-heads root for that block, the sibling of `provides_root`
+    /// in the output commitment.
     heads_root: Hash,
-    /// keccak path in the changed-heads tree to `Leaf { para_id, head_hash }`.
-    heads_path: Vec<Hash>,
-    /// Full header preimage that must match to `head_hash`.
-    header: Vec<u8>,
+    /// Position of the provides leaf.
+    provides_index: u16,
+    /// Siblings in the provides tree, `<= MAX_PROVIDES_DEPTH`.
+    provides_path: Vec<Hash>,
 }
 ```
+
+Verification, in the receiver's Refine:
+
+1. Enforce the depth caps and decode; failure aborts with `RefineLog` before any hashing.
+2. Recompute `leaf = keccak(0x00 ++ para_id ++ streams_root)` from the verifier's own
+   `Requires` target. Nothing semantic is ever extracted from the proof.
+3. Walk `provides_path` (sides from `provides_index`) up to `provides_root`.
+4. Recombine `output = keccak("ps-out-v1" ++ heads_root ++ provides_root)`.
+5. Recompute the pair leaf from the verifier's own PS service id constant and `output`, walk
+   `pairs_path` (sides from `pairs_index`) up to the block's belt leaf.
+6. Walk `belt_peak_path` and fold `belt_peaks` per `belt_leaf_index` up to the anchor super
+   peak; compare against the RefineContext value.
+
+Every step is a hash membership check on values the receiver already holds; a proof cannot
+settle any root other than the one being asked about.
+
+**Service id binding is the security of the scheme.** Every service fully controls its own
+output bytes, so any attacker can register a service and emit
+`keccak("ps-out-v1" ++ x ++ fake_provides_root)` where the fake tree contains
+`Leaf { victim_para, evil_root }`. The only thing separating that from a universal forgery is
+step 5: the pair leaf is recomputed from the PS service id the verifier already knows, never
+read from the proof.
+
+**Replay.** Settlement (ring or proof) only ever answers "was this root enacted". Which
+messages get consumed is guarded solely by the receiver's consumption frontier, enforced by
+its registered PVF: stream positions are append-only, and a `parachain_set_head` reverts the
+frontier and the consumption effects atomically, so double delivery is impossible while both
+endpoint histories are continuous. The discontinuous cases are Known Limitations below.
+
+### Costs
+
+Proofs ride in the work item payload next to the Lift proofs, are consumed in Refine and
+discarded. Only the resulting `(ParaId, StreamsRoot)` entries (~36 B each) reach the digest;
+Accumulate performs zero settlement reads. The bytes are paid in package size, DA erasure
+coding and audit re-execution, not in the 48 KiB report.
+
+Path length grows with chain age, not activity. At ~2^26 belt leaves (about a decade of 6 s
+blocks) a proof is ~2.5 KiB per consumed source; the depth caps bound it at ~5.2 KiB. Naive
+full fan-in (32 sources, §1) is ~80 KiB, ~165 KiB at the caps (~1.2% of the package budget).
+Sources enacted in the same block share `belt_*`, `pairs_*` and `heads_root`, so the wire
+format groups proofs by enacting block: each co-enacted source adds only its provides path
+(~450 B), bringing full fan-in to ~16 KiB in the common case. Verify gas is at most ~161
+keccaks of 64 B per source.
+
+Proofs verify against the anchor super peak, so they are anchor specific: a resubmission that
+re-anchors (§2 note) needs freshly generated proofs. Collator tooling must not cache them
+across anchors.
+
+### Trust Model
+
+Ring settlement trusts an Accumulate state read. Here the load-bearing check runs in Refine,
+so the trust root moves to ELVES-audited in-core execution. The verification must live in
+PS's own Refine logic, not in the §1 wrapper checks that are explicitly collator-vs-collator.
+The digest carries a PS-attested flag marking entries as proof-settled, and Accumulate skips
+the ring read exactly for those: while both mechanisms coexist, every `Requires` entry is
+settled by exactly one of them, never neither.
+
+### Why not walk to the header
+
+An earlier form of this proof walked `belt leaf → heads_root → Leaf { para_id, head_hash }
+→ header preimage → SPMS digest → StreamsRoot`, carrying the full sender header in the PoV.
+It had provable defects:
+
+- **Unbound root.** The ring is fed from `set_provides_root` (pallet storage); the SPMS header
+  digest is written separately by the sender runtime. PS is header agnostic and never checks
+  they agree, so a buggy or malicious runtime can settle one root on-chain while its header
+  proves a different one in-core. The two settlement paths diverge silently and consumers can
+  be made to settle a root that never entered the settlement system.
+- **Bundles break the walk.** For bundled PoVs the wrapper carries the last produced `Provides`
+  forward when later inner blocks send nothing. Only the candidate-boundary head enters the
+  changed-heads tree, so the enacted header's digest need not contain the settled root at all.
+  For such candidates the proof simply has no path to the root: verification fails on honest
+  history.
+- **Opaque preimage.** `head_hash` commits to opaque head-data bytes. Decoding them as a header
+  with a known digest layout is a format assumption PS nowhere enforces, and every proof hauls
+  up to 4 KiB of header into the PoV just to read 32 bytes out of it.
+
+Pushing the root as its own PS-authored leaf removes all three: the leaf is created by PS
+itself, at enactment, from the host-call value, for the effective candidate-boundary root.
+
+### Known Limitations
+
+**1. Canonicality.** The accumulation-output log is append-only, so this proof shows a root
+*was* enacted, permanently and with unbounded reach (no `W_MAX` window). It cannot show the
+enacting history is still canonical: `parachain_set_head` (§8) clears the ring precisely so
+abandoned roots stop settling, and no rollback can retract a belt leaf. As a full replacement
+for ring settlement this scheme must be paired with a per-para generation key: the receiver's
+Accumulate checks the sender's current generation at settlement, and the generation bumps on
+every `parachain_set_head` that overwrites a live head, on `parachain_clean_up`, and on para
+id (re)registration. Bumping is coarse: it also invalidates proofs for the still-canonical
+prefix. That matches ring semantics, since a ring clear drops prefix roots too, and §8's
+runbook already freezes and explicitly reopens every channel after recovery. Alone, without
+the generation key, this scheme is only safe for histories Forced Recovery has never touched.
+
+**2. Generation TOCTOU.** The proof verifies in Refine against an anchor up to `C_H = 8`
+slots stale; the generation is checked at Accumulate. A recovery landing in that window makes
+a candidate fail on-chain after passing in-core: the slot is burned and, unlike ring
+settlement, §3 buffering cannot rescue it, because the verification is already fixed at
+Refine. Same acceptance class as the Coretime-ordering window noted in §2.
+
+**3. Para id reuse.** `parachain_clean_up` removes the ring and permanently ends drainability
+(§8); a belt leaf can never be removed. Without the generation bump on cleanup and
+re-registration above, a para id re-registered to a new chain inherits provable
+`Leaf { para_id, root }` history from its predecessor, and receivers can be made to consume
+the dead chain's messages as the new one's.
+
+**4. Enacted tier only, no buffering.** A root missing at Refine fails the candidate in-core:
+there is nothing for §3 buffering to wait on, and §4's sort cannot help. The scheme cannot
+serve Tiers 1-2, which settle at Accumulate time by construction. "Full replacement" is only
+meaningful if those tiers keep the ring or are dropped.
+
+**5. Proof-data liveness.** The ring needed only current state; generating a proof for an old
+root requires reconstructing that block's provides tree from chain history. Unless an indexer
+retains them, old roots stay theoretically provable but practically unsettleable.
