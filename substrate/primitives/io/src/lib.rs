@@ -1178,6 +1178,10 @@ pub trait Crypto {
 	///
 	/// Returns `true` when the verification was successful.
 	/// This version is able to handle, non-standard, overflowing signatures.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn ecdsa_verify(
 		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
 		msg: PassFatPointerAndRead<&[u8]>,
@@ -1190,6 +1194,10 @@ pub trait Crypto {
 	/// Verify `ecdsa` signature.
 	///
 	/// Returns `true` when the verification was successful.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	#[version(2)]
 	fn ecdsa_verify(
 		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
@@ -1202,6 +1210,10 @@ pub trait Crypto {
 	/// Verify `ecdsa` signature with pre-hashed `msg`.
 	///
 	/// Returns `true` when the verification was successful.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn ecdsa_verify_prehashed(
 		sig: PassPointerAndRead<&ecdsa::Signature, 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -1247,6 +1259,10 @@ pub trait Crypto {
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
 	/// (doesn't include the 0x04 prefix).
 	/// This version is able to handle, non-standard, overflowing signatures.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn secp256k1_ecdsa_recover(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -1272,6 +1288,10 @@ pub trait Crypto {
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
 	/// (doesn't include the 0x04 prefix).
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	#[version(2)]
 	fn secp256k1_ecdsa_recover(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
@@ -1298,6 +1318,10 @@ pub trait Crypto {
 	/// - `msg` is the blake2-256 hash of the message.
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	fn secp256k1_ecdsa_recover_compressed(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -1320,6 +1344,10 @@ pub trait Crypto {
 	/// - `msg` is the blake2-256 hash of the message.
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
+	///
+	/// **Note:** This function does **not** enforce low-S signature normalization.
+	/// Callers that require canonical (BIP-62 / EIP-2) signatures should check
+	/// [`sp_core::ecdsa::is_signature_normalized`] before calling this function.
 	#[version(2)]
 	fn secp256k1_ecdsa_recover_compressed(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
@@ -2148,5 +2176,89 @@ mod tests {
 				&zero_ed_pub()
 			));
 		});
+	}
+
+	#[test]
+	fn secp256k1_ecdsa_recover_valid_signature() {
+		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
+		let msg = sp_crypto_hashing::blake2_256(b"test message");
+		let sig = pair.sign_prehashed(&msg);
+
+		assert!(ecdsa::is_signature_normalized(&sig.0));
+
+		let result = crypto::secp256k1_ecdsa_recover(&sig.0, &msg);
+		assert!(result.is_ok());
+		let recovered = ecdsa::Public::from_full(&result.ok().unwrap()).unwrap();
+		assert_eq!(recovered, pair.public());
+	}
+
+	#[test]
+	fn secp256k1_ecdsa_recover_compressed_valid_signature() {
+		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
+		let msg = sp_crypto_hashing::blake2_256(b"test message");
+		let sig = pair.sign_prehashed(&msg);
+
+		let result = crypto::secp256k1_ecdsa_recover_compressed(&sig.0, &msg);
+		assert!(result.is_ok());
+		assert_eq!(&result.ok().unwrap()[..], &pair.public().0[..]);
+	}
+
+	#[test]
+	fn ecdsa_verify_valid_signature() {
+		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
+		let message = b"test message";
+		let sig = pair.sign(message);
+
+		assert!(ecdsa::is_signature_normalized(&sig.0));
+		assert!(crypto::ecdsa_verify(&sig, message, &pair.public()));
+	}
+
+	#[test]
+	fn ecdsa_verify_prehashed_valid_signature() {
+		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
+		let msg = sp_crypto_hashing::blake2_256(b"test message");
+		let sig = pair.sign_prehashed(&msg);
+
+		assert!(crypto::ecdsa_verify_prehashed(&sig, &msg, &pair.public()));
+	}
+
+	#[test]
+	fn ecdsa_verify_accepts_high_s_signatures() {
+		fn make_high_s(sig: &ecdsa::Signature) -> ecdsa::Signature {
+			let order: [u8; 32] = [
+				0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+				0xd0, 0x36, 0x41, 0x41,
+			];
+			let s: [u8; 32] = sig.0[32..64].try_into().expect("slice has fixed length");
+			let mut high_s = [0u8; 32];
+			let mut borrow = 0i16;
+			for i in (0..32).rev() {
+				let diff = order[i] as i16 - s[i] as i16 - borrow;
+				if diff < 0 {
+					high_s[i] = (diff + 256) as u8;
+					borrow = 1;
+				} else {
+					high_s[i] = diff as u8;
+					borrow = 0;
+				}
+			}
+
+			let mut result = sig.0;
+			result[32..64].copy_from_slice(&high_s);
+			result[64] ^= 1;
+			ecdsa::Signature::from_raw(result)
+		}
+
+		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
+		let message = b"test message";
+		let signature = make_high_s(&pair.sign(message));
+		assert!(!ecdsa::is_signature_normalized(&signature.0));
+		assert!(crypto::ecdsa_verify(&signature, message, &pair.public()));
+
+		let prehash = sp_crypto_hashing::blake2_256(message);
+		let signature = make_high_s(&pair.sign_prehashed(&prehash));
+		assert!(!ecdsa::is_signature_normalized(&signature.0));
+		assert!(crypto::ecdsa_verify_prehashed(&signature, &prehash, &pair.public()));
 	}
 }
