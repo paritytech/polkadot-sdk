@@ -236,7 +236,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let paritydb_path = base_path.join("paritydb").join(role_dir);
 		Ok(match database {
 			#[cfg(feature = "rocksdb")]
-			Database::RocksDb => DatabaseSource::RocksDb { path: rocksdb_path, cache_size },
+			Database::RocksDb => DatabaseSource::RocksDb {
+				path: rocksdb_path,
+				cache_size,
+				transaction_column_path: self
+					.database_params()
+					.and_then(|p| p.transaction_storage_path().map(|p| p.to_path_buf())),
+			},
 			Database::ParityDb => DatabaseSource::ParityDb { path: paritydb_path },
 			Database::ParityDbDeprecated => {
 				eprintln!(

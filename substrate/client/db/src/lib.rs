@@ -395,6 +395,12 @@ pub enum DatabaseSource {
 		path: PathBuf,
 		/// Cache size in MiB.
 		cache_size: usize,
+		/// Optional directory for the `TRANSACTION` column (indexed transaction data).
+		///
+		/// When set, that column's SST files are written under this path, so the bulk, cold
+		/// data of transaction-storage chains can live on a separate (cheaper) volume. Must
+		/// stay consistent across restarts of the same database.
+		transaction_column_path: Option<PathBuf>,
 	},
 
 	/// Load a ParityDb database from a given path.
@@ -4587,6 +4593,94 @@ pub(crate) mod tests {
 		assert_eq!(bc.body(hashof0).unwrap(), None);
 		assert_eq!(bc.indexed_transaction(x0_hash).unwrap(), None);
 		assert_eq!(bc.indexed_transaction(x1_hash).unwrap(), None);
+	}
+
+	#[test]
+	fn transaction_column_on_override_path() {
+		let db_dir = tempfile::tempdir().unwrap();
+		let cold_dir = tempfile::tempdir().unwrap();
+		let cold_col_dir = cold_dir.path().join("col11");
+
+		fn sst_files(dir: &std::path::Path) -> Vec<String> {
+			let mut out = Vec::new();
+			let mut stack = vec![dir.to_path_buf()];
+			while let Some(d) = stack.pop() {
+				if let Ok(entries) = std::fs::read_dir(&d) {
+					for e in entries.flatten() {
+						let p = e.path();
+						if p.is_dir() {
+							stack.push(p);
+						} else if p.extension().map_or(false, |x| x == "sst") {
+							out.push(p.file_name().unwrap().to_string_lossy().into_owned());
+						}
+					}
+				}
+			}
+			out
+		}
+
+		const PAYLOADS: u64 = 30;
+		let payload = |i: u64| -> Vec<u8> {
+			let mut v = vec![0u8; 256 * 1024];
+			v[..8].copy_from_slice(&i.to_le_bytes());
+			v
+		};
+		let payload_hash = |i: u64| H256::from_low_u64_le(i + 1);
+
+		let open_backend = || {
+			Backend::<Block>::new_test_with_tx_storage_source(
+				BlocksPruning::KeepAll,
+				0,
+				DatabaseSource::RocksDb {
+					path: db_dir.path().join("db"),
+					cache_size: 128,
+					transaction_column_path: Some(cold_col_dir.clone()),
+				},
+				Default::default(),
+			)
+		};
+
+		let backend = open_backend();
+		let mut parent =
+			insert_block(&backend, 0, Default::default(), None, Default::default(), vec![], None)
+				.unwrap();
+		for i in 0..PAYLOADS {
+			let mut renew_payloads = std::collections::HashMap::new();
+			renew_payloads.insert(payload_hash(i), payload(i));
+			let ops = vec![IndexOperation::Renew {
+				extrinsic: 0,
+				hash: payload_hash(i).as_ref().to_vec(),
+			}];
+			parent = insert_block_with_synthetic_ops(
+				&backend,
+				i + 1,
+				parent,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				vec![],
+				ops,
+				renew_payloads,
+			)
+			.unwrap();
+		}
+		let bc = backend.blockchain();
+		for i in 0..PAYLOADS {
+			assert_eq!(bc.indexed_transaction(payload_hash(i)).unwrap().unwrap(), payload(i));
+		}
+		drop(backend);
+
+		let cold_ssts = sst_files(&cold_col_dir);
+		assert!(!cold_ssts.is_empty(), "no SST files under override dir {:?}", cold_col_dir);
+		let main_ssts = sst_files(&db_dir.path().join("db"));
+		for f in &cold_ssts {
+			assert!(!main_ssts.contains(f), "SST {} present in BOTH main and override dirs", f);
+		}
+
+		let backend = open_backend();
+		let bc = backend.blockchain();
+		for i in 0..PAYLOADS {
+			assert_eq!(bc.indexed_transaction(payload_hash(i)).unwrap().unwrap(), payload(i));
+		}
 	}
 
 	#[test]
