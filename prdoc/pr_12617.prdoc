@@ -1,0 +1,17 @@
+title: '[RWF] `fork-tree`: Ensure `finalize_root_at` cannot set `best_finalized_number`
+  to a stale value'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #12600
+
+    ## Problem
+
+    `ForkTree::finalize_root_at` unconditionally overwrote `best_finalized_number` with the finalized node's own stored number. There was no check that `node.number` actually exceeds the current `best_finalized_number`. This could result in `best_finalized_number` being set to a smaller, stale number.
+
+    ## Solution
+    Make `finalize_root_at` only update `best_finalized_number` when the finalized node's number is strictly greater than
+    the current value. Added a regression test that asserts this invariant.
+crates:
+- name: fork-tree
+  bump: patch
