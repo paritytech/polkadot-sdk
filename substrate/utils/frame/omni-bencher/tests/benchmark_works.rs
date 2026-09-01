@@ -16,17 +16,42 @@
 // limitations under the License.
 
 use assert_cmd::cargo::cargo_bin;
+use cmd_lib::spawn_with_output;
 use std::{
 	fs,
+	io::Write,
 	path::{Path, PathBuf},
 	process::{Command, ExitStatus},
 };
+use substrate_test_runtime as runtime;
+use tempfile::NamedTempFile;
+
+// Used for running commands visually pleasing in doc tests.
+macro_rules! bash(
+	( frame-omni-bencher $($a:tt)* ) => {{
+		let bin_path = env!("CARGO_BIN_EXE_frame-omni-bencher");
+		spawn_with_output!(
+			$bin_path $($a)*
+		)
+		.expect("a process running. qed")
+		.wait_with_output()
+		.expect("to get output. qed.")
+	}}
+);
+
+/// Helper to write the test runtime WASM to a temporary file.
+fn write_wasm_to_temp_file() -> NamedTempFile {
+	let mut file = NamedTempFile::new().expect("Should be able to create temp file");
+	let wasm = runtime::WASM_BINARY.expect("WASM binary must be available");
+	file.write_all(wasm).expect("Should be able to write to temp file");
+	file
+}
 
 #[test]
 fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
 	let base_path = tmp_dir.path();
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = runtime::WASM_BINARY.expect("WASM binary must be available");
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ =
 		fs::write(&runtime_path, wasm).map_err(|e| format!("Unable to write runtime file: {}", e));
@@ -50,6 +75,7 @@ fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 
 	assert_benchmark_success(status, base_path)
 }
+
 #[test]
 fn benchmark_overhead_chain_spec_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
@@ -118,7 +144,7 @@ fn setup_chain_spec(tmp_dir: &Path, raw: bool) -> Result<(PathBuf, PathBuf), Str
 	let base_path = tmp_dir.to_path_buf();
 	let chain_spec_path = base_path.join("chain_spec.json");
 
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = runtime::WASM_BINARY.expect("WASM binary must be available");
 
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());
@@ -170,7 +196,7 @@ fn assert_benchmark_success(status: ExitStatus, base_path: &Path) -> Result<(), 
 fn benchmark_overhead_with_genesis_patch_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
 	let base_path = tmp_dir.path();
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = runtime::WASM_BINARY.expect("WASM binary must be available");
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ = fs::write(&runtime_path, wasm)
 		.map_err(|e| format!("Unable to write runtime file: {}", e))?;
@@ -229,4 +255,81 @@ fn benchmark_overhead_chain_spec_with_genesis_patch_works() -> std::result::Resu
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	assert_benchmark_success(status, &base_path)
+}
+
+#[docify::export_content]
+fn benchmarking_example_pallet_balances(runtime_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet
+			--runtime $runtime_path
+			--pallet "pallet_balances"
+			--extrinsic "*"
+			--steps 2
+			--repeat 1
+	);
+}
+
+#[test]
+fn test_benchmarking_example_pallet_balances() {
+	let runtime_tmp = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	benchmarking_example_pallet_balances(runtime_path);
+}
+
+#[docify::export_content]
+fn benchmarking_example_export_weights(runtime_path: &str, output_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet
+			--runtime $runtime_path
+			--pallet "pallet_balances"
+			--extrinsic "*"
+			--steps 2
+			--repeat 1
+			--output $output_path
+	);
+}
+
+#[test]
+fn test_benchmarking_example_export_weights() {
+	let runtime_tmp = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	let tmp_dir = tempfile::tempdir().unwrap();
+	let output_path = tmp_dir.path().to_str().expect("valid path");
+	benchmarking_example_export_weights(runtime_path, output_path);
+}
+
+#[docify::export_content]
+fn benchmarking_example_all_pallets(runtime_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet
+			--runtime $runtime_path
+			--pallet "*"
+			--extrinsic "*"
+			--steps 2
+			--repeat 1
+	);
+}
+
+#[test]
+fn test_benchmarking_example_all_pallets() {
+	let runtime_tmp = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	benchmarking_example_all_pallets(runtime_path);
+}
+
+#[docify::export_content]
+fn benchmarking_example_overhead(runtime_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark overhead
+			--runtime $runtime_path
+			--warmup 2
+			--repeat 2
+	);
+}
+
+#[test]
+fn test_benchmarking_example_overhead() {
+	let runtime_tmp = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	benchmarking_example_overhead(runtime_path);
 }

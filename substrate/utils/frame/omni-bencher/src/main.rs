@@ -15,11 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod command;
+#![doc = include_str!("../README.md")]
 
 // Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
 #[cfg(target_os = "linux")]
 extern crate polkadot_jemalloc_shim;
+
+#[cfg(feature = "generate-readme")]
+#[doc(hidden)]
+mod readme_generation {
+	docify::compile_markdown!("README.docify.md", "README.md");
+}
+
+mod command;
 
 use clap::Parser;
 use sc_cli::Result;

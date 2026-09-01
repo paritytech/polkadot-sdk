@@ -17,10 +17,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 frame-executive = { workspace = true }
+frame-metadata = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+frame-system-benchmarking = { workspace = true, optional = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-balances = { workspace = true }
@@ -47,6 +50,7 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
 sp-state-machine = { workspace = true }
 sp-statement-store = { workspace = true }
+sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-trie = { workspace = true }
 sp-version = { workspace = true }
@@ -54,6 +58,7 @@ trie-db = { workspace = true }
 
 # 3rd party
 array-bytes = { optional = true, workspace = true, default-features = true }
+hex-literal = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true, features = ["alloc"] }
 tracing = { workspace = true, default-features = false }
@@ -76,12 +81,17 @@ substrate-wasm-builder = { optional = true, features = ["metadata-hash"], worksp
 [features]
 default = ["std"]
 
+no-metadata-hash-check = []
+
 std = [
 	"array-bytes",
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-metadata-hash-extension/std",
+	"frame-metadata/std",
 	"frame-support/std",
+	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"log/std",
@@ -113,6 +123,7 @@ std = [
 	"sp-session/std",
 	"sp-state-machine/std",
 	"sp-statement-store/std",
+	"sp-storage/std",
 	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-trie/std",
@@ -120,6 +131,19 @@ std = [
 	"substrate-wasm-builder",
 	"tracing/std",
 	"trie-db/std",
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sc-service?/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 
 # Special feature to disable logging

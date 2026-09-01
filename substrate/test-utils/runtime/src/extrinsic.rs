@@ -208,6 +208,7 @@ impl ExtrinsicBuilder {
 	/// Build `Extrinsic` using embedded parameters
 	pub fn build(self) -> Extrinsic {
 		if let Some(signer) = self.signer {
+			#[cfg(not(feature = "no-metadata-hash-check"))]
 			let tx_ext = (
 				(CheckNonce::from(self.nonce.unwrap_or(0)), CheckWeight::new()),
 				CheckSubstrateCall {},
@@ -215,6 +216,11 @@ impl ExtrinsicBuilder {
 					.map(CheckMetadataHash::new_with_custom_hash)
 					.unwrap_or_else(|| CheckMetadataHash::new(false)),
 				frame_system::WeightReclaim::new(),
+			);
+			#[cfg(feature = "no-metadata-hash-check")]
+			let tx_ext = (
+				(CheckNonce::from(self.nonce.unwrap_or(0)), CheckWeight::new()),
+				CheckSubstrateCall {},
 			);
 			let raw_payload = SignedPayload::from_raw(
 				self.function.clone(),

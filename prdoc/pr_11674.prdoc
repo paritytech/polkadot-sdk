@@ -1,0 +1,13 @@
+title: 'Improve frame-omni-bencher docs '
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    This PR standardizes the `frame-omni-bencher` documentation and build pipeline, aligning it with Polkadot-SDK standards (similar to `staging-chain-spec-builder`). It automates `README.md` generation using `docify`, ensuring that all usage examples are backed by verified integration tests.
+
+crates:
+- name: frame-benchmarking-cli
+  bump: patch
+- name: frame-omni-bencher
+  bump: patch

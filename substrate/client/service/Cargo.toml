@@ -87,5 +87,6 @@ rocksdb = ["sc-client-db/rocksdb"]
 runtime-benchmarks = [
 	"sc-client-db/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"substrate-test-runtime/runtime-benchmarks",
 ]
 jemalloc-allocator = ["sc-client-db/jemalloc-allocator"]

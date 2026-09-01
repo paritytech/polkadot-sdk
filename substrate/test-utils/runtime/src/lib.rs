@@ -146,12 +146,15 @@ pub type Pair = sp_core::sr25519::Pair;
 
 // TODO: Remove after the Checks are migrated to TxExtension.
 /// The extension to the basic transaction logic.
+#[cfg(not(feature = "no-metadata-hash-check"))]
 pub type TxExtension = (
 	(CheckNonce<Runtime>, CheckWeight<Runtime>),
 	CheckSubstrateCall,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
 );
+#[cfg(feature = "no-metadata-hash-check")]
+pub type TxExtension = ((CheckNonce<Runtime>, CheckWeight<Runtime>), CheckSubstrateCall);
 /// The payload being signed in transactions.
 pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
@@ -337,6 +340,12 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Balances: pallet_balances,
 	}
+);
+
+#[cfg(feature = "runtime-benchmarks")]
+frame_benchmarking::define_benchmarks!(
+	[frame_system, SystemBench::<Runtime>]
+	[pallet_balances, Balances]
 );
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
@@ -786,7 +795,7 @@ impl_runtime_apis! {
 		fn get_preset(name: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(name, |name| {
 				 let patch = match name.as_ref() {
-					"staging" => {
+					"staging" | "development" | "local_testnet" => {
 						let endowed_accounts: Vec<AccountId> = vec![
 							Sr25519Keyring::Bob.public().into(),
 							Sr25519Keyring::Charlie.public().into(),
@@ -814,7 +823,51 @@ impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<PresetId> {
-			vec![PresetId::from("foobar"), PresetId::from("staging")]
+			vec![
+				PresetId::from("foobar"),
+				PresetId::from("staging"),
+				PresetId::from("development"),
+				PresetId::from("local_testnet"),
+			]
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl frame_benchmarking::Benchmark<Block> for Runtime {
+		fn benchmark_metadata(extra: bool) -> (
+			Vec<frame_benchmarking::BenchmarkList>,
+			Vec<frame_support::traits::StorageInfo>,
+		) {
+			use frame_benchmarking::BenchmarkList;
+			use frame_support::traits::StorageInfoTrait;
+			use frame_system_benchmarking::Pallet as SystemBench;
+
+			let mut list = Vec::<BenchmarkList>::new();
+			list_benchmarks!(list, extra);
+
+			let storage_info = AllPalletsWithSystem::storage_info();
+
+			(list, storage_info)
+		}
+
+		#[allow(non_local_definitions)]
+		fn dispatch_benchmark(
+			config: frame_benchmarking::BenchmarkConfig
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
+			use frame_benchmarking::BenchmarkBatch;
+			use sp_storage::TrackedStorageKey;
+
+			use frame_system_benchmarking::Pallet as SystemBench;
+
+			impl frame_system_benchmarking::Config for Runtime {}
+
+			let whitelist: Vec<TrackedStorageKey> = Vec::new();
+
+			let mut batches = Vec::<BenchmarkBatch>::new();
+			let params = (&config, &whitelist);
+			add_benchmarks!(params, batches);
+
+			Ok(batches)
 		}
 	}
 }

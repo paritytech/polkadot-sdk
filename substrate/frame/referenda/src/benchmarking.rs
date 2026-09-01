@@ -20,7 +20,6 @@
 use super::*;
 use crate::Pallet as Referenda;
 use alloc::{borrow::Cow, vec, vec::Vec};
-use assert_matches::assert_matches;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
 };
@@ -212,7 +211,7 @@ benchmarks_instance_pallet! {
 		DispatchTime::After(0u32.into())
 	) verify {
 		let index = ReferendumCount::<T, I>::get().checked_sub(1).unwrap();
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Ongoing(_)));
+		assert!(matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Ongoing(_))));
 	}
 
 	place_decision_deposit_preparing {
@@ -283,7 +282,7 @@ benchmarks_instance_pallet! {
 		));
 	}: _<T::RuntimeOrigin>(origin, index)
 	verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, _, None)));
+		assert!(matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, _, None))));
 	}
 
 	refund_submission_deposit {
@@ -297,10 +296,10 @@ benchmarks_instance_pallet! {
 				.expect("CancelOrigin has no successful origin required for the benchmark"),
 			index,
 		));
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, Some(_), _)));
+		assert!(matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, Some(_), _))));
 	}: _<T::RuntimeOrigin>(origin, index)
 	verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, None, _)));
+		assert!(matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(_, None, _))));
 		let new_balance = T::Currency::free_balance(&caller);
 		// the deposit is zero or make sure it was unreserved.
 		assert!(T::SubmissionDeposit::get().is_zero() || new_balance > balance);
@@ -315,7 +314,7 @@ benchmarks_instance_pallet! {
 		T::CancelOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		index
 	) verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(..)));
+		assert!(matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Cancelled(..))));
 	}
 
 	kill {
@@ -327,7 +326,7 @@ benchmarks_instance_pallet! {
 		T::KillOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?,
 		index
 	) verify {
-		assert_matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Killed(..)));
+		assert!(matches!(ReferendumInfoFor::<T, I>::get(index), Some(ReferendumInfo::Killed(..))));
 	}
 
 	one_fewer_deciding_queue_empty {
@@ -496,7 +495,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
-		assert_matches!(status, ReferendumStatus { deciding: None, .. });
+		assert!(matches!(status, ReferendumStatus { deciding: None, .. }));
 	}
 
 	nudge_referendum_preparing {
@@ -507,7 +506,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
-		assert_matches!(status, ReferendumStatus { deciding: None, .. });
+		assert!(matches!(status, ReferendumStatus { deciding: None, .. }));
 	}
 
 	nudge_referendum_timed_out {
@@ -518,7 +517,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let info = ReferendumInfoFor::<T, I>::get(index).unwrap();
-		assert_matches!(info, ReferendumInfo::TimedOut(..));
+		assert!(matches!(info, ReferendumInfo::TimedOut(..)));
 	}
 
 	nudge_referendum_begin_deciding_failing {
@@ -616,7 +615,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let info = ReferendumInfoFor::<T, I>::get(index).unwrap();
-		assert_matches!(info, ReferendumInfo::Approved(..));
+		assert!(matches!(info, ReferendumInfo::Approved(..)));
 	}
 
 	nudge_referendum_rejected {
@@ -631,7 +630,7 @@ benchmarks_instance_pallet! {
 	}: nudge_referendum(RawOrigin::Root, index)
 	verify {
 		let info = ReferendumInfoFor::<T, I>::get(index).unwrap();
-		assert_matches!(info, ReferendumInfo::Rejected(..));
+		assert!(matches!(info, ReferendumInfo::Rejected(..)));
 	}
 
 	set_some_metadata {

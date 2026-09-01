@@ -44,16 +44,7 @@ cargo build -p cumulus-test-runtime --profile production --features runtime-benc
 
 Now as an example, we benchmark the `balances` pallet:
 
-```rust,ignore
-bash!(
-	frame-omni-bencher v1 benchmark pallet
-		--runtime $runtime_path
-		--pallet "pallet_balances"
-		--extrinsic "*"
-		--steps 2
-		--repeat 1
-);
-```
+<!-- docify::embed!("tests/benchmark_works.rs", benchmarking_example_pallet_balances) -->
 
 The `--steps`, `--repeat`, `--heap-pages` and `--wasm-execution` arguments have sane defaults and do
 not need be passed explicitly anymore.
@@ -62,46 +53,20 @@ not need be passed explicitly anymore.
 
 To benchmark all pallets of a runtime, pass the wildcard `*`:
 
-```rust,ignore
-bash!(
-	frame-omni-bencher v1 benchmark pallet
-		--runtime $runtime_path
-		--pallet "*"
-		--extrinsic "*"
-		--steps 2
-		--repeat 1
-);
-```
+<!-- docify::embed!("tests/benchmark_works.rs", benchmarking_example_all_pallets) -->
 
 ### Benchmark overhead
 
 To benchmark the overhead of a runtime:
 
-```rust,ignore
-bash!(
-	frame-omni-bencher v1 benchmark overhead
-		--runtime $runtime_path
-		--warmup 2
-		--repeat 2
-);
-```
+<!-- docify::embed!("tests/benchmark_works.rs", benchmarking_example_overhead) -->
 
 ### Generate weights (templates)
 
 To render Rust weight files from benchmark results, pass an output path. Optionally you can pass a
 custom header and a Handlebars template (defaults are provided):
 
-```rust,ignore
-bash!(
-	frame-omni-bencher v1 benchmark pallet
-		--runtime $runtime_path
-		--pallet "pallet_balances"
-		--extrinsic "*"
-		--steps 2
-		--repeat 1
-		--output $output_path
-);
-```
+<!-- docify::embed!("tests/benchmark_works.rs", benchmarking_example_export_weights) -->
 
 This uses the same flags as the node-integrated benchmarking CLI. The output can be a directory or a
 file path; when a directory is given, a file name is generated per pallet/instance.
