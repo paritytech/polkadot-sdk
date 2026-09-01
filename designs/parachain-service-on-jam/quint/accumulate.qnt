@@ -426,6 +426,14 @@ module accumulate {
           // to apply a work-package whose upward messages include
           // restricted host calls from the wrong parachain.
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
+        } else if (not(specMsgSettles(s, r.specMsgRequires))) {
+          // §5.1 step 6 / §8.3: the settlement check, deliberately the LAST
+          // gate (passing implies enacting) and ahead of the head write, so a
+          // rejected consumer never publishes a root of its own. Every named
+          // `(source, root)` must be in the source's settlement ring; on the
+          // first missing entry the candidate is rejected silently, like
+          // every other rejection above.
+          { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else {
           // §5.1: the candidate is accepted, so its lookup-anchor prune runs before
           // any of its own effects are applied. Doing it first also frees space that
@@ -439,9 +447,15 @@ module accumulate {
           }
           // Step 4b: activate code upgrade if this candidate used the pending hash.
           val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCode.hash, codeLen, now)
-           
+          // §5.1 step 6 / §8.3: the enacted candidate's own `Provides` root is
+          // pushed only after the head write, so a root enters the ring only
+          // for a candidate that enacted.
+          val pushed = match r.specMsgProvides {
+            | Some(root) => specMsgPush(activated.state, r.paraId, root)
+            | None => activated.state
+          }
           {
-            state: activated.state,
+            state: pushed,
             rejected: false,
             jamSolicit: optionToSet(reaped.jamSolicit),
             jamForget: optionToSet(reaped.jamForget).union(optionToSet(activated.jamForget)),
