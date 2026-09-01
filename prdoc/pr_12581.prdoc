@@ -27,7 +27,8 @@ doc:
     longer emits its own `Transfer` log; wire `Erc20TransferLogsCallback` as the instance's
     `CallbackHandle` to keep precompile transfers logged. On Asset Hub Westend it is wired for the
     trust-backed and pool asset instances (inline-id) and for the foreign-assets instance
-    (foreign-id, via `ForeignIdConfig` and the foreign asset-index map).
+    (foreign-id, via `ForeignIdConfig` and the foreign asset-index map); the kitchensink runtime
+    wires it for both of its inline-id instances.
 
     Logs emitted with no ethereum transaction open — a mirror fired from a plain extrinsic or an XCM
     balance change — have no receipt to attach to, so they are buffered per block and flushed in
