@@ -116,9 +116,10 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 #[test]
 fn try_state_works() {
 	use crate::{Config, Freezes, Holds};
+	use codec::Encode;
 	use frame_support::{
 		storage,
-		traits::{Get, Hooks, VariantCount},
+		traits::{Hooks, VariantCount},
 	};
 
 	ExtBuilder::default().auto_try_state(false).build_and_execute_with(|| {
@@ -132,14 +133,24 @@ fn try_state_works() {
 	});
 
 	ExtBuilder::default().auto_try_state(false).build_and_execute_with(|| {
-		let max_freezes: u32 = <Test as Config>::MaxFreezes::get();
-
 		storage::unhashed::put(
 			&Freezes::<Test>::hashed_key_for(1),
-			&vec![0u8; max_freezes as usize + 1],
+			&vec![0u8; <Test as Config>::RuntimeFreezeReason::VARIANT_COUNT as usize + 1],
 		);
 
 		assert!(format!("{:?}", Balances::try_state(0).unwrap_err())
 			.contains("Found `Freeze` with too many elements"));
+	});
+
+	// An `IdAmount` whose id is not a valid `RuntimeFreezeReason`, what an unmigrated chain with
+	// a different `FreezeIdentifier` would be left with.
+	ExtBuilder::default().auto_try_state(false).build_and_execute_with(|| {
+		let mut raw = codec::Compact(1u32).encode();
+		raw.push(u8::MAX);
+		raw.extend_from_slice(&0u64.encode());
+		storage::unhashed::put_raw(&Freezes::<Test>::hashed_key_for(1), &raw);
+
+		assert!(format!("{:?}", Balances::try_state(0).unwrap_err())
+			.contains("Found `Freeze` which does not decode"));
 	});
 }

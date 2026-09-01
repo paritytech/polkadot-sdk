@@ -235,13 +235,11 @@ pub mod pallet {
 			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
-			type FreezeIdentifier = Self::RuntimeFreezeReason;
 
 			type DustRemoval = ();
 
 			type MaxLocks = ConstU32<100>;
 			type MaxReserves = ConstU32<100>;
-			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
@@ -261,8 +259,11 @@ pub mod pallet {
 		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 
 		/// The overarching freeze reason.
+		///
+		/// This is also the identifier used for [`Freezes`], and its variant count bounds the
+		/// number of freezes an account can hold at any time.
 		#[pallet::no_default_bounds]
-		type RuntimeFreezeReason: VariantCount;
+		type RuntimeFreezeReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -306,9 +307,6 @@ pub mod pallet {
 		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
-		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
-
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
 		///
@@ -321,10 +319,6 @@ pub mod pallet {
 		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
-
-		/// The maximum number of individual freeze locks that can exist on an account at any time.
-		#[pallet::constant]
-		type MaxFreezes: Get<u32>;
 
 		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash
 		/// occurs.
@@ -457,7 +451,7 @@ pub mod pallet {
 		TooManyReserves,
 		/// Number of holds exceed `VariantCountOf<T::RuntimeHoldReason>`.
 		TooManyHolds,
-		/// Number of freezes exceed `MaxFreezes`.
+		/// Number of freezes exceed `VariantCountOf<T::RuntimeFreezeReason>`.
 		TooManyFreezes,
 		/// The issuance cannot be modified since it is already deactivated.
 		IssuanceDeactivated,
@@ -548,7 +542,10 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
+		BoundedVec<
+			IdAmount<T::RuntimeFreezeReason, T::Balance>,
+			VariantCountOf<T::RuntimeFreezeReason>,
+		>,
 		ValueQuery,
 	>;
 
@@ -621,12 +618,6 @@ pub mod pallet {
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
-			);
-
-			assert!(
-				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
-				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
-				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
 		}
 
@@ -1215,7 +1206,10 @@ pub mod pallet {
 		/// Update the account entry for `who`, given the locks.
 		pub(crate) fn update_freezes(
 			who: &T::AccountId,
-			freezes: BoundedSlice<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
+			freezes: BoundedSlice<
+				IdAmount<T::RuntimeFreezeReason, T::Balance>,
+				VariantCountOf<T::RuntimeFreezeReason>,
+			>,
 		) -> DispatchResult {
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
@@ -1366,8 +1360,27 @@ pub mod pallet {
 			_n: BlockNumberFor<T>,
 		) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::hold_and_freeze_count()?;
+			Self::freezes_decode()?;
 			Self::account_frozen_greater_than_locks()?;
 			Self::account_frozen_greater_than_freezes()?;
+			Ok(())
+		}
+
+		/// Every `Freezes` entry must decode with `T::RuntimeFreezeReason` as its id, catching
+		/// entries left behind by a chain that used a different `FreezeIdentifier`.
+		/// `iter_values` skips undecodable values, `iter_keys` does not.
+		fn freezes_decode() -> Result<(), sp_runtime::TryRuntimeError> {
+			let keys = Freezes::<T, I>::iter_keys().count();
+			let values = Freezes::<T, I>::iter_values().count();
+			if keys != values {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"{} of {} `Freezes` entries do not decode as `IdAmount<RuntimeFreezeReason, _>`",
+					keys.saturating_sub(values),
+					keys,
+				);
+				return Err("Found `Freeze` which does not decode".into());
+			}
 			Ok(())
 		}
 
@@ -1383,7 +1396,9 @@ pub mod pallet {
 			})?;
 
 			Freezes::<T, I>::iter_keys().try_for_each(|k| {
-				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeFreezeReason::VARIANT_COUNT as usize
+				{
 					Err("Found `Freeze` with too many elements")
 				} else {
 					Ok(())

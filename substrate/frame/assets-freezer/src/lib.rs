@@ -88,7 +88,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		/// Number of freezes on an account would exceed `MaxFreezes`.
+		/// Number of freezes on an account would exceed `VariantCountOf<T::RuntimeFreezeReason>`.
 		TooManyFreezes,
 	}
 
