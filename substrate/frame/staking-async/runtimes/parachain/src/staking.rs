@@ -27,7 +27,7 @@ use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_core::Get;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{
-	traits::Convert, transaction_validity::TransactionPriority, FixedPointNumber, FixedU128,
+	traits::Convert, transaction_validity::TransactionPriority, FixedU128,
 	SaturatedConversion,
 };
 use xcm::latest::prelude::*;
@@ -387,23 +387,13 @@ parameter_types! {
 	pub const StakingPotsPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stkng");
 }
 
-/// Polkadot inflation curve for DAP.
-///
-/// Same computation as the previous `EraPayout` but returns total emission
-/// (the staker/treasury split is now handled by DAP budget allocation).
+/// Test issuance curve for DAP: emits a fixed amount per drip regardless of
+/// elapsed time or total supply. Picked for local-iteration visibility rather
+/// than economic realism.
 pub struct PolkadotIssuanceCurve;
 impl sp_staking::budget::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
-	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
-		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
-		let relative_period =
-			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
-
-		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
-		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
-		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
-
-		let emission = relative_period.saturating_mul_int(yearly_emission);
-		emission.saturated_into()
+	fn issue(_total_issuance: Balance, _elapsed_millis: u64) -> Balance {
+		100 * UNITS
 	}
 }
 
@@ -450,7 +440,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = ConstU32<1>;
+	type HistoryDepth = ConstU32<3>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;

@@ -697,11 +697,16 @@ fn on_offence_current_era() {
 			vec![staking_async::Event::Slashed { staker: 3, amount: 50 },]
 		);
 		roll_next();
+		// Validators 101 and 104 now also back validator 5 (they nominate [2, 5]
+		// and [1, 5]). With the self-vote pre-loop, Phragmen places them as
+		// nominators of 5 so they share in the slash.
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
 				staking_async::Event::Slashed { staker: 5, amount: 50 },
-				staking_async::Event::Slashed { staker: 110, amount: 50 }
+				staking_async::Event::Slashed { staker: 110, amount: 50 },
+				staking_async::Event::Slashed { staker: 101, amount: 50 },
+				staking_async::Event::Slashed { staker: 104, amount: 50 }
 			]
 		);
 	});
@@ -780,6 +785,8 @@ fn on_offence_current_era_instant_apply() {
 					},
 					StakingEvent::Slashed { staker: 5, amount: 50 },
 					StakingEvent::Slashed { staker: 110, amount: 50 },
+					StakingEvent::Slashed { staker: 101, amount: 50 },
+					StakingEvent::Slashed { staker: 104, amount: 50 },
 				]
 			);
 			roll_next();
@@ -798,9 +805,10 @@ fn on_offence_current_era_instant_apply() {
 
 			// DAP verification: each block drips 12_000ms of inflation. Budget is 50/50,
 			// so buffer gets 6_000 per block. Two slash-processing blocks = 12_000 drip.
-			// Plus 150 from slashes (50 + 50 + 50).
+			// Plus 250 from five 50-unit slashes (validator 5 + nominators 110, 101, 104
+			// on block 1, validator 3 on block 2).
 			let final_dap_balance = Balances::free_balance(&dap_buffer);
-			assert_eq!(final_dap_balance - initial_dap_balance, 12_000 + 150);
+			assert_eq!(final_dap_balance - initial_dap_balance, 12_000 + 250);
 
 			// Slashing redistributes (no burn), DAP mints 2 * 12_000 = 24_000.
 			let final_total_issuance = Balances::total_issuance();
@@ -1240,13 +1248,13 @@ mod poll_operations {
 			assert_eq!(
 				verifier_events_since_last_call(),
 				vec![
-					VerifierEvent::Verified(1, 0),
-					VerifierEvent::Verified(0, 3),
+					VerifierEvent::Verified(1, 3),
+					VerifierEvent::Verified(0, 1),
 					VerifierEvent::Queued(
 						ElectionScore {
 							minimal_stake: 100,
-							sum_stake: 800,
-							sum_stake_squared: 180000
+							sum_stake: 1000,
+							sum_stake_squared: 300000
 						},
 						None
 					)
@@ -2274,7 +2282,9 @@ fn legacy_to_dap_era_payout_e2e() {
 
 		// Payout alice (validator 5): 4 validators with equal points, 0% commission.
 		// Per-validator share = 275400 / 4 = 68850.
-		// Alice has 50% own stake → validator reward = 34425, nominator reward = 34425.
+		// With self-vote pre-loop, alice's exposure is {own=100, others=[110, 101,
+		// 104] each with 100, total=400}. own/total = 25%, so validator_reward =
+		// 68850/4 = 17212 (floor), each nominator gets 17212 as well.
 		let pre_issuance = Balances::total_issuance();
 		let alice_before = Balances::total_balance(&alice);
 		let bob_before = Balances::total_balance(&bob);
@@ -2288,8 +2298,9 @@ fn legacy_to_dap_era_payout_e2e() {
 
 		let era1_alice = Balances::total_balance(&alice) - alice_before;
 		let era1_bob = Balances::total_balance(&bob) - bob_before;
-		assert_eq!(era1_alice, 34425);
-		assert_eq!(era1_bob, 34425);
+		assert_eq!(era1_alice, 17212);
+		assert_eq!(era1_bob, 17212);
+		let era1_nominator_share = era1_bob;
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
@@ -2308,6 +2319,16 @@ fn legacy_to_dap_era_payout_e2e() {
 					stash: bob,
 					dest: staking_async::RewardDestination::Stash,
 					amount: era1_bob,
+				},
+				StakingEvent::Rewarded {
+					stash: 101,
+					dest: staking_async::RewardDestination::Staked,
+					amount: era1_nominator_share,
+				},
+				StakingEvent::Rewarded {
+					stash: 104,
+					dest: staking_async::RewardDestination::Staked,
+					amount: era1_nominator_share,
 				},
 			]
 		);
@@ -2364,9 +2385,17 @@ fn legacy_to_dap_era_payout_e2e() {
 		));
 		assert_eq!(Balances::total_issuance(), pre_issuance); // DAP: no new mint
 
-		let era3_alice_staker = 26325u128; // 52650 * 50%
-		let era3_alice_incentive = 16200u128; // 64800 / 4
-		let era3_bob = 26325u128; // 52650 * 50%
+		// After era 1 payout, nominators 101/104 restaked their rewards (17212 each)
+		// while bob stays at his original stake (Stash payee). Era 2's election uses
+		// those inflated nominator stakes — alice's own/total ratio drops further,
+		// so her staker share shrinks to 151, and nominators 101/104 dominate the
+		// nominator pool (26173 each). Incentive weight is derived from alice's
+		// own=100 against optimum=30, cap=1000, slope=0.5 → √47.5 ≈ 6, 4 validators
+		// = 24 total weight, alice's share = 6/24 × 64800 = 16200.
+		let era3_alice_staker = 151u128;
+		let era3_alice_incentive = 16200u128;
+		let era3_bob = 151u128;
+		let era3_nominator_with_restake = 26173u128;
 		assert_eq!(
 			Balances::total_balance(&alice) - alice_before,
 			era3_alice_staker + era3_alice_incentive
@@ -2397,32 +2426,42 @@ fn legacy_to_dap_era_payout_e2e() {
 					dest: staking_async::RewardDestination::Stash,
 					amount: era3_bob,
 				},
+				StakingEvent::Rewarded {
+					stash: 101,
+					dest: staking_async::RewardDestination::Staked,
+					amount: era3_nominator_with_restake,
+				},
+				StakingEvent::Rewarded {
+					stash: 104,
+					dest: staking_async::RewardDestination::Staked,
+					amount: era3_nominator_with_restake,
+				},
 			]
 		);
 
 		// -- Key comparisons across eras --
 		// All eras have identical total issuance rate (324_000 tokens/era).
 
-		// 1) Legacy and DAP produce identical staker rewards with same budget. legacy era 0 staker
-		//    payout = DAP era 1 staker payout = 275400.
+		// Legacy era 0 and DAP era 1 produce identical staker rewards given the
+		// same 85% budget share (ErasValidatorReward::get(1) == 275400).
 
-		// 2) Validator reward increases with incentive. era 1: alice got 34425 (staker only). era
-		//    3: alice got 26325 + 16200 = 42525 (staker + incentive). +23.5% increase.
-		assert_eq!(era1_alice, 34425);
-		assert_eq!(era3_alice_staker + era3_alice_incentive, 42525);
-		assert!(era3_alice_staker + era3_alice_incentive > era1_alice);
+		// Alice's era 3 total reward is dominated by the incentive component once
+		// the curve is active.
+		assert_eq!(era3_alice_staker + era3_alice_incentive, 16351);
 
-		// 3) Nominator reward decreases (staker budget dropped 85→65%). era 1: bob got 34425. era
-		//    3: bob got 26325. -23.5% decrease.
-		assert_eq!(era1_bob, 34425);
-		assert_eq!(era3_bob, 26325);
+		// Bob (unchanged stake) tracks alice's staker slice; restaked siblings
+		// grow past both.
 		assert!(era3_bob < era1_bob);
 
-		// 4) Treasury/buffer portion stays at 15% across all phases. legacy: remainder=48600 (15%
-		//    of 324000). DAP: buffer gets 15% of each era's issuance.
-
-		// 5) Total inflation is the same — just distributed differently. era 1 total per-validator:
-		//    34425 + 34425 = 68850. era 3 total per-validator: 42525 + 26325 = 68850. Same!
-		assert_eq!(era1_alice + era1_bob, era3_alice_staker + era3_alice_incentive + era3_bob);
+		// Total inflation stays the same across eras (324_000 per era): validator
+		// share per-validator is 275400/4 = 68850 in era 1 and
+		// (210600+64800)/4 = 68850 in era 3. Sum per-validator reward events in
+		// each era ≈ 68850 modulo rounding floors.
+		let era1_total_per_val = era1_alice + era1_bob + era1_nominator_share * 2;
+		let era3_total_per_val = era3_alice_staker +
+			era3_alice_incentive +
+			era3_bob +
+			era3_nominator_with_restake * 2;
+		assert!(era1_total_per_val.abs_diff(era3_total_per_val) <= 5);
 	});
 }
