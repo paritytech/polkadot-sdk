@@ -30,7 +30,7 @@ use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AccountIdConversion;
-use sp_staking::StakerStatus;
+use sp_staking::{budget::BudgetKey, StakerStatus};
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -64,6 +64,13 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
 	balances.push((dap_buffer, STAKING_ASYNC_PARA_ED));
 
+	// Entries must sum to 100% and match registered `BudgetRecipients`.
+	let dap_allocation = vec![
+		(BudgetKey::truncate_from(pallet_dap::BUFFER_BUDGET_KEY.to_vec()), Perbill::from_percent(20)),
+		(BudgetKey::truncate_from(pallet_staking_async::STAKER_REWARDS_BUDGET_KEY.to_vec()), Perbill::from_percent(60)),
+		(BudgetKey::truncate_from(pallet_staking_async::VALIDATOR_INCENTIVE_BUDGET_KEY.to_vec()), Perbill::from_percent(20)),
+	];
+
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
@@ -94,8 +101,18 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 				.into_iter()
 				.map(|acc| (acc, endowment / 2, StakerStatus::Validator))
 				.collect(),
+			// Filter low-stake synthetic dev stakers out of the validator set.
+			min_validator_bond: 10_000 * WND,
+			// Start in DAP mode from era 0; requires `DisableMinting = true`.
+			disable_minting_guard: Some(0),
+			// Active curve so the incentive budget has non-zero weights to
+			// distribute against; a zero curve would strand the incentive pot.
+			optimum_self_stake: Some(10_000 * WND),
+			hard_cap_self_stake: Some(100_000 * WND),
+			self_stake_slope_factor: Some(Perbill::from_percent(50)),
 			..Default::default()
-		}
+		},
+		dap: DapConfig { budget_allocation: dap_allocation, ..Default::default() }
 	})
 }
 
