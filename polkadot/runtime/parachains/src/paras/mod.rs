@@ -382,7 +382,7 @@ impl TypeInfo for ParaKind {
 	}
 }
 
-/// Upcoming para instantiation args stored in [`UpcomingParasGenesis`]. Omits the validation code,
+/// Upcoming para instantiation args stored in `UpcomingParasGenesis`. Omits the validation code,
 /// which onboarding inserts eagerly via `CurrentCodeHash`.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct UpcomingParaGenesis {
