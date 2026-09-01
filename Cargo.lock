@@ -5017,8 +5017,10 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
+ "cumulus-test-client",
  "futures",
  "parking_lot 0.12.3",
+ "sc-client-api 28.0.0",
  "sc-consensus",
  "sp-api 26.0.0",
  "sp-block-builder",
@@ -5027,6 +5029,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
+ "sp-timestamp",
  "substrate-prometheus-endpoint 0.17.0",
  "tracing",
 ]

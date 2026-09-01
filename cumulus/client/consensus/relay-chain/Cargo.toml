@@ -32,3 +32,8 @@ sp-runtime = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+
+[dev-dependencies]
+cumulus-test-client = { workspace = true }
+sc-client-api = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
