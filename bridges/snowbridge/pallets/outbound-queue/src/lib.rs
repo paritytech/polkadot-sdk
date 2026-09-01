@@ -227,7 +227,6 @@ pub mod pallet {
 	/// `on_initialize`, so should never go into block PoV.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn message_leaves)]
 	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
 
 	/// The current nonce for each message origin
@@ -236,7 +235,6 @@ pub mod pallet {
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::hooks]
@@ -415,6 +413,16 @@ pub mod pallet {
 			let decimals = ETHER_DECIMALS.saturating_sub(T::Decimals::get()) as u32;
 			let denom = 10u128.saturating_pow(decimals);
 			value.checked_div(denom).expect("divisor is non-zero; qed").into()
+		}
+
+		// Get message leaves.
+		pub fn message_leaves() -> Vec<H256> {
+			MessageLeaves::<T>::get()
+		}
+
+		// Get current operating mode of the pallet.
+		pub fn operating_mode() -> BasicOperatingMode {
+			OperatingMode::<T>::get()
 		}
 	}
 }
