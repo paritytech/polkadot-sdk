@@ -116,6 +116,14 @@ impl ExtBuilder {
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
+
+	/// Build the externality, run `test`, then assert the pallet invariants hold.
+	pub fn build_and_execute(self, test: impl FnOnce()) {
+		self.build().execute_with(|| {
+			test();
+			Vesting::do_try_state().expect("All invariants must hold after each test");
+		});
+	}
 }
 
 parameter_types! {
