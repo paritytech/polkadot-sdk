@@ -153,7 +153,6 @@ collator_args() {
 		--collator "--${COLLATORS[$index]}"
 		--jam-rpc-urls "$JAM_RPC"
 		--jam-service-id "$JAM_SERVICE_ID"
-		--jam-core "$JAM_CORE"
 		--base-path "$(collator_base_path "$index")"
 		--port "$((P2P_PORT + index))"
 		--rpc-port "$((RPC_PORT + index))"

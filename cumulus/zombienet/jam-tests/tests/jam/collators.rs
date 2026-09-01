@@ -84,7 +84,6 @@ impl Collators {
 				.args(["--prometheus-port", &prometheus_port.to_string()])
 				.args(["--jam-rpc-urls", &jam.rpc_url])
 				.args(["--jam-service-id", &jam.service_id.to_string()])
-				.args(["--jam-core", &jam.core.to_string()])
 				// Discovery is explicit: without this the collators would find, and try to sync
 				// with, any other parachain node running on this machine.
 				.arg("--no-mdns")

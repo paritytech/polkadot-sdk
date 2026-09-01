@@ -574,10 +574,9 @@ where
 		);
 
 		log::info!(
-			"🍇 Starting in JAM mode: para id {para_id}, service id {}, core {}, \
-			 collators {}, collator: {is_authority}",
+			"🍇 Starting in JAM mode: para id {para_id}, service id {}, collators {}, \
+			 collator: {is_authority}",
 			jam_params.service_id,
-			jam_params.core,
 			jam_params.collators,
 		);
 
@@ -704,7 +703,6 @@ where
 							jam,
 							para_id,
 							service_id: jam_params.service_id,
-							core: jam_params.core,
 							authorizer: jam_authorizer,
 							message_receiver,
 							announce_block,

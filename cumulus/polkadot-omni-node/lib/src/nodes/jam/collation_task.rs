@@ -51,7 +51,7 @@
 use super::{
 	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET,
 	authorizer::AuraAuthorizer, choose_lookup_anchor, fetch_anchor_state_proof, jam_read,
-	jam_slot_at, para_head_stream, resubmission::*,
+	jam_slot_at, para_head_stream, resubmission::*, scan_pools_at,
 };
 use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
@@ -92,7 +92,6 @@ pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub jam: Arc<Jam>,
 	pub para_id: ParaId,
 	pub service_id: ServiceId,
-	pub core: CoreIndex,
 	pub authorizer: Arc<AuraAuthorizer>,
 	pub message_receiver: mpsc::Receiver<JamCollatorMessage<Block>>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -111,7 +110,6 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		jam,
 		para_id,
 		service_id,
-		core,
 		authorizer,
 		mut message_receiver,
 		announce_block,
@@ -182,7 +180,6 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		target: LOG_TARGET,
 		?para_id,
 		service_id,
-		core,
 		refine_gas_limit,
 		accumulate_gas_limit,
 		max_resubmits,
@@ -201,7 +198,6 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		jam,
 		para_id: para_id.into(),
 		service_id,
-		core,
 		authorizer,
 		service_code_hash,
 		refine_gas_limit,
@@ -376,7 +372,6 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	jam: Arc<Jam>,
 	para_id: u32,
 	service_id: ServiceId,
-	core: CoreIndex,
 	/// The para's AURA authorizer: what every package here runs under, and what signs it.
 	authorizer: Arc<AuraAuthorizer>,
 	service_code_hash: CodeHash,
@@ -415,6 +410,7 @@ where
 			anchor_state_root,
 			anchor_state_proof,
 			anchor_slot,
+			submit_target,
 			triggered_by,
 		} = message;
 		let block_hash = block.hash();
@@ -463,6 +459,7 @@ where
 			state_root: anchor_state_root,
 			head_proof: anchor_state_proof,
 			anchor_slot,
+			submit_target,
 		};
 		let package = match self.authorized_package(&source, &anchored) {
 			Ok(package) => package,
@@ -487,7 +484,7 @@ where
 			%block_number,
 			?parent_hash,
 			?wp_hash,
-			core = self.core,
+			core = ?anchored.submit_target,
 			anchor = ?anchored.context.anchor,
 			anchor_slot,
 			lookup_anchor = ?anchored.context.lookup_anchor,
@@ -508,7 +505,7 @@ where
 		let submitted_at = jam_slot_at(Timestamp::current());
 		// The entry is recorded even if the submission itself failed: the soft-resubmit timer is
 		// what retries it, and it can only retry a package this task still holds.
-		self.submit(wp_hash, &package, anchored.context.anchor, block_hash).await;
+		self.submit(wp_hash, &package, &anchored, block_hash).await;
 		self.packages.entries.push_back(InFlight {
 			block_hash,
 			block_number,
@@ -538,25 +535,46 @@ where
 		Ok(package)
 	}
 
-	/// Submit a package and subscribe to its status; `false` means the submission itself failed.
+	/// Submit a package to the core its anchor's pool scan named, and subscribe to its status;
+	/// `false` means it was not submitted.
 	///
 	/// A plain `submitWorkPackage` with no extrinsics: nothing has to be assembled into a bundle
 	/// by hand any more, because the package imports nothing that would have to travel inline.
+	/// With no core holding the para's authorizer there is nowhere to send it — a guarantor on any
+	/// other core would refuse it — so it is kept, and the soft-resubmit timer re-anchors it,
+	/// which re-scans and heals once a core is assigned again.
 	async fn submit(
 		&mut self,
 		wp_hash: WorkPackageHash,
 		package: &WorkPackage,
-		anchor: HeaderHash,
+		anchored: &Anchored,
 		block_hash: Block::Hash,
 	) -> bool {
+		let anchor = anchored.context.anchor;
+		let Some(core) = anchored.submit_target else {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?block_hash,
+				?wp_hash,
+				?anchor,
+				anchor_slot = anchored.anchor_slot,
+				authorizer_hash = ?self.authorizer.hash(),
+				in_flight = self.packages.len(),
+				"No core held this para's authorizer at the package's anchor, so it was not \
+				 submitted. It stays in flight and will be re-anchored, which re-scans the pools.",
+			);
+			return false;
+		};
+
 		let started = Instant::now();
-		let result = self.jam.submit_work_package(self.core, package, Vec::new()).await;
+		let result = self.jam.submit_work_package(core, package, Vec::new()).await;
 		let elapsed_ms = started.elapsed().as_millis();
 		if let Err(error) = result {
 			tracing::warn!(
 				target: LOG_TARGET,
 				?block_hash,
 				?wp_hash,
+				core,
 				elapsed_ms,
 				?error,
 				"Work-package submission failed.",
@@ -567,8 +585,11 @@ where
 			target: LOG_TARGET,
 			?block_hash,
 			?wp_hash,
-			core = self.core,
+			core,
 			?anchor,
+			anchor_slot = anchored.anchor_slot,
+			lookup_anchor_slot = anchored.context.lookup_anchor_slot,
+			package_len = jam_codec::Encode::encode(package).len(),
 			elapsed_ms,
 			"Submitted the work package; following its status.",
 		);
@@ -662,23 +683,20 @@ where
 		let entry = &mut self.packages.entries[index];
 		entry.resubmits += 1;
 		entry.submitted_at = now;
-		let (wp_hash, package, anchor, block_hash, resubmits) = (
-			entry.wp_hash,
-			entry.package.clone(),
-			entry.anchored.context.anchor,
-			entry.block_hash,
-			entry.resubmits,
-		);
+		let (wp_hash, package, block_hash, resubmits) =
+			(entry.wp_hash, entry.package.clone(), entry.block_hash, entry.resubmits);
+		let anchored = entry.anchored.clone();
 		tracing::info!(
 			target: LOG_TARGET,
 			?block_hash,
 			?wp_hash,
 			index,
 			resubmits,
+			core = ?anchored.submit_target,
 			in_flight = self.packages.len(),
 			"No report yet; resubmitting the identical package.",
 		);
-		self.submit(wp_hash, &package, anchor, block_hash).await;
+		self.submit(wp_hash, &package, &anchored, block_hash).await;
 	}
 
 	/// Rebuild a package around a fresh anchor and a fresh para-head proof, and submit it as the
@@ -744,7 +762,7 @@ where
 			 no links.",
 		);
 
-		if !self.submit(wp_hash, &package, anchor, block_hash).await {
+		if !self.submit(wp_hash, &package, &anchored, block_hash).await {
 			self.forget(index, "the re-anchored package could not be submitted");
 			return;
 		}
@@ -909,12 +927,16 @@ struct PackageSource<Block> {
 ///
 /// The two are inseparable: the service verifies the proof in-core against the context's state
 /// root, so a package cannot keep its payload when it changes anchor.
+#[derive(Clone)]
 struct Anchored {
 	context: RefineContext,
 	state_root: [u8; 32],
 	head_proof: StateProof,
 	/// The anchor's timeslot — the start of the window the package has to be reported in.
 	anchor_slot: JamSlot,
+	/// The core the pool scan at this anchor named, if any. Anchor-derived like everything else
+	/// here: re-anchoring re-scans, which is what heals a package after its core was reassigned.
+	submit_target: Option<CoreIndex>,
 }
 
 impl<Block: BlockT> PackageSource<Block> {
@@ -1041,17 +1063,44 @@ where
 		},
 	};
 
+	// Re-scanned rather than carried over: a core reassigned since the package was first built is
+	// exactly the reason it stopped being reported, so this is where a stalled package heals.
+	let submit_target = match scan_pools_at(jam, context.anchor, authorizer).await {
+		Ok(scan) => scan.target,
+		Err(error) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?block_hash,
+				new_anchor = ?context.anchor,
+				error,
+				"Unable to scan the authorizer pools at the fresh anchor; abandoning the work \
+				 package.",
+			);
+			return Err(());
+		},
+	};
+
 	tracing::info!(
 		target: LOG_TARGET,
 		?block_hash,
 		old_anchor = ?previous.context.anchor,
 		new_anchor = ?context.anchor,
 		anchor_slot,
+		lookup_anchor_slot = context.lookup_anchor_slot,
 		anchor_proof_nodes = head_proof.nodes.len(),
 		head_present = proved_head.is_some(),
-		"Re-anchored the work package around a fresh anchor and re-proved the para head.",
+		old_core = ?previous.submit_target,
+		new_core = ?submit_target,
+		"Re-anchored the work package around a fresh anchor, re-proved the para head and \
+		 re-scanned the authorizer pools.",
 	);
-	Ok(Anchored { state_root: *context.state_root, head_proof, context, anchor_slot })
+	Ok(Anchored {
+		state_root: *context.state_root,
+		head_proof,
+		context,
+		anchor_slot,
+		submit_target,
+	})
 }
 
 /// The refine context around the current best JAM block (anchor = parent of best), as in
@@ -1137,6 +1186,7 @@ mod tests {
 			state_root: [4u8; 32],
 			head_proof: test_proof(),
 			anchor_slot,
+			submit_target: Some(0),
 		}
 	}
 

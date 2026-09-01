@@ -37,13 +37,13 @@ pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod resubmission;
 
+use authorizer::AuraAuthorizer;
 use codec::Decode;
 use futures::{Stream, StreamExt};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
-use authorizer::AuraAuthorizer;
 use jam_interface::{
-	BlockDesc, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
-	StateRootHash, StorageKey,
+	AuthPool, AuthorizerHash, BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
+	ServiceId, Slot as JamSlot, StateRootHash, StorageKey,
 };
 use jam_state_helpers::{StateKey, StateProof};
 use jam_types::RefineContext;
@@ -86,6 +86,9 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// reported within. The collation task needs it to tell an expired anchor apart from any
 	/// other reason a package failed.
 	pub anchor_slot: JamSlot,
+	/// The core whose authorizer pool held this para's authorizer at the anchor, if any. `None`
+	/// means the package must not be submitted anywhere — no guarantor would authorize it.
+	pub submit_target: Option<CoreIndex>,
 	/// The JAM best block that triggered this build (for logging).
 	pub triggered_by: BlockDesc,
 }
@@ -245,6 +248,80 @@ fn lookup_anchor_survives_reporting(
 ) -> bool {
 	anchor_slot.saturating_sub(lookup_anchor_slot) <=
 		MAX_LOOKUP_ANCHOR_AGE.saturating_sub(LOOKUP_ANCHOR_SAFETY_MARGIN)
+}
+
+/// Which cores currently hold this para's authorizer, and therefore where its packages may go.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct PoolScan {
+	/// The core to submit to. `None` means no core holds the para's authorizer at all — the
+	/// builder keeps authoring, but nothing may be submitted.
+	pub target: Option<CoreIndex>,
+	/// The other cores holding it. Spreading packages over several is elastic scaling, not this
+	/// phase, so they are logged rather than used — but a reassignment in progress is exactly the
+	/// state that shows up here, and it has to be visible.
+	pub also_on: Vec<CoreIndex>,
+}
+
+/// Find the cores whose authorizer pool holds `wanted`, lowest index first.
+///
+/// The pool rather than the queue: our cores are dedicated and a queue holds 80 copies of one
+/// hash, so the pool converges to 8 copies of it and a scan sees an assignment in the very block
+/// it lands. It also drains for 8 blocks after a core is freed, which is the handover overlap
+/// that keeps packages already in flight valid.
+fn scan_pools<'a>(
+	pools: impl IntoIterator<Item = &'a AuthPool>,
+	wanted: AuthorizerHash,
+) -> PoolScan {
+	let mut holders = pools
+		.into_iter()
+		.enumerate()
+		.filter(|(_, pool)| pool.contains(&wanted))
+		.map(|(core, _)| core as CoreIndex);
+	PoolScan { target: holders.next(), also_on: holders.collect() }
+}
+
+/// Read the authorizer pools at `anchor` and work out where this para's packages belong.
+pub(crate) async fn scan_pools_at<Jam: JamStateSource + ?Sized>(
+	jam: &Jam,
+	anchor: HeaderHash,
+	authorizer: &AuraAuthorizer,
+) -> Result<PoolScan, String> {
+	let wanted = authorizer.hash();
+	let started = Instant::now();
+	let pools = jam
+		.auth_pools(anchor)
+		.await
+		.map_err(|error| format!("authorizer pools at {anchor:?}: {error}"))?;
+	let elapsed_ms = started.elapsed().as_millis();
+
+	for (core, pool) in pools.iter().enumerate() {
+		tracing::debug!(
+			target: LOG_TARGET,
+			method = "stateValue",
+			key = "C(1) AuthPools",
+			at = ?anchor,
+			core,
+			pool_len = pool.len(),
+			holds_ours = pool.contains(&wanted),
+			copies_of_ours = pool.iter().filter(|hash| **hash == wanted).count(),
+			pool = ?pool.iter().collect::<Vec<_>>(),
+			elapsed_ms,
+			"JAM read: one core's authorizer pool.",
+		);
+	}
+
+	let scan = scan_pools(pools.iter(), wanted);
+	tracing::debug!(
+		target: LOG_TARGET,
+		at = ?anchor,
+		authorizer_hash = ?wanted,
+		cores = pools.len(),
+		target = ?scan.target,
+		also_on = ?scan.also_on,
+		elapsed_ms,
+		"Scanned the authorizer pools for this para's authorizer.",
+	);
+	Ok(scan)
 }
 
 /// Run one JAM read, logging the method, the block it was read at, what came back and the
@@ -493,6 +570,66 @@ mod tests {
 		assert_eq!(short.chosen, None);
 		assert_eq!(short.walked, 2);
 		assert!(short.stopped_early.is_some(), "the reason is carried, not swallowed");
+	}
+
+	/// One core's authorizer pool, holding `hashes` as the eight-deep window it is.
+	fn pool(hashes: &[AuthorizerHash]) -> AuthPool {
+		AuthPool::truncate_from(hashes.to_vec())
+	}
+
+	fn other_hash() -> AuthorizerHash {
+		AuthorizerHash([0xee; 32])
+	}
+
+	/// Nothing waits on JAM to author, but a package can only be submitted to a core whose pool
+	/// holds this para's authorizer — anywhere else a guarantor would refuse it. So the scan is
+	/// what turns "which core?" from a flag into a fact read off the chain.
+	#[test]
+	fn a_core_holding_the_paras_authorizer_is_where_its_packages_go() {
+		let ours = authorizer_of("alice", "Alice", 1).hash();
+		let pools = vec![pool(&[other_hash()]), pool(&[other_hash(), ours])];
+
+		let scan = scan_pools(&pools, ours);
+
+		assert_eq!(scan.target, Some(1));
+		assert!(scan.also_on.is_empty());
+	}
+
+	/// A core that holds no copy of our hash is not ours, however full its pool is; with none of
+	/// them holding it the para has no core at all, which is a state the collator has to survive
+	/// rather than crash on — it keeps authoring and submits nothing.
+	#[test]
+	fn no_core_holding_it_is_no_target_at_all() {
+		let ours = authorizer_of("alice", "Alice", 1).hash();
+
+		assert_eq!(scan_pools(&[pool(&[other_hash()]), pool(&[])], ours), PoolScan::default());
+		assert_eq!(scan_pools(&[], ours).target, None, "a chain with no cores names none");
+	}
+
+	/// Mid-reassignment both the old and the new core hold our hash while the old one's pool
+	/// drains. Taking the lowest index keeps consecutive packages on one core (bursting across
+	/// cores is elastic scaling, not this phase) and the rest are reported, because a core that
+	/// silently held our packages would be invisible in the log.
+	#[test]
+	fn several_cores_holding_it_go_to_the_lowest_index() {
+		let ours = authorizer_of("alice", "Alice", 1).hash();
+		let pools = vec![pool(&[ours]), pool(&[other_hash()]), pool(&[ours]), pool(&[ours])];
+
+		let scan = scan_pools(&pools, ours);
+
+		assert_eq!(scan.target, Some(0));
+		assert_eq!(scan.also_on, vec![2, 3]);
+	}
+
+	/// Two paras on one collator set differ only in their config, so their hashes differ and one
+	/// para's core must never look like the other's.
+	#[test]
+	fn another_paras_core_is_not_ours() {
+		let ours = authorizer_of("alice,bob", "Alice", 1).hash();
+		let theirs = authorizer_of("alice,bob", "Alice", 2).hash();
+		assert_ne!(ours, theirs);
+
+		assert_eq!(scan_pools(&[pool(&[theirs])], ours).target, None);
 	}
 
 	/// polkajam refuses a lookup anchor older than `max_lookup_anchor_age`, and it applies that

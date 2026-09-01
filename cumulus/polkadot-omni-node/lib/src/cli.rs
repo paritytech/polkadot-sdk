@@ -191,13 +191,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub jam_service_id: Option<u32>,
 
-	/// EXPERIMENTAL (JAM): The core to submit work packages to.
-	///
-	/// Only meaningful together with `--jam-rpc-urls`. Replaced by authorizer-queue core
-	/// discovery later.
-	#[arg(long, default_value_t = 0)]
-	pub jam_core: u16,
-
 	/// EXPERIMENTAL (JAM): Dev names of the para's collator set, comma-separated, in the order
 	/// the AURA round-robin walks them (e.g. `alice,bob,charlie`).
 	///
@@ -318,8 +311,6 @@ pub struct JamNodeParams {
 	pub rpc_urls: Vec<url::Url>,
 	/// Id of the parachain service on the JAM chain.
 	pub service_id: u32,
-	/// The core to submit work packages to.
-	pub core: u16,
 	/// Dev names of the para's collator set, in round-robin order.
 	pub collators: String,
 	/// The AURA authorizer blob whose hash the para's cores run.
@@ -403,7 +394,6 @@ impl<Config: CliConfig> Cli<Config> {
 		Ok(Some(JamNodeParams {
 			rpc_urls: self.run.jam_rpc_urls.clone(),
 			service_id,
-			core: self.jam_core,
 			collators,
 			authorizer_blob,
 			slot_duration: self.jam_slot_duration,

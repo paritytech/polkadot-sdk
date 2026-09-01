@@ -47,8 +47,8 @@
 //! instead of recomputing them from their own clock — exactly as in relay mode.
 
 use super::{
-	JamCollatorMessage, LOG_TARGET, authorizer::AuraAuthorizer, choose_lookup_anchor,
-	fetch_anchor_state_proof, jam_read, jam_slot_as_relay_slot, jam_slot_at,
+	JamCollatorMessage, LOG_TARGET, PoolScan, authorizer::AuraAuthorizer, choose_lookup_anchor,
+	fetch_anchor_state_proof, jam_read, jam_slot_as_relay_slot, jam_slot_at, scan_pools_at,
 };
 use crate::common::{
 	ConstructNodeRuntimeApi, NodeBlock,
@@ -63,7 +63,7 @@ use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
 use futures::{FutureExt, StreamExt, channel::mpsc};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
-	BlockDesc, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
+	BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
 	StateRootHash, WorkPackageHash, WorkReport,
 };
 use jam_state_helpers::StateProof;
@@ -501,6 +501,10 @@ struct BuilderState<Header: HeaderT> {
 	head_advanced_at: Option<Slot>,
 	/// The branch started on a stuck accumulated head, while it is still stuck.
 	rerooted: Option<Reroot<Header::Hash>>,
+	/// The spare cores the last pool scan reported, so a stable assignment is logged once instead
+	/// of every tick. The *absent* core is logged every tick regardless: it is the reason nothing
+	/// is being submitted, and it must not scroll out of sight.
+	spare_cores: Vec<CoreIndex>,
 }
 
 /// The branch this collator started on an accumulated head that would not move.
@@ -541,6 +545,44 @@ impl<Header: HeaderT> BuilderState<Header> {
 		(*para_slot).saturating_sub(*since)
 	}
 
+	/// Log this tick's pool scan and say where the package may go.
+	///
+	/// No core holding the para's authorizer is warned about on every single tick: the parachain
+	/// keeps producing blocks, so the only visible symptom is an accumulated head that stops
+	/// moving, and this line is what tells the two apart.
+	fn note_pool_scan(
+		&mut self,
+		scan: &PoolScan,
+		anchor: &BlockDesc,
+		authorizer: &AuraAuthorizer,
+	) -> Option<CoreIndex> {
+		match scan.target {
+			None => tracing::warn!(
+				target: LOG_TARGET,
+				anchor = ?anchor.header_hash,
+				anchor_slot = anchor.slot,
+				authorizer_hash = ?authorizer.hash(),
+				"No core's authorizer pool holds this para's authorizer, so nothing can be \
+				 submitted. Authoring continues locally, but the accumulated head will not move \
+				 until a core is assigned to this para.",
+			),
+			Some(core) if scan.also_on != self.spare_cores => tracing::info!(
+				target: LOG_TARGET,
+				anchor = ?anchor.header_hash,
+				anchor_slot = anchor.slot,
+				authorizer_hash = ?authorizer.hash(),
+				core,
+				also_on = ?scan.also_on,
+				previously_also_on = ?self.spare_cores,
+				"The set of cores holding this para's authorizer changed; submitting to the \
+				 lowest-indexed one.",
+			),
+			Some(_) => {},
+		}
+		self.spare_cores = scan.also_on.clone();
+		scan.target
+	}
+
 	/// Record where an authored block leaves the branch commitment: a block authored on a stuck
 	/// head *starts* one — and restarts the stall clock, so the new branch gets a full window
 	/// before it is abandoned in turn — while one authored on an existing branch extends it.
@@ -575,6 +617,9 @@ struct AnchorReads {
 	/// The para's entry in the service's state, exactly as stored; `None` = no head yet.
 	included: Option<Vec<u8>>,
 	proof: StateProof,
+	/// Which cores hold the para's authorizer at this anchor, and therefore where the package
+	/// built on it may be submitted.
+	pool_scan: PoolScan,
 }
 
 /// How long until the next para slot starts.
@@ -663,6 +708,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		own_recent: VecDeque::new(),
 		head_advanced_at: None,
 		rerooted: None,
+		spare_cores: Vec::new(),
 	};
 	let mut cached_tip: Option<BlockDesc> = None;
 	loop {
@@ -837,11 +883,18 @@ where
 			return Ok(None);
 		},
 	};
-	let Some(AnchorReads { anchor, context, state_root, included, proof: anchor_state_proof }) =
-		reads
+	let Some(AnchorReads {
+		anchor,
+		context,
+		state_root,
+		included,
+		proof: anchor_state_proof,
+		pool_scan,
+	}) = reads
 	else {
 		return Ok(None);
 	};
+	let submit_target = state.note_pool_scan(&pool_scan, &anchor, authorizer);
 
 	let included_head = match &included {
 		Some(bytes) => {
@@ -1151,6 +1204,7 @@ where
 		anchor_state_root: *state_root,
 		anchor_state_proof,
 		anchor_slot: anchor.slot,
+		submit_target,
 		triggered_by: tip,
 	}))
 }
@@ -1183,6 +1237,7 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 	else {
 		return Ok(None);
 	};
+	let pool_scan = scan_pools_at(jam, anchor.header_hash, authorizer).await?;
 	let included = jam_read(
 		"serviceValue",
 		anchor.header_hash,
@@ -1230,6 +1285,7 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 		state_root,
 		included,
 		proof,
+		pool_scan,
 	}))
 }
 
@@ -1600,6 +1656,7 @@ mod tests {
 			own_recent: VecDeque::new(),
 			head_advanced_at: None,
 			rerooted: None,
+			spare_cores: Vec::new(),
 		}
 	}
 
