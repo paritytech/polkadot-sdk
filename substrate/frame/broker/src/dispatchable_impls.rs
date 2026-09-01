@@ -562,44 +562,58 @@ impl<T: Config> Pallet<T> {
 		task: TaskId,
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
+		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		let mut core = core;
+		let mut actual_core = core;
 
-		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
-		//
-		// In case we renew it now, we don't need to check the workload end since we know it is
-		// eligible for renewal.
-		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
-			.is_some()
-		{
-			core = Self::do_renew(sovereign_account.clone(), core)?;
-		} else if let Some(workload_end) = workload_end_hint {
-			ensure!(
-				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
-					.is_some(),
-				Error::<T>::NotAllowed
-			);
+		let workload_end = if let Some(hint) = workload_end_hint {
+			if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: hint }).is_some() {
+				hint
+			} else {
+				ensure!(Leases::<T>::get().iter().any(|l| l.task == task), Error::<T>::NotAllowed);
+				hint
+			}
 		} else {
-			return Err(Error::<T>::NotAllowed.into());
-		}
+			let renewal_id = PotentialRenewalId { core, when: sale.region_begin };
+			if PotentialRenewals::<T>::get(renewal_id).is_some() {
+				actual_core = Self::do_renew(sovereign_account.clone(), core)?;
+				sale.region_end
+			} else {
+				let leases = Leases::<T>::get();
+				let lease = leases.iter().find(|l| l.task == task).ok_or(Error::<T>::NotAllowed)?;
+				let diff = lease.until.saturating_sub(sale.region_begin);
+				let periods = diff / config.region_length + 1;
+				sale.region_begin.saturating_add(periods.saturating_mul(config.region_length))
+			}
+		};
 
-		// We are sorting auto renewals by `CoreIndex`.
-		AutoRenewals::<T>::try_mutate(|renewals| {
-			let pos = renewals
-				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
-				.unwrap_or_else(|e| e);
-			renewals.try_insert(
-				pos,
-				AutoRenewalRecord {
-					core,
-					task,
-					next_renewal: workload_end_hint.unwrap_or(sale.region_end),
+		// Insert or update the auto-renewal record using binary search
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			// Use binary search since renewals are sorted by core index
+			match renewals.binary_search_by(|r| r.core.cmp(&actual_core)) {
+				Ok(pos) => {
+					// Update existing entry
+					renewals[pos] =
+						AutoRenewalRecord { core: actual_core, task, next_renewal: workload_end };
 				},
-			)
-		})
-		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+				Err(pos) => {
+					// Insert new entry at sorted position
+					renewals
+						.try_insert(
+							pos,
+							AutoRenewalRecord {
+								core: actual_core,
+								task,
+								next_renewal: workload_end,
+							},
+						)
+						.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+				},
+			}
+			Ok(())
+		})?;
 
-		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
+		Self::deposit_event(Event::AutoRenewalEnabled { core: actual_core, task });
 		Ok(())
 	}
 
@@ -611,6 +625,7 @@ impl<T: Config> Pallet<T> {
 
 			let renewal_record = renewals.get(pos).ok_or(Error::<T>::AutoRenewalNotEnabled)?;
 
+			// Verify the task matches
 			ensure!(
 				renewal_record.core == core && renewal_record.task == task,
 				Error::<T>::NoPermission

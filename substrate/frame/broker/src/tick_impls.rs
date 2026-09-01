@@ -216,6 +216,7 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(region_end, |r| r.system.saturating_reduce(total_pooled));
 
 		let mut leases = Leases::<T>::get();
+		let mut lease_core_updates: alloc::vec::Vec<(TaskId, CoreIndex)> = alloc::vec::Vec::new();
 		// Can morph to a renewable as long as it's >=begin and <end.
 		leases.retain(|&LeaseRecordItem { until, task }| {
 			let mask = CoreMask::complete();
@@ -239,6 +240,9 @@ impl<T: Config> Pallet<T> {
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
 				Self::deposit_event(Event::LeaseEnding { when: region_end, task });
+			} else {
+				// Record the definitive core index for this still-active lease.
+				lease_core_updates.push((task, first_core));
 			}
 
 			first_core.saturating_inc();
@@ -246,6 +250,28 @@ impl<T: Config> Pallet<T> {
 			!expire
 		});
 		Leases::<T>::put(&leases);
+
+		// Update auto-renewal records whose core index has become stale due to lease expiries or
+		// reservation changes shifting the core assignment of remaining leases.
+		if !lease_core_updates.is_empty() {
+			AutoRenewals::<T>::mutate(|renewals| {
+				let mut changed = false;
+				for renewal in renewals.iter_mut() {
+					if let Some(&(_, new_core)) =
+						lease_core_updates.iter().find(|(t, _)| *t == renewal.task)
+					{
+						if renewal.core != new_core {
+							renewal.core = new_core;
+							changed = true;
+						}
+					}
+				}
+				if changed {
+					// Re-sort to maintain the sorted-by-core invariant.
+					renewals.sort_by_key(|r| r.core);
+				}
+			});
+		}
 
 		let max_possible_sales = status.core_count.saturating_sub(first_core);
 		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
@@ -357,46 +383,64 @@ impl<T: Config> Pallet<T> {
 	/// Renews all the cores which have auto-renewal enabled.
 	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
 		let renewals = AutoRenewals::<T>::get();
+		let mut updated_renewals = Vec::new();
 
-		let Ok(auto_renewals) = renewals
-			.into_iter()
-			.flat_map(|record| {
-				// Check if the next renewal is scheduled further in the future than the start of
-				// the next region beginning. If so, we skip the renewal for this core.
-				if sale.region_begin < record.next_renewal {
-					return Some(record);
-				}
+		for record in renewals.iter() {
+			// Only process renewals scheduled for this sale period
+			if sale.region_begin < record.next_renewal {
+				updated_renewals.push(record.clone());
+				continue;
+			}
 
-				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
-					Self::deposit_event(Event::<T>::AutoRenewalFailed {
-						core: record.core,
-						payer: None,
-					});
-					return None;
-				};
+			// Get the sovereign account for payment
+			let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
+				Self::deposit_event(Event::<T>::AutoRenewalFailed {
+					core: record.core,
+					payer: None,
+				});
+				continue;
+			};
 
-				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
-					Some(AutoRenewalRecord {
+			// Attempt renewal
+			match Self::do_renew(payer.clone(), record.core) {
+				Ok(new_core_index) => {
+					// Successfully renewed - update the record with new core and next renewal time
+					updated_renewals.push(AutoRenewalRecord {
 						core: new_core_index,
 						task: record.task,
 						next_renewal: sale.region_end,
-					})
-				} else {
+					});
+				},
+				Err(_) => {
+					// Renewal failed - emit event and don't keep the record
 					Self::deposit_event(Event::<T>::AutoRenewalFailed {
 						core: record.core,
 						payer: Some(payer),
 					});
+				},
+			}
+		}
 
-					None
+		// Sort by core index to maintain invariant
+		updated_renewals.sort_by_key(|r| r.core);
+
+		// Convert to BoundedVec and update storage
+		match BoundedVec::try_from(updated_renewals.clone()) {
+			Ok(bounded) => {
+				AutoRenewals::<T>::set(bounded);
+			},
+			Err(_) => {
+				// This should never happen as we're filtering from existing renewals
+				// but if it does, emit event and keep what we can fit
+				Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
+
+				// Keep as many as we can fit
+				let mut truncated = updated_renewals.clone();
+				truncated.truncate(T::MaxAutoRenewals::get() as usize);
+				if let Ok(bounded) = BoundedVec::try_from(truncated) {
+					AutoRenewals::<T>::set(bounded);
 				}
-			})
-			.collect::<Vec<AutoRenewalRecord>>()
-			.try_into()
-		else {
-			Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
-			return;
-		};
-
-		AutoRenewals::<T>::set(auto_renewals);
+			},
+		}
 	}
 }
