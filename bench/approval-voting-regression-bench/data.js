@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788246514624,
+  "lastUpdate": 1788260541639,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "684c79ccace32f8813b2570acac7dfb29f515656",
-          "message": "fix(revive): handle transaction hash conflicts during re-org (#10950)\n\n## Summary\n\nFixes a UNIQUE constraint violation when processing blocks after a\nre-org:\n```\nUNIQUE constraint failed: transaction_hashes.transaction_hash\n```\n\n## Problem\n\nWhen a blockchain re-org occurs:\n1. Block A contains transaction TX1 → stored in `transaction_hashes`\n2. Server restarts (clearing the in-memory `block_number_to_hashes` map)\n3. Re-org happens, Block B (different hash) now contains the same TX1\n4. INSERT fails because TX1 already exists with old block_hash\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T21:49:20Z",
-          "tree_id": "077c704684a65444f754d1995eede215c0ac6a71",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/684c79ccace32f8813b2570acac7dfb29f515656"
-        },
-        "date": 1769813817807,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63630.69000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7877843985200065,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6909708495999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002054979,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002126756,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.856786272180003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002054979,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0059010921300000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.639885364729999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.678054276013078,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.65985732352,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7201523762000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3522348674799938,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002126756,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.004937272030000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3cd96d6d78e9838875840da192d48f19788f96cb",
+          "message": "Remove deprecated BuildModuleGenesisStorage (#12990)\n\n## Summary\n\nRemoved `sp_runtime::BuildModuleGenesisStorage`, deprecated since\nDecember 2023 in favour of `BuildStorage`. There are no remaining\nin-repo callers.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-09-01T09:11:12Z",
+          "tree_id": "24265346602eeaf91ae2c9b6d224996cbaf92906",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3cd96d6d78e9838875840da192d48f19788f96cb"
+        },
+        "date": 1788260504401,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63567.79,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52936.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002583692,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.74649641601,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.371139908909994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8199547446399571,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.493028366602804,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00519067143,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002187841,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002187841,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.262652625859957,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.770509411919999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.758803902390003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002583692,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7905575705600016,
             "unit": "seconds"
           }
         ]
