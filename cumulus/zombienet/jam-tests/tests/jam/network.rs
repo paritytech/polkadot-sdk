@@ -193,9 +193,15 @@ impl JamNetwork {
 	/// genesis authorizer. On a run that assigns every core the chain has, the last one therefore
 	/// keeps service 0 as its assigner; nothing can free or re-assign it for the rest of the run.
 	pub fn assign_cores(&self, binaries: &Binaries, paras: &[Para]) -> anyhow::Result<()> {
+		// A core each, and a real one. Two paras sharing a core would silently leave the first
+		// one's authorizer overwritten, and the "no genesis-authorizer core left" reasoning below
+		// counts paras as if each took its own.
+		let mut cores: Vec<u32> = paras.iter().map(|para| para.core).collect();
+		cores.sort_unstable();
+		cores.dedup();
 		anyhow::ensure!(
-			paras.len() <= CORE_COUNT && paras.iter().all(|para| (para.core as usize) < CORE_COUNT),
-			"this network has {CORE_COUNT} cores, which does not fit {:?}",
+			cores.len() == paras.len() && cores.iter().all(|core| (*core as usize) < CORE_COUNT),
+			"this network has {CORE_COUNT} cores, one each, which does not fit {:?}",
 			paras.iter().map(|para| (para.id, para.core)).collect::<Vec<_>>()
 		);
 
