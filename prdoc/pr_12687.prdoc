@@ -1,0 +1,49 @@
+title: "pallet-treasury: Asset Category"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `spend` now takes a `SpendAsset`, either `Specific(asset_kind)` or `Category(name)`, so a
+      spend can request payment from a group of interchangeable assets such as USD stablecoins.
+      A category payout draws from the category's assets in registration order, bounded by their
+      available treasury balances; any uncovered amount stays claimable after `check_status`.
+
+      Categories resolve through the new `frame_support` trait `AssetCategoryManager`, configured
+      as `pallet_treasury::Config::AssetCategories`; use `NoAssetCategories` for specific-asset
+      spends only. `pallet-assets` holds the membership storage, the `ForceOrigin` calls
+      `add_to_category` and `remove_from_category`, and a `categories` genesis field.
+
+      `PaymentState` records one execution per asset paid from, a breaking change to `Spends`.
+      Runtimes with a treasury must run `pallet_treasury::migration::v1`, which translates existing
+      spends and sets storage version 1. `payout` and `check_status` declare weight for the largest
+      category and refund the unused portion; `payout` returns `DispatchResultWithPostInfo`.
+
+crates:
+  - name: pallet-treasury
+    bump: major
+  - name: frame-support
+    bump: minor
+  - name: pallet-assets
+    bump: major
+  - name: pallet-bounties
+    bump: patch
+  - name: pallet-child-bounties
+    bump: patch
+  - name: pallet-tips
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: rococo-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: pallet-staking-async-parachain-runtime
+    bump: minor
+  - name: pallet-staking-async-rc-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor

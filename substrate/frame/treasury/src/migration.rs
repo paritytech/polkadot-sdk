@@ -22,10 +22,107 @@ use alloc::collections::BTreeSet;
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::{defensive, traits::OnRuntimeUpgrade};
+use frame_support::{
+	defensive,
+	migrations::VersionedMigration,
+	traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+};
 
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::treasury";
+
+pub mod v1 {
+	use super::*;
+
+	/// [`SpendStatus`] as stored before category payments.
+	pub mod old {
+		use super::*;
+
+		#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+		pub enum PaymentState<Id> {
+			Pending,
+			Attempted { id: Id },
+			Failed,
+		}
+
+		#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+		pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
+			pub asset_kind: AssetKind,
+			pub amount: AssetBalance,
+			pub beneficiary: Beneficiary,
+			pub valid_from: BlockNumber,
+			pub expire_at: BlockNumber,
+			pub status: PaymentState<PaymentId>,
+		}
+
+		pub type SpendStatusOf<T, I> = SpendStatus<
+			<T as Config<I>>::AssetKind,
+			AssetBalanceOf<T, I>,
+			<T as Config<I>>::Beneficiary,
+			BlockNumberFor<T, I>,
+			<<T as Config<I>>::Paymaster as Pay>::Id,
+		>;
+	}
+
+	/// Rewrites every [`Spends`] entry into the category-aware shape. The asset kind becomes
+	/// [`SpendAsset::Specific`] and an attempted payment becomes the spend's sole execution.
+	pub struct MigrateToV1Impl<T, I>(PhantomData<(T, I)>);
+
+	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1Impl<T, I> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut translated = 0u64;
+			Spends::<T, I>::translate::<old::SpendStatusOf<T, I>, _>(|_index, old| {
+				translated.saturating_inc();
+				let status = match old.status {
+					old::PaymentState::Pending => PaymentState::Pending,
+					old::PaymentState::Attempted { id } => {
+						let execution = PaymentExecution {
+							asset_kind: old.asset_kind.clone(),
+							amount: old.amount,
+							id,
+						};
+						let executions = BoundedVec::truncate_from(alloc::vec![execution]);
+						PaymentState::Attempted { executions, remaining: Zero::zero() }
+					},
+					old::PaymentState::Failed => PaymentState::Failed { unpaid: old.amount },
+				};
+				Some(SpendStatus {
+					asset: SpendAsset::Specific(old.asset_kind),
+					amount: old.amount,
+					beneficiary: old.beneficiary,
+					valid_from: old.valid_from,
+					expire_at: old.expire_at,
+					status,
+				})
+			});
+
+			log::info!(target: LOG_TARGET, "Translated {} spends to v1.", translated);
+			T::DbWeight::get().reads_writes(translated, translated)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let count = Spends::<T, I>::iter_keys().count() as u32;
+			Ok(count.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_count = u32::decode(&mut &state[..]).expect("Known good");
+			let new_count = Spends::<T, I>::iter_values().count() as u32;
+			ensure!(old_count == new_count, "Spends count changed during migration");
+			Ok(())
+		}
+	}
+
+	pub type MigrateToV1<T, I> = VersionedMigration<
+		0,
+		1,
+		MigrateToV1Impl<T, I>,
+		Pallet<T, I>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
 
 pub mod cleanup_proposals {
 	use super::*;

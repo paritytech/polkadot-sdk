@@ -17,6 +17,7 @@
 
 //! Traits for working with tokens and their associated datastructures.
 
+pub mod asset_category;
 pub mod asset_ops;
 pub mod currency;
 pub mod fungible;
@@ -30,6 +31,7 @@ pub mod nonfungibles_v2;
 pub use imbalance::Imbalance;
 pub mod pay;
 pub mod transfer;
+pub use asset_category::{AssetCategoryManager, NoAssetCategories};
 pub use misc::{
 	AssetId, Balance, BalanceStatus, ConversionFromAssetBalance, ConversionToAssetBalance,
 	ConvertRank, DepositConsequence, ExistenceRequirement, Fortitude, GetSalary, IdAmount, Locker,

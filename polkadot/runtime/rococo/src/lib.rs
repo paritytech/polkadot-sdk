@@ -42,7 +42,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	traits::FromContains,
+	traits::{tokens::NoAssetCategories, FromContains},
 };
 use pallet_balances::WeightInfo;
 use pallet_nis::WithMaximumOf;
@@ -561,6 +561,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type AssetCategories = NoAssetCategories<VersionedLocatableAsset, Balance>;
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
@@ -1772,6 +1773,8 @@ pub mod migrations {
 
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
+
+		pallet_treasury::migration::v1::MigrateToV1<Runtime, ()>,
 
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,

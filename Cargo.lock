@@ -15416,6 +15416,7 @@ dependencies = [
 name = "pallet-treasury"
 version = "27.0.0"
 dependencies = [
+ "derive-where",
  "docify",
  "frame-benchmarking",
  "frame-support",

@@ -91,15 +91,17 @@ use sp_runtime::{
 		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
 		UniqueSaturatedInto, Zero,
 	},
-	Debug, PerThing, Permill,
+	Debug, DispatchError, PerThing, Permill,
 };
 
 use frame_support::{
-	dispatch::{DispatchResult, DispatchResultWithPostInfo},
-	ensure, print,
+	dispatch::{DispatchResult, DispatchResultWithPostInfo, Pays, PostDispatchInfo},
+	ensure, print, stored,
 	traits::{
-		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
-		ReservableCurrency, WithdrawReasons,
+		tokens::{AssetCategoryManager, ConversionFromAssetBalance, Pay},
+		Currency,
+		ExistenceRequirement::KeepAlive,
+		Get, Imbalance, OnUnbalanced, ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec, PalletId,
@@ -118,6 +120,34 @@ pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currenc
 pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
+pub type CategoryNameLimitOf<T, I = ()> =
+	<<T as Config<I>>::AssetCategories as AssetCategoryManager<
+		<T as frame_system::Config>::AccountId,
+	>>::NameLimit;
+pub type MaxCategoryAssetsOf<T, I = ()> =
+	<<T as Config<I>>::AssetCategories as AssetCategoryManager<
+		<T as frame_system::Config>::AccountId,
+	>>::MaxAssets;
+pub type SpendAssetOf<T, I = ()> =
+	SpendAsset<<T as Config<I>>::AssetKind, CategoryNameLimitOf<T, I>>;
+pub type PaymentExecutionOf<T, I = ()> = PaymentExecution<
+	<T as Config<I>>::AssetKind,
+	AssetBalanceOf<T, I>,
+	<<T as Config<I>>::Paymaster as Pay>::Id,
+>;
+pub type PaymentStateOf<T, I = ()> = PaymentState<
+	<T as Config<I>>::AssetKind,
+	AssetBalanceOf<T, I>,
+	<<T as Config<I>>::Paymaster as Pay>::Id,
+	MaxCategoryAssetsOf<T, I>,
+>;
+pub type SpendStatusOf<T, I = ()> = SpendStatus<
+	SpendAssetOf<T, I>,
+	AssetBalanceOf<T, I>,
+	<T as Config<I>>::Beneficiary,
+	BlockNumberFor<T, I>,
+	PaymentStateOf<T, I>,
+>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 pub type BlockNumberFor<T, I = ()> =
@@ -163,18 +193,60 @@ pub struct Proposal<AccountId, Balance> {
 	pub bond: Balance,
 }
 
+/// The asset(s) requested by a spend: a specific kind or any from a named category.
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+	feature = "std",
+	serde(bound(
+		serialize = "AssetKind: serde::Serialize",
+		deserialize = "AssetKind: serde::Deserialize<'de>"
+	))
+)]
+#[stored]
+pub enum SpendAsset<AssetKind, NameLimit: Get<u32>> {
+	/// The given asset kind.
+	Specific(AssetKind),
+	/// Any assets registered under the named category.
+	Category(BoundedVec<u8, NameLimit>),
+}
+
+/// One payment toward a spend.
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[stored]
+pub struct PaymentExecution<AssetKind, Balance, Id> {
+	/// The kind of asset paid.
+	pub asset_kind: AssetKind,
+	/// The amount paid.
+	pub amount: Balance,
+	/// Identifier to check the payment status with.
+	pub id: Id,
+}
+
 /// The state of the payment claim.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
+#[cfg_attr(
+	feature = "std",
+	serde(bound(
+		serialize = "AssetKind: serde::Serialize, Balance: serde::Serialize, Id: serde::Serialize",
+		deserialize = "AssetKind: serde::Deserialize<'de>, Balance: serde::Deserialize<'de>, Id: serde::Deserialize<'de>"
+	))
 )]
-pub enum PaymentState<Id> {
+#[stored]
+pub enum PaymentState<AssetKind, Balance, Id, MaxExecutions: Get<u32>> {
 	/// Pending claim.
 	Pending,
-	/// Payment attempted with a payment identifier.
-	Attempted { id: Id },
-	/// Payment failed.
-	Failed,
+	/// Payment attempted, one execution per asset paid from.
+	Attempted {
+		/// The payments made.
+		executions: BoundedVec<PaymentExecution<AssetKind, Balance, Id>, MaxExecutions>,
+		/// Portion of the spend amount not covered by any execution.
+		remaining: Balance,
+	},
+	/// All executions concluded, `unpaid` is left to pay and can be retried.
+	Failed {
+		/// Amount not yet paid out.
+		unpaid: Balance,
+	},
 }
 
 /// Info regarding an approved treasury spend.
@@ -182,9 +254,9 @@ pub enum PaymentState<Id> {
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo,
 )]
-pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
-	// The kind of asset to be spent.
-	pub asset_kind: AssetKind,
+pub struct SpendStatus<Asset, AssetBalance, Beneficiary, BlockNumber, State> {
+	/// The asset(s) to be spent.
+	pub asset: Asset,
 	/// The asset amount of the spend.
 	pub amount: AssetBalance,
 	/// The beneficiary of the spend.
@@ -194,7 +266,7 @@ pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, Paymen
 	/// The block number by which the spend has to be claimed.
 	pub expire_at: BlockNumber,
 	/// The status of the payout/claim.
-	pub status: PaymentState<PaymentId>,
+	pub status: State,
 }
 
 /// Index of an approved treasury spend.
@@ -210,7 +282,10 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -286,6 +361,16 @@ pub mod pallet {
 		#[pallet::constant]
 		type PayoutPeriod: Get<BlockNumberFor<Self, I>>;
 
+		/// Means of resolving asset categories for category spends and inspecting the
+		/// treasury's available balances. Use
+		/// [`NoAssetCategories`](frame_support::traits::tokens::NoAssetCategories) if only
+		/// specific-asset spends are made.
+		type AssetCategories: AssetCategoryManager<
+			Self::AccountId,
+			AssetKind = Self::AssetKind,
+			Balance = <Self::Paymaster as Pay>::Balance,
+		>;
+
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
@@ -342,19 +427,8 @@ pub mod pallet {
 	/// Spends that have been approved and being processed.
 	// Hasher: Twox safe since `SpendIndex` is an internal count based index.
 	#[pallet::storage]
-	pub type Spends<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Twox64Concat,
-		SpendIndex,
-		SpendStatus<
-			T::AssetKind,
-			AssetBalanceOf<T, I>,
-			T::Beneficiary,
-			BlockNumberFor<T, I>,
-			<T::Paymaster as Pay>::Id,
-		>,
-		OptionQuery,
-	>;
+	pub type Spends<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, SpendIndex, SpendStatusOf<T, I>, OptionQuery>;
 
 	/// The blocknumber for the last triggered spend period.
 	#[pallet::storage]
@@ -403,7 +477,7 @@ pub mod pallet {
 		/// A new asset spend proposal has been approved.
 		AssetSpendApproved {
 			index: SpendIndex,
-			asset_kind: T::AssetKind,
+			asset: SpendAssetOf<T, I>,
 			amount: AssetBalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
 			valid_from: BlockNumberFor<T, I>,
@@ -412,7 +486,7 @@ pub mod pallet {
 		/// An approved spend was voided.
 		AssetSpendVoided { index: SpendIndex },
 		/// A payment happened.
-		Paid { index: SpendIndex, payment_id: <T::Paymaster as Pay>::Id },
+		Paid { index: SpendIndex, execution: PaymentExecutionOf<T, I> },
 		/// A payment failed and can be retried.
 		PaymentFailed { index: SpendIndex, payment_id: <T::Paymaster as Pay>::Id },
 		/// A spend was processed and removed from the storage. It might have been successfully
@@ -446,6 +520,8 @@ pub mod pallet {
 		NotAttempted,
 		/// The payment has neither failed nor succeeded yet.
 		Inconclusive,
+		/// The spend references an empty or unknown asset category.
+		EmptyCategory,
 	}
 
 	#[pallet::hooks]
@@ -625,17 +701,19 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least
-		/// `amount` of `asset_kind` in the native asset. The amount of `asset_kind` is converted
-		/// for assertion using the [`Config::BalanceConverter`].
+		/// `amount` of `asset` in the native asset. The amount of `asset` is converted
+		/// for assertion using the [`Config::BalanceConverter`]. For a category, the
+		/// maximum conversion among the category's assets is asserted, since any of them
+		/// may be paid.
 		///
 		/// ## Details
 		///
-		/// Create an approved spend for transferring a specific `amount` of `asset_kind` to a
+		/// Create an approved spend for transferring a specific `amount` of `asset` to a
 		/// designated beneficiary. The spend must be claimed using the `payout` dispatchable within
 		/// the [`Config::PayoutPeriod`].
 		///
 		/// ### Parameters
-		/// - `asset_kind`: An indicator of the specific asset class to be spent.
+		/// - `asset`: The asset kind to be spent, or a category of assets to draw from.
 		/// - `amount`: The amount to be transferred from the treasury to the `beneficiary`.
 		/// - `beneficiary`: The beneficiary of the spend.
 		/// - `valid_from`: The block number from which the spend can be claimed. It can refer to
@@ -650,7 +728,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::spend())]
 		pub fn spend(
 			origin: OriginFor<T>,
-			asset_kind: Box<T::AssetKind>,
+			asset: Box<SpendAssetOf<T, I>>,
 			#[pallet::compact] amount: AssetBalanceOf<T, I>,
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
 			valid_from: Option<BlockNumberFor<T, I>>,
@@ -663,9 +741,7 @@ pub mod pallet {
 			let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
 			ensure!(expire_at > now, Error::<T, I>::SpendExpired);
 
-			let native_amount =
-				T::BalanceConverter::from_asset_balance(amount, *asset_kind.clone())
-					.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+			let native_amount = Self::native_amount(&asset, amount)?;
 
 			ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
@@ -691,7 +767,7 @@ pub mod pallet {
 			Spends::<T, I>::insert(
 				index,
 				SpendStatus {
-					asset_kind: *asset_kind.clone(),
+					asset: *asset.clone(),
 					amount,
 					beneficiary: beneficiary.clone(),
 					valid_from,
@@ -703,7 +779,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::AssetSpendApproved {
 				index,
-				asset_kind: *asset_kind,
+				asset: *asset,
 				amount,
 				beneficiary,
 				valid_from,
@@ -722,6 +798,9 @@ pub mod pallet {
 		///
 		/// Spends must be claimed within some temporal bounds. A spend may be claimed within one
 		/// [`Config::PayoutPeriod`] from the `valid_from` block.
+		/// A category spend is distributed across the category's assets, bounded by their
+		/// available treasury balances; any amount left uncovered stays claimable after a
+		/// `check_status` call.
 		/// In case of a payout failure, the spend status must be updated with the `check_status`
 		/// dispatchable before retrying with the current function.
 		///
@@ -730,30 +809,35 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// Emits [`Event::Paid`] if successful.
+		/// Emits [`Event::Paid`] for each payment made.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::payout())]
-		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
+		#[pallet::weight(Pallet::<T, I>::max_payment_weight(T::WeightInfo::payout()))]
+		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= spend.valid_from, Error::<T, I>::EarlyPayout);
 			ensure!(spend.expire_at > now, Error::<T, I>::SpendExpired);
-			ensure!(
-				matches!(spend.status, PaymentState::Pending | PaymentState::Failed),
-				Error::<T, I>::AlreadyAttempted
-			);
+			let unpaid = match spend.status {
+				PaymentState::Pending => spend.amount,
+				PaymentState::Failed { unpaid } => unpaid,
+				PaymentState::Attempted { .. } => {
+					return Err(Error::<T, I>::AlreadyAttempted.into())
+				},
+			};
 
-			let id = T::Paymaster::pay(&spend.beneficiary, spend.asset_kind.clone(), spend.amount)
-				.map_err(|_| Error::<T, I>::PayoutError)?;
+			let (executions, remaining) =
+				Self::execute_payments(&spend.asset, &spend.beneficiary, unpaid)?;
 
-			spend.status = PaymentState::Attempted { id };
+			let paid = executions.len() as u64;
+			for execution in executions.iter() {
+				Self::deposit_event(Event::<T, I>::Paid { index, execution: execution.clone() });
+			}
+			spend.status = PaymentState::Attempted { executions, remaining };
 			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
 			Spends::<T, I>::insert(index, spend);
 
-			Self::deposit_event(Event::<T, I>::Paid { index, payment_id: id });
-
-			Ok(())
+			Ok(Some(T::WeightInfo::payout().saturating_mul(paid)).into())
 		}
 
 		/// Check the status of the spend and remove it from the storage if processed.
@@ -773,44 +857,67 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// Emits [`Event::PaymentFailed`] if the spend payout has failed.
+		/// Emits [`Event::PaymentFailed`] for each failed payment.
 		/// Emits [`Event::SpendProcessed`] if the spend payout has succeed.
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::check_status())]
+		#[pallet::weight(Pallet::<T, I>::max_payment_weight(T::WeightInfo::check_status()))]
 		pub fn check_status(origin: OriginFor<T>, index: SpendIndex) -> DispatchResultWithPostInfo {
-			use PaymentState as State;
 			use PaymentStatus as Status;
 
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			let now = T::BlockNumberProvider::current_block_number();
 
-			if now > spend.expire_at && !matches!(spend.status, State::Attempted { .. }) {
+			if now > spend.expire_at && !matches!(spend.status, PaymentState::Attempted { .. }) {
 				// spend has expired and no further status update is expected.
 				Spends::<T, I>::remove(index);
 				Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-				return Ok(Pays::No.into());
+				return Ok(Self::checked_weight(0, Pays::No));
 			}
 
-			let payment_id = match spend.status {
-				State::Attempted { id } => id,
+			let (executions, remaining) = match spend.status {
+				PaymentState::Attempted { executions, remaining } => (executions, remaining),
 				_ => return Err(Error::<T, I>::NotAttempted.into()),
 			};
 
-			match T::Paymaster::check_payment(payment_id) {
-				Status::Failure => {
-					spend.status = PaymentState::Failed;
-					Spends::<T, I>::insert(index, spend);
-					Self::deposit_event(Event::<T, I>::PaymentFailed { index, payment_id });
-				},
-				Status::Success | Status::Unknown => {
-					Spends::<T, I>::remove(index);
-					Self::deposit_event(Event::<T, I>::SpendProcessed { index });
-					return Ok(Pays::No.into());
-				},
-				Status::InProgress => return Err(Error::<T, I>::Inconclusive.into()),
+			let mut unpaid = remaining;
+			let executions_count = executions.len();
+			let mut in_progress: BoundedVec<_, MaxCategoryAssetsOf<T, I>> = BoundedVec::new();
+			for execution in executions {
+				match T::Paymaster::check_payment(execution.id) {
+					Status::Failure => {
+						unpaid.saturating_accrue(execution.amount);
+						Self::deposit_event(Event::<T, I>::PaymentFailed {
+							index,
+							payment_id: execution.id,
+						});
+					},
+					Status::Success | Status::Unknown => {},
+					Status::InProgress => {
+						in_progress
+							.try_push(execution)
+							.expect("subset of a vec with the same bound; qed");
+					},
+				}
 			}
-			return Ok(Pays::Yes.into());
+
+			if in_progress.len() == executions_count {
+				return Err(Error::<T, I>::Inconclusive.into());
+			}
+			if !in_progress.is_empty() {
+				spend.status =
+					PaymentState::Attempted { executions: in_progress, remaining: unpaid };
+				Spends::<T, I>::insert(index, spend);
+				return Ok(Self::checked_weight(executions_count, Pays::Yes));
+			}
+			if unpaid.is_zero() {
+				Spends::<T, I>::remove(index);
+				Self::deposit_event(Event::<T, I>::SpendProcessed { index });
+				return Ok(Self::checked_weight(executions_count, Pays::No));
+			}
+			spend.status = PaymentState::Failed { unpaid };
+			Spends::<T, I>::insert(index, spend);
+			Ok(Self::checked_weight(executions_count, Pays::Yes))
 		}
 
 		/// Void previously approved spend.
@@ -835,7 +942,7 @@ pub mod pallet {
 			T::RejectOrigin::ensure_origin(origin)?;
 			let spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			ensure!(
-				matches!(spend.status, PaymentState::Pending | PaymentState::Failed),
+				matches!(spend.status, PaymentState::Pending | PaymentState::Failed { .. }),
 				Error::<T, I>::AlreadyAttempted
 			);
 
@@ -874,6 +981,95 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		};
 		LastSpendPeriod::<T, I>::put(last_spend_period);
 		last_spend_period
+	}
+
+	/// `base` scaled to one payment per category asset.
+	fn max_payment_weight(base: Weight) -> Weight {
+		base.saturating_mul(MaxCategoryAssetsOf::<T, I>::get().max(1).into())
+	}
+
+	/// Actual weight of a `check_status` that inspected `checked` payments, minimum one.
+	fn checked_weight(checked: usize, pays_fee: Pays) -> PostDispatchInfo {
+		let checked = checked.max(1) as u64;
+		PostDispatchInfo {
+			actual_weight: Some(T::WeightInfo::check_status().saturating_mul(checked)),
+			pays_fee,
+		}
+	}
+
+	/// Native value of `amount` for the spend origin permission check. For a category, the
+	/// maximum conversion among its assets.
+	fn native_amount(
+		asset: &SpendAssetOf<T, I>,
+		amount: AssetBalanceOf<T, I>,
+	) -> Result<BalanceOf<T, I>, DispatchError> {
+		match asset {
+			SpendAsset::Specific(kind) => {
+				T::BalanceConverter::from_asset_balance(amount, kind.clone())
+					.map_err(|_| Error::<T, I>::FailedToConvertBalance.into())
+			},
+			SpendAsset::Category(name) => {
+				let assets = T::AssetCategories::assets_in_category(name);
+				ensure!(!assets.is_empty(), Error::<T, I>::EmptyCategory);
+				let mut max_native: BalanceOf<T, I> = Zero::zero();
+				for kind in assets {
+					let native = T::BalanceConverter::from_asset_balance(amount, kind)
+						.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+					max_native = max_native.max(native);
+				}
+				Ok(max_native)
+			},
+		}
+	}
+
+	/// Pay `amount` of `asset` to `beneficiary`. A category spend draws from every category
+	/// asset with an available treasury balance, in registration order. Returns the executions
+	/// made and the amount left uncovered.
+	fn execute_payments(
+		asset: &SpendAssetOf<T, I>,
+		beneficiary: &T::Beneficiary,
+		amount: AssetBalanceOf<T, I>,
+	) -> Result<
+		(BoundedVec<PaymentExecutionOf<T, I>, MaxCategoryAssetsOf<T, I>>, AssetBalanceOf<T, I>),
+		DispatchError,
+	> {
+		let mut executions: BoundedVec<_, MaxCategoryAssetsOf<T, I>> = BoundedVec::new();
+		let mut remaining = amount;
+		match asset {
+			SpendAsset::Specific(kind) => {
+				let id = T::Paymaster::pay(beneficiary, kind.clone(), amount)
+					.map_err(|_| Error::<T, I>::PayoutError)?;
+				executions
+					.try_push(PaymentExecution { asset_kind: kind.clone(), amount, id })
+					.map_err(|_| Error::<T, I>::PayoutError)?;
+				remaining = Zero::zero();
+			},
+			SpendAsset::Category(name) => {
+				let treasury = Self::account_id();
+				let assets = T::AssetCategories::assets_in_category(name);
+				ensure!(!assets.is_empty(), Error::<T, I>::EmptyCategory);
+				for kind in assets {
+					if remaining.is_zero() {
+						break;
+					}
+					let available =
+						match T::AssetCategories::available_balance(kind.clone(), &treasury) {
+							Some(balance) if !balance.is_zero() => balance,
+							_ => continue,
+						};
+					let part = remaining.min(available);
+					let Ok(id) = T::Paymaster::pay(beneficiary, kind.clone(), part) else {
+						continue;
+					};
+					executions
+						.try_push(PaymentExecution { asset_kind: kind, amount: part, id })
+						.expect("iteration bounded by MaxAssets; qed");
+					remaining.saturating_reduce(part);
+				}
+				ensure!(!executions.is_empty(), Error::<T, I>::PayoutError);
+			},
+		}
+		Ok((executions, remaining))
 	}
 
 	/// Public function to proposal_count storage.
@@ -1075,6 +1271,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				spend.valid_from < spend.expire_at,
 				"Spend cannot expire before it becomes valid."
 			);
+			if let PaymentState::Attempted { ref executions, .. } = spend.status {
+				ensure!(
+					!executions.is_empty(),
+					"Attempted spend must have at least one execution."
+				);
+			}
 			Ok(())
 		})?;
 

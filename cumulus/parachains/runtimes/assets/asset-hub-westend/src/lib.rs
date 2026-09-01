@@ -1834,6 +1834,8 @@ pub type Migrations = (
 		Runtime,
 		TrappedBalanceMember,
 	>,
+	// unreleased
+	pallet_treasury::migration::v1::MigrateToV1<Runtime, ()>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
