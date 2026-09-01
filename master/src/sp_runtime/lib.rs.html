@@ -636,861 +636,946 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#486 id=486 data-nosnippet>486</a>			<span class="self">Self</span>::Ed25519(sig) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>who.into()),
 <a href=#487 id=487 data-nosnippet>487</a>			<span class="self">Self</span>::Sr25519(sig) =&gt; sig.verify(msg, <span class="kw-2">&amp;</span>who.into()),
 <a href=#488 id=488 data-nosnippet>488</a>			<span class="self">Self</span>::Ecdsa(sig) =&gt; {
-<a href=#489 id=489 data-nosnippet>489</a>				<span class="kw">let </span>m = sp_io::hashing::blake2_256(msg.get());
-<a href=#490 id=490 data-nosnippet>490</a>				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), <span class="kw-2">&amp;</span>m)
-<a href=#491 id=491 data-nosnippet>491</a>					.map_or(<span class="bool-val">false</span>, |pubkey| sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>pubkey) == who)
-<a href=#492 id=492 data-nosnippet>492</a>			},
-<a href=#493 id=493 data-nosnippet>493</a>			<span class="self">Self</span>::Eth(sig) =&gt; {
-<a href=#494 id=494 data-nosnippet>494</a>				<span class="kw">let </span>m = sp_io::hashing::keccak_256(msg.get());
-<a href=#495 id=495 data-nosnippet>495</a>				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), <span class="kw-2">&amp;</span>m)
-<a href=#496 id=496 data-nosnippet>496</a>					.map_or(<span class="bool-val">false</span>, |pubkey| {
-<a href=#497 id=497 data-nosnippet>497</a>						<span class="kw-2">&amp;</span>MultiSigner::Eth(pubkey.into()).into_account() == signer
-<a href=#498 id=498 data-nosnippet>498</a>					})
-<a href=#499 id=499 data-nosnippet>499</a>			},
-<a href=#500 id=500 data-nosnippet>500</a>		}
-<a href=#501 id=501 data-nosnippet>501</a>	}
-<a href=#502 id=502 data-nosnippet>502</a>}
-<a href=#503 id=503 data-nosnippet>503</a>
-<a href=#504 id=504 data-nosnippet>504</a><span class="doccomment">/// Signature verify that can work with any known signature types..
-<a href=#505 id=505 data-nosnippet>505</a></span><span class="attr">#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, Debug, TypeInfo)]
-<a href=#506 id=506 data-nosnippet>506</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
-<a href=#507 id=507 data-nosnippet>507</a></span><span class="kw">pub struct </span>AnySignature(H512);
-<a href=#508 id=508 data-nosnippet>508</a>
-<a href=#509 id=509 data-nosnippet>509</a><span class="kw">impl </span>Verify <span class="kw">for </span>AnySignature {
-<a href=#510 id=510 data-nosnippet>510</a>	<span class="kw">type </span>Signer = sr25519::Public;
-<a href=#511 id=511 data-nosnippet>511</a>	<span class="kw">fn </span>verify&lt;L: Lazy&lt;[u8]&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>msg: L, signer: <span class="kw-2">&amp;</span>sr25519::Public) -&gt; bool {
-<a href=#512 id=512 data-nosnippet>512</a>		<span class="kw">let </span>msg = msg.get();
-<a href=#513 id=513 data-nosnippet>513</a>		sr25519::Signature::try_from(<span class="self">self</span>.<span class="number">0</span>.as_fixed_bytes().as_ref())
-<a href=#514 id=514 data-nosnippet>514</a>			.map(|s| s.verify(msg, signer))
-<a href=#515 id=515 data-nosnippet>515</a>			.unwrap_or(<span class="bool-val">false</span>) ||
-<a href=#516 id=516 data-nosnippet>516</a>			ed25519::Signature::try_from(<span class="self">self</span>.<span class="number">0</span>.as_fixed_bytes().as_ref())
-<a href=#517 id=517 data-nosnippet>517</a>				.map(|s| <span class="kw">match </span>ed25519::Public::from_slice(signer.as_ref()) {
-<a href=#518 id=518 data-nosnippet>518</a>					<span class="prelude-val">Err</span>(()) =&gt; <span class="bool-val">false</span>,
-<a href=#519 id=519 data-nosnippet>519</a>					<span class="prelude-val">Ok</span>(signer) =&gt; s.verify(msg, <span class="kw-2">&amp;</span>signer),
-<a href=#520 id=520 data-nosnippet>520</a>				})
-<a href=#521 id=521 data-nosnippet>521</a>				.unwrap_or(<span class="bool-val">false</span>)
-<a href=#522 id=522 data-nosnippet>522</a>	}
-<a href=#523 id=523 data-nosnippet>523</a>}
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a><span class="kw">impl </span>From&lt;sr25519::Signature&gt; <span class="kw">for </span>AnySignature {
-<a href=#526 id=526 data-nosnippet>526</a>	<span class="kw">fn </span>from(s: sr25519::Signature) -&gt; <span class="self">Self </span>{
-<a href=#527 id=527 data-nosnippet>527</a>		<span class="self">Self</span>(s.into())
-<a href=#528 id=528 data-nosnippet>528</a>	}
-<a href=#529 id=529 data-nosnippet>529</a>}
-<a href=#530 id=530 data-nosnippet>530</a>
-<a href=#531 id=531 data-nosnippet>531</a><span class="kw">impl </span>From&lt;ed25519::Signature&gt; <span class="kw">for </span>AnySignature {
-<a href=#532 id=532 data-nosnippet>532</a>	<span class="kw">fn </span>from(s: ed25519::Signature) -&gt; <span class="self">Self </span>{
-<a href=#533 id=533 data-nosnippet>533</a>		<span class="self">Self</span>(s.into())
-<a href=#534 id=534 data-nosnippet>534</a>	}
-<a href=#535 id=535 data-nosnippet>535</a>}
-<a href=#536 id=536 data-nosnippet>536</a>
-<a href=#537 id=537 data-nosnippet>537</a><span class="kw">impl </span>From&lt;DispatchError&gt; <span class="kw">for </span>DispatchOutcome {
-<a href=#538 id=538 data-nosnippet>538</a>	<span class="kw">fn </span>from(err: DispatchError) -&gt; <span class="self">Self </span>{
-<a href=#539 id=539 data-nosnippet>539</a>		<span class="prelude-val">Err</span>(err)
-<a href=#540 id=540 data-nosnippet>540</a>	}
-<a href=#541 id=541 data-nosnippet>541</a>}
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a><span class="doccomment">/// This is the legacy return type of `Dispatchable`. It is still exposed for compatibility reasons.
-<a href=#544 id=544 data-nosnippet>544</a>/// The new return type is `DispatchResultWithInfo`. FRAME runtimes should use
-<a href=#545 id=545 data-nosnippet>545</a>/// `frame_support::dispatch::DispatchResult`.
-<a href=#546 id=546 data-nosnippet>546</a></span><span class="kw">pub type </span>DispatchResult = core::result::Result&lt;(), DispatchError&gt;;
-<a href=#547 id=547 data-nosnippet>547</a>
-<a href=#548 id=548 data-nosnippet>548</a><span class="doccomment">/// Return type of a `Dispatchable` which contains the `DispatchResult` and additional information
-<a href=#549 id=549 data-nosnippet>549</a>/// about the `Dispatchable` that is only known post dispatch.
-<a href=#550 id=550 data-nosnippet>550</a></span><span class="kw">pub type </span>DispatchResultWithInfo&lt;T&gt; = core::result::Result&lt;T, DispatchErrorWithPostInfo&lt;T&gt;&gt;;
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a><span class="doccomment">/// Reason why a pallet call failed.
-<a href=#553 id=553 data-nosnippet>553</a></span><span class="attr">#[derive(
-<a href=#554 id=554 data-nosnippet>554</a>	Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
-<a href=#555 id=555 data-nosnippet>555</a>)]
-<a href=#556 id=556 data-nosnippet>556</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
-<a href=#557 id=557 data-nosnippet>557</a></span><span class="kw">pub struct </span>ModuleError {
-<a href=#558 id=558 data-nosnippet>558</a>	<span class="doccomment">/// Module index, matching the metadata module index.
-<a href=#559 id=559 data-nosnippet>559</a>	</span><span class="kw">pub </span>index: u8,
-<a href=#560 id=560 data-nosnippet>560</a>	<span class="doccomment">/// Module specific error value.
-<a href=#561 id=561 data-nosnippet>561</a>	</span><span class="kw">pub </span>error: [u8; MAX_MODULE_ERROR_ENCODED_SIZE],
-<a href=#562 id=562 data-nosnippet>562</a>	<span class="doccomment">/// Optional error message.
-<a href=#563 id=563 data-nosnippet>563</a>	</span><span class="attr">#[codec(skip)]
-<a href=#564 id=564 data-nosnippet>564</a>	#[cfg_attr(feature = <span class="string">"serde"</span>, serde(skip_deserializing))]
-<a href=#565 id=565 data-nosnippet>565</a>	</span><span class="kw">pub </span>message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
-<a href=#566 id=566 data-nosnippet>566</a>}
-<a href=#567 id=567 data-nosnippet>567</a>
-<a href=#568 id=568 data-nosnippet>568</a><span class="kw">impl </span>PartialEq <span class="kw">for </span>ModuleError {
-<a href=#569 id=569 data-nosnippet>569</a>	<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
-<a href=#570 id=570 data-nosnippet>570</a>		(<span class="self">self</span>.index == other.index) &amp;&amp; (<span class="self">self</span>.error == other.error)
-<a href=#571 id=571 data-nosnippet>571</a>	}
-<a href=#572 id=572 data-nosnippet>572</a>}
-<a href=#573 id=573 data-nosnippet>573</a>
-<a href=#574 id=574 data-nosnippet>574</a><span class="doccomment">/// Errors related to transactional storage layers.
-<a href=#575 id=575 data-nosnippet>575</a></span><span class="attr">#[derive(
-<a href=#576 id=576 data-nosnippet>576</a>	Eq,
-<a href=#577 id=577 data-nosnippet>577</a>	PartialEq,
-<a href=#578 id=578 data-nosnippet>578</a>	Clone,
-<a href=#579 id=579 data-nosnippet>579</a>	Copy,
-<a href=#580 id=580 data-nosnippet>580</a>	Encode,
-<a href=#581 id=581 data-nosnippet>581</a>	Decode,
-<a href=#582 id=582 data-nosnippet>582</a>	DecodeWithMemTracking,
-<a href=#583 id=583 data-nosnippet>583</a>	Debug,
-<a href=#584 id=584 data-nosnippet>584</a>	TypeInfo,
-<a href=#585 id=585 data-nosnippet>585</a>	MaxEncodedLen,
-<a href=#586 id=586 data-nosnippet>586</a>)]
-<a href=#587 id=587 data-nosnippet>587</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
-<a href=#588 id=588 data-nosnippet>588</a></span><span class="kw">pub enum </span>TransactionalError {
-<a href=#589 id=589 data-nosnippet>589</a>	<span class="doccomment">/// Too many transactional layers have been spawned.
-<a href=#590 id=590 data-nosnippet>590</a>	</span>LimitReached,
-<a href=#591 id=591 data-nosnippet>591</a>	<span class="doccomment">/// A transactional layer was expected, but does not exist.
-<a href=#592 id=592 data-nosnippet>592</a>	</span>NoLayer,
-<a href=#593 id=593 data-nosnippet>593</a>}
-<a href=#594 id=594 data-nosnippet>594</a>
-<a href=#595 id=595 data-nosnippet>595</a><span class="kw">impl </span>From&lt;TransactionalError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#596 id=596 data-nosnippet>596</a>	<span class="kw">fn </span>from(e: TransactionalError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#597 id=597 data-nosnippet>597</a>		<span class="kw">match </span>e {
-<a href=#598 id=598 data-nosnippet>598</a>			TransactionalError::LimitReached =&gt; <span class="string">"Too many transactional layers have been spawned"</span>,
-<a href=#599 id=599 data-nosnippet>599</a>			TransactionalError::NoLayer =&gt; <span class="string">"A transactional layer was expected, but does not exist"</span>,
-<a href=#600 id=600 data-nosnippet>600</a>		}
-<a href=#601 id=601 data-nosnippet>601</a>	}
-<a href=#602 id=602 data-nosnippet>602</a>}
-<a href=#603 id=603 data-nosnippet>603</a>
-<a href=#604 id=604 data-nosnippet>604</a><span class="kw">impl </span>From&lt;TransactionalError&gt; <span class="kw">for </span>DispatchError {
-<a href=#605 id=605 data-nosnippet>605</a>	<span class="kw">fn </span>from(e: TransactionalError) -&gt; DispatchError {
-<a href=#606 id=606 data-nosnippet>606</a>		<span class="self">Self</span>::Transactional(e)
-<a href=#607 id=607 data-nosnippet>607</a>	}
-<a href=#608 id=608 data-nosnippet>608</a>}
-<a href=#609 id=609 data-nosnippet>609</a>
-<a href=#610 id=610 data-nosnippet>610</a><span class="doccomment">/// Reason why a dispatch call failed.
-<a href=#611 id=611 data-nosnippet>611</a></span><span class="attr">#[derive(
-<a href=#612 id=612 data-nosnippet>612</a>	Eq,
-<a href=#613 id=613 data-nosnippet>613</a>	Clone,
-<a href=#614 id=614 data-nosnippet>614</a>	Copy,
-<a href=#615 id=615 data-nosnippet>615</a>	Encode,
-<a href=#616 id=616 data-nosnippet>616</a>	Decode,
-<a href=#617 id=617 data-nosnippet>617</a>	DecodeWithMemTracking,
-<a href=#618 id=618 data-nosnippet>618</a>	Debug,
-<a href=#619 id=619 data-nosnippet>619</a>	TypeInfo,
-<a href=#620 id=620 data-nosnippet>620</a>	PartialEq,
-<a href=#621 id=621 data-nosnippet>621</a>	MaxEncodedLen,
-<a href=#622 id=622 data-nosnippet>622</a>)]
-<a href=#623 id=623 data-nosnippet>623</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
-<a href=#624 id=624 data-nosnippet>624</a></span><span class="kw">pub enum </span>DispatchError {
-<a href=#625 id=625 data-nosnippet>625</a>	<span class="doccomment">/// Some error occurred.
-<a href=#626 id=626 data-nosnippet>626</a>	</span>Other(
-<a href=#627 id=627 data-nosnippet>627</a>		<span class="attr">#[codec(skip)]
-<a href=#628 id=628 data-nosnippet>628</a>		#[cfg_attr(feature = <span class="string">"serde"</span>, serde(skip_deserializing))]
-<a href=#629 id=629 data-nosnippet>629</a>		</span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
-<a href=#630 id=630 data-nosnippet>630</a>	),
-<a href=#631 id=631 data-nosnippet>631</a>	<span class="doccomment">/// Failed to lookup some data.
-<a href=#632 id=632 data-nosnippet>632</a>	</span>CannotLookup,
-<a href=#633 id=633 data-nosnippet>633</a>	<span class="doccomment">/// A bad origin.
-<a href=#634 id=634 data-nosnippet>634</a>	</span>BadOrigin,
-<a href=#635 id=635 data-nosnippet>635</a>	<span class="doccomment">/// A custom error in a module.
-<a href=#636 id=636 data-nosnippet>636</a>	</span>Module(ModuleError),
-<a href=#637 id=637 data-nosnippet>637</a>	<span class="doccomment">/// At least one consumer is remaining so the account cannot be destroyed.
-<a href=#638 id=638 data-nosnippet>638</a>	</span>ConsumerRemaining,
-<a href=#639 id=639 data-nosnippet>639</a>	<span class="doccomment">/// There are no providers so the account cannot be created.
-<a href=#640 id=640 data-nosnippet>640</a>	</span>NoProviders,
-<a href=#641 id=641 data-nosnippet>641</a>	<span class="doccomment">/// There are too many consumers so the account cannot be created.
-<a href=#642 id=642 data-nosnippet>642</a>	</span>TooManyConsumers,
-<a href=#643 id=643 data-nosnippet>643</a>	<span class="doccomment">/// An error to do with tokens.
-<a href=#644 id=644 data-nosnippet>644</a>	</span>Token(TokenError),
-<a href=#645 id=645 data-nosnippet>645</a>	<span class="doccomment">/// An arithmetic error.
-<a href=#646 id=646 data-nosnippet>646</a>	</span>Arithmetic(ArithmeticError),
-<a href=#647 id=647 data-nosnippet>647</a>	<span class="doccomment">/// The number of transactional layers has been reached, or we are not in a transactional
-<a href=#648 id=648 data-nosnippet>648</a>	/// layer.
-<a href=#649 id=649 data-nosnippet>649</a>	</span>Transactional(TransactionalError),
-<a href=#650 id=650 data-nosnippet>650</a>	<span class="doccomment">/// Resources exhausted, e.g. attempt to read/write data which is too large to manipulate.
-<a href=#651 id=651 data-nosnippet>651</a>	</span>Exhausted,
-<a href=#652 id=652 data-nosnippet>652</a>	<span class="doccomment">/// The state is corrupt; this is generally not going to fix itself.
-<a href=#653 id=653 data-nosnippet>653</a>	</span>Corruption,
-<a href=#654 id=654 data-nosnippet>654</a>	<span class="doccomment">/// Some resource (e.g. a preimage) is unavailable right now. This might fix itself later.
-<a href=#655 id=655 data-nosnippet>655</a>	</span>Unavailable,
-<a href=#656 id=656 data-nosnippet>656</a>	<span class="doccomment">/// Root origin is not allowed.
-<a href=#657 id=657 data-nosnippet>657</a>	</span>RootNotAllowed,
-<a href=#658 id=658 data-nosnippet>658</a>	<span class="doccomment">/// An error with tries.
-<a href=#659 id=659 data-nosnippet>659</a>	</span>Trie(TrieError),
-<a href=#660 id=660 data-nosnippet>660</a>}
-<a href=#661 id=661 data-nosnippet>661</a>
-<a href=#662 id=662 data-nosnippet>662</a><span class="doccomment">/// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
-<a href=#663 id=663 data-nosnippet>663</a>/// the `Dispatchable` that is only known post dispatch.
-<a href=#664 id=664 data-nosnippet>664</a></span><span class="attr">#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
-<a href=#665 id=665 data-nosnippet>665</a></span><span class="kw">pub struct </span>DispatchErrorWithPostInfo&lt;Info&gt;
-<a href=#666 id=666 data-nosnippet>666</a><span class="kw">where
-<a href=#667 id=667 data-nosnippet>667</a>	</span>Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
-<a href=#668 id=668 data-nosnippet>668</a>{
-<a href=#669 id=669 data-nosnippet>669</a>	<span class="doccomment">/// Additional information about the `Dispatchable` which is only known post dispatch.
-<a href=#670 id=670 data-nosnippet>670</a>	</span><span class="kw">pub </span>post_info: Info,
-<a href=#671 id=671 data-nosnippet>671</a>	<span class="doccomment">/// The actual `DispatchResult` indicating whether the dispatch was successful.
-<a href=#672 id=672 data-nosnippet>672</a>	</span><span class="kw">pub </span>error: DispatchError,
-<a href=#673 id=673 data-nosnippet>673</a>}
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a><span class="kw">impl </span>DispatchError {
-<a href=#676 id=676 data-nosnippet>676</a>	<span class="doccomment">/// Return the same error but without the attached message.
-<a href=#677 id=677 data-nosnippet>677</a>	</span><span class="kw">pub fn </span>stripped(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
-<a href=#678 id=678 data-nosnippet>678</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#679 id=679 data-nosnippet>679</a>			DispatchError::Module(ModuleError { index, error, message: <span class="prelude-val">Some</span>(<span class="kw">_</span>) }) =&gt; {
-<a href=#680 id=680 data-nosnippet>680</a>				DispatchError::Module(ModuleError { index, error, message: <span class="prelude-val">None </span>})
-<a href=#681 id=681 data-nosnippet>681</a>			},
-<a href=#682 id=682 data-nosnippet>682</a>			m =&gt; m,
-<a href=#683 id=683 data-nosnippet>683</a>		}
-<a href=#684 id=684 data-nosnippet>684</a>	}
-<a href=#685 id=685 data-nosnippet>685</a>}
-<a href=#686 id=686 data-nosnippet>686</a>
-<a href=#687 id=687 data-nosnippet>687</a><span class="kw">impl</span>&lt;T, E&gt; From&lt;E&gt; <span class="kw">for </span>DispatchErrorWithPostInfo&lt;T&gt;
-<a href=#688 id=688 data-nosnippet>688</a><span class="kw">where
-<a href=#689 id=689 data-nosnippet>689</a>	</span>T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable + Default,
-<a href=#690 id=690 data-nosnippet>690</a>	E: Into&lt;DispatchError&gt;,
-<a href=#691 id=691 data-nosnippet>691</a>{
-<a href=#692 id=692 data-nosnippet>692</a>	<span class="kw">fn </span>from(error: E) -&gt; <span class="self">Self </span>{
-<a href=#693 id=693 data-nosnippet>693</a>		<span class="self">Self </span>{ post_info: Default::default(), error: error.into() }
+<a href=#489 id=489 data-nosnippet>489</a>				<span class="kw">let </span>sig_ref: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>] = sig.as_ref();
+<a href=#490 id=490 data-nosnippet>490</a>				<span class="comment">// Reject high-S signatures (BIP-62 malleability protection)
+<a href=#491 id=491 data-nosnippet>491</a>				</span><span class="kw">if </span>!ecdsa::is_signature_normalized(sig_ref) {
+<a href=#492 id=492 data-nosnippet>492</a>					<span class="kw">return </span><span class="bool-val">false</span>;
+<a href=#493 id=493 data-nosnippet>493</a>				}
+<a href=#494 id=494 data-nosnippet>494</a>				<span class="kw">let </span>m = sp_io::hashing::blake2_256(msg.get());
+<a href=#495 id=495 data-nosnippet>495</a>				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_ref, <span class="kw-2">&amp;</span>m)
+<a href=#496 id=496 data-nosnippet>496</a>					.map_or(<span class="bool-val">false</span>, |pubkey| sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>pubkey) == who)
+<a href=#497 id=497 data-nosnippet>497</a>			},
+<a href=#498 id=498 data-nosnippet>498</a>			<span class="self">Self</span>::Eth(sig) =&gt; {
+<a href=#499 id=499 data-nosnippet>499</a>				<span class="kw">let </span>sig_ref: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>] = sig.as_ref();
+<a href=#500 id=500 data-nosnippet>500</a>				<span class="comment">// Reject high-S signatures (EIP-2 / BIP-62 malleability protection)
+<a href=#501 id=501 data-nosnippet>501</a>				</span><span class="kw">if </span>!ecdsa::is_signature_normalized(sig_ref) {
+<a href=#502 id=502 data-nosnippet>502</a>					<span class="kw">return </span><span class="bool-val">false</span>;
+<a href=#503 id=503 data-nosnippet>503</a>				}
+<a href=#504 id=504 data-nosnippet>504</a>				<span class="kw">let </span>m = sp_io::hashing::keccak_256(msg.get());
+<a href=#505 id=505 data-nosnippet>505</a>				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_ref, <span class="kw-2">&amp;</span>m)
+<a href=#506 id=506 data-nosnippet>506</a>					.map_or(<span class="bool-val">false</span>, |pubkey| {
+<a href=#507 id=507 data-nosnippet>507</a>						<span class="kw-2">&amp;</span>MultiSigner::Eth(pubkey.into()).into_account() == signer
+<a href=#508 id=508 data-nosnippet>508</a>					})
+<a href=#509 id=509 data-nosnippet>509</a>			},
+<a href=#510 id=510 data-nosnippet>510</a>		}
+<a href=#511 id=511 data-nosnippet>511</a>	}
+<a href=#512 id=512 data-nosnippet>512</a>}
+<a href=#513 id=513 data-nosnippet>513</a>
+<a href=#514 id=514 data-nosnippet>514</a><span class="doccomment">/// Signature verify that can work with any known signature types..
+<a href=#515 id=515 data-nosnippet>515</a></span><span class="attr">#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, Debug, TypeInfo)]
+<a href=#516 id=516 data-nosnippet>516</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
+<a href=#517 id=517 data-nosnippet>517</a></span><span class="kw">pub struct </span>AnySignature(H512);
+<a href=#518 id=518 data-nosnippet>518</a>
+<a href=#519 id=519 data-nosnippet>519</a><span class="kw">impl </span>Verify <span class="kw">for </span>AnySignature {
+<a href=#520 id=520 data-nosnippet>520</a>	<span class="kw">type </span>Signer = sr25519::Public;
+<a href=#521 id=521 data-nosnippet>521</a>	<span class="kw">fn </span>verify&lt;L: Lazy&lt;[u8]&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>msg: L, signer: <span class="kw-2">&amp;</span>sr25519::Public) -&gt; bool {
+<a href=#522 id=522 data-nosnippet>522</a>		<span class="kw">let </span>msg = msg.get();
+<a href=#523 id=523 data-nosnippet>523</a>		sr25519::Signature::try_from(<span class="self">self</span>.<span class="number">0</span>.as_fixed_bytes().as_ref())
+<a href=#524 id=524 data-nosnippet>524</a>			.map(|s| s.verify(msg, signer))
+<a href=#525 id=525 data-nosnippet>525</a>			.unwrap_or(<span class="bool-val">false</span>) ||
+<a href=#526 id=526 data-nosnippet>526</a>			ed25519::Signature::try_from(<span class="self">self</span>.<span class="number">0</span>.as_fixed_bytes().as_ref())
+<a href=#527 id=527 data-nosnippet>527</a>				.map(|s| <span class="kw">match </span>ed25519::Public::from_slice(signer.as_ref()) {
+<a href=#528 id=528 data-nosnippet>528</a>					<span class="prelude-val">Err</span>(()) =&gt; <span class="bool-val">false</span>,
+<a href=#529 id=529 data-nosnippet>529</a>					<span class="prelude-val">Ok</span>(signer) =&gt; s.verify(msg, <span class="kw-2">&amp;</span>signer),
+<a href=#530 id=530 data-nosnippet>530</a>				})
+<a href=#531 id=531 data-nosnippet>531</a>				.unwrap_or(<span class="bool-val">false</span>)
+<a href=#532 id=532 data-nosnippet>532</a>	}
+<a href=#533 id=533 data-nosnippet>533</a>}
+<a href=#534 id=534 data-nosnippet>534</a>
+<a href=#535 id=535 data-nosnippet>535</a><span class="kw">impl </span>From&lt;sr25519::Signature&gt; <span class="kw">for </span>AnySignature {
+<a href=#536 id=536 data-nosnippet>536</a>	<span class="kw">fn </span>from(s: sr25519::Signature) -&gt; <span class="self">Self </span>{
+<a href=#537 id=537 data-nosnippet>537</a>		<span class="self">Self</span>(s.into())
+<a href=#538 id=538 data-nosnippet>538</a>	}
+<a href=#539 id=539 data-nosnippet>539</a>}
+<a href=#540 id=540 data-nosnippet>540</a>
+<a href=#541 id=541 data-nosnippet>541</a><span class="kw">impl </span>From&lt;ed25519::Signature&gt; <span class="kw">for </span>AnySignature {
+<a href=#542 id=542 data-nosnippet>542</a>	<span class="kw">fn </span>from(s: ed25519::Signature) -&gt; <span class="self">Self </span>{
+<a href=#543 id=543 data-nosnippet>543</a>		<span class="self">Self</span>(s.into())
+<a href=#544 id=544 data-nosnippet>544</a>	}
+<a href=#545 id=545 data-nosnippet>545</a>}
+<a href=#546 id=546 data-nosnippet>546</a>
+<a href=#547 id=547 data-nosnippet>547</a><span class="kw">impl </span>From&lt;DispatchError&gt; <span class="kw">for </span>DispatchOutcome {
+<a href=#548 id=548 data-nosnippet>548</a>	<span class="kw">fn </span>from(err: DispatchError) -&gt; <span class="self">Self </span>{
+<a href=#549 id=549 data-nosnippet>549</a>		<span class="prelude-val">Err</span>(err)
+<a href=#550 id=550 data-nosnippet>550</a>	}
+<a href=#551 id=551 data-nosnippet>551</a>}
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a><span class="doccomment">/// This is the legacy return type of `Dispatchable`. It is still exposed for compatibility reasons.
+<a href=#554 id=554 data-nosnippet>554</a>/// The new return type is `DispatchResultWithInfo`. FRAME runtimes should use
+<a href=#555 id=555 data-nosnippet>555</a>/// `frame_support::dispatch::DispatchResult`.
+<a href=#556 id=556 data-nosnippet>556</a></span><span class="kw">pub type </span>DispatchResult = core::result::Result&lt;(), DispatchError&gt;;
+<a href=#557 id=557 data-nosnippet>557</a>
+<a href=#558 id=558 data-nosnippet>558</a><span class="doccomment">/// Return type of a `Dispatchable` which contains the `DispatchResult` and additional information
+<a href=#559 id=559 data-nosnippet>559</a>/// about the `Dispatchable` that is only known post dispatch.
+<a href=#560 id=560 data-nosnippet>560</a></span><span class="kw">pub type </span>DispatchResultWithInfo&lt;T&gt; = core::result::Result&lt;T, DispatchErrorWithPostInfo&lt;T&gt;&gt;;
+<a href=#561 id=561 data-nosnippet>561</a>
+<a href=#562 id=562 data-nosnippet>562</a><span class="doccomment">/// Reason why a pallet call failed.
+<a href=#563 id=563 data-nosnippet>563</a></span><span class="attr">#[derive(
+<a href=#564 id=564 data-nosnippet>564</a>	Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+<a href=#565 id=565 data-nosnippet>565</a>)]
+<a href=#566 id=566 data-nosnippet>566</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
+<a href=#567 id=567 data-nosnippet>567</a></span><span class="kw">pub struct </span>ModuleError {
+<a href=#568 id=568 data-nosnippet>568</a>	<span class="doccomment">/// Module index, matching the metadata module index.
+<a href=#569 id=569 data-nosnippet>569</a>	</span><span class="kw">pub </span>index: u8,
+<a href=#570 id=570 data-nosnippet>570</a>	<span class="doccomment">/// Module specific error value.
+<a href=#571 id=571 data-nosnippet>571</a>	</span><span class="kw">pub </span>error: [u8; MAX_MODULE_ERROR_ENCODED_SIZE],
+<a href=#572 id=572 data-nosnippet>572</a>	<span class="doccomment">/// Optional error message.
+<a href=#573 id=573 data-nosnippet>573</a>	</span><span class="attr">#[codec(skip)]
+<a href=#574 id=574 data-nosnippet>574</a>	#[cfg_attr(feature = <span class="string">"serde"</span>, serde(skip_deserializing))]
+<a href=#575 id=575 data-nosnippet>575</a>	</span><span class="kw">pub </span>message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+<a href=#576 id=576 data-nosnippet>576</a>}
+<a href=#577 id=577 data-nosnippet>577</a>
+<a href=#578 id=578 data-nosnippet>578</a><span class="kw">impl </span>PartialEq <span class="kw">for </span>ModuleError {
+<a href=#579 id=579 data-nosnippet>579</a>	<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+<a href=#580 id=580 data-nosnippet>580</a>		(<span class="self">self</span>.index == other.index) &amp;&amp; (<span class="self">self</span>.error == other.error)
+<a href=#581 id=581 data-nosnippet>581</a>	}
+<a href=#582 id=582 data-nosnippet>582</a>}
+<a href=#583 id=583 data-nosnippet>583</a>
+<a href=#584 id=584 data-nosnippet>584</a><span class="doccomment">/// Errors related to transactional storage layers.
+<a href=#585 id=585 data-nosnippet>585</a></span><span class="attr">#[derive(
+<a href=#586 id=586 data-nosnippet>586</a>	Eq,
+<a href=#587 id=587 data-nosnippet>587</a>	PartialEq,
+<a href=#588 id=588 data-nosnippet>588</a>	Clone,
+<a href=#589 id=589 data-nosnippet>589</a>	Copy,
+<a href=#590 id=590 data-nosnippet>590</a>	Encode,
+<a href=#591 id=591 data-nosnippet>591</a>	Decode,
+<a href=#592 id=592 data-nosnippet>592</a>	DecodeWithMemTracking,
+<a href=#593 id=593 data-nosnippet>593</a>	Debug,
+<a href=#594 id=594 data-nosnippet>594</a>	TypeInfo,
+<a href=#595 id=595 data-nosnippet>595</a>	MaxEncodedLen,
+<a href=#596 id=596 data-nosnippet>596</a>)]
+<a href=#597 id=597 data-nosnippet>597</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
+<a href=#598 id=598 data-nosnippet>598</a></span><span class="kw">pub enum </span>TransactionalError {
+<a href=#599 id=599 data-nosnippet>599</a>	<span class="doccomment">/// Too many transactional layers have been spawned.
+<a href=#600 id=600 data-nosnippet>600</a>	</span>LimitReached,
+<a href=#601 id=601 data-nosnippet>601</a>	<span class="doccomment">/// A transactional layer was expected, but does not exist.
+<a href=#602 id=602 data-nosnippet>602</a>	</span>NoLayer,
+<a href=#603 id=603 data-nosnippet>603</a>}
+<a href=#604 id=604 data-nosnippet>604</a>
+<a href=#605 id=605 data-nosnippet>605</a><span class="kw">impl </span>From&lt;TransactionalError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#606 id=606 data-nosnippet>606</a>	<span class="kw">fn </span>from(e: TransactionalError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#607 id=607 data-nosnippet>607</a>		<span class="kw">match </span>e {
+<a href=#608 id=608 data-nosnippet>608</a>			TransactionalError::LimitReached =&gt; <span class="string">"Too many transactional layers have been spawned"</span>,
+<a href=#609 id=609 data-nosnippet>609</a>			TransactionalError::NoLayer =&gt; <span class="string">"A transactional layer was expected, but does not exist"</span>,
+<a href=#610 id=610 data-nosnippet>610</a>		}
+<a href=#611 id=611 data-nosnippet>611</a>	}
+<a href=#612 id=612 data-nosnippet>612</a>}
+<a href=#613 id=613 data-nosnippet>613</a>
+<a href=#614 id=614 data-nosnippet>614</a><span class="kw">impl </span>From&lt;TransactionalError&gt; <span class="kw">for </span>DispatchError {
+<a href=#615 id=615 data-nosnippet>615</a>	<span class="kw">fn </span>from(e: TransactionalError) -&gt; DispatchError {
+<a href=#616 id=616 data-nosnippet>616</a>		<span class="self">Self</span>::Transactional(e)
+<a href=#617 id=617 data-nosnippet>617</a>	}
+<a href=#618 id=618 data-nosnippet>618</a>}
+<a href=#619 id=619 data-nosnippet>619</a>
+<a href=#620 id=620 data-nosnippet>620</a><span class="doccomment">/// Reason why a dispatch call failed.
+<a href=#621 id=621 data-nosnippet>621</a></span><span class="attr">#[derive(
+<a href=#622 id=622 data-nosnippet>622</a>	Eq,
+<a href=#623 id=623 data-nosnippet>623</a>	Clone,
+<a href=#624 id=624 data-nosnippet>624</a>	Copy,
+<a href=#625 id=625 data-nosnippet>625</a>	Encode,
+<a href=#626 id=626 data-nosnippet>626</a>	Decode,
+<a href=#627 id=627 data-nosnippet>627</a>	DecodeWithMemTracking,
+<a href=#628 id=628 data-nosnippet>628</a>	Debug,
+<a href=#629 id=629 data-nosnippet>629</a>	TypeInfo,
+<a href=#630 id=630 data-nosnippet>630</a>	PartialEq,
+<a href=#631 id=631 data-nosnippet>631</a>	MaxEncodedLen,
+<a href=#632 id=632 data-nosnippet>632</a>)]
+<a href=#633 id=633 data-nosnippet>633</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
+<a href=#634 id=634 data-nosnippet>634</a></span><span class="kw">pub enum </span>DispatchError {
+<a href=#635 id=635 data-nosnippet>635</a>	<span class="doccomment">/// Some error occurred.
+<a href=#636 id=636 data-nosnippet>636</a>	</span>Other(
+<a href=#637 id=637 data-nosnippet>637</a>		<span class="attr">#[codec(skip)]
+<a href=#638 id=638 data-nosnippet>638</a>		#[cfg_attr(feature = <span class="string">"serde"</span>, serde(skip_deserializing))]
+<a href=#639 id=639 data-nosnippet>639</a>		</span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#640 id=640 data-nosnippet>640</a>	),
+<a href=#641 id=641 data-nosnippet>641</a>	<span class="doccomment">/// Failed to lookup some data.
+<a href=#642 id=642 data-nosnippet>642</a>	</span>CannotLookup,
+<a href=#643 id=643 data-nosnippet>643</a>	<span class="doccomment">/// A bad origin.
+<a href=#644 id=644 data-nosnippet>644</a>	</span>BadOrigin,
+<a href=#645 id=645 data-nosnippet>645</a>	<span class="doccomment">/// A custom error in a module.
+<a href=#646 id=646 data-nosnippet>646</a>	</span>Module(ModuleError),
+<a href=#647 id=647 data-nosnippet>647</a>	<span class="doccomment">/// At least one consumer is remaining so the account cannot be destroyed.
+<a href=#648 id=648 data-nosnippet>648</a>	</span>ConsumerRemaining,
+<a href=#649 id=649 data-nosnippet>649</a>	<span class="doccomment">/// There are no providers so the account cannot be created.
+<a href=#650 id=650 data-nosnippet>650</a>	</span>NoProviders,
+<a href=#651 id=651 data-nosnippet>651</a>	<span class="doccomment">/// There are too many consumers so the account cannot be created.
+<a href=#652 id=652 data-nosnippet>652</a>	</span>TooManyConsumers,
+<a href=#653 id=653 data-nosnippet>653</a>	<span class="doccomment">/// An error to do with tokens.
+<a href=#654 id=654 data-nosnippet>654</a>	</span>Token(TokenError),
+<a href=#655 id=655 data-nosnippet>655</a>	<span class="doccomment">/// An arithmetic error.
+<a href=#656 id=656 data-nosnippet>656</a>	</span>Arithmetic(ArithmeticError),
+<a href=#657 id=657 data-nosnippet>657</a>	<span class="doccomment">/// The number of transactional layers has been reached, or we are not in a transactional
+<a href=#658 id=658 data-nosnippet>658</a>	/// layer.
+<a href=#659 id=659 data-nosnippet>659</a>	</span>Transactional(TransactionalError),
+<a href=#660 id=660 data-nosnippet>660</a>	<span class="doccomment">/// Resources exhausted, e.g. attempt to read/write data which is too large to manipulate.
+<a href=#661 id=661 data-nosnippet>661</a>	</span>Exhausted,
+<a href=#662 id=662 data-nosnippet>662</a>	<span class="doccomment">/// The state is corrupt; this is generally not going to fix itself.
+<a href=#663 id=663 data-nosnippet>663</a>	</span>Corruption,
+<a href=#664 id=664 data-nosnippet>664</a>	<span class="doccomment">/// Some resource (e.g. a preimage) is unavailable right now. This might fix itself later.
+<a href=#665 id=665 data-nosnippet>665</a>	</span>Unavailable,
+<a href=#666 id=666 data-nosnippet>666</a>	<span class="doccomment">/// Root origin is not allowed.
+<a href=#667 id=667 data-nosnippet>667</a>	</span>RootNotAllowed,
+<a href=#668 id=668 data-nosnippet>668</a>	<span class="doccomment">/// An error with tries.
+<a href=#669 id=669 data-nosnippet>669</a>	</span>Trie(TrieError),
+<a href=#670 id=670 data-nosnippet>670</a>}
+<a href=#671 id=671 data-nosnippet>671</a>
+<a href=#672 id=672 data-nosnippet>672</a><span class="doccomment">/// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
+<a href=#673 id=673 data-nosnippet>673</a>/// the `Dispatchable` that is only known post dispatch.
+<a href=#674 id=674 data-nosnippet>674</a></span><span class="attr">#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+<a href=#675 id=675 data-nosnippet>675</a></span><span class="kw">pub struct </span>DispatchErrorWithPostInfo&lt;Info&gt;
+<a href=#676 id=676 data-nosnippet>676</a><span class="kw">where
+<a href=#677 id=677 data-nosnippet>677</a>	</span>Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
+<a href=#678 id=678 data-nosnippet>678</a>{
+<a href=#679 id=679 data-nosnippet>679</a>	<span class="doccomment">/// Additional information about the `Dispatchable` which is only known post dispatch.
+<a href=#680 id=680 data-nosnippet>680</a>	</span><span class="kw">pub </span>post_info: Info,
+<a href=#681 id=681 data-nosnippet>681</a>	<span class="doccomment">/// The actual `DispatchResult` indicating whether the dispatch was successful.
+<a href=#682 id=682 data-nosnippet>682</a>	</span><span class="kw">pub </span>error: DispatchError,
+<a href=#683 id=683 data-nosnippet>683</a>}
+<a href=#684 id=684 data-nosnippet>684</a>
+<a href=#685 id=685 data-nosnippet>685</a><span class="kw">impl </span>DispatchError {
+<a href=#686 id=686 data-nosnippet>686</a>	<span class="doccomment">/// Return the same error but without the attached message.
+<a href=#687 id=687 data-nosnippet>687</a>	</span><span class="kw">pub fn </span>stripped(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#688 id=688 data-nosnippet>688</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#689 id=689 data-nosnippet>689</a>			DispatchError::Module(ModuleError { index, error, message: <span class="prelude-val">Some</span>(<span class="kw">_</span>) }) =&gt; {
+<a href=#690 id=690 data-nosnippet>690</a>				DispatchError::Module(ModuleError { index, error, message: <span class="prelude-val">None </span>})
+<a href=#691 id=691 data-nosnippet>691</a>			},
+<a href=#692 id=692 data-nosnippet>692</a>			m =&gt; m,
+<a href=#693 id=693 data-nosnippet>693</a>		}
 <a href=#694 id=694 data-nosnippet>694</a>	}
 <a href=#695 id=695 data-nosnippet>695</a>}
 <a href=#696 id=696 data-nosnippet>696</a>
-<a href=#697 id=697 data-nosnippet>697</a><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::traits::LookupError&gt; <span class="kw">for </span>DispatchError {
-<a href=#698 id=698 data-nosnippet>698</a>	<span class="kw">fn </span>from(<span class="kw">_</span>: <span class="kw">crate</span>::traits::LookupError) -&gt; <span class="self">Self </span>{
-<a href=#699 id=699 data-nosnippet>699</a>		<span class="self">Self</span>::CannotLookup
-<a href=#700 id=700 data-nosnippet>700</a>	}
-<a href=#701 id=701 data-nosnippet>701</a>}
-<a href=#702 id=702 data-nosnippet>702</a>
-<a href=#703 id=703 data-nosnippet>703</a><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::traits::BadOrigin&gt; <span class="kw">for </span>DispatchError {
-<a href=#704 id=704 data-nosnippet>704</a>	<span class="kw">fn </span>from(<span class="kw">_</span>: <span class="kw">crate</span>::traits::BadOrigin) -&gt; <span class="self">Self </span>{
-<a href=#705 id=705 data-nosnippet>705</a>		<span class="self">Self</span>::BadOrigin
-<a href=#706 id=706 data-nosnippet>706</a>	}
-<a href=#707 id=707 data-nosnippet>707</a>}
-<a href=#708 id=708 data-nosnippet>708</a>
-<a href=#709 id=709 data-nosnippet>709</a><span class="doccomment">/// Description of what went wrong when trying to complete an operation on a token.
-<a href=#710 id=710 data-nosnippet>710</a></span><span class="attr">#[derive(
-<a href=#711 id=711 data-nosnippet>711</a>	Eq,
-<a href=#712 id=712 data-nosnippet>712</a>	PartialEq,
-<a href=#713 id=713 data-nosnippet>713</a>	Clone,
-<a href=#714 id=714 data-nosnippet>714</a>	Copy,
-<a href=#715 id=715 data-nosnippet>715</a>	Encode,
-<a href=#716 id=716 data-nosnippet>716</a>	Decode,
-<a href=#717 id=717 data-nosnippet>717</a>	DecodeWithMemTracking,
-<a href=#718 id=718 data-nosnippet>718</a>	Debug,
-<a href=#719 id=719 data-nosnippet>719</a>	TypeInfo,
-<a href=#720 id=720 data-nosnippet>720</a>	MaxEncodedLen,
-<a href=#721 id=721 data-nosnippet>721</a>)]
-<a href=#722 id=722 data-nosnippet>722</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
-<a href=#723 id=723 data-nosnippet>723</a></span><span class="kw">pub enum </span>TokenError {
-<a href=#724 id=724 data-nosnippet>724</a>	<span class="doccomment">/// Funds are unavailable.
-<a href=#725 id=725 data-nosnippet>725</a>	</span>FundsUnavailable,
-<a href=#726 id=726 data-nosnippet>726</a>	<span class="doccomment">/// Some part of the balance gives the only provider reference to the account and thus cannot
-<a href=#727 id=727 data-nosnippet>727</a>	/// be (re)moved.
-<a href=#728 id=728 data-nosnippet>728</a>	</span>OnlyProvider,
-<a href=#729 id=729 data-nosnippet>729</a>	<span class="doccomment">/// Account cannot exist with the funds that would be given.
-<a href=#730 id=730 data-nosnippet>730</a>	</span>BelowMinimum,
-<a href=#731 id=731 data-nosnippet>731</a>	<span class="doccomment">/// Account cannot be created.
-<a href=#732 id=732 data-nosnippet>732</a>	</span>CannotCreate,
-<a href=#733 id=733 data-nosnippet>733</a>	<span class="doccomment">/// The asset in question is unknown.
-<a href=#734 id=734 data-nosnippet>734</a>	</span>UnknownAsset,
-<a href=#735 id=735 data-nosnippet>735</a>	<span class="doccomment">/// Funds exist but are frozen.
-<a href=#736 id=736 data-nosnippet>736</a>	</span>Frozen,
-<a href=#737 id=737 data-nosnippet>737</a>	<span class="doccomment">/// Operation is not supported by the asset.
-<a href=#738 id=738 data-nosnippet>738</a>	</span>Unsupported,
-<a href=#739 id=739 data-nosnippet>739</a>	<span class="doccomment">/// Account cannot be created for a held balance.
-<a href=#740 id=740 data-nosnippet>740</a>	</span>CannotCreateHold,
-<a href=#741 id=741 data-nosnippet>741</a>	<span class="doccomment">/// Withdrawal would cause unwanted loss of account.
-<a href=#742 id=742 data-nosnippet>742</a>	</span>NotExpendable,
-<a href=#743 id=743 data-nosnippet>743</a>	<span class="doccomment">/// Account cannot receive the assets.
-<a href=#744 id=744 data-nosnippet>744</a>	</span>Blocked,
-<a href=#745 id=745 data-nosnippet>745</a>}
-<a href=#746 id=746 data-nosnippet>746</a>
-<a href=#747 id=747 data-nosnippet>747</a><span class="kw">impl </span>From&lt;TokenError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#748 id=748 data-nosnippet>748</a>	<span class="kw">fn </span>from(e: TokenError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#749 id=749 data-nosnippet>749</a>		<span class="kw">match </span>e {
-<a href=#750 id=750 data-nosnippet>750</a>			TokenError::FundsUnavailable =&gt; <span class="string">"Funds are unavailable"</span>,
-<a href=#751 id=751 data-nosnippet>751</a>			TokenError::OnlyProvider =&gt; <span class="string">"Account that must exist would die"</span>,
-<a href=#752 id=752 data-nosnippet>752</a>			TokenError::BelowMinimum =&gt; <span class="string">"Account cannot exist with the funds that would be given"</span>,
-<a href=#753 id=753 data-nosnippet>753</a>			TokenError::CannotCreate =&gt; <span class="string">"Account cannot be created"</span>,
-<a href=#754 id=754 data-nosnippet>754</a>			TokenError::UnknownAsset =&gt; <span class="string">"The asset in question is unknown"</span>,
-<a href=#755 id=755 data-nosnippet>755</a>			TokenError::Frozen =&gt; <span class="string">"Funds exist but are frozen"</span>,
-<a href=#756 id=756 data-nosnippet>756</a>			TokenError::Unsupported =&gt; <span class="string">"Operation is not supported by the asset"</span>,
-<a href=#757 id=757 data-nosnippet>757</a>			TokenError::CannotCreateHold =&gt; {
-<a href=#758 id=758 data-nosnippet>758</a>				<span class="string">"Account cannot be created for recording amount on hold"
-<a href=#759 id=759 data-nosnippet>759</a>			</span>},
-<a href=#760 id=760 data-nosnippet>760</a>			TokenError::NotExpendable =&gt; <span class="string">"Account that is desired to remain would die"</span>,
-<a href=#761 id=761 data-nosnippet>761</a>			TokenError::Blocked =&gt; <span class="string">"Account cannot receive the assets"</span>,
-<a href=#762 id=762 data-nosnippet>762</a>		}
-<a href=#763 id=763 data-nosnippet>763</a>	}
-<a href=#764 id=764 data-nosnippet>764</a>}
-<a href=#765 id=765 data-nosnippet>765</a>
-<a href=#766 id=766 data-nosnippet>766</a><span class="kw">impl </span>From&lt;TokenError&gt; <span class="kw">for </span>DispatchError {
-<a href=#767 id=767 data-nosnippet>767</a>	<span class="kw">fn </span>from(e: TokenError) -&gt; DispatchError {
-<a href=#768 id=768 data-nosnippet>768</a>		<span class="self">Self</span>::Token(e)
-<a href=#769 id=769 data-nosnippet>769</a>	}
-<a href=#770 id=770 data-nosnippet>770</a>}
-<a href=#771 id=771 data-nosnippet>771</a>
-<a href=#772 id=772 data-nosnippet>772</a><span class="kw">impl </span>From&lt;ArithmeticError&gt; <span class="kw">for </span>DispatchError {
-<a href=#773 id=773 data-nosnippet>773</a>	<span class="kw">fn </span>from(e: ArithmeticError) -&gt; DispatchError {
-<a href=#774 id=774 data-nosnippet>774</a>		<span class="self">Self</span>::Arithmetic(e)
-<a href=#775 id=775 data-nosnippet>775</a>	}
-<a href=#776 id=776 data-nosnippet>776</a>}
-<a href=#777 id=777 data-nosnippet>777</a>
-<a href=#778 id=778 data-nosnippet>778</a><span class="kw">impl </span>From&lt;TrieError&gt; <span class="kw">for </span>DispatchError {
-<a href=#779 id=779 data-nosnippet>779</a>	<span class="kw">fn </span>from(e: TrieError) -&gt; DispatchError {
-<a href=#780 id=780 data-nosnippet>780</a>		<span class="self">Self</span>::Trie(e)
-<a href=#781 id=781 data-nosnippet>781</a>	}
-<a href=#782 id=782 data-nosnippet>782</a>}
-<a href=#783 id=783 data-nosnippet>783</a>
-<a href=#784 id=784 data-nosnippet>784</a><span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>DispatchError {
-<a href=#785 id=785 data-nosnippet>785</a>	<span class="kw">fn </span>from(err: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; DispatchError {
-<a href=#786 id=786 data-nosnippet>786</a>		<span class="self">Self</span>::Other(err)
-<a href=#787 id=787 data-nosnippet>787</a>	}
-<a href=#788 id=788 data-nosnippet>788</a>}
-<a href=#789 id=789 data-nosnippet>789</a>
-<a href=#790 id=790 data-nosnippet>790</a><span class="kw">impl </span>From&lt;DispatchError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#791 id=791 data-nosnippet>791</a>	<span class="kw">fn </span>from(err: DispatchError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#792 id=792 data-nosnippet>792</a>		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
-<a href=#793 id=793 data-nosnippet>793</a>		<span class="kw">match </span>err {
-<a href=#794 id=794 data-nosnippet>794</a>			Other(msg) =&gt; msg,
-<a href=#795 id=795 data-nosnippet>795</a>			CannotLookup =&gt; <span class="string">"Cannot lookup"</span>,
-<a href=#796 id=796 data-nosnippet>796</a>			BadOrigin =&gt; <span class="string">"Bad origin"</span>,
-<a href=#797 id=797 data-nosnippet>797</a>			Module(ModuleError { message, .. }) =&gt; message.unwrap_or(<span class="string">"Unknown module error"</span>),
-<a href=#798 id=798 data-nosnippet>798</a>			ConsumerRemaining =&gt; <span class="string">"Consumer remaining"</span>,
-<a href=#799 id=799 data-nosnippet>799</a>			NoProviders =&gt; <span class="string">"No providers"</span>,
-<a href=#800 id=800 data-nosnippet>800</a>			TooManyConsumers =&gt; <span class="string">"Too many consumers"</span>,
-<a href=#801 id=801 data-nosnippet>801</a>			Token(e) =&gt; e.into(),
-<a href=#802 id=802 data-nosnippet>802</a>			Arithmetic(e) =&gt; e.into(),
-<a href=#803 id=803 data-nosnippet>803</a>			Transactional(e) =&gt; e.into(),
-<a href=#804 id=804 data-nosnippet>804</a>			Exhausted =&gt; <span class="string">"Resources exhausted"</span>,
-<a href=#805 id=805 data-nosnippet>805</a>			Corruption =&gt; <span class="string">"State corrupt"</span>,
-<a href=#806 id=806 data-nosnippet>806</a>			Unavailable =&gt; <span class="string">"Resource unavailable"</span>,
-<a href=#807 id=807 data-nosnippet>807</a>			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>,
-<a href=#808 id=808 data-nosnippet>808</a>			Trie(e) =&gt; e.into(),
-<a href=#809 id=809 data-nosnippet>809</a>		}
-<a href=#810 id=810 data-nosnippet>810</a>	}
-<a href=#811 id=811 data-nosnippet>811</a>}
-<a href=#812 id=812 data-nosnippet>812</a>
-<a href=#813 id=813 data-nosnippet>813</a><span class="kw">impl</span>&lt;T&gt; From&lt;DispatchErrorWithPostInfo&lt;T&gt;&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str
-<a href=#814 id=814 data-nosnippet>814</a><span class="kw">where
-<a href=#815 id=815 data-nosnippet>815</a>	</span>T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
-<a href=#816 id=816 data-nosnippet>816</a>{
-<a href=#817 id=817 data-nosnippet>817</a>	<span class="kw">fn </span>from(err: DispatchErrorWithPostInfo&lt;T&gt;) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#818 id=818 data-nosnippet>818</a>		err.error.into()
-<a href=#819 id=819 data-nosnippet>819</a>	}
-<a href=#820 id=820 data-nosnippet>820</a>}
-<a href=#821 id=821 data-nosnippet>821</a>
-<a href=#822 id=822 data-nosnippet>822</a><span class="kw">impl </span>traits::Printable <span class="kw">for </span>DispatchError {
-<a href=#823 id=823 data-nosnippet>823</a>	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-<a href=#824 id=824 data-nosnippet>824</a>		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
-<a href=#825 id=825 data-nosnippet>825</a>		<span class="string">"DispatchError"</span>.print();
-<a href=#826 id=826 data-nosnippet>826</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#827 id=827 data-nosnippet>827</a>			Other(err) =&gt; err.print(),
-<a href=#828 id=828 data-nosnippet>828</a>			CannotLookup =&gt; <span class="string">"Cannot lookup"</span>.print(),
-<a href=#829 id=829 data-nosnippet>829</a>			BadOrigin =&gt; <span class="string">"Bad origin"</span>.print(),
-<a href=#830 id=830 data-nosnippet>830</a>			Module(ModuleError { index, error, message }) =&gt; {
-<a href=#831 id=831 data-nosnippet>831</a>				index.print();
-<a href=#832 id=832 data-nosnippet>832</a>				error.print();
-<a href=#833 id=833 data-nosnippet>833</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = message {
-<a href=#834 id=834 data-nosnippet>834</a>					msg.print();
-<a href=#835 id=835 data-nosnippet>835</a>				}
-<a href=#836 id=836 data-nosnippet>836</a>			},
-<a href=#837 id=837 data-nosnippet>837</a>			ConsumerRemaining =&gt; <span class="string">"Consumer remaining"</span>.print(),
-<a href=#838 id=838 data-nosnippet>838</a>			NoProviders =&gt; <span class="string">"No providers"</span>.print(),
-<a href=#839 id=839 data-nosnippet>839</a>			TooManyConsumers =&gt; <span class="string">"Too many consumers"</span>.print(),
-<a href=#840 id=840 data-nosnippet>840</a>			Token(e) =&gt; {
-<a href=#841 id=841 data-nosnippet>841</a>				<span class="string">"Token error: "</span>.print();
-<a href=#842 id=842 data-nosnippet>842</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
-<a href=#843 id=843 data-nosnippet>843</a>			},
-<a href=#844 id=844 data-nosnippet>844</a>			Arithmetic(e) =&gt; {
-<a href=#845 id=845 data-nosnippet>845</a>				<span class="string">"Arithmetic error: "</span>.print();
-<a href=#846 id=846 data-nosnippet>846</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
-<a href=#847 id=847 data-nosnippet>847</a>			},
-<a href=#848 id=848 data-nosnippet>848</a>			Transactional(e) =&gt; {
-<a href=#849 id=849 data-nosnippet>849</a>				<span class="string">"Transactional error: "</span>.print();
-<a href=#850 id=850 data-nosnippet>850</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
-<a href=#851 id=851 data-nosnippet>851</a>			},
-<a href=#852 id=852 data-nosnippet>852</a>			Exhausted =&gt; <span class="string">"Resources exhausted"</span>.print(),
-<a href=#853 id=853 data-nosnippet>853</a>			Corruption =&gt; <span class="string">"State corrupt"</span>.print(),
-<a href=#854 id=854 data-nosnippet>854</a>			Unavailable =&gt; <span class="string">"Resource unavailable"</span>.print(),
-<a href=#855 id=855 data-nosnippet>855</a>			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>.print(),
-<a href=#856 id=856 data-nosnippet>856</a>			Trie(e) =&gt; {
-<a href=#857 id=857 data-nosnippet>857</a>				<span class="string">"Trie error: "</span>.print();
-<a href=#858 id=858 data-nosnippet>858</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
-<a href=#859 id=859 data-nosnippet>859</a>			},
-<a href=#860 id=860 data-nosnippet>860</a>		}
-<a href=#861 id=861 data-nosnippet>861</a>	}
-<a href=#862 id=862 data-nosnippet>862</a>}
-<a href=#863 id=863 data-nosnippet>863</a>
-<a href=#864 id=864 data-nosnippet>864</a><span class="kw">impl</span>&lt;T&gt; traits::Printable <span class="kw">for </span>DispatchErrorWithPostInfo&lt;T&gt;
-<a href=#865 id=865 data-nosnippet>865</a><span class="kw">where
-<a href=#866 id=866 data-nosnippet>866</a>	</span>T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
-<a href=#867 id=867 data-nosnippet>867</a>{
-<a href=#868 id=868 data-nosnippet>868</a>	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-<a href=#869 id=869 data-nosnippet>869</a>		<span class="self">self</span>.error.print();
-<a href=#870 id=870 data-nosnippet>870</a>		<span class="string">"PostInfo: "</span>.print();
-<a href=#871 id=871 data-nosnippet>871</a>		<span class="self">self</span>.post_info.print();
-<a href=#872 id=872 data-nosnippet>872</a>	}
-<a href=#873 id=873 data-nosnippet>873</a>}
-<a href=#874 id=874 data-nosnippet>874</a>
-<a href=#875 id=875 data-nosnippet>875</a><span class="doccomment">/// This type specifies the outcome of dispatching a call to a module.
-<a href=#876 id=876 data-nosnippet>876</a>///
-<a href=#877 id=877 data-nosnippet>877</a>/// In case of failure an error specific to the module is returned.
-<a href=#878 id=878 data-nosnippet>878</a>///
-<a href=#879 id=879 data-nosnippet>879</a>/// Failure of the module call dispatching doesn't invalidate the extrinsic and it is still included
-<a href=#880 id=880 data-nosnippet>880</a>/// in the block, therefore all state changes performed by the dispatched call are still persisted.
-<a href=#881 id=881 data-nosnippet>881</a>///
-<a href=#882 id=882 data-nosnippet>882</a>/// For example, if the dispatching of an extrinsic involves inclusion fee payment then these
-<a href=#883 id=883 data-nosnippet>883</a>/// changes are going to be preserved even if the call dispatched failed.
-<a href=#884 id=884 data-nosnippet>884</a></span><span class="kw">pub type </span>DispatchOutcome = <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
-<a href=#885 id=885 data-nosnippet>885</a>
-<a href=#886 id=886 data-nosnippet>886</a><span class="doccomment">/// The result of applying of an extrinsic.
-<a href=#887 id=887 data-nosnippet>887</a>///
-<a href=#888 id=888 data-nosnippet>888</a>/// This type is typically used in the context of `BlockBuilder` to signal that the extrinsic
-<a href=#889 id=889 data-nosnippet>889</a>/// in question cannot be included.
-<a href=#890 id=890 data-nosnippet>890</a>///
-<a href=#891 id=891 data-nosnippet>891</a>/// A block containing extrinsics that have a negative inclusion outcome is invalid. A negative
-<a href=#892 id=892 data-nosnippet>892</a>/// result can only occur during the block production, where such extrinsics are detected and
-<a href=#893 id=893 data-nosnippet>893</a>/// removed from the block that is being created and the transaction pool.
-<a href=#894 id=894 data-nosnippet>894</a>///
-<a href=#895 id=895 data-nosnippet>895</a>/// To rehash: every extrinsic in a valid block must return a positive `ApplyExtrinsicResult`.
-<a href=#896 id=896 data-nosnippet>896</a>///
-<a href=#897 id=897 data-nosnippet>897</a>/// Examples of reasons preventing inclusion in a block:
-<a href=#898 id=898 data-nosnippet>898</a>/// - More block weight is required to process the extrinsic than is left in the block being built.
-<a href=#899 id=899 data-nosnippet>899</a>///   This doesn't necessarily mean that the extrinsic is invalid, since it can still be included in
-<a href=#900 id=900 data-nosnippet>900</a>///   the next block if it has enough spare weight available.
-<a href=#901 id=901 data-nosnippet>901</a>/// - The sender doesn't have enough funds to pay the transaction inclusion fee. Including such a
-<a href=#902 id=902 data-nosnippet>902</a>///   transaction in the block doesn't make sense.
-<a href=#903 id=903 data-nosnippet>903</a>/// - The extrinsic supplied a bad signature. This transaction won't become valid ever.
-<a href=#904 id=904 data-nosnippet>904</a></span><span class="kw">pub type </span>ApplyExtrinsicResult =
-<a href=#905 id=905 data-nosnippet>905</a>	<span class="prelude-ty">Result</span>&lt;DispatchOutcome, transaction_validity::TransactionValidityError&gt;;
-<a href=#906 id=906 data-nosnippet>906</a>
-<a href=#907 id=907 data-nosnippet>907</a><span class="doccomment">/// Same as `ApplyExtrinsicResult` but augmented with `PostDispatchInfo` on success.
-<a href=#908 id=908 data-nosnippet>908</a></span><span class="kw">pub type </span>ApplyExtrinsicResultWithInfo&lt;T&gt; =
-<a href=#909 id=909 data-nosnippet>909</a>	<span class="prelude-ty">Result</span>&lt;DispatchResultWithInfo&lt;T&gt;, transaction_validity::TransactionValidityError&gt;;
-<a href=#910 id=910 data-nosnippet>910</a>
-<a href=#911 id=911 data-nosnippet>911</a><span class="doccomment">/// The error type used as return type in try runtime hooks.
-<a href=#912 id=912 data-nosnippet>912</a></span><span class="kw">pub type </span>TryRuntimeError = DispatchError;
-<a href=#913 id=913 data-nosnippet>913</a>
-<a href=#914 id=914 data-nosnippet>914</a><span class="doccomment">/// Verify a signature on an encoded value in a lazy manner. This can be
-<a href=#915 id=915 data-nosnippet>915</a>/// an optimization if the signature scheme has an "unsigned" escape hash.
-<a href=#916 id=916 data-nosnippet>916</a></span><span class="kw">pub fn </span>verify_encoded_lazy&lt;V: Verify, T: codec::Encode&gt;(
-<a href=#917 id=917 data-nosnippet>917</a>	sig: <span class="kw-2">&amp;</span>V,
-<a href=#918 id=918 data-nosnippet>918</a>	item: <span class="kw-2">&amp;</span>T,
-<a href=#919 id=919 data-nosnippet>919</a>	signer: <span class="kw-2">&amp;</span>&lt;V::Signer <span class="kw">as </span>IdentifyAccount&gt;::AccountId,
-<a href=#920 id=920 data-nosnippet>920</a>) -&gt; bool {
-<a href=#921 id=921 data-nosnippet>921</a>	<span class="comment">// The `Lazy&lt;T&gt;` trait expresses something like `X: FnMut&lt;Output = for&lt;'a&gt; &amp;'a T&gt;`.
-<a href=#922 id=922 data-nosnippet>922</a>	// unfortunately this is a lifetime relationship that can't
-<a href=#923 id=923 data-nosnippet>923</a>	// be expressed without generic associated types, better unification of HRTBs in type position,
-<a href=#924 id=924 data-nosnippet>924</a>	// and some kind of integration into the Fn* traits.
-<a href=#925 id=925 data-nosnippet>925</a>	</span><span class="kw">struct </span>LazyEncode&lt;F&gt; {
-<a href=#926 id=926 data-nosnippet>926</a>		inner: F,
-<a href=#927 id=927 data-nosnippet>927</a>		encoded: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
-<a href=#928 id=928 data-nosnippet>928</a>	}
-<a href=#929 id=929 data-nosnippet>929</a>
-<a href=#930 id=930 data-nosnippet>930</a>	<span class="kw">impl</span>&lt;F: Fn() -&gt; Vec&lt;u8&gt;&gt; traits::Lazy&lt;[u8]&gt; <span class="kw">for </span>LazyEncode&lt;F&gt; {
-<a href=#931 id=931 data-nosnippet>931</a>		<span class="kw">fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-<a href=#932 id=932 data-nosnippet>932</a>			<span class="self">self</span>.encoded.get_or_insert_with(<span class="kw-2">&amp;</span><span class="self">self</span>.inner).as_slice()
-<a href=#933 id=933 data-nosnippet>933</a>		}
-<a href=#934 id=934 data-nosnippet>934</a>	}
-<a href=#935 id=935 data-nosnippet>935</a>
-<a href=#936 id=936 data-nosnippet>936</a>	sig.verify(LazyEncode { inner: || item.encode(), encoded: <span class="prelude-val">None </span>}, signer)
-<a href=#937 id=937 data-nosnippet>937</a>}
-<a href=#938 id=938 data-nosnippet>938</a>
-<a href=#939 id=939 data-nosnippet>939</a><span class="doccomment">/// Checks that `$x` is equal to `$y` with an error rate of `$error`.
-<a href=#940 id=940 data-nosnippet>940</a>///
-<a href=#941 id=941 data-nosnippet>941</a>/// # Example
-<a href=#942 id=942 data-nosnippet>942</a>///
-<a href=#943 id=943 data-nosnippet>943</a>/// ```rust
-<a href=#944 id=944 data-nosnippet>944</a>/// # fn main() {
-<a href=#945 id=945 data-nosnippet>945</a>/// sp_runtime::assert_eq_error_rate!(10, 10, 0);
-<a href=#946 id=946 data-nosnippet>946</a>/// sp_runtime::assert_eq_error_rate!(10, 11, 1);
-<a href=#947 id=947 data-nosnippet>947</a>/// sp_runtime::assert_eq_error_rate!(12, 10, 2);
-<a href=#948 id=948 data-nosnippet>948</a>/// # }
-<a href=#949 id=949 data-nosnippet>949</a>/// ```
+<a href=#697 id=697 data-nosnippet>697</a><span class="kw">impl</span>&lt;T, E&gt; From&lt;E&gt; <span class="kw">for </span>DispatchErrorWithPostInfo&lt;T&gt;
+<a href=#698 id=698 data-nosnippet>698</a><span class="kw">where
+<a href=#699 id=699 data-nosnippet>699</a>	</span>T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable + Default,
+<a href=#700 id=700 data-nosnippet>700</a>	E: Into&lt;DispatchError&gt;,
+<a href=#701 id=701 data-nosnippet>701</a>{
+<a href=#702 id=702 data-nosnippet>702</a>	<span class="kw">fn </span>from(error: E) -&gt; <span class="self">Self </span>{
+<a href=#703 id=703 data-nosnippet>703</a>		<span class="self">Self </span>{ post_info: Default::default(), error: error.into() }
+<a href=#704 id=704 data-nosnippet>704</a>	}
+<a href=#705 id=705 data-nosnippet>705</a>}
+<a href=#706 id=706 data-nosnippet>706</a>
+<a href=#707 id=707 data-nosnippet>707</a><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::traits::LookupError&gt; <span class="kw">for </span>DispatchError {
+<a href=#708 id=708 data-nosnippet>708</a>	<span class="kw">fn </span>from(<span class="kw">_</span>: <span class="kw">crate</span>::traits::LookupError) -&gt; <span class="self">Self </span>{
+<a href=#709 id=709 data-nosnippet>709</a>		<span class="self">Self</span>::CannotLookup
+<a href=#710 id=710 data-nosnippet>710</a>	}
+<a href=#711 id=711 data-nosnippet>711</a>}
+<a href=#712 id=712 data-nosnippet>712</a>
+<a href=#713 id=713 data-nosnippet>713</a><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::traits::BadOrigin&gt; <span class="kw">for </span>DispatchError {
+<a href=#714 id=714 data-nosnippet>714</a>	<span class="kw">fn </span>from(<span class="kw">_</span>: <span class="kw">crate</span>::traits::BadOrigin) -&gt; <span class="self">Self </span>{
+<a href=#715 id=715 data-nosnippet>715</a>		<span class="self">Self</span>::BadOrigin
+<a href=#716 id=716 data-nosnippet>716</a>	}
+<a href=#717 id=717 data-nosnippet>717</a>}
+<a href=#718 id=718 data-nosnippet>718</a>
+<a href=#719 id=719 data-nosnippet>719</a><span class="doccomment">/// Description of what went wrong when trying to complete an operation on a token.
+<a href=#720 id=720 data-nosnippet>720</a></span><span class="attr">#[derive(
+<a href=#721 id=721 data-nosnippet>721</a>	Eq,
+<a href=#722 id=722 data-nosnippet>722</a>	PartialEq,
+<a href=#723 id=723 data-nosnippet>723</a>	Clone,
+<a href=#724 id=724 data-nosnippet>724</a>	Copy,
+<a href=#725 id=725 data-nosnippet>725</a>	Encode,
+<a href=#726 id=726 data-nosnippet>726</a>	Decode,
+<a href=#727 id=727 data-nosnippet>727</a>	DecodeWithMemTracking,
+<a href=#728 id=728 data-nosnippet>728</a>	Debug,
+<a href=#729 id=729 data-nosnippet>729</a>	TypeInfo,
+<a href=#730 id=730 data-nosnippet>730</a>	MaxEncodedLen,
+<a href=#731 id=731 data-nosnippet>731</a>)]
+<a href=#732 id=732 data-nosnippet>732</a>#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
+<a href=#733 id=733 data-nosnippet>733</a></span><span class="kw">pub enum </span>TokenError {
+<a href=#734 id=734 data-nosnippet>734</a>	<span class="doccomment">/// Funds are unavailable.
+<a href=#735 id=735 data-nosnippet>735</a>	</span>FundsUnavailable,
+<a href=#736 id=736 data-nosnippet>736</a>	<span class="doccomment">/// Some part of the balance gives the only provider reference to the account and thus cannot
+<a href=#737 id=737 data-nosnippet>737</a>	/// be (re)moved.
+<a href=#738 id=738 data-nosnippet>738</a>	</span>OnlyProvider,
+<a href=#739 id=739 data-nosnippet>739</a>	<span class="doccomment">/// Account cannot exist with the funds that would be given.
+<a href=#740 id=740 data-nosnippet>740</a>	</span>BelowMinimum,
+<a href=#741 id=741 data-nosnippet>741</a>	<span class="doccomment">/// Account cannot be created.
+<a href=#742 id=742 data-nosnippet>742</a>	</span>CannotCreate,
+<a href=#743 id=743 data-nosnippet>743</a>	<span class="doccomment">/// The asset in question is unknown.
+<a href=#744 id=744 data-nosnippet>744</a>	</span>UnknownAsset,
+<a href=#745 id=745 data-nosnippet>745</a>	<span class="doccomment">/// Funds exist but are frozen.
+<a href=#746 id=746 data-nosnippet>746</a>	</span>Frozen,
+<a href=#747 id=747 data-nosnippet>747</a>	<span class="doccomment">/// Operation is not supported by the asset.
+<a href=#748 id=748 data-nosnippet>748</a>	</span>Unsupported,
+<a href=#749 id=749 data-nosnippet>749</a>	<span class="doccomment">/// Account cannot be created for a held balance.
+<a href=#750 id=750 data-nosnippet>750</a>	</span>CannotCreateHold,
+<a href=#751 id=751 data-nosnippet>751</a>	<span class="doccomment">/// Withdrawal would cause unwanted loss of account.
+<a href=#752 id=752 data-nosnippet>752</a>	</span>NotExpendable,
+<a href=#753 id=753 data-nosnippet>753</a>	<span class="doccomment">/// Account cannot receive the assets.
+<a href=#754 id=754 data-nosnippet>754</a>	</span>Blocked,
+<a href=#755 id=755 data-nosnippet>755</a>}
+<a href=#756 id=756 data-nosnippet>756</a>
+<a href=#757 id=757 data-nosnippet>757</a><span class="kw">impl </span>From&lt;TokenError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#758 id=758 data-nosnippet>758</a>	<span class="kw">fn </span>from(e: TokenError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#759 id=759 data-nosnippet>759</a>		<span class="kw">match </span>e {
+<a href=#760 id=760 data-nosnippet>760</a>			TokenError::FundsUnavailable =&gt; <span class="string">"Funds are unavailable"</span>,
+<a href=#761 id=761 data-nosnippet>761</a>			TokenError::OnlyProvider =&gt; <span class="string">"Account that must exist would die"</span>,
+<a href=#762 id=762 data-nosnippet>762</a>			TokenError::BelowMinimum =&gt; <span class="string">"Account cannot exist with the funds that would be given"</span>,
+<a href=#763 id=763 data-nosnippet>763</a>			TokenError::CannotCreate =&gt; <span class="string">"Account cannot be created"</span>,
+<a href=#764 id=764 data-nosnippet>764</a>			TokenError::UnknownAsset =&gt; <span class="string">"The asset in question is unknown"</span>,
+<a href=#765 id=765 data-nosnippet>765</a>			TokenError::Frozen =&gt; <span class="string">"Funds exist but are frozen"</span>,
+<a href=#766 id=766 data-nosnippet>766</a>			TokenError::Unsupported =&gt; <span class="string">"Operation is not supported by the asset"</span>,
+<a href=#767 id=767 data-nosnippet>767</a>			TokenError::CannotCreateHold =&gt; {
+<a href=#768 id=768 data-nosnippet>768</a>				<span class="string">"Account cannot be created for recording amount on hold"
+<a href=#769 id=769 data-nosnippet>769</a>			</span>},
+<a href=#770 id=770 data-nosnippet>770</a>			TokenError::NotExpendable =&gt; <span class="string">"Account that is desired to remain would die"</span>,
+<a href=#771 id=771 data-nosnippet>771</a>			TokenError::Blocked =&gt; <span class="string">"Account cannot receive the assets"</span>,
+<a href=#772 id=772 data-nosnippet>772</a>		}
+<a href=#773 id=773 data-nosnippet>773</a>	}
+<a href=#774 id=774 data-nosnippet>774</a>}
+<a href=#775 id=775 data-nosnippet>775</a>
+<a href=#776 id=776 data-nosnippet>776</a><span class="kw">impl </span>From&lt;TokenError&gt; <span class="kw">for </span>DispatchError {
+<a href=#777 id=777 data-nosnippet>777</a>	<span class="kw">fn </span>from(e: TokenError) -&gt; DispatchError {
+<a href=#778 id=778 data-nosnippet>778</a>		<span class="self">Self</span>::Token(e)
+<a href=#779 id=779 data-nosnippet>779</a>	}
+<a href=#780 id=780 data-nosnippet>780</a>}
+<a href=#781 id=781 data-nosnippet>781</a>
+<a href=#782 id=782 data-nosnippet>782</a><span class="kw">impl </span>From&lt;ArithmeticError&gt; <span class="kw">for </span>DispatchError {
+<a href=#783 id=783 data-nosnippet>783</a>	<span class="kw">fn </span>from(e: ArithmeticError) -&gt; DispatchError {
+<a href=#784 id=784 data-nosnippet>784</a>		<span class="self">Self</span>::Arithmetic(e)
+<a href=#785 id=785 data-nosnippet>785</a>	}
+<a href=#786 id=786 data-nosnippet>786</a>}
+<a href=#787 id=787 data-nosnippet>787</a>
+<a href=#788 id=788 data-nosnippet>788</a><span class="kw">impl </span>From&lt;TrieError&gt; <span class="kw">for </span>DispatchError {
+<a href=#789 id=789 data-nosnippet>789</a>	<span class="kw">fn </span>from(e: TrieError) -&gt; DispatchError {
+<a href=#790 id=790 data-nosnippet>790</a>		<span class="self">Self</span>::Trie(e)
+<a href=#791 id=791 data-nosnippet>791</a>	}
+<a href=#792 id=792 data-nosnippet>792</a>}
+<a href=#793 id=793 data-nosnippet>793</a>
+<a href=#794 id=794 data-nosnippet>794</a><span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>DispatchError {
+<a href=#795 id=795 data-nosnippet>795</a>	<span class="kw">fn </span>from(err: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; DispatchError {
+<a href=#796 id=796 data-nosnippet>796</a>		<span class="self">Self</span>::Other(err)
+<a href=#797 id=797 data-nosnippet>797</a>	}
+<a href=#798 id=798 data-nosnippet>798</a>}
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a><span class="kw">impl </span>From&lt;DispatchError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#801 id=801 data-nosnippet>801</a>	<span class="kw">fn </span>from(err: DispatchError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#802 id=802 data-nosnippet>802</a>		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
+<a href=#803 id=803 data-nosnippet>803</a>		<span class="kw">match </span>err {
+<a href=#804 id=804 data-nosnippet>804</a>			Other(msg) =&gt; msg,
+<a href=#805 id=805 data-nosnippet>805</a>			CannotLookup =&gt; <span class="string">"Cannot lookup"</span>,
+<a href=#806 id=806 data-nosnippet>806</a>			BadOrigin =&gt; <span class="string">"Bad origin"</span>,
+<a href=#807 id=807 data-nosnippet>807</a>			Module(ModuleError { message, .. }) =&gt; message.unwrap_or(<span class="string">"Unknown module error"</span>),
+<a href=#808 id=808 data-nosnippet>808</a>			ConsumerRemaining =&gt; <span class="string">"Consumer remaining"</span>,
+<a href=#809 id=809 data-nosnippet>809</a>			NoProviders =&gt; <span class="string">"No providers"</span>,
+<a href=#810 id=810 data-nosnippet>810</a>			TooManyConsumers =&gt; <span class="string">"Too many consumers"</span>,
+<a href=#811 id=811 data-nosnippet>811</a>			Token(e) =&gt; e.into(),
+<a href=#812 id=812 data-nosnippet>812</a>			Arithmetic(e) =&gt; e.into(),
+<a href=#813 id=813 data-nosnippet>813</a>			Transactional(e) =&gt; e.into(),
+<a href=#814 id=814 data-nosnippet>814</a>			Exhausted =&gt; <span class="string">"Resources exhausted"</span>,
+<a href=#815 id=815 data-nosnippet>815</a>			Corruption =&gt; <span class="string">"State corrupt"</span>,
+<a href=#816 id=816 data-nosnippet>816</a>			Unavailable =&gt; <span class="string">"Resource unavailable"</span>,
+<a href=#817 id=817 data-nosnippet>817</a>			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>,
+<a href=#818 id=818 data-nosnippet>818</a>			Trie(e) =&gt; e.into(),
+<a href=#819 id=819 data-nosnippet>819</a>		}
+<a href=#820 id=820 data-nosnippet>820</a>	}
+<a href=#821 id=821 data-nosnippet>821</a>}
+<a href=#822 id=822 data-nosnippet>822</a>
+<a href=#823 id=823 data-nosnippet>823</a><span class="kw">impl</span>&lt;T&gt; From&lt;DispatchErrorWithPostInfo&lt;T&gt;&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str
+<a href=#824 id=824 data-nosnippet>824</a><span class="kw">where
+<a href=#825 id=825 data-nosnippet>825</a>	</span>T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
+<a href=#826 id=826 data-nosnippet>826</a>{
+<a href=#827 id=827 data-nosnippet>827</a>	<span class="kw">fn </span>from(err: DispatchErrorWithPostInfo&lt;T&gt;) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#828 id=828 data-nosnippet>828</a>		err.error.into()
+<a href=#829 id=829 data-nosnippet>829</a>	}
+<a href=#830 id=830 data-nosnippet>830</a>}
+<a href=#831 id=831 data-nosnippet>831</a>
+<a href=#832 id=832 data-nosnippet>832</a><span class="kw">impl </span>traits::Printable <span class="kw">for </span>DispatchError {
+<a href=#833 id=833 data-nosnippet>833</a>	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#834 id=834 data-nosnippet>834</a>		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
+<a href=#835 id=835 data-nosnippet>835</a>		<span class="string">"DispatchError"</span>.print();
+<a href=#836 id=836 data-nosnippet>836</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#837 id=837 data-nosnippet>837</a>			Other(err) =&gt; err.print(),
+<a href=#838 id=838 data-nosnippet>838</a>			CannotLookup =&gt; <span class="string">"Cannot lookup"</span>.print(),
+<a href=#839 id=839 data-nosnippet>839</a>			BadOrigin =&gt; <span class="string">"Bad origin"</span>.print(),
+<a href=#840 id=840 data-nosnippet>840</a>			Module(ModuleError { index, error, message }) =&gt; {
+<a href=#841 id=841 data-nosnippet>841</a>				index.print();
+<a href=#842 id=842 data-nosnippet>842</a>				error.print();
+<a href=#843 id=843 data-nosnippet>843</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = message {
+<a href=#844 id=844 data-nosnippet>844</a>					msg.print();
+<a href=#845 id=845 data-nosnippet>845</a>				}
+<a href=#846 id=846 data-nosnippet>846</a>			},
+<a href=#847 id=847 data-nosnippet>847</a>			ConsumerRemaining =&gt; <span class="string">"Consumer remaining"</span>.print(),
+<a href=#848 id=848 data-nosnippet>848</a>			NoProviders =&gt; <span class="string">"No providers"</span>.print(),
+<a href=#849 id=849 data-nosnippet>849</a>			TooManyConsumers =&gt; <span class="string">"Too many consumers"</span>.print(),
+<a href=#850 id=850 data-nosnippet>850</a>			Token(e) =&gt; {
+<a href=#851 id=851 data-nosnippet>851</a>				<span class="string">"Token error: "</span>.print();
+<a href=#852 id=852 data-nosnippet>852</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+<a href=#853 id=853 data-nosnippet>853</a>			},
+<a href=#854 id=854 data-nosnippet>854</a>			Arithmetic(e) =&gt; {
+<a href=#855 id=855 data-nosnippet>855</a>				<span class="string">"Arithmetic error: "</span>.print();
+<a href=#856 id=856 data-nosnippet>856</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+<a href=#857 id=857 data-nosnippet>857</a>			},
+<a href=#858 id=858 data-nosnippet>858</a>			Transactional(e) =&gt; {
+<a href=#859 id=859 data-nosnippet>859</a>				<span class="string">"Transactional error: "</span>.print();
+<a href=#860 id=860 data-nosnippet>860</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+<a href=#861 id=861 data-nosnippet>861</a>			},
+<a href=#862 id=862 data-nosnippet>862</a>			Exhausted =&gt; <span class="string">"Resources exhausted"</span>.print(),
+<a href=#863 id=863 data-nosnippet>863</a>			Corruption =&gt; <span class="string">"State corrupt"</span>.print(),
+<a href=#864 id=864 data-nosnippet>864</a>			Unavailable =&gt; <span class="string">"Resource unavailable"</span>.print(),
+<a href=#865 id=865 data-nosnippet>865</a>			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>.print(),
+<a href=#866 id=866 data-nosnippet>866</a>			Trie(e) =&gt; {
+<a href=#867 id=867 data-nosnippet>867</a>				<span class="string">"Trie error: "</span>.print();
+<a href=#868 id=868 data-nosnippet>868</a>				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+<a href=#869 id=869 data-nosnippet>869</a>			},
+<a href=#870 id=870 data-nosnippet>870</a>		}
+<a href=#871 id=871 data-nosnippet>871</a>	}
+<a href=#872 id=872 data-nosnippet>872</a>}
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a><span class="kw">impl</span>&lt;T&gt; traits::Printable <span class="kw">for </span>DispatchErrorWithPostInfo&lt;T&gt;
+<a href=#875 id=875 data-nosnippet>875</a><span class="kw">where
+<a href=#876 id=876 data-nosnippet>876</a>	</span>T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
+<a href=#877 id=877 data-nosnippet>877</a>{
+<a href=#878 id=878 data-nosnippet>878</a>	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#879 id=879 data-nosnippet>879</a>		<span class="self">self</span>.error.print();
+<a href=#880 id=880 data-nosnippet>880</a>		<span class="string">"PostInfo: "</span>.print();
+<a href=#881 id=881 data-nosnippet>881</a>		<span class="self">self</span>.post_info.print();
+<a href=#882 id=882 data-nosnippet>882</a>	}
+<a href=#883 id=883 data-nosnippet>883</a>}
+<a href=#884 id=884 data-nosnippet>884</a>
+<a href=#885 id=885 data-nosnippet>885</a><span class="doccomment">/// This type specifies the outcome of dispatching a call to a module.
+<a href=#886 id=886 data-nosnippet>886</a>///
+<a href=#887 id=887 data-nosnippet>887</a>/// In case of failure an error specific to the module is returned.
+<a href=#888 id=888 data-nosnippet>888</a>///
+<a href=#889 id=889 data-nosnippet>889</a>/// Failure of the module call dispatching doesn't invalidate the extrinsic and it is still included
+<a href=#890 id=890 data-nosnippet>890</a>/// in the block, therefore all state changes performed by the dispatched call are still persisted.
+<a href=#891 id=891 data-nosnippet>891</a>///
+<a href=#892 id=892 data-nosnippet>892</a>/// For example, if the dispatching of an extrinsic involves inclusion fee payment then these
+<a href=#893 id=893 data-nosnippet>893</a>/// changes are going to be preserved even if the call dispatched failed.
+<a href=#894 id=894 data-nosnippet>894</a></span><span class="kw">pub type </span>DispatchOutcome = <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
+<a href=#895 id=895 data-nosnippet>895</a>
+<a href=#896 id=896 data-nosnippet>896</a><span class="doccomment">/// The result of applying of an extrinsic.
+<a href=#897 id=897 data-nosnippet>897</a>///
+<a href=#898 id=898 data-nosnippet>898</a>/// This type is typically used in the context of `BlockBuilder` to signal that the extrinsic
+<a href=#899 id=899 data-nosnippet>899</a>/// in question cannot be included.
+<a href=#900 id=900 data-nosnippet>900</a>///
+<a href=#901 id=901 data-nosnippet>901</a>/// A block containing extrinsics that have a negative inclusion outcome is invalid. A negative
+<a href=#902 id=902 data-nosnippet>902</a>/// result can only occur during the block production, where such extrinsics are detected and
+<a href=#903 id=903 data-nosnippet>903</a>/// removed from the block that is being created and the transaction pool.
+<a href=#904 id=904 data-nosnippet>904</a>///
+<a href=#905 id=905 data-nosnippet>905</a>/// To rehash: every extrinsic in a valid block must return a positive `ApplyExtrinsicResult`.
+<a href=#906 id=906 data-nosnippet>906</a>///
+<a href=#907 id=907 data-nosnippet>907</a>/// Examples of reasons preventing inclusion in a block:
+<a href=#908 id=908 data-nosnippet>908</a>/// - More block weight is required to process the extrinsic than is left in the block being built.
+<a href=#909 id=909 data-nosnippet>909</a>///   This doesn't necessarily mean that the extrinsic is invalid, since it can still be included in
+<a href=#910 id=910 data-nosnippet>910</a>///   the next block if it has enough spare weight available.
+<a href=#911 id=911 data-nosnippet>911</a>/// - The sender doesn't have enough funds to pay the transaction inclusion fee. Including such a
+<a href=#912 id=912 data-nosnippet>912</a>///   transaction in the block doesn't make sense.
+<a href=#913 id=913 data-nosnippet>913</a>/// - The extrinsic supplied a bad signature. This transaction won't become valid ever.
+<a href=#914 id=914 data-nosnippet>914</a></span><span class="kw">pub type </span>ApplyExtrinsicResult =
+<a href=#915 id=915 data-nosnippet>915</a>	<span class="prelude-ty">Result</span>&lt;DispatchOutcome, transaction_validity::TransactionValidityError&gt;;
+<a href=#916 id=916 data-nosnippet>916</a>
+<a href=#917 id=917 data-nosnippet>917</a><span class="doccomment">/// Same as `ApplyExtrinsicResult` but augmented with `PostDispatchInfo` on success.
+<a href=#918 id=918 data-nosnippet>918</a></span><span class="kw">pub type </span>ApplyExtrinsicResultWithInfo&lt;T&gt; =
+<a href=#919 id=919 data-nosnippet>919</a>	<span class="prelude-ty">Result</span>&lt;DispatchResultWithInfo&lt;T&gt;, transaction_validity::TransactionValidityError&gt;;
+<a href=#920 id=920 data-nosnippet>920</a>
+<a href=#921 id=921 data-nosnippet>921</a><span class="doccomment">/// The error type used as return type in try runtime hooks.
+<a href=#922 id=922 data-nosnippet>922</a></span><span class="kw">pub type </span>TryRuntimeError = DispatchError;
+<a href=#923 id=923 data-nosnippet>923</a>
+<a href=#924 id=924 data-nosnippet>924</a><span class="doccomment">/// Verify a signature on an encoded value in a lazy manner. This can be
+<a href=#925 id=925 data-nosnippet>925</a>/// an optimization if the signature scheme has an "unsigned" escape hash.
+<a href=#926 id=926 data-nosnippet>926</a></span><span class="kw">pub fn </span>verify_encoded_lazy&lt;V: Verify, T: codec::Encode&gt;(
+<a href=#927 id=927 data-nosnippet>927</a>	sig: <span class="kw-2">&amp;</span>V,
+<a href=#928 id=928 data-nosnippet>928</a>	item: <span class="kw-2">&amp;</span>T,
+<a href=#929 id=929 data-nosnippet>929</a>	signer: <span class="kw-2">&amp;</span>&lt;V::Signer <span class="kw">as </span>IdentifyAccount&gt;::AccountId,
+<a href=#930 id=930 data-nosnippet>930</a>) -&gt; bool {
+<a href=#931 id=931 data-nosnippet>931</a>	<span class="comment">// The `Lazy&lt;T&gt;` trait expresses something like `X: FnMut&lt;Output = for&lt;'a&gt; &amp;'a T&gt;`.
+<a href=#932 id=932 data-nosnippet>932</a>	// unfortunately this is a lifetime relationship that can't
+<a href=#933 id=933 data-nosnippet>933</a>	// be expressed without generic associated types, better unification of HRTBs in type position,
+<a href=#934 id=934 data-nosnippet>934</a>	// and some kind of integration into the Fn* traits.
+<a href=#935 id=935 data-nosnippet>935</a>	</span><span class="kw">struct </span>LazyEncode&lt;F&gt; {
+<a href=#936 id=936 data-nosnippet>936</a>		inner: F,
+<a href=#937 id=937 data-nosnippet>937</a>		encoded: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+<a href=#938 id=938 data-nosnippet>938</a>	}
+<a href=#939 id=939 data-nosnippet>939</a>
+<a href=#940 id=940 data-nosnippet>940</a>	<span class="kw">impl</span>&lt;F: Fn() -&gt; Vec&lt;u8&gt;&gt; traits::Lazy&lt;[u8]&gt; <span class="kw">for </span>LazyEncode&lt;F&gt; {
+<a href=#941 id=941 data-nosnippet>941</a>		<span class="kw">fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+<a href=#942 id=942 data-nosnippet>942</a>			<span class="self">self</span>.encoded.get_or_insert_with(<span class="kw-2">&amp;</span><span class="self">self</span>.inner).as_slice()
+<a href=#943 id=943 data-nosnippet>943</a>		}
+<a href=#944 id=944 data-nosnippet>944</a>	}
+<a href=#945 id=945 data-nosnippet>945</a>
+<a href=#946 id=946 data-nosnippet>946</a>	sig.verify(LazyEncode { inner: || item.encode(), encoded: <span class="prelude-val">None </span>}, signer)
+<a href=#947 id=947 data-nosnippet>947</a>}
+<a href=#948 id=948 data-nosnippet>948</a>
+<a href=#949 id=949 data-nosnippet>949</a><span class="doccomment">/// Checks that `$x` is equal to `$y` with an error rate of `$error`.
 <a href=#950 id=950 data-nosnippet>950</a>///
-<a href=#951 id=951 data-nosnippet>951</a>/// ```rust,should_panic
-<a href=#952 id=952 data-nosnippet>952</a>/// # fn main() {
-<a href=#953 id=953 data-nosnippet>953</a>/// sp_runtime::assert_eq_error_rate!(12, 10, 1);
-<a href=#954 id=954 data-nosnippet>954</a>/// # }
-<a href=#955 id=955 data-nosnippet>955</a>/// ```
-<a href=#956 id=956 data-nosnippet>956</a></span><span class="attr">#[macro_export]
-<a href=#957 id=957 data-nosnippet>957</a>#[cfg(feature = <span class="string">"std"</span>)]
-<a href=#958 id=958 data-nosnippet>958</a></span><span class="macro">macro_rules!</span> assert_eq_error_rate {
-<a href=#959 id=959 data-nosnippet>959</a>	(<span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr, <span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
-<a href=#960 id=960 data-nosnippet>960</a>		<span class="macro">assert!</span>(
-<a href=#961 id=961 data-nosnippet>961</a>			(<span class="macro-nonterminal">$x </span>&gt;= <span class="macro-nonterminal">$crate::Saturating::saturating_sub</span>(<span class="macro-nonterminal">$y</span>, <span class="macro-nonterminal">$error</span>)) &amp;&amp;
-<a href=#962 id=962 data-nosnippet>962</a>				(<span class="macro-nonterminal">$x </span>&lt;= <span class="macro-nonterminal">$crate::Saturating::saturating_add</span>(<span class="macro-nonterminal">$y</span>, <span class="macro-nonterminal">$error</span>)),
-<a href=#963 id=963 data-nosnippet>963</a>			<span class="string">"{:?} != {:?} (with error rate {:?})"</span>,
-<a href=#964 id=964 data-nosnippet>964</a>			<span class="macro-nonterminal">$x</span>,
-<a href=#965 id=965 data-nosnippet>965</a>			<span class="macro-nonterminal">$y</span>,
-<a href=#966 id=966 data-nosnippet>966</a>			<span class="macro-nonterminal">$error</span>,
-<a href=#967 id=967 data-nosnippet>967</a>		);
-<a href=#968 id=968 data-nosnippet>968</a>	};
-<a href=#969 id=969 data-nosnippet>969</a>}
-<a href=#970 id=970 data-nosnippet>970</a>
-<a href=#971 id=971 data-nosnippet>971</a><span class="doccomment">/// Same as [`assert_eq_error_rate`], but intended to be used with floating point number, or
-<a href=#972 id=972 data-nosnippet>972</a>/// generally those who do not have over/underflow potentials.
-<a href=#973 id=973 data-nosnippet>973</a></span><span class="attr">#[macro_export]
-<a href=#974 id=974 data-nosnippet>974</a>#[cfg(feature = <span class="string">"std"</span>)]
-<a href=#975 id=975 data-nosnippet>975</a></span><span class="macro">macro_rules!</span> assert_eq_error_rate_float {
-<a href=#976 id=976 data-nosnippet>976</a>	(<span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr, <span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
-<a href=#977 id=977 data-nosnippet>977</a>		<span class="macro">assert!</span>(
-<a href=#978 id=978 data-nosnippet>978</a>			(<span class="macro-nonterminal">$x </span>&gt;= <span class="macro-nonterminal">$y </span>- <span class="macro-nonterminal">$error</span>) &amp;&amp; (<span class="macro-nonterminal">$x </span>&lt;= <span class="macro-nonterminal">$y </span>+ <span class="macro-nonterminal">$error</span>),
-<a href=#979 id=979 data-nosnippet>979</a>			<span class="string">"{:?} != {:?} (with error rate {:?})"</span>,
-<a href=#980 id=980 data-nosnippet>980</a>			<span class="macro-nonterminal">$x</span>,
-<a href=#981 id=981 data-nosnippet>981</a>			<span class="macro-nonterminal">$y</span>,
-<a href=#982 id=982 data-nosnippet>982</a>			<span class="macro-nonterminal">$error</span>,
-<a href=#983 id=983 data-nosnippet>983</a>		);
-<a href=#984 id=984 data-nosnippet>984</a>	};
-<a href=#985 id=985 data-nosnippet>985</a>}
-<a href=#986 id=986 data-nosnippet>986</a>
-<a href=#987 id=987 data-nosnippet>987</a><span class="doccomment">/// Simple blob to hold an extrinsic without committing to its format and ensure it is serialized
-<a href=#988 id=988 data-nosnippet>988</a>/// correctly.
-<a href=#989 id=989 data-nosnippet>989</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, DecodeWithMemTracking)]
-<a href=#990 id=990 data-nosnippet>990</a></span><span class="kw">pub struct </span>OpaqueExtrinsic(bytes::Bytes);
-<a href=#991 id=991 data-nosnippet>991</a>
-<a href=#992 id=992 data-nosnippet>992</a><span class="kw">impl </span>TypeInfo <span class="kw">for </span>OpaqueExtrinsic {
-<a href=#993 id=993 data-nosnippet>993</a>	<span class="kw">type </span>Identity = <span class="self">Self</span>;
-<a href=#994 id=994 data-nosnippet>994</a>	<span class="kw">fn </span>type_info() -&gt; scale_info::Type {
-<a href=#995 id=995 data-nosnippet>995</a>		scale_info::Type::builder()
-<a href=#996 id=996 data-nosnippet>996</a>			.path(scale_info::Path::new(<span class="string">"OpaqueExtrinsic"</span>, <span class="macro">module_path!</span>()))
-<a href=#997 id=997 data-nosnippet>997</a>			.composite(
-<a href=#998 id=998 data-nosnippet>998</a>				scale_info::build::Fields::unnamed()
-<a href=#999 id=999 data-nosnippet>999</a>					.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">"Vec&lt;u8&gt;"</span>)),
-<a href=#1000 id=1000 data-nosnippet>1000</a>			)
-<a href=#1001 id=1001 data-nosnippet>1001</a>	}
-<a href=#1002 id=1002 data-nosnippet>1002</a>}
-<a href=#1003 id=1003 data-nosnippet>1003</a>
-<a href=#1004 id=1004 data-nosnippet>1004</a><span class="kw">impl </span>OpaqueExtrinsic {
-<a href=#1005 id=1005 data-nosnippet>1005</a>	<span class="doccomment">/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
-<a href=#1006 id=1006 data-nosnippet>1006</a>	</span><span class="kw">pub fn </span>try_from_encoded_extrinsic(<span class="kw-2">mut </span>bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-<a href=#1007 id=1007 data-nosnippet>1007</a>		<span class="self">Self</span>::decode(<span class="kw-2">&amp;mut </span>bytes)
-<a href=#1008 id=1008 data-nosnippet>1008</a>	}
-<a href=#1009 id=1009 data-nosnippet>1009</a>
-<a href=#1010 id=1010 data-nosnippet>1010</a>	<span class="doccomment">/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
-<a href=#1011 id=1011 data-nosnippet>1011</a>	</span><span class="attr">#[deprecated = <span class="string">"Use `try_from_encoded_extrinsic()` instead"</span>]
-<a href=#1012 id=1012 data-nosnippet>1012</a>	</span><span class="kw">pub fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-<a href=#1013 id=1013 data-nosnippet>1013</a>		<span class="self">Self</span>::try_from_encoded_extrinsic(bytes)
-<a href=#1014 id=1014 data-nosnippet>1014</a>	}
-<a href=#1015 id=1015 data-nosnippet>1015</a>
-<a href=#1016 id=1016 data-nosnippet>1016</a>	<span class="doccomment">/// Create a new instance of `OpaqueExtrinsic` from a `Vec&lt;u8&gt;`.
-<a href=#1017 id=1017 data-nosnippet>1017</a>	</span><span class="kw">pub fn </span>from_blob(bytes: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
-<a href=#1018 id=1018 data-nosnippet>1018</a>		<span class="self">Self</span>(bytes.into())
-<a href=#1019 id=1019 data-nosnippet>1019</a>	}
-<a href=#1020 id=1020 data-nosnippet>1020</a>
-<a href=#1021 id=1021 data-nosnippet>1021</a>	<span class="doccomment">/// Get the actual blob.
-<a href=#1022 id=1022 data-nosnippet>1022</a>	</span><span class="kw">pub fn </span>inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-<a href=#1023 id=1023 data-nosnippet>1023</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-<a href=#1024 id=1024 data-nosnippet>1024</a>	</span>}
-<a href=#1025 id=1025 data-nosnippet>1025</a>}
-<a href=#1026 id=1026 data-nosnippet>1026</a>
-<a href=#1027 id=1027 data-nosnippet>1027</a><span class="kw">impl </span>LazyExtrinsic <span class="kw">for </span>OpaqueExtrinsic {
-<a href=#1028 id=1028 data-nosnippet>1028</a>	<span class="kw">fn </span>decode_unprefixed(data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-<a href=#1029 id=1029 data-nosnippet>1029</a>		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(data.to_vec().into()))
-<a href=#1030 id=1030 data-nosnippet>1030</a>	}
-<a href=#1031 id=1031 data-nosnippet>1031</a>}
-<a href=#1032 id=1032 data-nosnippet>1032</a>
-<a href=#1033 id=1033 data-nosnippet>1033</a><span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>OpaqueExtrinsic {
-<a href=#1034 id=1034 data-nosnippet>1034</a>	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
-<a href=#1035 id=1035 data-nosnippet>1035</a>	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
-<a href=#1036 id=1036 data-nosnippet>1036</a>		<span class="macro">write!</span>(fmt, <span class="string">"{}"</span>, sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.as_ref()))
-<a href=#1037 id=1037 data-nosnippet>1037</a>	}
-<a href=#1038 id=1038 data-nosnippet>1038</a>
-<a href=#1039 id=1039 data-nosnippet>1039</a>	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
-<a href=#1040 id=1040 data-nosnippet>1040</a>	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, _fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
-<a href=#1041 id=1041 data-nosnippet>1041</a>		<span class="prelude-val">Ok</span>(())
-<a href=#1042 id=1042 data-nosnippet>1042</a>	}
-<a href=#1043 id=1043 data-nosnippet>1043</a>}
-<a href=#1044 id=1044 data-nosnippet>1044</a>
-<a href=#1045 id=1045 data-nosnippet>1045</a><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
-<a href=#1046 id=1046 data-nosnippet>1046</a></span><span class="kw">impl </span>::serde::Serialize <span class="kw">for </span>OpaqueExtrinsic {
-<a href=#1047 id=1047 data-nosnippet>1047</a>	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, seq: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
-<a href=#1048 id=1048 data-nosnippet>1048</a>	<span class="kw">where
-<a href=#1049 id=1049 data-nosnippet>1049</a>		</span>S: ::serde::Serializer,
-<a href=#1050 id=1050 data-nosnippet>1050</a>	{
-<a href=#1051 id=1051 data-nosnippet>1051</a>		codec::Encode::using_encoded(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, |bytes| ::sp_core::bytes::serialize(bytes, seq))
+<a href=#951 id=951 data-nosnippet>951</a>/// # Example
+<a href=#952 id=952 data-nosnippet>952</a>///
+<a href=#953 id=953 data-nosnippet>953</a>/// ```rust
+<a href=#954 id=954 data-nosnippet>954</a>/// # fn main() {
+<a href=#955 id=955 data-nosnippet>955</a>/// sp_runtime::assert_eq_error_rate!(10, 10, 0);
+<a href=#956 id=956 data-nosnippet>956</a>/// sp_runtime::assert_eq_error_rate!(10, 11, 1);
+<a href=#957 id=957 data-nosnippet>957</a>/// sp_runtime::assert_eq_error_rate!(12, 10, 2);
+<a href=#958 id=958 data-nosnippet>958</a>/// # }
+<a href=#959 id=959 data-nosnippet>959</a>/// ```
+<a href=#960 id=960 data-nosnippet>960</a>///
+<a href=#961 id=961 data-nosnippet>961</a>/// ```rust,should_panic
+<a href=#962 id=962 data-nosnippet>962</a>/// # fn main() {
+<a href=#963 id=963 data-nosnippet>963</a>/// sp_runtime::assert_eq_error_rate!(12, 10, 1);
+<a href=#964 id=964 data-nosnippet>964</a>/// # }
+<a href=#965 id=965 data-nosnippet>965</a>/// ```
+<a href=#966 id=966 data-nosnippet>966</a></span><span class="attr">#[macro_export]
+<a href=#967 id=967 data-nosnippet>967</a>#[cfg(feature = <span class="string">"std"</span>)]
+<a href=#968 id=968 data-nosnippet>968</a></span><span class="macro">macro_rules!</span> assert_eq_error_rate {
+<a href=#969 id=969 data-nosnippet>969</a>	(<span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr, <span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
+<a href=#970 id=970 data-nosnippet>970</a>		<span class="macro">assert!</span>(
+<a href=#971 id=971 data-nosnippet>971</a>			(<span class="macro-nonterminal">$x </span>&gt;= <span class="macro-nonterminal">$crate::Saturating::saturating_sub</span>(<span class="macro-nonterminal">$y</span>, <span class="macro-nonterminal">$error</span>)) &amp;&amp;
+<a href=#972 id=972 data-nosnippet>972</a>				(<span class="macro-nonterminal">$x </span>&lt;= <span class="macro-nonterminal">$crate::Saturating::saturating_add</span>(<span class="macro-nonterminal">$y</span>, <span class="macro-nonterminal">$error</span>)),
+<a href=#973 id=973 data-nosnippet>973</a>			<span class="string">"{:?} != {:?} (with error rate {:?})"</span>,
+<a href=#974 id=974 data-nosnippet>974</a>			<span class="macro-nonterminal">$x</span>,
+<a href=#975 id=975 data-nosnippet>975</a>			<span class="macro-nonterminal">$y</span>,
+<a href=#976 id=976 data-nosnippet>976</a>			<span class="macro-nonterminal">$error</span>,
+<a href=#977 id=977 data-nosnippet>977</a>		);
+<a href=#978 id=978 data-nosnippet>978</a>	};
+<a href=#979 id=979 data-nosnippet>979</a>}
+<a href=#980 id=980 data-nosnippet>980</a>
+<a href=#981 id=981 data-nosnippet>981</a><span class="doccomment">/// Same as [`assert_eq_error_rate`], but intended to be used with floating point number, or
+<a href=#982 id=982 data-nosnippet>982</a>/// generally those who do not have over/underflow potentials.
+<a href=#983 id=983 data-nosnippet>983</a></span><span class="attr">#[macro_export]
+<a href=#984 id=984 data-nosnippet>984</a>#[cfg(feature = <span class="string">"std"</span>)]
+<a href=#985 id=985 data-nosnippet>985</a></span><span class="macro">macro_rules!</span> assert_eq_error_rate_float {
+<a href=#986 id=986 data-nosnippet>986</a>	(<span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr, <span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
+<a href=#987 id=987 data-nosnippet>987</a>		<span class="macro">assert!</span>(
+<a href=#988 id=988 data-nosnippet>988</a>			(<span class="macro-nonterminal">$x </span>&gt;= <span class="macro-nonterminal">$y </span>- <span class="macro-nonterminal">$error</span>) &amp;&amp; (<span class="macro-nonterminal">$x </span>&lt;= <span class="macro-nonterminal">$y </span>+ <span class="macro-nonterminal">$error</span>),
+<a href=#989 id=989 data-nosnippet>989</a>			<span class="string">"{:?} != {:?} (with error rate {:?})"</span>,
+<a href=#990 id=990 data-nosnippet>990</a>			<span class="macro-nonterminal">$x</span>,
+<a href=#991 id=991 data-nosnippet>991</a>			<span class="macro-nonterminal">$y</span>,
+<a href=#992 id=992 data-nosnippet>992</a>			<span class="macro-nonterminal">$error</span>,
+<a href=#993 id=993 data-nosnippet>993</a>		);
+<a href=#994 id=994 data-nosnippet>994</a>	};
+<a href=#995 id=995 data-nosnippet>995</a>}
+<a href=#996 id=996 data-nosnippet>996</a>
+<a href=#997 id=997 data-nosnippet>997</a><span class="doccomment">/// Simple blob to hold an extrinsic without committing to its format and ensure it is serialized
+<a href=#998 id=998 data-nosnippet>998</a>/// correctly.
+<a href=#999 id=999 data-nosnippet>999</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, DecodeWithMemTracking)]
+<a href=#1000 id=1000 data-nosnippet>1000</a></span><span class="kw">pub struct </span>OpaqueExtrinsic(bytes::Bytes);
+<a href=#1001 id=1001 data-nosnippet>1001</a>
+<a href=#1002 id=1002 data-nosnippet>1002</a><span class="kw">impl </span>TypeInfo <span class="kw">for </span>OpaqueExtrinsic {
+<a href=#1003 id=1003 data-nosnippet>1003</a>	<span class="kw">type </span>Identity = <span class="self">Self</span>;
+<a href=#1004 id=1004 data-nosnippet>1004</a>	<span class="kw">fn </span>type_info() -&gt; scale_info::Type {
+<a href=#1005 id=1005 data-nosnippet>1005</a>		scale_info::Type::builder()
+<a href=#1006 id=1006 data-nosnippet>1006</a>			.path(scale_info::Path::new(<span class="string">"OpaqueExtrinsic"</span>, <span class="macro">module_path!</span>()))
+<a href=#1007 id=1007 data-nosnippet>1007</a>			.composite(
+<a href=#1008 id=1008 data-nosnippet>1008</a>				scale_info::build::Fields::unnamed()
+<a href=#1009 id=1009 data-nosnippet>1009</a>					.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">"Vec&lt;u8&gt;"</span>)),
+<a href=#1010 id=1010 data-nosnippet>1010</a>			)
+<a href=#1011 id=1011 data-nosnippet>1011</a>	}
+<a href=#1012 id=1012 data-nosnippet>1012</a>}
+<a href=#1013 id=1013 data-nosnippet>1013</a>
+<a href=#1014 id=1014 data-nosnippet>1014</a><span class="kw">impl </span>OpaqueExtrinsic {
+<a href=#1015 id=1015 data-nosnippet>1015</a>	<span class="doccomment">/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
+<a href=#1016 id=1016 data-nosnippet>1016</a>	</span><span class="kw">pub fn </span>try_from_encoded_extrinsic(<span class="kw-2">mut </span>bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+<a href=#1017 id=1017 data-nosnippet>1017</a>		<span class="self">Self</span>::decode(<span class="kw-2">&amp;mut </span>bytes)
+<a href=#1018 id=1018 data-nosnippet>1018</a>	}
+<a href=#1019 id=1019 data-nosnippet>1019</a>
+<a href=#1020 id=1020 data-nosnippet>1020</a>	<span class="doccomment">/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
+<a href=#1021 id=1021 data-nosnippet>1021</a>	</span><span class="attr">#[deprecated = <span class="string">"Use `try_from_encoded_extrinsic()` instead"</span>]
+<a href=#1022 id=1022 data-nosnippet>1022</a>	</span><span class="kw">pub fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+<a href=#1023 id=1023 data-nosnippet>1023</a>		<span class="self">Self</span>::try_from_encoded_extrinsic(bytes)
+<a href=#1024 id=1024 data-nosnippet>1024</a>	}
+<a href=#1025 id=1025 data-nosnippet>1025</a>
+<a href=#1026 id=1026 data-nosnippet>1026</a>	<span class="doccomment">/// Create a new instance of `OpaqueExtrinsic` from a `Vec&lt;u8&gt;`.
+<a href=#1027 id=1027 data-nosnippet>1027</a>	</span><span class="kw">pub fn </span>from_blob(bytes: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
+<a href=#1028 id=1028 data-nosnippet>1028</a>		<span class="self">Self</span>(bytes.into())
+<a href=#1029 id=1029 data-nosnippet>1029</a>	}
+<a href=#1030 id=1030 data-nosnippet>1030</a>
+<a href=#1031 id=1031 data-nosnippet>1031</a>	<span class="doccomment">/// Get the actual blob.
+<a href=#1032 id=1032 data-nosnippet>1032</a>	</span><span class="kw">pub fn </span>inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+<a href=#1033 id=1033 data-nosnippet>1033</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+<a href=#1034 id=1034 data-nosnippet>1034</a>	</span>}
+<a href=#1035 id=1035 data-nosnippet>1035</a>}
+<a href=#1036 id=1036 data-nosnippet>1036</a>
+<a href=#1037 id=1037 data-nosnippet>1037</a><span class="kw">impl </span>LazyExtrinsic <span class="kw">for </span>OpaqueExtrinsic {
+<a href=#1038 id=1038 data-nosnippet>1038</a>	<span class="kw">fn </span>decode_unprefixed(data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+<a href=#1039 id=1039 data-nosnippet>1039</a>		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(data.to_vec().into()))
+<a href=#1040 id=1040 data-nosnippet>1040</a>	}
+<a href=#1041 id=1041 data-nosnippet>1041</a>}
+<a href=#1042 id=1042 data-nosnippet>1042</a>
+<a href=#1043 id=1043 data-nosnippet>1043</a><span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>OpaqueExtrinsic {
+<a href=#1044 id=1044 data-nosnippet>1044</a>	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+<a href=#1045 id=1045 data-nosnippet>1045</a>	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
+<a href=#1046 id=1046 data-nosnippet>1046</a>		<span class="macro">write!</span>(fmt, <span class="string">"{}"</span>, sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.as_ref()))
+<a href=#1047 id=1047 data-nosnippet>1047</a>	}
+<a href=#1048 id=1048 data-nosnippet>1048</a>
+<a href=#1049 id=1049 data-nosnippet>1049</a>	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#1050 id=1050 data-nosnippet>1050</a>	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, _fmt: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
+<a href=#1051 id=1051 data-nosnippet>1051</a>		<span class="prelude-val">Ok</span>(())
 <a href=#1052 id=1052 data-nosnippet>1052</a>	}
 <a href=#1053 id=1053 data-nosnippet>1053</a>}
 <a href=#1054 id=1054 data-nosnippet>1054</a>
 <a href=#1055 id=1055 data-nosnippet>1055</a><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
-<a href=#1056 id=1056 data-nosnippet>1056</a></span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ::serde::Deserialize&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>OpaqueExtrinsic {
-<a href=#1057 id=1057 data-nosnippet>1057</a>	<span class="kw">fn </span>deserialize&lt;D&gt;(de: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
+<a href=#1056 id=1056 data-nosnippet>1056</a></span><span class="kw">impl </span>::serde::Serialize <span class="kw">for </span>OpaqueExtrinsic {
+<a href=#1057 id=1057 data-nosnippet>1057</a>	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, seq: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 <a href=#1058 id=1058 data-nosnippet>1058</a>	<span class="kw">where
-<a href=#1059 id=1059 data-nosnippet>1059</a>		</span>D: ::serde::Deserializer&lt;<span class="lifetime">'a</span>&gt;,
+<a href=#1059 id=1059 data-nosnippet>1059</a>		</span>S: ::serde::Serializer,
 <a href=#1060 id=1060 data-nosnippet>1060</a>	{
-<a href=#1061 id=1061 data-nosnippet>1061</a>		<span class="kw">let </span>r = ::sp_core::bytes::deserialize(de)<span class="question-mark">?</span>;
-<a href=#1062 id=1062 data-nosnippet>1062</a>		Decode::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
-<a href=#1063 id=1063 data-nosnippet>1063</a>			.map_err(|e| ::serde::de::Error::custom(<span class="macro">alloc::format!</span>(<span class="string">"Decode error: {}"</span>, e)))
-<a href=#1064 id=1064 data-nosnippet>1064</a>	}
-<a href=#1065 id=1065 data-nosnippet>1065</a>}
-<a href=#1066 id=1066 data-nosnippet>1066</a>
-<a href=#1067 id=1067 data-nosnippet>1067</a><span class="kw">impl </span>traits::ExtrinsicLike <span class="kw">for </span>OpaqueExtrinsic {
-<a href=#1068 id=1068 data-nosnippet>1068</a>	<span class="kw">fn </span>is_bare(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#1069 id=1069 data-nosnippet>1069</a>		<span class="bool-val">false
-<a href=#1070 id=1070 data-nosnippet>1070</a>	</span>}
-<a href=#1071 id=1071 data-nosnippet>1071</a>}
-<a href=#1072 id=1072 data-nosnippet>1072</a>
-<a href=#1073 id=1073 data-nosnippet>1073</a><span class="doccomment">/// Print something that implements `Printable` from the runtime.
-<a href=#1074 id=1074 data-nosnippet>1074</a></span><span class="kw">pub fn </span>print(print: <span class="kw">impl </span>traits::Printable) {
-<a href=#1075 id=1075 data-nosnippet>1075</a>	print.print();
-<a href=#1076 id=1076 data-nosnippet>1076</a>}
-<a href=#1077 id=1077 data-nosnippet>1077</a>
-<a href=#1078 id=1078 data-nosnippet>1078</a><span class="doccomment">/// Utility function to declare string literals backed by an array of length N.
-<a href=#1079 id=1079 data-nosnippet>1079</a>///
-<a href=#1080 id=1080 data-nosnippet>1080</a>/// The input can be shorter than N, in that case the end of the array is padded with zeros.
-<a href=#1081 id=1081 data-nosnippet>1081</a>///
-<a href=#1082 id=1082 data-nosnippet>1082</a>/// [`str_array`] is useful when converting strings that end up in the storage as fixed size arrays
-<a href=#1083 id=1083 data-nosnippet>1083</a>/// or in const contexts where static data types have strings that could also end up in the storage.
-<a href=#1084 id=1084 data-nosnippet>1084</a>///
-<a href=#1085 id=1085 data-nosnippet>1085</a>/// # Example
-<a href=#1086 id=1086 data-nosnippet>1086</a>///
-<a href=#1087 id=1087 data-nosnippet>1087</a>/// ```rust
-<a href=#1088 id=1088 data-nosnippet>1088</a>/// # use sp_runtime::str_array;
-<a href=#1089 id=1089 data-nosnippet>1089</a>/// const MY_STR: [u8; 6] = str_array("data");
-<a href=#1090 id=1090 data-nosnippet>1090</a>/// assert_eq!(MY_STR, *b"data\0\0");
-<a href=#1091 id=1091 data-nosnippet>1091</a>/// ```
-<a href=#1092 id=1092 data-nosnippet>1092</a></span><span class="kw">pub const fn </span>str_array&lt;<span class="kw">const </span>N: usize&gt;(s: <span class="kw-2">&amp;</span>str) -&gt; [u8; N] {
-<a href=#1093 id=1093 data-nosnippet>1093</a>	<span class="macro">debug_assert!</span>(s.len() &lt;= N, <span class="string">"String literal doesn't fit in array"</span>);
-<a href=#1094 id=1094 data-nosnippet>1094</a>	<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
-<a href=#1095 id=1095 data-nosnippet>1095</a>	<span class="kw">let </span><span class="kw-2">mut </span>arr = [<span class="number">0</span>; N];
-<a href=#1096 id=1096 data-nosnippet>1096</a>	<span class="kw">let </span>s = s.as_bytes();
-<a href=#1097 id=1097 data-nosnippet>1097</a>	<span class="kw">while </span>i &lt; s.len() {
-<a href=#1098 id=1098 data-nosnippet>1098</a>		arr[i] = s[i];
-<a href=#1099 id=1099 data-nosnippet>1099</a>		i += <span class="number">1</span>;
-<a href=#1100 id=1100 data-nosnippet>1100</a>	}
-<a href=#1101 id=1101 data-nosnippet>1101</a>	arr
-<a href=#1102 id=1102 data-nosnippet>1102</a>}
-<a href=#1103 id=1103 data-nosnippet>1103</a>
-<a href=#1104 id=1104 data-nosnippet>1104</a><span class="doccomment">/// Describes on what should happen with a storage transaction.
-<a href=#1105 id=1105 data-nosnippet>1105</a></span><span class="kw">pub enum </span>TransactionOutcome&lt;R&gt; {
-<a href=#1106 id=1106 data-nosnippet>1106</a>	<span class="doccomment">/// Commit the transaction.
-<a href=#1107 id=1107 data-nosnippet>1107</a>	</span>Commit(R),
-<a href=#1108 id=1108 data-nosnippet>1108</a>	<span class="doccomment">/// Rollback the transaction.
-<a href=#1109 id=1109 data-nosnippet>1109</a>	</span>Rollback(R),
-<a href=#1110 id=1110 data-nosnippet>1110</a>}
-<a href=#1111 id=1111 data-nosnippet>1111</a>
-<a href=#1112 id=1112 data-nosnippet>1112</a><span class="kw">impl</span>&lt;R&gt; TransactionOutcome&lt;R&gt; {
-<a href=#1113 id=1113 data-nosnippet>1113</a>	<span class="doccomment">/// Convert into the inner type.
-<a href=#1114 id=1114 data-nosnippet>1114</a>	</span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; R {
-<a href=#1115 id=1115 data-nosnippet>1115</a>		<span class="kw">match </span><span class="self">self </span>{
-<a href=#1116 id=1116 data-nosnippet>1116</a>			<span class="self">Self</span>::Commit(r) =&gt; r,
-<a href=#1117 id=1117 data-nosnippet>1117</a>			<span class="self">Self</span>::Rollback(r) =&gt; r,
-<a href=#1118 id=1118 data-nosnippet>1118</a>		}
-<a href=#1119 id=1119 data-nosnippet>1119</a>	}
+<a href=#1061 id=1061 data-nosnippet>1061</a>		codec::Encode::using_encoded(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, |bytes| ::sp_core::bytes::serialize(bytes, seq))
+<a href=#1062 id=1062 data-nosnippet>1062</a>	}
+<a href=#1063 id=1063 data-nosnippet>1063</a>}
+<a href=#1064 id=1064 data-nosnippet>1064</a>
+<a href=#1065 id=1065 data-nosnippet>1065</a><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+<a href=#1066 id=1066 data-nosnippet>1066</a></span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ::serde::Deserialize&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>OpaqueExtrinsic {
+<a href=#1067 id=1067 data-nosnippet>1067</a>	<span class="kw">fn </span>deserialize&lt;D&gt;(de: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
+<a href=#1068 id=1068 data-nosnippet>1068</a>	<span class="kw">where
+<a href=#1069 id=1069 data-nosnippet>1069</a>		</span>D: ::serde::Deserializer&lt;<span class="lifetime">'a</span>&gt;,
+<a href=#1070 id=1070 data-nosnippet>1070</a>	{
+<a href=#1071 id=1071 data-nosnippet>1071</a>		<span class="kw">let </span>r = ::sp_core::bytes::deserialize(de)<span class="question-mark">?</span>;
+<a href=#1072 id=1072 data-nosnippet>1072</a>		Decode::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
+<a href=#1073 id=1073 data-nosnippet>1073</a>			.map_err(|e| ::serde::de::Error::custom(<span class="macro">alloc::format!</span>(<span class="string">"Decode error: {}"</span>, e)))
+<a href=#1074 id=1074 data-nosnippet>1074</a>	}
+<a href=#1075 id=1075 data-nosnippet>1075</a>}
+<a href=#1076 id=1076 data-nosnippet>1076</a>
+<a href=#1077 id=1077 data-nosnippet>1077</a><span class="kw">impl </span>traits::ExtrinsicLike <span class="kw">for </span>OpaqueExtrinsic {
+<a href=#1078 id=1078 data-nosnippet>1078</a>	<span class="kw">fn </span>is_bare(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#1079 id=1079 data-nosnippet>1079</a>		<span class="bool-val">false
+<a href=#1080 id=1080 data-nosnippet>1080</a>	</span>}
+<a href=#1081 id=1081 data-nosnippet>1081</a>}
+<a href=#1082 id=1082 data-nosnippet>1082</a>
+<a href=#1083 id=1083 data-nosnippet>1083</a><span class="doccomment">/// Print something that implements `Printable` from the runtime.
+<a href=#1084 id=1084 data-nosnippet>1084</a></span><span class="kw">pub fn </span>print(print: <span class="kw">impl </span>traits::Printable) {
+<a href=#1085 id=1085 data-nosnippet>1085</a>	print.print();
+<a href=#1086 id=1086 data-nosnippet>1086</a>}
+<a href=#1087 id=1087 data-nosnippet>1087</a>
+<a href=#1088 id=1088 data-nosnippet>1088</a><span class="doccomment">/// Utility function to declare string literals backed by an array of length N.
+<a href=#1089 id=1089 data-nosnippet>1089</a>///
+<a href=#1090 id=1090 data-nosnippet>1090</a>/// The input can be shorter than N, in that case the end of the array is padded with zeros.
+<a href=#1091 id=1091 data-nosnippet>1091</a>///
+<a href=#1092 id=1092 data-nosnippet>1092</a>/// [`str_array`] is useful when converting strings that end up in the storage as fixed size arrays
+<a href=#1093 id=1093 data-nosnippet>1093</a>/// or in const contexts where static data types have strings that could also end up in the storage.
+<a href=#1094 id=1094 data-nosnippet>1094</a>///
+<a href=#1095 id=1095 data-nosnippet>1095</a>/// # Example
+<a href=#1096 id=1096 data-nosnippet>1096</a>///
+<a href=#1097 id=1097 data-nosnippet>1097</a>/// ```rust
+<a href=#1098 id=1098 data-nosnippet>1098</a>/// # use sp_runtime::str_array;
+<a href=#1099 id=1099 data-nosnippet>1099</a>/// const MY_STR: [u8; 6] = str_array("data");
+<a href=#1100 id=1100 data-nosnippet>1100</a>/// assert_eq!(MY_STR, *b"data\0\0");
+<a href=#1101 id=1101 data-nosnippet>1101</a>/// ```
+<a href=#1102 id=1102 data-nosnippet>1102</a></span><span class="kw">pub const fn </span>str_array&lt;<span class="kw">const </span>N: usize&gt;(s: <span class="kw-2">&amp;</span>str) -&gt; [u8; N] {
+<a href=#1103 id=1103 data-nosnippet>1103</a>	<span class="macro">debug_assert!</span>(s.len() &lt;= N, <span class="string">"String literal doesn't fit in array"</span>);
+<a href=#1104 id=1104 data-nosnippet>1104</a>	<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+<a href=#1105 id=1105 data-nosnippet>1105</a>	<span class="kw">let </span><span class="kw-2">mut </span>arr = [<span class="number">0</span>; N];
+<a href=#1106 id=1106 data-nosnippet>1106</a>	<span class="kw">let </span>s = s.as_bytes();
+<a href=#1107 id=1107 data-nosnippet>1107</a>	<span class="kw">while </span>i &lt; s.len() {
+<a href=#1108 id=1108 data-nosnippet>1108</a>		arr[i] = s[i];
+<a href=#1109 id=1109 data-nosnippet>1109</a>		i += <span class="number">1</span>;
+<a href=#1110 id=1110 data-nosnippet>1110</a>	}
+<a href=#1111 id=1111 data-nosnippet>1111</a>	arr
+<a href=#1112 id=1112 data-nosnippet>1112</a>}
+<a href=#1113 id=1113 data-nosnippet>1113</a>
+<a href=#1114 id=1114 data-nosnippet>1114</a><span class="doccomment">/// Describes on what should happen with a storage transaction.
+<a href=#1115 id=1115 data-nosnippet>1115</a></span><span class="kw">pub enum </span>TransactionOutcome&lt;R&gt; {
+<a href=#1116 id=1116 data-nosnippet>1116</a>	<span class="doccomment">/// Commit the transaction.
+<a href=#1117 id=1117 data-nosnippet>1117</a>	</span>Commit(R),
+<a href=#1118 id=1118 data-nosnippet>1118</a>	<span class="doccomment">/// Rollback the transaction.
+<a href=#1119 id=1119 data-nosnippet>1119</a>	</span>Rollback(R),
 <a href=#1120 id=1120 data-nosnippet>1120</a>}
 <a href=#1121 id=1121 data-nosnippet>1121</a>
-<a href=#1122 id=1122 data-nosnippet>1122</a><span class="doccomment">/// Confines the kind of extrinsics that can be included in a block.
-<a href=#1123 id=1123 data-nosnippet>1123</a></span><span class="attr">#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo)]
-<a href=#1124 id=1124 data-nosnippet>1124</a></span><span class="kw">pub enum </span>ExtrinsicInclusionMode {
-<a href=#1125 id=1125 data-nosnippet>1125</a>	<span class="doccomment">/// All extrinsics are allowed to be included in this block.
-<a href=#1126 id=1126 data-nosnippet>1126</a>	</span><span class="attr">#[default]
-<a href=#1127 id=1127 data-nosnippet>1127</a>	</span>AllExtrinsics,
-<a href=#1128 id=1128 data-nosnippet>1128</a>	<span class="doccomment">/// Inherents are allowed to be included.
-<a href=#1129 id=1129 data-nosnippet>1129</a>	</span>OnlyInherents,
+<a href=#1122 id=1122 data-nosnippet>1122</a><span class="kw">impl</span>&lt;R&gt; TransactionOutcome&lt;R&gt; {
+<a href=#1123 id=1123 data-nosnippet>1123</a>	<span class="doccomment">/// Convert into the inner type.
+<a href=#1124 id=1124 data-nosnippet>1124</a>	</span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; R {
+<a href=#1125 id=1125 data-nosnippet>1125</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#1126 id=1126 data-nosnippet>1126</a>			<span class="self">Self</span>::Commit(r) =&gt; r,
+<a href=#1127 id=1127 data-nosnippet>1127</a>			<span class="self">Self</span>::Rollback(r) =&gt; r,
+<a href=#1128 id=1128 data-nosnippet>1128</a>		}
+<a href=#1129 id=1129 data-nosnippet>1129</a>	}
 <a href=#1130 id=1130 data-nosnippet>1130</a>}
 <a href=#1131 id=1131 data-nosnippet>1131</a>
-<a href=#1132 id=1132 data-nosnippet>1132</a><span class="doccomment">/// Simple blob that hold a value in an encoded form without committing to its type.
-<a href=#1133 id=1133 data-nosnippet>1133</a></span><span class="attr">#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
-<a href=#1134 id=1134 data-nosnippet>1134</a></span><span class="kw">pub struct </span>OpaqueValue(Vec&lt;u8&gt;);
-<a href=#1135 id=1135 data-nosnippet>1135</a><span class="kw">impl </span>OpaqueValue {
-<a href=#1136 id=1136 data-nosnippet>1136</a>	<span class="doccomment">/// Create a new `OpaqueValue` using the given encoded representation.
-<a href=#1137 id=1137 data-nosnippet>1137</a>	</span><span class="kw">pub fn </span>new(inner: Vec&lt;u8&gt;) -&gt; OpaqueValue {
-<a href=#1138 id=1138 data-nosnippet>1138</a>		OpaqueValue(inner)
-<a href=#1139 id=1139 data-nosnippet>1139</a>	}
-<a href=#1140 id=1140 data-nosnippet>1140</a>
-<a href=#1141 id=1141 data-nosnippet>1141</a>	<span class="doccomment">/// Try to decode this `OpaqueValue` into the given concrete type.
-<a href=#1142 id=1142 data-nosnippet>1142</a>	</span><span class="kw">pub fn </span>decode&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
-<a href=#1143 id=1143 data-nosnippet>1143</a>		Decode::decode(<span class="kw-2">&amp;mut &amp;</span><span class="self">self</span>.<span class="number">0</span>[..]).ok()
-<a href=#1144 id=1144 data-nosnippet>1144</a>	}
-<a href=#1145 id=1145 data-nosnippet>1145</a>}
-<a href=#1146 id=1146 data-nosnippet>1146</a>
-<a href=#1147 id=1147 data-nosnippet>1147</a><span class="comment">// TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
-<a href=#1148 id=1148 data-nosnippet>1148</a></span><span class="doccomment">/// Deprecated `Cow::Borrowed()` wrapper.
-<a href=#1149 id=1149 data-nosnippet>1149</a></span><span class="attr">#[macro_export]
-<a href=#1150 id=1150 data-nosnippet>1150</a>#[deprecated = <span class="string">"Use Cow::Borrowed() instead of create_runtime_str!()"</span>]
-<a href=#1151 id=1151 data-nosnippet>1151</a></span><span class="macro">macro_rules!</span> create_runtime_str {
-<a href=#1152 id=1152 data-nosnippet>1152</a>	( <span class="macro-nonterminal">$y</span>:expr ) =&gt; {{
-<a href=#1153 id=1153 data-nosnippet>1153</a>		<span class="macro-nonterminal">$crate::Cow::Borrowed</span>(<span class="macro-nonterminal">$y</span>)
-<a href=#1154 id=1154 data-nosnippet>1154</a>	}};
+<a href=#1132 id=1132 data-nosnippet>1132</a><span class="doccomment">/// Confines the kind of extrinsics that can be included in a block.
+<a href=#1133 id=1133 data-nosnippet>1133</a></span><span class="attr">#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo)]
+<a href=#1134 id=1134 data-nosnippet>1134</a></span><span class="kw">pub enum </span>ExtrinsicInclusionMode {
+<a href=#1135 id=1135 data-nosnippet>1135</a>	<span class="doccomment">/// All extrinsics are allowed to be included in this block.
+<a href=#1136 id=1136 data-nosnippet>1136</a>	</span><span class="attr">#[default]
+<a href=#1137 id=1137 data-nosnippet>1137</a>	</span>AllExtrinsics,
+<a href=#1138 id=1138 data-nosnippet>1138</a>	<span class="doccomment">/// Inherents are allowed to be included.
+<a href=#1139 id=1139 data-nosnippet>1139</a>	</span>OnlyInherents,
+<a href=#1140 id=1140 data-nosnippet>1140</a>}
+<a href=#1141 id=1141 data-nosnippet>1141</a>
+<a href=#1142 id=1142 data-nosnippet>1142</a><span class="doccomment">/// Simple blob that hold a value in an encoded form without committing to its type.
+<a href=#1143 id=1143 data-nosnippet>1143</a></span><span class="attr">#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+<a href=#1144 id=1144 data-nosnippet>1144</a></span><span class="kw">pub struct </span>OpaqueValue(Vec&lt;u8&gt;);
+<a href=#1145 id=1145 data-nosnippet>1145</a><span class="kw">impl </span>OpaqueValue {
+<a href=#1146 id=1146 data-nosnippet>1146</a>	<span class="doccomment">/// Create a new `OpaqueValue` using the given encoded representation.
+<a href=#1147 id=1147 data-nosnippet>1147</a>	</span><span class="kw">pub fn </span>new(inner: Vec&lt;u8&gt;) -&gt; OpaqueValue {
+<a href=#1148 id=1148 data-nosnippet>1148</a>		OpaqueValue(inner)
+<a href=#1149 id=1149 data-nosnippet>1149</a>	}
+<a href=#1150 id=1150 data-nosnippet>1150</a>
+<a href=#1151 id=1151 data-nosnippet>1151</a>	<span class="doccomment">/// Try to decode this `OpaqueValue` into the given concrete type.
+<a href=#1152 id=1152 data-nosnippet>1152</a>	</span><span class="kw">pub fn </span>decode&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
+<a href=#1153 id=1153 data-nosnippet>1153</a>		Decode::decode(<span class="kw-2">&amp;mut &amp;</span><span class="self">self</span>.<span class="number">0</span>[..]).ok()
+<a href=#1154 id=1154 data-nosnippet>1154</a>	}
 <a href=#1155 id=1155 data-nosnippet>1155</a>}
-<a href=#1156 id=1156 data-nosnippet>1156</a><span class="comment">// TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
-<a href=#1157 id=1157 data-nosnippet>1157</a></span><span class="attr">#[doc(hidden)]
-<a href=#1158 id=1158 data-nosnippet>1158</a></span><span class="kw">pub use </span>alloc::borrow::Cow;
-<a href=#1159 id=1159 data-nosnippet>1159</a>
-<a href=#1160 id=1160 data-nosnippet>1160</a><span class="comment">// TODO: Remove in future versions
-<a href=#1161 id=1161 data-nosnippet>1161</a></span><span class="doccomment">/// Deprecated alias to improve upgrade experience
-<a href=#1162 id=1162 data-nosnippet>1162</a></span><span class="attr">#[deprecated = <span class="string">"Use String or Cow&lt;'static, str&gt; instead"</span>]
-<a href=#1163 id=1163 data-nosnippet>1163</a></span><span class="kw">pub type </span>RuntimeString = alloc::string::String;
-<a href=#1164 id=1164 data-nosnippet>1164</a>
-<a href=#1165 id=1165 data-nosnippet>1165</a><span class="attr">#[cfg(test)]
-<a href=#1166 id=1166 data-nosnippet>1166</a></span><span class="kw">mod </span>tests {
-<a href=#1167 id=1167 data-nosnippet>1167</a>	<span class="kw">use </span><span class="kw">crate</span>::traits::BlakeTwo256;
-<a href=#1168 id=1168 data-nosnippet>1168</a>
-<a href=#1169 id=1169 data-nosnippet>1169</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#1170 id=1170 data-nosnippet>1170</a>	<span class="kw">use </span>codec::{Decode, Encode};
-<a href=#1171 id=1171 data-nosnippet>1171</a>	<span class="kw">use </span>sp_core::{crypto::Pair, hex2array};
-<a href=#1172 id=1172 data-nosnippet>1172</a>	<span class="kw">use </span>sp_io::TestExternalities;
-<a href=#1173 id=1173 data-nosnippet>1173</a>	<span class="kw">use </span>sp_state_machine::create_proof_check_backend;
+<a href=#1156 id=1156 data-nosnippet>1156</a>
+<a href=#1157 id=1157 data-nosnippet>1157</a><span class="comment">// TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
+<a href=#1158 id=1158 data-nosnippet>1158</a></span><span class="doccomment">/// Deprecated `Cow::Borrowed()` wrapper.
+<a href=#1159 id=1159 data-nosnippet>1159</a></span><span class="attr">#[macro_export]
+<a href=#1160 id=1160 data-nosnippet>1160</a>#[deprecated = <span class="string">"Use Cow::Borrowed() instead of create_runtime_str!()"</span>]
+<a href=#1161 id=1161 data-nosnippet>1161</a></span><span class="macro">macro_rules!</span> create_runtime_str {
+<a href=#1162 id=1162 data-nosnippet>1162</a>	( <span class="macro-nonterminal">$y</span>:expr ) =&gt; {{
+<a href=#1163 id=1163 data-nosnippet>1163</a>		<span class="macro-nonterminal">$crate::Cow::Borrowed</span>(<span class="macro-nonterminal">$y</span>)
+<a href=#1164 id=1164 data-nosnippet>1164</a>	}};
+<a href=#1165 id=1165 data-nosnippet>1165</a>}
+<a href=#1166 id=1166 data-nosnippet>1166</a><span class="comment">// TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
+<a href=#1167 id=1167 data-nosnippet>1167</a></span><span class="attr">#[doc(hidden)]
+<a href=#1168 id=1168 data-nosnippet>1168</a></span><span class="kw">pub use </span>alloc::borrow::Cow;
+<a href=#1169 id=1169 data-nosnippet>1169</a>
+<a href=#1170 id=1170 data-nosnippet>1170</a><span class="comment">// TODO: Remove in future versions
+<a href=#1171 id=1171 data-nosnippet>1171</a></span><span class="doccomment">/// Deprecated alias to improve upgrade experience
+<a href=#1172 id=1172 data-nosnippet>1172</a></span><span class="attr">#[deprecated = <span class="string">"Use String or Cow&lt;'static, str&gt; instead"</span>]
+<a href=#1173 id=1173 data-nosnippet>1173</a></span><span class="kw">pub type </span>RuntimeString = alloc::string::String;
 <a href=#1174 id=1174 data-nosnippet>1174</a>
-<a href=#1175 id=1175 data-nosnippet>1175</a>	<span class="attr">#[test]
-<a href=#1176 id=1176 data-nosnippet>1176</a>	</span><span class="kw">fn </span>opaque_extrinsic_serialization() {
-<a href=#1177 id=1177 data-nosnippet>1177</a>		<span class="kw">let </span>ex = OpaqueExtrinsic::from_blob(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
-<a href=#1178 id=1178 data-nosnippet>1178</a>		<span class="macro">assert_eq!</span>(serde_json::to_string(<span class="kw-2">&amp;</span>ex).unwrap(), <span class="string">"\"0x1001020304\""</span>.to_owned());
-<a href=#1179 id=1179 data-nosnippet>1179</a>	}
-<a href=#1180 id=1180 data-nosnippet>1180</a>
-<a href=#1181 id=1181 data-nosnippet>1181</a>	<span class="attr">#[test]
-<a href=#1182 id=1182 data-nosnippet>1182</a>	</span><span class="kw">fn </span>dispatch_error_encoding() {
-<a href=#1183 id=1183 data-nosnippet>1183</a>		<span class="kw">let </span>error = DispatchError::Module(ModuleError {
-<a href=#1184 id=1184 data-nosnippet>1184</a>			index: <span class="number">1</span>,
-<a href=#1185 id=1185 data-nosnippet>1185</a>			error: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
-<a href=#1186 id=1186 data-nosnippet>1186</a>			message: <span class="prelude-val">Some</span>(<span class="string">"error message"</span>),
-<a href=#1187 id=1187 data-nosnippet>1187</a>		});
-<a href=#1188 id=1188 data-nosnippet>1188</a>		<span class="kw">let </span>encoded = error.encode();
-<a href=#1189 id=1189 data-nosnippet>1189</a>		<span class="kw">let </span>decoded = DispatchError::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).unwrap();
-<a href=#1190 id=1190 data-nosnippet>1190</a>		<span class="macro">assert_eq!</span>(encoded, <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
-<a href=#1191 id=1191 data-nosnippet>1191</a>		<span class="macro">assert_eq!</span>(
-<a href=#1192 id=1192 data-nosnippet>1192</a>			decoded,
-<a href=#1193 id=1193 data-nosnippet>1193</a>			DispatchError::Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>})
-<a href=#1194 id=1194 data-nosnippet>1194</a>		);
-<a href=#1195 id=1195 data-nosnippet>1195</a>	}
-<a href=#1196 id=1196 data-nosnippet>1196</a>
-<a href=#1197 id=1197 data-nosnippet>1197</a>	<span class="attr">#[test]
-<a href=#1198 id=1198 data-nosnippet>1198</a>	</span><span class="kw">fn </span>dispatch_error_equality() {
-<a href=#1199 id=1199 data-nosnippet>1199</a>		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
-<a href=#1200 id=1200 data-nosnippet>1200</a>
-<a href=#1201 id=1201 data-nosnippet>1201</a>		<span class="kw">let </span>variants = <span class="macro">vec!</span>[
-<a href=#1202 id=1202 data-nosnippet>1202</a>			Other(<span class="string">"foo"</span>),
-<a href=#1203 id=1203 data-nosnippet>1203</a>			Other(<span class="string">"bar"</span>),
-<a href=#1204 id=1204 data-nosnippet>1204</a>			CannotLookup,
-<a href=#1205 id=1205 data-nosnippet>1205</a>			BadOrigin,
-<a href=#1206 id=1206 data-nosnippet>1206</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
-<a href=#1207 id=1207 data-nosnippet>1207</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
-<a href=#1208 id=1208 data-nosnippet>1208</a>			Module(ModuleError { index: <span class="number">2</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
-<a href=#1209 id=1209 data-nosnippet>1209</a>			ConsumerRemaining,
-<a href=#1210 id=1210 data-nosnippet>1210</a>			NoProviders,
-<a href=#1211 id=1211 data-nosnippet>1211</a>			Token(TokenError::FundsUnavailable),
-<a href=#1212 id=1212 data-nosnippet>1212</a>			Token(TokenError::OnlyProvider),
-<a href=#1213 id=1213 data-nosnippet>1213</a>			Token(TokenError::BelowMinimum),
-<a href=#1214 id=1214 data-nosnippet>1214</a>			Token(TokenError::CannotCreate),
-<a href=#1215 id=1215 data-nosnippet>1215</a>			Token(TokenError::UnknownAsset),
-<a href=#1216 id=1216 data-nosnippet>1216</a>			Token(TokenError::Frozen),
-<a href=#1217 id=1217 data-nosnippet>1217</a>			Arithmetic(ArithmeticError::Overflow),
-<a href=#1218 id=1218 data-nosnippet>1218</a>			Arithmetic(ArithmeticError::Underflow),
-<a href=#1219 id=1219 data-nosnippet>1219</a>			Arithmetic(ArithmeticError::DivisionByZero),
-<a href=#1220 id=1220 data-nosnippet>1220</a>		];
-<a href=#1221 id=1221 data-nosnippet>1221</a>		<span class="kw">for </span>(i, variant) <span class="kw">in </span>variants.iter().enumerate() {
-<a href=#1222 id=1222 data-nosnippet>1222</a>			<span class="kw">for </span>(j, other_variant) <span class="kw">in </span>variants.iter().enumerate() {
-<a href=#1223 id=1223 data-nosnippet>1223</a>				<span class="kw">if </span>i == j {
-<a href=#1224 id=1224 data-nosnippet>1224</a>					<span class="macro">assert_eq!</span>(variant, other_variant);
-<a href=#1225 id=1225 data-nosnippet>1225</a>				} <span class="kw">else </span>{
-<a href=#1226 id=1226 data-nosnippet>1226</a>					<span class="macro">assert_ne!</span>(variant, other_variant);
-<a href=#1227 id=1227 data-nosnippet>1227</a>				}
-<a href=#1228 id=1228 data-nosnippet>1228</a>			}
-<a href=#1229 id=1229 data-nosnippet>1229</a>		}
-<a href=#1230 id=1230 data-nosnippet>1230</a>
-<a href=#1231 id=1231 data-nosnippet>1231</a>		<span class="comment">// Ignores `message` field in `Module` variant.
-<a href=#1232 id=1232 data-nosnippet>1232</a>		</span><span class="macro">assert_eq!</span>(
-<a href=#1233 id=1233 data-nosnippet>1233</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">Some</span>(<span class="string">"foo"</span>) }),
-<a href=#1234 id=1234 data-nosnippet>1234</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
-<a href=#1235 id=1235 data-nosnippet>1235</a>		);
-<a href=#1236 id=1236 data-nosnippet>1236</a>	}
-<a href=#1237 id=1237 data-nosnippet>1237</a>
-<a href=#1238 id=1238 data-nosnippet>1238</a>	<span class="attr">#[test]
-<a href=#1239 id=1239 data-nosnippet>1239</a>	</span><span class="kw">fn </span>multi_signature_ecdsa_verify_works() {
-<a href=#1240 id=1240 data-nosnippet>1240</a>		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
-<a href=#1241 id=1241 data-nosnippet>1241</a>		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa::Pair::generate();
-<a href=#1242 id=1242 data-nosnippet>1242</a>
-<a href=#1243 id=1243 data-nosnippet>1243</a>		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
-<a href=#1244 id=1244 data-nosnippet>1244</a>		<span class="macro">assert!</span>(ecdsa::Pair::verify(<span class="kw-2">&amp;</span>signature, msg, <span class="kw-2">&amp;</span>pair.public()));
-<a href=#1245 id=1245 data-nosnippet>1245</a>
-<a href=#1246 id=1246 data-nosnippet>1246</a>		<span class="kw">let </span>multi_sig = MultiSignature::from(signature);
-<a href=#1247 id=1247 data-nosnippet>1247</a>		<span class="kw">let </span>multi_signer = MultiSigner::from(pair.public());
-<a href=#1248 id=1248 data-nosnippet>1248</a>		<span class="macro">assert!</span>(multi_sig.verify(msg, <span class="kw-2">&amp;</span>multi_signer.into_account()));
-<a href=#1249 id=1249 data-nosnippet>1249</a>	}
-<a href=#1250 id=1250 data-nosnippet>1250</a>
-<a href=#1251 id=1251 data-nosnippet>1251</a>	<span class="attr">#[test]
-<a href=#1252 id=1252 data-nosnippet>1252</a>	</span><span class="kw">fn </span>multi_signature_eth_verify_works() {
-<a href=#1253 id=1253 data-nosnippet>1253</a>		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
-<a href=#1254 id=1254 data-nosnippet>1254</a>		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa::KeccakPair::generate();
+<a href=#1175 id=1175 data-nosnippet>1175</a><span class="attr">#[cfg(test)]
+<a href=#1176 id=1176 data-nosnippet>1176</a></span><span class="kw">mod </span>tests {
+<a href=#1177 id=1177 data-nosnippet>1177</a>	<span class="kw">use </span><span class="kw">crate</span>::traits::BlakeTwo256;
+<a href=#1178 id=1178 data-nosnippet>1178</a>
+<a href=#1179 id=1179 data-nosnippet>1179</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1180 id=1180 data-nosnippet>1180</a>	<span class="kw">use </span>codec::{Decode, Encode};
+<a href=#1181 id=1181 data-nosnippet>1181</a>	<span class="kw">use </span>sp_core::{crypto::Pair, hex2array};
+<a href=#1182 id=1182 data-nosnippet>1182</a>	<span class="kw">use </span>sp_io::TestExternalities;
+<a href=#1183 id=1183 data-nosnippet>1183</a>	<span class="kw">use </span>sp_state_machine::create_proof_check_backend;
+<a href=#1184 id=1184 data-nosnippet>1184</a>
+<a href=#1185 id=1185 data-nosnippet>1185</a>	<span class="attr">#[test]
+<a href=#1186 id=1186 data-nosnippet>1186</a>	</span><span class="kw">fn </span>opaque_extrinsic_serialization() {
+<a href=#1187 id=1187 data-nosnippet>1187</a>		<span class="kw">let </span>ex = OpaqueExtrinsic::from_blob(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
+<a href=#1188 id=1188 data-nosnippet>1188</a>		<span class="macro">assert_eq!</span>(serde_json::to_string(<span class="kw-2">&amp;</span>ex).unwrap(), <span class="string">"\"0x1001020304\""</span>.to_owned());
+<a href=#1189 id=1189 data-nosnippet>1189</a>	}
+<a href=#1190 id=1190 data-nosnippet>1190</a>
+<a href=#1191 id=1191 data-nosnippet>1191</a>	<span class="attr">#[test]
+<a href=#1192 id=1192 data-nosnippet>1192</a>	</span><span class="kw">fn </span>dispatch_error_encoding() {
+<a href=#1193 id=1193 data-nosnippet>1193</a>		<span class="kw">let </span>error = DispatchError::Module(ModuleError {
+<a href=#1194 id=1194 data-nosnippet>1194</a>			index: <span class="number">1</span>,
+<a href=#1195 id=1195 data-nosnippet>1195</a>			error: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+<a href=#1196 id=1196 data-nosnippet>1196</a>			message: <span class="prelude-val">Some</span>(<span class="string">"error message"</span>),
+<a href=#1197 id=1197 data-nosnippet>1197</a>		});
+<a href=#1198 id=1198 data-nosnippet>1198</a>		<span class="kw">let </span>encoded = error.encode();
+<a href=#1199 id=1199 data-nosnippet>1199</a>		<span class="kw">let </span>decoded = DispatchError::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).unwrap();
+<a href=#1200 id=1200 data-nosnippet>1200</a>		<span class="macro">assert_eq!</span>(encoded, <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
+<a href=#1201 id=1201 data-nosnippet>1201</a>		<span class="macro">assert_eq!</span>(
+<a href=#1202 id=1202 data-nosnippet>1202</a>			decoded,
+<a href=#1203 id=1203 data-nosnippet>1203</a>			DispatchError::Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>})
+<a href=#1204 id=1204 data-nosnippet>1204</a>		);
+<a href=#1205 id=1205 data-nosnippet>1205</a>	}
+<a href=#1206 id=1206 data-nosnippet>1206</a>
+<a href=#1207 id=1207 data-nosnippet>1207</a>	<span class="attr">#[test]
+<a href=#1208 id=1208 data-nosnippet>1208</a>	</span><span class="kw">fn </span>dispatch_error_equality() {
+<a href=#1209 id=1209 data-nosnippet>1209</a>		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
+<a href=#1210 id=1210 data-nosnippet>1210</a>
+<a href=#1211 id=1211 data-nosnippet>1211</a>		<span class="kw">let </span>variants = <span class="macro">vec!</span>[
+<a href=#1212 id=1212 data-nosnippet>1212</a>			Other(<span class="string">"foo"</span>),
+<a href=#1213 id=1213 data-nosnippet>1213</a>			Other(<span class="string">"bar"</span>),
+<a href=#1214 id=1214 data-nosnippet>1214</a>			CannotLookup,
+<a href=#1215 id=1215 data-nosnippet>1215</a>			BadOrigin,
+<a href=#1216 id=1216 data-nosnippet>1216</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
+<a href=#1217 id=1217 data-nosnippet>1217</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
+<a href=#1218 id=1218 data-nosnippet>1218</a>			Module(ModuleError { index: <span class="number">2</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
+<a href=#1219 id=1219 data-nosnippet>1219</a>			ConsumerRemaining,
+<a href=#1220 id=1220 data-nosnippet>1220</a>			NoProviders,
+<a href=#1221 id=1221 data-nosnippet>1221</a>			Token(TokenError::FundsUnavailable),
+<a href=#1222 id=1222 data-nosnippet>1222</a>			Token(TokenError::OnlyProvider),
+<a href=#1223 id=1223 data-nosnippet>1223</a>			Token(TokenError::BelowMinimum),
+<a href=#1224 id=1224 data-nosnippet>1224</a>			Token(TokenError::CannotCreate),
+<a href=#1225 id=1225 data-nosnippet>1225</a>			Token(TokenError::UnknownAsset),
+<a href=#1226 id=1226 data-nosnippet>1226</a>			Token(TokenError::Frozen),
+<a href=#1227 id=1227 data-nosnippet>1227</a>			Arithmetic(ArithmeticError::Overflow),
+<a href=#1228 id=1228 data-nosnippet>1228</a>			Arithmetic(ArithmeticError::Underflow),
+<a href=#1229 id=1229 data-nosnippet>1229</a>			Arithmetic(ArithmeticError::DivisionByZero),
+<a href=#1230 id=1230 data-nosnippet>1230</a>		];
+<a href=#1231 id=1231 data-nosnippet>1231</a>		<span class="kw">for </span>(i, variant) <span class="kw">in </span>variants.iter().enumerate() {
+<a href=#1232 id=1232 data-nosnippet>1232</a>			<span class="kw">for </span>(j, other_variant) <span class="kw">in </span>variants.iter().enumerate() {
+<a href=#1233 id=1233 data-nosnippet>1233</a>				<span class="kw">if </span>i == j {
+<a href=#1234 id=1234 data-nosnippet>1234</a>					<span class="macro">assert_eq!</span>(variant, other_variant);
+<a href=#1235 id=1235 data-nosnippet>1235</a>				} <span class="kw">else </span>{
+<a href=#1236 id=1236 data-nosnippet>1236</a>					<span class="macro">assert_ne!</span>(variant, other_variant);
+<a href=#1237 id=1237 data-nosnippet>1237</a>				}
+<a href=#1238 id=1238 data-nosnippet>1238</a>			}
+<a href=#1239 id=1239 data-nosnippet>1239</a>		}
+<a href=#1240 id=1240 data-nosnippet>1240</a>
+<a href=#1241 id=1241 data-nosnippet>1241</a>		<span class="comment">// Ignores `message` field in `Module` variant.
+<a href=#1242 id=1242 data-nosnippet>1242</a>		</span><span class="macro">assert_eq!</span>(
+<a href=#1243 id=1243 data-nosnippet>1243</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">Some</span>(<span class="string">"foo"</span>) }),
+<a href=#1244 id=1244 data-nosnippet>1244</a>			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
+<a href=#1245 id=1245 data-nosnippet>1245</a>		);
+<a href=#1246 id=1246 data-nosnippet>1246</a>	}
+<a href=#1247 id=1247 data-nosnippet>1247</a>
+<a href=#1248 id=1248 data-nosnippet>1248</a>	<span class="attr">#[test]
+<a href=#1249 id=1249 data-nosnippet>1249</a>	</span><span class="kw">fn </span>multi_signature_ecdsa_verify_works() {
+<a href=#1250 id=1250 data-nosnippet>1250</a>		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
+<a href=#1251 id=1251 data-nosnippet>1251</a>		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa::Pair::generate();
+<a href=#1252 id=1252 data-nosnippet>1252</a>
+<a href=#1253 id=1253 data-nosnippet>1253</a>		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
+<a href=#1254 id=1254 data-nosnippet>1254</a>		<span class="macro">assert!</span>(ecdsa::Pair::verify(<span class="kw-2">&amp;</span>signature, msg, <span class="kw-2">&amp;</span>pair.public()));
 <a href=#1255 id=1255 data-nosnippet>1255</a>
-<a href=#1256 id=1256 data-nosnippet>1256</a>		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
-<a href=#1257 id=1257 data-nosnippet>1257</a>		<span class="macro">assert!</span>(ecdsa::KeccakPair::verify(<span class="kw-2">&amp;</span>signature, msg, <span class="kw-2">&amp;</span>pair.public()));
-<a href=#1258 id=1258 data-nosnippet>1258</a>
-<a href=#1259 id=1259 data-nosnippet>1259</a>		<span class="kw">let </span>multi_sig = MultiSignature::Eth(signature);
-<a href=#1260 id=1260 data-nosnippet>1260</a>		<span class="kw">let </span>multi_signer = MultiSigner::Eth(pair.public());
-<a href=#1261 id=1261 data-nosnippet>1261</a>		<span class="macro">assert!</span>(multi_sig.verify(msg, <span class="kw-2">&amp;</span>multi_signer.into_account()));
-<a href=#1262 id=1262 data-nosnippet>1262</a>	}
-<a href=#1263 id=1263 data-nosnippet>1263</a>
-<a href=#1264 id=1264 data-nosnippet>1264</a>	<span class="attr">#[test]
-<a href=#1265 id=1265 data-nosnippet>1265</a>	</span><span class="kw">fn </span>multi_signer_eth_address_works() {
-<a href=#1266 id=1266 data-nosnippet>1266</a>		<span class="kw">let </span>ecdsa_pair = ecdsa::Pair::from_seed(<span class="kw-2">&amp;</span>[<span class="number">0x42</span>; <span class="number">32</span>]);
-<a href=#1267 id=1267 data-nosnippet>1267</a>		<span class="kw">let </span>eth_pair = ecdsa::KeccakPair::from_seed(<span class="kw-2">&amp;</span>[<span class="number">0x42</span>; <span class="number">32</span>]);
-<a href=#1268 id=1268 data-nosnippet>1268</a>		<span class="kw">let </span>ecdsa = MultiSigner::Ecdsa(ecdsa_pair.public()).into_account();
-<a href=#1269 id=1269 data-nosnippet>1269</a>		<span class="kw">let </span>eth = MultiSigner::Eth(eth_pair.public()).into_account();
-<a href=#1270 id=1270 data-nosnippet>1270</a>
-<a href=#1271 id=1271 data-nosnippet>1271</a>		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>&lt;AccountId32 <span class="kw">as </span>AsRef&lt;[u8; <span class="number">32</span>]&gt;&gt;::as_ref(<span class="kw-2">&amp;</span>eth)[<span class="number">20</span>..], <span class="kw-2">&amp;</span>[<span class="number">0xEE</span>; <span class="number">12</span>]);
-<a href=#1272 id=1272 data-nosnippet>1272</a>		<span class="macro">assert_eq!</span>(
-<a href=#1273 id=1273 data-nosnippet>1273</a>			ecdsa,
-<a href=#1274 id=1274 data-nosnippet>1274</a>			<span class="macro">hex2array!</span>(<span class="string">"ff241710529476ac87c67b66ccdc42f95a14b49a896164839fe675dc6f579614"</span>).into(),
-<a href=#1275 id=1275 data-nosnippet>1275</a>		);
-<a href=#1276 id=1276 data-nosnippet>1276</a>		<span class="macro">assert_eq!</span>(
-<a href=#1277 id=1277 data-nosnippet>1277</a>			eth,
-<a href=#1278 id=1278 data-nosnippet>1278</a>			<span class="macro">hex2array!</span>(<span class="string">"2714c48edc39bc2714729e6530760d62344d6698eeeeeeeeeeeeeeeeeeeeeeee"</span>).into(),
-<a href=#1279 id=1279 data-nosnippet>1279</a>		);
-<a href=#1280 id=1280 data-nosnippet>1280</a>	}
-<a href=#1281 id=1281 data-nosnippet>1281</a>
-<a href=#1282 id=1282 data-nosnippet>1282</a>	<span class="attr">#[test]
-<a href=#1283 id=1283 data-nosnippet>1283</a>	</span><span class="kw">fn </span>execute_and_generate_proof_works() {
-<a href=#1284 id=1284 data-nosnippet>1284</a>		<span class="kw">use </span>codec::Encode;
-<a href=#1285 id=1285 data-nosnippet>1285</a>		<span class="kw">use </span>sp_state_machine::Backend;
-<a href=#1286 id=1286 data-nosnippet>1286</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::default();
-<a href=#1287 id=1287 data-nosnippet>1287</a>
-<a href=#1288 id=1288 data-nosnippet>1288</a>		ext.insert(<span class="string">b"a"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
-<a href=#1289 id=1289 data-nosnippet>1289</a>		ext.insert(<span class="string">b"b"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
-<a href=#1290 id=1290 data-nosnippet>1290</a>		ext.insert(<span class="string">b"c"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">3u8</span>; <span class="number">33</span>]);
-<a href=#1291 id=1291 data-nosnippet>1291</a>		ext.insert(<span class="string">b"d"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">4u8</span>; <span class="number">33</span>]);
-<a href=#1292 id=1292 data-nosnippet>1292</a>
-<a href=#1293 id=1293 data-nosnippet>1293</a>		<span class="kw">let </span>pre_root = <span class="kw-2">*</span>ext.backend.root();
-<a href=#1294 id=1294 data-nosnippet>1294</a>		<span class="kw">let </span>(<span class="kw">_</span>, proof) = ext.execute_and_prove(|| {
-<a href=#1295 id=1295 data-nosnippet>1295</a>			sp_io::storage::get(<span class="string">b"a"</span>);
-<a href=#1296 id=1296 data-nosnippet>1296</a>			sp_io::storage::get(<span class="string">b"b"</span>);
-<a href=#1297 id=1297 data-nosnippet>1297</a>			sp_io::storage::get(<span class="string">b"v"</span>);
-<a href=#1298 id=1298 data-nosnippet>1298</a>			sp_io::storage::get(<span class="string">b"d"</span>);
-<a href=#1299 id=1299 data-nosnippet>1299</a>		});
-<a href=#1300 id=1300 data-nosnippet>1300</a>
-<a href=#1301 id=1301 data-nosnippet>1301</a>		<span class="kw">let </span>compact_proof = proof.clone().into_compact_proof::&lt;BlakeTwo256&gt;(pre_root).unwrap();
-<a href=#1302 id=1302 data-nosnippet>1302</a>		<span class="kw">let </span>compressed_proof = zstd::stream::encode_all(<span class="kw-2">&amp;</span>compact_proof.encode()[..], <span class="number">0</span>).unwrap();
-<a href=#1303 id=1303 data-nosnippet>1303</a>
-<a href=#1304 id=1304 data-nosnippet>1304</a>		<span class="comment">// just an example of how you'd inspect the size of the proof.
-<a href=#1305 id=1305 data-nosnippet>1305</a>		</span><span class="macro">println!</span>(<span class="string">"proof size: {:?}"</span>, proof.encoded_size());
-<a href=#1306 id=1306 data-nosnippet>1306</a>		<span class="macro">println!</span>(<span class="string">"compact proof size: {:?}"</span>, compact_proof.encoded_size());
-<a href=#1307 id=1307 data-nosnippet>1307</a>		<span class="macro">println!</span>(<span class="string">"zstd-compressed compact proof size: {:?}"</span>, <span class="kw-2">&amp;</span>compressed_proof.len());
-<a href=#1308 id=1308 data-nosnippet>1308</a>
-<a href=#1309 id=1309 data-nosnippet>1309</a>		<span class="comment">// create a new trie-backed from the proof and make sure it contains everything
-<a href=#1310 id=1310 data-nosnippet>1310</a>		</span><span class="kw">let </span>proof_check = create_proof_check_backend::&lt;BlakeTwo256&gt;(pre_root, proof).unwrap();
-<a href=#1311 id=1311 data-nosnippet>1311</a>		<span class="macro">assert_eq!</span>(proof_check.storage(<span class="string">b"a"</span>,).unwrap().unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
-<a href=#1312 id=1312 data-nosnippet>1312</a>
-<a href=#1313 id=1313 data-nosnippet>1313</a>		<span class="kw">let _ </span>= ext.execute_and_prove(|| {
-<a href=#1314 id=1314 data-nosnippet>1314</a>			sp_io::storage::set(<span class="string">b"a"</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
-<a href=#1315 id=1315 data-nosnippet>1315</a>		});
-<a href=#1316 id=1316 data-nosnippet>1316</a>
-<a href=#1317 id=1317 data-nosnippet>1317</a>		<span class="comment">// ensure that these changes are propagated to the backend.
-<a href=#1318 id=1318 data-nosnippet>1318</a>
-<a href=#1319 id=1319 data-nosnippet>1319</a>		</span>ext.execute_with(|| {
-<a href=#1320 id=1320 data-nosnippet>1320</a>			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b"a"</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
-<a href=#1321 id=1321 data-nosnippet>1321</a>			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b"b"</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
-<a href=#1322 id=1322 data-nosnippet>1322</a>		});
-<a href=#1323 id=1323 data-nosnippet>1323</a>	}
-<a href=#1324 id=1324 data-nosnippet>1324</a>}
+<a href=#1256 id=1256 data-nosnippet>1256</a>		<span class="kw">let </span>multi_sig = MultiSignature::from(signature);
+<a href=#1257 id=1257 data-nosnippet>1257</a>		<span class="kw">let </span>multi_signer = MultiSigner::from(pair.public());
+<a href=#1258 id=1258 data-nosnippet>1258</a>		<span class="macro">assert!</span>(multi_sig.verify(msg, <span class="kw-2">&amp;</span>multi_signer.into_account()));
+<a href=#1259 id=1259 data-nosnippet>1259</a>	}
+<a href=#1260 id=1260 data-nosnippet>1260</a>
+<a href=#1261 id=1261 data-nosnippet>1261</a>	<span class="attr">#[test]
+<a href=#1262 id=1262 data-nosnippet>1262</a>	</span><span class="kw">fn </span>multi_signature_eth_verify_works() {
+<a href=#1263 id=1263 data-nosnippet>1263</a>		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
+<a href=#1264 id=1264 data-nosnippet>1264</a>		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa::KeccakPair::generate();
+<a href=#1265 id=1265 data-nosnippet>1265</a>
+<a href=#1266 id=1266 data-nosnippet>1266</a>		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
+<a href=#1267 id=1267 data-nosnippet>1267</a>		<span class="macro">assert!</span>(ecdsa::KeccakPair::verify(<span class="kw-2">&amp;</span>signature, msg, <span class="kw-2">&amp;</span>pair.public()));
+<a href=#1268 id=1268 data-nosnippet>1268</a>
+<a href=#1269 id=1269 data-nosnippet>1269</a>		<span class="kw">let </span>multi_sig = MultiSignature::Eth(signature);
+<a href=#1270 id=1270 data-nosnippet>1270</a>		<span class="kw">let </span>multi_signer = MultiSigner::Eth(pair.public());
+<a href=#1271 id=1271 data-nosnippet>1271</a>		<span class="macro">assert!</span>(multi_sig.verify(msg, <span class="kw-2">&amp;</span>multi_signer.into_account()));
+<a href=#1272 id=1272 data-nosnippet>1272</a>	}
+<a href=#1273 id=1273 data-nosnippet>1273</a>
+<a href=#1274 id=1274 data-nosnippet>1274</a>	<span class="doccomment">/// Helper: compute high-S malleable variant of a 65-byte ECDSA signature.
+<a href=#1275 id=1275 data-nosnippet>1275</a>	/// Returns `s' = order - s` with `v' = v ^ 1`.
+<a href=#1276 id=1276 data-nosnippet>1276</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>make_high_s_signature(sig: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>]) -&gt; [u8; <span class="number">65</span>] {
+<a href=#1277 id=1277 data-nosnippet>1277</a>		<span class="comment">// secp256k1 curve order N
+<a href=#1278 id=1278 data-nosnippet>1278</a>		</span><span class="kw">let </span>order: [u8; <span class="number">32</span>] = [
+<a href=#1279 id=1279 data-nosnippet>1279</a>			<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>,
+<a href=#1280 id=1280 data-nosnippet>1280</a>			<span class="number">0xff</span>, <span class="number">0xfe</span>, <span class="number">0xba</span>, <span class="number">0xae</span>, <span class="number">0xdc</span>, <span class="number">0xe6</span>, <span class="number">0xaf</span>, <span class="number">0x48</span>, <span class="number">0xa0</span>, <span class="number">0x3b</span>, <span class="number">0xbf</span>, <span class="number">0xd2</span>, <span class="number">0x5e</span>, <span class="number">0x8c</span>,
+<a href=#1281 id=1281 data-nosnippet>1281</a>			<span class="number">0xd0</span>, <span class="number">0x36</span>, <span class="number">0x41</span>, <span class="number">0x41</span>,
+<a href=#1282 id=1282 data-nosnippet>1282</a>		];
+<a href=#1283 id=1283 data-nosnippet>1283</a>		<span class="kw">let </span>s_bytes: [u8; <span class="number">32</span>] = sig[<span class="number">32</span>..<span class="number">64</span>].try_into().unwrap();
+<a href=#1284 id=1284 data-nosnippet>1284</a>		<span class="kw">let </span><span class="kw-2">mut </span>s_prime = [<span class="number">0u8</span>; <span class="number">32</span>];
+<a href=#1285 id=1285 data-nosnippet>1285</a>		<span class="kw">let </span><span class="kw-2">mut </span>borrow = <span class="number">0i16</span>;
+<a href=#1286 id=1286 data-nosnippet>1286</a>		<span class="kw">for </span>i <span class="kw">in </span>(<span class="number">0</span>..<span class="number">32</span>).rev() {
+<a href=#1287 id=1287 data-nosnippet>1287</a>			<span class="kw">let </span>diff = order[i] <span class="kw">as </span>i16 - s_bytes[i] <span class="kw">as </span>i16 - borrow;
+<a href=#1288 id=1288 data-nosnippet>1288</a>			<span class="kw">if </span>diff &lt; <span class="number">0 </span>{
+<a href=#1289 id=1289 data-nosnippet>1289</a>				s_prime[i] = (diff + <span class="number">256</span>) <span class="kw">as </span>u8;
+<a href=#1290 id=1290 data-nosnippet>1290</a>				borrow = <span class="number">1</span>;
+<a href=#1291 id=1291 data-nosnippet>1291</a>			} <span class="kw">else </span>{
+<a href=#1292 id=1292 data-nosnippet>1292</a>				s_prime[i] = diff <span class="kw">as </span>u8;
+<a href=#1293 id=1293 data-nosnippet>1293</a>				borrow = <span class="number">0</span>;
+<a href=#1294 id=1294 data-nosnippet>1294</a>			}
+<a href=#1295 id=1295 data-nosnippet>1295</a>		}
+<a href=#1296 id=1296 data-nosnippet>1296</a>		<span class="kw">let </span><span class="kw-2">mut </span>out = [<span class="number">0u8</span>; <span class="number">65</span>];
+<a href=#1297 id=1297 data-nosnippet>1297</a>		out[<span class="number">0</span>..<span class="number">32</span>].copy_from_slice(<span class="kw-2">&amp;</span>sig[<span class="number">0</span>..<span class="number">32</span>]);
+<a href=#1298 id=1298 data-nosnippet>1298</a>		out[<span class="number">32</span>..<span class="number">64</span>].copy_from_slice(<span class="kw-2">&amp;</span>s_prime);
+<a href=#1299 id=1299 data-nosnippet>1299</a>		out[<span class="number">64</span>] = sig[<span class="number">64</span>] ^ <span class="number">1</span>;
+<a href=#1300 id=1300 data-nosnippet>1300</a>		out
+<a href=#1301 id=1301 data-nosnippet>1301</a>	}
+<a href=#1302 id=1302 data-nosnippet>1302</a>
+<a href=#1303 id=1303 data-nosnippet>1303</a>	<span class="attr">#[test]
+<a href=#1304 id=1304 data-nosnippet>1304</a>	</span><span class="kw">fn </span>multi_signature_ecdsa_rejects_high_s() {
+<a href=#1305 id=1305 data-nosnippet>1305</a>		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
+<a href=#1306 id=1306 data-nosnippet>1306</a>		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa::Pair::generate();
+<a href=#1307 id=1307 data-nosnippet>1307</a>
+<a href=#1308 id=1308 data-nosnippet>1308</a>		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
+<a href=#1309 id=1309 data-nosnippet>1309</a>		<span class="kw">let </span>multi_signer = MultiSigner::from(pair.public());
+<a href=#1310 id=1310 data-nosnippet>1310</a>		<span class="kw">let </span>account = multi_signer.into_account();
+<a href=#1311 id=1311 data-nosnippet>1311</a>
+<a href=#1312 id=1312 data-nosnippet>1312</a>		<span class="comment">// Low-S signature verifies
+<a href=#1313 id=1313 data-nosnippet>1313</a>		</span><span class="kw">let </span>multi_sig = MultiSignature::from(signature);
+<a href=#1314 id=1314 data-nosnippet>1314</a>		<span class="macro">assert!</span>(multi_sig.verify(msg, <span class="kw-2">&amp;</span>account));
+<a href=#1315 id=1315 data-nosnippet>1315</a>
+<a href=#1316 id=1316 data-nosnippet>1316</a>		<span class="comment">// Construct high-S malleable variant
+<a href=#1317 id=1317 data-nosnippet>1317</a>		</span><span class="kw">let </span>sig_bytes: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>] = signature.as_ref();
+<a href=#1318 id=1318 data-nosnippet>1318</a>		<span class="kw">let </span>malleable = make_high_s_signature(sig_bytes);
+<a href=#1319 id=1319 data-nosnippet>1319</a>		<span class="kw">let </span>malleable_sig = MultiSignature::Ecdsa(ecdsa::Signature::from_raw(malleable));
+<a href=#1320 id=1320 data-nosnippet>1320</a>		<span class="macro">assert!</span>(
+<a href=#1321 id=1321 data-nosnippet>1321</a>			!malleable_sig.verify(msg, <span class="kw-2">&amp;</span>account),
+<a href=#1322 id=1322 data-nosnippet>1322</a>			<span class="string">"high-S ECDSA signature should be rejected by MultiSignature"
+<a href=#1323 id=1323 data-nosnippet>1323</a>		</span>);
+<a href=#1324 id=1324 data-nosnippet>1324</a>	}
 <a href=#1325 id=1325 data-nosnippet>1325</a>
-<a href=#1326 id=1326 data-nosnippet>1326</a><span class="comment">// NOTE: we have to test the sp_core stuff also from a different crate to check that the macro
-<a href=#1327 id=1327 data-nosnippet>1327</a>// can access the sp_core crate.
-<a href=#1328 id=1328 data-nosnippet>1328</a></span><span class="attr">#[cfg(test)]
-<a href=#1329 id=1329 data-nosnippet>1329</a></span><span class="kw">mod </span>sp_core_tests {
-<a href=#1330 id=1330 data-nosnippet>1330</a>	<span class="macro">sp_core::generate_feature_enabled_macro!</span>(if_test, test, $);
-<a href=#1331 id=1331 data-nosnippet>1331</a>	<span class="macro">sp_core::generate_feature_enabled_macro!</span>(if_not_test, not(test), $);
-<a href=#1332 id=1332 data-nosnippet>1332</a>
-<a href=#1333 id=1333 data-nosnippet>1333</a>	<span class="attr">#[test]
-<a href=#1334 id=1334 data-nosnippet>1334</a>	#[should_panic]
-<a href=#1335 id=1335 data-nosnippet>1335</a>	</span><span class="kw">fn </span>generate_feature_enabled_macro_panics() {
-<a href=#1336 id=1336 data-nosnippet>1336</a>		<span class="macro">if_test!</span>(<span class="macro">panic!</span>(<span class="string">"This should panic"</span>));
-<a href=#1337 id=1337 data-nosnippet>1337</a>	}
+<a href=#1326 id=1326 data-nosnippet>1326</a>	<span class="attr">#[test]
+<a href=#1327 id=1327 data-nosnippet>1327</a>	</span><span class="kw">fn </span>multi_signature_eth_rejects_high_s() {
+<a href=#1328 id=1328 data-nosnippet>1328</a>		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
+<a href=#1329 id=1329 data-nosnippet>1329</a>		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa::KeccakPair::generate();
+<a href=#1330 id=1330 data-nosnippet>1330</a>
+<a href=#1331 id=1331 data-nosnippet>1331</a>		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
+<a href=#1332 id=1332 data-nosnippet>1332</a>		<span class="kw">let </span>multi_signer = MultiSigner::Eth(pair.public());
+<a href=#1333 id=1333 data-nosnippet>1333</a>		<span class="kw">let </span>account = multi_signer.into_account();
+<a href=#1334 id=1334 data-nosnippet>1334</a>
+<a href=#1335 id=1335 data-nosnippet>1335</a>		<span class="comment">// Low-S signature verifies
+<a href=#1336 id=1336 data-nosnippet>1336</a>		</span><span class="kw">let </span>multi_sig = MultiSignature::Eth(signature);
+<a href=#1337 id=1337 data-nosnippet>1337</a>		<span class="macro">assert!</span>(multi_sig.verify(msg, <span class="kw-2">&amp;</span>account));
 <a href=#1338 id=1338 data-nosnippet>1338</a>
-<a href=#1339 id=1339 data-nosnippet>1339</a>	<span class="attr">#[test]
-<a href=#1340 id=1340 data-nosnippet>1340</a>	</span><span class="kw">fn </span>generate_feature_enabled_macro_works() {
-<a href=#1341 id=1341 data-nosnippet>1341</a>		<span class="macro">if_not_test!</span>(<span class="macro">panic!</span>(<span class="string">"This should not panic"</span>));
-<a href=#1342 id=1342 data-nosnippet>1342</a>	}
-<a href=#1343 id=1343 data-nosnippet>1343</a>}
+<a href=#1339 id=1339 data-nosnippet>1339</a>		<span class="comment">// Construct high-S malleable variant
+<a href=#1340 id=1340 data-nosnippet>1340</a>		</span><span class="kw">let </span>sig_bytes: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>] = signature.as_ref();
+<a href=#1341 id=1341 data-nosnippet>1341</a>		<span class="kw">let </span>malleable = make_high_s_signature(sig_bytes);
+<a href=#1342 id=1342 data-nosnippet>1342</a>		<span class="kw">let </span>malleable_sig = MultiSignature::Eth(ecdsa::KeccakSignature::from_raw(malleable));
+<a href=#1343 id=1343 data-nosnippet>1343</a>		<span class="macro">assert!</span>(
+<a href=#1344 id=1344 data-nosnippet>1344</a>			!malleable_sig.verify(msg, <span class="kw-2">&amp;</span>account),
+<a href=#1345 id=1345 data-nosnippet>1345</a>			<span class="string">"high-S Eth signature should be rejected by MultiSignature"
+<a href=#1346 id=1346 data-nosnippet>1346</a>		</span>);
+<a href=#1347 id=1347 data-nosnippet>1347</a>	}
+<a href=#1348 id=1348 data-nosnippet>1348</a>
+<a href=#1349 id=1349 data-nosnippet>1349</a>	<span class="attr">#[test]
+<a href=#1350 id=1350 data-nosnippet>1350</a>	</span><span class="kw">fn </span>multi_signer_eth_address_works() {
+<a href=#1351 id=1351 data-nosnippet>1351</a>		<span class="kw">let </span>ecdsa_pair = ecdsa::Pair::from_seed(<span class="kw-2">&amp;</span>[<span class="number">0x42</span>; <span class="number">32</span>]);
+<a href=#1352 id=1352 data-nosnippet>1352</a>		<span class="kw">let </span>eth_pair = ecdsa::KeccakPair::from_seed(<span class="kw-2">&amp;</span>[<span class="number">0x42</span>; <span class="number">32</span>]);
+<a href=#1353 id=1353 data-nosnippet>1353</a>		<span class="kw">let </span>ecdsa = MultiSigner::Ecdsa(ecdsa_pair.public()).into_account();
+<a href=#1354 id=1354 data-nosnippet>1354</a>		<span class="kw">let </span>eth = MultiSigner::Eth(eth_pair.public()).into_account();
+<a href=#1355 id=1355 data-nosnippet>1355</a>
+<a href=#1356 id=1356 data-nosnippet>1356</a>		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>&lt;AccountId32 <span class="kw">as </span>AsRef&lt;[u8; <span class="number">32</span>]&gt;&gt;::as_ref(<span class="kw-2">&amp;</span>eth)[<span class="number">20</span>..], <span class="kw-2">&amp;</span>[<span class="number">0xEE</span>; <span class="number">12</span>]);
+<a href=#1357 id=1357 data-nosnippet>1357</a>		<span class="macro">assert_eq!</span>(
+<a href=#1358 id=1358 data-nosnippet>1358</a>			ecdsa,
+<a href=#1359 id=1359 data-nosnippet>1359</a>			<span class="macro">hex2array!</span>(<span class="string">"ff241710529476ac87c67b66ccdc42f95a14b49a896164839fe675dc6f579614"</span>).into(),
+<a href=#1360 id=1360 data-nosnippet>1360</a>		);
+<a href=#1361 id=1361 data-nosnippet>1361</a>		<span class="macro">assert_eq!</span>(
+<a href=#1362 id=1362 data-nosnippet>1362</a>			eth,
+<a href=#1363 id=1363 data-nosnippet>1363</a>			<span class="macro">hex2array!</span>(<span class="string">"2714c48edc39bc2714729e6530760d62344d6698eeeeeeeeeeeeeeeeeeeeeeee"</span>).into(),
+<a href=#1364 id=1364 data-nosnippet>1364</a>		);
+<a href=#1365 id=1365 data-nosnippet>1365</a>	}
+<a href=#1366 id=1366 data-nosnippet>1366</a>
+<a href=#1367 id=1367 data-nosnippet>1367</a>	<span class="attr">#[test]
+<a href=#1368 id=1368 data-nosnippet>1368</a>	</span><span class="kw">fn </span>execute_and_generate_proof_works() {
+<a href=#1369 id=1369 data-nosnippet>1369</a>		<span class="kw">use </span>codec::Encode;
+<a href=#1370 id=1370 data-nosnippet>1370</a>		<span class="kw">use </span>sp_state_machine::Backend;
+<a href=#1371 id=1371 data-nosnippet>1371</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::default();
+<a href=#1372 id=1372 data-nosnippet>1372</a>
+<a href=#1373 id=1373 data-nosnippet>1373</a>		ext.insert(<span class="string">b"a"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
+<a href=#1374 id=1374 data-nosnippet>1374</a>		ext.insert(<span class="string">b"b"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
+<a href=#1375 id=1375 data-nosnippet>1375</a>		ext.insert(<span class="string">b"c"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">3u8</span>; <span class="number">33</span>]);
+<a href=#1376 id=1376 data-nosnippet>1376</a>		ext.insert(<span class="string">b"d"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">4u8</span>; <span class="number">33</span>]);
+<a href=#1377 id=1377 data-nosnippet>1377</a>
+<a href=#1378 id=1378 data-nosnippet>1378</a>		<span class="kw">let </span>pre_root = <span class="kw-2">*</span>ext.backend.root();
+<a href=#1379 id=1379 data-nosnippet>1379</a>		<span class="kw">let </span>(<span class="kw">_</span>, proof) = ext.execute_and_prove(|| {
+<a href=#1380 id=1380 data-nosnippet>1380</a>			sp_io::storage::get(<span class="string">b"a"</span>);
+<a href=#1381 id=1381 data-nosnippet>1381</a>			sp_io::storage::get(<span class="string">b"b"</span>);
+<a href=#1382 id=1382 data-nosnippet>1382</a>			sp_io::storage::get(<span class="string">b"v"</span>);
+<a href=#1383 id=1383 data-nosnippet>1383</a>			sp_io::storage::get(<span class="string">b"d"</span>);
+<a href=#1384 id=1384 data-nosnippet>1384</a>		});
+<a href=#1385 id=1385 data-nosnippet>1385</a>
+<a href=#1386 id=1386 data-nosnippet>1386</a>		<span class="kw">let </span>compact_proof = proof.clone().into_compact_proof::&lt;BlakeTwo256&gt;(pre_root).unwrap();
+<a href=#1387 id=1387 data-nosnippet>1387</a>		<span class="kw">let </span>compressed_proof = zstd::stream::encode_all(<span class="kw-2">&amp;</span>compact_proof.encode()[..], <span class="number">0</span>).unwrap();
+<a href=#1388 id=1388 data-nosnippet>1388</a>
+<a href=#1389 id=1389 data-nosnippet>1389</a>		<span class="comment">// just an example of how you'd inspect the size of the proof.
+<a href=#1390 id=1390 data-nosnippet>1390</a>		</span><span class="macro">println!</span>(<span class="string">"proof size: {:?}"</span>, proof.encoded_size());
+<a href=#1391 id=1391 data-nosnippet>1391</a>		<span class="macro">println!</span>(<span class="string">"compact proof size: {:?}"</span>, compact_proof.encoded_size());
+<a href=#1392 id=1392 data-nosnippet>1392</a>		<span class="macro">println!</span>(<span class="string">"zstd-compressed compact proof size: {:?}"</span>, <span class="kw-2">&amp;</span>compressed_proof.len());
+<a href=#1393 id=1393 data-nosnippet>1393</a>
+<a href=#1394 id=1394 data-nosnippet>1394</a>		<span class="comment">// create a new trie-backed from the proof and make sure it contains everything
+<a href=#1395 id=1395 data-nosnippet>1395</a>		</span><span class="kw">let </span>proof_check = create_proof_check_backend::&lt;BlakeTwo256&gt;(pre_root, proof).unwrap();
+<a href=#1396 id=1396 data-nosnippet>1396</a>		<span class="macro">assert_eq!</span>(proof_check.storage(<span class="string">b"a"</span>,).unwrap().unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
+<a href=#1397 id=1397 data-nosnippet>1397</a>
+<a href=#1398 id=1398 data-nosnippet>1398</a>		<span class="kw">let _ </span>= ext.execute_and_prove(|| {
+<a href=#1399 id=1399 data-nosnippet>1399</a>			sp_io::storage::set(<span class="string">b"a"</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
+<a href=#1400 id=1400 data-nosnippet>1400</a>		});
+<a href=#1401 id=1401 data-nosnippet>1401</a>
+<a href=#1402 id=1402 data-nosnippet>1402</a>		<span class="comment">// ensure that these changes are propagated to the backend.
+<a href=#1403 id=1403 data-nosnippet>1403</a>
+<a href=#1404 id=1404 data-nosnippet>1404</a>		</span>ext.execute_with(|| {
+<a href=#1405 id=1405 data-nosnippet>1405</a>			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b"a"</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
+<a href=#1406 id=1406 data-nosnippet>1406</a>			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b"b"</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
+<a href=#1407 id=1407 data-nosnippet>1407</a>		});
+<a href=#1408 id=1408 data-nosnippet>1408</a>	}
+<a href=#1409 id=1409 data-nosnippet>1409</a>}
+<a href=#1410 id=1410 data-nosnippet>1410</a>
+<a href=#1411 id=1411 data-nosnippet>1411</a><span class="comment">// NOTE: we have to test the sp_core stuff also from a different crate to check that the macro
+<a href=#1412 id=1412 data-nosnippet>1412</a>// can access the sp_core crate.
+<a href=#1413 id=1413 data-nosnippet>1413</a></span><span class="attr">#[cfg(test)]
+<a href=#1414 id=1414 data-nosnippet>1414</a></span><span class="kw">mod </span>sp_core_tests {
+<a href=#1415 id=1415 data-nosnippet>1415</a>	<span class="macro">sp_core::generate_feature_enabled_macro!</span>(if_test, test, $);
+<a href=#1416 id=1416 data-nosnippet>1416</a>	<span class="macro">sp_core::generate_feature_enabled_macro!</span>(if_not_test, not(test), $);
+<a href=#1417 id=1417 data-nosnippet>1417</a>
+<a href=#1418 id=1418 data-nosnippet>1418</a>	<span class="attr">#[test]
+<a href=#1419 id=1419 data-nosnippet>1419</a>	#[should_panic]
+<a href=#1420 id=1420 data-nosnippet>1420</a>	</span><span class="kw">fn </span>generate_feature_enabled_macro_panics() {
+<a href=#1421 id=1421 data-nosnippet>1421</a>		<span class="macro">if_test!</span>(<span class="macro">panic!</span>(<span class="string">"This should panic"</span>));
+<a href=#1422 id=1422 data-nosnippet>1422</a>	}
+<a href=#1423 id=1423 data-nosnippet>1423</a>
+<a href=#1424 id=1424 data-nosnippet>1424</a>	<span class="attr">#[test]
+<a href=#1425 id=1425 data-nosnippet>1425</a>	</span><span class="kw">fn </span>generate_feature_enabled_macro_works() {
+<a href=#1426 id=1426 data-nosnippet>1426</a>		<span class="macro">if_not_test!</span>(<span class="macro">panic!</span>(<span class="string">"This should not panic"</span>));
+<a href=#1427 id=1427 data-nosnippet>1427</a>	}
+<a href=#1428 id=1428 data-nosnippet>1428</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -324,43 +324,102 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#174 id=174 data-nosnippet>174</a>		<span class="kw">let </span>bytes = s.out().to_vec();
 <a href=#175 id=175 data-nosnippet>175</a>		<span class="kw">let </span>signature = <span class="self">self</span>.raw_signature()<span class="question-mark">?</span>;
 <a href=#176 id=176 data-nosnippet>176</a>
-<a href=#177 id=177 data-nosnippet>177</a>		<span class="kw">let </span>hash = keccak_256(<span class="kw-2">&amp;</span>bytes);
-<a href=#178 id=178 data-nosnippet>178</a>		<span class="kw">let </span><span class="kw-2">mut </span>addr = H160::default();
-<a href=#179 id=179 data-nosnippet>179</a>		<span class="kw">let </span>pk = secp256k1_ecdsa_recover(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>hash).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
-<a href=#180 id=180 data-nosnippet>180</a>		addr.assign_from_slice(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>pk[..])[<span class="number">12</span>..]);
-<a href=#181 id=181 data-nosnippet>181</a>		<span class="prelude-val">Ok</span>(addr)
-<a href=#182 id=182 data-nosnippet>182</a>	}
-<a href=#183 id=183 data-nosnippet>183</a>}
-<a href=#184 id=184 data-nosnippet>184</a>
-<a href=#185 id=185 data-nosnippet>185</a><span class="attr">#[test]
-<a href=#186 id=186 data-nosnippet>186</a></span><span class="kw">fn </span>sign_and_recover_work() {
-<a href=#187 id=187 data-nosnippet>187</a>	<span class="kw">use </span><span class="kw">crate</span>::evm::TransactionUnsigned;
-<a href=#188 id=188 data-nosnippet>188</a>	<span class="kw">let </span>txs = [
-<a href=#189 id=189 data-nosnippet>189</a>		<span class="comment">// Legacy
-<a href=#190 id=190 data-nosnippet>190</a>		</span><span class="string">"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f"</span>,
-<a href=#191 id=191 data-nosnippet>191</a>		<span class="comment">//// type 1: EIP2930
-<a href=#192 id=192 data-nosnippet>192</a>		</span><span class="string">"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0c45a61b3d1d00169c649e7326e02857b850efb96e587db4b9aad29afc80d0752a070ae1eb47ab4097dbed2f19172ae286492621b46ac737ee6c32fb18a00c94c9c"</span>,
-<a href=#193 id=193 data-nosnippet>193</a>		<span class="comment">// type 2: EIP1559
-<a href=#194 id=194 data-nosnippet>194</a>		</span><span class="string">"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a055d72bbc3047d4b9d3e4b8099f187143202407746118204cc2e0cb0c85a68baea04f6ef08a1418c70450f53398d9f0f2d78d9e9d6b8a80cba886b67132c4a744f2"</span>,
-<a href=#195 id=195 data-nosnippet>195</a>		<span class="comment">// type 3: EIP4844
-<a href=#196 id=196 data-nosnippet>196</a>		</span><span class="string">"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000001a0672b8bac466e2cf1be3148c030988d40d582763ecebbc07700dfc93bb070d8a4a07c635887005b11cb58964c04669ac2857fa633aa66f662685dadfd8bcacb0f21"</span>,
-<a href=#197 id=197 data-nosnippet>197</a>	];
-<a href=#198 id=198 data-nosnippet>198</a>	<span class="kw">let </span>account = Account::from_secret_key(<span class="macro">hex_literal::hex!</span>(
-<a href=#199 id=199 data-nosnippet>199</a>		<span class="string">"a872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f"
-<a href=#200 id=200 data-nosnippet>200</a>	</span>));
-<a href=#201 id=201 data-nosnippet>201</a>
-<a href=#202 id=202 data-nosnippet>202</a>	<span class="kw">for </span>tx <span class="kw">in </span>txs {
-<a href=#203 id=203 data-nosnippet>203</a>		<span class="kw">let </span>raw_tx = alloy_core::hex::decode(tx).unwrap();
-<a href=#204 id=204 data-nosnippet>204</a>		<span class="kw">let </span>tx = TransactionSigned::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
-<a href=#205 id=205 data-nosnippet>205</a>
-<a href=#206 id=206 data-nosnippet>206</a>		<span class="kw">let </span>address = tx.recover_eth_address();
-<a href=#207 id=207 data-nosnippet>207</a>		<span class="macro">assert_eq!</span>(address.unwrap(), account.address());
-<a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a>		<span class="kw">let </span>unsigned = TransactionUnsigned::from_signed(tx.clone());
-<a href=#210 id=210 data-nosnippet>210</a>		<span class="kw">let </span>signed = account.sign_transaction(unsigned);
-<a href=#211 id=211 data-nosnippet>211</a>		<span class="macro">assert_eq!</span>(tx, signed);
-<a href=#212 id=212 data-nosnippet>212</a>	}
-<a href=#213 id=213 data-nosnippet>213</a>}
+<a href=#177 id=177 data-nosnippet>177</a>		<span class="comment">// Reject high-S signatures per EIP-2 (signature malleability protection)
+<a href=#178 id=178 data-nosnippet>178</a>		</span><span class="kw">if </span>!sp_core::ecdsa::is_signature_normalized(<span class="kw-2">&amp;</span>signature) {
+<a href=#179 id=179 data-nosnippet>179</a>			<span class="macro">log::debug!</span>(target: <span class="string">"evm"</span>, <span class="string">"Rejected high-S ECDSA signature (EIP-2 violation)"</span>);
+<a href=#180 id=180 data-nosnippet>180</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(());
+<a href=#181 id=181 data-nosnippet>181</a>		}
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a>		<span class="kw">let </span>hash = keccak_256(<span class="kw-2">&amp;</span>bytes);
+<a href=#184 id=184 data-nosnippet>184</a>		<span class="kw">let </span><span class="kw-2">mut </span>addr = H160::default();
+<a href=#185 id=185 data-nosnippet>185</a>		<span class="kw">let </span>pk = secp256k1_ecdsa_recover(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>hash).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
+<a href=#186 id=186 data-nosnippet>186</a>		addr.assign_from_slice(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>pk[..])[<span class="number">12</span>..]);
+<a href=#187 id=187 data-nosnippet>187</a>		<span class="prelude-val">Ok</span>(addr)
+<a href=#188 id=188 data-nosnippet>188</a>	}
+<a href=#189 id=189 data-nosnippet>189</a>}
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a><span class="attr">#[cfg(test)]
+<a href=#192 id=192 data-nosnippet>192</a></span><span class="kw">mod </span>tests {
+<a href=#193 id=193 data-nosnippet>193</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#194 id=194 data-nosnippet>194</a>	<span class="kw">use </span><span class="kw">crate</span>::evm::TransactionUnsigned;
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>	<span class="attr">#[test]
+<a href=#197 id=197 data-nosnippet>197</a>	</span><span class="kw">fn </span>sign_and_recover_work() {
+<a href=#198 id=198 data-nosnippet>198</a>		<span class="kw">let </span>txs = [
+<a href=#199 id=199 data-nosnippet>199</a>			<span class="comment">// Legacy
+<a href=#200 id=200 data-nosnippet>200</a>			</span><span class="string">"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f"</span>,
+<a href=#201 id=201 data-nosnippet>201</a>			<span class="comment">//// type 1: EIP2930
+<a href=#202 id=202 data-nosnippet>202</a>			</span><span class="string">"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0c45a61b3d1d00169c649e7326e02857b850efb96e587db4b9aad29afc80d0752a070ae1eb47ab4097dbed2f19172ae286492621b46ac737ee6c32fb18a00c94c9c"</span>,
+<a href=#203 id=203 data-nosnippet>203</a>			<span class="comment">// type 2: EIP1559
+<a href=#204 id=204 data-nosnippet>204</a>			</span><span class="string">"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a055d72bbc3047d4b9d3e4b8099f187143202407746118204cc2e0cb0c85a68baea04f6ef08a1418c70450f53398d9f0f2d78d9e9d6b8a80cba886b67132c4a744f2"</span>,
+<a href=#205 id=205 data-nosnippet>205</a>			<span class="comment">// type 3: EIP4844
+<a href=#206 id=206 data-nosnippet>206</a>			</span><span class="string">"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000001a0672b8bac466e2cf1be3148c030988d40d582763ecebbc07700dfc93bb070d8a4a07c635887005b11cb58964c04669ac2857fa633aa66f662685dadfd8bcacb0f21"</span>,
+<a href=#207 id=207 data-nosnippet>207</a>		];
+<a href=#208 id=208 data-nosnippet>208</a>		<span class="kw">let </span>account = Account::from_secret_key(<span class="macro">hex_literal::hex!</span>(
+<a href=#209 id=209 data-nosnippet>209</a>			<span class="string">"a872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f"
+<a href=#210 id=210 data-nosnippet>210</a>		</span>));
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a>		<span class="kw">for </span>tx <span class="kw">in </span>txs {
+<a href=#213 id=213 data-nosnippet>213</a>			<span class="kw">let </span>raw_tx = alloy_core::hex::decode(tx).unwrap();
+<a href=#214 id=214 data-nosnippet>214</a>			<span class="kw">let </span>tx = TransactionSigned::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a>			<span class="kw">let </span>address = tx.recover_eth_address();
+<a href=#217 id=217 data-nosnippet>217</a>			<span class="macro">assert_eq!</span>(address.unwrap(), account.address());
+<a href=#218 id=218 data-nosnippet>218</a>
+<a href=#219 id=219 data-nosnippet>219</a>			<span class="kw">let </span>unsigned = TransactionUnsigned::from_signed(tx.clone());
+<a href=#220 id=220 data-nosnippet>220</a>			<span class="kw">let </span>signed = account.sign_transaction(unsigned);
+<a href=#221 id=221 data-nosnippet>221</a>			<span class="macro">assert_eq!</span>(tx, signed);
+<a href=#222 id=222 data-nosnippet>222</a>		}
+<a href=#223 id=223 data-nosnippet>223</a>	}
+<a href=#224 id=224 data-nosnippet>224</a>
+<a href=#225 id=225 data-nosnippet>225</a>	<span class="attr">#[test]
+<a href=#226 id=226 data-nosnippet>226</a>	</span><span class="kw">fn </span>high_s_signature_is_rejected() {
+<a href=#227 id=227 data-nosnippet>227</a>		<span class="kw">let </span>order: [u8; <span class="number">32</span>] = [
+<a href=#228 id=228 data-nosnippet>228</a>			<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>,
+<a href=#229 id=229 data-nosnippet>229</a>			<span class="number">0xff</span>, <span class="number">0xfe</span>, <span class="number">0xba</span>, <span class="number">0xae</span>, <span class="number">0xdc</span>, <span class="number">0xe6</span>, <span class="number">0xaf</span>, <span class="number">0x48</span>, <span class="number">0xa0</span>, <span class="number">0x3b</span>, <span class="number">0xbf</span>, <span class="number">0xd2</span>, <span class="number">0x5e</span>, <span class="number">0x8c</span>,
+<a href=#230 id=230 data-nosnippet>230</a>			<span class="number">0xd0</span>, <span class="number">0x36</span>, <span class="number">0x41</span>, <span class="number">0x41</span>,
+<a href=#231 id=231 data-nosnippet>231</a>		];
+<a href=#232 id=232 data-nosnippet>232</a>
+<a href=#233 id=233 data-nosnippet>233</a>		<span class="kw">let </span>raw_tx = alloy_core::hex::decode(
+<a href=#234 id=234 data-nosnippet>234</a>			<span class="string">"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f"</span>,
+<a href=#235 id=235 data-nosnippet>235</a>		)
+<a href=#236 id=236 data-nosnippet>236</a>		.unwrap();
+<a href=#237 id=237 data-nosnippet>237</a>		<span class="kw">let </span>tx = TransactionSigned::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+<a href=#238 id=238 data-nosnippet>238</a>
+<a href=#239 id=239 data-nosnippet>239</a>		<span class="comment">// The original transaction should recover successfully (low-S)
+<a href=#240 id=240 data-nosnippet>240</a>		</span><span class="macro">assert!</span>(tx.recover_eth_address().is_ok());
+<a href=#241 id=241 data-nosnippet>241</a>
+<a href=#242 id=242 data-nosnippet>242</a>		<span class="kw">let </span>unsigned = TransactionUnsigned::from_signed(tx.clone());
+<a href=#243 id=243 data-nosnippet>243</a>		<span class="kw">let </span>sig = tx.raw_signature().unwrap();
+<a href=#244 id=244 data-nosnippet>244</a>
+<a href=#245 id=245 data-nosnippet>245</a>		<span class="kw">let </span>s_bytes: [u8; <span class="number">32</span>] = sig[<span class="number">32</span>..<span class="number">64</span>].try_into().unwrap();
+<a href=#246 id=246 data-nosnippet>246</a>		<span class="kw">let </span><span class="kw-2">mut </span>s_prime = [<span class="number">0u8</span>; <span class="number">32</span>];
+<a href=#247 id=247 data-nosnippet>247</a>		<span class="kw">let </span><span class="kw-2">mut </span>borrow = <span class="number">0i16</span>;
+<a href=#248 id=248 data-nosnippet>248</a>		<span class="kw">for </span>i <span class="kw">in </span>(<span class="number">0</span>..<span class="number">32</span>).rev() {
+<a href=#249 id=249 data-nosnippet>249</a>			<span class="kw">let </span>diff = order[i] <span class="kw">as </span>i16 - s_bytes[i] <span class="kw">as </span>i16 - borrow;
+<a href=#250 id=250 data-nosnippet>250</a>			<span class="kw">if </span>diff &lt; <span class="number">0 </span>{
+<a href=#251 id=251 data-nosnippet>251</a>				s_prime[i] = (diff + <span class="number">256</span>) <span class="kw">as </span>u8;
+<a href=#252 id=252 data-nosnippet>252</a>				borrow = <span class="number">1</span>;
+<a href=#253 id=253 data-nosnippet>253</a>			} <span class="kw">else </span>{
+<a href=#254 id=254 data-nosnippet>254</a>				s_prime[i] = diff <span class="kw">as </span>u8;
+<a href=#255 id=255 data-nosnippet>255</a>				borrow = <span class="number">0</span>;
+<a href=#256 id=256 data-nosnippet>256</a>			}
+<a href=#257 id=257 data-nosnippet>257</a>		}
+<a href=#258 id=258 data-nosnippet>258</a>
+<a href=#259 id=259 data-nosnippet>259</a>		<span class="kw">let </span><span class="kw-2">mut </span>malleable_sig = [<span class="number">0u8</span>; <span class="number">65</span>];
+<a href=#260 id=260 data-nosnippet>260</a>		malleable_sig[<span class="number">0</span>..<span class="number">32</span>].copy_from_slice(<span class="kw-2">&amp;</span>sig[<span class="number">0</span>..<span class="number">32</span>]);
+<a href=#261 id=261 data-nosnippet>261</a>		malleable_sig[<span class="number">32</span>..<span class="number">64</span>].copy_from_slice(<span class="kw-2">&amp;</span>s_prime);
+<a href=#262 id=262 data-nosnippet>262</a>		malleable_sig[<span class="number">64</span>] = sig[<span class="number">64</span>] ^ <span class="number">1</span>;
+<a href=#263 id=263 data-nosnippet>263</a>
+<a href=#264 id=264 data-nosnippet>264</a>		<span class="kw">let </span>malleable_tx = unsigned.with_signature(malleable_sig);
+<a href=#265 id=265 data-nosnippet>265</a>
+<a href=#266 id=266 data-nosnippet>266</a>		<span class="comment">// Should be rejected by recover_eth_address due to high-S
+<a href=#267 id=267 data-nosnippet>267</a>		</span><span class="macro">assert!</span>(
+<a href=#268 id=268 data-nosnippet>268</a>			malleable_tx.recover_eth_address().is_err(),
+<a href=#269 id=269 data-nosnippet>269</a>			<span class="string">"high-S signature should be rejected per EIP-2"
+<a href=#270 id=270 data-nosnippet>270</a>		</span>);
+<a href=#271 id=271 data-nosnippet>271</a>	}
+<a href=#272 id=272 data-nosnippet>272</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

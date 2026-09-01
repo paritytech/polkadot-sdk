@@ -200,31 +200,41 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#50 id=50 data-nosnippet>50</a>	}
 <a href=#51 id=51 data-nosnippet>51</a>
 <a href=#52 id=52 data-nosnippet>52</a>	<span class="kw">fn </span>verify&lt;M: AsRef&lt;[u8]&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: <span class="kw-2">&amp;</span>M, signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature) -&gt; bool {
-<a href=#53 id=53 data-nosnippet>53</a>		sp_io::crypto::ecdsa_verify(signature, msg.as_ref(), <span class="self">self</span>)
-<a href=#54 id=54 data-nosnippet>54</a>	}
-<a href=#55 id=55 data-nosnippet>55</a>
-<a href=#56 id=56 data-nosnippet>56</a>	<span class="kw">fn </span>generate_proof_of_possession(
-<a href=#57 id=57 data-nosnippet>57</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#58 id=58 data-nosnippet>58</a>		key_type: KeyTypeId,
-<a href=#59 id=59 data-nosnippet>59</a>		owner: <span class="kw-2">&amp;</span>[u8],
-<a href=#60 id=60 data-nosnippet>60</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Signature&gt; {
-<a href=#61 id=61 data-nosnippet>61</a>		<span class="kw">let </span>proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
-<a href=#62 id=62 data-nosnippet>62</a>		sp_io::crypto::ecdsa_sign(key_type, <span class="self">self</span>, <span class="kw-2">&amp;</span>proof_of_possession_statement)
-<a href=#63 id=63 data-nosnippet>63</a>	}
-<a href=#64 id=64 data-nosnippet>64</a>
-<a href=#65 id=65 data-nosnippet>65</a>	<span class="kw">fn </span>verify_proof_of_possession(
-<a href=#66 id=66 data-nosnippet>66</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#67 id=67 data-nosnippet>67</a>		owner: <span class="kw-2">&amp;</span>[u8],
-<a href=#68 id=68 data-nosnippet>68</a>		proof_of_possession: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature,
-<a href=#69 id=69 data-nosnippet>69</a>	) -&gt; bool {
-<a href=#70 id=70 data-nosnippet>70</a>		<span class="kw">let </span>proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
-<a href=#71 id=71 data-nosnippet>71</a>		sp_io::crypto::ecdsa_verify(<span class="kw-2">&amp;</span>proof_of_possession, <span class="kw-2">&amp;</span>proof_of_possession_statement, <span class="kw-2">&amp;</span><span class="self">self</span>)
-<a href=#72 id=72 data-nosnippet>72</a>	}
-<a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a>	<span class="kw">fn </span>to_raw_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-<a href=#75 id=75 data-nosnippet>75</a>		sp_core::crypto::ByteArray::to_raw_vec(<span class="self">self</span>)
-<a href=#76 id=76 data-nosnippet>76</a>	}
-<a href=#77 id=77 data-nosnippet>77</a>}
+<a href=#53 id=53 data-nosnippet>53</a>		<span class="comment">// Reject high-S signatures (BIP-62 malleability protection)
+<a href=#54 id=54 data-nosnippet>54</a>		</span><span class="kw">let </span>sig_bytes: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>] = signature.as_ref();
+<a href=#55 id=55 data-nosnippet>55</a>		<span class="kw">if </span>!sp_core::ecdsa::is_signature_normalized(sig_bytes) {
+<a href=#56 id=56 data-nosnippet>56</a>			<span class="kw">return </span><span class="bool-val">false</span>;
+<a href=#57 id=57 data-nosnippet>57</a>		}
+<a href=#58 id=58 data-nosnippet>58</a>		sp_io::crypto::ecdsa_verify(signature, msg.as_ref(), <span class="self">self</span>)
+<a href=#59 id=59 data-nosnippet>59</a>	}
+<a href=#60 id=60 data-nosnippet>60</a>
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="kw">fn </span>generate_proof_of_possession(
+<a href=#62 id=62 data-nosnippet>62</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#63 id=63 data-nosnippet>63</a>		key_type: KeyTypeId,
+<a href=#64 id=64 data-nosnippet>64</a>		owner: <span class="kw-2">&amp;</span>[u8],
+<a href=#65 id=65 data-nosnippet>65</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Signature&gt; {
+<a href=#66 id=66 data-nosnippet>66</a>		<span class="kw">let </span>proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
+<a href=#67 id=67 data-nosnippet>67</a>		sp_io::crypto::ecdsa_sign(key_type, <span class="self">self</span>, <span class="kw-2">&amp;</span>proof_of_possession_statement)
+<a href=#68 id=68 data-nosnippet>68</a>	}
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a>	<span class="kw">fn </span>verify_proof_of_possession(
+<a href=#71 id=71 data-nosnippet>71</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#72 id=72 data-nosnippet>72</a>		owner: <span class="kw-2">&amp;</span>[u8],
+<a href=#73 id=73 data-nosnippet>73</a>		proof_of_possession: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature,
+<a href=#74 id=74 data-nosnippet>74</a>	) -&gt; bool {
+<a href=#75 id=75 data-nosnippet>75</a>		<span class="comment">// Reject high-S signatures (BIP-62 malleability protection)
+<a href=#76 id=76 data-nosnippet>76</a>		</span><span class="kw">let </span>sig_bytes: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>] = proof_of_possession.as_ref();
+<a href=#77 id=77 data-nosnippet>77</a>		<span class="kw">if </span>!sp_core::ecdsa::is_signature_normalized(sig_bytes) {
+<a href=#78 id=78 data-nosnippet>78</a>			<span class="kw">return </span><span class="bool-val">false</span>;
+<a href=#79 id=79 data-nosnippet>79</a>		}
+<a href=#80 id=80 data-nosnippet>80</a>		<span class="kw">let </span>proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
+<a href=#81 id=81 data-nosnippet>81</a>		sp_io::crypto::ecdsa_verify(<span class="kw-2">&amp;</span>proof_of_possession, <span class="kw-2">&amp;</span>proof_of_possession_statement, <span class="kw-2">&amp;</span><span class="self">self</span>)
+<a href=#82 id=82 data-nosnippet>82</a>	}
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a>	<span class="kw">fn </span>to_raw_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+<a href=#85 id=85 data-nosnippet>85</a>		sp_core::crypto::ByteArray::to_raw_vec(<span class="self">self</span>)
+<a href=#86 id=86 data-nosnippet>86</a>	}
+<a href=#87 id=87 data-nosnippet>87</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

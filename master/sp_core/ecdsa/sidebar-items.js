@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","PUBLIC_KEY_SERIALIZED_SIZE","SIGNATURE_SERIALIZED_SIZE"],"trait":["Recover"],"type":["KeccakPair","KeccakProofOfPossession","KeccakPublic","KeccakSignature","Pair","ProofOfPossession","Public","Signature"]};
+window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","PUBLIC_KEY_SERIALIZED_SIZE","SIGNATURE_SERIALIZED_SIZE"],"fn":["is_signature_normalized"],"trait":["Recover"],"type":["KeccakPair","KeccakProofOfPossession","KeccakPublic","KeccakSignature","Pair","ProofOfPossession","Public","Signature"]};

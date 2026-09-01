@@ -204,29 +204,30 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#54 id=54 data-nosnippet>54</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new());
 <a href=#55 id=55 data-nosnippet>55</a>		}
 <a href=#56 id=56 data-nosnippet>56</a>
-<a href=#57 id=57 data-nosnippet>57</a>		<span class="kw">let </span>data = <span class="kw">match </span>sp_io::crypto::secp256k1_ecdsa_recover(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg) {
-<a href=#58 id=58 data-nosnippet>58</a>			<span class="prelude-val">Ok</span>(pubkey) =&gt; {
-<a href=#59 id=59 data-nosnippet>59</a>				<span class="kw">let </span><span class="kw-2">mut </span>address = sp_io::hashing::keccak_256(<span class="kw-2">&amp;</span>pubkey);
-<a href=#60 id=60 data-nosnippet>60</a>				address[<span class="number">0</span>..<span class="number">12</span>].copy_from_slice(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">12</span>]);
-<a href=#61 id=61 data-nosnippet>61</a>				address.to_vec()
-<a href=#62 id=62 data-nosnippet>62</a>			},
-<a href=#63 id=63 data-nosnippet>63</a>			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Vec::new(),
-<a href=#64 id=64 data-nosnippet>64</a>		};
-<a href=#65 id=65 data-nosnippet>65</a>
-<a href=#66 id=66 data-nosnippet>66</a>		<span class="prelude-val">Ok</span>(data)
-<a href=#67 id=67 data-nosnippet>67</a>	}
-<a href=#68 id=68 data-nosnippet>68</a>}
-<a href=#69 id=69 data-nosnippet>69</a>
-<a href=#70 id=70 data-nosnippet>70</a><span class="attr">#[cfg(test)]
-<a href=#71 id=71 data-nosnippet>71</a></span><span class="kw">mod </span>tests {
-<a href=#72 id=72 data-nosnippet>72</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#73 id=73 data-nosnippet>73</a>	<span class="kw">use crate</span>::{precompiles::tests::run_test_vectors, tests::Test};
-<a href=#74 id=74 data-nosnippet>74</a>
-<a href=#75 id=75 data-nosnippet>75</a>	<span class="attr">#[test]
-<a href=#76 id=76 data-nosnippet>76</a>	</span><span class="kw">fn </span>test_ecrecover() {
-<a href=#77 id=77 data-nosnippet>77</a>		run_test_vectors::&lt;EcRecover&lt;Test&gt;&gt;(<span class="macro">include_str!</span>(<span class="string">"./testdata/1-ecRecover.json"</span>));
-<a href=#78 id=78 data-nosnippet>78</a>	}
-<a href=#79 id=79 data-nosnippet>79</a>}
+<a href=#57 id=57 data-nosnippet>57</a>		<span class="comment">// Unlike transaction validation, the ECRecover precompile accepts high-S signatures.
+<a href=#58 id=58 data-nosnippet>58</a>		</span><span class="kw">let </span>data = <span class="kw">match </span>sp_io::crypto::secp256k1_ecdsa_recover(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg) {
+<a href=#59 id=59 data-nosnippet>59</a>			<span class="prelude-val">Ok</span>(pubkey) =&gt; {
+<a href=#60 id=60 data-nosnippet>60</a>				<span class="kw">let </span><span class="kw-2">mut </span>address = sp_io::hashing::keccak_256(<span class="kw-2">&amp;</span>pubkey);
+<a href=#61 id=61 data-nosnippet>61</a>				address[<span class="number">0</span>..<span class="number">12</span>].copy_from_slice(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">12</span>]);
+<a href=#62 id=62 data-nosnippet>62</a>				address.to_vec()
+<a href=#63 id=63 data-nosnippet>63</a>			},
+<a href=#64 id=64 data-nosnippet>64</a>			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Vec::new(),
+<a href=#65 id=65 data-nosnippet>65</a>		};
+<a href=#66 id=66 data-nosnippet>66</a>
+<a href=#67 id=67 data-nosnippet>67</a>		<span class="prelude-val">Ok</span>(data)
+<a href=#68 id=68 data-nosnippet>68</a>	}
+<a href=#69 id=69 data-nosnippet>69</a>}
+<a href=#70 id=70 data-nosnippet>70</a>
+<a href=#71 id=71 data-nosnippet>71</a><span class="attr">#[cfg(test)]
+<a href=#72 id=72 data-nosnippet>72</a></span><span class="kw">mod </span>tests {
+<a href=#73 id=73 data-nosnippet>73</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="kw">use crate</span>::{precompiles::tests::run_test_vectors, tests::Test};
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>	<span class="attr">#[test]
+<a href=#77 id=77 data-nosnippet>77</a>	</span><span class="kw">fn </span>test_ecrecover() {
+<a href=#78 id=78 data-nosnippet>78</a>		run_test_vectors::&lt;EcRecover&lt;Test&gt;&gt;(<span class="macro">include_str!</span>(<span class="string">"./testdata/1-ecRecover.json"</span>));
+<a href=#79 id=79 data-nosnippet>79</a>	}
+<a href=#80 id=80 data-nosnippet>80</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
