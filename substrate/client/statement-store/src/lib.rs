@@ -59,34 +59,111 @@ pub mod test_utils;
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
 use futures::FutureExt;
 use metrics::MetricsLink as PrometheusMetrics;
-use parking_lot::{lock_api::RwLockUpgradableReadGuard, RwLock};
+use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
+use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
-	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
-	OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult, Statement,
-	StatementAllowance, StatementEvent, SubmitResult, Topic,
+	AccountId, AdmittedBatch, BlockHash, Channel, DecryptionKey, FilterDecision, Hash,
+	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
+	Statement, StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
-	sync::{Arc, Weak},
+	sync::{
+		atomic::{AtomicUsize, Ordering as AtomicOrdering},
+		Arc, Weak,
+	},
 	time::{Duration, Instant},
 };
-use subscription::ReplaySnapshotProvider;
 pub use subscription::{
 	AddFilterError, MultiFilterEventStream, MultiFilterSubscriptionApi,
 	MultiFilterSubscriptionEvent, StatementStoreSubscriptionApi, SubscriptionHandle,
 	MAX_FILTERS_PER_SUBSCRIPTION,
 };
+use subscription::{ReplayBatch, ReplaySnapshotProvider, REPLAY_CHUNK_RAW_BYTES};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 2;
+
+/// Meta column key of the persisted global counters, SCALE-encoded as
+/// `(statement_count: u64, total_size: u64, next_seq: u64)`. The row is rewritten as part of
+/// every mutating commit (all of which happen under the submit-index write lock), so it is always
+/// consistent with the statement data and makes startup independent of the store size.
+const KEY_COUNTERS: &[u8] = b"counters".as_slice();
+
+const MIGRATION_COMMIT_CHUNK: usize = 100_000;
+
+/// A single raw database operation: writes `value` under `key` in `column`, or deletes the key
+/// when `value` is `None`.
+struct DbOperation {
+	column: u8,
+	key: Vec<u8>,
+	value: Option<Vec<u8>>,
+}
+
+impl From<(u8, Vec<u8>, Option<Vec<u8>>)> for DbOperation {
+	fn from((column, key, value): (u8, Vec<u8>, Option<Vec<u8>>)) -> Self {
+		Self { column, key, value }
+	}
+}
+
+struct MigrationBatch<'a> {
+	db: &'a parity_db::Db,
+	operations: Vec<DbOperation>,
+	committed: usize,
+}
+
+impl<'a> MigrationBatch<'a> {
+	fn new(db: &'a parity_db::Db) -> Self {
+		Self { db, operations: Vec::new(), committed: 0 }
+	}
+
+	fn push(&mut self, operation: DbOperation) -> Result<()> {
+		self.operations.push(operation);
+		self.flush_if_full()
+	}
+
+	fn extend(&mut self, operations: impl IntoIterator<Item = DbOperation>) -> Result<()> {
+		self.operations.extend(operations);
+		self.flush_if_full()
+	}
+
+	fn flush_if_full(&mut self) -> Result<()> {
+		if self.operations.len() >= MIGRATION_COMMIT_CHUNK {
+			self.flush()?;
+		}
+		Ok(())
+	}
+
+	fn flush(&mut self) -> Result<()> {
+		if self.operations.is_empty() {
+			return Ok(());
+		}
+		let operations = std::mem::take(&mut self.operations);
+		let count = operations.len();
+		self.db
+			.commit(
+				operations
+					.into_iter()
+					.map(|operation| (operation.column, operation.key, operation.value)),
+			)
+			.map_err(|error| Error::Db(error.to_string()))?;
+		self.committed += count;
+		Ok(())
+	}
+
+	fn finish(mut self) -> Result<usize> {
+		self.flush()?;
+		Ok(self.committed)
+	}
+}
 
 const LOG_TARGET: &str = "statement-store";
 
@@ -134,9 +211,36 @@ mod col {
 	pub const INDEX_BY_TOPIC: u8 = 3;
 	pub const INDEX_BY_DEC_KEY: u8 = 4;
 	pub const INDEX_EVICTED: u8 = 5;
+	pub const ADMISSION_SEQ: u8 = 6;
+	pub const INDEX_BY_ACCOUNT: u8 = 7;
+	pub const INDEX_BY_EXPIRY: u8 = 8;
 
-	pub const COUNT: u8 = 6;
+	pub const COUNT: u8 = 9;
 }
+
+/// Btree-indexed columns (ordered keys with prefix scans), as opposed to the hash columns.
+const BTREE_COLUMNS: [u8; 6] = [
+	col::INDEX_BY_TOPIC,
+	col::INDEX_BY_DEC_KEY,
+	col::INDEX_EVICTED,
+	col::ADMISSION_SEQ,
+	col::INDEX_BY_ACCOUNT,
+	col::INDEX_BY_EXPIRY,
+];
+
+/// Budget of the per-account details cache, measured in cached statements across all account
+/// records (a record costs at least one unit). Bounds cache memory regardless of how statements
+/// are distributed over accounts.
+#[cfg(not(test))]
+const DETAILS_CACHE_BUDGET: usize = 65_536;
+#[cfg(test)]
+const DETAILS_CACHE_BUDGET: usize = 8;
+
+/// Maximum number of per-account count/size summaries kept in memory.
+#[cfg(not(test))]
+const SUMMARY_CACHE_ACCOUNTS: u32 = 131_072;
+#[cfg(test)]
+const SUMMARY_CACHE_ACCOUNTS: u32 = 4;
 
 const INDEX_EMPTY_VALUE: &[u8] = &[];
 const DEC_KEY_TAG_NONE: u8 = 0;
@@ -167,6 +271,24 @@ fn dec_key_index_key(dec_key: &Option<DecryptionKey>, hash: &Hash) -> Vec<u8> {
 	key
 }
 
+/// Reverses [`dec_key_index_prefix`]; `None` if `prefix` does not have that layout.
+fn parse_dec_key_index_prefix(prefix: &[u8]) -> Option<Option<DecryptionKey>> {
+	match prefix.split_first() {
+		Some((&DEC_KEY_TAG_NONE, [])) => Some(None),
+		Some((&DEC_KEY_TAG_SOME, dec_key)) if dec_key.len() == size_of::<DecryptionKey>() => {
+			dec_key.try_into().ok().map(Some)
+		},
+		_ => {
+			log::error!(
+				target: LOG_TARGET,
+				"Corrupt decryption-key index prefix: {:?}",
+				HexDisplay::from(&prefix)
+			);
+			None
+		},
+	}
+}
+
 fn evicted_index_key(purge_at: u64, hash: &Hash) -> Vec<u8> {
 	let mut key = Vec::with_capacity(8 + hash.len());
 	key.extend_from_slice(&purge_at.to_be_bytes());
@@ -174,15 +296,138 @@ fn evicted_index_key(purge_at: u64, hash: &Hash) -> Vec<u8> {
 	key
 }
 
-/// Extracts the trailing 32-byte hash from a composite index key, if it is long enough.
-fn hash_from_index_key(key: &[u8]) -> Option<Hash> {
-	let len = key.len();
-	if len < 32 {
+/// Key of a statement's row in [`col::INDEX_BY_ACCOUNT`]
+fn account_index_key(account: &AccountId, expiry: Expiry, hash: &Hash) -> Vec<u8> {
+	let mut key = Vec::with_capacity(account.len() + size_of::<u64>() + hash.len());
+	key.extend_from_slice(&account[..]);
+	key.extend_from_slice(&expiry.0.to_be_bytes());
+	key.extend_from_slice(&hash[..]);
+	key
+}
+
+/// Reverses [`account_index_key`]; `None` if `key` does not have that layout.
+fn parse_account_index_key(key: &[u8]) -> Option<(AccountId, Expiry, Hash)> {
+	if key.len() != size_of::<AccountId>() + size_of::<u64>() + size_of::<Hash>() {
+		log::error!(
+			target: LOG_TARGET,
+			"Corrupt account index key: {:?}",
+			HexDisplay::from(&key)
+		);
 		return None;
 	}
-	let mut hash = Hash::default();
-	hash.copy_from_slice(&key[len - 32..]);
-	Some(hash)
+	let (account, rest) = key.split_at(size_of::<AccountId>());
+	let (expiry, hash) = rest.split_at(size_of::<u64>());
+	Some((
+		account.try_into().ok()?,
+		Expiry(u64::from_be_bytes(expiry.try_into().ok()?)),
+		hash.try_into().ok()?,
+	))
+}
+
+/// Key of a statement's row in [`col::INDEX_BY_EXPIRY`]: the whole column iterates in expiry
+/// order, so the statements due for expiry form a prefix of it.
+fn expiry_index_key(expiry: Expiry, hash: &Hash) -> Vec<u8> {
+	let mut key = Vec::with_capacity(size_of::<u64>() + hash.len());
+	key.extend_from_slice(&expiry.0.to_be_bytes());
+	key.extend_from_slice(&hash[..]);
+	key
+}
+
+/// Reverses the shared `u64_be ‖ hash` layout of [`expiry_index_key`] and [`evicted_index_key`];
+/// `None` if `key` does not have that layout.
+fn parse_time_index_key(key: &[u8]) -> Option<(u64, Hash)> {
+	if key.len() != size_of::<u64>() + size_of::<Hash>() {
+		log::error!(target: LOG_TARGET, "Corrupt time index key: {:?}", HexDisplay::from(&key));
+		return None;
+	}
+	let (time, hash) = key.split_at(size_of::<u64>());
+	Some((u64::from_be_bytes(time.try_into().ok()?), hash.try_into().ok()?))
+}
+
+/// Per-statement details tracked inside a per-account record; also the (SCALE-encoded) value of
+/// the statement's [`col::INDEX_BY_ACCOUNT`] row.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct EntryDetails {
+	channel: Option<Channel>,
+	data_len: usize,
+	admission_seq: u64,
+}
+
+impl Encode for EntryDetails {
+	fn size_hint(&self) -> usize {
+		self.channel.size_hint() +
+			(self.data_len as u32).size_hint() +
+			self.admission_seq.size_hint()
+	}
+
+	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
+		self.channel.encode_to(dest);
+		(self.data_len as u32).encode_to(dest);
+		self.admission_seq.encode_to(dest);
+	}
+}
+
+impl Decode for EntryDetails {
+	fn decode<I: codec::Input>(input: &mut I) -> std::result::Result<Self, codec::Error> {
+		let (channel, data_len, admission_seq) = <(Option<Channel>, u32, u64)>::decode(input)?;
+		Ok(EntryDetails { channel, data_len: data_len as usize, admission_seq })
+	}
+}
+
+/// The two rows tying a statement into the per-account and expiry indexes; written on insert
+/// (`details` carries the account row's value) and deleted with `None`.
+fn account_index_ops(
+	account: &AccountId,
+	expiry: Expiry,
+	hash: &Hash,
+	details: Option<&EntryDetails>,
+) -> [(u8, Vec<u8>, Option<Vec<u8>>); 2] {
+	[
+		(
+			col::INDEX_BY_ACCOUNT,
+			account_index_key(account, expiry, hash),
+			details.map(EntryDetails::encode),
+		),
+		(
+			col::INDEX_BY_EXPIRY,
+			expiry_index_key(expiry, hash),
+			details.map(|_| INDEX_EMPTY_VALUE.to_vec()),
+		),
+	]
+}
+
+/// The account id immediately after `account` in the index ordering, or `None` when `account`
+/// is the maximum id.
+fn next_account_id(mut account: AccountId) -> Option<AccountId> {
+	for byte in account.iter_mut().rev() {
+		match byte.checked_add(1) {
+			Some(incremented) => {
+				*byte = incremented;
+				return Some(account);
+			},
+			None => *byte = 0,
+		}
+	}
+	None
+}
+
+/// Extracts the trailing hash from a composite index key, if it is long enough.
+fn hash_from_index_key(key: &[u8]) -> Option<Hash> {
+	let Some(prefix_len) = key.len().checked_sub(size_of::<Hash>()) else {
+		log::error!(target: LOG_TARGET, "Corrupt index key: {:?}", HexDisplay::from(&key));
+		return None;
+	};
+	key[prefix_len..].try_into().ok()
+}
+
+/// The prefix of a composite index key — everything before the trailing hash — if it is long
+/// enough.
+fn prefix_from_index_key(key: &[u8]) -> Option<&[u8]> {
+	let Some(prefix_len) = key.len().checked_sub(size_of::<Hash>()) else {
+		log::error!(target: LOG_TARGET, "Corrupt index key: {:?}", HexDisplay::from(&key));
+		return None;
+	};
+	Some(&key[..prefix_len])
 }
 
 /// Builds the index-column operations for a statement's topic and decryption-key entries. With
@@ -215,7 +460,7 @@ impl Expiry {
 	}
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 struct PriorityKey {
 	hash: Hash,
 	expiry: Expiry,
@@ -242,7 +487,7 @@ struct ChannelEntry {
 #[derive(Default)]
 struct StatementsForAccount {
 	// Statements ordered by priority.
-	by_priority: BTreeMap<PriorityKey, (Option<Channel>, usize)>,
+	by_priority: BTreeMap<PriorityKey, EntryDetails>,
 	// Channel to statement map. Only one statement per channel is allowed.
 	channels: HashMap<Channel, ChannelEntry>,
 	// Sum of all `Data` field sizes.
@@ -250,16 +495,21 @@ struct StatementsForAccount {
 }
 
 impl StatementsForAccount {
-	/// Returns an iterator over statements that have expired by `current_time`.
-	fn expired_by_iter(
-		&self,
-		current_time: u64,
-	) -> impl Iterator<Item = (&PriorityKey, &(Option<Channel>, usize))> {
-		let range = PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..PriorityKey {
-			hash: Hash::default(),
-			expiry: Expiry(current_time << 32),
-		};
-		self.by_priority.range(range)
+	fn insert_entry(&mut self, hash: Hash, expiry: Expiry, details: EntryDetails) {
+		self.data_size += details.data_len;
+		if let Some(channel) = details.channel {
+			self.channels.insert(channel, ChannelEntry { hash, expiry });
+		}
+		self.by_priority.insert(PriorityKey { hash, expiry }, details);
+	}
+
+	fn remove_entry(&mut self, key: &PriorityKey) -> Option<EntryDetails> {
+		let details = self.by_priority.remove(key)?;
+		self.data_size -= details.data_len;
+		if let Some(channel) = details.channel {
+			self.channels.remove(&channel);
+		}
+		Some(details)
 	}
 }
 
@@ -321,7 +571,7 @@ struct QueryIndex {
 	// TODO: Remove counters; replace them with a merge-join/leapfrog1
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
-	recent: HashSet<Hash>,
+	recent: HashMap<Hash, u64>,
 }
 
 impl QueryIndex {
@@ -329,22 +579,13 @@ impl QueryIndex {
 		QueryIndex {
 			topic_counts: HashMap::new(),
 			dec_key_counts: HashMap::new(),
-			recent: HashSet::new(),
+			recent: HashMap::new(),
 		}
 	}
 
-	/// Bumps cardinality counters for a statement seen at startup (no cache, not marked recent).
-	fn note_initial(&mut self, statement: &Statement) {
-		let mut nt = 0;
-		while let Some(topic) = statement.topic(nt) {
-			*self.topic_counts.entry(topic).or_insert(0) += 1;
-			nt += 1;
-		}
-		*self.dec_key_counts.entry(statement.decryption_key()).or_insert(0) += 1;
-	}
-
-	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent.
-	fn note_insert(&mut self, hash: Hash, statement: &Statement) {
+	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent
+	/// under its admission sequence number.
+	fn note_insert(&mut self, hash: Hash, statement: &Statement, seq: u64) {
 		let mut nt = 0;
 		while let Some(topic) = statement.topic(nt) {
 			*self.topic_counts.entry(topic).or_insert(0) += 1;
@@ -352,7 +593,7 @@ impl QueryIndex {
 		}
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
-		self.recent.insert(hash);
+		self.recent.insert(hash, seq);
 	}
 
 	/// Records a removed statement: decrements cardinalities and drops the hash from `recent`.
@@ -377,24 +618,43 @@ impl QueryIndex {
 		self.recent.remove(hash);
 	}
 
-	/// Takes and clears the set of recently added hashes.
-	fn take_recent(&mut self) -> HashSet<Hash> {
+	/// Takes and clears the set of recently added hashes with their admission sequence numbers.
+	fn take_recent(&mut self) -> HashMap<Hash, u64> {
 		std::mem::take(&mut self.recent)
 	}
 }
 
-/// Index for submit operations (constraint checking, entries, accounts).
-#[derive(Default)]
+/// Statement count and total data size of one account.
+#[derive(Clone, Copy)]
+struct AccountSummary {
+	count: usize,
+	data_size: usize,
+}
+
+/// In-memory part of the submit index (constraint checking, quota enforcement).
+///
+/// The authoritative per-statement data lives on disk in [`col::INDEX_BY_ACCOUNT`] /
+/// [`col::INDEX_BY_EXPIRY`]; this structure holds bounded write-through caches over it plus the
+/// global counters.
 struct SubmitIndex {
-	/// Statement hash → (account, expiry/priority, data size); the authoritative set of stored
-	/// statements.
-	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
-	/// Per-account tracking (priority-ordered hashes, channels, size) for quota enforcement.
-	accounts: HashMap<AccountId, StatementsForAccount>,
-	/// Accounts still pending an expiry/limit check by `enforce_limits`.
-	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
+	/// Cached per-account detail records. Bounded by [`Self::cached_statement_count`]
+	/// against [`DETAILS_CACHE_BUDGET`].
+	account_statements: LruMap<AccountId, StatementsForAccount>,
+	/// Total number of statements across all cached records in [`Self::account_statements`].
+	cached_statement_count: usize,
+	/// Cached per-account count/size summaries. Cheap enough to cover many more accounts than
+	/// the details cache; lets `submit` skip loading the full record for channel-less statements
+	/// well within their quota, and lets `enforce_limits` skip accounts within their allowance.
+	summaries: LruMap<AccountId, AccountSummary>,
+	/// Resume point of the incremental per-account allowance sweep in `enforce_limits`: the
+	/// account id to continue the scan from, or `None` when a new pass starts from the beginning.
+	allowance_cursor: Option<AccountId>,
+	/// Number of accounts already seen by the current allowance sweep pass.
+	allowance_cycle_seen: usize,
 	/// Store configuration (global limits, purge period).
 	config: Config,
+	/// Number of stored statements.
+	statement_count: usize,
 	/// Running total of data size across all stored statements.
 	total_size: usize,
 	evicted_count: usize,
@@ -453,45 +713,43 @@ pub struct Store {
 		Box<dyn Fn(&AccountId, AllowanceBlock) -> Result<Option<StatementAllowance>> + Send + Sync>,
 	subscription_manager: SubscriptionsHandle,
 	keystore: Arc<LocalKeystore>,
+	/// Number of accounts with stored statements. Reported by `maintain`; may lag the
+	/// exact value by up to one sweep cycle.
+	known_accounts_count: AtomicUsize,
 	// Used for testing
 	time_override: Option<u64>,
 	metrics: PrometheusMetrics,
 }
 
-/// Outcome of [`SubmitIndex::make_expired`].
-enum Eviction {
-	/// The statement was removed; it had already reached its natural expiry, so it is not banned
-	/// from re-acceptance.
-	Removed,
-	/// The statement was removed and is banned from re-acceptance until this timestamp.
-	Banned(u64),
-}
-
 impl ReplaySnapshotProvider for Weak<Store> {
-	fn with_snapshot_hashes(
+	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
+		let Some(store) = self.upgrade() else {
+			return Err(Error::InvalidConfig("statement store is closed".into()));
+		};
+		store.register_replay(enqueue)
+	}
+
+	fn replay_batch(
 		&self,
 		filter: &OptimizedTopicFilter,
-		enqueue: &mut dyn FnMut(Vec<Hash>),
-	) -> Result<()> {
+		cursor: u64,
+		watermark: u64,
+	) -> Result<ReplayBatch> {
 		let Some(store) = self.upgrade() else {
 			return Err(Error::InvalidConfig("statement store is closed".into()));
 		};
-		store.with_snapshot_hashes(filter, enqueue)
-	}
-
-	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
-		let Some(store) = self.upgrade() else {
-			return Err(Error::InvalidConfig("statement store is closed".into()));
-		};
-		store.statement_by_hash(hash)
+		store.replay_batch(filter, cursor, watermark)
 	}
 }
 
-/// What [`SubmitIndex::insert`] evicted to make room for a new statement.
-struct InsertOutcome {
-	/// All hashes removed from the index. Their bodies must be deleted and their read-index
-	/// entries cleared.
-	evicted: HashSet<Hash>,
+/// What admitting a new statement will claim and evict, as decided by
+/// [`SubmitIndex::plan_insert`].
+struct InsertPlan {
+	/// Admission sequence the new statement will claim.
+	seq: u64,
+	/// The account's own statements that must be evicted to make room. Their bodies and on-disk
+	/// index rows must be deleted.
+	evicted: Vec<(PriorityKey, EntryDetails)>,
 	/// The subset of `evicted` that is banned from re-acceptance, with its purge deadline. These
 	/// must be recorded in the on-disk evicted journal.
 	banned: Vec<(Hash, u64)>,
@@ -540,18 +798,85 @@ impl IndexSet {
 
 impl SubmitIndex {
 	fn new(config: Config) -> SubmitIndex {
-		SubmitIndex { config, ..Default::default() }
+		SubmitIndex {
+			// The real bound is [`Self::cached_statement_count`], enforced by
+			// [`Self::cache_record`]; this length limiter must never trigger on its own, and
+			// cannot: every record costs at least one unit, so the cost trimming keeps the
+			// length at or below the budget.
+			account_statements: LruMap::new(ByLength::new(u32::MAX)),
+			summaries: LruMap::new(ByLength::new(SUMMARY_CACHE_ACCOUNTS)),
+			config,
+			statement_count: 0,
+			total_size: 0,
+			next_seq: 0,
+			cached_statement_count: 0,
+			allowance_cursor: None,
+			allowance_cycle_seen: 0,
+			evicted_count: 0,
+			recent_seqs: HashMap::new(),
+			active_scan_floors: BTreeMap::new(),
+		}
 	}
 
-	/// Assigns and returns the next store sequence number for `hash`, recording it in `recent_seqs`
-	/// while a snapshot scan is active.
-	fn note_seq(&mut self, hash: Hash) -> u64 {
-		let seq = self.next_seq;
-		self.next_seq += 1;
+	/// The [`KEY_COUNTERS`] row reflecting the given post-commit totals. Folded into every
+	/// mutating commit.
+	fn counters_op(
+		statement_count: usize,
+		total_size: usize,
+		next_seq: u64,
+	) -> (u8, Vec<u8>, Option<Vec<u8>>) {
+		(
+			col::META,
+			KEY_COUNTERS.to_vec(),
+			Some((statement_count as u64, total_size as u64, next_seq).encode()),
+		)
+	}
+
+	/// Removes the account's record from the details cache, keeping the cost accounting exact.
+	fn uncache_record(&mut self, account: &AccountId) -> Option<StatementsForAccount> {
+		let record = self.account_statements.remove(account)?;
+		self.cached_statement_count -= record.by_priority.len();
+		Some(record)
+	}
+
+	/// Puts a record (back) into the details cache, then evicts the least-recently-used records
+	/// while the total number of cached statements exceeds the budget. A single record larger
+	/// than the whole budget is kept: the cache never trims below one entry.
+	fn cache_record(&mut self, account: AccountId, record: StatementsForAccount) {
+		if record.by_priority.is_empty() {
+			return;
+		}
+		self.cached_statement_count += record.by_priority.len();
+		self.account_statements.insert(account, record);
+		while self.cached_statement_count > DETAILS_CACHE_BUDGET &&
+			self.account_statements.len() > 1
+		{
+			match self.account_statements.pop_oldest() {
+				Some((_, evicted)) => self.cached_statement_count -= evicted.by_priority.len(),
+				None => break,
+			}
+		}
+	}
+
+	/// Puts a record into the details cache together with the summary derived from it. An
+	/// account with no statements is represented in both caches by absence, so an empty record
+	/// refreshes neither.
+	fn cache_record_with_summary(&mut self, account: AccountId, record: StatementsForAccount) {
+		if !record.by_priority.is_empty() {
+			self.summaries.insert(
+				account,
+				AccountSummary { count: record.by_priority.len(), data_size: record.data_size },
+			);
+		}
+		self.cache_record(account, record);
+	}
+
+	/// Records a sequence number in the snapshot window, once its statement and admission entries
+	/// have committed atomically. The number itself is claimed earlier, by [`Self::insert`].
+	fn note_seq(&mut self, hash: Hash, seq: u64) {
 		if !self.active_scan_floors.is_empty() {
 			self.recent_seqs.insert(hash, seq);
 		}
-		seq
 	}
 
 	/// Registers a subscription snapshot scan and returns its watermark.
@@ -584,61 +909,20 @@ impl SubmitIndex {
 		}
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
-		let expiry = Expiry(statement.expiry());
-		self.entries.insert(hash, (account, expiry, statement.data_len()));
-		self.total_size += statement.data_len();
-		let account_info = self.accounts.entry(account).or_default();
-		account_info.data_size += statement.data_len();
-		if let Some(channel) = statement.channel() {
-			account_info.channels.insert(channel, ChannelEntry { hash, expiry });
-		}
-		account_info
-			.by_priority
-			.insert(PriorityKey { hash, expiry }, (statement.channel(), statement.data_len()));
-	}
-
-	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> Option<Eviction> {
-		if let Some((account, expiry, len)) = self.entries.remove(hash) {
-			self.total_size -= len;
-			let eviction = if current_time < expiry.get_expiration_timestamp_secs() {
-				let purge_at = expiry
-					.get_expiration_timestamp_secs()
-					.min(current_time.saturating_add(self.config.purge_after_sec));
-				self.evicted_count += 1;
-				Eviction::Banned(purge_at)
-			} else {
-				Eviction::Removed
-			};
-			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
-				self.accounts.entry(account)
-			{
-				let key = PriorityKey { hash: *hash, expiry };
-				if let Some((channel, len)) = account_rec.get_mut().by_priority.remove(&key) {
-					account_rec.get_mut().data_size -= len;
-					if let Some(channel) = channel {
-						account_rec.get_mut().channels.remove(&channel);
-					}
-				}
-				if account_rec.get().by_priority.is_empty() {
-					account_rec.remove_entry();
-				}
-			}
-			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
-			Some(eviction)
-		} else {
-			None
-		}
-	}
-
-	fn insert(
-		&mut self,
+	/// Pure constraint check for admitting `statement`: decides, without mutating anything, which
+	/// of the account's own statements must be evicted to make room, or why the statement cannot
+	/// be admitted. `record` is the account's current state; global limits are checked against
+	/// the in-memory counters. The store never evicts other accounts' statements to admit a new
+	/// one — when global limits cannot be met from this account alone, the statement is rejected.
+	fn plan_insert(
+		&self,
+		record: &StatementsForAccount,
 		hash: Hash,
 		statement: &Statement,
 		account: &AccountId,
 		validation: &StatementAllowance,
 		current_time: u64,
-	) -> std::result::Result<InsertOutcome, RejectionReason> {
+	) -> std::result::Result<InsertPlan, RejectionReason> {
 		let statement_len = statement.data_len();
 		if statement_len > validation.max_size as usize {
 			log::debug!(
@@ -654,86 +938,92 @@ impl SubmitIndex {
 			});
 		}
 
-		let mut evicted = HashSet::new();
+		let mut evicted: Vec<(PriorityKey, EntryDetails)> = Vec::new();
+		let mut evicted_hashes = HashSet::new();
 		let mut would_free_size = 0;
 		let expiry = Expiry(statement.expiry());
 		let (max_size, max_count) = (validation.max_size as usize, validation.max_count as usize);
 		// It may happen that we can't delete enough lower priority messages
 		// to satisfy size constraints. We check for that before deleting anything,
 		// taking into account channel message replacement.
-		if let Some(account_rec) = self.accounts.get(account) {
-			if let Some(channel) = statement.channel() {
-				if let Some(channel_record) = account_rec.channels.get(&channel) {
-					if expiry <= channel_record.expiry {
-						// Trying to replace channel message with lower expiry.
-						log::debug!(
-							target: LOG_TARGET,
-							"Ignored lower priority channel message from account {}: {:?} {:?} <= {:?}",
-							HexDisplay::from(account),
-							HexDisplay::from(&hash),
-							expiry,
-							channel_record.expiry,
-						);
-						return Err(RejectionReason::ChannelPriorityTooLow {
-							submitted_expiry: expiry.0,
-							min_expiry: channel_record.expiry.0,
-						});
-					} else {
-						// Would replace channel message. Still need to check for size constraints
-						// below.
-						log::debug!(
-							target: LOG_TARGET,
-							"Replacing higher priority channel message from account {}: {:?} ({:?}) > {:?} ({:?})",
-							HexDisplay::from(account),
-							HexDisplay::from(&hash),
-							expiry,
-							HexDisplay::from(&channel_record.hash),
-							channel_record.expiry,
-						);
-						let key = PriorityKey {
-							hash: channel_record.hash,
-							expiry: channel_record.expiry,
-						};
-						if let Some((_channel, len)) = account_rec.by_priority.get(&key) {
-							would_free_size += *len;
-							evicted.insert(channel_record.hash);
-						}
-					}
-				}
-			}
-			// Check if we can evict enough lower priority statements to satisfy constraints
-			for (entry, (_, len)) in account_rec.by_priority.iter() {
-				if (account_rec.data_size - would_free_size + statement_len <= max_size) &&
-					account_rec.by_priority.len() + 1 - evicted.len() <= max_count
-				{
-					// Satisfied
-					break;
-				}
-				if evicted.contains(&entry.hash) {
-					// Already accounted for above
-					continue;
-				}
-				if entry.expiry >= expiry {
+		if let Some(channel) = statement.channel() {
+			if let Some(channel_record) = record.channels.get(&channel) {
+				if expiry <= channel_record.expiry {
+					// Trying to replace channel message with lower expiry.
 					log::debug!(
 						target: LOG_TARGET,
-						"Ignored message from account {} due to constraints {:?} {:?} < {:?}",
+						"Ignored lower priority channel message from account {}: {:?} {:?} <= {:?}",
 						HexDisplay::from(account),
 						HexDisplay::from(&hash),
 						expiry,
-						entry.expiry,
+						channel_record.expiry,
 					);
-					return Err(RejectionReason::AccountFull {
+					return Err(RejectionReason::ChannelPriorityTooLow {
 						submitted_expiry: expiry.0,
-						min_expiry: entry.expiry.0,
+						min_expiry: channel_record.expiry.0,
+					});
+				} else {
+					// Would replace channel message. Still need to check for size constraints
+					// below.
+					log::debug!(
+						target: LOG_TARGET,
+						"Replacing higher priority channel message from account {}: {:?} ({:?}) > {:?} ({:?})",
+						HexDisplay::from(account),
+						HexDisplay::from(&hash),
+						expiry,
+						HexDisplay::from(&channel_record.hash),
+						channel_record.expiry,
+					);
+					let key =
+						PriorityKey { hash: channel_record.hash, expiry: channel_record.expiry };
+					if let Some(details) = record.by_priority.get(&key) {
+						would_free_size += details.data_len;
+						evicted_hashes.insert(key.hash);
+						evicted.push((key, *details));
+					}
+				}
+			}
+		}
+		// Check if we can evict enough lower priority statements to satisfy constraints
+		for (entry, details) in record.by_priority.iter() {
+			if (record.data_size - would_free_size + statement_len <= max_size) &&
+				record.by_priority.len() + 1 - evicted_hashes.len() <= max_count
+			{
+				// Satisfied
+				break;
+			}
+			if evicted_hashes.contains(&entry.hash) {
+				// Already accounted for above
+				continue;
+			}
+			if entry.expiry >= expiry {
+				log::debug!(
+					target: LOG_TARGET,
+					"Ignored message from account {} due to constraints {:?} {:?} < {:?}",
+					HexDisplay::from(account),
+					HexDisplay::from(&hash),
+					expiry,
+					entry.expiry,
+				);
+				let retained_size = record.data_size - would_free_size;
+				if retained_size + statement_len > max_size {
+					return Err(RejectionReason::DataTooLarge {
+						submitted_size: statement_len,
+						available_size: max_size.saturating_sub(retained_size),
 					});
 				}
-				evicted.insert(entry.hash);
-				would_free_size += len;
+				return Err(RejectionReason::AccountFull {
+					submitted_expiry: expiry.0,
+					min_expiry: entry.expiry.0,
+				});
 			}
+			evicted_hashes.insert(entry.hash);
+			would_free_size += details.data_len;
+			evicted.push((*entry, *details));
 		}
 		// Now check global constraints as well.
 		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size) &&
-			self.entries.len() + 1 - evicted.len() <= self.config.max_total_statements)
+			self.statement_count + 1 - evicted.len() <= self.config.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -741,19 +1031,117 @@ impl SubmitIndex {
 				HexDisplay::from(&hash),
 				HexDisplay::from(account),
 				self.total_size,
-				self.entries.len(),
+				self.statement_count,
 			);
 			return Err(RejectionReason::StoreFull);
 		}
 
-		let mut banned = Vec::new();
-		for h in &evicted {
-			if let Some(Eviction::Banned(purge_at)) = self.make_expired(h, current_time) {
-				banned.push((*h, purge_at));
+		let banned = evicted
+			.iter()
+			.filter_map(|(key, _)| {
+				let expiry_ts = key.expiry.get_expiration_timestamp_secs();
+				(current_time < expiry_ts).then(|| {
+					(
+						key.hash,
+						expiry_ts.min(current_time.saturating_add(self.config.purge_after_sec)),
+					)
+				})
+			})
+			.collect();
+		Ok(InsertPlan { seq: self.next_seq, evicted, banned })
+	}
+
+	/// Applies a committed insertion to the caches and counters. `loaded_record` carries the
+	/// account's record when planning had to load it from disk; with `None` the cached copy (if
+	/// any) is updated in place, which also covers the summary fast path where no record was
+	/// materialised at all.
+	fn apply_insert(
+		&mut self,
+		account: &AccountId,
+		loaded_record: Option<StatementsForAccount>,
+		hash: Hash,
+		statement: &Statement,
+		plan: &InsertPlan,
+	) {
+		let statement_len = statement.data_len();
+		let freed: usize = plan.evicted.iter().map(|(_, details)| details.data_len).sum();
+		self.statement_count = self.statement_count + 1 - plan.evicted.len();
+		self.total_size = self.total_size + statement_len - freed;
+		self.evicted_count += plan.banned.len();
+		self.next_seq = plan.seq.saturating_add(1);
+		self.note_seq(hash, plan.seq);
+		for (key, _) in &plan.evicted {
+			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(&key.hash));
+		}
+		let details = EntryDetails {
+			channel: statement.channel(),
+			data_len: statement_len,
+			admission_seq: plan.seq,
+		};
+		match loaded_record.or_else(|| self.uncache_record(account)) {
+			Some(mut record) => {
+				for (key, _) in &plan.evicted {
+					record.remove_entry(key);
+				}
+				record.insert_entry(hash, Expiry(statement.expiry()), details);
+				self.cache_record_with_summary(*account, record);
+			},
+			None => {
+				// Summary fast path: no record was materialised, only the summary is maintained.
+				assert!(plan.evicted.is_empty());
+				if let Some(summary) = self.summaries.get(account) {
+					summary.count += 1;
+					summary.data_size += statement_len;
+				}
+			},
+		}
+	}
+
+	/// Applies the committed removal of one statement to the caches and counters.
+	fn apply_removal(
+		&mut self,
+		account: &AccountId,
+		key: &PriorityKey,
+		data_len: usize,
+		banned: bool,
+	) {
+		self.statement_count = self.statement_count.saturating_sub(1);
+		self.total_size = self.total_size.saturating_sub(data_len);
+		if banned {
+			self.evicted_count += 1;
+		}
+		if let Some(record) = self.account_statements.peek_mut(account) {
+			if record.remove_entry(key).is_some() {
+				self.cached_statement_count -= 1;
+			}
+			if record.by_priority.is_empty() {
+				self.account_statements.remove(account);
 			}
 		}
-		self.insert_new(hash, *account, statement);
-		Ok(InsertOutcome { evicted, banned })
+		if let Some(summary) = self.summaries.peek_mut(account) {
+			summary.count = summary.count.saturating_sub(1);
+			summary.data_size = summary.data_size.saturating_sub(data_len);
+			if summary.count == 0 {
+				self.summaries.remove(account);
+			}
+		}
+	}
+
+	/// Applies the committed removal of an account's every statement to the caches and counters.
+	fn apply_account_removal(
+		&mut self,
+		account: &AccountId,
+		removed_count: usize,
+		freed_size: usize,
+		banned_count: usize,
+	) {
+		self.statement_count = self.statement_count.saturating_sub(removed_count);
+		self.total_size = self.total_size.saturating_sub(freed_size);
+		self.evicted_count += banned_count;
+		if let Some(record) = self.account_statements.remove(account) {
+			self.cached_statement_count -= record.by_priority.len();
+		}
+		self.summaries.remove(account);
 	}
 }
 
@@ -836,6 +1224,7 @@ impl Store {
 			query_index: RwLock::new(QueryIndex::new()),
 			read_allowance_fn,
 			keystore,
+			known_accounts_count: AtomicUsize::new(0),
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
 			subscription_manager: SubscriptionsHandle::new(
@@ -862,7 +1251,8 @@ impl Store {
 		while migrate_config.columns.len() < col::COUNT as usize {
 			// `add_column` takes the options by value, so build a fresh one each iteration.
 			let mut new_column_options = parity_db::ColumnOptions::default();
-			new_column_options.btree_index = true;
+			let column = migrate_config.columns.len() as u8;
+			new_column_options.btree_index = BTREE_COLUMNS.contains(&column);
 			parity_db::Db::add_column(&mut migrate_config, new_column_options)
 				.map_err(|e| Error::Db(e.to_string()))?;
 		}
@@ -877,7 +1267,7 @@ impl Store {
 		statement_col.ref_counted = false;
 		statement_col.preimage = true;
 		statement_col.uniform = true;
-		for c in [col::INDEX_BY_TOPIC, col::INDEX_BY_DEC_KEY, col::INDEX_EVICTED] {
+		for c in BTREE_COLUMNS {
 			db_config.columns[c as usize].btree_index = true;
 		}
 		parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))
@@ -914,97 +1304,299 @@ impl Store {
 		}
 	}
 
-	/// Create memory index from the data.
-	// This may be moved to a background thread if it slows startup too much.
+	/// Restore the in-memory state from the database at startup. Statement bodies are never
+	/// decoded here, so startup cost does not depend on the size of the stored statements.
+	///
+	/// A database written by an older version is first migrated with [`Self::migrate_database`].
 	// This function should only be used on startup. There should be no other DB operations when
 	// iterating the index.
 	fn populate(&self, migrate_index: bool) -> Result<()> {
-		// Holding both locks here is fine: this runs at startup before any statements are
-		// processed, so there is no contention.
-		let migration_ops = {
+		if migrate_index {
+			self.migrate_database()?;
+		}
+
+		{
 			let mut submit_index = self.submit_index.write();
 			let mut query_index = self.query_index.write();
-			let mut migration_ops: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = Vec::new();
-			self.db
-				.iter_column_while(col::STATEMENTS, |item| {
-					let statement = item.value;
-					if let Ok(statement) = Statement::decode(&mut statement.as_slice()) {
-						let hash = statement.hash();
-						log::trace!(
-							target: LOG_TARGET,
-							"Statement loaded {:?}",
-							HexDisplay::from(&hash)
-						);
-						if let Some(account_id) = statement.account_id() {
-							submit_index.insert_new(hash, account_id, &statement);
-							query_index.note_initial(&statement);
-							if migrate_index {
-								migration_ops.extend(statement_index_ops(&hash, &statement, true));
-							}
-						} else {
-							log::debug!(
-								target: LOG_TARGET,
-								"Error decoding statement loaded from the DB: {:?}",
-								HexDisplay::from(&hash)
-							);
-						}
-					}
-					true
-				})
-				.map_err(|e| Error::Db(e.to_string()))?;
+
+			if let Some(counters) =
+				self.db.get(col::META, KEY_COUNTERS).map_err(|e| Error::Db(e.to_string()))?
+			{
+				let (statement_count, total_size, next_seq) =
+					<(u64, u64, u64)>::decode(&mut counters.as_slice())
+						.map_err(|_| Error::Db("Error reading the store counters".into()))?;
+				submit_index.statement_count = statement_count as usize;
+				submit_index.total_size = total_size as usize;
+				submit_index.next_seq = next_seq;
+			}
+			// While `next_seq` already holds the correct admission sequence number, it costs close
+			// to nothing to check if the `next_seq` is consistent on the startup, and it can
+			// catch a bug which could otherwise escape silently.
+			let mut iter =
+				self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
+			iter.seek_to_last().map_err(|e| Error::Db(e.to_string()))?;
+			if let Some((key, _)) = iter.prev().map_err(|e| Error::Db(e.to_string()))? {
+				let seq = u64::from_be_bytes(
+					key.try_into()
+						.map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
+				);
+				if submit_index.next_seq <= seq {
+					log::error!(
+						target: LOG_TARGET,
+						"The store counters lag the admission journal (next_seq {} <= last \
+						 admission {}); recovering. This must be a bug, please report.",
+						submit_index.next_seq,
+						seq,
+					);
+					submit_index.next_seq = seq.saturating_add(1);
+				}
+			}
+
 			let mut evicted_count = 0usize;
 			self.db
-				.iter_column_while(col::EXPIRED, |item| {
-					let expired_info = item.value;
-					if let Ok((hash, timestamp)) =
-						<(Hash, u64)>::decode(&mut expired_info.as_slice())
-					{
-						log::trace!(
-							target: LOG_TARGET,
-							"Statement loaded (expired): {:?}",
-							HexDisplay::from(&hash)
-						);
-						evicted_count += 1;
-						if migrate_index {
-							let purge_at =
-								timestamp.saturating_add(submit_index.config.purge_after_sec);
-							migration_ops.push((
-								col::INDEX_EVICTED,
-								evicted_index_key(purge_at, &hash),
-								Some(INDEX_EMPTY_VALUE.to_vec()),
-							));
-						}
-					}
+				.iter_column_while(col::EXPIRED, |_| {
+					evicted_count += 1;
 					true
 				})
 				.map_err(|e| Error::Db(e.to_string()))?;
 			submit_index.evicted_count = evicted_count;
-			migration_ops
-		};
 
-		if migrate_index {
-			// Commit the rebuilt index in bounded chunks, then mark the database as migrated.
-			const MIGRATION_CHUNK: usize = 100_000;
-			let total = migration_ops.len();
-			for chunk in migration_ops.chunks(MIGRATION_CHUNK) {
-				self.db.commit(chunk.iter().cloned()).map_err(|e| Error::Db(e.to_string()))?;
+			// Read-side cardinality counters, rebuilt from the index keys alone.
+			for (prefix, count) in self.count_index_prefixes(col::INDEX_BY_TOPIC)? {
+				let Ok(topic) = <[u8; 32]>::try_from(prefix.as_slice()).map(Topic::from) else {
+					log::error!(
+						target: LOG_TARGET,
+						"Corrupt topic index prefix: {:?}",
+						HexDisplay::from(&prefix)
+					);
+					continue;
+				};
+				query_index.topic_counts.insert(topic, count);
 			}
-			self.db
-				.commit([(
-					col::META,
-					KEY_VERSION.to_vec(),
-					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-				)])
-				.map_err(|e| Error::Db(e.to_string()))?;
-			log::info!(
-				target: LOG_TARGET,
-				"Migrated statement store read index to the on-disk format ({} entries)",
-				total
-			);
+			for (prefix, count) in self.count_index_prefixes(col::INDEX_BY_DEC_KEY)? {
+				let Some(dec_key) = parse_dec_key_index_prefix(&prefix) else { continue };
+				query_index.dec_key_counts.insert(dec_key, count);
+			}
 		}
 
+		self.known_accounts_count.store(self.count_accounts()?, AtomicOrdering::Relaxed);
 		self.maintain();
 		Ok(())
+	}
+
+	/// Rebuilds every derived column from the authoritative
+	/// `STATEMENTS` and `EXPIRED` columns. Existing rows are rewritten in place, so the migration
+	/// is idempotent and safe to re-run after an interruption; the version is bumped only after
+	/// everything else has been committed.
+	fn migrate_database(&self) -> Result<()> {
+		let purge_after_sec = self.submit_index.read().config.purge_after_sec;
+		// Admission entries persisted by an earlier version keep their sequence numbers;
+		// statements lacking one (all of them, on a migration from version 1) get fresh numbers.
+		let mut admission_seqs = HashMap::new();
+		let mut next_seq = 0u64;
+		{
+			let mut iter =
+				self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
+			iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+			while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+				let seq = u64::from_be_bytes(
+					key.try_into()
+						.map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
+				);
+				let hash: Hash = value
+					.as_slice()
+					.try_into()
+					.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
+				admission_seqs.insert(hash, seq);
+				next_seq = next_seq.max(seq.saturating_add(1));
+			}
+		}
+
+		let mut migration = MigrationBatch::new(&self.db);
+		let mut migration_error = None;
+		let mut statement_count = 0usize;
+		let mut total_size = 0usize;
+		self.db
+			.iter_column_while(col::STATEMENTS, |item| {
+				let Ok(statement) = Statement::decode(&mut item.value.as_slice()) else {
+					log::error!(
+						target: LOG_TARGET,
+						"Corrupt statement {:?}",
+						HexDisplay::from(&sp_statement_store::hash_encoded(&item.value))
+					);
+					return true;
+				};
+				let hash = statement.hash();
+				let Some(account) = statement.account_id() else {
+					log::error!(
+						target: LOG_TARGET,
+						"Statement without an account id loaded from the DB: {:?}",
+						HexDisplay::from(&hash)
+					);
+					return true;
+				};
+				log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
+				let persisted_seq = admission_seqs.remove(&hash);
+				let seq = persisted_seq.unwrap_or_else(|| {
+					let seq = next_seq;
+					next_seq = seq.saturating_add(1);
+					seq
+				});
+				statement_count += 1;
+				total_size += statement.data_len();
+				let details = EntryDetails {
+					channel: statement.channel(),
+					data_len: statement.data_len(),
+					admission_seq: seq,
+				};
+				let admission_op = persisted_seq.is_none().then(|| DbOperation {
+					column: col::ADMISSION_SEQ,
+					key: seq.to_be_bytes().to_vec(),
+					value: Some(hash.to_vec()),
+				});
+				let operations = statement_index_ops(&hash, &statement, true)
+					.into_iter()
+					.chain(account_index_ops(
+						&account,
+						Expiry(statement.expiry()),
+						&hash,
+						Some(&details),
+					))
+					.map(DbOperation::from)
+					.chain(admission_op);
+				if let Err(error) = migration.extend(operations) {
+					migration_error = Some(error);
+					return false;
+				}
+				true
+			})
+			.map_err(|e| Error::Db(e.to_string()))?;
+		if let Some(error) = migration_error.take() {
+			return Err(error);
+		}
+
+		self.db
+			.iter_column_while(col::EXPIRED, |item| {
+				if let Ok((hash, timestamp)) = <(Hash, u64)>::decode(&mut item.value.as_slice()) {
+					log::trace!(
+						target: LOG_TARGET,
+						"Statement loaded (expired): {:?}",
+						HexDisplay::from(&hash)
+					);
+					let purge_at = timestamp.saturating_add(purge_after_sec);
+					let operation = DbOperation {
+						column: col::INDEX_EVICTED,
+						key: evicted_index_key(purge_at, &hash),
+						value: Some(INDEX_EMPTY_VALUE.to_vec()),
+					};
+					if let Err(error) = migration.push(operation) {
+						migration_error = Some(error);
+						return false;
+					}
+				}
+				true
+			})
+			.map_err(|e| Error::Db(e.to_string()))?;
+		if let Some(error) = migration_error {
+			return Err(error);
+		}
+
+		migration.push(SubmitIndex::counters_op(statement_count, total_size, next_seq).into())?;
+		let migrated_entries = migration.finish()?;
+		self.db
+			.commit([(
+				col::META,
+				KEY_VERSION.to_vec(),
+				Some(CURRENT_VERSION.to_le_bytes().to_vec()),
+			)])
+			.map_err(|e| Error::Db(e.to_string()))?;
+		log::info!(
+			target: LOG_TARGET,
+			"Migrated the statement store index to the on-disk format ({} rows)",
+			migrated_entries
+		);
+		Ok(())
+	}
+
+	/// Counts, for every distinct prefix (the key minus its trailing 32-byte hash), the number of
+	/// entries in a btree index column. The keys iterate in order, so each prefix's entries form
+	/// one contiguous run.
+	fn count_index_prefixes(&self, column: u8) -> Result<Vec<(Vec<u8>, usize)>> {
+		let mut counts: Vec<(Vec<u8>, usize)> = Vec::new();
+		let mut iter = self.db.iter(column).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let Some(prefix) = prefix_from_index_key(&key) else { continue };
+			match counts.last_mut() {
+				Some((last, count)) if last.as_slice() == prefix => *count += 1,
+				_ => counts.push((prefix.to_vec(), 1)),
+			}
+		}
+		Ok(counts)
+	}
+
+	/// First account at or after `from` in the on-disk per-account index. Corrupt keys are skipped
+	/// rather than treated as the end of the index: they must not disable allowance enforcement
+	/// for the accounts sorted after them.
+	fn next_account_from(&self, from: &AccountId) -> Result<Option<AccountId>> {
+		let mut iter = self.db.iter(col::INDEX_BY_ACCOUNT).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(&from[..]).map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			if let Some((account, _, _)) = parse_account_index_key(&key) {
+				return Ok(Some(account));
+			}
+		}
+		Ok(None)
+	}
+
+	/// Number of accounts with at least one stored statement, counted by hopping over the
+	/// distinct account prefixes of the on-disk per-account index.
+	fn count_accounts(&self) -> Result<usize> {
+		let mut count = 0usize;
+		let mut cursor = [0u8; 32];
+		while let Some(account) = self.next_account_from(&cursor)? {
+			count += 1;
+			match next_account_id(account) {
+				Some(next) => cursor = next,
+				None => break,
+			}
+		}
+		Ok(count)
+	}
+
+	/// Reads every per-account index row of `account`, in priority order.
+	fn load_account_entries(
+		&self,
+		account: &AccountId,
+	) -> Result<Vec<(PriorityKey, EntryDetails)>> {
+		let mut entries = Vec::new();
+		let mut iter = self.db.iter(col::INDEX_BY_ACCOUNT).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(&account[..]).map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			if !key.starts_with(&account[..]) {
+				break;
+			}
+			let Some((_, expiry, hash)) = parse_account_index_key(&key) else { continue };
+			let Ok(details) = EntryDetails::decode(&mut value.as_slice()) else {
+				log::error!(
+					target: LOG_TARGET,
+					"Corrupt account index row for statement {:?}",
+					HexDisplay::from(&hash)
+				);
+				continue;
+			};
+			entries.push((PriorityKey { hash, expiry }, details));
+		}
+		Ok(entries)
+	}
+
+	/// Assembles an account's in-memory record from its on-disk index rows.
+	fn load_account_record(&self, account: &AccountId) -> Result<StatementsForAccount> {
+		let mut record = StatementsForAccount::default();
+		for (key, details) in self.load_account_entries(account)? {
+			record.insert_entry(key.hash, key.expiry, details);
+		}
+		Ok(record)
 	}
 
 	/// Scans an on-disk btree index column for every hash whose key starts with `prefix`.
@@ -1178,7 +1770,7 @@ impl Store {
 		match Statement::decode(&mut entry.as_slice()) {
 			Ok(statement) => Ok(Some(statement)),
 			Err(_) => {
-				log::warn!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
 				Ok(None)
 			},
 		}
@@ -1205,24 +1797,15 @@ impl Store {
 		Ok(result)
 	}
 
-	// Collects expired and over-allowance statement hashes for a single account.
-	fn collect_evictions(
+	/// Evicts the lowest-priority statements of `account` while it exceeds its on-chain
+	/// allowance, spending at most `budget` evictions. Statements already past their expiry are
+	/// neither counted against the allowance nor evicted here — the expiry sweep reaps them.
+	fn enforce_account_allowance(
 		&self,
 		account: &AccountId,
-		account_rec: &StatementsForAccount,
 		current_time: u64,
-	) -> Vec<Hash> {
-		let mut to_evict = Vec::new();
-		let mut expired_count = 0usize;
-		let mut expired_size = 0usize;
-		for (key, (_, len)) in account_rec.expired_by_iter(current_time) {
-			to_evict.push(key.hash);
-			expired_count += 1;
-			expired_size += len;
-		}
-
-		// Enforce allowances for remaining (non-expired) statements, we use the finalized block to
-		// make sure we enforce allowances based on the correct chain state.
+		budget: &mut usize,
+	) {
 		let allowance = match (self.read_allowance_fn)(account, AllowanceBlock::Finalized) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
@@ -1236,125 +1819,216 @@ impl Store {
 			Err(e) => {
 				log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
 				// Skip allowance enforcement for this account on error
-				return to_evict;
+				return;
 			},
 		};
+		let (max_count, max_size) = (allowance.max_count as usize, allowance.max_size as usize);
 
-		// Calculate remaining count and size after expiring statements
-		let mut remaining_count = account_rec.by_priority.len() - expired_count;
-		let mut remaining_size = account_rec.data_size - expired_size;
-
-		// Evict lowest priority statements that exceed allowance
-		if remaining_count > allowance.max_count as usize ||
-			remaining_size > allowance.max_size as usize
-		{
-			log::debug!(
-				target: LOG_TARGET,
-				"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
-				HexDisplay::from(account),
-				remaining_count,
-				allowance.max_count,
-				remaining_size,
-				allowance.max_size
-			);
-
-			// Skip expired statements (they're at the beginning due to BTreeMap ordering)
-			for (key, (_, len)) in account_rec.by_priority.iter().skip(expired_count) {
-				if remaining_count <= allowance.max_count as usize &&
-					remaining_size <= allowance.max_size as usize
-				{
-					break;
-				}
-				to_evict.push(key.hash);
-				remaining_count -= 1;
-				remaining_size -= len;
-				log::debug!(
-					target: LOG_TARGET,
-					"Evicting statement {:?} due to allowance enforcement",
-					HexDisplay::from(&key.hash)
-				);
+		// A cached summary proving the account within its allowance saves the disk scan. The
+		// summary also counts expired-but-unswept statements, so it can only overestimate usage,
+		// which is fine for a within-limit conclusion; the over-limit path recounts from disk.
+		if let Some(summary) = self.submit_index.read().summaries.peek(account) {
+			if summary.count <= max_count && summary.data_size <= max_size {
+				return;
 			}
 		}
 
-		to_evict
-	}
-
-	// Checks for expired statements and enforces allowances, marking violating statements
-	// as expired in the index.
-	//
-	// This function performs incremental checking to avoid blocking the store for too long.
-	// It processes accounts in batches and stops when any of these limits are reached:
-	// - `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statements found to expire/evict
-	// - `MAX_EXPIRY_ACCOUNTS_PER_ITERATION` accounts checked
-	// - `MAX_EXPIRY_TIME_MS_PER_ITERATION` milliseconds elapsed
-	//
-	// The function maintains a list of accounts to check (`accounts_to_check_for_expiry_stmts`).
-	// When this list is empty, it repopulates it with all current accounts and returns early,
-	// deferring the actual check to the next call. This ensures the process eventually covers
-	// all accounts across multiple invocations.
-	//
-	// Statements are considered expired when their priority (which encodes the expiration
-	// timestamp in the upper 32 bits) is less than the current timestamp.
-	fn enforce_limits(&self) {
-		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
-		let current_time = self.timestamp();
-
-		let (to_evict, num_accounts_checked) = {
-			let submit_index = self.submit_index.upgradable_read();
-			if submit_index.accounts_to_check_for_expiry_stmts.is_empty() {
-				let existing_accounts = submit_index.accounts.keys().cloned().collect::<Vec<_>>();
-				let mut submit_index = RwLockUpgradableReadGuard::upgrade(submit_index);
-				submit_index.accounts_to_check_for_expiry_stmts = existing_accounts;
+		let entries = match self.load_account_entries(account) {
+			Ok(entries) => entries,
+			Err(e) => {
+				log::warn!(target: LOG_TARGET, "Error reading the account index: {:?}", e);
 				return;
-			}
-
-			let mut to_evict = Vec::new();
-			let mut num_accounts_checked = 0;
-			let start = Instant::now();
-
-			for account in submit_index.accounts_to_check_for_expiry_stmts.iter().rev() {
-				num_accounts_checked += 1;
-				if let Some(account_rec) = submit_index.accounts.get(account) {
-					to_evict.extend(self.collect_evictions(account, account_rec, current_time));
-				}
-
-				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
-					num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION ||
-					start.elapsed() >= MAX_EXPIRY_TIME_PER_ITERATION
-				{
-					break;
-				}
-			}
-
-			(to_evict, num_accounts_checked)
+			},
 		};
+		let expiry_bound = Expiry(current_time << 32);
+		let mut remaining_count = 0usize;
+		let mut remaining_size = 0usize;
+		for (key, details) in &entries {
+			if key.expiry >= expiry_bound {
+				remaining_count += 1;
+				remaining_size += details.data_len;
+			}
+		}
+		if remaining_count <= max_count && remaining_size <= max_size {
+			return;
+		}
+		log::debug!(
+			target: LOG_TARGET,
+			"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
+			HexDisplay::from(account),
+			remaining_count,
+			allowance.max_count,
+			remaining_size,
+			allowance.max_size
+		);
 
-		let mut expired = 0;
-
-		for hash in to_evict {
-			if let Err(e) = self.remove(&hash) {
+		// Evict lowest priority statements that exceed allowance
+		for (key, details) in &entries {
+			if (remaining_count <= max_count && remaining_size <= max_size) || *budget == 0 {
+				break;
+			}
+			if key.expiry < expiry_bound {
+				continue;
+			}
+			log::debug!(
+				target: LOG_TARGET,
+				"Evicting statement {:?} due to allowance enforcement",
+				HexDisplay::from(&key.hash)
+			);
+			if let Err(e) = self.remove(&key.hash) {
 				log::debug!(
 					target: LOG_TARGET,
-					"Error marking statement {:?} as expired: {:?}",
-					HexDisplay::from(&hash),
+					"Error evicting statement {:?}: {:?}",
+					HexDisplay::from(&key.hash),
 					e
 				);
 			} else {
-				expired += 1;
-				log::trace!(
-					target: LOG_TARGET,
-					"Marked statement {:?} as expired",
-					HexDisplay::from(&hash)
-				);
+				*budget -= 1;
+				remaining_count -= 1;
+				remaining_size -= details.data_len;
+			}
+		}
+	}
+
+	// Reaps expired statements and enforces per-account allowances against the on-disk index.
+	//
+	// Expired statements form a prefix of the global expiry index ([`col::INDEX_BY_EXPIRY`]), so
+	// the sweep costs time proportional to the number of due statements, not to the store size.
+	// Allowance enforcement then walks the accounts of [`col::INDEX_BY_ACCOUNT`] incrementally,
+	// resuming from where the previous call stopped (`allowance_cursor`), so the process
+	// eventually covers all accounts across multiple invocations.
+	//
+	// The two phases are budgeted independently: each gets its own
+	// `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statement budget and its own
+	// `MAX_EXPIRY_TIME_PER_ITERATION` time slice, and allowance enforcement is additionally
+	// bounded by `MAX_EXPIRY_ACCOUNTS_PER_ITERATION` accounts checked. The isolation matters:
+	// with shared budgets, a store whose expiry inflow persistently exceeds the expiry budget
+	// (a full store with a short TTL) would never get an allowance pass at all.
+	//
+	// Statements are considered expired when their expiry (which encodes the expiration
+	// timestamp in the upper 32 bits) is less than the current timestamp.
+	/// Reap expired statements and enforce per-account allowances (one bounded pass); runs
+	/// periodically from the background task. Hidden: exposed only for the benchmarks.
+	#[doc(hidden)]
+	pub fn enforce_limits(&self) {
+		self.enforce_limits_bounded(
+			MAX_EXPIRY_STATEMENTS_PER_ITERATION,
+			MAX_EXPIRY_ACCOUNTS_PER_ITERATION,
+			MAX_EXPIRY_TIME_PER_ITERATION,
+		)
+	}
+
+	/// Body of [`Self::enforce_limits`] with the per-call bounds as parameters, letting the
+	/// tests drive the incremental sweep with budgets small enough to need several calls.
+	/// `statement_budget` and `time_budget` apply to each phase separately.
+	fn enforce_limits_bounded(
+		&self,
+		statement_budget: usize,
+		account_budget: usize,
+		time_budget: Duration,
+	) {
+		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
+		let current_time = self.timestamp();
+		let start = Instant::now();
+		let mut expired = 0u64;
+
+		// Phase 1: reap statements past their expiry, straight off the expiry index.
+		let mut due = Vec::new();
+		let scan = (|| -> Result<()> {
+			let mut iter =
+				self.db.iter(col::INDEX_BY_EXPIRY).map_err(|e| Error::Db(e.to_string()))?;
+			iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+			while let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+				let Some((expiry, hash)) = parse_time_index_key(&key) else { continue };
+				if expiry >= (current_time << 32) {
+					// Entries are ordered by expiry, so nothing further is due.
+					break;
+				}
+				due.push((expiry, hash));
+				if due.len() >= statement_budget || start.elapsed() >= time_budget {
+					break;
+				}
+			}
+			Ok(())
+		})();
+		if let Err(e) = scan {
+			log::warn!(target: LOG_TARGET, "Error scanning the expiry index: {:?}", e);
+		}
+		for (expiry, hash) in due {
+			match self.remove_statement(&hash) {
+				Ok(true) => {
+					expired += 1;
+					log::trace!(
+						target: LOG_TARGET,
+						"Marked statement {:?} as expired",
+						HexDisplay::from(&hash)
+					);
+				},
+				// The row survived its statement: either a concurrent removal won the race (and
+				// deleted the row along with the body), or the store is inconsistent.
+				Ok(false) => self.report_orphan_expiry_row(expiry, &hash),
+				Err(e) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"Error marking statement {:?} as expired: {:?}",
+						HexDisplay::from(&hash),
+						e
+					);
+				},
 			}
 		}
 
-		let mut submit_index = self.submit_index.write();
-		let new_len = submit_index
-			.accounts_to_check_for_expiry_stmts
-			.len()
-			.saturating_sub(num_accounts_checked);
-		submit_index.accounts_to_check_for_expiry_stmts.truncate(new_len);
+		// Phase 2: enforce allowances account by account, resuming from the cursor. The phase
+		// runs on its own statement and time budgets: with shared ones, a sustained expiry
+		// backlog exhausting phase 1's budget on every pass would starve allowance enforcement
+		// indefinitely.
+		let allowance_start = Instant::now();
+		let mut allowance_budget = statement_budget;
+		let mut cursor = self.submit_index.read().allowance_cursor;
+		let mut checked = 0usize;
+		let mut wrapped = false;
+		while checked < account_budget &&
+			allowance_budget > 0 &&
+			allowance_start.elapsed() < time_budget
+		{
+			let from = cursor.unwrap_or([0u8; 32]);
+			let account = match self.next_account_from(&from) {
+				Ok(Some(account)) => account,
+				Ok(None) => {
+					wrapped = true;
+					break;
+				},
+				Err(e) => {
+					log::warn!(target: LOG_TARGET, "Error reading the account index: {:?}", e);
+					break;
+				},
+			};
+			checked += 1;
+			let budget_before = allowance_budget;
+			self.enforce_account_allowance(&account, current_time, &mut allowance_budget);
+			expired += (budget_before - allowance_budget) as u64;
+			cursor = match next_account_id(account) {
+				next @ Some(_) => next,
+				None => {
+					wrapped = true;
+					break;
+				},
+			};
+		}
+		{
+			let mut submit_index = self.submit_index.write();
+			submit_index.allowance_cycle_seen += checked;
+			if wrapped {
+				// A full pass over the account index just completed; it is the only place where
+				// the total number of accounts is (re)counted.
+				self.known_accounts_count
+					.store(submit_index.allowance_cycle_seen, AtomicOrdering::Relaxed);
+				submit_index.allowance_cycle_seen = 0;
+				submit_index.allowance_cursor = None;
+			} else {
+				submit_index.allowance_cursor = cursor;
+			}
+		}
 
 		drop(_start_check_expiration_timer);
 
@@ -1376,18 +2050,12 @@ impl Store {
 				let Some((key, _)) = iter.next().map_err(|e| Error::Db(e.to_string()))? else {
 					break;
 				};
-				if key.len() < 8 {
-					continue;
-				}
-				let mut purge_at_bytes = [0u8; 8];
-				purge_at_bytes.copy_from_slice(&key[0..8]);
-				if u64::from_be_bytes(purge_at_bytes) > current_time {
+				let Some((purge_at, hash)) = parse_time_index_key(&key) else { continue };
+				if purge_at > current_time {
 					// Entries are ordered by purge time, so nothing further is due.
 					break;
 				}
-				if let Some(hash) = hash_from_index_key(&key) {
-					commit.push((col::EXPIRED, hash.to_vec(), None));
-				}
+				commit.push((col::EXPIRED, hash.to_vec(), None));
 				commit.push((col::INDEX_EVICTED, key, None));
 				drained += 1;
 			}
@@ -1421,26 +2089,19 @@ impl Store {
 			},
 		};
 
-		let (
-			active_count,
-			expired_count,
-			total_size,
-			accounts_count,
-			capacity_statements,
-			capacity_bytes,
-		) = {
+		let (active_count, expired_count, total_size, capacity_statements, capacity_bytes) = {
 			let mut submit_index = self.submit_index.write();
 			submit_index.evicted_count =
 				submit_index.evicted_count.saturating_sub(deleted_count as usize);
 			(
-				submit_index.entries.len(),
+				submit_index.statement_count,
 				submit_index.evicted_count,
 				submit_index.total_size,
-				submit_index.accounts.len(),
 				submit_index.config.max_total_statements,
 				submit_index.config.max_total_size,
 			)
 		};
+		let accounts_count = self.known_accounts_count.load(AtomicOrdering::Relaxed);
 
 		if deleted_count > 0 {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
@@ -1553,27 +2214,135 @@ impl StatementStore for Store {
 			else {
 				continue;
 			};
-			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-				result.push((hash, statement));
+			match Statement::decode(&mut encoded.as_slice()) {
+				Ok(statement) => result.push((hash, statement)),
+				Err(_) => log::error!(
+					target: LOG_TARGET,
+					"Corrupt statement {:?}",
+					HexDisplay::from(&hash)
+				),
 			}
 		}
 		Ok(result)
 	}
 
-	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
+	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
 		let recent = self.query_index.write().take_recent();
 		let mut result = Vec::with_capacity(recent.len());
-		for hash in recent {
+		for (hash, seq) in recent {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
 				continue;
 			};
-			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
-				result.push((hash, statement));
+			match Statement::decode(&mut encoded.as_slice()) {
+				Ok(statement) => result.push((seq, hash, statement)),
+				Err(_) => log::error!(
+					target: LOG_TARGET,
+					"Corrupt statement {:?}",
+					HexDisplay::from(&hash)
+				),
 			}
 		}
+		result.sort_unstable_by_key(|(seq, ..)| *seq);
 		Ok(result)
+	}
+
+	fn admission_watermark(&self) -> Result<u64> {
+		// Every admission commits its journal row under the submit-index write lock before
+		// releasing it, so a lock holder observes every sequence number below `next_seq`
+		// already persisted.
+		Ok(self.submit_index.read().next_seq)
+	}
+
+	fn admitted_statements(
+		&self,
+		mut cursor: u64,
+		watermark: u64,
+		scan_limit: usize,
+		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
+	) -> Result<AdmittedBatch> {
+		// A cursor past the watermark would snap back to it below, moving the caller's
+		// position backwards.
+		debug_assert!(
+			cursor <= watermark,
+			"admission cursor {cursor} must not exceed the watermark {watermark}"
+		);
+		debug_assert!(scan_limit > 0, "a zero scan limit cannot advance the cursor");
+		let mut statements = Vec::new();
+		let mut aborted = false;
+		let mut scanned = 0usize;
+		let mut iter = self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek(&cursor.to_be_bytes()).map_err(|e| Error::Db(e.to_string()))?;
+
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let seq = u64::from_be_bytes(
+				key.try_into().map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
+			);
+			if seq >= watermark {
+				cursor = watermark;
+				break;
+			}
+			if scanned == scan_limit {
+				aborted = true;
+				break;
+			}
+			scanned += 1;
+			let hash: Hash = value
+				.as_slice()
+				.try_into()
+				.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
+			let next_cursor = seq.saturating_add(1);
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				cursor = next_cursor;
+				continue;
+			};
+			// The admission row is deleted atomically with the statement it admits, so re-reading
+			// it after the body confirms that this sequence number is still the statement's
+			// current admission (and not a stale row of an evicted-and-readmitted statement).
+			let is_current = self
+				.db
+				.get(col::ADMISSION_SEQ, &seq.to_be_bytes())
+				.map_err(|e| Error::Db(e.to_string()))?
+				.is_some_and(|current| current.as_slice() == hash.as_slice());
+			if !is_current {
+				cursor = next_cursor;
+				continue;
+			}
+			let statement = match Statement::decode(&mut encoded.as_slice()) {
+				Ok(statement) => statement,
+				Err(e) => {
+					log::error!(
+						target: LOG_TARGET,
+						"Could not decode statement {:?} while walking the admission journal: {:?}",
+						HexDisplay::from(&hash),
+						e
+					);
+					cursor = next_cursor;
+					continue;
+				},
+			};
+			match filter(&hash, &encoded, &statement) {
+				FilterDecision::Skip => cursor = next_cursor,
+				FilterDecision::Take => {
+					statements.push((hash, statement));
+					cursor = next_cursor;
+				},
+				FilterDecision::Abort => {
+					aborted = true;
+					break;
+				},
+			}
+		}
+
+		// The journal can end below the watermark when the newest admissions were removed;
+		// nothing is left to visit there, so the walk is complete.
+		if !aborted && cursor < watermark {
+			cursor = watermark;
+		}
+		Ok(AdmittedBatch { statements, cursor, done: cursor >= watermark })
 	}
 
 	/// Read a single statement directly from the `STATEMENTS` database column by hash and decode
@@ -1591,10 +2360,14 @@ impl StatementStore for Store {
 						"Queried statement {:?}",
 						HexDisplay::from(hash)
 					);
-					Some(
-						Statement::decode(&mut entry.as_slice())
-							.map_err(|e| Error::Decode(e.to_string()))?,
-					)
+					Some(Statement::decode(&mut entry.as_slice()).map_err(|e| {
+						log::error!(
+							target: LOG_TARGET,
+							"Corrupt statement {:?}",
+							HexDisplay::from(hash)
+						);
+						Error::Decode(e.to_string())
+					})?)
 				},
 				None => {
 					log::trace!(
@@ -1623,13 +2396,6 @@ impl StatementStore for Store {
 		}
 	}
 
-	fn statement_hashes(&self) -> Vec<Hash> {
-		self.enumerate_hashes().unwrap_or_else(|e| {
-			log::warn!(target: LOG_TARGET, "Error enumerating statement hashes: {:?}", e);
-			Vec::new()
-		})
-	}
-
 	fn statements_by_hashes(
 		&self,
 		hashes: &[Hash],
@@ -1644,7 +2410,10 @@ impl StatementStore for Store {
 			else {
 				continue;
 			};
-			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else { continue };
+			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				continue;
+			};
 			match filter(hash, &encoded, &statement) {
 				FilterDecision::Skip => {},
 				FilterDecision::Take => {
@@ -1755,9 +2524,10 @@ impl StatementStore for Store {
 	///    (`SubmitResult::Invalid(InvalidReason::AlreadyExpired)`).
 	/// 2. **Encoding size check** — reject if the encoded statement exceeds [`MAX_STATEMENT_SIZE`]
 	///    (`InvalidReason::EncodingTooLarge`).
-	/// 3. **Duplicate check** — look the hash up in the index. Whether a known or known-expired
-	///    statement may be resubmitted depends on the [`StatementSource`]: `Chain` and `Local` can
-	///    renew an expired statement, `Network` cannot (`SubmitResult::Known` / `KnownExpired`).
+	/// 3. **Duplicate check** — a statement already in the store is reported `Known`: the hash
+	///    covers the whole content, so a duplicate carries nothing to renew. A recently evicted
+	///    statement may be resubmitted (renewed) by `Chain` and `Local` sources but not by
+	///    `Network` (`SubmitResult::KnownExpired`).
 	/// 4. **Proof & signature** — extract the account from the proof and verify the signature
 	///    (`InvalidReason::NoProof` / `InvalidReason::BadProof`).
 	/// 5. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
@@ -1765,19 +2535,20 @@ impl StatementStore for Store {
 	///    key — not a runtime call); reject with `SubmitResult::Rejected(NoAllowance)` if none is
 	///    set. The best block is used for responsiveness; a statement accepted here may later be
 	///    evicted when limits are enforced against the finalized block.
-	/// 6. **Constraint check & eviction** — insert into the submit index, enforcing per-account
+	/// 6. **Constraint check & eviction** — check the account's record, enforcing per-account
 	///    limits (count, size, one statement per channel, higher priority replaces lower) and
 	///    global limits ([`DEFAULT_MAX_TOTAL_STATEMENTS`], [`DEFAULT_MAX_TOTAL_SIZE`]), evicting
-	///    lower-priority statements as needed (`SubmitResult::Rejected` if it still does not fit).
-	/// 7. **Persist** — write the new statement and any evictions to the database, then update the
-	///    in-memory query index.
+	///    lower-priority statements of the same account as needed (`SubmitResult::Rejected` if it
+	///    still does not fit).
+	/// 7. **Persist** — commit the statement, its index rows, any evictions and the refreshed
+	///    counters atomically, then update the caches and the in-memory query index.
 	///
 	/// Returns `SubmitResult::New` on success.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
-		if self.timestamp() >= statement.get_expiration_timestamp_secs().into() {
+		if statement.is_expired(self.timestamp()) {
 			log::debug!(
 				target: LOG_TARGET,
 				"Statement is already expired: {:?}",
@@ -1809,8 +2580,9 @@ impl StatementStore for Store {
 		}
 
 		// Deduplicate against statements we already store (in-memory submit index) or have recently
-		// evicted (on-disk evicted journal).
-		if self.submit_index.read().entries.contains_key(&hash) {
+		// evicted (on-disk evicted journal). Both checks are lock-free; a duplicate slipping
+		// past this early check is caught again under the write lock below.
+		if self.db.get_size(col::STATEMENTS, hash.as_slice()).ok().flatten().is_some() {
 			if !source.can_be_resubmitted() {
 				self.metrics.report(|metrics| {
 					metrics.known_statements.with_label_values(&["known"]).inc();
@@ -1874,11 +2646,11 @@ impl StatementStore for Store {
 		// does not make it into the finalized chain, but this is an acceptable tradeoff for
 		// better responsiveness to allowance changes.
 		let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {
-			Ok(Some(allowance)) => allowance,
-			Ok(None) => {
+			Ok(Some(allowance)) if !allowance.is_depleted() => allowance,
+			Ok(Some(_)) | Ok(None) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Account {} has no statement allowance set",
+					"Account {} has no usable statement allowance",
 					HexDisplay::from(&account_id),
 				);
 				let reason = RejectionReason::NoAllowance;
@@ -1901,45 +2673,143 @@ impl StatementStore for Store {
 		};
 
 		let current_time = self.timestamp();
-		let (evicted, seq) = {
+		let seq = {
 			let mut submit_index = self.submit_index.write();
 
-			let outcome =
-				match submit_index.insert(hash, &statement, &account_id, &validation, current_time)
-				{
-					Ok(outcome) => outcome,
-					Err(reason) => {
-						self.metrics.report(|metrics| {
-							metrics.rejections.with_label_values(&[reason.label()]).inc();
-						});
-						return SubmitResult::Rejected(reason);
-					},
-				};
+			// Re-check for a duplicate under the write lock. Without
+			// it, a double insertion would double-count the statement in the global counters and
+			// in the account's quota.
+			match self.db.get_size(col::STATEMENTS, hash.as_slice()) {
+				Ok(Some(_)) => {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known"]).inc();
+					});
+					return SubmitResult::Known;
+				},
+				Ok(None) => {},
+				Err(e) => {
+					self.metrics.report(|metrics| {
+						metrics.internal_errors.with_label_values(&["db_read"]).inc();
+					});
+					return SubmitResult::InternalError(Error::Db(e.to_string()));
+				},
+			}
 
+			let statement_len = statement.data_len();
+			// The account record is materialised only when the constraint check actually needs
+			// it: a channel-less statement from an account whose cached summary shows headroom
+			// is admitted without touching the account's on-disk index at all, and an oversize
+			// statement is rejected by `plan_insert` before it ever looks at the record.
+			let oversize = statement_len > validation.max_size as usize;
+			let cached = submit_index.account_statements.peek(&account_id).is_some();
+			let summary_admits = !cached &&
+				statement.channel().is_none() &&
+				submit_index.summaries.peek(&account_id).is_some_and(|summary| {
+					summary.count < validation.max_count as usize &&
+						summary.data_size + statement_len <= validation.max_size as usize
+				}) && submit_index.statement_count <
+				submit_index.config.max_total_statements &&
+				submit_index.total_size + statement_len <= submit_index.config.max_total_size;
+			let loaded_record = if cached || summary_admits || oversize {
+				None
+			} else {
+				match self.load_account_record(&account_id) {
+					Ok(record) => Some(record),
+					Err(e) => {
+						self.metrics.report(|metrics| {
+							metrics.internal_errors.with_label_values(&["db_read"]).inc();
+						});
+						return SubmitResult::InternalError(e);
+					},
+				}
+			};
+
+			let empty_record = StatementsForAccount::default();
+			let record = loaded_record
+				.as_ref()
+				.or_else(|| submit_index.account_statements.peek(&account_id))
+				.unwrap_or(&empty_record);
+			let plan = match submit_index.plan_insert(
+				record,
+				hash,
+				&statement,
+				&account_id,
+				&validation,
+				current_time,
+			) {
+				Ok(plan) => plan,
+				Err(reason) => {
+					self.metrics.report(|metrics| {
+						metrics.rejections.with_label_values(&[reason.label()]).inc();
+					});
+					// The rejection left the store untouched, so a record loaded for planning
+					// still mirrors the disk. Cache it: rejections cost the sender nothing, and
+					// dropping the record here would let rejected submissions against a large
+					// account rescan its whole on-disk index, under the write lock, on every
+					// attempt.
+					if let Some(record) = loaded_record {
+						submit_index.cache_record_with_summary(account_id, record);
+					}
+					return SubmitResult::Rejected(reason);
+				},
+			};
+
+			// Build the whole admission as one atomic commit
 			let mut commit = Vec::new();
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+			commit.push((col::ADMISSION_SEQ, plan.seq.to_be_bytes().to_vec(), Some(hash.to_vec())));
 			commit.extend(statement_index_ops(&hash, &statement, true));
+			let details = EntryDetails {
+				channel: statement.channel(),
+				data_len: statement_len,
+				admission_seq: plan.seq,
+			};
+			commit.extend(account_index_ops(
+				&account_id,
+				Expiry(statement.expiry()),
+				&hash,
+				Some(&details),
+			));
 
 			let mut evicted_statements = Vec::new();
-			for h in &outcome.evicted {
-				commit.push((col::STATEMENTS, h.to_vec(), None));
-				match self.db.get(col::STATEMENTS, h) {
-					Ok(Some(encoded)) => {
-						if let Ok(evicted_statement) = Statement::decode(&mut encoded.as_slice()) {
-							commit.extend(statement_index_ops(h, &evicted_statement, false));
+			for (key, evicted_details) in &plan.evicted {
+				commit.push((col::STATEMENTS, key.hash.to_vec(), None));
+				commit.push((
+					col::ADMISSION_SEQ,
+					evicted_details.admission_seq.to_be_bytes().to_vec(),
+					None,
+				));
+				commit.extend(account_index_ops(&account_id, key.expiry, &key.hash, None));
+				match self.db.get(col::STATEMENTS, &key.hash) {
+					Ok(Some(encoded)) => match Statement::decode(&mut encoded.as_slice()) {
+						Ok(evicted_statement) => {
+							commit.extend(statement_index_ops(
+								&key.hash,
+								&evicted_statement,
+								false,
+							));
 							evicted_statements.push(evicted_statement);
-						}
+						},
+						Err(_) => log::error!(
+							target: LOG_TARGET,
+							"Corrupt statement {:?}",
+							HexDisplay::from(&key.hash)
+						),
 					},
-					Ok(None) => {},
+					Ok(None) => log::error!(
+						target: LOG_TARGET,
+						"Missing body of the indexed statement {:?}",
+						HexDisplay::from(&key.hash)
+					),
 					Err(e) => log::warn!(
 						target: LOG_TARGET,
 						"Could not read evicted statement {:?} to clear its index: {:?}",
-						HexDisplay::from(h),
+						HexDisplay::from(&key.hash),
 						e
 					),
 				}
 			}
-			for (h, purge_at) in &outcome.banned {
+			for (h, purge_at) in &plan.banned {
 				commit.push((col::EXPIRED, h.to_vec(), Some((h, current_time).encode())));
 				commit.push((
 					col::INDEX_EVICTED,
@@ -1947,6 +2817,12 @@ impl StatementStore for Store {
 					Some(INDEX_EMPTY_VALUE.to_vec()),
 				));
 			}
+			let freed: usize = plan.evicted.iter().map(|(_, details)| details.data_len).sum();
+			commit.push(SubmitIndex::counters_op(
+				submit_index.statement_count + 1 - plan.evicted.len(),
+				submit_index.total_size + statement_len - freed,
+				plan.seq.saturating_add(1),
+			));
 
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -1960,124 +2836,115 @@ impl StatementStore for Store {
 				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
-			let seq = submit_index.note_seq(hash);
-			(evicted_statements, seq)
-		}; // Release submit index lock
-		{
-			let mut query_index = self.query_index.write();
-			for h in &evicted {
-				query_index.note_remove(&h.hash(), h);
+			let seq = plan.seq;
+			submit_index.apply_insert(&account_id, loaded_record, hash, &statement, &plan);
+			// The query-index bookkeeping is applied under the same lock that ordered the
+			// commit: a concurrent removal racing a resubmission of the same statement can then
+			// never apply its stale update on top of this newer one (#12624). The notification
+			// stays outside — its ordering is protected by the sequence watermark, not the lock.
+			{
+				let mut query_index = self.query_index.write();
+				for evicted_statement in &evicted_statements {
+					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
+				}
+				query_index.note_insert(hash, &statement, plan.seq);
 			}
-			query_index.note_insert(hash, &statement);
-		} // Release read index lock
+			seq
+		}; // Release submit index lock
 		self.subscription_manager.notify(seq, statement);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
 	}
 
-	/// Soft-delete a statement by hash: mark it expired in the index, drop it from the `STATEMENTS`
-	/// column, and record it in the `EXPIRED` column so it cannot be re-accepted until its purge
-	/// period elapses (see [`maintain`](Self::maintain)). No-op if the statement is unknown.
+	/// Soft-delete a statement by hash: drop it and its index rows from the database, and record
+	/// it in the `EXPIRED` column so it cannot be re-accepted until its purge period elapses (see
+	/// [`maintain`](Self::maintain)). No-op if the statement is unknown.
 	fn remove(&self, hash: &Hash) -> Result<()> {
-		let current_time = self.timestamp();
-		let removed_statement = {
-			let mut submit_index = self.submit_index.write();
-			// Read the body under the submit-index lock: a concurrent first-time submit could
-			// otherwise commit the statement between the read and `make_expired`, and its
-			// read-index entries would never be cleared.
-			let statement =
-				match self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))? {
-					Some(encoded) => Statement::decode(&mut encoded.as_slice()).ok(),
-					None => None,
-				};
-			match submit_index.make_expired(hash, current_time) {
-				Some(eviction) => {
-					let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
-					if let Some(statement) = &statement {
-						commit.extend(statement_index_ops(hash, statement, false));
-					}
-					if let Eviction::Banned(purge_at) = eviction {
-						commit.push((
-							col::EXPIRED,
-							hash.to_vec(),
-							Some((hash, current_time).encode()),
-						));
-						commit.push((
-							col::INDEX_EVICTED,
-							evicted_index_key(purge_at, hash),
-							Some(INDEX_EMPTY_VALUE.to_vec()),
-						));
-					}
-					if let Err(e) = self.db.commit(commit) {
-						log::debug!(
-							target: LOG_TARGET,
-							"Error removing statement: database error {}, {:?}",
-							e,
-							HexDisplay::from(hash),
-						);
-						return Err(Error::Db(e.to_string()));
-					}
-					statement
-				},
-				None => None,
-			}
-		};
-		if let Some(statement) = &removed_statement {
-			self.query_index.write().note_remove(hash, statement);
-		}
-		Ok(())
+		self.remove_statement(hash).map(|_| ())
 	}
 
 	/// Remove every statement authored by `who`, applying the same soft-delete as
-	/// [`remove`](Self::remove) to each.
+	/// [`remove`](Self::remove) to each, in a single atomic commit.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()> {
 		let current_time = self.timestamp();
-		let removed_statements = {
+		{
 			let mut submit_index = self.submit_index.write();
-			let hashes: Vec<Hash> = submit_index
-				.accounts
-				.get(&who)
-				.map(|account_rec| account_rec.by_priority.keys().map(|k| k.hash).collect())
-				.unwrap_or_default();
+			// The account's statements, from the cached record when there is one, else from the
+			// on-disk index.
+			let entries: Vec<(PriorityKey, EntryDetails)> =
+				match submit_index.account_statements.peek(&who) {
+					Some(record) => {
+						record.by_priority.iter().map(|(key, details)| (*key, *details)).collect()
+					},
+					None => self.load_account_entries(&who)?,
+				};
+			if entries.is_empty() {
+				return Ok(());
+			}
 
 			let mut commit = Vec::new();
 			let mut removed_statements = Vec::new();
-			for hash in &hashes {
-				// Read the body before deleting it, to clear its query-index entries.
-				let statement = match self.db.get(col::STATEMENTS, hash) {
-					Ok(Some(encoded)) => Statement::decode(&mut encoded.as_slice()).ok(),
-					Ok(None) => None,
+			let mut banned_count = 0usize;
+			let mut freed_size = 0usize;
+			for (key, details) in &entries {
+				commit.push((col::STATEMENTS, key.hash.to_vec(), None));
+				commit.push((
+					col::ADMISSION_SEQ,
+					details.admission_seq.to_be_bytes().to_vec(),
+					None,
+				));
+				commit.extend(account_index_ops(&who, key.expiry, &key.hash, None));
+				if current_time < key.expiry.get_expiration_timestamp_secs() {
+					let purge_at = key
+						.expiry
+						.get_expiration_timestamp_secs()
+						.min(current_time.saturating_add(submit_index.config.purge_after_sec));
+					commit.push((
+						col::EXPIRED,
+						key.hash.to_vec(),
+						Some((key.hash, current_time).encode()),
+					));
+					commit.push((
+						col::INDEX_EVICTED,
+						evicted_index_key(purge_at, &key.hash),
+						Some(INDEX_EMPTY_VALUE.to_vec()),
+					));
+					banned_count += 1;
+				}
+				freed_size += details.data_len;
+				match self.db.get(col::STATEMENTS, &key.hash) {
+					Ok(Some(encoded)) => match Statement::decode(&mut encoded.as_slice()) {
+						Ok(statement) => {
+							commit.extend(statement_index_ops(&key.hash, &statement, false));
+							removed_statements.push((key.hash, statement));
+						},
+						Err(_) => log::error!(
+							target: LOG_TARGET,
+							"Corrupt statement {:?}",
+							HexDisplay::from(&key.hash)
+						),
+					},
+					Ok(None) => log::error!(
+						target: LOG_TARGET,
+						"Missing body of the indexed statement {:?}",
+						HexDisplay::from(&key.hash)
+					),
 					Err(e) => {
 						log::warn!(
 							target: LOG_TARGET,
 							"Could not read statement {:?} to clear its index: {:?}",
-							HexDisplay::from(hash),
+							HexDisplay::from(&key.hash),
 							e
 						);
-						None
 					},
-				};
-				if let Some(eviction) = submit_index.make_expired(hash, current_time) {
-					commit.push((col::STATEMENTS, hash.to_vec(), None));
-					if let Eviction::Banned(purge_at) = eviction {
-						commit.push((
-							col::EXPIRED,
-							hash.to_vec(),
-							Some((hash, current_time).encode()),
-						));
-						commit.push((
-							col::INDEX_EVICTED,
-							evicted_index_key(purge_at, hash),
-							Some(INDEX_EMPTY_VALUE.to_vec()),
-						));
-					}
-					if let Some(statement) = statement {
-						commit.extend(statement_index_ops(hash, &statement, false));
-						removed_statements.push((*hash, statement));
-					}
 				}
 			}
+			commit.push(SubmitIndex::counters_op(
+				submit_index.statement_count.saturating_sub(entries.len()),
+				submit_index.total_size.saturating_sub(freed_size),
+				submit_index.next_seq,
+			));
 			self.db.commit(commit).map_err(|e| {
 				log::debug!(
 					target: LOG_TARGET,
@@ -2088,12 +2955,11 @@ impl StatementStore for Store {
 
 				Error::Db(e.to_string())
 			})?;
-			removed_statements
-		};
-		if !removed_statements.is_empty() {
-			let mut read_index = self.query_index.write();
+			submit_index.apply_account_removal(&who, entries.len(), freed_size, banned_count);
+			// Applied under the same lock that ordered the commit (#12624).
+			let mut query_index = self.query_index.write();
 			for (hash, statement) in &removed_statements {
-				read_index.note_remove(hash, statement);
+				query_index.note_remove(hash, statement);
 			}
 		}
 		Ok(())
@@ -2120,9 +2986,10 @@ impl StatementStoreSubscriptionApi for Store {
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
 	{
-		// Exactly-once delivery via a sequence-number watermark. Under the submit-index write lock
-		// we atomically (a) capture the current sequence boundary `W` and (b) register the
-		// subscription with `W` as its watermark.
+		// Avoid overlap between the subscribe-time snapshot and live delivery using a
+		// sequence-number watermark. Under the submit-index write lock, atomically with respect
+		// to sequence assignment, capture the current boundary `W` and enqueue the subscription
+		// registration tagged with `W`.
 		let (subscription_sender, subscription_stream, watermark) = {
 			let mut submit_index = self.submit_index.write();
 			let watermark = submit_index.begin_scan();
@@ -2166,34 +3033,157 @@ impl StatementStoreSubscriptionApi for Store {
 }
 
 impl Store {
-	fn with_snapshot_hashes(
-		&self,
-		filter: &OptimizedTopicFilter,
-		enqueue: &mut dyn FnMut(Vec<Hash>),
-	) -> Result<()> {
-		// Hold the submit-index read lock across both the on-disk index scan and the `AddFilter`
-		// enqueue. `submit` assigns the statement's sequence number and commits its body under the
-		// write lock and only notifies matchers afterwards, so with the read lock held here every
-		// statement is either already committed (and therefore visible to the scan below) or its
-		// `NewStatement` notification is enqueued after the `AddFilter` message and matched live.
-		// Statements that end up in both are deduplicated by hash on the matcher side. The lock
-		// order (`submit_index` → `query_index`, taken briefly inside `iterate_with`) matches
-		// `populate`.
-		let _guard = self.submit_index.read();
-		let mut snapshot_hashes = Vec::new();
-		let mut seen = HashSet::new();
-		self.iterate_with(None, filter, |hash| {
-			if seen.insert(*hash) {
-				snapshot_hashes.push(*hash);
+	/// Body of [`StatementStore::remove`], reporting whether a statement was actually removed.
+	///
+	/// `Ok(false)` means no (decodable) statement is stored under `hash` — it was already gone,
+	/// or its body is corrupt. A corrupt body cannot be tied back to its index rows, so nothing
+	/// is removed at all.
+	fn remove_statement(&self, hash: &Hash) -> Result<bool> {
+		let current_time = self.timestamp();
+		{
+			let mut submit_index = self.submit_index.write();
+			// The body is read under the submit-index lock, so it cannot change under our feet
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				return Ok(false);
+			};
+			let Some((statement, account)) = Statement::decode(&mut encoded.as_slice())
+				.ok()
+				.and_then(|statement| statement.account_id().map(|account| (statement, account)))
+			else {
+				// A corrupt body cannot be tied back to its index rows
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+				return Ok(false);
+			};
+			let expiry = Expiry(statement.expiry());
+			let account_key = account_index_key(&account, expiry, hash);
+			let details = self
+				.db
+				.get(col::INDEX_BY_ACCOUNT, &account_key)
+				.map_err(|e| Error::Db(e.to_string()))?
+				.as_deref()
+				.and_then(|mut value| EntryDetails::decode(&mut value).ok());
+
+			let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
+			commit.extend(statement_index_ops(hash, &statement, false));
+			commit.extend(account_index_ops(&account, expiry, hash, None));
+			match &details {
+				Some(details) => commit.push((
+					col::ADMISSION_SEQ,
+					details.admission_seq.to_be_bytes().to_vec(),
+					None,
+				)),
+				// Nothing points at the admission entry any more; replay skips it once the body
+				// is gone.
+				None => log::error!(
+					target: LOG_TARGET,
+					"Missing or corrupt account index entry for statement {:?}",
+					HexDisplay::from(hash)
+				),
 			}
-			Ok(())
-		})?;
-		enqueue(snapshot_hashes);
-		Ok(())
+			let banned = current_time < expiry.get_expiration_timestamp_secs();
+			if banned {
+				let purge_at = expiry
+					.get_expiration_timestamp_secs()
+					.min(current_time.saturating_add(submit_index.config.purge_after_sec));
+				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				commit.push((
+					col::INDEX_EVICTED,
+					evicted_index_key(purge_at, hash),
+					Some(INDEX_EMPTY_VALUE.to_vec()),
+				));
+			}
+			let data_len = details
+				.as_ref()
+				.map_or_else(|| statement.data_len(), |details| details.data_len);
+			commit.push(SubmitIndex::counters_op(
+				submit_index.statement_count.saturating_sub(1),
+				submit_index.total_size.saturating_sub(data_len),
+				submit_index.next_seq,
+			));
+			if let Err(e) = self.db.commit(commit) {
+				log::debug!(
+					target: LOG_TARGET,
+					"Error removing statement: database error {}, {:?}",
+					e,
+					HexDisplay::from(hash),
+				);
+				return Err(Error::Db(e.to_string()));
+			}
+			submit_index.apply_removal(
+				&account,
+				&PriorityKey { hash: *hash, expiry },
+				data_len,
+				banned,
+			);
+			self.query_index.write().note_remove(hash, &statement);
+			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
+		}
+		Ok(true)
 	}
 
-	fn statement_by_hash(&self, hash: &Hash) -> Result<Option<Vec<u8>>> {
-		self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))
+	/// Reports an [`col::INDEX_BY_EXPIRY`] row that survived its statement,
+	/// re-checking under the submit lock — every commit happens under it — that the row is indeed
+	/// orphaned: a concurrent removal deletes the row along with its statement, and a concurrent
+	/// re-admission of the same statement recreates the same content-derived key together with a
+	/// body.
+	fn report_orphan_expiry_row(&self, expiry: u64, hash: &Hash) {
+		let _submit_index = self.submit_index.write();
+		let body = self.db.get_size(col::STATEMENTS, hash.as_slice());
+		let row = self.db.get(col::INDEX_BY_EXPIRY, &expiry_index_key(Expiry(expiry), hash));
+		match (body, row) {
+			(Ok(None), Ok(Some(_))) => log::error!(
+				target: LOG_TARGET,
+				"Orphan expiry index row for statement {:?}",
+				HexDisplay::from(hash)
+			),
+			(Err(e), _) | (_, Err(e)) => {
+				log::debug!(target: LOG_TARGET, "Error checking statement presence: {:?}", e)
+			},
+			_ => {},
+		}
+	}
+
+	fn register_replay(&self, enqueue: &mut dyn FnMut(u64) -> bool) -> Result<Option<u64>> {
+		let registered = {
+			let submit_index = self.submit_index.write();
+			let watermark = submit_index.next_seq;
+			enqueue(watermark).then_some(watermark)
+		}; // Release submit index lock
+		Ok(registered)
+	}
+
+	fn replay_batch(
+		&self,
+		filter: &OptimizedTopicFilter,
+		cursor: u64,
+		watermark: u64,
+	) -> Result<ReplayBatch> {
+		let mut statements = Vec::new();
+		let mut chunk_bytes = 0usize;
+		// Replay batches are pulled by a local subscription task, not a remote peer, so the
+		// walk is not budgeted.
+		let batch = StatementStore::admitted_statements(
+			self,
+			cursor,
+			watermark,
+			usize::MAX,
+			&mut |_, encoded, statement| {
+				if !filter.matches(statement) {
+					return FilterDecision::Skip;
+				}
+				if !statements.is_empty() && chunk_bytes + encoded.len() > REPLAY_CHUNK_RAW_BYTES {
+					return FilterDecision::Abort;
+				}
+				chunk_bytes += encoded.len();
+				statements.push(encoded.to_vec());
+				// The encoded bytes are already captured above, so the statement is reported
+				// as skipped to keep the walk from cloning it into the returned batch too.
+				FilterDecision::Skip
+			},
+		)?;
+		Ok(ReplayBatch { statements, cursor: batch.cursor, done: batch.done })
 	}
 }
 
@@ -2235,17 +3225,81 @@ impl Store {
 	fn index_has_dec_key(&self, key: &Option<DecryptionKey>, hash: &Hash) -> bool {
 		self.index_set_contains(&IndexSet::DecKey(*key), hash).unwrap_or(false)
 	}
+
+	/// Number of stored statements, per the in-memory counter.
+	fn statement_count(&self) -> usize {
+		self.submit_index.read().statement_count
+	}
+
+	/// Whether the details cache currently holds `who`'s record.
+	fn details_cached(&self, who: &AccountId) -> bool {
+		self.submit_index.read().account_statements.peek(who).is_some()
+	}
+
+	/// Whether the summary cache currently holds `who`'s entry.
+	fn summary_cached(&self, who: &AccountId) -> bool {
+		self.submit_index.read().summaries.peek(who).is_some()
+	}
+
+	/// Total stored data size, per the in-memory counter.
+	fn total_size(&self) -> usize {
+		self.submit_index.read().total_size
+	}
+
+	/// Whether `who` has at least one statement in the on-disk account index.
+	fn has_account(&self, who: &AccountId) -> bool {
+		self.next_account_from(who).expect("failed to read the account index") == Some(*who)
+	}
+
+	/// Number of accounts in the on-disk account index.
+	fn account_count(&self) -> usize {
+		self.count_accounts().expect("failed to count the accounts")
+	}
+
+	/// Inserts `statement` bypassing signature and allowance validation — used to seed
+	/// over-allowance states that `submit` would refuse to create.
+	fn force_insert(&self, statement: &Statement) {
+		let hash = statement.hash();
+		let account = statement.account_id().expect("test statements are signed; qed");
+		let mut submit_index = self.submit_index.write();
+		let seq = submit_index.next_seq;
+		let details = EntryDetails {
+			channel: statement.channel(),
+			data_len: statement.data_len(),
+			admission_seq: seq,
+		};
+		let mut commit = vec![
+			(col::STATEMENTS, hash.to_vec(), Some(statement.encode())),
+			(col::ADMISSION_SEQ, seq.to_be_bytes().to_vec(), Some(hash.to_vec())),
+		];
+		commit.extend(statement_index_ops(&hash, statement, true));
+		commit.extend(account_index_ops(
+			&account,
+			Expiry(statement.expiry()),
+			&hash,
+			Some(&details),
+		));
+		commit.push(SubmitIndex::counters_op(
+			submit_index.statement_count + 1,
+			submit_index.total_size + statement.data_len(),
+			seq.saturating_add(1),
+		));
+		self.db.commit(commit).expect("failed to commit the statement");
+		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new() };
+		submit_index.apply_insert(&account, None, hash, statement, &plan);
+		self.query_index.write().note_insert(hash, statement, seq);
+	}
 }
 
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, Store};
+	use crate::{col, Store, KEY_VERSION};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason, Statement,
-		StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
+		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -2306,6 +3360,9 @@ mod tests {
 				Some(3) => StatementAllowance::new(3, 1000),
 				Some(4) => StatementAllowance::new(4, 1000),
 				Some(42) => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				// Depleted on one axis, but still present in state.
+				Some(50) => StatementAllowance::new(0, 1000),
+				Some(51) => StatementAllowance::new(5, 0),
 				Some(_) | None => StatementAllowance::new(100, 1000),
 			};
 			Ok(Some(sc_client_api::StorageData(allowance.encode())))
@@ -2550,6 +3607,26 @@ mod tests {
 	}
 
 	#[test]
+	fn depleted_count_allowance_admits_nothing() {
+		let (store, _temp) = test_store();
+		// Account 50 has `max_count: 0`.
+		let result = store.submit(statement(50, 1, None, 100), StatementSource::Network);
+		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.total_size(), 0);
+	}
+
+	#[test]
+	fn depleted_size_allowance_admits_nothing() {
+		let (store, _temp) = test_store();
+		// Account 51 has `max_size: 0`; a zero-length statement passes the length gate.
+		let result = store.submit(statement(51, 1, None, 0), StatementSource::Network);
+		assert_eq!(result, SubmitResult::Rejected(RejectionReason::NoAllowance));
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.total_size(), 0);
+	}
+
+	#[test]
 	fn save_and_load_statements() {
 		let (store, temp) = test_store();
 		let statement0 = signed_statement(0);
@@ -2579,6 +3656,304 @@ mod tests {
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1));
+	}
+
+	#[test]
+	fn admission_seq_is_monotonic_across_restarts() {
+		// Sequence numbers must never be reused, even when the highest-numbered statements were
+		// removed before a restart: a replay cursor as high as a dead sequence number would
+		// silently skip any statement re-admitted under it.
+		let (store, temp) = test_store();
+		let first = signed_statement(10);
+		let second = signed_statement(11);
+		assert_eq!(store.submit(first.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(second.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &0u64.to_be_bytes()).unwrap(),
+			Some(first.hash().to_vec())
+		);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(),
+			Some(second.hash().to_vec())
+		);
+		store.remove(&second.hash()).unwrap();
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &0u64.to_be_bytes()).unwrap(),
+			Some(first.hash().to_vec())
+		);
+		assert_eq!(store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(), None);
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert_eq!(store.submit_index.read().next_seq, 2);
+
+		let replay = store.replay_batch(&OptimizedTopicFilter::Any, 0, 2).unwrap();
+		assert_eq!(replay.statements, vec![first.encode()]);
+		assert!(replay.done);
+
+		// The removed statement's sequence number stays dead; the next admission claims a fresh
+		// one.
+		let third = signed_statement(12);
+		assert_eq!(store.submit(third.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(), None);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &2u64.to_be_bytes()).unwrap(),
+			Some(third.hash().to_vec())
+		);
+	}
+
+	#[test]
+	fn lagging_counters_row_does_not_reuse_admission_seqs() {
+		// A counters row lagging the admission journal is impossible on a database written by
+		// this version (they are committed atomically); should one appear anyway, startup must
+		// recover `next_seq` from the journal instead of reusing live sequence numbers.
+		let (store, temp) = test_store();
+		let first = signed_statement(1);
+		let second = signed_statement(2);
+		assert_eq!(store.submit(first.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(second.clone(), StatementSource::Network), SubmitResult::New);
+		// Corrupt the counters row: keep the totals, rewind the sequence counter.
+		let (statement_count, total_size, _) = <(u64, u64, u64)>::decode(
+			&mut store.db.get(col::META, crate::KEY_COUNTERS).unwrap().unwrap().as_slice(),
+		)
+		.unwrap();
+		store
+			.db
+			.commit([(
+				col::META,
+				crate::KEY_COUNTERS.to_vec(),
+				Some((statement_count, total_size, 0u64).encode()),
+			)])
+			.unwrap();
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert_eq!(store.submit_index.read().next_seq, 2);
+
+		// A new admission claims a fresh sequence number; the existing entries are untouched.
+		let third = signed_statement(3);
+		assert_eq!(store.submit(third.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &0u64.to_be_bytes()).unwrap(),
+			Some(first.hash().to_vec())
+		);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(),
+			Some(second.hash().to_vec())
+		);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &2u64.to_be_bytes()).unwrap(),
+			Some(third.hash().to_vec())
+		);
+	}
+
+	#[test]
+	fn statement_without_admission_entry_is_restored_by_migration() {
+		// Admission entries are committed atomically with statement bodies, so a
+		// current-version database cannot lose one short of external tampering. Statements
+		// missing an admission entry (a database written before the entries existed) get one
+		// from the version migration, which rebuilds every derived column from the bodies.
+		let (store, temp) = test_store();
+		let statement = signed_statement_with_topics(20, &[topic(1)], None);
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
+		// Drop the admission entry, leaving the body behind, and rewind the database version so
+		// the next start migrates.
+		store
+			.db
+			.commit([
+				(col::ADMISSION_SEQ, 0u64.to_be_bytes().to_vec(), None),
+				(col::META, KEY_VERSION.to_vec(), Some(1u32.to_le_bytes().to_vec())),
+			])
+			.unwrap();
+		let filter = OptimizedTopicFilter::MatchAny([topic(1)].into_iter().collect());
+		assert!(store.replay_batch(&filter, 0, 1).unwrap().statements.is_empty());
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+
+		let watermark = store.submit_index.read().next_seq;
+		assert_eq!(watermark, 1);
+		assert_eq!(
+			store.replay_batch(&filter, 0, watermark).unwrap().statements,
+			vec![statement.encode()]
+		);
+	}
+
+	#[test]
+	fn admission_cursor_resumes_from_the_middle_of_the_range() {
+		let (store, _temp) = test_store();
+		let first = signed_statement(1);
+		let second = signed_statement(2);
+		let third = signed_statement(3);
+		for statement in [&first, &second, &third] {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		let batch = store.replay_batch(&OptimizedTopicFilter::Any, 1, 3).unwrap();
+		assert_eq!(batch.statements, vec![second.encode(), third.encode()]);
+		assert_eq!(batch.cursor, 3);
+		assert!(batch.done);
+	}
+
+	#[test]
+	fn admission_cursor_replays_only_current_matching_admissions() {
+		let (store, _temp) = test_store();
+		let matching = signed_statement_with_topics(20, &[topic(1)], None);
+		let non_matching = signed_statement_with_topics(21, &[topic(2)], None);
+		let removed = signed_statement_with_topics(22, &[topic(1)], None);
+		assert_eq!(store.submit(matching.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(non_matching, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(removed.clone(), StatementSource::Network), SubmitResult::New);
+		store.remove(&removed.hash()).unwrap();
+
+		let replay = store
+			.replay_batch(&OptimizedTopicFilter::MatchAny([topic(1)].into_iter().collect()), 0, 3)
+			.unwrap();
+		assert_eq!(replay.statements, vec![matching.encode()]);
+		assert_eq!(replay.cursor, 3);
+		assert!(replay.done);
+	}
+
+	#[test]
+	fn admission_watermark_is_one_past_the_newest_admission() {
+		let (store, _temp) = test_store();
+		assert_eq!(store.admission_watermark().unwrap(), 0);
+
+		let first = signed_statement(1);
+		let second = signed_statement(2);
+		assert_eq!(store.submit(first.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(second, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.admission_watermark().unwrap(), 2);
+
+		// Sequence numbers are never reused, so a removal leaves the boundary in place.
+		store.remove(&first.hash()).unwrap();
+		assert_eq!(store.admission_watermark().unwrap(), 2);
+	}
+
+	#[test]
+	fn admitted_statements_walk_applies_filter_decisions_and_resumes() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=4).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		// Seq 1 goes dead, the walk must pass over it.
+		store.remove(&statements[1].hash()).unwrap();
+
+		let batch = store
+			.admitted_statements(0, 4, usize::MAX, &mut |hash, _encoded, _statement| {
+				if *hash == statements[0].hash() {
+					FilterDecision::Skip
+				} else if *hash == statements[3].hash() {
+					FilterDecision::Abort
+				} else {
+					FilterDecision::Take
+				}
+			})
+			.unwrap();
+		assert_eq!(batch.statements, vec![(statements[2].hash(), statements[2].clone())]);
+		// The aborted statement sits at seq 3; the cursor points back at it.
+		assert_eq!(batch.cursor, 3);
+		assert!(!batch.done);
+
+		// Resuming from the cursor visits the aborted statement first.
+		let batch = store
+			.admitted_statements(batch.cursor, 4, usize::MAX, &mut |_, _, _| FilterDecision::Take)
+			.unwrap();
+		assert_eq!(batch.statements, vec![(statements[3].hash(), statements[3].clone())]);
+		assert_eq!(batch.cursor, 4);
+		assert!(batch.done);
+	}
+
+	#[test]
+	fn admitted_statements_walk_stops_at_the_scan_limit() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=4).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+
+		// A filter that takes nothing must still visit no more than `scan_limit` entries.
+		let mut visited = 0;
+		let batch = store
+			.admitted_statements(0, 4, 3, &mut |_, _, _| {
+				visited += 1;
+				FilterDecision::Skip
+			})
+			.unwrap();
+		assert!(batch.statements.is_empty());
+		assert_eq!(visited, 3);
+		assert_eq!(batch.cursor, 3, "the cursor must sit after the last visited entry");
+		assert!(!batch.done);
+
+		// Resuming from the partial cursor completes the walk.
+		let batch = store
+			.admitted_statements(batch.cursor, 4, 3, &mut |_, _, _| FilterDecision::Skip)
+			.unwrap();
+		assert!(batch.statements.is_empty());
+		assert_eq!(batch.cursor, 4);
+		assert!(batch.done);
+	}
+
+	#[test]
+	fn take_recent_statements_are_ordered_by_admission() {
+		let (store, _temp) = test_store();
+		let statements: Vec<_> = (1..=3).map(signed_statement).collect();
+		for statement in &statements {
+			assert_eq!(
+				store.submit(statement.clone(), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+
+		let recent = store.take_recent_statements().unwrap();
+		let expected: Vec<_> = statements
+			.into_iter()
+			.enumerate()
+			.map(|(seq, statement)| (seq as u64, statement.hash(), statement))
+			.collect();
+		assert_eq!(recent, expected);
 	}
 
 	#[test]
@@ -2633,7 +4008,7 @@ mod tests {
 		};
 
 		// Re-open through the store: it must add the index columns, rebuild them from the bodies,
-		// rebuild the evicted journal from EXPIRED, and bump the version to 2.
+		// rebuild the evicted journal and admission sequence, and bump the database version.
 		let store = open(&path);
 
 		// Bodies survived.
@@ -2647,6 +4022,14 @@ mod tests {
 		assert!(store.index_has_topic(&topic(2), &h_addressed));
 		assert!(store.index_has_dec_key(&Some(dec_key(9)), &h_addressed));
 		assert!(store.index_has_dec_key(&None, &h_broadcast));
+		let mut admitted = std::collections::HashSet::new();
+		let mut iter = store.db.iter(col::ADMISSION_SEQ).unwrap();
+		iter.seek_to_first().unwrap();
+		while let Some((_key, value)) = iter.next().unwrap() {
+			admitted.insert(value.as_slice().try_into().expect("admission hash is 32 bytes"));
+		}
+		assert_eq!(admitted, std::collections::HashSet::from([h_addressed, h_broadcast]));
+		assert_eq!(store.submit_index.read().next_seq, 2);
 
 		// And it answers queries: only the broadcast matches topic 1 with no key, only the
 		// addressed statement matches topic 1 for key 9.
@@ -2657,12 +4040,325 @@ mod tests {
 		assert!(store.is_evicted(&expired_hash));
 		assert_eq!(store.evicted_count(), 1);
 
+		// The account and expiry indexes were rebuilt too, along with the counters row.
+		assert_eq!(store.statement_count(), 2);
+		assert_eq!(store.total_size(), 2);
+		assert!(store.has_account(&addressed.account_id().unwrap()));
+		assert_eq!(store.account_count(), 1);
+
 		// The database is now at the current version; re-opening does not migrate again.
 		drop(store);
 		let store = open(&path);
 		assert_eq!(store.statements().unwrap().len(), 2);
 		assert!(store.index_has_topic(&topic(1), &h_broadcast));
 		assert!(store.is_evicted(&expired_hash));
+	}
+
+	#[test]
+	fn interrupted_migration_resumes_preserving_admission_entries() {
+		// The migration commits in chunks and bumps the version only at the very end, so a crash
+		// mid-way leaves a version-1 database with some derived rows already written. Re-running
+		// the migration must preserve the admission entries it already assigned — replay cursors
+		// depend on them — and rebuild everything else.
+		sp_tracing::init_for_tests();
+		let temp = tempfile::Builder::new().tempdir().expect("Error creating test dir");
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let mut db_path = path.clone();
+		db_path.push("statements");
+
+		let s1 = signed_statement_with_topics(1, &[topic(1)], None);
+		let s2 = statement(2, 5, Some(9), 200);
+
+		// A version-1 database whose columns were already extended and whose first migration
+		// attempt committed s1's read-index and admission rows before crashing: the version was
+		// never bumped.
+		{
+			let mut cfg = parity_db::Options::with_columns(&db_path, col::COUNT);
+			let statement_col = &mut cfg.columns[col::STATEMENTS as usize];
+			statement_col.ref_counted = false;
+			statement_col.preimage = true;
+			statement_col.uniform = true;
+			for c in crate::BTREE_COLUMNS {
+				cfg.columns[c as usize].btree_index = true;
+			}
+			let db = parity_db::Db::open_or_create(&cfg).unwrap();
+			let mut commit: Vec<(u8, Vec<u8>, Option<Vec<u8>>)> = vec![
+				(col::META, b"version".to_vec(), Some(1u32.to_le_bytes().to_vec())),
+				(col::STATEMENTS, s1.hash().to_vec(), Some(s1.encode())),
+				(col::STATEMENTS, s2.hash().to_vec(), Some(s2.encode())),
+				(col::ADMISSION_SEQ, 7u64.to_be_bytes().to_vec(), Some(s1.hash().to_vec())),
+			];
+			commit.extend(crate::statement_index_ops(&s1.hash(), &s1, true));
+			db.commit(commit).unwrap();
+		}
+
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory()),
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+
+		// Everything was rebuilt: bodies, read index, account and expiry indexes, counters.
+		assert_eq!(store.statements().unwrap().len(), 2);
+		assert_eq!(store.statement_count(), 2);
+		assert_eq!(store.total_size(), 1 + 200);
+		assert!(store.has_account(&s1.account_id().unwrap()));
+		assert!(store.has_account(&account(2)));
+		assert!(store
+			.db
+			.get(
+				col::INDEX_BY_EXPIRY,
+				&crate::expiry_index_key(crate::Expiry(s2.expiry()), &s2.hash())
+			)
+			.unwrap()
+			.is_some());
+
+		// s1 kept the sequence number the first attempt assigned; s2 got a fresh one above it.
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &7u64.to_be_bytes()).unwrap(),
+			Some(s1.hash().to_vec())
+		);
+		assert_eq!(
+			store.db.get(col::ADMISSION_SEQ, &8u64.to_be_bytes()).unwrap(),
+			Some(s2.hash().to_vec())
+		);
+		assert_eq!(store.submit_index.read().next_seq, 9);
+		let replay = store.replay_batch(&OptimizedTopicFilter::Any, 7, 9).unwrap();
+		assert_eq!(replay.statements, vec![s1.encode(), s2.encode()]);
+
+		// Channel state was rebuilt from the bodies: a lower-priority replacement is rejected.
+		assert!(matches!(
+			store.submit(statement(2, 4, Some(9), 100), StatementSource::Network),
+			SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. })
+		));
+	}
+
+	#[test]
+	fn counters_and_seq_survive_restart() {
+		let (store, temp) = test_store();
+		for i in 0..3u8 {
+			assert_eq!(
+				store.submit(signed_statement(i), StatementSource::Network),
+				SubmitResult::New
+			);
+		}
+		assert_eq!(
+			store.submit(statement(1, 1, None, 100), StatementSource::Network),
+			SubmitResult::New
+		);
+		assert_eq!(store.statement_count(), 4);
+		assert_eq!(store.total_size(), 3 + 100);
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert_eq!(store.statement_count(), 4);
+		assert_eq!(store.total_size(), 3 + 100);
+		assert_eq!(store.submit_index.read().next_seq, 4);
+		// `signed_statement` signs as Alice, so two distinct accounts are stored.
+		assert_eq!(store.account_count(), 2);
+	}
+
+	#[test]
+	fn resubmitting_live_statement_is_known_and_not_double_counted() {
+		let (store, _temp) = test_store();
+		let statement = statement(1, 1, None, 100);
+		assert_eq!(store.submit(statement.clone(), StatementSource::Local), SubmitResult::New);
+		assert_eq!(store.total_size(), 100);
+		assert_eq!(store.submit(statement.clone(), StatementSource::Local), SubmitResult::Known);
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::Known);
+		assert_eq!(store.total_size(), 100);
+		assert_eq!(store.statement_count(), 1);
+	}
+
+	#[test]
+	fn eviction_clears_all_index_rows() {
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+		let mut stmt = unsigned_statement(1, 1, Some(7), 100);
+		stmt.set_topic(0, topic(3));
+		stmt.set_expiry_from_parts(500, 1);
+		sign_with(&mut stmt, 1);
+		let hash = stmt.hash();
+		let expiry = crate::Expiry(stmt.expiry());
+		let who = account(1);
+		assert_eq!(store.submit(stmt, StatementSource::Network), SubmitResult::New);
+		let account_key = crate::account_index_key(&who, expiry, &hash);
+		let expiry_key = crate::expiry_index_key(expiry, &hash);
+		assert!(store.db.get(col::INDEX_BY_ACCOUNT, &account_key).unwrap().is_some());
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_some());
+
+		store.remove(&hash).unwrap();
+		assert!(store.db.get(col::INDEX_BY_ACCOUNT, &account_key).unwrap().is_none());
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &expiry_key).unwrap().is_none());
+		assert!(!store.index_has_topic(&topic(3), &hash));
+		assert_eq!(store.db.get(col::ADMISSION_SEQ, &0u64.to_be_bytes()).unwrap(), None);
+		// Removed before its natural expiry: banned via the evicted journal.
+		assert!(store.is_evicted(&hash));
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.total_size(), 0);
+	}
+
+	#[test]
+	fn index_key_layouts_roundtrip() {
+		// The key builders and their parsers are the single place that knows the on-disk key
+		// layouts; whoever changes one side must keep the other in sync, and this test is the
+		// tripwire for that.
+		use crate::{
+			account_index_key, dec_key_index_key, dec_key_index_prefix, evicted_index_key,
+			expiry_index_key, hash_from_index_key, parse_account_index_key,
+			parse_dec_key_index_prefix, parse_time_index_key, prefix_from_index_key,
+			topic_index_key, Expiry,
+		};
+
+		let who = account(7);
+		let hash: crate::Hash = account(8);
+		let expiry = Expiry((123u64 << 32) | 45);
+
+		let key = account_index_key(&who, expiry, &hash);
+		assert_eq!(parse_account_index_key(&key), Some((who, expiry, hash)));
+		// Any other length is rejected rather than misparsed.
+		assert_eq!(parse_account_index_key(&key[..key.len() - 1]), None);
+		assert_eq!(parse_account_index_key(&[]), None);
+
+		let key = expiry_index_key(expiry, &hash);
+		assert_eq!(parse_time_index_key(&key), Some((expiry.0, hash)));
+		assert_eq!(parse_time_index_key(&key[1..]), None);
+
+		let key = evicted_index_key(789, &hash);
+		assert_eq!(parse_time_index_key(&key), Some((789, hash)));
+
+		// Big-endian time keys keep numeric order; the expiry sweep and the evicted journal
+		// drain rely on it to stop at the first entry that is not yet due.
+		assert!(expiry_index_key(Expiry(256), &hash) > expiry_index_key(Expiry(1), &hash));
+		assert!(evicted_index_key(256, &hash) > evicted_index_key(1, &hash));
+
+		let key = topic_index_key(&topic(3), &hash);
+		assert_eq!(hash_from_index_key(&key), Some(hash));
+		assert_eq!(prefix_from_index_key(&key), Some(&topic(3)[..]));
+
+		for dec_key in [None, Some(dec_key(5))] {
+			assert_eq!(parse_dec_key_index_prefix(&dec_key_index_prefix(&dec_key)), Some(dec_key));
+			let key = dec_key_index_key(&dec_key, &hash);
+			assert_eq!(hash_from_index_key(&key), Some(hash));
+			assert_eq!(
+				prefix_from_index_key(&key).and_then(parse_dec_key_index_prefix),
+				Some(dec_key)
+			);
+		}
+	}
+
+	#[test]
+	fn summary_fast_path_stays_coherent_with_disk() {
+		use crate::{DETAILS_CACHE_BUDGET, SUMMARY_CACHE_ACCOUNTS};
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// The test walks three accounts (5, 6 and 7); every summary must stay cached throughout.
+		assert!(SUMMARY_CACHE_ACCOUNTS >= 3, "three account summaries must fit the cache");
+		// Two filler accounts grow their records until the details cache overflows by at least
+		// one statement, so that account 5's record (of one statement) is the one evicted.
+		let per_filler_account = DETAILS_CACHE_BUDGET.div_ceil(2);
+		assert!(
+			per_filler_account <= 100,
+			"the filler accounts' allowance (100 statements, 1000 bytes of data) caps the cache \
+			 budget this test can exercise",
+		);
+
+		// Account 5's record enters the details cache with its first statement.
+		let s5_1 = statement(5, 1, None, 100);
+		assert_eq!(store.submit(s5_1.clone(), source), SubmitResult::New);
+		assert!(store.details_cached(&account(5)));
+
+		// Grow the filler accounts' records past the cache budget; account 5's record is the
+		// least recently used one, so it is evicted, while its summary stays cached.
+		for acc in [6u64, 7] {
+			for c in 1..=per_filler_account as u64 {
+				assert_eq!(store.submit(statement(acc, 1, Some(c), 10), source), SubmitResult::New);
+			}
+		}
+		assert!(!store.details_cached(&account(5)));
+
+		// A channel-less statement within the account's allowance is admitted through the
+		// summary alone: the record is not rematerialised.
+		let s5_2 = statement(5, 2, None, 50);
+		assert_eq!(store.submit(s5_2.clone(), source), SubmitResult::New);
+		assert!(!store.details_cached(&account(5)));
+
+		// Pushing the account over its size allowance (1000 bytes) forces the record to be
+		// loaded back from disk. It must contain both earlier statements — including the one
+		// admitted through the fast path — and evict exactly the lowest-priority one.
+		let s5_3 = statement(5, 3, None, 900);
+		assert_eq!(store.submit(s5_3.clone(), source), SubmitResult::New);
+		assert!(store.details_cached(&account(5)));
+		assert!(!store.has_statement(&s5_1.hash()), "lowest priority must be evicted");
+		assert!(store.has_statement(&s5_2.hash()));
+		assert!(store.has_statement(&s5_3.hash()));
+		let filler_statements = 2 * per_filler_account;
+		assert_eq!(store.statement_count(), 2 + filler_statements);
+		assert_eq!(store.total_size(), 50 + 900 + filler_statements * 10);
+	}
+
+	#[test]
+	fn rejected_submission_caches_the_loaded_record() {
+		let (store, temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 5 owns one channel statement.
+		assert_eq!(store.submit(statement(5, 2, Some(1), 100), source), SubmitResult::New);
+
+		// Reopen the store so that both caches start cold.
+		let keystore = store.keystore.clone();
+		drop(store);
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+
+		// An oversize statement is rejected before the account record is even loaded, so the
+		// caches stay cold.
+		assert_eq!(
+			store.submit(statement(5, 3, None, 1500), source),
+			SubmitResult::Rejected(RejectionReason::DataTooLarge {
+				submitted_size: 1500,
+				available_size: 1000,
+			})
+		);
+		assert!(!store.details_cached(&account(5)));
+		assert!(!store.summary_cached(&account(5)));
+
+		// A channel statement of too low a priority is rejected only after planning against the
+		// record loaded from disk. The record and its summary must stay cached: rejections cost
+		// the sender nothing, so retries must not rescan the on-disk index every time.
+		assert!(matches!(
+			store.submit(statement(5, 1, Some(1), 100), source),
+			SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. })
+		));
+		assert!(store.details_cached(&account(5)));
+		assert!(store.summary_cached(&account(5)));
 	}
 
 	#[test]
@@ -2678,7 +4374,8 @@ mod tests {
 		let _ = store.submit(statement2.clone(), StatementSource::Local);
 
 		let recent1 = store.take_recent_statements().unwrap();
-		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
+		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) =
+			recent1.into_iter().map(|(_seq, hash, statement)| (hash, statement)).unzip();
 		let expected1 = vec![statement0, statement1, statement2];
 		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
 		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
@@ -2690,7 +4387,8 @@ mod tests {
 		store.submit(statement3.clone(), StatementSource::Network);
 
 		let recent3 = store.take_recent_statements().unwrap();
-		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
+		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) =
+			recent3.into_iter().map(|(_seq, hash, statement)| (hash, statement)).unzip();
 		let expected3 = vec![statement3];
 		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
 		assert!(expected3.iter().all(|s| recent3_statements.contains(s)));
@@ -2808,8 +4506,8 @@ mod tests {
 		assert!(store.is_evicted(&s3_prio2.hash()));
 		assert!(store.is_evicted(&s3_prio3.hash()));
 
-		assert_eq!(store.submit_index.read().total_size, 2400);
-		assert_eq!(store.submit_index.read().entries.len(), 4);
+		assert_eq!(store.total_size(), 2400);
+		assert_eq!(store.statement_count(), 4);
 
 		// Should be over the global size limit
 		assert!(matches!(
@@ -2834,6 +4532,23 @@ mod tests {
 			store.statements().unwrap().into_iter().map(|(hash, _)| hash).collect();
 		statements.sort();
 		assert_eq!(expected_statements, statements);
+	}
+
+	#[test]
+	fn insufficient_remaining_account_bytes_is_data_too_large() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 4 allows four statements and 1000 data bytes. The count limit has room, but the
+		// lower-priority submission cannot evict the existing statement to obtain enough bytes.
+		assert_eq!(store.submit(statement(4, 2, None, 900), source), SubmitResult::New);
+		assert_eq!(
+			store.submit(statement(4, 1, None, 200), source),
+			SubmitResult::Rejected(RejectionReason::DataTooLarge {
+				submitted_size: 200,
+				available_size: 100,
+			})
+		);
 	}
 
 	#[test]
@@ -2867,10 +4582,10 @@ mod tests {
 		statement.set_topic(0, topic(4));
 		sign_with(&mut statement, 1);
 		store.submit(statement.clone(), StatementSource::Network);
-		assert_eq!(store.submit_index.read().entries.len(), 1);
+		assert_eq!(store.statement_count(), 1);
 		store.remove(&statement.hash()).unwrap();
-		assert_eq!(store.submit_index.read().entries.len(), 0);
-		assert_eq!(store.submit_index.read().accounts.len(), 0);
+		assert_eq!(store.statement_count(), 0);
+		assert_eq!(store.account_count(), 0);
 		store.set_time(DEFAULT_PURGE_AFTER_SEC + 1);
 		store.maintain();
 		assert_eq!(store.evicted_count(), 0);
@@ -3166,12 +4881,10 @@ mod tests {
 
 		// --- Pre-conditions: everything is indexed as expected.
 		{
-			let submit_idx = store.submit_index.read();
-			assert_eq!(submit_idx.entries.len(), 5, "all 5 should be present");
-			assert!(submit_idx.accounts.contains_key(&account(4)));
-			assert!(submit_idx.accounts.contains_key(&account(3)));
-			assert_eq!(submit_idx.total_size, 100 + 150 + 50 + 100 + 100);
-			drop(submit_idx);
+			assert_eq!(store.statement_count(), 5, "all 5 should be present");
+			assert!(store.has_account(&account(4)));
+			assert!(store.has_account(&account(3)));
+			assert_eq!(store.total_size(), 100 + 150 + 50 + 100 + 100);
 
 			// Topic and key sets contain both A & B entries.
 			assert!(store.index_has_topic(&t42, &h_a1) && store.index_has_topic(&t42, &h_b2));
@@ -3196,14 +4909,12 @@ mod tests {
 				assert!(store.statement(&h).unwrap().is_some(), "B's statement should remain");
 			}
 
-			let submit_idx = store.submit_index.read();
-			// Account map updated.
-			assert!(!submit_idx.accounts.contains_key(&account(4)), "Account A must be gone");
-			assert!(submit_idx.accounts.contains_key(&account(3)), "Account B must remain");
+			// Account index updated.
+			assert!(!store.has_account(&account(4)), "Account A must be gone");
+			assert!(store.has_account(&account(3)), "Account B must remain");
 			// Entry count & total_size reflect only B's data.
-			assert_eq!(submit_idx.entries.len(), 2);
-			assert_eq!(submit_idx.total_size, 100 + 100);
-			drop(submit_idx);
+			assert_eq!(store.statement_count(), 2);
+			assert_eq!(store.total_size(), 100 + 100);
 
 			// Removed statements are banned in the on-disk evicted journal.
 			assert!(store.is_evicted(&h_a1));
@@ -3235,40 +4946,6 @@ mod tests {
 	}
 
 	#[test]
-	fn check_expiration_repopulates_account_list_when_empty() {
-		let (mut store, _temp) = test_store();
-		store.set_time(1000);
-
-		// Create statements for multiple accounts
-		// Note: The statement() helper uses set_expiry_from_parts(u32::MAX, priority)
-		// which creates a very large expiry value that won't trigger expiration
-		let s1 = statement(1, 1, None, 100);
-		let s2 = statement(2, 1, None, 100);
-		let s3 = statement(3, 1, None, 100);
-
-		for s in [&s1, &s2, &s3] {
-			store.submit(s.clone(), StatementSource::Network);
-		}
-
-		// Initially, accounts_to_check_for_expiry_stmts is empty
-		assert!(store.submit_index.read().accounts_to_check_for_expiry_stmts.is_empty());
-
-		// First call to check_expiration should populate the list
-		store.enforce_limits();
-
-		// Now accounts_to_check_for_expiry_stmts should contain all 3 accounts
-		let accounts = store.submit_index.read().accounts_to_check_for_expiry_stmts.clone();
-		assert_eq!(accounts.len(), 3, "Should have 3 accounts to check");
-		assert!(accounts.contains(&account(1)));
-		assert!(accounts.contains(&account(2)));
-		assert!(accounts.contains(&account(3)));
-
-		// No statements should have been expired since they're all valid
-		assert_eq!(store.evicted_count(), 0);
-		assert_eq!(store.submit_index.read().entries.len(), 3);
-	}
-
-	#[test]
 	fn check_expiration_expires_statements_past_current_time() {
 		let (mut store, _temp) = test_store();
 
@@ -3291,114 +4968,245 @@ mod tests {
 		store.submit(valid_stmt, StatementSource::Network);
 
 		// Verify both statements are in the store
-		assert_eq!(store.submit_index.read().entries.len(), 2);
-
-		// First check_expiration populates the account list
-		store.enforce_limits();
-		assert!(!store.submit_index.read().accounts_to_check_for_expiry_stmts.is_empty());
+		assert_eq!(store.statement_count(), 2);
 
 		// Advance time past the expiry of the first statement
 		store.set_time(1000);
 
-		// Second check_expiration should find and expire the statement
+		// The sweep should find and expire the statement
 		store.enforce_limits();
 
 		// Naturally-expired statements are not added to the expired map (AlreadyExpired check
 		// in submit rejects them without consulting the map)
-		let index = store.submit_index.read();
 		assert!(
 			!store.is_evicted(&expired_hash),
 			"Naturally expired statement must not be added to the expired map"
 		);
 		assert!(
-			!index.entries.contains_key(&expired_hash),
-			"Expired statement should be removed from entries"
+			!store.has_statement(&expired_hash),
+			"Expired statement should be removed from the store"
 		);
 
-		// The valid statement should still be in entries
-		assert!(
-			index.entries.contains_key(&valid_hash),
-			"Valid statement should still be in entries"
-		);
+		// The valid statement should still be stored
+		assert!(store.has_statement(&valid_hash), "Valid statement should still be stored");
 		assert!(!store.is_evicted(&valid_hash), "Valid statement should not be expired");
 	}
 
 	#[test]
-	fn check_expiration_removes_checked_accounts_from_list_when_expiring() {
+	fn allowance_sweep_resumes_from_cursor_across_calls() {
+		use std::time::Duration;
+
 		let (mut store, _temp) = test_store();
-		store.set_time(100);
+		store.set_time(0);
 
-		// Create statements with expiry at timestamp 200
-		let mut stmt1 = unsigned_statement(1, 1, None, 100);
-		stmt1.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt1, 1);
-		store.submit(stmt1, StatementSource::Network);
+		// Five accounts, each 200 data bytes over its 1000-byte allowance, so enforcement
+		// evicts exactly one statement per account processed.
+		for seed in 10u64..15 {
+			store.force_insert(&statement(seed, 1, None, 600));
+			store.force_insert(&statement(seed, 2, None, 600));
+		}
+		assert_eq!(store.statement_count(), 10);
+		assert!(store.submit_index.read().allowance_cursor.is_none());
 
-		let mut stmt2 = unsigned_statement(2, 1, None, 100);
-		stmt2.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt2, 2);
-		store.submit(stmt2, StatementSource::Network);
+		// With a budget of two accounts per call, the sweep needs three calls to cover all
+		// five, resuming from the stored cursor each time.
+		store.enforce_limits_bounded(usize::MAX, 2, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 8);
+		assert!(store.submit_index.read().allowance_cursor.is_some());
 
-		let mut stmt3 = unsigned_statement(3, 1, None, 100);
-		stmt3.set_expiry_from_parts(200, 1);
-		sign_with(&mut stmt3, 3);
-		store.submit(stmt3, StatementSource::Network);
+		store.enforce_limits_bounded(usize::MAX, 2, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 6);
+		assert!(store.submit_index.read().allowance_cursor.is_some());
 
-		// First call populates the list
+		// The last call processes the fifth account, wraps, resets the cursor and refreshes
+		// the account gauge with the number of accounts the pass has seen.
+		store.enforce_limits_bounded(usize::MAX, 2, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 5);
+		assert!(store.submit_index.read().allowance_cursor.is_none());
+		assert_eq!(store.known_accounts_count.load(std::sync::atomic::Ordering::Relaxed), 5);
+
+		// A further unrestricted pass finds every account within its allowance.
 		store.enforce_limits();
-		assert_eq!(
-			store.submit_index.read().accounts_to_check_for_expiry_stmts.len(),
-			3,
-			"Should have 3 accounts to check"
-		);
-
-		// Advance time past expiry
-		store.set_time(300);
-
-		// Second call should check accounts, expire statements, and remove checked accounts
-		store.enforce_limits();
-
-		// The list should now be empty (all accounts checked and removed)
-		assert!(
-			store.submit_index.read().accounts_to_check_for_expiry_stmts.is_empty(),
-			"All accounts should have been checked and removed after expiration"
-		);
-
-		// All statements were naturally expired (past their own timestamp), so they are not
-		// added to the expired map AlreadyExpired check in submit handles re-gossip prevention
-		assert_eq!(store.evicted_count(), 0);
-		assert_eq!(store.submit_index.read().entries.len(), 0);
+		assert_eq!(store.statement_count(), 5);
 	}
 
 	#[test]
-	fn check_expiration_truncates_list_even_when_nothing_expires() {
+	fn allowance_eviction_budget_defers_the_residue_to_the_next_pass() {
+		use std::time::Duration;
+
 		let (mut store, _temp) = test_store();
-		store.set_time(1000);
+		store.set_time(0);
 
-		// Create statements for multiple accounts with far future expiry (using statement helper)
-		// The statement() helper uses set_expiry_from_parts(u32::MAX, priority) which creates
-		// a very large expiry value that won't trigger expiration
-		for acc_id in 1..=5u64 {
-			let stmt = statement(acc_id, 1, None, 100);
-			store.submit(stmt, StatementSource::Network);
+		// Account 1's allowance is a single statement: three of the four must be evicted.
+		for priority in 1..=4 {
+			store.force_insert(&statement(1, priority, None, 100));
 		}
+		assert_eq!(store.statement_count(), 4);
 
-		// First call populates the list
-		store.enforce_limits();
-		assert_eq!(store.submit_index.read().accounts_to_check_for_expiry_stmts.len(), 5);
+		// The per-call eviction budget stops enforcement mid-account. The cursor has already
+		// moved past the account, so it is not revisited within the same pass...
+		store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 2);
 
-		// Second call checks accounts and truncates the list (even though nothing expires)
-		store.enforce_limits();
+		// ...the pass first has to wrap, finding no further accounts...
+		store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 2);
+		assert!(store.submit_index.read().allowance_cursor.is_none());
 
-		// The list should now be empty - accounts are removed after being checked
-		assert!(
-			store.submit_index.read().accounts_to_check_for_expiry_stmts.is_empty(),
-			"List should be empty after all accounts have been checked"
-		);
+		// ...and the next pass evicts the remaining excess statement.
+		store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 1);
+	}
 
-		// No statements should have been expired
+	#[test]
+	fn expiry_sweep_is_bounded_by_the_statement_budget() {
+		use std::time::Duration;
+
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		// Five statements, all past their expiry once the clock advances.
+		for seed in 1u64..=5 {
+			let mut stmt = unsigned_statement(seed, 1, None, 100);
+			stmt.set_expiry_from_parts(200, 1);
+			sign_with(&mut stmt, seed);
+			assert_eq!(store.submit(stmt, StatementSource::Network), SubmitResult::New);
+		}
+		store.set_time(300);
+
+		// Each call reaps at most the statement budget off the expiry index; the index itself
+		// is the resume point, so the backlog drains across calls with no cursor involved.
+		store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 3);
+		store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 1);
+		store.enforce_limits_bounded(2, usize::MAX, Duration::from_secs(3600));
+		assert_eq!(store.statement_count(), 0);
+		// Naturally expired statements are not banned via the evicted journal.
 		assert_eq!(store.evicted_count(), 0);
-		assert_eq!(store.submit_index.read().entries.len(), 5);
+	}
+
+	#[test]
+	fn expiry_sweep_leaves_inconsistent_data_in_place() {
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		let expiry = crate::Expiry(200u64 << 32 | 1);
+		let undecodable_hash = [0xAB_u8; 32];
+		let undecodable_key = crate::expiry_index_key(expiry, &undecodable_hash);
+		store
+			.db
+			.commit([
+				(col::STATEMENTS, undecodable_hash.to_vec(), Some(vec![0xFF])),
+				(col::INDEX_BY_EXPIRY, undecodable_key.clone(), Some(Vec::new())),
+			])
+			.unwrap();
+
+		// The sweep cannot remove the statement; the corruption is logged as an error and
+		// everything is left exactly as it is, on every pass.
+		store.set_time(300);
+		store.enforce_limits();
+		store.enforce_limits();
+		assert!(store.has_statement(&undecodable_hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &undecodable_key).unwrap().is_some());
+
+		// Same for an expiry row with no body behind it at all: the sweep reports it and leaves
+		// it in place.
+		let orphan_hash = [0xCD_u8; 32];
+		let orphan_key = crate::expiry_index_key(expiry, &orphan_hash);
+		store
+			.db
+			.commit([(col::INDEX_BY_EXPIRY, orphan_key.clone(), Some(Vec::new()))])
+			.unwrap();
+		store.enforce_limits();
+		assert!(!store.has_statement(&orphan_hash));
+		assert!(store.db.get(col::INDEX_BY_EXPIRY, &orphan_key).unwrap().is_some());
+	}
+
+	#[test]
+	fn corrupt_account_index_key_does_not_end_account_enumeration() {
+		let (store, _temp) = test_store();
+		assert_eq!(
+			store.submit(statement(1, 1, None, 1), StatementSource::Network),
+			SubmitResult::New
+		);
+		assert_eq!(
+			store.submit(statement(2, 1, None, 1), StatementSource::Network),
+			SubmitResult::New
+		);
+		assert_eq!(store.account_count(), 2);
+
+		// Two unparseable keys: one sorting before every valid key (but after the scan's
+		// starting cursor) and one sorting between the two accounts' rows. Both must be skipped
+		// by account enumeration, not taken for the end of the index.
+		let (first, second) = {
+			let (a, b) = (account(1), account(2));
+			if a < b {
+				(a, b)
+			} else {
+				(b, a)
+			}
+		};
+		let mut between = first.to_vec();
+		between.extend_from_slice(&[0xFF; 41]);
+		store
+			.db
+			.commit([
+				(col::INDEX_BY_ACCOUNT, vec![0u8; 33], Some(Vec::new())),
+				(col::INDEX_BY_ACCOUNT, between, Some(Vec::new())),
+			])
+			.unwrap();
+
+		assert_eq!(store.account_count(), 2);
+		assert!(store.has_account(&first));
+		assert!(store.has_account(&second));
+
+		// A full allowance pass still sees both accounts and reports the true account count.
+		store.enforce_limits();
+		assert_eq!(store.known_accounts_count.load(std::sync::atomic::Ordering::Relaxed), 2);
+	}
+
+	#[test]
+	fn concurrent_remove_and_resubmit_keep_query_bookkeeping_consistent() {
+		// Exercises the #12624 interleaving: a `remove` racing a resubmission of the same
+		// statement must never apply its query-index bookkeeping on top of the newer submit's.
+		// The invariant below holds for any timing, so the test is deterministic even though
+		// the race window itself is only hit probabilistically.
+		use std::sync::Arc;
+
+		let (store, _temp) = test_store();
+		let store = Arc::new(store);
+		let mut stmt = unsigned_statement(1, 1, None, 100);
+		stmt.set_topic(0, topic(7));
+		sign_with(&mut stmt, 1);
+		let hash = stmt.hash();
+
+		for _ in 0..200 {
+			// The statement is live at the start of every round.
+			if !store.has_statement(&hash) {
+				assert_eq!(store.submit(stmt.clone(), StatementSource::Local), SubmitResult::New);
+			}
+			let remover = {
+				let store = store.clone();
+				std::thread::spawn(move || store.remove(&hash).expect("remove succeeds"))
+			};
+			let resubmitter = {
+				let store = store.clone();
+				let stmt = stmt.clone();
+				std::thread::spawn(move || store.submit(stmt, StatementSource::Local))
+			};
+			remover.join().expect("remover joins");
+			let _ = resubmitter.join().expect("resubmitter joins");
+
+			// Whatever the interleaving, the query-index bookkeeping must agree with the store.
+			let query_index = store.query_index.read();
+			let present = store.has_statement(&hash);
+			assert_eq!(query_index.recent.contains_key(&hash), present);
+			assert_eq!(
+				query_index.topic_counts.get(&topic(7)).copied().unwrap_or(0),
+				present as usize
+			);
+		}
 	}
 
 	#[test]
@@ -3427,50 +5235,40 @@ mod tests {
 		store.submit(stmt3, StatementSource::Network);
 
 		// Verify all statements are in the store
-		assert_eq!(store.submit_index.read().entries.len(), 3);
-
-		// First check_expiration populates the account list
-		store.enforce_limits();
+		assert_eq!(store.statement_count(), 3);
 
 		// Advance time to 250 (stmt1 should expire since 250 > 200)
 		store.set_time(250);
 		store.enforce_limits();
 
 		{
-			let index = store.submit_index.read();
 			// Naturally expired statements are not added to the expired map.
 			assert!(!store.is_evicted(&hash1), "stmt1 naturally expired, not in map");
 			assert!(!store.is_evicted(&hash2), "stmt2 should not be expired yet");
 			assert!(!store.is_evicted(&hash3), "stmt3 should not be expired yet");
-			assert_eq!(index.entries.len(), 2);
+			assert_eq!(store.statement_count(), 2);
 		}
-
-		// Repopulate the account list for next check
-		store.enforce_limits();
 
 		// Advance time to 400 (stmt2 should also expire since 400 > 300)
 		store.set_time(400);
 		store.enforce_limits();
 
 		{
-			let index = store.submit_index.read();
 			assert!(!store.is_evicted(&hash1));
 			assert!(!store.is_evicted(&hash2), "stmt2 naturally expired, not in map");
 			assert!(!store.is_evicted(&hash3), "stmt3 should not be expired yet");
-			assert_eq!(index.entries.len(), 1);
+			assert_eq!(store.statement_count(), 1);
 		}
 
-		// Repopulate and check again at time 600 (stmt3 should expire since 600 > 500)
-		store.enforce_limits();
+		// Check again at time 600 (stmt3 should expire since 600 > 500)
 		store.set_time(600);
 		store.enforce_limits();
 
 		{
-			let index = store.submit_index.read();
 			assert!(!store.is_evicted(&hash1));
 			assert!(!store.is_evicted(&hash2));
 			assert!(!store.is_evicted(&hash3), "stmt3 naturally expired, not in map");
-			assert_eq!(index.entries.len(), 0);
+			assert_eq!(store.statement_count(), 0);
 		}
 	}
 
@@ -3485,17 +5283,13 @@ mod tests {
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
-		// Populate the account list
-		store.enforce_limits();
-
 		// Check expiration - nothing should happen
 		store.enforce_limits();
 
 		// Statement should still be there
-		let index = store.submit_index.read();
-		assert!(index.entries.contains_key(&hash));
+		assert!(store.has_statement(&hash));
 		assert!(!store.is_evicted(&hash));
-		assert_eq!(index.entries.len(), 1);
+		assert_eq!(store.statement_count(), 1);
 		assert_eq!(store.evicted_count(), 0);
 	}
 
@@ -3513,24 +5307,21 @@ mod tests {
 
 		// Verify account exists before expiration
 		{
-			let index = store.submit_index.read();
-			assert!(index.accounts.contains_key(&account(1)));
-			assert_eq!(index.total_size, 100);
+			assert!(store.has_account(&account(1)));
+			assert_eq!(store.total_size(), 100);
 		}
 
-		// Populate and then expire
-		store.enforce_limits();
+		// Expire
 		store.set_time(300);
 		store.enforce_limits();
 
 		// Verify account is removed after its only statement expires
 		{
-			let index = store.submit_index.read();
 			assert!(
-				!index.accounts.contains_key(&account(1)),
+				!store.has_account(&account(1)),
 				"Account should be removed when all its statements expire"
 			);
-			assert_eq!(index.total_size, 0, "Total size should be zero");
+			assert_eq!(store.total_size(), 0, "Total size should be zero");
 			assert!(!store.is_evicted(&hash), "Naturally expired, not in map");
 		}
 	}
@@ -3555,8 +5346,7 @@ mod tests {
 			assert!(store.index_has_dec_key(&Some(dec_key(7)), &hash));
 		}
 
-		// Populate and then expire
-		store.enforce_limits();
+		// Expire
 		store.set_time(300);
 		store.enforce_limits();
 
@@ -3579,11 +5369,11 @@ mod tests {
 		// With no statements, check_expiration should not panic
 		store.enforce_limits();
 
-		// Second call should also work (empty repopulation)
+		// Second call should also work
 		store.enforce_limits();
 
-		assert!(store.submit_index.read().accounts_to_check_for_expiry_stmts.is_empty());
-		assert_eq!(store.submit_index.read().entries.len(), 0);
+		assert!(store.submit_index.read().allowance_cursor.is_none());
+		assert_eq!(store.statement_count(), 0);
 		assert_eq!(store.evicted_count(), 0);
 	}
 
@@ -3602,10 +5392,7 @@ mod tests {
 		let hash = stmt.hash();
 		store.submit(stmt, StatementSource::Network);
 
-		assert_eq!(store.submit_index.read().entries.len(), 1);
-
-		// Populate the accounts list
-		store.enforce_limits();
+		assert_eq!(store.statement_count(), 1);
 
 		// Advance time past the expiration timestamp
 		store.set_time(2000);
@@ -3614,10 +5401,9 @@ mod tests {
 		// Statement SHOULD be expired because check_expiration now compares
 		// Expiry(2000 << 32) against Expiry(1001 << 32 | 1), and
 		// (2000 << 32) > (1001 << 32 | 1)
-		let index = store.submit_index.read();
 		assert!(
-			!index.entries.contains_key(&hash),
-			"Statement should be removed from entries after expiration"
+			!store.has_statement(&hash),
+			"Statement should be removed from the store after expiration"
 		);
 		// Naturally expired: timestamp 1001 < current_time 2000, not added to expired map.
 		assert!(!store.is_evicted(&hash), "Naturally expired, not in map");
@@ -3640,20 +5426,13 @@ mod tests {
 		let db_entry = store.db.get(col::STATEMENTS, &hash).unwrap();
 		assert!(db_entry.is_some(), "Statement should be in col::STATEMENTS after submit");
 
-		// Populate the accounts list
-		store.enforce_limits();
-
 		// Advance time past expiry and run check_expiration
 		store.set_time(300);
 		store.enforce_limits();
 
-		// Verify in-memory state is updated correctly
+		// Verify the store state is updated correctly
 		{
-			let index = store.submit_index.read();
-			assert!(
-				!index.entries.contains_key(&hash),
-				"Statement should be removed from in-memory entries"
-			);
+			assert_eq!(store.statement_count(), 0, "Statement should be removed from the store");
 			// Naturally expired: not added to expired map, no need for suppression.
 			assert!(
 				!store.is_evicted(&hash),
@@ -3692,30 +5471,24 @@ mod tests {
 		let h1 = s1.hash();
 		let h5 = s5.hash();
 
-		// Directly insert into index, bypassing `submit`'s allowance check
-		{
-			let mut submit_index = store.submit_index.write();
-			for s in [&s1, &s2, &s3, &s4, &s5] {
-				submit_index.insert_new(s.hash(), account(4), s);
-			}
+		// Directly insert into the store, bypassing `submit`'s allowance check
+		for statement in [&s1, &s2, &s3, &s4, &s5] {
+			store.force_insert(statement);
 		}
 
 		// Verify initial state - all 5 should be present
-		assert_eq!(store.submit_index.read().entries.len(), 5);
-		assert_eq!(store.submit_index.read().total_size, 500);
+		assert_eq!(store.statement_count(), 5);
+		assert_eq!(store.total_size(), 500);
 
 		// Run check_expiration which handles both expiration and allowance enforcement
-		// First call populates the accounts list, second call processes them
 		// Since account 4 has max_count=4, one statement should be evicted
-		store.enforce_limits();
 		store.enforce_limits();
 
 		// Should evict the lowest priority statement (s1)
-		let index = store.submit_index.read();
-		assert_eq!(index.entries.len(), 4, "Should have 4 statements after eviction");
-		assert!(!index.entries.contains_key(&h1), "Lowest priority should be evicted");
-		assert!(index.entries.contains_key(&h5), "Highest priority should remain");
-		assert_eq!(index.total_size, 400);
+		assert_eq!(store.statement_count(), 4, "Should have 4 statements after eviction");
+		assert!(!store.has_statement(&h1), "Lowest priority should be evicted");
+		assert!(store.has_statement(&h5), "Highest priority should remain");
+		assert_eq!(store.total_size(), 400);
 
 		// Evicted statement should be marked as expired
 		assert!(store.is_evicted(&h1));
@@ -3734,22 +5507,16 @@ mod tests {
 		let h2 = s2.hash();
 
 		// Directly insert statements for account with no allowance
-		{
-			let mut submit_index = store.submit_index.write();
-			submit_index.insert_new(h1, account(0), &s1);
-			submit_index.insert_new(h2, account(0), &s2);
-		}
+		store.force_insert(&s1);
+		store.force_insert(&s2);
 
-		assert_eq!(store.submit_index.read().entries.len(), 2);
+		assert_eq!(store.statement_count(), 2);
 
 		// Run check_expiration - should evict ALL statements since no allowance exists
-		// First call populates the accounts list, second call processes them
-		store.enforce_limits();
 		store.enforce_limits();
 
-		let index = store.submit_index.read();
-		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
-		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
+		assert_eq!(store.statement_count(), 0, "All statements should be evicted");
+		assert!(!store.has_account(&account(0)), "Account should be removed");
 		assert!(store.is_evicted(&h1));
 		assert!(store.is_evicted(&h2));
 	}
@@ -3769,24 +5536,18 @@ mod tests {
 		let h2 = s2.hash();
 
 		// Directly insert both statements (total 1200 bytes > 1000 limit)
-		{
-			let mut submit_index = store.submit_index.write();
-			submit_index.insert_new(h1, account(2), &s1);
-			submit_index.insert_new(h2, account(2), &s2);
-		}
+		store.force_insert(&s1);
+		store.force_insert(&s2);
 
-		assert_eq!(store.submit_index.read().total_size, 1200);
+		assert_eq!(store.total_size(), 1200);
 
 		// Run check_expiration - should evict s1 to get under 1000 bytes
-		// First call populates the accounts list, second call processes them
-		store.enforce_limits();
 		store.enforce_limits();
 
-		let index = store.submit_index.read();
-		assert_eq!(index.entries.len(), 1);
-		assert!(index.entries.contains_key(&h2), "Higher priority should remain");
-		assert!(!index.entries.contains_key(&h1), "Lower priority should be evicted");
-		assert_eq!(index.total_size, 600);
+		assert_eq!(store.statement_count(), 1);
+		assert!(store.has_statement(&h2), "Higher priority should remain");
+		assert!(!store.has_statement(&h1), "Lower priority should be evicted");
+		assert_eq!(store.total_size(), 600);
 	}
 
 	#[test]
@@ -3821,12 +5582,11 @@ mod tests {
 		assert_eq!(store.submit(s2, source), SubmitResult::New);
 
 		{
-			let index = store.submit_index.read();
-			assert_eq!(index.entries.len(), 1);
-			assert!(!index.entries.contains_key(&h1), "Old channel message should be gone");
-			assert!(index.entries.contains_key(&h2), "New channel message should exist");
+			assert_eq!(store.statement_count(), 1);
+			assert!(!store.has_statement(&h1), "Old channel message should be gone");
+			assert!(store.has_statement(&h2), "New channel message should exist");
 			assert!(store.is_evicted(&h1), "Old should be in expired");
-			assert_eq!(index.total_size, 200);
+			assert_eq!(store.total_size(), 200);
 		}
 	}
 
@@ -3892,7 +5652,7 @@ mod tests {
 		assert_eq!(store.submit(s_ch, source), SubmitResult::New);
 		assert_eq!(store.submit(s_low, source), SubmitResult::New);
 		assert_eq!(store.submit(s_mid, source), SubmitResult::New);
-		assert_eq!(store.submit_index.read().total_size, 800);
+		assert_eq!(store.total_size(), 800);
 
 		// Replace channel with 600b message (priority 10 > 5)
 		// Must evict lowest priority non-channel statement (priority 2) to fit
@@ -3901,13 +5661,12 @@ mod tests {
 		assert_eq!(store.submit(s_ch_big, source), SubmitResult::New);
 
 		{
-			let index = store.submit_index.read();
-			assert_eq!(index.entries.len(), 2);
-			assert!(!index.entries.contains_key(&h_ch), "Old channel message replaced");
-			assert!(!index.entries.contains_key(&h_low), "Priority 2 evicted to fit size");
-			assert!(index.entries.contains_key(&h_mid), "Priority 3 should remain");
-			assert!(index.entries.contains_key(&h_ch_big), "New channel message added");
-			assert_eq!(index.total_size, 900); // 300 (mid) + 600 (new channel)
+			assert_eq!(store.statement_count(), 2);
+			assert!(!store.has_statement(&h_ch), "Old channel message replaced");
+			assert!(!store.has_statement(&h_low), "Priority 2 evicted to fit size");
+			assert!(store.has_statement(&h_mid), "Priority 3 should remain");
+			assert!(store.has_statement(&h_ch_big), "New channel message added");
+			assert_eq!(store.total_size(), 900); // 300 (mid) + 600 (new channel)
 		}
 	}
 
@@ -4237,6 +5996,35 @@ mod tests {
 			events
 		}
 
+		#[test]
+		fn replay_watermark_excludes_later_admissions() {
+			let (store, _dir) = test_store();
+			let before = signed_statement(1);
+			let after = signed_statement(2);
+			assert_eq!(store.submit(before.clone(), StatementSource::Local), SubmitResult::New);
+
+			let mut watermark = None;
+			assert!(store
+				.register_replay(&mut |captured| {
+					watermark = Some(captured);
+					true
+				})
+				.unwrap()
+				.is_some());
+			assert_eq!(store.submit(after.clone(), StatementSource::Local), SubmitResult::New);
+
+			let replay =
+				store.replay_batch(&OptimizedTopicFilter::Any, 0, watermark.unwrap()).unwrap();
+			let hashes: HashSet<_> = replay
+				.statements
+				.iter()
+				.map(|encoded| Statement::decode(&mut encoded.as_slice()).unwrap().hash())
+				.collect();
+			assert!(replay.done);
+			assert!(hashes.contains(&before.hash()));
+			assert!(!hashes.contains(&after.hash()));
+		}
+
 		#[tokio::test]
 		async fn add_filter_replays_snapshot_and_delivers_later_submissions_live() {
 			let (store, _dir) = arc_test_store();
@@ -4245,8 +6033,7 @@ mod tests {
 			const NUM_STATEMENTS: u8 = 50;
 			const NUM_PRE_FILTER: u8 = 20;
 
-			// Statements stored before the filter is attached; the replay snapshot must cover
-			// exactly these.
+			// Statements stored before the filter is attached; the replay must cover exactly these.
 			for i in 0..NUM_PRE_FILTER {
 				let stmt = signed_statement(i);
 				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);
@@ -4254,8 +6041,8 @@ mod tests {
 
 			let filter_id = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
 
-			// The snapshot is collected atomically with the filter registration, so statements
-			// submitted after `add_filter` returns must arrive as live events only.
+			// The watermark is captured atomically with the filter registration, so statements
+			// submitted after `add_filter` returns sit above it and arrive as live events only.
 			for i in NUM_PRE_FILTER..NUM_STATEMENTS {
 				let stmt = signed_statement(i);
 				assert_eq!(store.submit(stmt, StatementSource::Local), SubmitResult::New);

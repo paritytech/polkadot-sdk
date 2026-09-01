@@ -190,6 +190,42 @@ pub struct Config<M: Send + Sync + 'static> {
 	pub rpc_runtime: tokio::runtime::Runtime,
 }
 
+/// Guards the dedicated RPC runtime while [`start_server`] is setting the server up.
+///
+/// `start_server` is awaited from within a runtime context, so dropping the RPC runtime on an
+/// early error return would panic: `Runtime::drop` blocks until the blocking pool has shut down,
+/// which tokio forbids on a runtime thread. Routing every exit path through this guard tears the
+/// runtime down with `shutdown_background()` instead, just like [`Server::drop`] does.
+struct RuntimeGuard(Option<tokio::runtime::Runtime>);
+
+impl RuntimeGuard {
+	fn new(runtime: tokio::runtime::Runtime) -> Self {
+		Self(Some(runtime))
+	}
+
+	fn handle(&self) -> tokio::runtime::Handle {
+		self.0
+			.as_ref()
+			.expect("runtime is only taken in `into_inner` and `Drop`; qed")
+			.handle()
+			.clone()
+	}
+
+	/// Hands the runtime over to the [`Server`], which owns it from then on.
+	fn into_inner(mut self) -> tokio::runtime::Runtime {
+		self.0.take().expect("runtime is only taken here and in `Drop`; qed")
+	}
+}
+
+impl Drop for RuntimeGuard {
+	fn drop(&mut self) {
+		if let Some(runtime) = self.0.take() {
+			// Same trade-off `Server::drop` accepts
+			runtime.shutdown_background();
+		}
+	}
+}
+
 #[derive(Debug, Clone)]
 struct PerConnection {
 	methods: Methods,
@@ -206,11 +242,20 @@ where
 	let Config { endpoints, metrics, rpc_api, id_provider, request_logger_limit, rpc_runtime } =
 		config;
 
-	let rpc_handle = rpc_runtime.handle().clone();
+	// Held as a guard so that every early error return below shuts the runtime down
+	let rpc_runtime = RuntimeGuard::new(rpc_runtime);
+	let rpc_handle = rpc_runtime.handle();
 
 	let (stop_handle, server_handle) = stop_channel();
+	let rpc_api = build_rpc_api(rpc_api);
+	// Bound the metrics `method` label to the registered methods so its
+	// cardinality stays finite (unknown names collapse to `"unknown"`).
+	let metrics = metrics.map(|m| {
+		let known: Vec<&'static str> = rpc_api.method_names().collect();
+		m.with_known_methods(known)
+	});
 	let cfg = PerConnection {
-		methods: build_rpc_api(rpc_api).into(),
+		methods: rpc_api.into(),
 		metrics,
 		tokio_handle: rpc_handle.clone(),
 		stop_handle,
@@ -393,5 +438,63 @@ where
 	// This is to make it work with old scripts/utils that parse the logs.
 	log::info!("Running JSON-RPC server: addr={}", format_listen_addrs(&local_addrs));
 
-	Ok(Server::new(server_handle, local_addrs, rpc_runtime))
+	Ok(Server::new(server_handle, local_addrs, rpc_runtime.into_inner()))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn test_runtime() -> tokio::runtime::Runtime {
+		tokio::runtime::Builder::new_multi_thread()
+			.worker_threads(1)
+			.enable_all()
+			.build()
+			.expect("test runtime can be built; qed")
+	}
+
+	fn config(endpoints: Vec<RpcEndpoint>) -> Config<()> {
+		Config {
+			endpoints,
+			metrics: None,
+			rpc_api: RpcModule::new(()),
+			id_provider: None,
+			request_logger_limit: 1024,
+			rpc_runtime: test_runtime(),
+		}
+	}
+
+	fn endpoint(listen_addr: SocketAddr) -> RpcEndpoint {
+		RpcEndpoint {
+			listen_addr,
+			batch_config: BatchRequestConfig::Disabled,
+			max_connections: 1,
+			max_payload_in_mb: 1,
+			max_payload_out_mb: 1,
+			max_subscriptions_per_connection: 1,
+			max_buffer_capacity_per_connection: 1,
+			rate_limit: None,
+			rate_limit_trust_proxy_headers: false,
+			rate_limit_whitelisted_ips: Vec::new(),
+			cors: None,
+			rpc_methods: RpcMethods::Auto,
+			is_optional: false,
+			retry_random_port: false,
+		}
+	}
+
+	#[tokio::test]
+	async fn start_server_with_no_endpoints_returns_error_without_panicking() {
+		let res = start_server(config(Vec::new())).await;
+		assert!(res.is_err(), "expected ListenAddrError, got Ok");
+	}
+
+	#[tokio::test]
+	async fn start_server_bind_failure_returns_error_without_panicking() {
+		let blocker = std::net::TcpListener::bind("127.0.0.1:0").expect("bind blocker; qed");
+		let taken_addr = blocker.local_addr().expect("blocker has a local addr; qed");
+
+		let res = start_server(config(vec![endpoint(taken_addr)])).await;
+		assert!(res.is_err(), "expected a bind error, got Ok");
+	}
 }
