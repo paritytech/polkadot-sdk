@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788276464684,
+  "lastUpdate": 1788285561212,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexandre.balde@parity.io",
-            "name": "Alexandre R. Baldé",
-            "username": "rockbmb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eeee11ea6f7d34ad79199c33d28ecb0940fd6c31",
-          "message": "Expand multisig pallet tests (#10843)\n\n# Description\n\n* Add tests to `SenderInSignatories/SignatoriesOutOfOrder` error cases\n* Add clarifying note to `approve_as_multi/as_multi` comments\n\nFollow-up from\nhttps://github.com/open-web3-stack/polkadot-ecosystem-tests/pull/305 and\nhttps://github.com/open-web3-stack/polkadot-ecosystem-tests/pull/323\n\n## Integration\n\nN/A\n\n## Review Notes\n\nN/A\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-02-04T02:43:48Z",
-          "tree_id": "82b0a20956dbae44ac339cdeb69f63f05031ffb8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eeee11ea6f7d34ad79199c33d28ecb0940fd6c31"
-        },
-        "date": 1770180991470,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023007998533333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009943314813333312,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14531503803333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007149660313333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01031953881333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "dr333ws"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "684e208deff04c83f047fc7ec36e0ccd6cf4588d",
+          "message": "sc-rpc-server: bound the cardinality of the RPC metrics `method` label (#13045)\n\nThe `substrate_rpc_calls_*` metrics used the requested method name as\nthe `method` label without restricting it to registered methods, so the\nlabel cardinality was unbounded.\n\nBound it to the registered method set and record everything else as\n`unknown`, so the series count stays finite. Additive and backwards\ncompatible (an unconfigured `RpcMetrics` keeps the old behaviour), so\n`minor`.",
+          "timestamp": "2026-09-01T16:23:51Z",
+          "tree_id": "23770e29dfa5ff5b5abb56d20afda212851ef38d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/684e208deff04c83f047fc7ec36e0ccd6cf4588d"
+        },
+        "date": 1788285521114,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007788949493333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010177832386666646,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1477233150066667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02548608183333333,
             "unit": "seconds"
           }
         ]
