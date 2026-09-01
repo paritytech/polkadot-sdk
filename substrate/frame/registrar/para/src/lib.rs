@@ -377,11 +377,43 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Accept a report from the relay chain's registrar pallet.
+		///
+		/// Not callable by users: the origin must be the relay chain.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::receive())]
+		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
+			T::RelayOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_register_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CancelResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_cancel_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_deregister_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
+			}
+		}
+
 		/// Reserve the next free para id for the caller.
 		///
 		/// Takes [`Config::ReservationConsideration`]. The caller becomes the manager of the new
 		/// id and is the only account that may [`Pallet::register`] against it.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::reserve())]
 		pub fn reserve(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -413,7 +445,7 @@ pub mod pallet {
 		/// Takes [`Config::RegistrationConsideration`] for the head data and the *declared* code
 		/// length, on top of the para id reservation. It is returned if the relay chain rejects
 		/// the registration or if the caller later abandons it.
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register(genesis_head.len() as u32))]
 		pub fn register(
 			origin: OriginFor<T>,
@@ -476,7 +508,7 @@ pub mod pallet {
 		/// which of the two happened.
 		///
 		/// The para id itself stays reserved either way, so the manager can simply try again.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::cancel_registration())]
 		pub fn cancel_registration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -509,48 +541,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Accept a report from the relay chain's registrar pallet.
-		///
-		/// Not callable by users: the origin must be the relay chain.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::receive())]
-		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
-			T::RelayOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToPara::V1(MessageToParaV1::RegisterResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_register_response(para_id, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::CancelResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_cancel_response(para_id, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::DeregisterResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_deregister_response(para_id, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
-			}
-		}
-
 		/// Deregister a para id and, eventually, get the deposits back.
 		///
 		/// Callable by the para's manager, the para itself, or root, the same set the relay
 		/// chain's own registrar accepts. Deposits always go back to the manager who paid them.
-		///
-		/// A merely reserved id is dropped here and now, with its deposit returned. A registered
-		/// para must leave the relay chain's registry too, so the entry moves to
-		/// [`RegistrationState::Deregistering`] and the relay chain's answer decides:
-		/// confirmation releases both deposits and frees the id, refusal puts the para back to
-		/// registered with the deposits still held.
 		#[pallet::call_index(4)]
 		#[pallet::weight(
 			T::WeightInfo::deregister_reserved().max(T::WeightInfo::deregister_registered())

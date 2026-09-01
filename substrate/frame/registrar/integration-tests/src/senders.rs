@@ -74,7 +74,7 @@ pub enum ParaRuntimePallets {
 #[derive(Encode)]
 pub enum RegistrarParaCalls {
 	/// Index of `fn receive` in `pallet-registrar-para`.
-	#[codec(index = 3)]
+	#[codec(index = 0)]
 	Receive(MessageToPara),
 }
 
