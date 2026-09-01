@@ -70,10 +70,10 @@ use std::{
 const LOG_TARGET: &str = "sub-libp2p::peerset";
 
 /// Default backoff for connection re-attempts.
-const DEFAULT_BACKOFF: Duration = Duration::from_secs(5);
+const DEFAULT_BACKOFF: Duration = Duration::from_secs(1);
 
 /// Open failure backoff.
-const OPEN_FAILURE_BACKOFF: Duration = Duration::from_secs(5);
+const OPEN_FAILURE_BACKOFF: Duration = Duration::from_secs(1);
 
 /// Slot allocation frequency.
 ///
@@ -650,7 +650,7 @@ impl Peerset {
 			// available), accept the peer and then just ignore the back-off timer when it expires
 			PeerState::Backoff => {
 				if !is_reserved_peer && self.num_in == self.max_in {
-					log::trace!(
+					log::warn!(
 						target: LOG_TARGET,
 						"{}: ({peer:?}) is backed-off and cannot accept, reject inbound substream",
 						self.protocol,
@@ -745,7 +745,7 @@ impl Peerset {
 			return ValidationResult::Accept;
 		}
 
-		log::trace!(
+		log::warn!(
 			target: LOG_TARGET,
 			"{}: reject {peer:?}, not a reserved peer and no free inbound slots",
 			self.protocol,
@@ -807,6 +807,9 @@ impl Peerset {
 					"{}: substream open failure for reserved peer {peer:?}",
 					self.protocol,
 				);
+
+				// Do not backoff reserved peers.
+				return;
 			},
 			state => {
 				log::debug!(
