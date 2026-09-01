@@ -65,6 +65,21 @@ jobs:
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
+      - name: Record runner name
+        if: always()
+        run: |
+          mkdir -p target/nextest/default
+          printf '%s\n' "$RUNNER_NAME" > target/nextest/default/runner-name.txt
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: junit-benchmarks
+          path: |
+            target/nextest/default/junit.xml
+            target/nextest/default/runner-name.txt
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -129,7 +144,25 @@ jobs:
       # run runtime-api tests with `enable-staging-api` feature on the 1st node
       - name: runtime-api tests
         if: ${{ matrix.partition == '1/3' }}
-        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
+        run: |
+          # Preserve main JUnit XML before the second nextest run overwrites it
+          cp target/nextest/default/junit.xml target/nextest/default/junit-main.xml
+          forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
+      - name: Record runner name
+        if: always()
+        run: |
+          mkdir -p target/nextest/default
+          printf '%s\n' "$RUNNER_NAME" > target/nextest/default/runner-name.txt
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: junit-stable-${{ strategy.job-index }}
+          path: |
+            target/nextest/default/junit*.xml
+            target/nextest/default/runner-name.txt
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -184,6 +217,21 @@ jobs:
                    --cargo-quiet \
                    --features experimental,ci-only-tests \
                    --partition count:${{ matrix.partition }}
+      - name: Record runner name
+        if: always()
+        run: |
+          mkdir -p target/nextest/default
+          printf '%s\n' "$RUNNER_NAME" > target/nextest/default/runner-name.txt
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: junit-no-try-runtime-${{ strategy.job-index }}
+          path: |
+            target/nextest/default/junit.xml
+            target/nextest/default/runner-name.txt
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -204,7 +252,54 @@ jobs:
       ]
     if: always() && !cancelled()
     steps:
-      - run: |
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts/flaky-report.py
+          sparse-checkout-cone-mode: false
+      - name: Download all JUnit artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: junit-*
+          path: junit-reports
+      - name: Fetch job URLs
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs" \
+            --paginate \
+            --jq '[.jobs[] | {runner_name, name, html_url}]' \
+            > jobs.json || echo '[]' > jobs.json
+      - name: Test report
+        run: |
+          python3 .github/scripts/flaky-report.py 'junit-reports/*/junit*.xml' jobs.json | tee test-report.md
+          cat test-report.md >> $GITHUB_STEP_SUMMARY
+      - name: Comment on PR
+        # Skip for PRs from forks — github.token is read-only there and gh API calls would 403
+        if: github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Delete previous test report comment if it exists
+          PREV_COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq '.[] | select(.body | contains("<!-- test-report -->")) | .id' | head -1)
+          if [ -n "$PREV_COMMENT_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${PREV_COMMENT_ID}" -X DELETE
+          fi
+          # Only comment when there are flaky or failed tests
+          if grep -qE '[1-9][0-9]* (failed|flaky)' test-report.md; then
+            # Prepend a hidden marker so we can find this comment on re-runs
+            { echo '<!-- test-report -->'; cat test-report.md; } > pr-comment.md
+            gh pr comment "${PR_NUMBER}" --body-file pr-comment.md
+          fi
+      - name: Check job results
+        if: always()
+        run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
           FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
