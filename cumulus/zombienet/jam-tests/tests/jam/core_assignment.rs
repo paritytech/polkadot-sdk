@@ -153,9 +153,11 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 	/// been through the whole soft-resubmit and re-root sequence, not just a slow block.
 	const STILL_FOR: Duration = Duration::from_secs(90);
 	const STALL_BUDGET: Duration = Duration::from_secs(10 * 60);
-	/// Blocks the collator has to author while the head is frozen. At one block per six-second
-	/// slot [`STILL_FOR`] is worth about fifteen; five is a network doing a third of that.
-	const LOCAL_BLOCKS_WHILE_STALLED: u64 = 5;
+	/// Blocks the collator has to author while the head is frozen. A stalled builder authors more
+	/// slowly than a healthy one — it fills its buffer above the stuck head, then re-roots and
+	/// starts again — and a measured stall of this length produced ten. Five is half of that,
+	/// against a collator that stopped, which would produce none.
+	const LOCAL_BLOCKS_WHILE_STALLED: usize = 5;
 
 	let para = run.paras[0].para.clone();
 	let rpc = first_rpc(run).await?;
@@ -169,14 +171,19 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 	// for eight slots too, and a re-root that happened before the core was taken away would say
 	// nothing about what taking it away does.
 	let reroots_before = reroots(run);
+	let authored_before = authored(run);
 	log::info!("core {CORE} is unassigned; para {PARA} was at {freed} when it went");
 
 	let frozen = run.wait_for_frozen_jam_head(0, &rpc, STILL_FOR, STALL_BUDGET).await?;
-	let authored = frozen.height.best.saturating_sub(freed.height.best);
+	// Counted rather than read off the chain's height on purpose: a builder that has re-rooted is
+	// authoring siblings of the stuck block, so its blocks stop making the chain taller long
+	// before they stop being authored, and a height that stands still would read as a dead
+	// collator when it is a working one.
+	let authored = authored(run).saturating_sub(authored_before);
 	anyhow::ensure!(
 		authored >= LOCAL_BLOCKS_WHILE_STALLED,
-		"with its core gone the para authored only {authored} blocks in {STILL_FOR:?} ({freed} -> \
-		 {frozen}); losing a core must not stop local block production"
+		"with its core gone the para authored only {authored} blocks while its head stood still \
+		 for {STILL_FOR:?} ({freed} -> {frozen}); losing a core must not stop block production"
 	);
 	log::info!("the head froze at {frozen} while the collator authored {authored} more blocks");
 
@@ -275,6 +282,14 @@ async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
 		 ({before} -> {moved})"
 	);
 	Ok(())
+}
+
+/// How many parachain blocks the single para's collator has authored so far.
+///
+/// `extrinsics` is a field only the "built and imported a block" line carries, which is what makes
+/// this a count of blocks authored rather than of anything else the builder logged.
+fn authored(run: &Run) -> usize {
+	run.paras[0].collators.log_lines_with(&["extrinsics="]).len()
 }
 
 /// How many blocks the single para's collator has authored on a head it gave up waiting for.
