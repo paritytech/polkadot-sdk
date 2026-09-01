@@ -186,6 +186,8 @@ pub mod pallet {
 		NftNotFound,
 		/// NFT has not yet been fractionalised.
 		NftNotFractionalized,
+		/// The number of fractions must be greater than zero.
+		ZeroFractions,
 	}
 
 	/// A reason for the pallet placing a hold on funds.
@@ -227,6 +229,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
+			ensure!(!fractions.is_zero(), Error::<T>::ZeroFractions);
 
 			let nft_owner =
 				T::Nfts::owner(&nft_collection_id, &nft_id).ok_or(Error::<T>::NftNotFound)?;
