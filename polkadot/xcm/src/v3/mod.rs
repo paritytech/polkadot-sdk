@@ -280,8 +280,14 @@ impl TryInto<NewPalletInfo> for PalletInfo {
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum MaybeErrorCode {
 	Success,
-	Error(#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))] BoundedVec<u8, MaxDispatchErrorLen>),
-	TruncatedError(#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))] BoundedVec<u8, MaxDispatchErrorLen>),
+	Error(
+		#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))]
+		BoundedVec<u8, MaxDispatchErrorLen>,
+	),
+	TruncatedError(
+		#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))]
+		BoundedVec<u8, MaxDispatchErrorLen>,
+	),
 }
 
 impl From<Vec<u8>> for MaybeErrorCode {
