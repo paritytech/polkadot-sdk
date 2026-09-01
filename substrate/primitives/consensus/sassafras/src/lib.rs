@@ -150,7 +150,7 @@ sp_api::decl_runtime_apis! {
 		/// Get ring context to be used for ticket construction and verification.
 		fn ring_context() -> Option<vrf::RingContext>;
 
-		/// Submit next epoch validator tickets via an unsigned extrinsic.
+		/// Submit next epoch validator tickets via an authorized transaction.
 		/// This method returns `false` when creation of the extrinsics fails.
 		fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool;
 
