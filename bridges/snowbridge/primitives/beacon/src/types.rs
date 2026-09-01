@@ -466,11 +466,25 @@ impl ExecutionCommitment {
 }
 
 impl VersionedExecutionPayloadHeader {
+	/// Which commitment scheme this proof declares.
+	///
+	/// Reads the variant tag only — no parsing — so callers can gate work on it. Unlike the
+	/// accessors this type used to expose, a variant tag is not a value a caller could
+	/// mistake for verified data: it is the SCALE discriminant, already visible to anyone
+	/// holding the encoding.
+	pub fn scheme(&self) -> CommitmentScheme {
+		match self {
+			VersionedExecutionPayloadHeader::Capella(_) |
+			VersionedExecutionPayloadHeader::Deneb(_) => CommitmentScheme::PayloadHeaderRoot,
+			VersionedExecutionPayloadHeader::Gloas(_) => CommitmentScheme::BlockHash,
+		}
+	}
+
 	/// Derive what the execution branch must prove, and what proving it establishes.
 	///
-	/// This is the only way to obtain a receipts root. For Gloas that means parsing
-	/// submitter-supplied bytes, which happens here — before verification, deliberately, so
-	/// malformed input is rejected without paying for a merkle check.
+	/// This is the only way to obtain a receipts root. For Gloas it parses
+	/// submitter-supplied bytes, so callers should reject on cheaper grounds — the fork era,
+	/// for one — before reaching it.
 	pub fn commitment(&self) -> Result<ExecutionCommitment, CommitmentError> {
 		Ok(match self {
 			VersionedExecutionPayloadHeader::Capella(header) => ExecutionCommitment {

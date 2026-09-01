@@ -1718,6 +1718,20 @@ mod gloas_end_to_end {
 		});
 	}
 
+	/// `scheme()` gates the fork-era check while `commitment()` produces the leaf, so the two
+	/// must never disagree — a divergence would pick the gindex for one scheme and the leaf
+	/// for the other. Both real fixtures are checked.
+	#[test]
+	fn scheme_agrees_with_the_constructed_commitment() {
+		for header in [
+			execution_proof().execution_header,
+			super::gloas_end_to_end_second::execution_proof().execution_header,
+			load_execution_proof_fixture().execution_header,
+		] {
+			assert_eq!(header.scheme(), header.commitment().unwrap().scheme());
+		}
+	}
+
 	/// A receipt proof for one transaction index must not satisfy a log claiming another.
 	#[test]
 	fn rejects_a_wrong_transaction_index() {
@@ -1890,6 +1904,7 @@ mod gloas_checkpoint_and_ancestry {
 /// pallet refuses to try. These drive it through `verify_execution_proof` itself.
 mod gloas_fork_isolation {
 	use super::*;
+	use snowbridge_beacon_primitives::CommitmentScheme;
 	fn gloas_era_slot() -> u64 {
 		ChainForkVersions::get().gloas.epoch * (SLOTS_PER_EPOCH as u64)
 	}
@@ -1908,7 +1923,7 @@ mod gloas_fork_isolation {
 		new_tester().execute_with(|| {
 			// The assertion is only meaningful if the fixture really is pre-Gloas.
 			assert!(!is_gloas_era(proof.header.slot));
-			assert!(!proof.execution_header.commitment().unwrap().is_gloas());
+			assert!(proof.execution_header.scheme() != CommitmentScheme::BlockHash);
 
 			assert_ok!(EthereumBeaconClient::store_finalized_header(
 				proof.header,
@@ -1934,7 +1949,7 @@ mod gloas_fork_isolation {
 
 		new_tester().execute_with(|| {
 			assert!(!is_gloas_era(proof.header.slot));
-			assert!(proof.execution_header.commitment().unwrap().is_gloas());
+			assert!(proof.execution_header.scheme() == CommitmentScheme::BlockHash);
 
 			assert_ok!(EthereumBeaconClient::store_finalized_header(
 				proof.header,
@@ -1957,7 +1972,7 @@ mod gloas_fork_isolation {
 
 		new_tester().execute_with(|| {
 			assert!(is_gloas_era(proof.header.slot));
-			assert!(!proof.execution_header.commitment().unwrap().is_gloas());
+			assert!(proof.execution_header.scheme() != CommitmentScheme::BlockHash);
 
 			assert_ok!(EthereumBeaconClient::store_finalized_header(
 				proof.header,
@@ -2145,7 +2160,7 @@ mod gloas_end_to_end_second {
 		}
 	}
 
-	fn execution_proof() -> ExecutionProof {
+	pub(super) fn execution_proof() -> ExecutionProof {
 		ExecutionProof {
 			header: beacon_header(),
 			ancestry_proof: None::<AncestryProof>,

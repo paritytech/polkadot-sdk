@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 use frame_support::ensure;
-use snowbridge_beacon_primitives::{CommitmentError, ExecutionProof};
+use snowbridge_beacon_primitives::{CommitmentError, CommitmentScheme, ExecutionProof};
 use sp_runtime::DispatchError;
 
 use alloy_primitives::Log as AlloyLog;
@@ -123,6 +123,19 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 
+		// Reject a legacy proof presented for a Gloas-era block, and vice versa. The slot the
+		// sync committee signed over is the arbiter, not the variant the submitter chose.
+		//
+		// This runs before the commitment is built, so a proof that cannot be valid for this
+		// slot is rejected without interpreting any submitter-controlled bytes. Reading the
+		// variant tag costs nothing; deriving the commitment parses RLP.
+		let is_gloas = execution_proof.execution_header.scheme() == CommitmentScheme::BlockHash;
+		let fork_versions = T::ForkVersions::get();
+		let is_gloas_slot =
+			compute_epoch(execution_proof.header.slot, config::SLOTS_PER_EPOCH as u64) >=
+				fork_versions.gloas.epoch;
+		ensure!(is_gloas == is_gloas_slot, Error::<T>::InvalidExecutionHeaderProof);
+
 		// What the branch must prove differs by fork. Pre-Gloas the leaf is the SSZ root of
 		// the full execution payload header. Gloas (EIP-7732) removes that field from the
 		// body, leaving only an execution block hash, so the leaf is
@@ -135,15 +148,7 @@ impl<T: Config> Pallet<T> {
 			CommitmentError::MalformedExecutionHeader => Error::<T>::InvalidExecutionHeaderProof,
 		})?;
 
-		// Reject a legacy proof presented for a Gloas-era block, and vice versa. The slot the
-		// sync committee signed over is the arbiter, not the variant the submitter chose.
-		let fork_versions = T::ForkVersions::get();
-		let is_gloas_slot =
-			compute_epoch(execution_proof.header.slot, config::SLOTS_PER_EPOCH as u64) >=
-				fork_versions.gloas.epoch;
-		ensure!(commitment.is_gloas() == is_gloas_slot, Error::<T>::InvalidExecutionHeaderProof);
-
-		let gindex = Self::execution_commitment_gindex(commitment.is_gloas());
+		let gindex = Self::execution_commitment_gindex(is_gloas);
 		ensure!(
 			verify_merkle_branch(
 				commitment.leaf(),
