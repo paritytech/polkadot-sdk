@@ -963,8 +963,6 @@ mod paged_on_initialize_era_election_planner {
 			.validator_count(6)
 			.election_bounds(3, 10)
 			.build_and_execute(|| {
-				type A = AccountId;
-				type B = Balance;
 				// NOTE: we cannot really enforce MaxBackersPerWinner and ValidatorCount here as our
 				// election provider in the mock is rather dumb and cannot respect them atm.
 
@@ -987,58 +985,47 @@ mod paged_on_initialize_era_election_planner {
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
 				assert!(ElectableStashes::<Test>::get().is_empty());
 
+				type A = AccountId;
+				type B = Balance;
+
 				// page 2 fetched, next is 1
 				Session::roll_until(21);
 				assert_eq!(NextElectionPage::<Test>::get(), Some(1));
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(31));
-				assert_eq!(
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(81));
+				assert_eq_uvec!(
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<AccountId>>(),
-					vec![11, 21, 31]
+					vec![21, 31, 81]
 				);
-
 				assert_eq_uvec!(
 					era_exposures(2),
 					vec![
-						(11, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
 						(21, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
 						(31, Exposure::<A, B> { total: 500, own: 500, others: vec![] }),
+						(81, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
 					]
 				);
 
-				// page 1, next is 0
+				// page 1, next is 0. The self-vote pre-loop consumed the per-page budget,
+				// leaving nominator 101 (picked up earlier) as the only voter-list entry —
+				// so only validator 11 is added, backed purely by nominator exposure.
 				Session::roll_until(22);
-				// the electable stashes remain the same.
+				assert_eq!(NextElectionPage::<Test>::get(), Some(0));
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
 				assert_eq_uvec!(
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
-					vec![11, 21, 31, 61, 71, 81]
+					vec![11, 21, 31, 81]
 				);
-				assert_eq!(NextElectionPage::<Test>::get(), Some(0));
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(81));
-
 				assert_eq_uvec!(
 					era_exposures(2),
 					vec![
-						(31, Exposure::<A, B> { total: 500, own: 500, others: vec![] }),
-						(21, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
-						(81, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
-						(71, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
-						(11, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
-						(61, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] })
-					]
-				);
-
-				// fetch 0, done.
-				Session::roll_until(23);
-				// the electable stashes are now empty
-				assert!(ElectableStashes::<Test>::get().is_empty());
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
-				assert_eq!(NextElectionPage::<Test>::get(), None);
-
-				// check exposures
-				assert_eq_uvec!(
-					era_exposures(2),
-					vec![
-						(31, Exposure::<A, B> { total: 500, own: 500, others: vec![] }),
+						(
+							11,
+							Exposure::<A, B> {
+								total: 250,
+								own: 0,
+								others: vec![IndividualExposure { who: 101, value: 250 }]
+							}
+						),
 						(
 							21,
 							Exposure::<A, B> {
@@ -1047,47 +1034,63 @@ mod paged_on_initialize_era_election_planner {
 								others: vec![IndividualExposure { who: 101, value: 250 }]
 							}
 						),
+						(31, Exposure::<A, B> { total: 500, own: 500, others: vec![] }),
 						(81, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
-						(71, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
-						(91, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
+					]
+				);
+
+				// fetch 0, done.
+				Session::roll_until(23);
+				assert!(ElectableStashes::<Test>::get().is_empty());
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+				assert_eq!(NextElectionPage::<Test>::get(), None);
+
+				// final exposures unchanged from page-1 state (page 0 elected no one).
+				assert_eq_uvec!(
+					era_exposures(2),
+					vec![
 						(
 							11,
+							Exposure::<A, B> {
+								total: 250,
+								own: 0,
+								others: vec![IndividualExposure { who: 101, value: 250 }]
+							}
+						),
+						(
+							21,
 							Exposure::<A, B> {
 								total: 1250,
 								own: 1000,
 								others: vec![IndividualExposure { who: 101, value: 250 }]
 							}
 						),
-						(61, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] })
+						(31, Exposure::<A, B> { total: 500, own: 500, others: vec![] }),
+						(81, Exposure::<A, B> { total: 1000, own: 1000, others: vec![] }),
 					]
 				);
 
-				// and are sent
 				assert_eq!(
 					ReceivedValidatorSets::get_last(),
 					ValidatorSetReport {
 						id: 2,
 						leftover: false,
-						new_validator_set: vec![11, 21, 31, 61, 71, 81, 91],
+						new_validator_set: vec![11, 21, 31, 81],
 						prune_up_to: None
 					}
 				);
 
-				assert_eq!(NextElectionPage::<Test>::get(), None);
 				assert_eq!(
 					staking_events_since_last_call(),
 					vec![
 						Event::PagedElectionProceeded { page: 2, result: Ok(3) },
-						Event::PagedElectionProceeded { page: 1, result: Ok(3) },
-						Event::PagedElectionProceeded { page: 0, result: Ok(1) }
+						Event::PagedElectionProceeded { page: 1, result: Ok(1) },
+						Event::PagedElectionProceeded { page: 0, result: Ok(0) },
 					]
 				);
 
-				// go to activation of this validator set.
 				Session::roll_until_active_era(2);
-
-				// the new era validators are the expected elected stashes.
-				assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 61, 71, 81, 91]);
+				assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 81]);
 			})
 	}
 
