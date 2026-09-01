@@ -316,6 +316,18 @@ fn add_connections_works() {
 			Error::<Test>::NotOwner
 		);
 
+		// A connection `PeerId` exceeding `MaxPeerIdLength` is rejected, even when the `node`
+		// itself is valid, and no connection is stored.
+		assert_noop!(
+			NodeAuthorization::add_connections(
+				RuntimeOrigin::signed(20),
+				test_node(20),
+				vec![test_node(5), PeerId(vec![1, 2, 3])]
+			),
+			Error::<Test>::PeerIdTooLong
+		);
+		assert!(!AdditionalConnections::<Test>::contains_key(test_node(20)));
+
 		assert_ok!(NodeAuthorization::add_connections(
 			RuntimeOrigin::signed(20),
 			test_node(20),
@@ -361,6 +373,22 @@ fn remove_connections_works() {
 			test_node(20),
 			BTreeSet::from_iter(vec![test_node(5), test_node(15), test_node(25)]),
 		);
+
+		// A connection `PeerId` exceeding `MaxPeerIdLength` is rejected, and the stored
+		// connections are left untouched.
+		assert_noop!(
+			NodeAuthorization::remove_connections(
+				RuntimeOrigin::signed(20),
+				test_node(20),
+				vec![test_node(5), PeerId(vec![1, 2, 3])]
+			),
+			Error::<Test>::PeerIdTooLong
+		);
+		assert_eq!(
+			AdditionalConnections::<Test>::get(test_node(20)),
+			BTreeSet::from_iter(vec![test_node(5), test_node(15), test_node(25)])
+		);
+
 		assert_ok!(NodeAuthorization::remove_connections(
 			RuntimeOrigin::signed(20),
 			test_node(20),
