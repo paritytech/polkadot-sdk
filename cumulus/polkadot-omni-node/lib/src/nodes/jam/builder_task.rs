@@ -501,10 +501,10 @@ struct BuilderState<Header: HeaderT> {
 	head_advanced_at: Option<Slot>,
 	/// The branch started on a stuck accumulated head, while it is still stuck.
 	rerooted: Option<Reroot<Header::Hash>>,
-	/// The spare cores the last pool scan reported, so a stable assignment is logged once instead
-	/// of every tick. The *absent* core is logged every tick regardless: it is the reason nothing
-	/// is being submitted, and it must not scroll out of sight.
-	spare_cores: Vec<CoreIndex>,
+	/// The last pool scan, so a stable core assignment is logged once instead of every tick. The
+	/// *absent* core is logged every tick regardless: it is the reason nothing is being
+	/// submitted, and it must not scroll out of sight.
+	last_pool_scan: Option<PoolScan>,
 }
 
 /// The branch this collator started on an accumulated head that would not move.
@@ -549,37 +549,39 @@ impl<Header: HeaderT> BuilderState<Header> {
 	///
 	/// No core holding the para's authorizer is warned about on every single tick: the parachain
 	/// keeps producing blocks, so the only visible symptom is an accumulated head that stops
-	/// moving, and this line is what tells the two apart.
+	/// moving, and this line is what tells the two apart. Every other scan is logged when it
+	/// *changes*, which is what makes an assignment, a reassignment and a recovery each one line.
 	fn note_pool_scan(
 		&mut self,
 		scan: &PoolScan,
 		anchor: &BlockDesc,
 		authorizer: &AuraAuthorizer,
 	) -> Option<CoreIndex> {
+		let previous = self.last_pool_scan.replace(scan.clone());
 		match scan.target {
 			None => tracing::warn!(
 				target: LOG_TARGET,
 				anchor = ?anchor.header_hash,
 				anchor_slot = anchor.slot,
 				authorizer_hash = ?authorizer.hash(),
+				previously = ?previous,
 				"No core's authorizer pool holds this para's authorizer, so nothing can be \
 				 submitted. Authoring continues locally, but the accumulated head will not move \
 				 until a core is assigned to this para.",
 			),
-			Some(core) if scan.also_on != self.spare_cores => tracing::info!(
+			Some(core) if previous.as_ref() != Some(scan) => tracing::info!(
 				target: LOG_TARGET,
 				anchor = ?anchor.header_hash,
 				anchor_slot = anchor.slot,
 				authorizer_hash = ?authorizer.hash(),
 				core,
 				also_on = ?scan.also_on,
-				previously_also_on = ?self.spare_cores,
-				"The set of cores holding this para's authorizer changed; submitting to the \
+				previously = ?previous,
+				"The cores holding this para's authorizer changed; submitting to the \
 				 lowest-indexed one.",
 			),
 			Some(_) => {},
 		}
-		self.spare_cores = scan.also_on.clone();
 		scan.target
 	}
 
@@ -708,7 +710,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		own_recent: VecDeque::new(),
 		head_advanced_at: None,
 		rerooted: None,
-		spare_cores: Vec::new(),
+		last_pool_scan: None,
 	};
 	let mut cached_tip: Option<BlockDesc> = None;
 	loop {
@@ -1656,7 +1658,7 @@ mod tests {
 			own_recent: VecDeque::new(),
 			head_advanced_at: None,
 			rerooted: None,
-			spare_cores: Vec::new(),
+			last_pool_scan: None,
 		}
 	}
 

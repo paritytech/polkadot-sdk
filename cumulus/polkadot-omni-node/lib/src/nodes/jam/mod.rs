@@ -175,6 +175,7 @@ const MAX_LOOKUP_ANCHOR_AGE: JamSlot = 24;
 /// slots to be reported, so a lookup anchor picked this close to the limit would expire in flight
 /// — and a package that dies for that reason looks exactly like one that was never submitted.
 const LOOKUP_ANCHOR_SAFETY_MARGIN: JamSlot = 8;
+
 /// What a walk back through the finalized chain found to use as a lookup anchor.
 #[derive(Debug, PartialEq, Eq)]
 struct LookupAnchorWalk {
@@ -210,13 +211,12 @@ where
 	let window = authorizer.round_robin_window();
 	let mut block = newest;
 	for walked in 1..=window {
-		let expected = authorizer.collator_for(block.slot);
 		let ours = authorizer.names_us(block.slot);
 		tracing::debug!(
 			target: LOG_TARGET,
 			candidate = ?block.header_hash,
 			slot = block.slot,
-			expected_collator = expected,
+			expected_collator = authorizer.collator_for(block.slot),
 			own_index = authorizer.own_index(),
 			walked,
 			window,
@@ -226,32 +226,26 @@ where
 		if ours {
 			return LookupAnchorWalk { chosen: Some(block), walked, stopped_early: None };
 		}
-		if walked == window {
-			return LookupAnchorWalk { chosen: None, walked, stopped_early: None };
-		}
-		match parent(block.header_hash).await {
-			Ok(parent) => block = parent,
-			Err(error) =>
-				return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) },
+		if walked < window {
+			match parent(block.header_hash).await {
+				Ok(parent) => block = parent,
+				Err(error) =>
+					return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) },
+			}
 		}
 	}
-	// Unreachable for a non-zero window, which the authorizer guarantees (it rejects an empty
-	// collator set and a zero slot duration), but a `window` of zero must not mean "anything goes".
-	LookupAnchorWalk { chosen: None, walked: 0, stopped_early: None }
+	LookupAnchorWalk { chosen: None, walked: window, stopped_early: None }
 }
 
 /// Whether a lookup anchor this old would still be inside polkajam's window when the package
 /// carrying it is reported, rather than expiring in flight.
-fn lookup_anchor_survives_reporting(
-	anchor_slot: JamSlot,
-	lookup_anchor_slot: JamSlot,
-) -> bool {
+fn lookup_anchor_survives_reporting(anchor_slot: JamSlot, lookup_anchor_slot: JamSlot) -> bool {
 	anchor_slot.saturating_sub(lookup_anchor_slot) <=
 		MAX_LOOKUP_ANCHOR_AGE.saturating_sub(LOOKUP_ANCHOR_SAFETY_MARGIN)
 }
 
 /// Which cores currently hold this para's authorizer, and therefore where its packages may go.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct PoolScan {
 	/// The core to submit to. `None` means no core holds the para's authorizer at all — the
 	/// builder keeps authoring, but nothing may be submitted.
@@ -304,7 +298,7 @@ pub(crate) async fn scan_pools_at<Jam: JamStateSource + ?Sized>(
 			pool_len = pool.len(),
 			holds_ours = pool.contains(&wanted),
 			copies_of_ours = pool.iter().filter(|hash| **hash == wanted).count(),
-			pool = ?pool.iter().collect::<Vec<_>>(),
+			?pool,
 			elapsed_ms,
 			"JAM read: one core's authorizer pool.",
 		);
