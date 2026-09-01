@@ -24,12 +24,37 @@ module spec_msg_test {
   ): ParachainServiceState =
     range(0, n).foldl(s, (acc, i) => specMsgPush(acc, para, rootNo(i)))
 
+  /// A well-formed `WorkResult` for `para` chaining `parent -> parent + 1`,
+  /// carrying the given upward messages and spec-msg digest fields — for
+  /// driving `accumulateAll` / `accumulateOnePackage` blocks directly.
+  pure def mkWork(
+    para: ParaId, codeHash: ValidationCodeHash, parent: HeadData,
+    msgs: List[UpwardMessage],
+    provides: Option[StreamsRoot], requires: List[(ParaId, StreamsRoot)]
+  ): WorkResult = {
+    result: WorkOk(Ok({
+      paraId: para,
+      validationCode: { hash: codeHash, len: FixedCodeLen },
+      parentHeadHash: headHash(parent),
+      headData: parent + 1,
+      upwardMessages: msgs,
+      lookupAnchor: 0,
+      specMsgProvides: provides,
+      specMsgRequires: requires
+    })),
+    authTrace: 0
+  }
+
   /// §4.3: either spec-msg host call invoked more than once aborts the PVF
   /// with `SpecMsgCallRepeated`; called at most once each, the declarations
   /// travel verbatim in the digest, `Provides` as an option and `Requires`
   /// as the declared set.
   run specMsgRepeatedCallRejectedTest = {
     val ct = CoretimeParaId
+    val ctPkg: WorkPackage = {
+      authorizedParas: List(ct),
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+    }
     val providesTwice =
       refineWithSpecMsg(initialState, ct, ProvidesRepeated, RequiresUndeclared)
     val requiresTwice =
@@ -52,6 +77,23 @@ module spec_msg_test {
         specMsgProvides: Some(SpecMsgRootA),
         specMsgRequires: List((AssetHubParaId, SpecMsgRootB))
       }))),
+      // Failure precedence, pinned for the Rust harness. A PVF abort wins:
+      // the declarations never reach the wrapper.
+      assert(refineSpec(initialState, ctPkg, false, PvfReportError(9),
+        Some(headHash(0)), HeadDeclared(1), List(), 0,
+        ProvidesRepeated, RequiresRepeated)[0]
+        == WorkOk(Err({ paraId: ct, error: Opaque(9) }))),
+      // The spec-msg calls abort in the call itself, before the wrapper's
+      // post-run head-declaration checks.
+      assert(refineSpec(initialState, ctPkg, false, PvfOk,
+        None, HeadUndeclared, List(), 0,
+        ProvidesRepeated, RequiresUndeclared)[0]
+        == WorkOk(Err({ paraId: ct, error: SpecMsgCallRepeated }))),
+      // A repeat is settled before the set's own validity.
+      assert(refineSpec(initialState, ctPkg, false, PvfOk,
+        Some(headHash(0)), HeadDeclared(1), List(), 0,
+        ProvidesRepeated, RequiresDeclared(List((ct, SpecMsgRootA))))[0]
+        == WorkOk(Err({ paraId: ct, error: SpecMsgCallRepeated }))),
       init
     }
   }
@@ -86,6 +128,11 @@ module spec_msg_test {
       // The same rules as pure predicates, for the Rust harness to mirror.
       assert(wellFormedRequires(sources(MaxRequiresSources), ct)),
       assert(not(wellFormedRequires(sources(MaxRequiresSources + 1), ct))),
+      // Boundary zero: an explicitly EMPTY set is well-formed and
+      // indistinguishable from never calling — same digest either way.
+      assert(wellFormedRequires(List(), ct)),
+      assert(refineWithSpecMsg(initialState, ct, ProvidesUndeclared, RequiresDeclared(List()))
+        == refineWithSpecMsg(initialState, ct, ProvidesUndeclared, RequiresUndeclared)),
       init
     }
   }
@@ -218,6 +265,204 @@ module spec_msg_test {
     }
   }
 
+  /// §5.1 step 6 against a ring at CAPACITY: fullness changes nothing about
+  /// the gate. A consumer naming the evicted root or a never-pushed root is
+  /// silently rejected (the whole state is untouched), while the identical
+  /// candidate naming any root still inside the window — oldest or newest —
+  /// enacts.
+  run specMsgFullRingStillRejectsMissTest = {
+    val sender = CoretimeParaId
+    val consumer = AssetHubParaId
+    val consumerCode: ValidationCodeHash = { vchBytes: 2 }
+    // One past capacity: the ring holds exactly rootNo(1..SpecMsgRingCapacity)
+    // and rootNo(0) has been evicted.
+    val fullRing = pushMany(initialState, sender, SpecMsgRingCapacity + 1)
+    pure def wanting(root: StreamsRoot): WorkResult = {
+      result: WorkOk(Ok({
+        paraId: consumer,
+        validationCode: { hash: consumerCode, len: FixedCodeLen },
+        parentHeadHash: headHash(0),
+        headData: 1,
+        upwardMessages: List(),
+        lookupAnchor: 0,
+        specMsgProvides: None,
+        specMsgRequires: List((sender, root))
+      })),
+      authTrace: 0
+    }
+    pure def runOn(root: StreamsRoot): PerPackageOutcome =
+      accumulateOnePackage(fullRing, wanting(root), Set(), None, FixedCodeLen, 1, Map())
+    all {
+      // The evicted root and a never-pushed root: rejected, NOTHING changed.
+      assert(runOn(rootNo(0)).state == fullRing),
+      assert(runOn({ streamsRootBytes: 424242 }).state == fullRing),
+      // The oldest still-live root and the newest: the same candidate enacts.
+      assert(runOn(rootNo(1)).state.paraInfo(consumer).headData == 1),
+      assert(runOn(rootNo(SpecMsgRingCapacity)).state.paraInfo(consumer).headData == 1),
+      init
+    }
+  }
+
+  /// §5.1 step 6 at FULL fan-in (`MaxRequiresSources` entries): settlement is
+  /// all-or-nothing. Against empty rings the max-size set is silently
+  /// rejected; with every source's ring holding its root the candidate
+  /// enacts; with 31 of 32 present the single missing source still rejects
+  /// the whole set ("on the first missing entry").
+  run specMsgFullFanInSettlementTest = {
+    val consumer = AssetHubParaId
+    val consumerCode: ValidationCodeHash = { vchBytes: 2 }
+    pure def srcPara(i: int): ParaId = MkParaId(100 + i)
+    val fullRequires = range(0, MaxRequiresSources).foldl(List(), (acc, i) =>
+      acc.append((srcPara(i), rootNo(i))))
+    val candidate: WorkResult = {
+      result: WorkOk(Ok({
+        paraId: consumer,
+        validationCode: { hash: consumerCode, len: FixedCodeLen },
+        parentHeadHash: headHash(0),
+        headData: 1,
+        upwardMessages: List(),
+        lookupAnchor: 0,
+        specMsgProvides: None,
+        specMsgRequires: fullRequires
+      })),
+      authTrace: 0
+    }
+    // Rings fabricated with the pure push: every source holds its root, or
+    // every source but the last.
+    val allPresent = range(0, MaxRequiresSources).foldl(initialState, (acc, i) =>
+      specMsgPush(acc, srcPara(i), rootNo(i)))
+    val oneMissing = range(0, MaxRequiresSources - 1).foldl(initialState, (acc, i) =>
+      specMsgPush(acc, srcPara(i), rootNo(i)))
+    pure def runOn(s: ParachainServiceState): PerPackageOutcome =
+      accumulateOnePackage(s, candidate, Set(), None, FixedCodeLen, 1, Map())
+    all {
+      // Refine would carry this set: it is well-formed at the cap.
+      assert(wellFormedRequires(fullRequires, consumer)),
+      // Empty rings: silently rejected, nothing at all changed.
+      assert(runOn(initialState).state == initialState),
+      // All 32 sources present: enacts.
+      assert(runOn(allPresent).state.paraInfo(consumer).headData == 1),
+      // 31 of 32: the one missing source rejects the whole set, silently.
+      assert(runOn(oneMissing).state == oneMissing),
+      assert(runOn(oneMissing).state.paraLog(consumer) == List()),
+      init
+    }
+  }
+
+  /// §5.1 step 6 / §8.3, the line the check-before-head-write ordering
+  /// exists for: "a rejected consumer never publishes a root of its own". A
+  /// pipeline candidate that both consumes and sends is rejected at
+  /// settlement, so neither its head NOR its own `Provides` root lands; the
+  /// identical digest, once its source root is live, enacts and publishes in
+  /// the same step.
+  run specMsgRejectedConsumerPublishesNothingTest = {
+    val sender = CoretimeParaId
+    val consumer = AssetHubParaId
+    val consumerCode: ValidationCodeHash = { vchBytes: 2 }
+    val own: StreamsRoot = { streamsRootBytes: 555 }
+    val pipeline = mkWork(
+      consumer, consumerCode, 0, List(),
+      Some(own), List((sender, rootNo(0))))
+    val vsEmpty = accumulateOnePackage(
+      initialState, pipeline, Set(), None, FixedCodeLen, 1, Map())
+    val ready = specMsgPush(initialState, sender, rootNo(0))
+    val vsReady = accumulateOnePackage(
+      ready, pipeline, Set(), None, FixedCodeLen, 1, Map())
+    all {
+      // Settlement rejection: no head write and, crucially, no publish.
+      assert(vsEmpty.state == initialState),
+      assert(not(vsEmpty.state.specMsgSettles(List((consumer, own))))),
+      // Control: the same digest settles, enacts, and publishes at once.
+      assert(vsReady.state.paraInfo(consumer).headData == 1),
+      assert(vsReady.state.specMsgSettles(List((consumer, own)))),
+      init
+    }
+  }
+
+  /// §8.3: the ring is keyed by `(sender, root)`, so a root live in one
+  /// para's ring settles nothing for any other source naming the same value.
+  run specMsgRingPerSenderNamespaceTest = {
+    val a = CoretimeParaId
+    val consumer = AssetHubParaId
+    val consumerCode: ValidationCodeHash = { vchBytes: 2 }
+    val r = rootNo(3)
+    val onlyA = specMsgPush(initialState, a, r)
+    val wrongSource = accumulateOnePackage(
+      onlyA, mkWork(consumer, consumerCode, 0, List(), None, List((MkParaId(3), r))),
+      Set(), None, FixedCodeLen, 1, Map())
+    val rightSource = accumulateOnePackage(
+      onlyA, mkWork(consumer, consumerCode, 0, List(), None, List((a, r))),
+      Set(), None, FixedCodeLen, 1, Map())
+    all {
+      // The same root value under a different source misses.
+      assert(wrongSource.state == onlyA),
+      assert(rightSource.state.paraInfo(consumer).headData == 1),
+      init
+    }
+  }
+
+  /// §8.3: the ring holds the last `SpecMsgRingCapacity` ENACTED roots, not
+  /// just the latest one. A sender chaining two candidates in one block
+  /// leaves both roots settleable — a consumer one root behind is not cut
+  /// off until `SpecMsgRingCapacity` newer pushes evict it.
+  run specMsgRingKeepsEnactedHistoryTest = {
+    val sender = CoretimeParaId
+    val senderCode: ValidationCodeHash = { vchBytes: 1 }
+    val out = accumulateAll(
+      initialState, Set(), None, FixedCodeLen, 1,
+      List(
+        mkWork(sender, senderCode, 0, List(), Some(rootNo(1)), List()),
+        mkWork(sender, senderCode, 1, List(), Some(rootNo(2)), List())),
+      Map())
+    all {
+      assert(out.state.paraInfo(sender).headData == 2),
+      assert(out.state.specMsgCursor.get(sender) == { head: 2, tail: 0 }),
+      assert(out.state.specMsgSettles(List((sender, rootNo(1))))),
+      assert(out.state.specMsgSettles(List((sender, rootNo(2))))),
+      init
+    }
+  }
+
+  /// The §8.3 / §2-note same-block race around forced recovery, both ways.
+  /// Rollback first: Coretime's `parachain_set_head` replay (step 7) clears
+  /// the sender's ring, so a LATER digest's settlement in the same block
+  /// misses and only the enacting rollback carrier advances. Consumer first:
+  /// it settles against the still-live ring and enacts, then the rollback
+  /// replays — the consumer consumed a history that died within the block,
+  /// the exposure §8.3 explicitly accepts at MVP instead of draining
+  /// Coretime's commands before settlement.
+  run specMsgSameBlockForcedRecoveryTest = {
+    val ct = CoretimeParaId
+    val ctCode: ValidationCodeHash = { vchBytes: 1 }
+    val ah = AssetHubParaId
+    val rootS = rootNo(9)
+    val rollback = List(ParachainSetHead({ paraId: ah, newHead: 7 }))
+    val seeded = specMsgPush(initialState, ah, rootS)
+    val rollbackFirst = accumulateAll(
+      seeded, Set(), None, FixedCodeLen, 1,
+      List(
+        mkWork(ct, ctCode, 0, rollback, None, List()),
+        mkWork(ct, ctCode, 1, List(), None, List((ah, rootS)))),
+      Map())
+    val consumerFirst = accumulateAll(
+      seeded, Set(), None, FixedCodeLen, 1,
+      List(
+        mkWork(ct, ctCode, 0, List(), None, List((ah, rootS))),
+        mkWork(ct, ctCode, 1, rollback, None, List())),
+      Map())
+    all {
+      // Rollback first: the second digest misses the cleared ring.
+      assert(rollbackFirst.state.paraInfo(ct).headData == 1),
+      assert(rollbackFirst.state.paraInfo(ah).headData == 7),
+      assert(not(rollbackFirst.state.specMsgSettles(List((ah, rootS))))),
+      // Consumer first: both enact; the consumed history dies moments later.
+      assert(consumerFirst.state.paraInfo(ct).headData == 2),
+      assert(consumerFirst.state.paraInfo(ah).headData == 7),
+      assert(not(consumerFirst.state.specMsgSettles(List((ah, rootS))))),
+      init
+    }
+  }
+
   /// §6 / §8.3: a `parachain_set_head` overwriting a LIVE head clears the
   /// parachain's settlement ring, so no consumer can settle against the
   /// rolled-back history — a consumer naming a pre-rollback root is silently
@@ -263,6 +508,60 @@ module spec_msg_test {
       assert(cleaned.specMsgSettles(List((bystander, rootNo(0))))),
       init
     }
+  }
+
+  /// §6.4 / §8.3: the ring teardown happens on the PARTIAL clean-up branch
+  /// too. A para whose validation code enters forget-limbo stays live with
+  /// `isDeregistering` set — but its ring is already gone, so its final
+  /// messages stop being drainable the moment deregistration begins, not
+  /// only when the entry is finally dropped.
+  run specMsgCleanUpPartialStillClearsRingTest = {
+    val doomed = MkParaId(3)
+    val code: ValidationCodeHash = { vchBytes: 77 }
+    val registered =
+      parachainSetStateBalance(initialState, doomed, InitialParaBalance).state
+    val withCode =
+      parachainSetValidationCode(registered, doomed, code, FixedCodeLen, 0).state
+    // Provided code: the clean-up's forget only unrequests (two-step, §6.1),
+    // so the para survives in the deregistering state.
+    val provided = markProvided(withCode, vchAsHash(code), FixedCodeLen)
+    val seeded = specMsgPush(provided, doomed, rootNo(5))
+    val out = parachainCleanUp(seeded, doomed, 0).state
+    all {
+      assert(seeded.specMsgSettles(List((doomed, rootNo(5))))),
+      // Partial branch taken: still live, awaiting the expunging forget.
+      assert(out.isLive(doomed)),
+      assert(out.paraInfo(doomed).isDeregistering),
+      // The ring is nonetheless gone already.
+      assert(not(out.specMsgCursor.keys().contains(doomed))),
+      assert(out.specMsgMember.keys().filter(k => k._1 == doomed) == Set()),
+      assert(not(out.specMsgSettles(List((doomed, rootNo(5)))))),
+      init
+    }
+  }
+
+  /// The `spec_msg_ring_coherent` invariant is not vacuous: each corruption
+  /// class it exists for — an entry with no cursor, a window past capacity,
+  /// a queue root with no membership — is rejected, while a genuinely pushed
+  /// ring passes. (Same pattern as the gapped-buckets fixture.)
+  run specMsgRingInvariantCatchesCorruptionTest = {
+    val ct = CoretimeParaId
+    val orphanMember: ParachainServiceState = { ...initialState,
+      specMsgMember: Map((ct, rootNo(0)) -> { seq: 0 }) }
+    val overWideWindow: ParachainServiceState = { ...initialState,
+      specMsgCursor: Map(ct -> { head: SpecMsgRingCapacity + 1, tail: 0 }) }
+    val memberlessQueue: ParachainServiceState = { ...initialState,
+      specMsgCursor: Map(ct -> { head: 1, tail: 0 }),
+      specMsgQueue: Map((ct, 0) -> rootNo(0)) }
+    init
+      .then(setSvc(orphanMember))
+      .then(expectThat(not(spec_msg_ring_coherent)))
+      .then(setSvc(overWideWindow))
+      .then(expectThat(not(spec_msg_ring_coherent)))
+      .then(setSvc(memberlessQueue))
+      .then(expectThat(not(spec_msg_ring_coherent)))
+      .then(setSvc(specMsgPush(initialState, ct, rootNo(0))))
+      .then(expectThat(spec_msg_ring_coherent and spec_msg_ring_only_for_live))
   }
 
   /// §8.3 at MVP has no topological sort: within one block, Accumulate takes
