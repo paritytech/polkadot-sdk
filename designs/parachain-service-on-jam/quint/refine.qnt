@@ -168,7 +168,9 @@ module refine {
     parentHead: HeadHash,
     newHead: HeadData,
     msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    provides: Option[StreamsRoot],
+    requires: List[(ParaId, StreamsRoot)]
   ): ParachainWorkDigest =
   Ok({
       paraId: paraId,
@@ -176,8 +178,67 @@ module refine {
       parentHeadHash: parentHead,
       headData: newHead,
       upwardMessages: msgs,
-      lookupAnchor: lookupAnchor
+      lookupAnchor: lookupAnchor,
+      specMsgProvides: provides,
+      specMsgRequires: requires
   })
+
+  // --- Speculative-messaging declarations (§4.3, §8.3) --------------------
+  //
+  // Both host calls are OPTIONAL and may each be called at most once per
+  // Refine invocation; a repeat aborts the PVF with `SpecMsgCallRepeated`.
+  // Like the head declarations, the PVF is an oracle: the model only sees
+  // what its calls amounted to.
+
+  /// What the PVF's `set_provides_root` calls amounted to:
+  ///   - `ProvidesUndeclared`: never called; this candidate sent nothing.
+  ///   - `ProvidesDeclared(root)`: called exactly once. The service treats
+  ///     `root` as opaque and never derives it from head data.
+  ///   - `ProvidesRepeated`: called more than once, rejected with
+  ///     `SpecMsgCallRepeated`.
+  type ProvidesDeclaration =
+    | ProvidesUndeclared
+    | ProvidesDeclared(StreamsRoot)
+    | ProvidesRepeated
+
+  /// What the PVF's `set_requires_root` calls amounted to; one call carries
+  /// the whole set (`RequiresDeclared`), a second call is `RequiresRepeated`.
+  type RequiresDeclaration =
+    | RequiresUndeclared
+    | RequiresDeclared(List[(ParaId, StreamsRoot)])
+    | RequiresRepeated
+
+  /// §4.3: a requires set is well-formed iff it holds at most
+  /// `MaxRequiresSources` entries, repeats no source `ParaId`, and never
+  /// names the candidate's own `para_id`. Whether the PoV justifies the
+  /// entries is the parachain's own concern; whether they are settleable is
+  /// decided on-chain (§5.1 step 6).
+  pure def wellFormedRequires(
+    entries: List[(ParaId, StreamsRoot)], para_id: ParaId
+  ): bool = and {
+    entries.length() <= MaxRequiresSources,
+    // Distinct source count equals entry count iff no `ParaId` repeats.
+    entries.foldl(Set(), (acc, e) => acc.union(Set(e._1))).size()
+      == entries.length(),
+    entries.foldl(true, (acc, e) => acc and e._1 != para_id)
+  }
+
+  /// `true` iff either spec-msg host call was invoked more than once.
+  pure def specMsgCallRepeated(
+    provides: ProvidesDeclaration, requires: RequiresDeclaration
+  ): bool =
+  (match provides { | ProvidesRepeated => true | _ => false }) or
+  (match requires { | RequiresRepeated => true | _ => false })
+
+  /// The declared provides root as the digest carries it.
+  pure def declaredProvides(p: ProvidesDeclaration): Option[StreamsRoot] =
+  match p { | ProvidesDeclared(r) => Some(r) | _ => None }
+
+  /// The declared requires set as the digest carries it.
+  pure def declaredRequires(
+    r: RequiresDeclaration
+  ): List[(ParaId, StreamsRoot)] =
+  match r { | RequiresDeclared(l) => l | _ => List() }
 
   /// `true` iff the code identified by `ref` has a non-empty referencer set
   /// in the preimage registry, i.e. the `(hash, len)` tuple key exists.
@@ -234,7 +295,9 @@ module refine {
     parentHead: Option[HeadHash],
     newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    provides: ProvidesDeclaration,
+    requires: RequiresDeclaration
   ): Option[ParachainWorkDigest] = {
     if (not(codeAvailable(s, candidate.validationCode)))
     Some(refineErr(para_id, InvalidCodeHash))
@@ -257,6 +320,13 @@ module refine {
         Some(refineErr(para_id, UpwardMessagesTooLarge))
         else if (refineOutputExceedsBudget(msgs))
         Some(refineErr(para_id, RefineOutputTooLarge))
+        // §4.3, §8.3: like `HeadOversized`, both spec-msg failures abort in
+        // the offending call itself, so they are settled before the wrapper's
+        // post-run head-declaration checks.
+        else if (specMsgCallRepeated(provides, requires))
+        Some(refineErr(para_id, SpecMsgCallRepeated))
+        else if (not(wellFormedRequires(declaredRequires(requires), para_id)))
+        Some(refineErr(para_id, SpecMsgInvalidRequires))
         else
         // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
         // missing declaration is rejected with `MissingHeadDeclaration`. An
@@ -269,7 +339,9 @@ module refine {
             match parentHead {
               | None => Some(refineErr(para_id, MissingHeadDeclaration))
               | Some(ph) =>
-                Some(refineOk(para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor))
+                Some(refineOk(
+                  para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor,
+                  declaredProvides(provides), declaredRequires(requires)))
             }
         }
     }
@@ -282,11 +354,12 @@ module refine {
   /// useless. Otherwise each item is refined via `refineItem`, with its
   /// `para_id` sourced from `authorized_paras`.
   ///
-  /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`, and
-  /// `msgs` are per-item scalars declared by the PVF. `parentHead` is `None` and
-  /// `newHead` is `HeadUndeclared` when the PVF skipped the corresponding
-  /// mandatory host call (§4.2).
-  pure def refine(
+  /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`,
+  /// `msgs`, `provides`, and `requires` are per-item scalars declared by the
+  /// PVF. `parentHead` is `None` and `newHead` is `HeadUndeclared` when the
+  /// PVF skipped the corresponding mandatory host call (§4.2); the spec-msg
+  /// declarations are optional, `*Undeclared` when never called (§8.3).
+  pure def refineSpec(
     s: ParachainServiceState,
     pkg: WorkPackage,
     // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
@@ -296,7 +369,9 @@ module refine {
     parentHead: Option[HeadHash],
     newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    provides: ProvidesDeclaration,
+    requires: RequiresDeclaration
   ): List[WorkExecResult] = {
     // Package-level failures are settled before §4.1 step 2 fixes an
     // authoritative `para_id`, so none can name a para to log against and all
@@ -311,10 +386,26 @@ module refine {
     else
     match refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
-      pvf, parentHead, newHead, msgs, lookupAnchor
+      pvf, parentHead, newHead, msgs, lookupAnchor, provides, requires
     ) {
       | Some(d) => List(WorkOk(d))
       | None => List(WorkErr)
     }
   }
+
+  /// `refineSpec` for a PVF that never touched the spec-msg host calls: the
+  /// common case, and the signature every pre-§8.3 caller keeps.
+  pure def refine(
+    s: ParachainServiceState,
+    pkg: WorkPackage,
+    authParasPrefixMissing: bool,
+    pvf: PvfOutcome,
+    parentHead: Option[HeadHash],
+    newHead: HeadDeclaration,
+    msgs: List[UpwardMessage],
+    lookupAnchor: Timeslot
+  ): List[WorkExecResult] =
+  refineSpec(
+    s, pkg, authParasPrefixMissing, pvf, parentHead, newHead, msgs,
+    lookupAnchor, ProvidesUndeclared, RequiresUndeclared)
 }
