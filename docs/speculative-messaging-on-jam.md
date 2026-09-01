@@ -199,6 +199,12 @@ A candidate that passes every check except settlement (ie, `Provides` entry
 is not yet in the ring) is rejected today. The slot is burned and the work must be redone.
 Buffering stores the work digest and applies it later, once the root arrives.
 
+> Note: #11883 §5.1's rejection path mentiones that "a candidate rejected at any
+> step changes nothing at all". A candidate that fails only settlement will be buffered.
+> The exposure is bounded by `MAX_BUFFERED_BYTES` and billed to the para balance at §6.1 rates.
+> A digest carries up to 4 KiB `head_data` plus the 40 KiB upward-message budget,
+> so `MAX_CHAIN_SIZE (16) * MAX_FORKS (2)` digests would be ~1.4 MiB per parachain.
+
 The first buffered entry must target the parachain's enacted head and all other
 entries must form a valid chain. We allow a maximum of two fork lanes. If a collator wants to abandon a branch,
 they can offer a competing one immediately without waiting for the first to expire.
@@ -217,28 +223,45 @@ A chain front entry that is older than `buffered_at + K slots` is dropped when t
 is accumulated. Buffered bytes are billed to the para's balance and are capped at `MAX_BUFFERED_BYTES` per parachain.
 An entry is never replaced or refreshed.
 
-Buffering never holds up the canonical chain. An entry is never replaced or refreshed.
+Buffering never holds up the canonical chain.
 
 **Gas Model**
 
 The buffer walk happens before the new work item that brought the gas, but it can only spend the leftover
 gas that the item doesn't need for itself. Collators need to pad the work item to cover this walk.
-Because the buffer is in consensus state, they can read the exact cost at their anchor and fund it perfectly.
-If the gas only covers part of the buffer, the walk settles what i can and pauses. Nothing is destroyed,
+
+> Note: JAM combines all the Accumulate gas for a service's work items into one total
+> for the block. To charge this walk to a single item, we need a way to track individual
+> gas usage inside that total pool. This is the same attribution problem flagged in #11883 §5.1
+> for deferred `TransferOut` gas. The walk has to stay within the limit set by the item paying
+> for it, so it will depend on how we solve attribution there.
+
+Because the buffer is in consensus state, collators can read the walk's cost at their anchor.
+The anchor is up to `C_H = 8` slots stale and the buffer can move in between, so this is an
+estimate to over-provision against, not an exact figure.
+
+If the gas only covers part of the buffer, the walk settles what it can and pauses. Nothing is destroyed,
 and the remainder waits for the next item.
 After the walk, the new item is processed. It is either applied directly if it sits on the enacted head, or
 buffered as a chain extension if it builds on the tip.
 Ultimately, an under gassed item will never cause the buffer to be dropped, and the buffer walk will never starve the item that paid for it.
 
 Parachains can also push the buffer forward without submitting a new candidate. A settlement-only package carries
-no work digest and no parent head. Because it has no parent head, it can't fail the parent-head check,
+no work digest and no parent head, so no check tied to a candidate can reject it,
 guaranteeing it reaches the walk phase and delivers gas.
 
-Like normal work items, they are autorizer-gated produced by active collators . They require a core slot, refine gas and the
-walk's declared gas (which is cheeper than rebuilding).
+`SettleOnly` is a new kind of payload that doesn't include a candidate body. Refine skips the PVF completely,
+forgets about head declarations, and just hands back `RefineOutput::SettleOnly`. Once it hits Accumulate,
+the system sees what it is and sends it straight to the buffer walk. It bypasses all the usual candidate checks.
+
+> Note: #11883 needs adjusting around:
+> - §4.1 runs the PVF no matter what, so Refine needs that early exit.
+> - §4.2 insists on set_parent_head_hash and set_head every single time.
+> - §3.2 assumes every work item is a full parachain candidate.
+
 
 ```rust
-/// Refine output handled to Accumulate.
+/// Refine output handed to Accumulate.
 enum RefineOutput {
     /// Full work digest.
     Candidate(ParachainWorkDigest),
@@ -307,8 +330,8 @@ newly available reports, plus ready-queue releases). If sender A and consumer B 
 but B's digest comes first, B's `Requires` check misses the ring and the digest is buffered, costing
 a slot of latency.
 
-To ensure we are not relying on JAM provided order, PS reorders the blocks's digest.
-The solution is to build a depedency graph based on the speculative `Provides` and `Requires`.
+To ensure we are not relying on JAM provided order, PS reorders the block's digests.
+The solution is to build a dependency graph based on the speculative `Provides` and `Requires`.
 
 If B's `spec_msg_requires` contains `(A, root)` and A's `spec_msg_provides` is `Some(root)`, add an
 edge from `A -> B`. The source `ParaId` selects A and root equality confirms the dependency. For a para
