@@ -1,0 +1,9 @@
+title: Add try_state hook to pallet-scheduler
+doc:
+- audience: Runtime Dev
+  description: "Adds a `try_state` hook to `pallet-scheduler` asserting its storage\
+    \ invariant (every `Lookup` entry resolves to a `Some` named task in `Agenda`\
+    \ whose id matches the key), closing part of #239\r\n"
+crates:
+- name: pallet-scheduler
+  bump: minor
