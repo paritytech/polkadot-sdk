@@ -23,10 +23,10 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use codec::{Codec, DecodeWithMemTracking, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
-use sp_weights::WeightMeter;
+use sp_weights::{Weight, WeightMeter};
 
 use crate::{CoreIndex, PotentialRenewalId, RegionId, Timeslice};
 
@@ -50,18 +50,35 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	type BidId: Copy + Debug + Codec + MaxEncodedLen + TypeInfo + Eq;
 
 	/// Initialization data used in [`Market::start_sales`].
-	type InitData: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + Debug + TypeInfo;
+	type InitData: Codec
+		+ DecodeWithMemTracking
+		+ EncodeLike
+		+ Clone
+		+ Eq
+		+ Debug
+		+ TypeInfo
+		+ Default;
 
 	/// Configuration of the market.
 	///
 	/// Can be set in the [`Market::configure`].
-	type Configuration: Codec + DecodeWithMemTracking + EncodeLike + Clone + Eq + Debug + TypeInfo;
+	type Configuration: Codec
+		+ DecodeWithMemTracking
+		+ EncodeLike
+		+ Clone
+		+ Eq
+		+ Debug
+		+ TypeInfo
+		+ Default;
 
 	/// Provides information about available cores.
 	type CoreRangeProvider: CoreRangeProvider;
 
 	/// Provides information about timeslice scheduling.
 	type TimesliceProvider: TimesliceProvider;
+
+	/// Provides information about the weights of calling market functions.
+	type Weights: MarketWeights;
 
 	/// Set or update the market configuration.
 	///
@@ -137,6 +154,25 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		now: RelayBlockNumber,
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickAction<AccountId, Balance, RelayBlockNumber>>;
+
+	/// Get an information about the currently active sale.
+	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumber>, Self::Error>;
+}
+
+/// Weights of calling market functions.
+pub trait MarketWeights {
+	/// Weight of calling [`Market::configure`].
+	fn configure() -> Weight;
+	/// Weight of calling [`Market::start_sales`].
+	fn start_sales() -> Weight;
+	/// Weight of calling [`Market::place_order`].
+	fn place_order() -> Weight;
+	/// Weight of calling [`Market::place_renewal_order`].
+	fn place_renewal_order() -> Weight;
+	/// Weight of calling [`Market::adjust_bid`].
+	fn adjust_bid() -> Weight;
+	/// Weight of calling [`Market::get_sale_info`].
+	fn get_sale_info() -> Weight;
 }
 
 /// Provides information about the range of cores that can be sold on a market.
@@ -171,6 +207,9 @@ pub trait TimesliceProvider {
 }
 
 /// Information about the sale.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct MarketSaleInfo<RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: RelayBlockNumber,
@@ -298,4 +337,14 @@ pub enum TickAction<AccountId, Balance, RelayBlockNumber> {
 		/// Newly active sale.
 		new_sale: MarketSaleInfo<RelayBlockNumber>,
 	},
+}
+
+/// Provider of renewal rights information.
+pub trait RenewalRightsProvider<AccountId> {
+	/// Returns the number of renewal rights held by `who` at timeslice `when`.
+	fn renewal_rights_count(who: &AccountId, when: Timeslice) -> u32;
+
+	/// Set renewal rights for benchmarking purposes.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &AccountId, when: Timeslice, count: u32);
 }

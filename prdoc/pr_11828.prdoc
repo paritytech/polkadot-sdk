@@ -1,0 +1,14 @@
+title: Use market defined by the `Market` trait in the broker pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Rearranges the logic in the `broker` pallet to use the `Market` trait implementation
+      to make decisions related to the region pricing and market scheduling.
+
+      This work will be used later to migrate to the market mechanism proposed in the RFC-17.
+      It will be achieved by implementing the `Market` trait for the pallet that implements 
+      market mechanism specified in RFC-17.
+crates:
+  - name: pallet-broker
+    bump: major

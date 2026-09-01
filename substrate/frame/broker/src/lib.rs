@@ -20,7 +20,6 @@
 
 pub use pallet::*;
 
-mod adapt_price;
 mod benchmarking;
 mod coretime_interface;
 mod dispatchable_impls;
@@ -42,13 +41,11 @@ pub mod runtime_api;
 pub mod weights;
 pub use weights::WeightInfo;
 
-pub use adapt_price::*;
 pub use coretime_interface::*;
-pub use fp_coretime::{
-	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
-	CORE_MASK_BITS,
-};
 pub use types::*;
+pub use utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl};
+
+pub use fp_coretime::*;
 
 extern crate alloc;
 
@@ -59,10 +56,11 @@ const LOG_TARGET: &str = "runtime::broker";
 pub mod pallet {
 	use super::*;
 	use alloc::vec::Vec;
+	use fp_coretime::market::{Market, MarketWeights};
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
-			fungible::{Balanced, Credit, Mutate},
+			fungible::{hold::Mutate as FunHoldMutate, Balanced, Credit, Mutate},
 			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
@@ -70,7 +68,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -79,13 +77,20 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
+			+ TryInto<Event<Self>>;
 
 		/// Weight information for all calls of this pallet.
 		type WeightInfo: WeightInfo;
 
 		/// Currency used to pay for Coretime.
-		type Currency: Mutate<Self::AccountId> + Balanced<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The origin test needed for administrating this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -97,9 +102,6 @@ pub mod pallet {
 		/// system.
 		type Coretime: CoretimeInterface;
 
-		/// The algorithm to determine the next price on the basis of market performance.
-		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
-
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
@@ -108,6 +110,10 @@ pub mod pallet {
 		/// Type used for getting the associated account of a task. This account is controlled by
 		/// the task itself.
 		type SovereignAccountOf: MaybeConvert<TaskId, Self::AccountId>;
+
+		/// Market implementation that will be used to execute all the logic related to the bulk
+		/// coretime sales.
+		type CoretimeMarket: Market<RelayBlockNumberOf<Self>, BalanceOf<Self>, Self::AccountId>;
 
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
@@ -136,6 +142,14 @@ pub mod pallet {
 		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
 	}
 
+	/// A reason for placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds locked for a coretime auction bid.
+		#[codec(index = 0)]
+		CoretimeBid,
+	}
+
 	/// The current configuration of this pallet.
 	#[pallet::storage]
 	pub type Configuration<T> = StorageValue<_, ConfigRecordOf<T>, OptionQuery>;
@@ -158,16 +172,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Status<T> = StorageValue<_, StatusRecord, OptionQuery>;
 
-	/// The details of the current sale, including its properties and status.
-	#[pallet::storage]
-	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
-
 	/// Records of potential renewals.
 	///
 	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
 	#[pallet::storage]
 	pub type PotentialRenewals<T> =
-		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecordOf<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecord, OptionQuery>;
 
 	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
@@ -211,6 +221,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
+	/// Renewal rights information per account and timeslice.
+	#[pallet::storage]
+	pub type RenewalRights<T: Config> =
+		StorageMap<_, Blake2_128Concat, RenewalRightsIdOf<T>, RenewalRightsCount>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -229,8 +244,6 @@ pub mod pallet {
 		Renewable {
 			/// The core whose workload can be renewed.
 			core: CoreIndex,
-			/// The price at which the workload can be renewed.
-			price: BalanceOf<T>,
 			/// The time at which the workload would recommence of this renewal. The call to renew
 			/// cannot happen before the beginning of the interlude prior to the sale for regions
 			/// which begin at this time.
@@ -329,24 +342,13 @@ pub mod pallet {
 		SaleInitialized {
 			/// The relay block number at which the sale will/did start.
 			sale_start: RelayBlockNumberOf<T>,
-			/// The length in relay chain blocks of the Leadin Period (where the price is
-			/// decreasing).
-			leadin_length: RelayBlockNumberOf<T>,
-			/// The price of Bulk Coretime at the beginning of the Leadin Period.
-			start_price: BalanceOf<T>,
-			/// The price of Bulk Coretime after the Leadin Period.
-			end_price: BalanceOf<T>,
 			/// The first timeslice of the Regions which are being sold in this sale.
 			region_begin: Timeslice,
 			/// The timeslice on which the Regions which are being sold in the sale terminate.
 			/// (i.e. One after the last timeslice which the Regions control.)
 			region_end: Timeslice,
-			/// The number of cores we want to sell, ideally.
-			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
-			/// Sequential identifier for the current sale period.
-			sale_index: SaleIndex,
 		},
 		/// A new lease has been created.
 		Leased {
@@ -371,8 +373,8 @@ pub mod pallet {
 		},
 		/// The sale rotation has been started and a new sale is imminent.
 		SalesStarted {
-			/// The nominal price of an Region of Bulk Coretime.
-			price: BalanceOf<T>,
+			/// Initialization data that was provided to the coretime market.
+			init_data: MarketInitDataOf<T>,
 			/// The maximum number of cores which this pallet will attempt to assign.
 			core_count: CoreIndex,
 		},
@@ -517,6 +519,13 @@ pub mod pallet {
 			/// The timeslice associated with the potential renewal that was removed.
 			timeslice: Timeslice,
 		},
+		/// Renewal rights entry was dropped.
+		RenewalRightsDropped {
+			/// Who held the renewal rights that were dropped.
+			who: T::AccountId,
+			/// A timeslice when the dropped renewal rights were valid.
+			when: Timeslice,
+		},
 	}
 
 	#[pallet::error]
@@ -600,6 +609,8 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// No renewal rights for the given account and timeslice exist.
+		UnknownRenewalRights,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -630,12 +641,14 @@ pub mod pallet {
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `config`: The configuration for this pallet.
 		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::configure() + MarketWeightsOf::<T>::configure())]
 		pub fn configure(
 			origin: OriginFor<T>,
 			config: ConfigRecordOf<T>,
+			market_config: MarketConfigOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_configure(config)?;
+			Self::do_configure(config, market_config)?;
 			Ok(Pays::No.into())
 		}
 
@@ -699,14 +712,14 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::start_sales(
 			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + *extra_cores as u32
-		))]
+		) + MarketWeightsOf::<T>::start_sales())]
 		pub fn start_sales(
 			origin: OriginFor<T>,
-			end_price: BalanceOf<T>,
+			init_data: MarketInitDataOf<T>,
 			extra_cores: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(end_price, extra_cores)?;
+			Self::do_start_sales(init_data, extra_cores)?;
 			Ok(Pays::No.into())
 		}
 
@@ -716,6 +729,7 @@ pub mod pallet {
 		///   of Bulk Coretime.
 		/// - `price_limit`: An amount no more than which should be paid.
 		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::purchase() + MarketWeightsOf::<T>::place_order())]
 		pub fn purchase(
 			origin: OriginFor<T>,
 			price_limit: BalanceOf<T>,
@@ -731,6 +745,7 @@ pub mod pallet {
 		///   of the core.
 		/// - `core`: The core which should be renewed.
 		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::renew() + MarketWeightsOf::<T>::place_renewal_order() + MarketWeightsOf::<T>::get_sale_info())]
 		pub fn renew(origin: OriginFor<T>, core: CoreIndex) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::do_renew(who, core)?;
@@ -958,7 +973,7 @@ pub mod pallet {
 		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
 		///   inefficient to look up when the core expires to schedule the next renewal.
 		#[pallet::call_index(21)]
-		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
+		#[pallet::weight(T::WeightInfo::enable_auto_renew() + MarketWeightsOf::<T>::get_sale_info())]
 		pub fn enable_auto_renew(
 			origin: OriginFor<T>,
 			core: CoreIndex,
@@ -1015,6 +1030,7 @@ pub mod pallet {
 		/// two sale periods. This overwrites any existing assignments for this core at the start of
 		/// the next sale period.
 		#[pallet::call_index(23)]
+		#[pallet::weight(T::WeightInfo::force_reserve() + MarketWeightsOf::<T>::get_sale_info())]
 		pub fn force_reserve(
 			origin: OriginFor<T>,
 			workload: Schedule,
@@ -1080,6 +1096,21 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_transfer(region_id, None, new_owner)?;
 			Ok(())
+		}
+
+		/// Drop an expired renewal rights record from the chain.
+		///
+		/// - `origin`: Can be any kind of origin.
+		/// - `who`: Who owns the renewal rights to be dropped.
+		/// - `when` Timeslice which the renewal rights are valid for.
+		#[pallet::call_index(29)]
+		pub fn drop_renewal_rights(
+			_origin: OriginFor<T>,
+			who: T::AccountId,
+			when: Timeslice,
+		) -> DispatchResultWithPostInfo {
+			Self::do_drop_renewal_rights(who, when)?;
+			Ok(Pays::No.into())
 		}
 
 		#[pallet::call_index(99)]

@@ -17,10 +17,18 @@
 
 #![cfg(test)]
 
-use crate::{test_fungibles::TestFungibles, *};
+use crate::{
+	test_fungibles::TestFungibles,
+	utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl},
+	*,
+};
 use alloc::collections::btree_map::BTreeMap;
+use fp_coretime::market::{
+	AdjustBidResult, CoreRangeProvider, Market, MarketSaleInfo, MarketWeights, OrderResult,
+	RenewalOrderResult, SalesStarted, TickAction, TimesliceProvider,
+};
 use frame_support::{
-	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types, storage_alias,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
@@ -29,12 +37,11 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_arithmetic::Perbill;
-use sp_core::{ConstU32, ConstU64, Get};
+use frame_system::{pallet_prelude::AccountIdFor, EnsureRoot, EnsureSignedBy};
+use sp_core::{ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity, MaybeConvert},
-	BuildStorage, Saturating,
+	BuildStorage, DispatchError, Saturating, Weight,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -203,7 +210,8 @@ impl MaybeConvert<TaskId, u64> for SovereignAccountOf {
 
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
+	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, RuntimeHoldReason>, (), u64>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type OnRevenue = IntoZero;
 	type TimeslicePeriod = ConstU64<2>;
 	type MaxLeasedCores = ConstU32<5>;
@@ -214,26 +222,215 @@ impl crate::Config for Test {
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
 	type SovereignAccountOf = SovereignAccountOf;
+	type CoretimeMarket = MarketMock;
 	type MaxAutoRenewals = ConstU32<3>;
-	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+}
+
+pub struct MarketMock;
+
+#[storage_alias]
+pub type MarketSaleInfoStorage<T: Config> =
+	StorageValue<Pallet<T>, MarketSaleInfo<RelayBlockNumberOf<Test>>>;
+
+pub const REGION_PRICE: BalanceOf<Test> = 10;
+pub const REGION_RENEWAL_PRICE: BalanceOf<Test> = 20;
+pub const REGION_LENGTH: Timeslice = 3;
+
+impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for MarketMock {
+	type Error = DispatchError;
+	type BidId = ();
+	type InitData = ();
+	type Configuration = ();
+	type CoreRangeProvider = CoreRangeProviderImpl<Test>;
+	type TimesliceProvider = TimesliceProviderImpl<Test>;
+	type Weights = MockWeights;
+
+	fn configure(_configuration: Self::Configuration) -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn start_sales(
+		block_number: RelayBlockNumberOf<Test>,
+		_init_data: Self::InitData,
+	) -> Result<SalesStarted<RelayBlockNumberOf<Test>>, Self::Error> {
+		let config = new_config();
+		let cores = Self::CoreRangeProvider::core_range().expect("Failed to get core count");
+
+		let commit_timeslice = Self::TimesliceProvider::latest_timeslice_ready_to_commit()
+			.expect("Failed to get timeslice");
+
+		let region_begin = commit_timeslice.saturating_add(config.region_length);
+
+		let sale = MarketSaleInfo {
+			sale_start: block_number,
+			region_begin,
+			region_end: region_begin.saturating_add(config.region_length),
+			cores_offered: cores.to - cores.from,
+			first_core: cores.from,
+			cores_sold: 0,
+		};
+		MarketSaleInfoStorage::<Test>::put(sale.clone());
+
+		Ok(SalesStarted { sale })
+	}
+
+	fn place_order(
+		_block_number: RelayBlockNumberOf<Test>,
+		_who: &AccountIdFor<Test>,
+		price_limit: BalanceOf<Test>,
+	) -> Result<OrderResult<BalanceOf<Test>, Self::BidId>, Self::Error> {
+		let sale = MarketSaleInfoStorage::<Test>::get().unwrap();
+
+		if sale.cores_sold >= sale.cores_offered {
+			return Err(DispatchError::Other("Sold Out"));
+		}
+
+		if price_limit < REGION_PRICE {
+			return Err(DispatchError::Other("Overpriced"));
+		}
+
+		let result = OrderResult::Sold {
+			price: REGION_PRICE,
+			region_id: RegionId {
+				begin: sale.region_begin,
+				core: sale.first_core + sale.cores_sold,
+				mask: CoreMask::complete(),
+			},
+			region_end: sale.region_end,
+		};
+
+		MarketSaleInfoStorage::<Test>::mutate_extant(|sale| sale.cores_sold += 1);
+
+		Ok(result)
+	}
+
+	fn place_renewal_order(
+		_block_number: RelayBlockNumberOf<Test>,
+		_who: &AccountIdFor<Test>,
+		_renewal: PotentialRenewalId,
+	) -> Result<RenewalOrderResult<BalanceOf<Test>, Self::BidId>, Self::Error> {
+		let sale = MarketSaleInfoStorage::<Test>::get().unwrap();
+
+		if sale.cores_sold >= sale.cores_offered {
+			return Err(DispatchError::Other("Sold Out"));
+		}
+
+		let result = RenewalOrderResult::Renewed {
+			price: REGION_RENEWAL_PRICE,
+			region_id: RegionId {
+				begin: sale.region_begin,
+				core: sale.first_core + sale.cores_sold,
+				mask: CoreMask::complete(),
+			},
+			effective_to: sale.region_end,
+		};
+
+		MarketSaleInfoStorage::<Test>::mutate_extant(|sale| sale.cores_sold += 1);
+
+		Ok(result)
+	}
+
+	fn tick(
+		now: RelayBlockNumberOf<Test>,
+		_weight_meter: &mut frame_support::weights::WeightMeter,
+	) -> Vec<TickAction<AccountIdFor<Test>, BalanceOf<Test>, RelayBlockNumberOf<Test>>> {
+		let mut actions = vec![];
+		let config = new_config();
+
+		if let Some(timeslice) = Self::TimesliceProvider::next_timeslice_to_commit() {
+			let old_sale = MarketSaleInfoStorage::<Test>::get().unwrap();
+
+			if timeslice < old_sale.region_begin {
+				return actions;
+			}
+
+			let cores = Self::CoreRangeProvider::core_range().expect("Failed to get core range");
+
+			let new_sale = MarketSaleInfo {
+				sale_start: now,
+				region_begin: old_sale.region_end,
+				region_end: old_sale.region_end + config.region_length,
+				cores_offered: cores.to - cores.from,
+				first_core: cores.from,
+				cores_sold: 0,
+			};
+
+			MarketSaleInfoStorage::<Test>::put(new_sale.clone());
+
+			actions.push(TickAction::SaleRotated { old_sale, new_sale: new_sale.clone() });
+			actions.push(TickAction::ProcessAutoRenewals {
+				after_timeslice: new_sale.region_begin,
+				next_renewal_at: new_sale.region_end,
+			})
+		};
+
+		actions
+	}
+
+	fn adjust_bid(
+		_block_number: RelayBlockNumberOf<Test>,
+		_id: Self::BidId,
+		_who: &AccountIdFor<Test>,
+		_new_price: Option<BalanceOf<Test>>,
+	) -> Result<AdjustBidResult<BalanceOf<Test>>, Self::Error> {
+		unimplemented!()
+	}
+
+	fn get_sale_info() -> Result<MarketSaleInfo<RelayBlockNumberOf<Test>>, Self::Error> {
+		MarketSaleInfoStorage::<Test>::get().ok_or(Error::<Test>::Uninitialized.into())
+	}
+}
+
+pub struct MockWeights {}
+
+impl MarketWeights for MockWeights {
+	fn configure() -> Weight {
+		Weight::zero()
+	}
+
+	fn start_sales() -> Weight {
+		Weight::zero()
+	}
+
+	fn place_order() -> Weight {
+		Weight::zero()
+	}
+
+	fn place_renewal_order() -> Weight {
+		Weight::zero()
+	}
+
+	fn adjust_bid() -> Weight {
+		Weight::zero()
+	}
+
+	fn get_sale_info() -> Weight {
+		Weight::zero()
+	}
 }
 
 pub fn advance_to(b: u64) {
 	while System::block_number() < b {
-		System::set_block_number(System::block_number() + 1);
-		TestCoretimeProvider::bump();
-		Broker::on_initialize(System::block_number());
+		advance_one_block();
 	}
 }
 
 pub fn advance_sale_period() {
-	let sale = SaleInfo::<Test>::get().unwrap();
+	let sale = MarketSaleInfoStorage::<Test>::get().unwrap();
+	loop {
+		advance_one_block();
+		let new_sale = MarketSaleInfoStorage::<Test>::get().unwrap();
+		if new_sale.sale_start != sale.sale_start {
+			return;
+		}
+	}
+}
 
-	let target_block_number =
-		sale.region_begin as u64 * <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
-
-	advance_to(target_block_number)
+fn advance_one_block() {
+	System::set_block_number(System::block_number() + 1);
+	TestCoretimeProvider::bump();
+	Broker::on_initialize(System::block_number());
 }
 
 pub fn pot() -> u64 {
@@ -269,16 +466,7 @@ pub fn attribute<T: codec::Decode>(nft: RegionId, attribute: impl codec::Encode)
 }
 
 pub fn new_config() -> ConfigRecordOf<Test> {
-	ConfigRecord {
-		advance_notice: 2,
-		interlude_length: 1,
-		leadin_length: 1,
-		ideal_bulk_proportion: Default::default(),
-		limit_cores_offered: None,
-		region_length: 3,
-		renewal_bump: Perbill::from_percent(10),
-		contribution_timeout: 5,
-	}
+	ConfigRecord { advance_notice: 2, region_length: REGION_LENGTH, contribution_timeout: 5 }
 }
 
 pub fn endow(who: u64, amount: u64) {
@@ -301,33 +489,8 @@ impl TestExt {
 		self
 	}
 
-	pub fn interlude_length(mut self, interlude_length: u64) -> Self {
-		self.0.interlude_length = interlude_length;
-		self
-	}
-
-	pub fn leadin_length(mut self, leadin_length: u64) -> Self {
-		self.0.leadin_length = leadin_length;
-		self
-	}
-
 	pub fn region_length(mut self, region_length: Timeslice) -> Self {
 		self.0.region_length = region_length;
-		self
-	}
-
-	pub fn ideal_bulk_proportion(mut self, ideal_bulk_proportion: Perbill) -> Self {
-		self.0.ideal_bulk_proportion = ideal_bulk_proportion;
-		self
-	}
-
-	pub fn limit_cores_offered(mut self, limit_cores_offered: Option<CoreIndex>) -> Self {
-		self.0.limit_cores_offered = limit_cores_offered;
-		self
-	}
-
-	pub fn renewal_bump(mut self, renewal_bump: Perbill) -> Self {
-		self.0.renewal_bump = renewal_bump;
 		self
 	}
 
@@ -343,7 +506,7 @@ impl TestExt {
 
 	pub fn execute_with<R>(self, f: impl Fn() -> R) -> R {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Broker::do_configure(self.0));
+			assert_ok!(Broker::do_configure(self.0, ()));
 			f()
 		})
 	}

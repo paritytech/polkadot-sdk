@@ -17,6 +17,7 @@
 
 use super::*;
 use alloc::{vec, vec::Vec};
+use fp_coretime::market::{Market, MarketSaleInfo, MarketWeights, TickAction};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, ConvertBack, MaybeConvert};
@@ -36,9 +37,9 @@ impl<T: Config> Pallet<T> {
 		let mut meter = WeightMeter::new();
 		meter.consume(T::WeightInfo::do_tick_base());
 
-		let (mut status, config) = match (Status::<T>::get(), Configuration::<T>::get()) {
-			(Some(s), Some(c)) => (s, c),
-			_ => return meter.consumed(),
+		let (Some(mut status), Some(config)) = (Status::<T>::get(), Configuration::<T>::get())
+		else {
+			return meter.consumed();
 		};
 
 		if Self::process_core_count(&mut status) {
@@ -49,38 +50,23 @@ impl<T: Config> Pallet<T> {
 			meter.consume(T::WeightInfo::process_revenue());
 		}
 
-		if let Some(commit_timeslice) = Self::next_timeslice_to_commit(&config, &status) {
-			status.last_committed_timeslice = commit_timeslice;
-			if let Some(sale) = SaleInfo::<T>::get() {
-				if commit_timeslice >= sale.region_begin {
-					// Sale can be rotated.
-					Self::rotate_sale(sale, &config, &status);
-					meter.consume(T::WeightInfo::rotate_sale(status.core_count.into()));
-				}
-			}
-
-			Self::process_pool(commit_timeslice, &mut status);
-			meter.consume(T::WeightInfo::process_pool());
-
-			let timeslice_period = T::TimeslicePeriod::get();
-			let rc_begin = RelayBlockNumberOf::<T>::from(commit_timeslice) * timeslice_period;
-			for core in 0..status.core_count {
-				Self::process_core_schedule(commit_timeslice, rc_begin, core);
-				meter.consume(T::WeightInfo::process_core_schedule());
-			}
-		}
-
-		let current_timeslice = Self::current_timeslice();
-		if status.last_timeslice < current_timeslice {
+		if status.last_timeslice < Self::current_timeslice() {
 			status.last_timeslice.saturating_inc();
-			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
-			T::Coretime::request_revenue_info_at(rc_block);
-			meter.consume(T::WeightInfo::request_revenue_info_at());
-			T::Coretime::on_new_timeslice(status.last_timeslice);
-			meter.consume(T::WeightInfo::on_new_timeslice());
+			Self::last_timeslice_changed(&status, &mut meter);
 		}
 
-		Status::<T>::put(&status);
+		Status::<T>::put(status);
+
+		Self::process_market_logic(&mut meter);
+
+		if let Some(mut status) = Status::<T>::get() {
+			if let Some(commit_timeslice) = Self::next_timeslice_to_commit(&config, &status) {
+				meter.consume(T::WeightInfo::timeslice_commited());
+
+				Self::timeslice_commited(commit_timeslice, &mut status);
+			}
+			Status::<T>::put(status);
+		}
 
 		meter.consumed()
 	}
@@ -150,16 +136,110 @@ impl<T: Config> Pallet<T> {
 		true
 	}
 
-	/// Begin selling for the next sale period.
-	///
-	/// Triggered by Relay-chain block number/timeslice.
-	pub(crate) fn rotate_sale(
-		old_sale: SaleInfoRecordOf<T>,
-		config: &ConfigRecordOf<T>,
-		status: &StatusRecord,
-	) -> Option<()> {
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+	fn last_timeslice_changed(status: &StatusRecord, meter: &mut WeightMeter) {
+		let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
+		T::Coretime::request_revenue_info_at(rc_block);
+		meter.consume(T::WeightInfo::request_revenue_info_at());
 
+		T::Coretime::on_new_timeslice(status.last_timeslice);
+		meter.consume(T::WeightInfo::on_new_timeslice());
+	}
+
+	pub(crate) fn timeslice_commited(timeslice: Timeslice, status: &mut StatusRecord) {
+		status.last_committed_timeslice = timeslice;
+
+		Self::process_pool(status.last_committed_timeslice, status);
+
+		let timeslice_period = T::TimeslicePeriod::get();
+		let rc_begin =
+			RelayBlockNumberOf::<T>::from(status.last_committed_timeslice) * timeslice_period;
+		for core in 0..status.core_count {
+			Self::process_core_schedule(status.last_committed_timeslice, rc_begin, core);
+		}
+	}
+
+	pub(crate) fn process_market_logic(meter: &mut WeightMeter) {
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let result = T::CoretimeMarket::tick(now, meter);
+
+		for action in result {
+			Self::process_tick_action(action, meter);
+		}
+	}
+
+	pub(crate) fn process_tick_action(
+		action: TickAction<T::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>,
+		meter: &mut WeightMeter,
+	) {
+		match action {
+			TickAction::RenewRegion { owner, renewal_id } => {
+				meter.consume(
+					T::WeightInfo::process_tick_action_renew_region() +
+						MarketWeightsOf::<T>::place_renewal_order(),
+				);
+				if let Err(e) = Self::do_renew(owner.clone(), renewal_id.core) {
+					log::error!(
+						"failed to renew (id: {:?}, owned by: {:?}) by the market request: {:?}",
+						renewal_id,
+						owner,
+						e
+					);
+				}
+			},
+			TickAction::SellRegion { owner, paid, region_id, region_end } => {
+				meter.consume(T::WeightInfo::process_tick_action_sell_region());
+
+				Self::issue(region_id, region_end, Some(owner.clone()), Some(paid));
+				let duration = region_end.saturating_sub(region_id.begin);
+				Self::deposit_event(Event::Purchased {
+					who: owner,
+					region_id,
+					price: paid,
+					duration,
+				});
+			},
+			TickAction::Refund { amount, who } => {
+				meter.consume(T::WeightInfo::process_tick_action_refund());
+
+				Self::refund(&who, amount).defensive_ok();
+			},
+			TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at } => {
+				let auto_renewals = AutoRenewals::<T>::get();
+
+				meter.consume(T::WeightInfo::process_tick_action_process_auto_renewals(
+					auto_renewals.len().try_into().expect("Auto renewal count should fit u32"),
+				));
+
+				if let Ok(auto_renewals) =
+					Self::renew_cores(auto_renewals, after_timeslice, next_renewal_at, meter)
+				{
+					AutoRenewals::<T>::set(auto_renewals);
+				} else {
+					Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
+					return;
+				};
+			},
+			TickAction::SaleRotated { old_sale, new_sale } => {
+				if let Some(status) = Status::<T>::get() {
+					meter.consume(T::WeightInfo::process_tick_action_sale_rotated(
+						status.core_count.into(),
+					));
+
+					Self::rotate_sale(&old_sale, &new_sale, &status);
+				} else {
+					// Consume for the storage read.
+					meter.consume(T::WeightInfo::process_tick_action_sale_rotated(0));
+				}
+			},
+		}
+	}
+
+	/// Begin selling for the next sale period.
+	pub(crate) fn rotate_sale(
+		old_sale: &MarketSaleInfo<RelayBlockNumberOf<T>>,
+		new_sale: &MarketSaleInfo<RelayBlockNumberOf<T>>,
+		status: &StatusRecord,
+	) {
 		let pool_item =
 			ScheduleItem { assignment: CoreAssignment::Pool, mask: CoreMask::complete() };
 		let just_pool = Schedule::truncate_from(vec![pool_item]);
@@ -174,19 +254,7 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(old_sale.region_begin, |r| r.system.saturating_accrue(old_pooled));
 		InstaPoolIo::<T>::mutate(old_sale.region_end, |r| r.system.saturating_reduce(old_pooled));
 
-		// Calculate the start price for the upcoming sale.
-		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&old_sale));
-
-		log::debug!(
-			"Rotated sale, new prices: {:?}, {:?}",
-			new_prices.end_price,
-			new_prices.target_price
-		);
-
 		// Set workload for the reserved (system, probably) workloads.
-		let region_begin = old_sale.region_end;
-		let region_end = region_begin + config.region_length;
-
 		let mut first_core = 0;
 		let mut total_pooled: SignedCoreMaskBitCount = 0;
 		for schedule in Reservations::<T>::get().into_iter() {
@@ -197,7 +265,7 @@ impl<T: Config> Pallet<T> {
 				.sum();
 			total_pooled.saturating_accrue(parts as i32);
 
-			Workplan::<T>::insert((region_begin, first_core), &schedule);
+			Workplan::<T>::insert((new_sale.region_begin, first_core), &schedule);
 			first_core.saturating_inc();
 		}
 
@@ -212,8 +280,10 @@ impl<T: Config> Pallet<T> {
 			force_core.saturating_inc();
 		}
 
-		InstaPoolIo::<T>::mutate(region_begin, |r| r.system.saturating_accrue(total_pooled));
-		InstaPoolIo::<T>::mutate(region_end, |r| r.system.saturating_reduce(total_pooled));
+		InstaPoolIo::<T>::mutate(new_sale.region_begin, |r| {
+			r.system.saturating_accrue(total_pooled)
+		});
+		InstaPoolIo::<T>::mutate(new_sale.region_end, |r| r.system.saturating_reduce(total_pooled));
 
 		let mut leases = Leases::<T>::get();
 		// Can morph to a renewable as long as it's >=begin and <end.
@@ -221,24 +291,20 @@ impl<T: Config> Pallet<T> {
 			let mask = CoreMask::complete();
 			let assignment = CoreAssignment::Task(task);
 			let schedule = BoundedVec::truncate_from(vec![ScheduleItem { mask, assignment }]);
-			Workplan::<T>::insert((region_begin, first_core), &schedule);
+			Workplan::<T>::insert((new_sale.region_begin, first_core), &schedule);
 			// Will the lease expire at the end of the period?
-			let expire = until < region_end;
+			let expire = until < new_sale.region_end;
 			if expire {
 				// last time for this one - make it renewable in the next sale.
-				let renewal_id = PotentialRenewalId { core: first_core, when: region_end };
-				let record = PotentialRenewalRecord {
-					price: new_prices.target_price,
-					completion: Complete(schedule),
-				};
+				let renewal_id = PotentialRenewalId { core: first_core, when: new_sale.region_end };
+				let record = PotentialRenewalRecord { completion: Complete(schedule) };
 				PotentialRenewals::<T>::insert(renewal_id, &record);
 				Self::deposit_event(Event::Renewable {
 					core: first_core,
-					price: new_prices.target_price,
-					begin: region_end,
+					begin: new_sale.region_end,
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
-				Self::deposit_event(Event::LeaseEnding { when: region_end, task });
+				Self::deposit_event(Event::LeaseEnding { when: new_sale.region_end, task });
 			}
 
 			first_core.saturating_inc();
@@ -247,53 +313,69 @@ impl<T: Config> Pallet<T> {
 		});
 		Leases::<T>::put(&leases);
 
-		let max_possible_sales = status.core_count.saturating_sub(first_core);
-		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
-		let cores_offered = limit_cores_offered.min(max_possible_sales);
-		let sale_start = now.saturating_add(config.interlude_length);
-		let leadin_length = config.leadin_length;
-		let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
-		let sellout_price = if cores_offered > 0 {
-			// No core sold -> price was too high -> we have to adjust downwards.
-			Some(new_prices.end_price)
-		} else {
-			None
-		};
-
-		let sale_index = old_sale.sale_index.saturating_add(1);
-
-		// Update SaleInfo
-		let new_sale = SaleInfoRecord {
-			sale_start,
-			leadin_length,
-			end_price: new_prices.end_price,
-			sellout_price,
-			region_begin,
-			region_end,
-			first_core,
-			ideal_cores_sold,
-			cores_offered,
-			cores_sold: 0,
-			sale_index,
-		};
-
-		SaleInfo::<T>::put(&new_sale);
-
-		Self::renew_cores(&new_sale);
-
 		Self::deposit_event(Event::SaleInitialized {
-			sale_start,
-			leadin_length,
-			start_price: Self::sale_price(&new_sale, now),
-			end_price: new_prices.end_price,
-			region_begin,
-			region_end,
-			ideal_cores_sold,
-			cores_offered,
-			sale_index,
+			sale_start: new_sale.sale_start,
+			region_begin: new_sale.region_begin,
+			region_end: new_sale.region_end,
+			cores_offered: new_sale.cores_offered,
 		});
+	}
 
-		Some(())
+	/// Renews all the cores which have auto-renewal enabled.
+	pub(crate) fn renew_cores(
+		auto_renewals: BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>,
+		after_timeslice: Timeslice,
+		next_renewal: Timeslice,
+		weight_meter: &mut WeightMeter,
+	) -> Result<BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ()> {
+		auto_renewals
+			.into_iter()
+			.flat_map(|record| {
+				// Check if the next renewal is scheduled further in the future than the start of
+				// the next region beginning. If so, we skip the renewal for this core.
+				if after_timeslice < record.next_renewal {
+					return Some(record);
+				}
+
+				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: None,
+					});
+					return None;
+				};
+
+				weight_meter.consume(MarketWeightsOf::<T>::place_renewal_order());
+				let renew_result = Self::do_renew(payer.clone(), record.core);
+				match renew_result {
+					Ok(RenewResult::Renewed { new_region_id, .. }) => Some(AutoRenewalRecord {
+						core: new_region_id.core,
+						task: record.task,
+						next_renewal,
+					}),
+					Ok(RenewResult::BidPlaced { .. }) => {
+						// We don't support auto-renewals when market doesn't allow purchasing
+						// regions right away.
+						Self::deposit_event(Event::<T>::AutoRenewalFailed {
+							core: record.core,
+							payer: Some(payer),
+						});
+
+						None
+					},
+					Err(_) => {
+						Self::deposit_event(Event::<T>::AutoRenewalFailed {
+							core: record.core,
+							payer: Some(payer),
+						});
+
+						None
+					},
+				}
+			})
+			.collect::<Vec<AutoRenewalRecord>>()
+			.try_into()
+			.map_err(|_| ())
 	}
 
 	pub(crate) fn process_pool(when: Timeslice, status: &mut StatusRecord) {
@@ -352,51 +434,5 @@ impl<T: Config> Pallet<T> {
 		}
 		T::Coretime::assign_core(core, rc_begin, assignment.clone(), None);
 		Self::deposit_event(Event::<T>::CoreAssigned { core, when: rc_begin, assignment });
-	}
-
-	/// Renews all the cores which have auto-renewal enabled.
-	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
-		let renewals = AutoRenewals::<T>::get();
-
-		let Ok(auto_renewals) = renewals
-			.into_iter()
-			.flat_map(|record| {
-				// Check if the next renewal is scheduled further in the future than the start of
-				// the next region beginning. If so, we skip the renewal for this core.
-				if sale.region_begin < record.next_renewal {
-					return Some(record);
-				}
-
-				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
-					Self::deposit_event(Event::<T>::AutoRenewalFailed {
-						core: record.core,
-						payer: None,
-					});
-					return None;
-				};
-
-				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
-					Some(AutoRenewalRecord {
-						core: new_core_index,
-						task: record.task,
-						next_renewal: sale.region_end,
-					})
-				} else {
-					Self::deposit_event(Event::<T>::AutoRenewalFailed {
-						core: record.core,
-						payer: Some(payer),
-					});
-
-					None
-				}
-			})
-			.collect::<Vec<AutoRenewalRecord>>()
-			.try_into()
-		else {
-			Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
-			return;
-		};
-
-		AutoRenewals::<T>::set(auto_renewals);
 	}
 }
