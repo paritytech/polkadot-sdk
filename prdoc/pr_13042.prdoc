@@ -1,0 +1,11 @@
+title: Fix stale bandersnatch static public keys in sp-keyring
+doc:
+  - audience: Runtime Dev
+    description: |
+      The latest draft of the bandersnatch VRF spec changed the key derivation
+      method, and this made the static public key table in `sp-keyring` stale.
+      This refreshes the static public keys so they match the keys derived by
+      `sp-core`. Only relevant with the `bandersnatch-experimental` feature.
+crates:
+  - name: sp-keyring
+    bump: patch
