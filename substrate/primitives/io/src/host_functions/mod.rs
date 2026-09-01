@@ -30,9 +30,8 @@
 //!
 //! | Range | Owner |
 //! |---|---|
-//! | 0-29 | parachain-service `HostCall` (spec §4.3) |
-//! | 1 | `grow_heap`, fixed by the Gray Paper (`Ω_Gemini`) |
-//! | 100 | `log` (`jam-pvm-common`, not part of the GP) |
+//! | 0, 1, 2, 7, 8 | JAM host calls forwarded to the PVF at their Gray Paper index: `gas`, `grow_heap`, `fetch`, `historical_lookup`, `export` (spec §4.3) |
+//! | 100+ | host calls native to the parachain service; 100-103 taken (spec §4.3) |
 //! | 200-216 | [`storage`] |
 //! | 220-227 | `default_child_storage` |
 //! | 240 | [`input`] |

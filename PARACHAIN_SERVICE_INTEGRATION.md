@@ -237,13 +237,21 @@ index fixes it.
 This is not specific to logging: it applies to *any* indexed import, and therefore to the JAM
 `validate_block` entry itself — see 5.5.
 
-**Decision.** Keep `logging`/`misc::print_*` as native **no-ops** on riscv for now, and enable JAM
-logging later as part of a coordinated scheme that assigns explicit indices to *all* riscv host
-imports (storage, input, grow_heap included). Since JAM dispatches host calls by index, that scheme
-is needed for the storage imports anyway — see 5.4.
+**Linker blocker resolved** by the index scheme in 5.4 — but logging is still not enabled, for two
+reasons that replace it:
+
+1. **Index 100 is not `log` for a PVF.** The spec gives the parachain service's native calls
+   100 upwards, so in the child's table 100 is `set_parent_head_hash`. `log = 100` is a
+   `jam-pvm-common` convention for a *service*, and the child does not inherit a service's table.
+   Routing `logging::log` to 100 would call `set_parent_head_hash` with garbage. A PVF-visible
+   `log` needs its own index in the service's table (104 is free) plus a `dispatch` arm.
+2. **An undefined import only traps when called** — and logging *is* called, unlike the JAM entry's
+   imports under Substrate's executor (5.5). So it cannot be added speculatively on one side.
+
+**Decision.** Keep `logging`/`misc::print_*` as native **no-ops** on riscv.
 
 Consequence today: a JAM parachain produces no log output and runtime panic messages are not
-surfaced.
+surfaced. `report_error` (103) remains the only channel by which a PVF records a failure reason.
 
 ### 5.3 No behavioural tests for the native implementations
 
@@ -268,33 +276,24 @@ known vectors *and* the overflowing R/S edge case).
 
 ### 5.4 parachain-service side (other repo)
 
-- **Host-call indices.** JAM dispatches by index and the parachain service mediates the nested PVF's
-  host calls (`service/src/pvf/pvm.rs`, `ExecutorState::dispatch`; unhandled indices become
-  `InvokeOutcome::HostCallFault`). The `ext_storage_*` / `ext_input_read_*` / `grow_heap` imports
-  emitted by `sp-io` are unindexed and are not currently forwarded. A mapping has to be agreed and
-  implemented; it is the same work item that unblocks 5.2.
-- **`log` forwarding.** `pvm.rs` has no arm for index 100.
-- For reference the PoC `frameless` runtime bypasses `sp-io` entirely, declaring its own
-  `#[polkavm_import(index = N)]` block for indices 0-29 matching the `HostCall` enum in
-  `service-interface/src/host_call.rs`.
+The service mediates every nested-PVF host call: `refine::invoke` surfaces it as
+`InvokeOutcome::HostCallFault(index)` and `ExecutorState::dispatch` resolves it
+(`service/src/pvf/pvm.rs`, `service/src/pvf/executor.rs`). The child reaches JAM only through
+calls the service chooses to forward — nothing is automatic.
 
-**This requires a spec change, not just an implementation change.** The spec's §4.3 table assigns
-indices only to the parachain-service's own child-PVM calls. A parachain runtime built on `sp-io`
-additionally imports `ext_storage_*`, `ext_default_child_storage_*`, `ext_input_read_version_1` and
-`grow_heap`; because the linker forbids mixing, those must be assigned indices by the same
-authority. Resolving everything by *name* instead is not an option: JAM dispatches via `ecalli N`
-and the Gray Paper fixes indices for its own calls (`grow_heap` is `Ω_Gemini` index 1), so the
-indexed scheme is forced.
+**The spec now fixes the PVF's own table (§4.3)**: JAM host calls are forwarded at their Gray
+Paper index (`gas` 0, `grow_heap` 1, `fetch` 2, `historical_lookup` 7, `export` 8), and the
+service's native calls start at 100 (`set_parent_head_hash` 100, `set_head` 101,
+`send_upward_message` 102, `report_error` 103). `jam_implementation.rs` matches this.
 
-**The Substrate half is done** — the numbers are now declared, so the spec can adopt them rather
-than invent them. `#[runtime_interface]` accepts `#[polkavm_index(N)]` per function, and the table
-lives in `substrate/primitives/io/src/host_functions/mod.rs`:
+**The Substrate half is done** — the numbers are declared, so the spec can adopt them rather than
+invent them. `#[runtime_interface]` accepts `#[polkavm_index(N)]` per function, and the table lives
+in `substrate/primitives/io/src/host_functions/mod.rs`:
 
 | Range | Owner |
 |---|---|
-| 0-29 | parachain-service `HostCall` (spec §4.3, unchanged) |
-| 1 | `grow_heap` — fixed by the Gray Paper (`Ω_Gemini`) |
-| 100 | `log` (`jam-pvm-common`, not part of the GP) |
+| 0, 1, 2, 7, 8 | JAM host calls forwarded at their Gray Paper index (spec §4.3) |
+| 100+ | parachain-service native calls; 100-103 taken (spec §4.3) |
 | 200-216 | `sp_io::storage` |
 | 220-227 | `sp_io::default_child_storage` |
 | 240 | `sp_io::input` |
@@ -302,17 +301,26 @@ lives in `substrate/primitives/io/src/host_functions/mod.rs`:
 | 242-243 | `sp_additional_data` |
 
 24 imports are indexed — the exact set a parachain runtime blob emits, enumerated from the built
-ELF, not guessed. What the service still has to do is *dispatch* them: `ExecutorState::dispatch`
-needs arms for 200-243 and 1, forwarding to the nested PVF's storage. Indices are transparent to
-Substrate's own executor, which resolves imports by name — verified by the PVM tests in 5.7 still
-passing after the change.
+ELF, not guessed. The 200+ block deliberately clears the service's 100+ growth. What the service
+still has to do is *dispatch* them: `ExecutorState::dispatch` needs arms for 200-243, forwarding to
+the nested PVF's storage. Indices are transparent to Substrate's own executor, which resolves
+imports by name — verified by the PVM tests in 5.7 still passing after the change.
 
 Only the function versions a runtime actually calls carry an index. An older, unindexed version
 would fail the link with `import without a specified index`, which is the signal to add it.
 
-**Nested-PVF stack size.** The PVF needs a stack far larger than PolkaVM's 8 KiB default (see 5.5);
-the spec should state that the child PVM honours the blob's `.polkavm_min_stack_size` section, or
-otherwise fix a minimum.
+Note the index ceiling: the linker pads index holes with dummy imports, so the blob's import table
+is `max_index + 1` entries and `VM_MAXIMUM_IMPORT_COUNT` is 1024. Our highest index (243) costs a
+244-entry table; nothing may exceed 1023.
+
+**Nested-PVF stack size — no spec change needed.** `parse_pvf` builds the child's memory map with
+`.stack_size(parts.stack_size)`, i.e. straight from the blob's own `.polkavm_min_stack_size`
+section, so the 2 MiB declared in 5.6 is already honoured.
+
+**Still unspecified.** `ValidationResult`'s `upward_messages` (XCM), `horizontal_messages`,
+`processed_downward_messages` and `hrmp_watermark` have no ABI yet: the spec's `UpwardMessage` enum
+carries service-level control messages only, and full XCMP over `export` is a §8 proposal. Those
+four fields are therefore still dropped on the JAM path — see 5.8.
 
 ### 5.5 One blob carries both entry points — RESOLVED, no build flag
 
@@ -369,6 +377,23 @@ from the environment, which cannot be set in-process while other tests run in pa
 
 This covers the polkadot `validate_block` entry on PolkaVM. The JAM entry (`jam_validate_block`)
 still has no execution coverage — it needs 5.4.
+
+### 5.8 Four `ValidationResult` fields have no JAM ABI yet
+
+`jam_validate_block` sinks `head_data` (`set_head`) and `new_validation_code`
+(`send_upward_message` carrying `UpwardMessage::RequestCodeUpgrade`). The remaining four fields of
+`ValidationResult` are **silently dropped**:
+
+| Field | Status |
+|---|---|
+| `upward_messages` | The spec's `UpwardMessage` enum is service-level control messages only (`RequestCodeUpgrade`, `SetKV`, `TransferOut`, …); no variant carries an opaque relay-bound XCM blob. |
+| `horizontal_messages` | Intended to travel as Data Lake segments via `export` (8), but the encoding is part of the §8.2 *full XCMP* proposal, not yet specified. |
+| `processed_downward_messages` | No digest field. |
+| `hrmp_watermark` | No digest field. |
+
+A parachain block that sends XCM therefore validates successfully on JAM while its messages
+vanish. This is the largest remaining functional gap between the JAM and polkadot paths, and it is
+blocked on the spec, not on this repo.
 
 ## 6. Reproducing the builds
 
