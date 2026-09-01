@@ -14,6 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#![allow(useless_deprecated)]
 
 use sp_api::{
 	decl_runtime_apis, impl_runtime_apis, mock_impl_runtime_apis, ApiError, ApiExt, RuntimeApiInfo,
@@ -98,6 +99,7 @@ impl_runtime_apis! {
 	}
 
 	impl self::ApiWithCustomVersion<Block> for Runtime {
+		#[deprecated = "example"]
 		fn same_name() {}
 	}
 
@@ -375,4 +377,20 @@ fn runtime_api_metadata_matches_version_implemented() {
 			"staging_one",
 		],
 	);
+}
+
+#[test]
+fn allow_deprecation_in_impl() {
+	let rt = Runtime {};
+	let runtime_metadata = rt.runtime_metadata();
+
+	// Check that the metadata for some runtime API matches expectation.
+	let Some(api) = runtime_metadata.iter().find(|api| api.name == "ApiWithCustomVersion") else {
+		panic!("Can't find runtime API 'ApiWithCustomVersion'");
+	};
+	let Some(method) = api.methods.iter().find(|method| method.name == "same_name") else {
+		panic!("Can't find runtime API method 'some_name'");
+	};
+	let expected = sp_metadata_ir::DeprecationStatusIR::Deprecated { note: "example", since: None };
+	assert_eq!(method.deprecation_info, expected);
 }
