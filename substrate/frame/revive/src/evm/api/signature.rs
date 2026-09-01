@@ -22,6 +22,9 @@ use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
 /// Recover an Ethereum address from a message hash and signature.
 ///
+/// Rejects high-S signatures: EIP-2 for transactions, and EIP-7702 requires the same
+/// `s <= secp256k1n/2` bound on authorization tuples, so the check applies to every caller.
+///
 /// # Parameters
 /// - `message`: The message bytes to hash
 /// - `signature`: The 65-byte ECDSA signature (r, s, v)
@@ -29,6 +32,11 @@ use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 /// # Returns
 /// The recovered Ethereum address, or an error if recovery fails
 pub fn recover_eth_address_from_message(message: &[u8], signature: &[u8; 65]) -> Result<H160, ()> {
+	if !sp_core::ecdsa::is_signature_normalized(signature) {
+		log::debug!(target: "evm", "Rejected high-S ECDSA signature (EIP-2 violation)");
+		return Err(());
+	}
+
 	let hash = keccak_256(message);
 	let pk = secp256k1_ecdsa_recover(signature, &hash).map_err(|_| ())?;
 	let mut addr = H160::default();
@@ -194,32 +202,85 @@ impl TransactionSigned {
 	}
 }
 
-#[test]
-fn sign_and_recover_work() {
+#[cfg(test)]
+mod tests {
+	use super::*;
 	use crate::evm::TransactionUnsigned;
-	let txs = [
-		// Legacy
-		"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f",
-		//// type 1: EIP2930
-		"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0c45a61b3d1d00169c649e7326e02857b850efb96e587db4b9aad29afc80d0752a070ae1eb47ab4097dbed2f19172ae286492621b46ac737ee6c32fb18a00c94c9c",
-		// type 2: EIP1559
-		"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a055d72bbc3047d4b9d3e4b8099f187143202407746118204cc2e0cb0c85a68baea04f6ef08a1418c70450f53398d9f0f2d78d9e9d6b8a80cba886b67132c4a744f2",
-		// type 3: EIP4844
-		"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000001a0672b8bac466e2cf1be3148c030988d40d582763ecebbc07700dfc93bb070d8a4a07c635887005b11cb58964c04669ac2857fa633aa66f662685dadfd8bcacb0f21",
-	];
-	let account = Account::from_secret_key(hex_literal::hex!(
-		"a872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f"
-	));
 
-	for tx in txs {
-		let raw_tx = alloy_core::hex::decode(tx).unwrap();
+	#[test]
+	fn sign_and_recover_work() {
+		let txs = [
+			// Legacy
+			"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f",
+			//// type 1: EIP2930
+			"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0c45a61b3d1d00169c649e7326e02857b850efb96e587db4b9aad29afc80d0752a070ae1eb47ab4097dbed2f19172ae286492621b46ac737ee6c32fb18a00c94c9c",
+			// type 2: EIP1559
+			"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a055d72bbc3047d4b9d3e4b8099f187143202407746118204cc2e0cb0c85a68baea04f6ef08a1418c70450f53398d9f0f2d78d9e9d6b8a80cba886b67132c4a744f2",
+			// type 3: EIP4844
+			"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000001a0672b8bac466e2cf1be3148c030988d40d582763ecebbc07700dfc93bb070d8a4a07c635887005b11cb58964c04669ac2857fa633aa66f662685dadfd8bcacb0f21",
+		];
+		let account = Account::from_secret_key(hex_literal::hex!(
+			"a872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f"
+		));
+
+		for tx in txs {
+			let raw_tx = alloy_core::hex::decode(tx).unwrap();
+			let tx = TransactionSigned::decode(&raw_tx).unwrap();
+
+			let address = tx.recover_eth_address();
+			assert_eq!(address.unwrap(), account.address());
+
+			let unsigned = TransactionUnsigned::from_signed(tx.clone());
+			let signed = account.sign_transaction(unsigned);
+			assert_eq!(tx, signed);
+		}
+	}
+
+	#[test]
+	fn high_s_signature_is_rejected() {
+		let order: [u8; 32] = [
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+			0xd0, 0x36, 0x41, 0x41,
+		];
+
+		let raw_tx = alloy_core::hex::decode(
+			"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f",
+		)
+		.unwrap();
 		let tx = TransactionSigned::decode(&raw_tx).unwrap();
 
-		let address = tx.recover_eth_address();
-		assert_eq!(address.unwrap(), account.address());
+		// The original transaction should recover successfully (low-S)
+		assert!(tx.recover_eth_address().is_ok());
 
 		let unsigned = TransactionUnsigned::from_signed(tx.clone());
-		let signed = account.sign_transaction(unsigned);
-		assert_eq!(tx, signed);
+		let sig = tx.raw_signature().unwrap();
+
+		let s_bytes: [u8; 32] = sig[32..64].try_into().unwrap();
+		let mut s_prime = [0u8; 32];
+		let mut borrow = 0i16;
+		for i in (0..32).rev() {
+			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
+			if diff < 0 {
+				s_prime[i] = (diff + 256) as u8;
+				borrow = 1;
+			} else {
+				s_prime[i] = diff as u8;
+				borrow = 0;
+			}
+		}
+
+		let mut malleable_sig = [0u8; 65];
+		malleable_sig[0..32].copy_from_slice(&sig[0..32]);
+		malleable_sig[32..64].copy_from_slice(&s_prime);
+		malleable_sig[64] = sig[64] ^ 1;
+
+		let malleable_tx = unsigned.with_signature(malleable_sig);
+
+		// Should be rejected by recover_eth_address due to high-S
+		assert!(
+			malleable_tx.recover_eth_address().is_err(),
+			"high-S signature should be rejected per EIP-2"
+		);
 	}
 }

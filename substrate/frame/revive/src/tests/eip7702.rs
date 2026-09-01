@@ -2467,13 +2467,12 @@ fn refcount_overflow_skips_auth_without_aborting() {
 	});
 }
 
-/// EIP-7702 spec step 3 second-half (low-s enforcement) is intentionally NOT enforced
-/// on revive.
-/// This test asserts the current deviation: an authorization with high-s recovers to
-/// the same address and is processed normally (delegation applied, nonce bumped),
-/// instead of being skipped or invalidating the whole transaction.
+/// EIP-7702 spec step 3 second-half: `s` must be `<= secp256k1n/2`. The shared
+/// `recover_eth_address_from_message` rejects high-s signatures (EIP-2), so the high-s
+/// twin of a valid authorization fails recovery and the tuple is skipped per spec —
+/// no delegation, no nonce bump, and the transaction as a whole is unaffected.
 #[test]
-fn high_s_authorization_is_not_rejected() {
+fn high_s_authorization_is_rejected() {
 	ExtBuilder::default().build().execute_with(|| {
 		let setup = DelegationTestSetup::new([0xCC; 32]);
 		let target = H160::from([0x42; 20]);
@@ -2499,10 +2498,10 @@ fn high_s_authorization_is_not_rejected() {
 
 		let result = setup.process(&[high_s_auth]);
 
-		// Current behavior: high-s sig is accepted, delegation applied.
-		assert!(AccountInfo::<Test>::is_delegated(&setup.signer.address));
-		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
-		assert_eq!(result.existing_accounts, 1);
+		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
+		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&setup.authority_id), 0);
+		assert_eq!(result.existing_accounts, 0);
+		assert_eq!(result.new_accounts, 0);
 	});
 }
 

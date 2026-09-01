@@ -78,7 +78,6 @@ assert_matches = { workspace = true }
 itertools = { workspace = true }
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 pretty_assertions = { workspace = true }
-secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 test-case = { workspace = true }
@@ -128,7 +127,6 @@ std = [
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
-	"secp256k1/std",
 	"serde/std",
 	"serde_json/std",
 	"sp-api/std",
