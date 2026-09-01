@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788246616473,
+  "lastUpdate": 1788260635599,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8807c22f2a3507af2401e99a8c420f68e0ce7dfd",
-          "message": "telemtry: Downgrade spam log to debug (#10201)\n\nThis PR downgrade the telemetry warning log to debug.\n- The log is causing a lot of noise in our test nets:\nhttps://grafana.teleport.parity.io/goto/fjTQ_vzDg?orgId=1\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T14:40:21Z",
-          "tree_id": "9dc6998aca49d4847b64529b702da9955d0b891b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8807c22f2a3507af2401e99a8c420f68e0ce7dfd"
-        },
-        "date": 1769788488381,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009069573619999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026620094099999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0063885739599999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00250449313,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3cd96d6d78e9838875840da192d48f19788f96cb",
+          "message": "Remove deprecated BuildModuleGenesisStorage (#12990)\n\n## Summary\n\nRemoved `sp_runtime::BuildModuleGenesisStorage`, deprecated since\nDecember 2023 in favour of `BuildStorage`. There are no remaining\nin-repo callers.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-09-01T09:11:12Z",
+          "tree_id": "24265346602eeaf91ae2c9b6d224996cbaf92906",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3cd96d6d78e9838875840da192d48f19788f96cb"
+        },
+        "date": 1788260598047,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010773680510000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009506129449999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026543040399999995,
             "unit": "seconds"
           }
         ]
