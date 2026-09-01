@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788283122152,
+  "lastUpdate": 1788284636611,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -120095,6 +120095,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2878832923,
             "range": "± 28677382",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "dr333ws"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "684e208deff04c83f047fc7ec36e0ccd6cf4588d",
+          "message": "sc-rpc-server: bound the cardinality of the RPC metrics `method` label (#13045)\n\nThe `substrate_rpc_calls_*` metrics used the requested method name as\nthe `method` label without restricting it to registered methods, so the\nlabel cardinality was unbounded.\n\nBound it to the registered method set and record everything else as\n`unknown`, so the series count stays finite. Additive and backwards\ncompatible (an unconfigured `RpcMetrics` keeps the old behaviour), so\n`minor`.",
+          "timestamp": "2026-09-01T16:23:51Z",
+          "tree_id": "23770e29dfa5ff5b5abb56d20afda212851ef38d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/684e208deff04c83f047fc7ec36e0ccd6cf4588d"
+        },
+        "date": 1788284591906,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 27604898,
+            "range": "± 788014",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 28054171,
+            "range": "± 358341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 29514676,
+            "range": "± 1684076",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 36061170,
+            "range": "± 840206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 91878645,
+            "range": "± 6054796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 525678082,
+            "range": "± 17952511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3598155093,
+            "range": "± 134542221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 22872149,
+            "range": "± 587359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 23230926,
+            "range": "± 442079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 23917476,
+            "range": "± 343430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 29627372,
+            "range": "± 550663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 87376288,
+            "range": "± 2520097",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 514118408,
+            "range": "± 18900664",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3696880761,
+            "range": "± 85574478",
             "unit": "ns/iter"
           }
         ]
