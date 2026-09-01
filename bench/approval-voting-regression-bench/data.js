@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788276511099,
+  "lastUpdate": 1788285611568,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4535807e489a0e71e15e420729ee2d09efa32195",
-          "message": "auth-discovery: Ensure DHT published addresses have ports (#10954)\n\nWe have seen instances in production where validators will propagate\nmultiaddresses without ports.\nThese addresses are effectively unreachable from the networking layer\nperspective.\nThey might be discovered via:\n- identify protocol\n- or simply a wrongly configured CLI for public addresses\n\nTo close the gap on this issue, this PR checks that the published\naddresses will always contain a port.\n\nCloses:\n- https://github.com/paritytech/polkadot-sdk/issues/10466\n\nPart of:\n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-03T21:52:12Z",
-          "tree_id": "4ea966b3227373ed5ba3c795f900f32ecaecde86",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4535807e489a0e71e15e420729ee2d09efa32195"
-        },
-        "date": 1770160159139,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63621.89,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002368244,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.6332809406631075,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.535984248389962,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00003917569,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002368244,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7247934549199759,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.284281607029987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00003917569,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.632633388400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.66761584684,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00540075527,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.62858130376,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.5926778921700007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.38493616362284,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ndk@parity.io",
+            "name": "Andrii",
+            "username": "dr333ws"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "684e208deff04c83f047fc7ec36e0ccd6cf4588d",
+          "message": "sc-rpc-server: bound the cardinality of the RPC metrics `method` label (#13045)\n\nThe `substrate_rpc_calls_*` metrics used the requested method name as\nthe `method` label without restricting it to registered methods, so the\nlabel cardinality was unbounded.\n\nBound it to the registered method set and record everything else as\n`unknown`, so the series count stays finite. Additive and backwards\ncompatible (an unconfigured `RpcMetrics` keeps the old behaviour), so\n`minor`.",
+          "timestamp": "2026-09-01T16:23:51Z",
+          "tree_id": "23770e29dfa5ff5b5abb56d20afda212851ef38d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/684e208deff04c83f047fc7ec36e0ccd6cf4588d"
+        },
+        "date": 1788285570900,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63564.77,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018709100000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.79745737045,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000016569780000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.315053917189942,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.360125096399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8624887598499461,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5665764766327905,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000016569780000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7649549560399995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018709100000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7840607868900014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7409490312599996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005017916300000001,
             "unit": "seconds"
           }
         ]
