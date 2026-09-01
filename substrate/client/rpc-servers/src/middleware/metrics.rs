@@ -78,9 +78,8 @@ pub struct RpcMetrics {
 	ws_sessions_closed: Option<Counter<U64>>,
 	/// Histogram over RPC websocket sessions.
 	ws_sessions_time: HistogramVec,
-	/// Registered method names. The `method` label is bounded to this set so an
-	/// unauthenticated caller cannot mint unbounded series with made-up names.
-	/// Empty means "not configured": labels fall back to the raw name (old behaviour).
+	/// Bounds the `method` label so untrusted callers cannot mint unbounded series.
+	/// Empty = not configured: fall back to the raw name (old behaviour).
 	known_methods: Arc<HashSet<&'static str>>,
 }
 
@@ -178,15 +177,13 @@ impl RpcMetrics {
 		}
 	}
 
-	/// Bound the `method` label to `names`; any other method name is recorded as
-	/// `"unknown"`. Call once at server start with the registered method set.
+	/// Set the registered methods so unknown names collapse to `"unknown"`.
 	pub fn with_known_methods(mut self, names: impl IntoIterator<Item = &'static str>) -> Self {
 		self.known_methods = Arc::new(names.into_iter().collect());
 		self
 	}
 
-	/// Resolve the `method` label: the real name if registered, else `"unknown"`.
-	/// Falls back to the raw name when no set was configured (empty).
+	/// Registered name, else `"unknown"` (raw name if not configured).
 	fn method_label<'a>(&'a self, req: &'a Request) -> &'a str {
 		let name = req.method_name();
 		if self.known_methods.is_empty() || self.known_methods.contains(name) {
