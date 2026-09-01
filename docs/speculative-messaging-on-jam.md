@@ -155,21 +155,26 @@ If a root is repeated, the `MemberEntry` is updated with the new position, leavi
 
 ```rust
 fn push(para: ParaId, root: StreamsRoot) {
-  let mut cursor = spec_msg_cursor.get(para);
+  let mut cursor = spec_msg_cursor.get(para);                              // 47 B read
 
   // Eviction
   while cursor.head.wrapping_sub(cursor.tail) >= W_MAX {
-    let to_evict = spec_msg_queue.get(&(para, cursor.tail));  // 75 B read
-    let entry = spec_msg_member.get(&(para, to_evict));       // 75 B read
+    let to_evict = spec_msg_queue.get(&(para, cursor.tail));               // 75 B read
+    spec_msg_queue.remove(&(para, cursor.tail));                           // delete
+
+    let entry = spec_msg_member.get(&(para, to_evict));                    // 75 B read
     if entry.seq == cursor.tail {
-      // Head submitted again more recently.
-      spec_msg_member.remove(&(para, to_evict));
+      // Tail slot is this root's latest occurrence: membership expires.
+      spec_msg_member.remove(&(para, to_evict));                           // delete
     }
-    spec_msg_queue.remove(&(para, cursor.tail));              // 75 B write
-    spec_msg_member.insert((para, root), MemberEntry { seq: cursor.head}); // 75 B write 
-    cursor.head = cursor.head.wrapping_add(1);
-    spec_msg_cursor.set(para, c); // 47 B write
+    // else: root was re-pushed since; the newer slot keeps it alive.
+    cursor.tail = cursor.tail.wrapping_add(1);
   }
+
+  spec_msg_queue.insert((para, cursor.head), root);                        // 75 B write
+  spec_msg_member.insert((para, root), MemberEntry { seq: cursor.head });  // 75 B write
+  cursor.head = cursor.head.wrapping_add(1);
+  spec_msg_cursor.set(para, cursor);                                       // 47 B write
 }
 ```
 
