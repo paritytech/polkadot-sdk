@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788246463604,
+  "lastUpdate": 1788260494862,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a78b18a5cc547141bfd5c10eb17593239e1e2509",
-          "message": "benchmarking: fix DB read/write counts (#10947)\n\nPR #10802 added `reset_read_write_count()` at the end of commit_db() to\nprevent warmup operations from appearing in benchmarking results.\nHowever, commit_db is called twice: one on `on_before_start()` closure\nbefore benchmark, and one after benchmark execution after benchmark.\nThis PR whitelists the warmup key used in commit_db so that it doesn't\nappear in the read/write count.\n\nWe also regenerated staking-async weights (wrongly benchmarked in\n#10802) and conviction-voting to check both v1 and v2 benchmarking.\n\nDriven-by: update `try-runtime-cli` to v0.10.1 as an attempt to fix the\nissue for which CI regularly fails in the check-migration (WAH) job in\n./try-runtime create-snapshot --uri\nwss://westend-asset-hub-rpc.polkadot.io:443 snapshot.raw`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-03T17:57:06Z",
-          "tree_id": "3370bccb812c896e324de40f014df2faaa6beb9c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a78b18a5cc547141bfd5c10eb17593239e1e2509"
-        },
-        "date": 1770148088540,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14465696372666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006847702559999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009576891859999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022766309600000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.008201178139999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3cd96d6d78e9838875840da192d48f19788f96cb",
+          "message": "Remove deprecated BuildModuleGenesisStorage (#12990)\n\n## Summary\n\nRemoved `sp_runtime::BuildModuleGenesisStorage`, deprecated since\nDecember 2023 in favour of `BuildStorage`. There are no remaining\nin-repo callers.\n\nPart of #11561\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
+          "timestamp": "2026-09-01T09:11:12Z",
+          "tree_id": "24265346602eeaf91ae2c9b6d224996cbaf92906",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3cd96d6d78e9838875840da192d48f19788f96cb"
+        },
+        "date": 1788260457066,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025109584233333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14506766862666678,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009761515806666635,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007724893920000001,
             "unit": "seconds"
           }
         ]
