@@ -75,6 +75,7 @@ pub use pallet::*;
 pub trait WeightInfo {
 	fn plan_config_change() -> Weight;
 	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn authorize_report_equivocation(validator_count: u32) -> Weight;
 }
 
 /// Trigger an epoch change, if any should take place.
@@ -430,8 +431,8 @@ pub mod pallet {
 		/// the equivocation proof and validate the given key ownership proof
 		/// against the extracted offender. If both are valid, the offence will
 		/// be reported.
-		/// This extrinsic must be called unsigned and it is expected that only
-		/// block authors will call it (validated in `ValidateUnsigned`), as such
+		/// This extrinsic must be called with an authorized origin and it is expected that
+		/// only block authors will call it (validated in the authorize callback), as such
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(1)]
@@ -439,12 +440,16 @@ pub mod pallet {
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
+		#[pallet::weight_of_authorize(<T as Config>::WeightInfo::authorize_report_equivocation(
+			key_owner_proof.validator_count(),
+		))]
+		#[pallet::authorize(Self::authorize_report_equivocation)]
 		pub fn report_equivocation_unsigned(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<EquivocationProof<HeaderFor<T>>>,
 			key_owner_proof: T::KeyOwnerProof,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			ensure_authorized(origin)?;
 			T::EquivocationReportSystem::process_evidence(
 				None,
 				(*equivocation_proof, key_owner_proof),
@@ -473,19 +478,6 @@ pub mod pallet {
 			}
 			PendingEpochConfigChange::<T>::put(config);
 			Ok(())
-		}
-	}
-
-	#[allow(deprecated)]
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			Self::validate_unsigned(source, call)
-		}
-
-		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-			Self::pre_dispatch(call)
 		}
 	}
 }
@@ -922,7 +914,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Submits an extrinsic to report an equivocation. This method will create
-	/// an unsigned extrinsic with a call to `report_equivocation_unsigned` and
+	/// an authorized transaction with a call to `report_equivocation_unsigned` and
 	/// will push the transaction to the pool. Only useful in an offchain
 	/// context.
 	pub fn submit_unsigned_equivocation_report(
