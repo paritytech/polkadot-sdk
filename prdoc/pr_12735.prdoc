@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Generate GetWeight implementations for XCM instructions
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `XcmWeightInfoTrait` derive now generates the `GetWeight` implementation alongside the
+      `XcmWeightInfo` trait. XCM v3, v4, and v5 no longer maintain separate handwritten dispatch
+      matches, so instruction changes update the weight interface and dispatch from one source.
+
+crates:
+  - name: xcm-procedural
+    bump: minor
+  - name: staging-xcm
+    bump: minor
