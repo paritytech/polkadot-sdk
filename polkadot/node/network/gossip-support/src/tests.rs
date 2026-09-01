@@ -1548,3 +1548,106 @@ quickcheck! {
 		data1 == data2
 	}
 }
+
+/// Resolve the single `PeerId` the mock associates with a known authority.
+fn peer_id_of_authority(mock: &MockAuthorityDiscovery, authority: &AuthorityDiscoveryId) -> PeerId {
+	let addrs = mock
+		.addrs
+		.lock()
+		.get(authority)
+		.cloned()
+		.expect("authority is known to the mock");
+	let addr = addrs.into_iter().next().expect("authority has a registered address");
+	parse_addr(addr).expect("mock address is a valid p2p multiaddr").0
+}
+
+/// Assert that `connected_authorities` and `connected_peers` are exact inverses of one another:
+/// every peer listed under an authority must list that authority back, and vice versa. Also
+/// asserts that no authority is left behind with an empty peer set.
+fn assert_maps_are_inverse<AD>(gs: &GossipSupport<AD>) {
+	for (authority, peers) in &gs.connected_authorities {
+		assert!(!peers.is_empty(), "{authority:?} left with an empty peer set");
+		for peer_id in peers {
+			assert!(
+				gs.connected_peers.get(peer_id).is_some_and(|set| set.contains(authority)),
+				"{authority:?} maps to {peer_id}, which does not carry it back",
+			);
+		}
+	}
+	for (peer_id, authorities) in &gs.connected_peers {
+		for authority in authorities {
+			assert!(
+				gs.connected_authorities
+					.get(authority)
+					.is_some_and(|peers| peers.contains(peer_id)),
+				"{peer_id} carries {authority:?}, which does not map back to it",
+			);
+		}
+	}
+}
+
+/// An authority may be reachable through several connected peers at once, e.g. while a validator
+/// that changed its network key is connected under both its old and its new `PeerId`. Refreshing
+/// the authority ids must then drop only the stale peer, and must not erase the authority that the
+/// surviving peer still provides.
+#[test]
+fn update_authority_ids_keeps_authority_shared_with_surviving_peer() {
+	let authority = AUTHORITIES[0].clone();
+
+	let mock = MockAuthorityDiscovery::new(AUTHORITIES.clone());
+	// The peer id the authority resolves to, and a second, stale one that still carries it.
+	let surviving_peer = peer_id_of_authority(&mock, &authority);
+	let stale_peer = PeerId::random();
+
+	let mut gs = make_subsystem_with_authority_discovery(mock);
+	for peer_id in [surviving_peer, stale_peer] {
+		gs.handle_connect_disconnect(NetworkBridgeEvent::PeerConnected(
+			peer_id,
+			ObservedRole::Authority,
+			ValidationVersion::V3.into(),
+			Some(HashSet::from([authority.clone()])),
+		));
+	}
+	assert_maps_are_inverse(&gs);
+
+	// Resolves the authority to `surviving_peer` only, so `stale_peer` is drained.
+	let (mut sender, _rx) = test_helpers::sender_receiver();
+	executor::block_on(gs.update_authority_ids(&mut sender, vec![authority.clone()]));
+
+	assert_eq!(gs.connected_peers.get(&stale_peer), Some(&HashSet::new()));
+	assert_eq!(
+		gs.connected_authorities.get(&authority),
+		Some(&HashSet::from([surviving_peer])),
+		"authority must stay tracked as long as a connected peer carries it",
+	);
+	assert_maps_are_inverse(&gs);
+}
+
+/// Same invariant, but for the disconnect path: one of two peers carrying the same authority
+/// going away must not untrack the authority.
+#[test]
+fn disconnect_keeps_authority_shared_with_another_peer() {
+	let authority = AUTHORITIES[0].clone();
+	let (surviving_peer, leaving_peer) = (PeerId::random(), PeerId::random());
+
+	let mut gs =
+		make_subsystem_with_authority_discovery(MockAuthorityDiscovery::new(AUTHORITIES.clone()));
+	for peer_id in [surviving_peer, leaving_peer] {
+		gs.handle_connect_disconnect(NetworkBridgeEvent::PeerConnected(
+			peer_id,
+			ObservedRole::Authority,
+			ValidationVersion::V3.into(),
+			Some(HashSet::from([authority.clone()])),
+		));
+	}
+
+	gs.handle_connect_disconnect(NetworkBridgeEvent::PeerDisconnected(leaving_peer));
+
+	assert_eq!(gs.connected_authorities.get(&authority), Some(&HashSet::from([surviving_peer])));
+	assert_maps_are_inverse(&gs);
+
+	// The last peer leaving drops the authority entirely.
+	gs.handle_connect_disconnect(NetworkBridgeEvent::PeerDisconnected(surviving_peer));
+	assert!(gs.connected_authorities.is_empty());
+	assert_maps_are_inverse(&gs);
+}

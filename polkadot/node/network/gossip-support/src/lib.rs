@@ -127,7 +127,12 @@ pub struct GossipSupport<AD> {
 	resolved_authorities: HashMap<AuthorityDiscoveryId, HashSet<Multiaddr>>,
 
 	/// Actually connected authorities.
-	connected_authorities: HashMap<AuthorityDiscoveryId, PeerId>,
+	///
+	/// The same authority may be reachable through more than one connected peer, e.g. while a
+	/// validator that changed its network key is still connected under both its old and its new
+	/// `PeerId`. An authority is present here for as long as at least one connected peer carries
+	/// it, which makes this the exact inverse of [`Self::connected_peers`].
+	connected_authorities: HashMap<AuthorityDiscoveryId, HashSet<PeerId>>,
 	/// By `PeerId`.
 	///
 	/// Needed for efficient handling of disconnect events.
@@ -640,7 +645,7 @@ where
 					.await;
 
 				for a in current.drain() {
-					self.connected_authorities.remove(&a);
+					disconnect_authority(&mut self.connected_authorities, &a, peer_id);
 				}
 			}
 		}
@@ -656,12 +661,12 @@ where
 					})
 					.await;
 
-				prev.iter().for_each(|a| {
-					self.connected_authorities.remove(a);
-				});
-				new.iter().for_each(|a| {
-					self.connected_authorities.insert(a.clone(), peer_id);
-				});
+				for a in prev.iter() {
+					disconnect_authority(&mut self.connected_authorities, a, &peer_id);
+				}
+				for a in new.iter() {
+					self.connected_authorities.entry(a.clone()).or_default().insert(peer_id);
+				}
 
 				self.connected_peers.insert(peer_id, new);
 			}
@@ -673,7 +678,7 @@ where
 			NetworkBridgeEvent::PeerConnected(peer_id, _, _, o_authority) => {
 				if let Some(authority_ids) = o_authority {
 					authority_ids.iter().for_each(|a| {
-						self.connected_authorities.insert(a.clone(), peer_id);
+						self.connected_authorities.entry(a.clone()).or_default().insert(peer_id);
 					});
 					self.connected_peers.insert(peer_id, authority_ids);
 				} else {
@@ -683,7 +688,7 @@ where
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
 				if let Some(authority_ids) = self.connected_peers.remove(&peer_id) {
 					authority_ids.into_iter().for_each(|a| {
-						self.connected_authorities.remove(&a);
+						disconnect_authority(&mut self.connected_authorities, &a, &peer_id);
 					});
 				}
 			},
@@ -728,6 +733,26 @@ where
 			unconnected_authorities = %pretty,
 			"Connectivity Report"
 		);
+	}
+}
+
+/// Stop tracking `peer_id` as a connection carrying `authority`.
+///
+/// The authority itself is only dropped once no connected peer carries it anymore, so that a
+/// stale peer going away cannot erase an authority that another peer still provides.
+///
+/// Takes the map rather than `&mut self` so that it stays callable while `connected_peers` is
+/// borrowed.
+fn disconnect_authority(
+	connected_authorities: &mut HashMap<AuthorityDiscoveryId, HashSet<PeerId>>,
+	authority: &AuthorityDiscoveryId,
+	peer_id: &PeerId,
+) {
+	if let Some(peers) = connected_authorities.get_mut(authority) {
+		peers.remove(peer_id);
+		if peers.is_empty() {
+			connected_authorities.remove(authority);
+		}
 	}
 }
 
