@@ -360,6 +360,8 @@ impl<Config: CliConfig> Cli<Config> {
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
 					affinity_topics: self.statement_affinity_topics.clone(),
+					bloom_false_pos_rate: sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,
+					bloom_seed: None,
 					replication_factor: self.statement_replication_factor,
 					gossip_target: self.statement_gossip_target,
 				},

@@ -454,6 +454,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let statement_network_workers = statement_store_config.network_workers;
 	let statement_rate_limit = statement_store_config.rate_limit;
 	let statement_affinity_topics = statement_store_config.affinity_topics.clone();
+	let statement_bloom_seed = statement_store_config.bloom_seed;
+	let statement_bloom_false_pos_rate = statement_store_config.bloom_false_pos_rate;
 	let statement_replication_factor = statement_store_config.replication_factor;
 	let statement_gossip_target = statement_store_config.gossip_target;
 
@@ -820,8 +822,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_network_workers,
 		statement_rate_limit,
 		&statement_affinity_topics,
-		None,
-		sc_network_statement::config::DEFAULT_BLOOM_FALSE_POS_RATE,
+		statement_bloom_seed,
+		statement_bloom_false_pos_rate,
 		statement_replication_factor,
 		statement_gossip_target,
 		retention,
@@ -877,6 +879,8 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
 		affinity_topics: cli.statement_affinity_topics.clone(),
+		bloom_false_pos_rate: sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,
+		bloom_seed: None,
 		replication_factor: cli.statement_replication_factor,
 		gossip_target: cli.statement_gossip_target,
 	};
