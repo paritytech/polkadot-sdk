@@ -15,3 +15,9 @@ crates:
   bump: patch
 - name: sc-cli
   bump: major
+- name: staging-xcm
+  bump: patch
+- name: sc-transaction-pool
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
