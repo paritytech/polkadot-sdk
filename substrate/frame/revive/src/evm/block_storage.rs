@@ -147,9 +147,10 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 		OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
 		OutsideFrameLogCount::<T>::put(index.saturating_add(1));
 
-		// The insert above and this log's share of the `on_finalize` drain, charged to the block
-		// that emitted it. The mirroring paths have no gas meter to charge against, and
-		// `on_initialize` reserves only the fixed part of `on_finalize`.
+		// This log's share of the `on_finalize` drain, charged to the block that emitted it. The
+		// mirroring paths have no gas meter to charge against, and `on_initialize` reserves only
+		// the fixed part of `on_finalize`. The insert above is measured by the emitting pallet's
+		// own benchmark.
 		frame_system::Pallet::<T>::register_extra_weight_unchecked(
 			<T as Config>::WeightInfo::per_outside_frame_log(),
 			DispatchClass::Normal,

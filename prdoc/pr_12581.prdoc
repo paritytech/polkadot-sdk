@@ -37,9 +37,10 @@ doc:
     `nonce = block_number`, is not executable, and reports a zero sender; eth-rpc rebuilds the same
     payload from block number and chain id to recover its hash and serves those logs against it via
     `eth_getLogs` and `eth_getTransactionReceipt`. Consumers therefore see one more transaction in
-    such a block than it has real ethereum transactions. Each such log is charged for where it is
-    emitted, against the block rather than a gas meter, covering both its buffer insert and its
-    share of the `on_finalize` drain. A new `Config` item `MaxOutsideFrameLogs` bounds the buffer's
+    such a block than it has real ethereum transactions. The `on_finalize` drain of each such log
+    is charged against the block where the log is emitted, rather than reserved up front, since
+    the mirroring paths have no gas meter and the drain belongs to no extrinsic's benchmark. A new
+    `Config` item `MaxOutsideFrameLogs` bounds the buffer's
     size as a backstop; a log arriving past the cap is dropped with a warning, leaving a balance
     event with no matching `Transfer`. Setting it to zero disables the mechanism, so logs emitted
     outside an ethereum transaction — including `LOG` opcodes from a contract invoked through

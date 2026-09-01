@@ -3727,14 +3727,16 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the full cost of `n` outside-of-frame logs: the `OutsideFrameLogs` insert each one
-	/// performs at its emit site, plus the `on_finalize` drain that `take`s them back out and folds
-	/// them into the synthetic transaction's receipt (RLP + bloom).
+	/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: the
+	/// `OutsideFrameLogs::take` each one costs, and folding it into the synthetic transaction's
+	/// receipt (RLP + bloom).
 	///
-	/// Both halves are measured in one span because both are charged in one place — at the emit
-	/// site, since the mirroring paths have no gas meter. Unlike `on_finalize_per_event` this
-	/// isolates the path with no real transaction present, and — being `pov_mode = Measured` —
-	/// captures the per-log **proof size**, which a `Measured` estimate cannot infer.
+	/// Only the drain. The `OutsideFrameLogs` insert happens inside the extrinsic that emitted the
+	/// log, so it is measured by that pallet's own benchmark; charging it here as well would
+	/// double-count it. The drain has no such home — it runs after every extrinsic is done — which
+	/// is why this marginal is charged at the emit site instead. Unlike `on_finalize_per_event`
+	/// this isolates the path with no real transaction present, and — being `pov_mode = Measured` —
+	/// captures the per-log **proof size**, which a constant estimate cannot infer.
 	///
 	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
 	/// data word.
@@ -3751,13 +3753,14 @@ mod benchmarks {
 			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
 		let data = vec![0x44u8; 32];
 
+		// No ethereum context is active, so each log is captured into `OutsideFrameLogs` rather
+		// than a transaction receipt.
+		for _ in 0..n {
+			block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
+		}
+
 		#[block]
 		{
-			// No ethereum context is active, so each log is captured into `OutsideFrameLogs`
-			// rather than a transaction receipt.
-			for _ in 0..n {
-				block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
-			}
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 

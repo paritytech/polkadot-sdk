@@ -1748,15 +1748,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
 	/// Placeholder — regenerate with `/cmd bench`. The per-`n` terms are the point of this entry:
-	/// they carry the cost and PoV of one outside-of-frame log's `OutsideFrameLogs` insert plus its
-	/// `on_finalize` take, which `on_finalize_per_event` does not model.
+	/// they carry the cost and PoV of the `OutsideFrameLogs` take that drains one outside-of-frame
+	/// log in `on_finalize`, which `on_finalize_per_event` does not model.
 	fn outside_frame_log(n: u32, ) -> Weight {
 		Weight::from_parts(45_000_000, 5000)
 			.saturating_add(Weight::from_parts(50_000, 300).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(n.into())))
-			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 	}
 }
 
@@ -3313,14 +3313,14 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
 	/// Placeholder — regenerate with `/cmd bench`. The per-`n` terms are the point of this entry:
-	/// they carry the cost and PoV of one outside-of-frame log's `OutsideFrameLogs` insert plus its
-	/// `on_finalize` take, which `on_finalize_per_event` does not model.
+	/// they carry the cost and PoV of the `OutsideFrameLogs` take that drains one outside-of-frame
+	/// log in `on_finalize`, which `on_finalize_per_event` does not model.
 	fn outside_frame_log(n: u32, ) -> Weight {
 		Weight::from_parts(45_000_000, 5000)
 			.saturating_add(Weight::from_parts(50_000, 300).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
-			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(n.into())))
-			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
 	}
 }

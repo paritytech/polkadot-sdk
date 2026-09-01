@@ -55,20 +55,17 @@ pub trait OnFinalizeBlockParts {
 	/// - `data_len`: Total bytes of event data (includes topics and data field)
 	fn on_finalize_block_per_event(data_len: u32) -> Weight;
 
-	/// Returns the full weight of one outside-of-frame log (see `OutsideFrameLogs`): the buffer
-	/// insert at the emit site plus that log's share of the `on_finalize` drain.
+	/// Returns the weight of draining one buffered outside-of-frame log (see `OutsideFrameLogs`)
+	/// in `on_finalize`.
 	///
-	/// Each such log is a `Transfer` log mirrored from a substrate-native balance change. Both
-	/// halves are charged together at the emit site, via
-	/// `frame_system::register_extra_weight_unchecked` — the mirroring paths run outside any
-	/// contract frame, so there is no gas meter to charge against. Blocks therefore pay for the
-	/// mirror logs they produce instead of reserving the cap up-front.
+	/// Each such log is a `Transfer` log mirrored from a substrate-native balance change. Charged
+	/// at the emit site via `frame_system::register_extra_weight_unchecked`, so blocks pay for the
+	/// mirror logs they produce instead of reserving the cap up-front. The mirroring paths run
+	/// outside any contract frame, so there is no gas meter to charge against.
 	///
-	/// Charging the insert here double-counts its proof size on a runtime running
-	/// `StorageWeightReclaim`, which already replaces the extrinsic's declared proof size with the
-	/// host-measured one. That direction over-declares, and covering the insert unconditionally is
-	/// what keeps it accounted for at all: its ref_time lands nowhere otherwise, since the
-	/// benchmarked weight of the extrinsic that triggered the mirror does not include it.
+	/// Only the drain. The buffer insert runs inside the emitting extrinsic and is covered by that
+	/// pallet's own benchmark; the drain runs after every extrinsic is done and so belongs to no
+	/// benchmark of its own.
 	fn per_outside_frame_log() -> Weight;
 }
 
