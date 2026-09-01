@@ -32,6 +32,8 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
 					("-lparachain=debug").into(),
@@ -59,6 +61,8 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("undying-collator")
+				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(
 					std::env::var("COL_IMAGE")

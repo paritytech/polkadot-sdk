@@ -242,6 +242,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
 					("-lruntime=debug").into(),
@@ -268,6 +270,10 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_A)
 				.with_chain(chain_a)
 				.with_default_command("polkadot-parachain")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
+				)
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
 				.onboard_as_parachain(false)
@@ -278,6 +284,10 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_B)
 				.with_chain(chain_b)
 				.with_default_command("polkadot-parachain")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
+				)
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
 				.onboard_as_parachain(false)

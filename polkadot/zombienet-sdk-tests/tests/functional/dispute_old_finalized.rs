@@ -35,6 +35,8 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
 					("-lparachain=debug").into(),
@@ -93,6 +95,8 @@ async fn dispute_old_finalized() -> Result<(), anyhow::Error> {
 						.as_str(),
 				)
 				.with_default_command("undying-collator")
+				.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_collator(|n| n.with_name("collator"))
 		})

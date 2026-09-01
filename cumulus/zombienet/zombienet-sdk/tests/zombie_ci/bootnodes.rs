@@ -23,6 +23,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				// Not strictly necessary for the test, but to keep it consistent
 				// with the parachain part we also pass `--no-mdns` to the relaychain.
@@ -37,6 +39,10 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(1000)
 				.with_default_command("polkadot-parachain")
+				.with_chain_spec_command(
+					"polkadot-parachain export-chain-spec --chain {{chainName}}",
+				)
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("asset-hub-rococo-local")
 				// Do not put bootnodes into the chain-spec nor command line arguments.

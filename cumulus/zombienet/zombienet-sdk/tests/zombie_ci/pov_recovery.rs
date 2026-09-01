@@ -140,6 +140,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_genesis_overrides(json!({
 						"configuration": {
@@ -171,6 +173,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_ID)
 				.with_registration_strategy(RegistrationStrategy::Manual)
 				.with_default_command("test-parachain")
+				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|c| {
 					c.with_name("bob")

@@ -137,6 +137,8 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
+				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
+				.chain_spec_command_is_local(true)
 				.with_default_image(polkadot_image.as_str())
 				.with_default_args(vec![("-lruntime=debug,parachain=trace").into()])
 				.with_validator(|node| node.with_name("alice"))
