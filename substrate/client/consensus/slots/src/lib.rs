@@ -538,9 +538,10 @@ impl SlotProportion {
 	/// Create a new proportion.
 	///
 	/// The given value `inner` should be in the range `[0,1]`. If the value is not in the required
-	/// range, it is clamped into the range.
+	/// range, it is clamped into the range. NaN is mapped to `0.0`.
 	pub fn new(inner: f32) -> Self {
-		Self(inner.clamp(0.0, 1.0))
+		// f32::clamp propagates NaN unchanged; treat it as 0.0 to uphold the [0,1] invariant.
+		Self(if inner.is_nan() { 0.0 } else { inner.clamp(0.0, 1.0) })
 	}
 
 	/// Returns the inner that is guaranteed to be in the range `[0,1]`.
@@ -893,6 +894,13 @@ mod test {
 			),
 			SLOT_DURATION.mul_f32(0.9),
 		);
+	}
+
+	#[test]
+	fn slot_proportion_clamps_nan_to_zero() {
+		let p = SlotProportion::new(f32::NAN);
+		assert!(!p.get().is_nan(), "NaN must not escape SlotProportion::new");
+		assert_eq!(p.get(), 0.0);
 	}
 
 	#[derive(PartialEq, Debug)]
