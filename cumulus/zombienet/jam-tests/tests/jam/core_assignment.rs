@@ -165,6 +165,10 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 
 	run.network.free_core(&run.binaries, &para, CORE)?;
 	let freed = run.sample(0, &rpc).await?;
+	// Counted from here, not from the start of the run: a slow patch early on can stall the head
+	// for eight slots too, and a re-root that happened before the core was taken away would say
+	// nothing about what taking it away does.
+	let reroots_before = reroots(run);
 	log::info!("core {CORE} is unassigned; para {PARA} was at {freed} when it went");
 
 	let frozen = run.wait_for_frozen_jam_head(0, &rpc, STILL_FOR, STALL_BUDGET).await?;
@@ -178,15 +182,13 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 
 	// Nothing in JAM state can show that the builder gave up on the branch above the frozen head
 	// and started authoring siblings of it instead, so this one comes out of the collator's log.
-	// `parent_source` is the field the builder records its choice of parent in; `Reroot` is the
-	// tick that abandons the branch and `Rerooted` every block after it.
-	let rerooted = run.paras[0].collators.log_lines_with(&["parent_source=Reroot"]);
+	let rerooted = reroots(run).saturating_sub(reroots_before);
 	anyhow::ensure!(
-		!rerooted.is_empty(),
+		rerooted > 0,
 		"the head stood still at {frozen} for {STILL_FOR:?}, which is longer than the builder's \
 		 stall threshold, but it never re-rooted onto the stuck head"
 	);
-	log::info!("the builder re-rooted onto the stuck head {} times", rerooted.len());
+	log::info!("the builder authored {rerooted} blocks re-rooted onto the stuck head");
 
 	// The heal goes to the *other* core, and it has to. Freeing core 0 left parasim holding its
 	// assigner privilege but left it running the genesis authorizer, and a control command can
@@ -273,6 +275,14 @@ async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
 		 ({before} -> {moved})"
 	);
 	Ok(())
+}
+
+/// How many blocks the single para's collator has authored on a head it gave up waiting for.
+///
+/// `parent_source` is the field the builder records its choice of parent in: `Reroot` is the tick
+/// that abandons the branch above a stuck head, and `Rerooted` every block authored after it.
+fn reroots(run: &Run) -> usize {
+	run.paras[0].collators.log_lines_with(&["parent_source=Reroot"]).len()
 }
 
 /// Wait for the next `count` accumulated heads, each within `tolerance` of the one before it.

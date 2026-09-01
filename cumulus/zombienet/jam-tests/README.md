@@ -106,7 +106,8 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 | `tests/jam/collators.rs` | starts, supervises and tears down one para's collator processes |
 | `tests/jam/rpc.rs` | the JAM node and collator RPC clients |
 | `tests/jam/harness.rs` | one run: network, parasim, cores, collators, assertions |
-| `tests/jam/collator_progress.rs` | the 2, 3 and 6 collator tests |
+| `tests/jam/collator_progress.rs` | the 1, 2, 3 and 6 collator tests |
+| `tests/jam/core_assignment.rs` | two paras at once, and cores taken away or moved mid-run |
 | `tests/jam/demo.rs` | the same run with no assertion and no end |
 | `demo.sh` | shell entry point for that demo |
 
@@ -156,6 +157,27 @@ trie the authorizer hash commits to, which is why `--jam-collators` and `parasim
 A tiny network has exactly two cores: polkajam ties `core_count` to the validator count (six
 validators, three per core) and the next step up is 78 validators. So two paras is the most this
 harness can run, and doing so uses up the bootstrap lane, per step 4.
+
+## Taking cores away and moving them, mid-run
+
+`tests/jam/core_assignment.rs` changes the core layout while the paras are running, which the
+progress tests never do. Two things about it are worth knowing before adding a test there.
+
+**A test asserts on the accumulated head, not on the collator's height.** A collator authors
+whether or not anything works, so its own height proves nothing about JAM. What proves it is the
+head parasim has stored for the para, read back with `parasim-tool display-key parahead`; the
+harness exposes it as `JamNetwork::para_head` and every phase wait is written against it. The two
+readings together are the assertion: a frozen head with a climbing local best is a stall, and both
+climbing is a healthy para.
+
+**Which lane a mid-run `assign-core` or `free-core` can take is decided by the setup.** Freeing a
+core needs parasim to hold its assigner privilege, and the command then rides that very core as a
+control package under the AURA authorizer it is about to remove. That works only while the core
+still runs an authorizer this collator set can sign for — so once a single para's only core has
+been freed, nothing can assign it again: parasim owns it and no AURA core is left to carry a
+command to parasim. The way back is the *other* core, which in a single-para run was never
+assigned and so still holds the genesis authorizer and service 0 as its assigner, leaving the
+bootstrap lane open. The stall test heals that way deliberately, and says so where it does it.
 
 ## The zombienet-sdk dependency
 
