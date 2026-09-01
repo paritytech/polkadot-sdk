@@ -1791,6 +1791,16 @@ async fn assert_new_active_leaf_messages(
 		}
 	);
 
+	// One SessionIndexForChild per ancestor, checking each stays within `expected_session_index`.
+	for _ in 0..(lookahead_value - 1) {
+		assert_matches!(
+			recv_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(expected_session_index));
+			}
+		);
+	}
+
 	// Second SessionIndexForChild — from handle_active_leaves_update's own
 	// get_session_index call (separate from the one in update_active_leaves_validation_backend).
 	assert_matches!(
@@ -1916,6 +1926,67 @@ fn maybe_prepare_validation_checkes_authority_once_per_session() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 0);
 	assert!(state.session_index.is_some());
 	assert!(!state.pvf_prep.is_next_session_authority);
+}
+
+#[test]
+fn get_block_ancestors_stops_at_session_boundary() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+	let leaf = Hash::repeat_byte(0xAA);
+	let leaf_session = 5;
+	let lookahead = 5u32; // -> 4 ancestors requested
+	let ancestor_hashes: Vec<Hash> = (0..4).map(|i| Hash::from_low_u64_be(i)).collect();
+
+	let check_fut = get_block_ancestors(ctx.sender(), leaf);
+
+	let test_fut = async {
+		// Session index for the leaf itself.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(leaf_session));
+			}
+		);
+		// Scheduling lookahead for that session.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SchedulingLookahead(index, tx))) => {
+				assert_eq!(index, leaf_session);
+				let _ = tx.send(Ok(lookahead));
+			}
+		);
+		// ChainApi ancestors, `lookahead - 1` of them.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::ChainApi(ChainApiMessage::Ancestors { k, response_channel, .. }) => {
+				assert_eq!(k, (lookahead - 1) as usize);
+				let _ = response_channel.send(Ok(ancestor_hashes.clone()));
+			}
+		);
+
+		// Ancestors 0 and 1: same session as the leaf -> kept.
+		for _ in 0..2 {
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+					let _ = tx.send(Ok(leaf_session));
+				}
+			);
+		}
+
+		// Ancestor 2: belongs to the previous session -> the walk must stop here.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(leaf_session - 1));
+			}
+		);
+	};
+
+	let (ancestors, _) = executor::block_on(future::join(check_fut, test_fut));
+
+	assert_eq!(ancestors, ancestor_hashes[0..2]);
 }
 
 #[test]
