@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788070855446,
+  "lastUpdate": 1788246411886,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a78b18a5cc547141bfd5c10eb17593239e1e2509",
-          "message": "benchmarking: fix DB read/write counts (#10947)\n\nPR #10802 added `reset_read_write_count()` at the end of commit_db() to\nprevent warmup operations from appearing in benchmarking results.\nHowever, commit_db is called twice: one on `on_before_start()` closure\nbefore benchmark, and one after benchmark execution after benchmark.\nThis PR whitelists the warmup key used in commit_db so that it doesn't\nappear in the read/write count.\n\nWe also regenerated staking-async weights (wrongly benchmarked in\n#10802) and conviction-voting to check both v1 and v2 benchmarking.\n\nDriven-by: update `try-runtime-cli` to v0.10.1 as an attempt to fix the\nissue for which CI regularly fails in the check-migration (WAH) job in\n./try-runtime create-snapshot --uri\nwss://westend-asset-hub-rpc.polkadot.io:443 snapshot.raw`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-03T17:57:06Z",
-          "tree_id": "3370bccb812c896e324de40f014df2faaa6beb9c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a78b18a5cc547141bfd5c10eb17593239e1e2509"
-        },
-        "date": 1770148055637,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11047521359999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.385733466600003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13057148143333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gioyik@gmail.com",
+            "name": "Giovanny Gongora",
+            "username": "Gioyik"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a2937bec5b8f3b5611d1ab950e0bb01cfe4cca8e",
+          "message": "sp-core ECDSA to k256-only + low-S signature normalization (#5841)\n\nThis PR unifies `sp-core`'s ECDSA implementation to use `k256`\nexclusively (removing the std/no_std bifurcation between `secp256k1` and\n`k256`), migrates the claims pallet from `secp256k1` to `k256`, and\nintroduces low-S signature normalization checks across the stack\n(BIP-62, EIP-2). All checks live in the runtime; no new host functions\nor host function versions are introduced.\n\n* **Claims pallet: Migrate from secp256k1 to k256**\n- Rewrites `secp_utils` to use `k256::ecdsa::SigningKey` instead of\n`secp256k1::SecretKey` / `Secp256k1` context. Updates `mock.rs` and\n`benchmarking.rs` accordingly.\n- `eth_recover()` rejects high-S signatures before calling into\n`secp256k1_ecdsa_recover`.\n- Removes `secp256k1` from `polkadot-runtime-common` dependencies and\nfeature flags, replaced with `k256`.\n\n* **Low-S signature enforcement**\n- **pallet-revive:** `recover_eth_address()` rejects signatures with `S\n> N/2` (with a debug log), matching Ethereum's post-Homestead\ntransaction validation (EIP-2). The `ECRecover` precompile and the\n`ecdsa_recover` syscall are intentionally unchanged: they expose raw\nrecovery rather than transaction validation and continue to accept\nhigh-S.\n- **sp-consensus-beefy:** `ecdsa_crypto::BeefyAuthorityId::verify()`\nrejects high-S signatures, ensuring BEEFY signatures are always in the\ncanonical form expected by Ethereum-side light clients.\n- **sp-runtime:** `MultiSignature::verify()` (both the `Ecdsa` and `Eth`\nvariants) and the direct `Verify` impl for `sp_core::ecdsa::Signature`\nreject high-S signatures.\n- **sp-application-crypto:** ECDSA `RuntimePublic::verify()` and\n`verify_proof_of_possession()` reject high-S signatures.\n\n* **sp-core: Unify ECDSA to k256-only**\n- Removes all `#[cfg(feature = \"std\")]` / `#[cfg(not(feature = \"std\"))]`\nbifurcation points in `ecdsa.rs` that previously switched between\n`secp256k1` (std) and `k256` (no_std). Both paths now use `k256`\nunconditionally.\n  - Removes the `secp256k1` crate from `sp-core` dependencies entirely.\n- Adds `k256/precomputed-tables` to the `std` feature for host-side\nperformance.\n- Removes the manual `Drop` impl for `GenericPair` since k256's\n`SigningKey` implements `ZeroizeOnDrop`.\n- `Pair::sign_prehashed()` performs explicit low-S normalization,\nflipping the recovery ID parity when it normalizes.\n- Public key recovery (`recover_prehashed`, and thereby the existing\nrecovery host functions) must keep accepting high-S signatures, but k256\nrejects them. Recovery therefore normalizes the signature internally and\nadjusts the recovery ID before recovering, preserving the historical\nsemantics. Regression tests cover both recovery host functions and the\nverify host functions.\n\n* **sp-core: Low-S signature helper**\n- Adds `is_signature_normalized()` to `sp_core::ecdsa`, a reusable check\nfor whether a 65-byte ECDSA signature has its S component in the lower\nhalf of the curve order. Internally delegates to k256's\n[`Signature::normalize_s()`](https://github.com/RustCrypto/elliptic-curves/blob/5c829a47c076ff9df4fc790f7bb14c2ccf73a5a5/k256/src/ecdsa.rs#L193),\navoiding a hardcoded half-order constant.\n\n* **sp-io: Documentation**\n- The ECDSA host functions (`ecdsa_verify`, `ecdsa_verify_prehashed`,\n`secp256k1_ecdsa_recover`, `secp256k1_ecdsa_recover_compressed`) now\ndocument that they do not enforce low-S normalization and point callers\nto `is_signature_normalized()`.\n\n## Integration\n- **Runtime:** No action needed for existing runtimes. The low-S check\nis applied automatically in pallet-revive's EVM transaction validation,\nBEEFY's ECDSA signature verification, and `MultiSignature` / `Verify`\nbased extrinsic signature verification.\n- **Claims pallet users:** The `secp256k1` dependency is removed from\n`polkadot-runtime-common`. If your runtime previously relied on this\ntransitive dependency, you will need to add it directly.\n- **Tooling / off-chain signers:** Signatures submitted to pallet-revive\n(EVM transactions), BEEFY, or as ECDSA-signed extrinsics must have `S ≤\nN/2`. All common Ethereum and Substrate signing libraries already\nproduce low-S signatures by default, so no changes should be necessary.\n\n## Review Notes\n* `ecdsa_verify` v2 calls `Pair::verify()`, which now uses `k256` after\nthe sp-core unification. The mathematical result is identical; both\nlibraries implement the same curve operations. Regression tests assert\nthat high-S signatures are still accepted by the verify and recover host\nfunctions.\n* What is explicitly NOT changed:\n- **v1/v2 host functions** (`secp256k1_ecdsa_recover`,\n`secp256k1_ecdsa_recover_compressed`, `ecdsa_verify` v1/v2) keep their\nexact semantics, including acceptance of high-S signatures, so\nhistorical blocks re-execute identically.\n- **`Pair::verify()` / `Pair::verify_prehashed()`** in sp-core: no low-S\ncheck added, same backward-compatibility concern.\n- **`ECRecover` precompile and the `ecdsa_recover` syscall** in\npallet-revive.\n- **`verify_deprecated`** in ecdsa.rs still uses `libsecp256k1` for\noverflowing signature compatibility.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Alexander Theißen <alex@theissen.io>",
+          "timestamp": "2026-09-01T05:39:59Z",
+          "tree_id": "7dd7031cb81ef3b6fb998752a8e40a14bd9fe729",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a2937bec5b8f3b5611d1ab950e0bb01cfe4cca8e"
+        },
+        "date": 1788246370027,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.041650212633336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14501532856666668,
             "unit": "seconds"
           }
         ]
