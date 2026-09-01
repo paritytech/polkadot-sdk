@@ -26,12 +26,13 @@ use crate::{
 	},
 	limits,
 	sp_runtime::traits::{One, Zero},
+	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
 use environmental::environmental;
 use frame_support::{
-	dispatch::DispatchInfo,
+	dispatch::{DispatchClass, DispatchInfo},
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
 	traits::Get,
@@ -133,11 +134,9 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 
 	if captured.is_none() {
 		let index = OutsideFrameLogCount::<T>::get();
-		// Cap the per-block buffer so the `on_finalize` drain (reserved in `on_initialize` as
-		// `MaxOutsideFrameLogs * on_finalize_block_per_outside_frame_log`) can never exceed its
-		// declared weight. The per-emit weight charged on each firing path is expected to exhaust
-		// block weight well before this backstop is hit; a log dropped here has no `Transfer` entry
-		// despite its balance event, so reaching the cap is a degraded, warned condition.
+		// A backstop on the buffer's size, not on its cost: the per-log weight charged below fills
+		// the block first. A log dropped here has no `Transfer` entry despite its balance event, so
+		// reaching the cap is a degraded, warned condition.
 		if index >= <T as Config>::MaxOutsideFrameLogs::get() {
 			log::warn!(
 				target: LOG_TARGET,
@@ -147,6 +146,14 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 		}
 		OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
 		OutsideFrameLogCount::<T>::put(index.saturating_add(1));
+
+		// The insert above and this log's share of the `on_finalize` drain, charged to the block
+		// that emitted it. The mirroring paths have no gas meter to charge against, and
+		// `on_initialize` reserves only the fixed part of `on_finalize`.
+		frame_system::Pallet::<T>::register_extra_weight_unchecked(
+			<T as Config>::WeightInfo::per_outside_frame_log(),
+			DispatchClass::Normal,
+		);
 	}
 }
 

@@ -55,14 +55,21 @@ pub trait OnFinalizeBlockParts {
 	/// - `data_len`: Total bytes of event data (includes topics and data field)
 	fn on_finalize_block_per_event(data_len: u32) -> Weight;
 
-	/// Returns the per-log weight cost for draining one buffered outside-of-frame log in
-	/// `on_finalize` (see `OutsideFrameLogs`).
+	/// Returns the full weight of one outside-of-frame log (see `OutsideFrameLogs`): the buffer
+	/// insert at the emit site plus that log's share of the `on_finalize` drain.
 	///
-	/// Each such log is a `Transfer` log mirrored from a substrate-native balance change. This
-	/// marginal cost, multiplied by [`Config::MaxOutsideFrameLogs`], is reserved up-front in
-	/// `on_initialize` so the synthetic transaction's drain never exceeds the block's declared
-	/// weight.
-	fn on_finalize_block_per_outside_frame_log() -> Weight;
+	/// Each such log is a `Transfer` log mirrored from a substrate-native balance change. Both
+	/// halves are charged together at the emit site, via
+	/// `frame_system::register_extra_weight_unchecked` — the mirroring paths run outside any
+	/// contract frame, so there is no gas meter to charge against. Blocks therefore pay for the
+	/// mirror logs they produce instead of reserving the cap up-front.
+	///
+	/// Charging the insert here double-counts its proof size on a runtime running
+	/// `StorageWeightReclaim`, which already replaces the extrinsic's declared proof size with the
+	/// host-measured one. That direction over-declares, and covering the insert unconditionally is
+	/// what keeps it accounted for at all: its ref_time lands nowhere otherwise, since the
+	/// benchmarked weight of the extrinsic that triggered the mirror does not include it.
+	fn per_outside_frame_log() -> Weight;
 }
 
 /// Implementation of `OnFinalizeBlockParts` that derives high-level weights from `WeightInfo`
@@ -131,11 +138,9 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		per_event_cost.saturating_add(data_cost)
 	}
 
-	fn on_finalize_block_per_outside_frame_log() -> Weight {
-		// Marginal cost of draining one buffered outside-of-frame log. The dedicated benchmark is
-		// `pov_mode = Measured`, so this marginal carries the per-log proof size that
-		// `on_finalize_per_event` (constant proof estimate) does not.
-		W::on_finalize_per_outside_frame_log(1)
-			.saturating_sub(W::on_finalize_per_outside_frame_log(0))
+	fn per_outside_frame_log() -> Weight {
+		// The dedicated benchmark is `pov_mode = Measured`, so this marginal carries the per-log
+		// proof size that `on_finalize_per_event` (constant proof estimate) does not.
+		W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0))
 	}
 }
