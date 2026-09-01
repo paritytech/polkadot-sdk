@@ -75,6 +75,8 @@ module management {
 
   /// §6.2 / §6.3: upsert head data. No-op on a ParaId whose ParaInfo
   /// doesn't exist yet (Coretime must call set_state_balance first).
+  /// Overwriting a live head also clears the parachain's settlement ring
+  /// (§6, §8.3), so no consumer can settle against the rolled-back history.
   pure def parachainSetHead(
     s: ParachainServiceState,
     para_id: ParaId,
@@ -84,8 +86,9 @@ module management {
       { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)
+      val cleared = specMsgClearRing(s, para_id)
       {
-        state: { ...s, parachains: s.parachains.put(para_id, { ...pi, headData: newHead }) },
+        state: { ...cleared, parachains: cleared.parachains.put(para_id, { ...pi, headData: newHead }) },
         jamSolicit: Set(),
         jamForget: Set(),
         logs: List()
@@ -235,7 +238,10 @@ module management {
             afterActive.state.removeReferencer(
               para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
         }
-        val s1 = afterPending.state
+        // §8.3: an accepted clean-up tears the settlement ring down either
+        // way, permanently ending the drainability of the para's final
+        // messages: a dormant chain's ring persists only until this point.
+        val s1 = specMsgClearRing(afterPending.state, para_id)
         val jamForgets =
           optionToSet(afterActive.jamForget).union(optionToSet(afterPending.jamForget))
 
