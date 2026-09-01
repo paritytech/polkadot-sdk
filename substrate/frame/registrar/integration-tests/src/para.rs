@@ -207,10 +207,8 @@ impl pallet_registrar_para::Config for Runtime {
 	// No parachain-system in this simulator; production runtimes should use
 	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
 	type BlockNumberProvider = System;
-	// A registration opens a channel with the new para, so this chain always has a route to it.
 	type Fungible = Balances;
 	type UpgradeCooldownCost = ConstU128<{ crate::COOLDOWN_COST }>;
-	type OnRegistered = HrmpControl;
 	type WeightInfo = ();
 }
 

@@ -128,17 +128,6 @@ impl ParachainRegistrar for MockRegistrar {
 			Managers::get().iter().any(|(id, _)| *id == para_id)
 	}
 
-	fn manager_of(para_id: ParaId) -> Option<AccountId> {
-		Managers::get()
-			.iter()
-			.find(|(id, _)| *id == para_id)
-			.map(|(_, manager)| *manager)
-	}
-
-	fn is_locked(para_id: ParaId) -> bool {
-		LockedParas::get().contains(&para_id)
-	}
-
 	fn register(
 		manager: Self::AccountId,
 		para_id: ParaId,
@@ -228,6 +217,7 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
 	type UnsignedPriority = ConstU64<100>;
+	type MaxForwardsPerBlock = ConstU32<1>;
 	type WeightInfo = ();
 }
 

@@ -149,9 +149,56 @@ parameter_types! {
 	pub const MaxRetries: u32 = 3;
 }
 
+parameter_types! {
+	/// Flip to `true` to put the mock registry in remote mode, where a parachain's own calls are
+	/// forwarded to the control plane instead of applied here.
+	pub static RemoteRouting: bool = false;
+	/// Set to `true` to make the mock transport refuse every forward.
+	pub static RouterRefuses: bool = false;
+	/// Every request the mock router accepted, in order.
+	pub static ForwardedRequests: Vec<ForwardedRequest> = Vec::new();
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ForwardedRequest {
+	Deregister(u32),
+	AddLock(u32),
+	RemoveLock(u32),
+	SetCurrentHead(u32, Vec<u8>),
+}
+
+pub struct MockParaRouter;
+impl MockParaRouter {
+	fn record(request: ForwardedRequest) -> Result<(), ()> {
+		if RouterRefuses::get() {
+			return Err(());
+		}
+		ForwardedRequests::mutate(|requests| requests.push(request));
+		Ok(())
+	}
+}
+
+impl registrar_primitives::ParaRequestRouter for MockParaRouter {
+	fn is_remote() -> bool {
+		RemoteRouting::get()
+	}
+	fn deregister(para_id: u32) -> Result<(), ()> {
+		Self::record(ForwardedRequest::Deregister(para_id))
+	}
+	fn add_lock(para_id: u32) -> Result<(), ()> {
+		Self::record(ForwardedRequest::AddLock(para_id))
+	}
+	fn remove_lock(para_id: u32) -> Result<(), ()> {
+		Self::record(ForwardedRequest::RemoveLock(para_id))
+	}
+	fn set_current_head(para_id: u32, head: Vec<u8>) -> Result<(), ()> {
+		Self::record(ForwardedRequest::SetCurrentHead(para_id, head))
+	}
+}
+
 impl Config for Test {
 	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
-	type ParaRequests = ();
+	type ParaRequests = MockParaRouter;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;

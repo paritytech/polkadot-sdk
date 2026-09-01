@@ -458,7 +458,10 @@ mod receive {
 		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 			let _ = registrar_events();
+			let _ = take_sent();
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			// The code landed on the relay chain after all and the success report was lost, so the
@@ -600,6 +603,10 @@ mod receive {
 	fn a_refused_chase_up_completes_the_deregistration() {
 		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
+			let _ = take_sent();
 
 			// The deregistration went through and its report was lost, so the chase-up comes
 			// back refused and the deposits are owed.
@@ -673,6 +680,8 @@ mod receive {
 	fn an_unexpected_chase_up_refusal_is_defensive_and_leaves_state() {
 		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
 			let _ = Registrar::receive(
 				RuntimeOrigin::root(),
 				chase_up_answer(para_id, 2, Err(FailureReason::AlreadyRegistered)),
@@ -714,21 +723,19 @@ mod cancel_registration {
 		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id, outcome: Ok(()) })
 	}
 
-	/// A stale verdict settles a *later* request, because responses correlate on
-	/// `(para_id, state)` and the echoed `message_id` is never checked.
+	/// A stale verdict must not settle a *later* request: the id of the request in flight is
+	/// stored in `Pending`/`Deregistering`, and a response echoing anything else is dropped.
 	///
-	/// The doc on `MessageToParaV1` justifies skipping the check with "at most one request per para
-	/// id is ever in flight". That is false for the retry paths: `cancel_registration` sends a
-	/// fresh id while an earlier answer may still be queued. Reachable only when the relay chain's
-	/// replies lag a full `PendingDeadline`, but the cost is a released deposit on a live para.
-	///
-	/// This test asserts what happens **today**. When the fix lands — store the id in `Pending` /
-	/// `Deregistering` and match it — the stale answer is ignored and the final assertions here
-	/// change to "still Pending, deposit still held". See `open.md` B16.
+	/// The scenario is the retry race B16 named: `cancel_registration` sends a fresh id while an
+	/// earlier answer may still be queued, so "at most one request per para id in flight" is
+	/// false. Before the id was matched, the stale answer below released the second
+	/// registration's deposit while the relay chain may have been holding an authorization — or
+	/// have onboarded the para outright.
 	#[test]
-	fn a_stale_cancel_verdict_settles_a_later_registration() {
+	fn a_stale_cancel_verdict_cannot_settle_a_later_registration() {
 		build_and_execute(|| {
-			// GIVEN a registration that was cancelled, and the cancellation confirmed.
+			// GIVEN a registration (message 0) that was cancelled (message 1), and the
+			// cancellation confirmed.
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
 			run_to_block(System::block_number() + PENDING_DEADLINE);
@@ -738,24 +745,38 @@ mod cancel_registration {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			// WHEN the manager registers again, taking a **new** deposit.
+			// WHEN the manager registers again (message 2), taking a **new** deposit.
 			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+
+			// WHEN the *first* cancellation's answer arrives again, late — same para id, same
+			// state, stale id.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
+
+			// THEN it is dropped: the second registration stays pending on its deposit.
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
 				RegistrationState::Pending { .. }
 			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert!(registrar_events().is_empty());
 
-			// WHEN the *first* cancellation's answer arrives late — same para id, same state, an
-			// id this pallet does not look at.
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
-
-			// THEN it settles the second registration: the new deposit is handed back and the
-			// para drops to `Reserved`, while the relay chain may well be holding an
-			// authorization — or have onboarded the para outright.
-			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
-			assert_eq!(held(ALICE), PARA_DEPOSIT);
+			// AND the genuine verdict still settles it.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id,
+					message_id: 2,
+					outcome: Ok(()),
+				}),
+			));
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 		});
 	}
 
@@ -2215,55 +2236,6 @@ mod receiving_a_migration {
 			);
 			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
 			assert!(Paras::<Test>::get(para_id).is_none());
-		});
-	}
-
-	#[test]
-	fn a_registered_para_gets_its_control_channel_and_a_reserved_id_does_not() {
-		build_and_execute(|| {
-			// GIVEN a migrated para that is already running, and a migrated id that is not.
-			// Every live para arrives locked, so it cannot ask for a channel itself and its
-			// manager is locked out — if the migration does not open one, nothing ever will.
-			let running = FIRST_PARA_ID + 505;
-			let reserved = FIRST_PARA_ID + 506;
-
-			assert_ok!(Registrar::receive_para(MigratedPara {
-				para_id: running,
-				manager: ALICE,
-				state: MigratedParaState::Registered { head_len: 20 },
-				locked: true,
-			}));
-			assert_ok!(Registrar::receive_para(MigratedPara {
-				para_id: reserved,
-				manager: ALICE,
-				state: MigratedParaState::Reserved,
-				locked: false,
-			}));
-
-			// THEN only the running one is worth a route: a reserved id has no parachain at the
-			// other end to talk to.
-			assert_eq!(take_control_channels(), vec![running]);
-		});
-	}
-
-	#[test]
-	fn an_unpaid_para_still_gets_its_control_channel() {
-		build_and_execute(|| {
-			// Reachability is not something a para forfeits by arriving broke — the channel is
-			// deposit-free, and a para nobody can reach is the failure mode this whole policy
-			// exists to avoid.
-			let para_id = FIRST_PARA_ID + 507;
-			let broke = 98; // a manager whose deposit never migrated
-
-			assert_ok!(Registrar::receive_para(MigratedPara {
-				para_id,
-				manager: broke,
-				state: MigratedParaState::Registered { head_len: 20 },
-				locked: true,
-			}));
-
-			assert!(Paras::<Test>::get(para_id).unwrap().reservation.is_none());
-			assert_eq!(take_control_channels(), vec![para_id]);
 		});
 	}
 

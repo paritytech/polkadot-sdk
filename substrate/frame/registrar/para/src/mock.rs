@@ -129,27 +129,6 @@ parameter_types! {
 	pub static ParaOriginAccounts: Vec<(AccountId, u32)> = Vec::new();
 }
 
-parameter_types! {
-	/// Paras the control-plane hook fired for, oldest first.
-	pub static ControlChannelsOpened: Vec<u32> = Vec::new();
-}
-
-/// Stands in for the HRMP pallet's control-plane channel opening.
-///
-/// The real implementation cannot fail the caller, so neither does this: it only records.
-pub struct RecordingOnRegistered;
-
-impl hrmp_primitives::OnParaRegistered for RecordingOnRegistered {
-	fn on_registered(para_id: u32) {
-		ControlChannelsOpened::mutate(|opened| opened.push(para_id));
-	}
-}
-
-/// Every para the control-plane hook fired for since the last call, oldest first.
-pub fn take_control_channels() -> Vec<u32> {
-	ControlChannelsOpened::take()
-}
-
 /// Lets the accounts listed in [`ParaOriginAccounts`] act as their para, standing in for a real
 /// XCM origin. An explicit list, not an account range, so no other account (in particular the
 /// entropy-derived ones the benchmarks use) can resolve as a para by accident.
@@ -233,7 +212,6 @@ impl pallet_registrar_para::Config for Test {
 	type BlockNumberProvider = System;
 	type Fungible = Balances;
 	type UpgradeCooldownCost = ConstU128<COOLDOWN_COST>;
-	type OnRegistered = RecordingOnRegistered;
 	type WeightInfo = ();
 }
 
@@ -243,7 +221,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	SendFails::set(false);
 	AssignedParas::set(Vec::new());
 	ParaOriginAccounts::set(Vec::new());
-	ControlChannelsOpened::set(Vec::new());
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {

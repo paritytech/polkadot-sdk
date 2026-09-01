@@ -1231,3 +1231,145 @@ fn hrmp_notifications_works() {
 		);
 	});
 }
+
+/// The `ParaRequests` seam: once a chain's control plane has moved (`is_remote()`), a parachain's
+/// own HRMP calls are forwarded instead of applied, and nothing else can reach the forward.
+mod forwarding {
+	use super::*;
+	use crate::mock::{
+		ForwardedHrmpRequest, ForwardedHrmpRequests, HrmpRemoteRouting, HrmpRouterRefuses,
+	};
+
+	fn wire_channel(sender: u32, recipient: u32) -> hrmp_primitives::ChannelId {
+		hrmp_primitives::ChannelId { sender, recipient }
+	}
+
+	#[test]
+	fn a_local_chain_never_consults_the_router() {
+		let para_a = 2001.into();
+		let para_a_origin: crate::Origin = 2001.into();
+		let para_b = 2003.into();
+		let para_b_origin: crate::Origin = 2003.into();
+
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			register_parachain(para_a);
+			register_parachain(para_b);
+			run_to_block(5, Some(vec![4, 5]));
+
+			assert_ok!(Hrmp::hrmp_init_open_channel(para_a_origin.into(), para_b, 2, 8));
+			assert_ok!(Hrmp::hrmp_accept_open_channel(para_b_origin.into(), para_a));
+
+			assert_eq!(ForwardedHrmpRequests::get(), vec![]);
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn a_para_forwards_each_of_its_calls_and_nothing_is_written_here() {
+		let para_a = 2001.into();
+		let para_a_origin: crate::Origin = 2001.into();
+		let para_b = 2003.into();
+		let para_b_origin: crate::Origin = 2003.into();
+		let system_chain = 1005.into();
+
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			// Events are only recorded past genesis, so the no-events assertion below has teeth.
+			System::set_block_number(1);
+			HrmpRemoteRouting::set(true);
+			let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+
+			// No local registration needed: in remote mode the request is not checked against
+			// this chain's state, because the control plane owns the records being acted on.
+			assert_ok!(Hrmp::hrmp_init_open_channel(para_a_origin.clone().into(), para_b, 2, 8));
+			assert_ok!(Hrmp::hrmp_accept_open_channel(para_b_origin.into(), para_a));
+			assert_ok!(Hrmp::hrmp_close_channel(para_a_origin.clone().into(), channel_id.clone()));
+			// The witness bounds this chain's request list, which is not the list acted on
+			// remotely — zero must pass.
+			assert_ok!(Hrmp::hrmp_cancel_open_request(
+				para_a_origin.clone().into(),
+				channel_id,
+				0
+			));
+			assert_ok!(Hrmp::establish_channel_with_system(para_a_origin.into(), system_chain));
+
+			assert_eq!(
+				ForwardedHrmpRequests::get(),
+				vec![
+					ForwardedHrmpRequest::OpenChannel {
+						sender: 2001,
+						recipient: 2003,
+						max_capacity: 2,
+						max_message_size: 8,
+					},
+					ForwardedHrmpRequest::AcceptOpenChannel { sender: 2001, recipient: 2003 },
+					ForwardedHrmpRequest::CloseChannel {
+						initiator: 2001,
+						channel: wire_channel(2001, 2003),
+					},
+					ForwardedHrmpRequest::CancelOpenRequest {
+						sender: 2001,
+						channel: wire_channel(2001, 2003),
+					},
+					ForwardedHrmpRequest::EstablishChannelWithSystem {
+						sender: 2001,
+						target: 1005,
+					},
+				]
+			);
+
+			// The requests left no trace on this chain.
+			assert_eq!(HrmpOpenChannelRequests::<Test>::iter().count(), 0);
+			assert_eq!(HrmpChannels::<Test>::iter().count(), 0);
+			assert!(System::events().is_empty());
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn a_target_that_is_not_a_system_chain_is_refused_before_forwarding() {
+		let para_a_origin: crate::Origin = 2001.into();
+
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			HrmpRemoteRouting::set(true);
+
+			assert_noop!(
+				Hrmp::establish_channel_with_system(para_a_origin.into(), 2003.into()),
+				Error::<Test>::ChannelCreationNotAuthorized
+			);
+			assert_eq!(ForwardedHrmpRequests::get(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_refused_transport_is_reported_and_writes_nothing() {
+		let para_a_origin: crate::Origin = 2001.into();
+
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			HrmpRemoteRouting::set(true);
+			HrmpRouterRefuses::set(true);
+
+			assert_noop!(
+				Hrmp::hrmp_init_open_channel(para_a_origin.into(), 2003.into(), 2, 8),
+				Error::<Test>::RequestNotForwarded
+			);
+			assert_eq!(ForwardedHrmpRequests::get(), vec![]);
+		});
+	}
+
+	#[test]
+	fn only_a_para_origin_can_reach_the_forward() {
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			HrmpRemoteRouting::set(true);
+
+			assert_noop!(
+				Hrmp::hrmp_init_open_channel(RuntimeOrigin::signed(1), 2003.into(), 2, 8),
+				BadOrigin
+			);
+			assert_noop!(
+				Hrmp::hrmp_init_open_channel(RuntimeOrigin::root(), 2003.into(), 2, 8),
+				BadOrigin
+			);
+			assert_eq!(ForwardedHrmpRequests::get(), vec![]);
+		});
+	}
+}

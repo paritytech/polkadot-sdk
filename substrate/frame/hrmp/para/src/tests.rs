@@ -21,7 +21,7 @@ use crate::{mock::*, ChannelState, Channels, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	OnParaRegistered, Outcome, ParaId,
+	Outcome, ParaId,
 };
 use sp_runtime::{traits::Convert, DispatchError, DispatchResult};
 
@@ -59,20 +59,30 @@ fn open_channel(sender: ParaId, recipient: ParaId) -> ChannelId {
 	channel
 }
 
+/// The id a response must echo to settle `channel`'s in-flight request. Falls back to `stray`
+/// where nothing is awaited, for the tests that deliberately answer a channel in the wrong state.
+fn awaited_or(channel: ChannelId, stray: u64) -> u64 {
+	state_of(channel).and_then(|state| state.awaited_id()).unwrap_or(stray)
+}
+
 fn open_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::OpenResponse { channel, message_id: 0, outcome })
+	let message_id = awaited_or(channel, 0);
+	MessageToPara::V1(MessageToParaV1::OpenResponse { channel, message_id, outcome })
 }
 
 fn accept_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::AcceptResponse { channel, message_id: 1, outcome })
+	let message_id = awaited_or(channel, 1);
+	MessageToPara::V1(MessageToParaV1::AcceptResponse { channel, message_id, outcome })
 }
 
 fn close_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::CloseResponse { channel, message_id: 2, outcome })
+	let message_id = awaited_or(channel, 2);
+	MessageToPara::V1(MessageToParaV1::CloseResponse { channel, message_id, outcome })
 }
 
 fn cancel_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::CancelResponse { channel, message_id: 2, outcome })
+	let message_id = awaited_or(channel, 2);
+	MessageToPara::V1(MessageToParaV1::CancelResponse { channel, message_id, outcome })
 }
 
 fn system_channel_response(
@@ -692,14 +702,14 @@ mod system_channels {
 	}
 
 	#[test]
-	fn registering_a_para_opens_a_channel_with_this_chain() {
+	fn a_requested_pair_is_pending_until_the_relay_chain_confirms() {
 		build_and_execute(|| {
-			// WHEN the registrar tells this pallet a para is registered.
-			Hrmp::on_registered(PARA_A);
+			// WHEN a deposit-free pair is requested.
+			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 
-			// THEN the pair is requested but not yet claimed open. A freshly registered para is
-			// still onboarding on the relay chain, which refuses a channel to it for two of its
-			// session boundaries — claiming `Open` here is what made that refusal invisible.
+			// THEN the pair is requested but not yet claimed open — the relay chain's answer is
+			// what promotes it. Claiming `Open` on the strength of the request is what once made
+			// every refusal invisible.
 			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
 			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Pending));
 			assert_eq!(held(PARA_A), 0);
@@ -712,8 +722,6 @@ mod system_channels {
 			);
 
 			// WHEN the relay chain confirms, this chain has a route in both directions at no cost.
-			// Without that a para could never `Transact` into here, and the para-origin path above
-			// would be unreachable for it.
 			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
 			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
 			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
@@ -735,41 +743,34 @@ mod system_channels {
 	}
 
 	#[test]
-	fn a_failed_channel_at_registration_is_reported_not_raised() {
+	fn a_transport_failure_fails_the_request_and_writes_nothing() {
 		build_and_execute(|| {
 			// GIVEN a transport that refuses everything.
 			SendFails::set(true);
 
-			// WHEN a para registers. Registration has already succeeded by this point, so this
-			// must not be able to unwind anything.
-			Hrmp::on_registered(PARA_A);
-
-			// THEN the failure is an event, the records are rolled back, and the retry is
-			// `establish_system_channel`.
+			assert_noop!(
+				Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A),
+				Error::<Test>::SendFailed
+			);
 			assert!(state_of(chan(SELF_PARA, PARA_A)).is_none());
 			assert!(state_of(chan(PARA_A, SELF_PARA)).is_none());
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::SystemChannelFailed { channel: chan(SELF_PARA, PARA_A) }]
-			);
 
 			// And the retry works once the transport is back.
 			SendFails::set(false);
 			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
-			confirm_system_channel(chan(SELF_PARA, PARA_A), 1);
+			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
 			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
 		});
 	}
 
-	/// The refusal a new para actually hits: the relay chain will not open a channel to a para that
-	/// is still onboarding. The pair must stay unconfirmed and say so, because that is the only
-	/// signal anyone gets that a retry is needed — nothing is staked, so there is nothing to
-	/// release and no deadline to expire.
+	/// A refused pair must stay unconfirmed and say so, because that is the only signal anyone
+	/// gets that a retry is needed — nothing is staked, so there is nothing to release and no
+	/// deadline to expire.
 	#[test]
 	fn a_refused_pair_stays_unconfirmed_and_can_be_retried() {
 		build_and_execute(|| {
-			Hrmp::on_registered(PARA_A);
+			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 			let _ = take_sent();
 			let _ = hrmp_events();
 
@@ -811,7 +812,7 @@ mod system_channels {
 	#[test]
 	fn already_exists_counts_as_confirmation() {
 		build_and_execute(|| {
-			Hrmp::on_registered(PARA_A);
+			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 			let _ = take_sent();
 			let _ = hrmp_events();
 
@@ -835,7 +836,7 @@ mod system_channels {
 	#[test]
 	fn a_redundant_retry_does_not_demote_an_open_pair() {
 		build_and_execute(|| {
-			Hrmp::on_registered(PARA_A);
+			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
 			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
 
@@ -1117,6 +1118,49 @@ mod state_machine {
 
 mod message_ids {
 	use super::*;
+
+	/// A response settles a request only if it echoes the id stored in the in-flight state, so a
+	/// duplicate delivery — or an answer meant for an earlier occupant of the same channel id —
+	/// cannot settle a later request. See `open.md` B16.
+	#[test]
+	fn a_stale_answer_cannot_settle_a_later_request() {
+		build_and_execute(|| {
+			// GIVEN a channel whose first occupancy was opened (message 0) and cancelled
+			// (message 1), and a second occupancy now awaiting its open verdict (message 2).
+			let channel = pending_channel(PARA_A, PARA_B);
+			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_response(channel, Ok(()))));
+			assert_eq!(state_of(channel), None);
+			assert_ok!(Hrmp::open_channel(
+				para_origin(PARA_A),
+				PARA_A,
+				PARA_B,
+				MAX_CAPACITY,
+				MAX_MESSAGE_SIZE
+			));
+			let _ = take_sent();
+			let _ = hrmp_events();
+
+			// WHEN the first occupancy's open verdict arrives again — same channel id, same
+			// state, stale message id.
+			assert_ok!(Hrmp::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::OpenResponse {
+					channel,
+					message_id: 0,
+					outcome: Ok(()),
+				}),
+			));
+
+			// THEN it is dropped: the new request is still awaiting its own verdict.
+			assert!(matches!(state_of(channel), Some(ChannelState::Opening { .. })));
+			assert!(hrmp_events().is_empty());
+
+			// AND the genuine verdict still settles it.
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), open_response(channel, Ok(()))));
+			assert_eq!(state_of(channel), Some(ChannelState::Pending));
+		});
+	}
 
 	#[test]
 	fn every_request_carries_the_next_id_and_the_counter_never_repeats() {
@@ -1443,17 +1487,13 @@ mod receiving_a_migration {
 	}
 
 	#[test]
-	fn a_channel_already_established_as_a_control_channel_is_dropped_not_duplicated() {
+	fn a_channel_already_established_as_a_system_channel_is_dropped_not_duplicated() {
 		build_and_execute(|| {
-			// GIVEN a para this chain already took over, so its control channel is open in both
-			// directions. On real state 34 of these arrive twice — once established here when the
-			// para migrated, once handed over by the HRMP migration.
-			use hrmp_primitives::OnParaRegistered;
-			Hrmp::on_registered(PARA_A);
+			// GIVEN a system-channel pair this chain already holds open. The migration then hands
+			// over the same channel from the relay chain's records, so it arrives twice.
+			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
 			let out = chan(SELF_PARA, PARA_A);
 			let back = chan(PARA_A, SELF_PARA);
-			// A migrated para is already live on the relay chain, so its control channel is
-			// confirmed rather than left waiting on an onboarding.
 			confirm_system_channel(out, 0);
 			assert_eq!(state_of(out), Some(ChannelState::Open));
 			let _ = take_sent();

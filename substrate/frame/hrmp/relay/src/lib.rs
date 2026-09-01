@@ -128,8 +128,9 @@ pub mod pallet {
 		SystemChannelOpened { channel: ChannelId, message_id: u64 },
 		/// A deposit-free channel could not be opened.
 		///
-		/// Reported here rather than sent back: nothing is staked on the parachain for a system
-		/// channel, so a round trip would be paying for news nobody is waiting on.
+		/// Raised here *and* reported back: the asking chain records the pair as pending until
+		/// the confirmation arrives, so a silent refusal would leave it believing in a channel
+		/// that does not exist.
 		SystemChannelRejected { channel: ChannelId, message_id: u64, reason: FailureReason },
 		/// A report could not be sent back to the parachain.
 		///

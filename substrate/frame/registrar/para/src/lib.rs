@@ -70,7 +70,7 @@ use frame_support::{
 		Consideration, EnsureOrigin, Footprint, Get,
 	},
 };
-use hrmp_primitives::{OnParaRegistered, ParaManager};
+use hrmp_primitives::ParaManager;
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, MigratedPara,
 	MigratedParaState, Outcome, ParaId, ReceiveMigratedParas,
@@ -84,6 +84,8 @@ use sp_runtime::{
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+const LOG_TARGET: &str = "runtime::registrar-para";
 
 pub mod weights;
 
@@ -180,6 +182,13 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		/// really has gone quiet. Pushed out again by every [`Pallet::cancel_registration`], so a
 		/// cancellation that gets lost can be retried but not spammed.
 		cancellable_at: BlockNumber,
+		/// The id of the request that opened this state.
+		///
+		/// Ids are handed out in order, so the registration's own verdict and the answer to any
+		/// later cancellation all echo this id or a higher one — and a response echoing an older
+		/// id is stale: it belongs to an earlier occupant of a re-reserved id, or is a duplicate
+		/// delivery, and must not settle this state.
+		message_id: u64,
 	},
 	/// The relay chain has onboarded this para.
 	Registered {
@@ -193,6 +202,8 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		ticket: Ticket,
 		/// The block from which the manager may chase up this deregistration.
 		cancellable_at: BlockNumber,
+		/// The id of the request that opened this state. See [`Self::Pending::message_id`].
+		message_id: u64,
 	},
 }
 
@@ -318,13 +329,6 @@ pub mod pallet {
 		/// but the cooldown exists to deter rapid upgrades, not to raise revenue.
 		#[pallet::constant]
 		type UpgradeCooldownCost: Get<BalanceOf<Self>>;
-
-		/// Told when a para finishes registering.
-		///
-		/// Normally `pallet-hrmp-para`, which opens a channel with the new para so this chain has
-		/// a route to every para it is the control plane for. `()` for a runtime that does not
-		/// manage HRMP.
-		type OnRegistered: OnParaRegistered;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -567,11 +571,11 @@ pub mod pallet {
 
 			let cancellable_at = T::BlockNumberProvider::current_block_number()
 				.saturating_add(T::PendingDeadline::get());
-			info.state = RegistrationState::Pending { ticket, cancellable_at };
+			let message_id = Self::next_message_id();
+			info.state = RegistrationState::Pending { ticket, cancellable_at, message_id };
 			Paras::<T>::insert(para_id, info);
 
 			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
 				para_id,
 				message_id,
@@ -607,22 +611,28 @@ pub mod pallet {
 
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
-			let RegistrationState::Pending { ticket, cancellable_at } = info.state else {
+			let RegistrationState::Pending { ticket, cancellable_at, message_id: original } =
+				info.state
+			else {
 				return Err(Error::<T>::NotPending.into());
 			};
 			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
 
 			// Another deadline's grace before the manager may ask again, so a request that goes
-			// missing can be retried without the relay chain being asked once per block.
+			// missing can be retried without the relay chain being asked once per block. The
+			// stored id stays the registration's: both the verdict and the cancel answer remain
+			// able to settle this entry, whichever arrives first.
 			info.state = RegistrationState::Pending {
 				ticket,
 				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+				message_id: original,
 			};
 			Paras::<T>::insert(para_id, info);
 
-			// A transport failure returns `Err` and unwinds the new deadline with it.
 			let message_id = Self::next_message_id();
+
+			// A transport failure returns `Err` and unwinds the new deadline with it.
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
 				para_id,
 				message_id,
@@ -705,18 +715,22 @@ pub mod pallet {
 
 					let cancellable_at = T::BlockNumberProvider::current_block_number()
 						.saturating_add(T::PendingDeadline::get());
+					let message_id = Self::next_message_id();
 					Paras::<T>::insert(
 						para_id,
 						ParaInfo {
 							manager: manager.clone(),
 							reservation,
-							state: RegistrationState::Deregistering { ticket, cancellable_at },
+							state: RegistrationState::Deregistering {
+								ticket,
+								cancellable_at,
+								message_id,
+							},
 							locked,
 						},
 					);
 
 					// A transport failure returns `Err` and unwinds everything above.
-					let message_id = Self::next_message_id();
 					T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Deregister {
 						para_id,
 						message_id,
@@ -750,22 +764,28 @@ pub mod pallet {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
 			let manager = info.manager.clone();
-			let RegistrationState::Deregistering { ticket, cancellable_at } = info.state else {
+			let RegistrationState::Deregistering { ticket, cancellable_at, message_id: original } =
+				info.state
+			else {
 				return Err(Error::<T>::NotDeregistering.into());
 			};
 			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
 
 			// Another deadline's grace before the manager may ask again, so a request that goes
-			// missing can be retried without the relay chain being asked once per block.
+			// missing can be retried without the relay chain being asked once per block. The
+			// stored id stays the deregistration's: both the verdict and the chase-up answer
+			// remain able to settle this entry, whichever arrives first.
 			info.state = RegistrationState::Deregistering {
 				ticket,
 				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+				message_id: original,
 			};
 			Paras::<T>::insert(para_id, info);
 
-			// A transport failure returns `Err` and unwinds the new deadline with it.
 			let message_id = Self::next_message_id();
+
+			// A transport failure returns `Err` and unwinds the new deadline with it.
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
 				para_id,
 				message_id,
@@ -1157,10 +1177,19 @@ impl<T: Config> Pallet<T> {
 			defensive!("register response for unknown para, dropping", para_id);
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
+		let RegistrationState::Pending { ticket, message_id: awaited, .. } = info.state else {
 			defensive!("register response for para which is not pending, dropping", para_id);
 			return Ok(());
 		};
+		if message_id < awaited {
+			// Stale, not defensive: an answer older than this state's opening request can arrive
+			// honestly — a duplicate delivery, or a verdict for an earlier occupant of the id.
+			log::debug!(
+				target: LOG_TARGET,
+				"register response for para {para_id:?} echoes id {message_id}, older than {awaited}, dropping",
+			);
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
@@ -1168,7 +1197,6 @@ impl<T: Config> Pallet<T> {
 				info.state = RegistrationState::Registered { ticket };
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, message_id, manager });
-				T::OnRegistered::on_registered(para_id);
 			},
 			Err(reason) => {
 				Self::drop_ticket(ticket, &info.manager)?;
@@ -1200,13 +1228,20 @@ impl<T: Config> Pallet<T> {
 			defensive!("cancel response for unknown para, dropping", para_id);
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
+		let RegistrationState::Pending { ticket, message_id: awaited, .. } = info.state else {
 			log::debug!(
 				target: "runtime::registrar-para",
 				"cancel response for para {para_id} which is no longer pending, dropping",
 			);
 			return Ok(());
 		};
+		if message_id < awaited {
+			log::debug!(
+				target: LOG_TARGET,
+				"cancel response for para {para_id:?} echoes id {message_id}, older than {awaited}, dropping",
+			);
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
@@ -1220,7 +1255,6 @@ impl<T: Config> Pallet<T> {
 				info.state = RegistrationState::Registered { ticket };
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Registered { para_id, message_id, manager });
-				T::OnRegistered::on_registered(para_id);
 			},
 			// Nothing else is a cancellation the relay chain refuses, so leave the registration
 			// pending: the manager can ask again once the deadline comes round.
@@ -1243,13 +1277,20 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		};
 		let ParaInfo { manager, reservation, state, locked } = info;
-		let RegistrationState::Deregistering { ticket, .. } = state else {
+		let RegistrationState::Deregistering { ticket, message_id: awaited, .. } = state else {
 			defensive!(
 				"deregister response for para which is not deregistering, dropping",
 				para_id
 			);
 			return Ok(());
 		};
+		if message_id < awaited {
+			log::debug!(
+				target: LOG_TARGET,
+				"deregister response for para {para_id:?} echoes id {message_id}, older than {awaited}, dropping",
+			);
+			return Ok(());
+		}
 
 		match outcome {
 			Ok(()) => {
@@ -1299,7 +1340,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		};
 		let ParaInfo { manager, reservation, state, locked } = info;
-		let RegistrationState::Deregistering { ticket, .. } = state else {
+		let RegistrationState::Deregistering { ticket, message_id: awaited, .. } = state else {
 			log::debug!(
 				target: "runtime::registrar-para",
 				"cancel deregistration answer for para {para_id} which is not deregistering, \
@@ -1307,6 +1348,13 @@ impl<T: Config> Pallet<T> {
 			);
 			return Ok(());
 		};
+		if message_id < awaited {
+			log::debug!(
+				target: LOG_TARGET,
+				"cancel deregistration answer for para {para_id:?} echoes id {message_id}, older than {awaited}, dropping",
+			);
+			return Ok(());
+		}
 
 		match outcome {
 			Ok(()) => {
@@ -1373,9 +1421,6 @@ impl<T: Config> ParaManager for Pallet<T> {
 /// as [`Event::MigratedWithUnpaidDeposit`]. Such a para holds its storage without paying for it
 /// until governance either settles or removes it; the set is small, one-off, and enumerable from
 /// the event.
-///
-/// Paras that arrive already registered also get their control-plane channel opened, exactly as a
-/// fresh registration would — see [`Config::OnRegistered`].
 impl<T: Config> ReceiveMigratedParas for Pallet<T> {
 	type AccountId = T::AccountId;
 
@@ -1441,7 +1486,6 @@ impl<T: Config> Pallet<T> {
 
 		let unpaid = reservation.is_none() ||
 			matches!(state, RegistrationState::Registered { ticket: None });
-		let registered = matches!(state, RegistrationState::Registered { .. });
 
 		Paras::<T>::insert(
 			para_id,
@@ -1451,15 +1495,6 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::MigratedWithUnpaidDeposit { para_id, manager });
 		}
 
-		// A migrated para never runs the path a fresh registration does, so without this it would
-		// arrive with no route to this chain — and since every live para arrives locked, it could
-		// not even ask for one: `open_channel`'s para-origin branch is unreachable without a
-		// channel, and its manager is locked out. Firing the same hook a confirmed registration
-		// fires is what makes a migrated para and a new one behave identically afterwards.
-		// A merely reserved id has no parachain to talk to, so it gets nothing.
-		if registered {
-			T::OnRegistered::on_registered(para_id);
-		}
 		Ok(())
 	}
 }

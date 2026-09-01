@@ -737,30 +737,6 @@ fn channel_held(para_id: u32) -> u128 {
 }
 
 #[test]
-fn registering_a_para_opens_a_channel_with_coretime_in_both_directions() {
-	MockNet::reset();
-
-	let para_id = onboard(ALICE, 32, 64);
-    let here = crate::senders::PARA_ID;
-
-	// The relay chain really has both channels, deposit-free. Without them the para could never
-	// `Transact` into the control plane at all.
-	Relay::execute_with(|| {
-		relay::advance_sessions(2);
-		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(here, para_id)).is_some());
-		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(para_id, here)).is_some());
-	});
-
-	RegistrarPara::execute_with(|| {
-		assert_eq!(
-			channel_state(ChannelId { sender: here, recipient: para_id }),
-			Some(ChannelState::Open)
-		);
-		assert_eq!(channel_held(para_id), 0);
-	});
-}
-
-#[test]
 fn a_channel_opens_end_to_end_and_both_deposits_settle_on_the_parachain() {
 	MockNet::reset();
 

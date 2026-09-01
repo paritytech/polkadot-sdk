@@ -288,9 +288,70 @@ impl TestUsesOnlyStoredVersionWrapper {
 	}
 }
 
+frame_support::parameter_types! {
+	/// Flip to `true` to put HRMP in remote mode, where a parachain's own calls are forwarded to
+	/// the control plane instead of applied here.
+	pub static HrmpRemoteRouting: bool = false;
+	/// Set to `true` to make the mock transport refuse every forward.
+	pub static HrmpRouterRefuses: bool = false;
+	/// Every request the mock router accepted, in order.
+	pub static ForwardedHrmpRequests: Vec<ForwardedHrmpRequest> = Vec::new();
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ForwardedHrmpRequest {
+	OpenChannel { sender: u32, recipient: u32, max_capacity: u32, max_message_size: u32 },
+	AcceptOpenChannel { sender: u32, recipient: u32 },
+	CloseChannel { initiator: u32, channel: hrmp_primitives::ChannelId },
+	CancelOpenRequest { sender: u32, channel: hrmp_primitives::ChannelId },
+	EstablishChannelWithSystem { sender: u32, target: u32 },
+}
+
+pub struct MockHrmpRouter;
+impl MockHrmpRouter {
+	fn record(request: ForwardedHrmpRequest) -> Result<(), ()> {
+		if HrmpRouterRefuses::get() {
+			return Err(());
+		}
+		ForwardedHrmpRequests::mutate(|requests| requests.push(request));
+		Ok(())
+	}
+}
+
+impl hrmp_primitives::ParaRequestRouter for MockHrmpRouter {
+	fn is_remote() -> bool {
+		HrmpRemoteRouting::get()
+	}
+	fn open_channel(
+		sender: u32,
+		recipient: u32,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), ()> {
+		Self::record(ForwardedHrmpRequest::OpenChannel {
+			sender,
+			recipient,
+			max_capacity,
+			max_message_size,
+		})
+	}
+	fn accept_open_channel(sender: u32, recipient: u32) -> Result<(), ()> {
+		Self::record(ForwardedHrmpRequest::AcceptOpenChannel { sender, recipient })
+	}
+	fn close_channel(initiator: u32, channel: hrmp_primitives::ChannelId) -> Result<(), ()> {
+		Self::record(ForwardedHrmpRequest::CloseChannel { initiator, channel })
+	}
+	fn cancel_open_request(sender: u32, channel: hrmp_primitives::ChannelId) -> Result<(), ()> {
+		Self::record(ForwardedHrmpRequest::CancelOpenRequest { sender, channel })
+	}
+	fn establish_channel_with_system(sender: u32, target: u32) -> Result<(), ()> {
+		Self::record(ForwardedHrmpRequest::EstablishChannelWithSystem { sender, target })
+	}
+}
+
 impl crate::hrmp::Config for Test {
 	type ParaSelfOrigin = crate::origin::EnsureParachain;
-	type ParaRequests = ();
+	type ParaRequests = MockHrmpRouter;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;

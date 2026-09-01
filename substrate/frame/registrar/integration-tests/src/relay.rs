@@ -198,6 +198,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxCodeSize = frame_support::traits::ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = frame_support::traits::ConstU32<MAX_PENDING>;
 	type UnsignedPriority = RegistrarUnsignedPriority;
+	type MaxForwardsPerBlock = frame_support::traits::ConstU32<1>;
 	type WeightInfo = ();
 }
 

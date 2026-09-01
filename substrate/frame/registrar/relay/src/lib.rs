@@ -206,6 +206,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsignedPriority: Get<TransactionPriority>;
 
+		/// How many of a parachain's own requests this chain forwards per para per block.
+		///
+		/// The forwarded calls execute here unpaid — the real pricing happens on the chain that
+		/// serves them — so this bounds how much free relay-chain work one para id can ask for.
+		/// See [`Pallet::note_forwarded`].
+		#[pallet::constant]
+		type MaxForwardsPerBlock: Get<u32>;
+
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -258,6 +266,19 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingCodeUpgrades<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingCodeUpgrade>;
+
+	/// The block a para last had a request forwarded in, and how many it has had in that block.
+	///
+	/// Only the current block's entry is ever read; older ones are overwritten in place, so the
+	/// map holds at most one small record per para that has ever forwarded anything.
+	#[pallet::storage]
+	pub type ForwardedRequests<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ParaId,
+		(frame_system::pallet_prelude::BlockNumberFor<T>, u32),
+		ValueQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -653,6 +674,25 @@ pub mod pallet {
 			Self::deposit_event(Event::DeregistrationCancellationRefused { para_id, message_id });
 		}
 
+		/// Note one forwarded request from `para_id`, refusing it once the para has used its
+		/// [`Config::MaxForwardsPerBlock`] budget for the current block.
+		///
+		/// For the runtime's request router to consult before forwarding — both the registrar and
+		/// the HRMP forwards, which deliberately share one budget: what is being rationed is the
+		/// para's unpaid relay-chain execution, not either pallet's state. Per block rather than
+		/// per round trip, because forwarding is fire-and-forget: nothing ever reports back that a
+		/// request was served.
+		pub fn note_forwarded(para_id: ParaId) -> bool {
+			let now = frame_system::Pallet::<T>::block_number();
+			let (block, used) = ForwardedRequests::<T>::get(para_id);
+			let used = if block == now { used } else { 0 };
+			if used >= T::MaxForwardsPerBlock::get() {
+				return false;
+			}
+			ForwardedRequests::<T>::insert(para_id, (now, used + 1));
+			true
+		}
+
 		/// Run a registry call in its own storage layer, so a failure after partial writes
 		/// unwinds the registry alone and can be *reported* instead of unwinding the extrinsic.
 		///
@@ -745,7 +785,7 @@ pub mod pallet {
 			}
 			// One slot per para in each map, so an upgrade cannot be used to grow this state.
 			if PendingCodeUpgrades::<T>::contains_key(para_id) {
-				return reject(FailureReason::AlreadyRegistered);
+				return reject(FailureReason::CannotUpgrade);
 			}
 			if PendingCodeUpgrades::<T>::count() >= T::MaxPendingRegistrations::get() {
 				return reject(FailureReason::TooManyPending);

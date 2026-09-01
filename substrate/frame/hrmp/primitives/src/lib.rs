@@ -346,23 +346,13 @@ impl ParaManager for () {
 	}
 }
 
-/// Told when a para finishes registering, so a channel can be opened with it.
-///
-/// The Coretime chain is the control plane for every para it registers, so it needs a route to
-/// each one — and a para can only `Transact` into Coretime if a channel already exists, which is
-/// what makes the para-origin HRMP path reachable at all.
-///
-/// Deliberately returns nothing. Registration has already succeeded by the time this runs, and a
-/// channel that could fail it would make onboarding depend on HRMP capacity. Implementations
-/// report their own failures and leave a way to retry.
-pub trait OnParaRegistered {
-	/// `para_id` has just been confirmed as registered.
-	fn on_registered(para_id: ParaId);
-}
-
-impl OnParaRegistered for () {
-	fn on_registered(_para_id: ParaId) {}
-}
+// Deliberately no "on para registered" hook. An earlier design opened a control channel with
+// every para at registration, because a para could only `Transact` into the control plane over an
+// HRMP channel. The control link is relayed through the relay chain instead — the relay chain
+// keeps its para-facing calls and forwards them (see `ParaRequestRouter`) — so no channel per para
+// exists, and nothing needs telling when a registration completes. The per-para channel design
+// also could not scale: the relay chain caps how many channels one para may hold, and the control
+// plane's need grew with the network while the cap is a constant.
 
 /// One channel, as it arrives from the chain that used to hold its deposits.
 ///

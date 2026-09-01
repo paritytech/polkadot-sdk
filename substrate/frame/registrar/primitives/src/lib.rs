@@ -305,14 +305,10 @@ pub trait ParachainRegistrar {
 	/// Whether the relay chain already knows this para id.
 	fn is_registered(para_id: ParaId) -> bool;
 
-	/// The manager of `para_id`, if the registry knows it.
-	///
-	/// `None` both for an id the registry never saw and for a para the relay chain knows outside
-	/// the registry (distinguish those with [`Self::is_registered`]).
-	fn manager_of(para_id: ParaId) -> Option<Self::AccountId>;
-
-	/// Whether `para_id` is locked from manager control.
-	fn is_locked(para_id: ParaId) -> bool;
+	// Deliberately no `manager_of` and no `is_locked`: the control plane validates manager and
+	// lock before sending, and this registry's map is drained by the migration — so on a migrated
+	// chain either method is always the wrong answer, and both have caused real bugs. The relay
+	// chain acts on what it is told.
 
 	/// Onboard `para_id` under `manager`.
 	///

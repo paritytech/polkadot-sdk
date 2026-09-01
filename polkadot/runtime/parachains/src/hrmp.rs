@@ -1687,13 +1687,6 @@ impl<T: Config> Pallet<T> {
 		)
 	}
 
-	/// Record an open-channel request.
-	///
-	/// `deposit_override` replaces the configured sender deposit. A request driven from another
-	/// chain passes `Some(0)`: that chain holds the money now, so reserving here would charge the
-	/// para twice and would try to draw on a sovereign account the migration has emptied. The
-	/// zero is also what makes the later close and cancel paths deposit-free, since both unreserve
-	/// exactly what was recorded.
 	/// Turn a router verdict into a dispatch result.
 	///
 	/// A refusal means the transport would not take the request, so this chain has written nothing
@@ -1703,6 +1696,13 @@ impl<T: Config> Pallet<T> {
 		sent.map_err(|()| Error::<T>::RequestNotForwarded.into())
 	}
 
+	/// Record an open-channel request.
+	///
+	/// `deposit_override` replaces the configured sender deposit. A request driven from another
+	/// chain passes `Some(0)`: that chain holds the money now, so reserving here would charge the
+	/// para twice and would try to draw on a sovereign account the migration has emptied. The
+	/// zero is also what makes the later close and cancel paths deposit-free, since both unreserve
+	/// exactly what was recorded.
 	fn do_init_open_channel(
 		origin: ParaId,
 		recipient: ParaId,

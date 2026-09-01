@@ -338,10 +338,15 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
-			Self::ensure_root_self_para_or_owner(origin, id)?;
 			if T::ParaRequests::is_remote() {
+				// Managers are never forwarded: a forwarded request carries no caller identity,
+				// so the control plane would read it as "the para asked". Once the control plane
+				// has moved, managers act on it directly and only the para itself (or Root) may
+				// ask here.
+				Self::ensure_root_or_self_para(origin, id)?;
 				return Self::forward(T::ParaRequests::deregister(id.into()));
 			}
+			Self::ensure_root_self_para_or_owner(origin, id)?;
 			Self::do_deregister(id)
 		}
 
@@ -413,10 +418,9 @@ pub mod pallet {
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn remove_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			// Deliberately not `ensure_root_para_or_owner`: a lock exists to protect the para from
-			// its manager, so the manager may not lift it. That asymmetry is why the forwarded
-			// request is safe to send as the control plane's Root — only a para can reach this call
-			// at all once signed origins are closed, so Root here can only ever mean "the para
-			// asked". The control plane enforces the same rule on its own copy.
+			// its manager, so the manager may not lift it. The control plane enforces the same
+			// rule on its own copy — a forwarded request arrives there as the para's own origin,
+			// so the distinction survives the trip.
 			Self::ensure_root_or_self_para(origin, para)?;
 			if T::ParaRequests::is_remote() {
 				return Self::forward(T::ParaRequests::remove_lock(para.into()));
@@ -460,10 +464,12 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn add_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			Self::ensure_root_self_para_or_owner(origin, para)?;
 			if T::ParaRequests::is_remote() {
+				// See `deregister` for why the manager may not reach the forward.
+				Self::ensure_root_or_self_para(origin, para)?;
 				return Self::forward(T::ParaRequests::add_lock(para.into()));
 			}
+			Self::ensure_root_self_para_or_owner(origin, para)?;
 			<Self as Registrar>::apply_lock(para);
 			Ok(())
 		}
@@ -512,12 +518,13 @@ pub mod pallet {
 			para: ParaId,
 			new_head: HeadData,
 		) -> DispatchResult {
-			Self::ensure_root_self_para_or_owner(origin, para)?;
 			if T::ParaRequests::is_remote() {
-				// Head data travels inline on both sides, so unlike a code upgrade this forwards
-				// as-is.
+				// See `deregister` for why the manager may not reach the forward. Head data
+				// travels inline on both sides, so unlike a code upgrade this forwards as-is.
+				Self::ensure_root_or_self_para(origin, para)?;
 				return Self::forward(T::ParaRequests::set_current_head(para.into(), new_head.0));
 			}
+			Self::ensure_root_self_para_or_owner(origin, para)?;
 			polkadot_runtime_parachains::set_current_head::<T>(para, new_head);
 			Ok(())
 		}
@@ -648,14 +655,6 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
 	}
 
-	fn manager_of(para_id: u32) -> Option<T::AccountId> {
-		Paras::<T>::get(ParaId::from(para_id)).map(|info| info.manager)
-	}
-
-	fn is_locked(para_id: u32) -> bool {
-		Paras::<T>::get(ParaId::from(para_id)).is_some_and(|info| info.is_locked())
-	}
-
 	fn register(
 		manager: T::AccountId,
 		para_id: u32,
@@ -713,8 +712,8 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_deregisterable(manager: T::AccountId, para_id: u32) {
-		// A registry entry with no paras lifecycle: `manager_of` finds it, it is unlocked, and
-		// `do_deregister` succeeds because `schedule_para_cleanup` ignores an unknown para.
+		// A registry entry with no paras lifecycle: it is unlocked, and `do_deregister` succeeds
+		// because `schedule_para_cleanup` ignores an unknown para.
 		Paras::<T>::insert(
 			ParaId::from(para_id),
 			ParaInfo { manager, deposit: BalanceOf::<T>::zero(), locked: None },
@@ -819,7 +818,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Attempt to register a new Para Id under management of `who` in the
 	/// system with the given information.
-	/// Register `id` under `who`.
 	///
 	/// `lock` decides whether the new registration is closed to its manager immediately. A
 	/// registration driven from another chain sets it: that chain is the control plane, so the

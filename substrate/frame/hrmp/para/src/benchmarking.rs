@@ -136,7 +136,7 @@ mod benchmarks {
 		opened::<T>(channel)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, sender, recipient);
+		_(RawOrigin::Root, sender, recipient, sender);
 
 		assert!(matches!(
 			Channels::<T>::get(channel).map(|c| c.state),

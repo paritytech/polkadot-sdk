@@ -586,3 +586,134 @@ fn swap_handles_bad_states() {
 		assert!(Parachains::is_parathread(para_2));
 	});
 }
+
+/// The `ParaRequests` seam: once a chain's control plane has moved (`is_remote()`), a parachain's
+/// own calls are forwarded instead of applied, and nobody else can reach the forward.
+mod forwarding {
+	use super::*;
+
+	#[test]
+	fn a_local_registry_never_consults_the_router() {
+		new_test_ext().execute_with(|| {
+			let para_id = LOWEST_PUBLIC_ID;
+			let alice = 1; // manager
+			assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(alice)));
+
+			assert_ok!(mock::Registrar::add_lock(RuntimeOrigin::root(), para_id));
+			assert_ok!(mock::Registrar::remove_lock(para_origin(para_id), para_id));
+			assert_ok!(mock::Registrar::deregister(RuntimeOrigin::signed(alice), para_id));
+
+			assert_eq!(ForwardedRequests::get(), vec![]);
+			assert!(Paras::<Test>::get(para_id).is_none());
+		});
+	}
+
+	#[test]
+	fn a_para_forwards_each_of_its_calls_and_nothing_is_written_here() {
+		new_test_ext().execute_with(|| {
+			RemoteRouting::set(true);
+			let para_id = LOWEST_PUBLIC_ID;
+			let head = vec![7u8; 8];
+
+			assert_ok!(mock::Registrar::deregister(para_origin(para_id), para_id));
+			assert_ok!(mock::Registrar::add_lock(para_origin(para_id), para_id));
+			assert_ok!(mock::Registrar::remove_lock(para_origin(para_id), para_id));
+			assert_ok!(mock::Registrar::set_current_head(
+				para_origin(para_id),
+				para_id,
+				HeadData(head.clone())
+			));
+
+			assert_eq!(
+				ForwardedRequests::get(),
+				vec![
+					ForwardedRequest::Deregister(para_id.into()),
+					ForwardedRequest::AddLock(para_id.into()),
+					ForwardedRequest::RemoveLock(para_id.into()),
+					ForwardedRequest::SetCurrentHead(para_id.into(), head),
+				]
+			);
+			// The requests left no trace on this chain: no registry entry and no head.
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert!(polkadot_runtime_parachains::paras::Heads::<Test>::get(para_id).is_none());
+		});
+	}
+
+	#[test]
+	fn a_manager_cannot_reach_the_forward() {
+		new_test_ext().execute_with(|| {
+			// A local registry entry exists, unlocked, managed by Alice — the shape a remote
+			// registration leaves behind, minus the lock that normally travels with it.
+			let para_id = LOWEST_PUBLIC_ID;
+			let alice = 1; // manager
+			assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(alice)));
+
+			RemoteRouting::set(true);
+
+			// A forwarded request carries no caller identity, so the control plane would read a
+			// manager's request as the para's own. The manager is refused outright, even though
+			// the same call would have served them locally.
+			assert_noop!(
+				mock::Registrar::deregister(RuntimeOrigin::signed(alice), para_id),
+				BadOrigin
+			);
+			assert_noop!(
+				mock::Registrar::add_lock(RuntimeOrigin::signed(alice), para_id),
+				BadOrigin
+			);
+			assert_noop!(
+				mock::Registrar::set_current_head(
+					RuntimeOrigin::signed(alice),
+					para_id,
+					HeadData(vec![1])
+				),
+				BadOrigin
+			);
+
+			assert_eq!(ForwardedRequests::get(), vec![]);
+			assert!(Paras::<Test>::get(para_id).is_some());
+
+			// Root remains the governance escape hatch and may still forward.
+			assert_ok!(mock::Registrar::deregister(RuntimeOrigin::root(), para_id));
+			assert_eq!(
+				ForwardedRequests::get(),
+				vec![ForwardedRequest::Deregister(para_id.into())]
+			);
+		});
+	}
+
+	#[test]
+	fn a_refused_transport_is_reported_and_writes_nothing() {
+		new_test_ext().execute_with(|| {
+			RemoteRouting::set(true);
+			RouterRefuses::set(true);
+			let para_id = LOWEST_PUBLIC_ID;
+
+			assert_noop!(
+				mock::Registrar::deregister(para_origin(para_id), para_id),
+				Error::<Test>::RequestNotForwarded
+			);
+			assert_eq!(ForwardedRequests::get(), vec![]);
+		});
+	}
+
+	#[test]
+	fn code_upgrades_and_swap_never_forward() {
+		new_test_ext().execute_with(|| {
+			RemoteRouting::set(true);
+			let para_id = LOWEST_PUBLIC_ID;
+
+			// Both still take the local path: the upgrade because its payload cannot travel, the
+			// swap because it is being retired. Outcomes here do not matter — what matters is
+			// that neither consulted the router.
+			let _ = mock::Registrar::schedule_code_upgrade(
+				para_origin(para_id),
+				para_id,
+				test_validation_code(32),
+			);
+			let _ = mock::Registrar::swap(para_origin(para_id), para_id, para_id);
+
+			assert_eq!(ForwardedRequests::get(), vec![]);
+		});
+	}
+}

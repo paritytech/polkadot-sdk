@@ -158,7 +158,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
-		assert!(T::Registrar::manager_of(PARA_ID).is_none());
+		assert!(!T::Registrar::is_registered(PARA_ID));
 		Ok(())
 	}
 
@@ -176,7 +176,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
-		assert!(T::Registrar::manager_of(PARA_ID).is_some());
+		assert!(T::Registrar::is_registered(PARA_ID));
 		Ok(())
 	}
 

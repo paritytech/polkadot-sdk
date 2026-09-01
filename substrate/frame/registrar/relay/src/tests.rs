@@ -1009,7 +1009,7 @@ mod authorize_code_upgrade {
 				vec![Event::CodeUpgradeRejected {
 					para_id: PARA_A,
 					message_id: UPGRADE_ID,
-					reason: FailureReason::AlreadyRegistered,
+					reason: FailureReason::CannotUpgrade,
 				}]
 			);
 		});
@@ -1387,6 +1387,32 @@ mod remove_upgrade_cooldown {
 				Registrar::receive(RuntimeOrigin::signed(ALICE), cooldown_msg(PARA_A)),
 				DispatchError::BadOrigin
 			);
+		});
+	}
+}
+
+/// The per-para budget on forwarded requests. What is rationed is unpaid relay-chain execution:
+/// the forwarded calls run here for free and are priced on the chain that serves them, so this is
+/// the only thing bounding how much free work one para id can ask for.
+mod forward_budget {
+	use super::*;
+
+	#[test]
+	fn a_para_gets_its_budget_per_block_and_no_more() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			// The budget is one per block, shared across the registrar and HRMP forwards.
+			assert!(Registrar::note_forwarded(PARA_A));
+			assert!(!Registrar::note_forwarded(PARA_A));
+
+			// Another para's budget is its own.
+			assert!(Registrar::note_forwarded(PARA_B));
+
+			// The next block starts a fresh budget.
+			System::set_block_number(2);
+			assert!(Registrar::note_forwarded(PARA_A));
+			assert!(!Registrar::note_forwarded(PARA_A));
 		});
 	}
 }

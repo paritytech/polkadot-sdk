@@ -65,7 +65,7 @@ use frame_support::{
 };
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	MigratedChannel, OnParaRegistered, Outcome, ParaId, ParaManager, ReceiveMigratedChannels,
+	MigratedChannel, Outcome, ParaId, ParaManager, ReceiveMigratedChannels,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -123,6 +123,12 @@ pub enum ChannelState<BlockNumber> {
 	Opening {
 		/// The block from which this may be given up on.
 		cancellable_at: BlockNumber,
+		/// The id of the request that opened this state.
+		///
+		/// Ids are handed out in order, so a response echoing an older id is stale — a duplicate
+		/// delivery, or an answer to an earlier occupant of this channel id — and must not settle
+		/// this state.
+		message_id: u64,
 	},
 	/// The relay chain is holding the request, waiting for the recipient. Sender deposit held.
 	Pending,
@@ -130,6 +136,8 @@ pub enum ChannelState<BlockNumber> {
 	Accepting {
 		/// The block from which this may be given up on.
 		cancellable_at: BlockNumber,
+		/// The id of the request that opened this state. See [`Self::Opening::message_id`].
+		message_id: u64,
 	},
 	/// The relay chain has the channel. Both deposits held.
 	Open,
@@ -137,12 +145,29 @@ pub enum ChannelState<BlockNumber> {
 	Closing {
 		/// The block from which this may be given up on.
 		cancellable_at: BlockNumber,
+		/// The id of the request that opened this state. See [`Self::Opening::message_id`].
+		message_id: u64,
 	},
 	/// The sender has asked the relay chain to drop an unconfirmed request. Deposit still held.
 	Cancelling {
 		/// The block from which this may be given up on.
 		cancellable_at: BlockNumber,
+		/// The id of the request that opened this state. See [`Self::Opening::message_id`].
+		message_id: u64,
 	},
+}
+
+impl<BlockNumber> ChannelState<BlockNumber> {
+	/// The id of the request in flight, if one is.
+	fn awaited_id(&self) -> Option<u64> {
+		match self {
+			ChannelState::Opening { message_id, .. } |
+			ChannelState::Accepting { message_id, .. } |
+			ChannelState::Closing { message_id, .. } |
+			ChannelState::Cancelling { message_id, .. } => Some(*message_id),
+			ChannelState::Pending | ChannelState::Open => None,
+		}
+	}
 }
 
 /// Everything this chain knows about one channel.
@@ -302,10 +327,6 @@ pub mod pallet {
 		/// A deposit-free channel was requested in both directions, and the relay chain has
 		/// confirmed it.
 		SystemChannelOpened { channel: ChannelId, message_id: u64 },
-		/// A channel with a newly registered para could not be requested at all.
-		///
-		/// Registration itself succeeded. `establish_system_channel` retries.
-		SystemChannelFailed { channel: ChannelId },
 		/// The relay chain refused a deposit-free channel pair. Both directions stay unconfirmed.
 		///
 		/// The ordinary reason is that the para is still onboarding, which takes two of the relay
@@ -393,17 +414,17 @@ pub mod pallet {
 
 			let sender_ticket = Self::take_deposit(channel, sender)?;
 			let cancellable_at = Self::deadline();
+			let message_id = Self::next_message_id();
 			Channels::<T>::insert(
 				channel,
 				ChannelInfo {
 					sender_ticket,
 					recipient_ticket: None,
-					state: ChannelState::Opening { cancellable_at },
+					state: ChannelState::Opening { cancellable_at, message_id },
 				},
 			);
 
 			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
 				channel,
 				message_id,
@@ -433,11 +454,12 @@ pub mod pallet {
 			ensure!(info.state == ChannelState::Pending, Error::<T>::WrongState);
 
 			info.recipient_ticket = Self::take_deposit(channel, recipient)?;
-			info.state = ChannelState::Accepting { cancellable_at: Self::deadline() };
+			let message_id = Self::next_message_id();
+			info.state =
+				ChannelState::Accepting { cancellable_at: Self::deadline(), message_id };
 			Channels::<T>::insert(channel, info);
 
 			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel {
 				channel,
 				message_id,
@@ -474,11 +496,11 @@ pub mod pallet {
 			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
 			ensure!(info.state == ChannelState::Open, Error::<T>::WrongState);
 
-			info.state = ChannelState::Closing { cancellable_at: Self::deadline() };
+			let message_id = Self::next_message_id();
+			info.state = ChannelState::Closing { cancellable_at: Self::deadline(), message_id };
 			Channels::<T>::insert(channel, info);
 
 			// A transport failure returns `Err` and unwinds the state change with it.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CloseChannel {
 				channel,
 				message_id,
@@ -506,11 +528,12 @@ pub mod pallet {
 			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
 			ensure!(info.state == ChannelState::Pending, Error::<T>::WrongState);
 
-			info.state = ChannelState::Cancelling { cancellable_at: Self::deadline() };
+			let message_id = Self::next_message_id();
+			info.state =
+				ChannelState::Cancelling { cancellable_at: Self::deadline(), message_id };
 			Channels::<T>::insert(channel, info);
 
 			// A transport failure returns `Err` and unwinds the state change with it.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest {
 				channel,
 				message_id,
@@ -627,10 +650,10 @@ pub mod pallet {
 			let info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
 
 			let overdue = match info.state {
-				ChannelState::Opening { cancellable_at } |
-				ChannelState::Accepting { cancellable_at } |
-				ChannelState::Closing { cancellable_at } |
-				ChannelState::Cancelling { cancellable_at } =>
+				ChannelState::Opening { cancellable_at, .. } |
+				ChannelState::Accepting { cancellable_at, .. } |
+				ChannelState::Closing { cancellable_at, .. } |
+				ChannelState::Cancelling { cancellable_at, .. } =>
 					T::BlockNumberProvider::current_block_number() >= cancellable_at,
 				// Nothing is in flight for these, so there is no verdict to be overdue.
 				ChannelState::Pending | ChannelState::Open => true,
@@ -843,6 +866,7 @@ impl<T: Config> Pallet<T> {
 	/// failure so they are loud in logs, and panic under `debug_assertions`.
 	fn expect(
 		channel: ChannelId,
+		message_id: u64,
 		matches: fn(&ChannelState<ProvidedBlockNumberOf<T>>) -> bool,
 	) -> Option<ChannelInfoOf<T>> {
 		let Some(info) = Channels::<T>::get(channel) else {
@@ -853,12 +877,23 @@ impl<T: Config> Pallet<T> {
 			defensive!("hrmp response for a channel in the wrong state, dropping");
 			return None;
 		}
+		// Stale, not defensive: a duplicate delivery, or an answer meant for an earlier occupant
+		// of this channel id, can land on a matching state honestly. Ids are handed out in
+		// order, so anything older than this state's opening request predates the state.
+		if info.state.awaited_id().is_some_and(|awaited| message_id < awaited) {
+			log::debug!(
+				target: "runtime::hrmp-para",
+				"hrmp response for {channel:?} echoes id {message_id}, older than {:?}, dropping",
+				info.state.awaited_id(),
+			);
+			return None;
+		}
 		Some(info)
 	}
 
 	/// Apply the relay chain's verdict on an open request.
 	fn on_open_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, |s| matches!(s, ChannelState::Opening { .. })) else {
+		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Opening { .. })) else {
 			return Ok(());
 		};
 
@@ -879,7 +914,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Apply the relay chain's verdict on an acceptance.
 	fn on_accept_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, |s| matches!(s, ChannelState::Accepting { .. })) else {
+		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Accepting { .. })) else {
 			return Ok(());
 		};
 
@@ -903,7 +938,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Apply the relay chain's verdict on a close.
 	fn on_close_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, |s| matches!(s, ChannelState::Closing { .. })) else {
+		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Closing { .. })) else {
 			return Ok(());
 		};
 
@@ -931,7 +966,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Apply the relay chain's verdict on a cancellation.
 	fn on_cancel_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, |s| matches!(s, ChannelState::Cancelling { .. })) else {
+		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Cancelling { .. })) else {
 			return Ok(());
 		};
 
@@ -987,40 +1022,6 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 		Ok(())
-	}
-}
-
-/// Open a channel with every para this chain registers.
-///
-/// This chain is the control plane for those paras, so it needs a route to each one — and a para
-/// can only `Transact` into this chain if a channel already exists, which is what makes the
-/// para-origin path in [`Pallet::open_channel`] reachable at all.
-///
-/// A failure here must never unwind: the registration has already succeeded by the time this
-/// runs, and a channel that could fail it would make onboarding depend on HRMP capacity. A
-/// transport failure is reported as [`Event::SystemChannelFailed`] and retried with
-/// [`Pallet::establish_system_channel`].
-///
-/// The pair is only **requested** here, not opened. A para that has just registered is still
-/// onboarding on the relay chain and will be refused a channel for two of its session boundaries,
-/// longer while its validation code is pre-checked — so the relay chain's answer is what promotes
-/// the pair, and a refusal leaves it unconfirmed and says so. Recording it open on the strength of
-/// the request alone is how that refusal used to become invisible: nothing was staked and nothing
-/// expired, so there was no signal that any para had come up without a control plane.
-impl<T: Config> OnParaRegistered for Pallet<T> {
-	fn on_registered(para_id: ParaId) {
-		let here = T::SelfParaId::get();
-		let channel = ChannelId { sender: here, recipient: para_id };
-
-		let opened = frame_support::storage::with_storage_layer(|| {
-			Self::do_establish_system_channel(here, para_id)
-		});
-
-		match opened {
-			Ok(message_id) =>
-				Self::deposit_event(Event::SystemChannelRequested { channel, message_id }),
-			Err(_) => Self::deposit_event(Event::SystemChannelFailed { channel }),
-		}
 	}
 }
 
