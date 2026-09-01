@@ -35,9 +35,10 @@ fn endowed_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
 	// Fund each account with at-least their stake but still a sane amount as to not mess up
 	// the vote calculation.
 	let amount = default_stake::<T>(T::MaxVoters::get()) * BalanceOf::<T>::from(BALANCE_FACTOR);
-	let _ = T::Currency::make_free_balance_be(&account, amount);
-	// Important to increase the total issuance since `T::CurrencyToVote` will need it to be sane
-	// for phragmen to work.
+	let _ = T::Currency::set_balance(&account, amount);
+	// important to increase the total issuance since T::CurrencyToVote will need it to be sane for
+	// phragmen to work.
+
 	let _ = T::Currency::issue(amount);
 
 	account
