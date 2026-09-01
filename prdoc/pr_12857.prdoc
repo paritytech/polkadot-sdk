@@ -1,0 +1,14 @@
+title: '[RWF] sp-maybe-compressed-blob: fix bomb-limit overflow'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix `sp-maybe-compressed-blob::decompress` with a `usize::MAX` bomb limit by calculating the
+    decoder read cap in `u64`. This prevents an overflow while preserving the public API and normal
+    bomb-limit behavior.
+
+    ## Integration
+
+    No downstream integration changes are required.
+crates:
+- name: sp-maybe-compressed-blob
+  bump: patch
