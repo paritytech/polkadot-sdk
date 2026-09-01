@@ -24,7 +24,7 @@
 //! at fetch time: entries are walked oldest-first and the first entry that is not
 //! blocked is launched. An entry is blocked when its output head is already fetched
 //! (para-wide, across in-view scheduling parents), in flight, or known to prospective
-//! parachains (whose snapshot unions candidate output heads with best-chain parent
+//! parachains (whose answer unions candidate output heads with best-chain parent
 //! heads, so an entry that would cycle the chain is blocked too). Blockers are
 //! classified: prospective-parachains knowledge is hard (durable); fetched and
 //! in-flight heads are soft (pending attempts that may still fail). A head that is
@@ -40,9 +40,9 @@
 //! the top of `note_fetched`, and consumed segments are invisible to every reader via
 //! `live_segments`.
 //!
-//! The prospective-parachains record (`para_knowledge`) is replaced wholesale at leaf
-//! activation and topped up with each candidate we second. Accepted staleness: up to
-//! one block for other validators' candidates.
+//! Prospective-parachains knowledge is queried live before each planner pass
+//! (`GetKnownOutputHeads`) and passed in; staleness is bounded by PP's own
+//! statement-ingestion latency.
 
 use crate::{
 	extract_leaf_scheduling_info, is_scheduling_parent_valid,
@@ -70,7 +70,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
-	messages::{CanSecondRequest, CandidateBackingMessage, ProspectiveParachainsMessage},
+	messages::{CanSecondRequest, CandidateBackingMessage},
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
@@ -144,13 +144,9 @@ pub struct CollationManager {
 	// flaky network or a buggy `Canceled` loop can't flood the logs.
 	network_error_freq: gum::Freq,
 	canceled_freq: gum::Freq,
-
-	// Output heads prospective-parachains already knows for each para: candidates
-	// in its fragment chains, unioned across actives leaves. The fetch walk reads
-	// this to skip para blocks that are known.
-	// Refreshed wholesale at leaf activation (which doubles as pruning); topped up
-	// with the output head of each candidate we second ourselves;
-	para_knowledge: HashMap<ParaId, HashSet<Hash>>,
+	// Set by mutations that can enable a fetch launch; consumed by the main
+	// loop to decide whether to run a planner pass.
+	replan: bool,
 }
 
 impl CollationManager {
@@ -172,12 +168,20 @@ impl CollationManager {
 			clock,
 			network_error_freq: gum::Freq::new(),
 			canceled_freq: gum::Freq::new(),
-			para_knowledge: HashMap::new(),
+			replan: false,
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
 
 		Ok(instance)
+	}
+
+	pub fn take_replan(&mut self) -> bool {
+		std::mem::take(&mut self.replan)
+	}
+
+	pub fn mark_replan(&mut self) {
+		self.replan = true;
 	}
 
 	pub async fn update_view<Sender: CollatorProtocolSenderTrait>(
@@ -329,26 +333,7 @@ impl CollationManager {
 			}
 		}
 
-		// Refresh the PP snapshot for every para we may fetch for.
-		//  On failure keep the previous one — stale beats empty.
-		if !added.is_empty() {
-			let paras: Vec<ParaId> = self.assignments().into_iter().collect();
-			if !paras.is_empty() {
-				let (tx, rx) = oneshot::channel();
-				sender
-					.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads(paras, tx))
-					.await;
-				match rx.await {
-					Ok(knowledge) => self.para_knowledge = knowledge,
-					Err(err) => gum::warn!(
-						target: LOG_TARGET,
-						?err,
-						"GetKnownOutputHeads responder dropped; keeping stale snapshot",
-					),
-				}
-			}
-		}
-
+		self.mark_replan();
 		Ok(())
 	}
 
@@ -481,6 +466,7 @@ impl CollationManager {
 		}
 
 		per_sp.add_segment(segment, peer_id);
+		self.mark_replan();
 		Ok(())
 	}
 
@@ -526,16 +512,17 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
+		pp_known: &HashMap<ParaId, HashSet<Hash>>,
 		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
 		let now = self.clock.now();
 		let mut requests = vec![];
 		let mut maybe_min_delay = None;
 
-		// Known-set cache for this pass: built lazily once per para, kept current
-		// within the pass by inserting every launched output head below. Dropped at
-		// pass end; the next pass re-projects from ground truth.
-		let mut known: HashMap<ParaId, HashSet<Hash>> = HashMap::new();
+		// Soft-blocker cache for this pass: output heads of fetched and in-flight
+		// candidates, built lazily once per para and kept current within the pass
+		// by inserting every launched head below. Dropped at pass end.
+		let mut pending: HashMap<ParaId, HashSet<Hash>> = HashMap::new();
 
 		// Build per-(leaf, core) capacity views once, with all current consumers already
 		// allocated. Each `LeafCoreCq` is a self-contained answer to "what's still free on
@@ -548,8 +535,8 @@ impl CollationManager {
 			let cq_len = leaf_core_cqs[lc_idx].cq.len();
 			for idx in (0..cq_len).rev() {
 				let Some(para_id) = leaf_core_cqs[lc_idx].cq[idx] else { continue };
-				let para_known =
-					known.entry(para_id).or_insert_with(|| self.known_output_heads(para_id));
+				let pending_heads =
+					pending.entry(para_id).or_insert_with(|| self.known_output_heads(para_id));
 
 				let candidate_sps = leaf_core_cqs[lc_idx].sps_reaching(idx);
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
@@ -558,7 +545,8 @@ impl CollationManager {
 					now,
 					para_id,
 					candidate_sps,
-					para_known,
+					pending_heads,
+					pp_known.get(&para_id),
 					highest_rep_of_para,
 					&connected_rep_query_fn,
 				);
@@ -593,7 +581,7 @@ impl CollationManager {
 				if let Some(oh) =
 					advertisement.prospective_candidate.and_then(|pc| pc.output_head_data_hash())
 				{
-					known.get_mut(&para_id).expect("entry created before pick; qed").insert(oh);
+					pending.get_mut(&para_id).expect("entry created before pick; qed").insert(oh);
 				}
 
 				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
@@ -703,6 +691,7 @@ impl CollationManager {
 		let mut reject_info = SecondingRejectionInfo::from(&advertisement);
 
 		self.fetching.note_completed(&advertisement);
+		self.mark_replan();
 
 		// A fetch concluded: reclaim consumed segments everywhere. The flag is the
 		// logical removal (consumed segments are already invisible via `live_segments`);
@@ -848,7 +837,10 @@ impl CollationManager {
 			});
 		}
 
-		released.map(|info| info.peer_id)
+		released.map(|info| {
+			self.mark_replan();
+			info.peer_id
+		})
 	}
 
 	pub async fn note_seconded<Sender: CollatorProtocolSenderTrait>(
@@ -864,9 +856,6 @@ impl CollationManager {
 			.get(scheduling_parent)
 			.and_then(|per_sp| per_sp.fetched_collations.get(candidate_hash))
 			.map(|info| info.peer_id);
-
-		// We just seconded this candidate, so PP is about to know its output head.
-		self.para_knowledge.entry(*para_id).or_default().insert(output_head_hash);
 
 		let Some(unblocked) = self.blocked_from_seconding.remove(&BlockedCollationId {
 			para_id: *para_id,
@@ -943,7 +932,8 @@ impl CollationManager {
 		&self,
 		item: &RankedSegment,
 		para_id: ParaId,
-		known: &HashSet<Hash>,
+		pending_heads: &HashSet<Hash>,
+		pp_known: Option<&HashSet<Hash>>,
 	) -> Resolution {
 		let Some(segment) = self
 			.per_scheduling_parent
@@ -957,7 +947,6 @@ impl CollationManager {
 		};
 		match segment.entries.first() {
 			Some(ProspectiveCandidate::ByOutputHead { .. }) => {
-				let known_by_pp = self.para_knowledge.get(&para_id);
 				// PP-first: a PP-known head is a hard blocker even if it is
 				// also in flight or fetched.
 				let mut saw_soft_blocker = false;
@@ -969,11 +958,11 @@ impl CollationManager {
 						let output_head_hash = entry
 							.output_head_data_hash()
 							.expect("homogenous ByOutputHead segment; qed");
-						if known_by_pp.is_some_and(|pp| pp.contains(&output_head_hash)) {
+						if pp_known.is_some_and(|pp| pp.contains(&output_head_hash)) {
 							// Hard: prospective parachains already has this head —
 							// PP-first, even if it is also in flight or fetched.
 							false
-						} else if known.contains(&output_head_hash) {
+						} else if pending_heads.contains(&output_head_hash) {
 							// Soft: blocked by an attempt that may still fail.
 							saw_soft_blocker = true;
 							false
@@ -1113,7 +1102,8 @@ impl CollationManager {
 		now: Instant,
 		para_id: ParaId,
 		candidate_sps: impl Iterator<Item = Hash>,
-		known: &HashSet<Hash>,
+		pending_heads: &HashSet<Hash>,
+		pp_known: Option<&HashSet<Hash>>,
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
 	) -> PickOutcome {
@@ -1146,7 +1136,7 @@ impl CollationManager {
 				?delay,
 				"Delay elapsed; picking fetch target from the winning segment."
 			);
-			match self.resolve_segment(&item, para_id, known) {
+			match self.resolve_segment(&item, para_id, pending_heads, pp_known) {
 				Resolution::Launch(fetch_target) => {
 					self.consume_segment(&item.scheduling_parent, &item.peer_id, item.segment_id);
 					return PickOutcome::Fetch(fetch_target);
@@ -1290,6 +1280,7 @@ impl CollationManager {
 
 	fn remove_blocked_collations(&mut self, id: BlockedCollationId) {
 		let Some(blocked) = self.blocked_from_seconding.remove(&id) else { return };
+		self.mark_replan();
 
 		for collation in blocked {
 			let candidate_hash = collation.candidate_receipt.hash();
@@ -2070,7 +2061,7 @@ mod tests {
 			clock: polkadot_node_clock::system_clock(),
 			network_error_freq: gum::Freq::new(),
 			canceled_freq: gum::Freq::new(),
-			para_knowledge: HashMap::new(),
+			replan: false,
 		};
 
 		// No advertisements - returns Left(None).
@@ -2084,6 +2075,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					None,
 					score(100),
 					&get_rep,
 				),
@@ -2108,6 +2100,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					None,
 					score(100), // highest_rep == peer's score, so delay = 0
 					&get_rep,
 				),
@@ -2133,6 +2126,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&HashSet::new(),
+				None,
 				score(100),
 				&get_rep,
 			);
@@ -2171,6 +2165,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					None,
 					score(100),
 					&get_rep,
 				),
@@ -2198,6 +2193,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					None,
 					score(100),
 					&get_rep,
 				),
@@ -2222,6 +2218,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					None,
 					score(100),
 					&get_rep,
 				),
@@ -2241,6 +2238,7 @@ mod tests {
 					para_id,
 					std::iter::once(unknown_scheduling_parent),
 					&HashSet::new(),
+					None,
 					score(100),
 					&get_rep,
 				),
@@ -2273,6 +2271,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					None,
 					score(100),
 					&get_rep,
 				),
@@ -2299,6 +2298,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&HashSet::new(),
+				None,
 				score(100),
 				&get_rep,
 			);
@@ -2323,7 +2323,7 @@ mod tests {
 			clock: polkadot_node_clock::system_clock(),
 			network_error_freq: gum::Freq::new(),
 			canceled_freq: gum::Freq::new(),
-			para_knowledge: HashMap::new(),
+			replan: false,
 		}
 	}
 
@@ -2397,6 +2397,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					None,
 					Score::new(100),
 					&get_rep,
 				),
@@ -2418,6 +2419,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&known,
+					None,
 					Score::new(100),
 					&get_rep,
 				),
@@ -2460,6 +2462,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&known,
+				None,
 				Score::new(100),
 				&get_rep,
 			),
@@ -2493,7 +2496,7 @@ mod tests {
 		let mut manager = test_collation_manager(scheduling_parent);
 		push_segment(&mut manager, scheduling_parent, peer_hi, para_id, vec![blocked_entry]);
 		push_segment(&mut manager, scheduling_parent, peer_lo, para_id, vec![free_entry]);
-		manager.para_knowledge.insert(para_id, [Hash::repeat_byte(0xb1)].into());
+		let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xb1)].into();
 
 		// peer_hi ranks first but resolves all-hard-blocked → consumed → peer_lo launches.
 		assert_eq!(
@@ -2502,6 +2505,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&HashSet::new(),
+				Some(&pp_known),
 				Score::new(100),
 				&get_rep,
 			),
@@ -2524,7 +2528,7 @@ mod tests {
 
 		let mut manager = test_collation_manager(scheduling_parent);
 		push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
-		manager.para_knowledge.insert(para_id, [Hash::repeat_byte(0xc1)].into());
+		let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xc1)].into();
 		let known: HashSet<Hash> = [Hash::repeat_byte(0xc2)].into();
 
 		assert_eq!(
@@ -2533,6 +2537,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&known,
+				Some(&pp_known),
 				Score::new(100),
 				&get_rep,
 			),
@@ -2555,7 +2560,7 @@ mod tests {
 
 		let mut manager = test_collation_manager(scheduling_parent);
 		push_segment(&mut manager, scheduling_parent, peer_id, para_id, vec![entry]);
-		manager.para_knowledge.insert(para_id, [Hash::repeat_byte(0xd1)].into());
+		let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xd1)].into();
 		let known: HashSet<Hash> = [Hash::repeat_byte(0xd1)].into();
 
 		assert_eq!(
@@ -2564,6 +2569,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&known,
+				Some(&pp_known),
 				Score::new(100),
 				&get_rep,
 			),
@@ -2587,7 +2593,7 @@ mod tests {
 		{
 			let mut manager = test_collation_manager(scheduling_parent);
 			push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
-			manager.para_knowledge.insert(para_id, [Hash::repeat_byte(0xc1)].into());
+			let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xc1)].into();
 
 			assert_eq!(
 				manager.pick_best_advertisement(
@@ -2595,6 +2601,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					Some(&pp_known),
 					Score::new(100),
 					&get_rep,
 				),
@@ -2606,9 +2613,7 @@ mod tests {
 		{
 			let mut manager = test_collation_manager(scheduling_parent);
 			push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
-			manager
-				.para_knowledge
-				.insert(para_id, [Hash::repeat_byte(0xc1), Hash::repeat_byte(0xc2)].into());
+			let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xc1), Hash::repeat_byte(0xc2)].into();
 
 			assert_eq!(
 				manager.pick_best_advertisement(
@@ -2616,6 +2621,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&HashSet::new(),
+					Some(&pp_known),
 					Score::new(100),
 					&get_rep,
 				),
@@ -2680,5 +2686,42 @@ mod tests {
 			manager.known_output_heads(para_id),
 			[Hash::repeat_byte(0xd1), Hash::repeat_byte(0xd3)].into()
 		);
+	}
+
+	#[test]
+	fn replan_flag_mutators() {
+		let sp = Hash::repeat_byte(1);
+		let para_id: ParaId = 100.into();
+		let mut manager = test_collation_manager(sp);
+
+		// Not set by construction; mark/take round-trip.
+		assert!(!manager.take_replan());
+
+		// release_slot marks only when an entry is actually freed.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(2));
+		manager.release_slot(&sp, para_id, Some(&candidate_hash), None);
+		assert!(!manager.take_replan());
+
+		manager.per_scheduling_parent.get_mut(&sp).unwrap().fetched_collations.insert(
+			candidate_hash,
+			FetchedCollationInfo {
+				peer_id: PeerId::random(),
+				para_id,
+				output_head_hash: Hash::repeat_byte(3),
+			},
+		);
+		manager.release_slot(&sp, para_id, Some(&candidate_hash), None);
+		assert!(manager.take_replan());
+
+		//(blocked children, no fetched entry) must also re-arm.
+		let parent_head = Hash::repeat_byte(4);
+		manager
+			.blocked_from_seconding
+			.insert(BlockedCollationId { para_id, parent_head_data_hash: parent_head }, vec![]);
+		manager.release_slot(&sp, para_id, None, Some(parent_head));
+		assert!(manager.take_replan());
+
+		manager.remove_peer(&PeerId::random());
+		assert!(!manager.take_replan());
 	}
 }
