@@ -197,7 +197,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
-	let actions = sync.actions(&network_handle).unwrap();
+	let actions = sync.actions(&network_handle, false).unwrap();
 	assert_eq!(actions.len(), 2);
 	assert!(actions.iter().all(|action| match action {
 		SyncingAction::StartRequest { peer_id, .. } => peer_id == &peer_id1 || peer_id == &peer_id2,
@@ -230,7 +230,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.restart();
 
 	// which should make us cancel and send out again block requests to the first two peers
-	let actions = sync.actions(&network_handle).unwrap();
+	let actions = sync.actions(&network_handle, false).unwrap();
 	assert_eq!(actions.len(), 4);
 	let mut cancelled_first = HashSet::new();
 	assert!(actions.iter().all(|action| match action {
@@ -255,6 +255,113 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.peers.get_mut(&peer_id3).unwrap().common_number = 100;
 	sync.restart();
 	assert_eq!(sync.peers.get(&peer_id3).unwrap().common_number, 50);
+}
+
+#[test]
+fn backpressure_withholds_block_requests_and_leaves_peers_available() {
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		1,
+		8,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+	let peer_id2 = PeerId::random();
+
+	// Two peers ahead of us at blocks we don't have, so block requests are warranted.
+	sync.add_peer(peer_id1, Hash::random(), 42);
+	sync.add_peer(peer_id2, Hash::random(), 10);
+
+	let network_provider = NetworkServiceProvider::new();
+	let network_handle = network_provider.handle();
+
+	// Under pressure we withhold block requests. No actions are produced and, crucially, the
+	// peers are left `Available` rather than being marked `DownloadingNew` for a request that
+	// was never sent.
+	let actions = sync.actions(&network_handle, true).unwrap();
+	assert!(actions.is_empty());
+	assert!(sync.peers.values().all(|p| matches!(p.state, PeerSyncState::Available)));
+
+	// Without pressure the same call issues a block request to each peer.
+	let actions = sync.actions(&network_handle, false).unwrap();
+	assert_eq!(actions.len(), 2);
+	assert!(actions.iter().all(|action| match action {
+		SyncingAction::StartRequest { peer_id, .. } => peer_id == &peer_id1 || peer_id == &peer_id2,
+		_ => false,
+	}));
+}
+
+#[test]
+fn backpressure_does_not_withhold_ancestor_search_requests() {
+	// Ancestor search isn't an import-feeding request, so it's still issued under pressure.
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	// Move our chain past genesis before constructing `ChainSync`, so that `reset_sync_start_point`
+	// picks up a non-zero best block. A peer on an unknown fork then triggers an ancestor search
+	// rather than `add_peer` short-circuiting to "just start downloading" at genesis.
+	let new_blocks = |n| {
+		for _ in 0..n {
+			let block = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
+			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		}
+	};
+	new_blocks(50);
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		1,
+		8,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+	let peer_id2 = PeerId::random();
+
+	// Peers report best blocks we don't have, kicking off an ancestor search for each.
+	sync.add_peer(peer_id1, Hash::random(), 42);
+	sync.add_peer(peer_id2, Hash::random(), 10);
+	assert!(sync
+		.peers
+		.values()
+		.all(|p| matches!(p.state, PeerSyncState::AncestorSearch { .. })));
+
+	let network_provider = NetworkServiceProvider::new();
+	let network_handle = network_provider.handle();
+
+	// Even under pressure the ancestry requests are emitted, and the peers stay in the
+	// ancestor-search state (they were never block-download requests to begin with).
+	let actions = sync.actions(&network_handle, true).unwrap();
+	assert_eq!(actions.len(), 2);
+	assert!(actions.iter().all(|action| match action {
+		SyncingAction::StartRequest { peer_id, .. } => peer_id == &peer_id1 || peer_id == &peer_id2,
+		_ => false,
+	}));
+	assert!(sync
+		.peers
+		.values()
+		.all(|p| matches!(p.state, PeerSyncState::AncestorSearch { .. })));
 }
 
 /// Send a block announcement for the given `header`.

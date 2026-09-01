@@ -313,15 +313,17 @@ where
 	fn actions(
 		&mut self,
 		network_service: &NetworkServiceHandle,
+		backpressure: bool,
 	) -> Result<Vec<SyncingAction<B>>, ClientError> {
 		// This function presumes that strategies are executed serially and must be refactored once
 		// we have parallel strategies.
 		let actions: Vec<_> = if let Some(ref mut warp) = self.warp {
+			// Warp/state sync requests are not gated by block import queue pressure.
 			warp.actions(network_service).map(Into::into).collect()
 		} else if let Some(ref mut state) = self.state {
 			state.actions(network_service).map(Into::into).collect()
 		} else if let Some(ref mut chain_sync) = self.chain_sync {
-			chain_sync.actions(network_service)?
+			chain_sync.actions(network_service, backpressure)?
 		} else {
 			unreachable!("At least one syncing strategy is always active; qed")
 		};
