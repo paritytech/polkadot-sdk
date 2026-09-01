@@ -807,9 +807,7 @@ fn return_overflow(wasm_method: WasmExecutionMethod) {
 test_wasm_execution!(test_virtualization);
 fn test_virtualization(wasm_method: WasmExecutionMethod) {
 	let mut ext = TestExternalities::default();
-	ext.register_extension(sp_virtualization::VirtManagerExt::new(
-		sc_virtualization::VirtManager::default(),
-	));
+	ext.register_extension(sc_virtualization::default_extension());
 	let mut ext = ext.ext();
 	let fixture = sp_virtualization_test_fixture::binary().encode();
 

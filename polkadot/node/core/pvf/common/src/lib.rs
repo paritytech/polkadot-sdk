@@ -30,6 +30,15 @@ pub use cpu_time::ProcessTime;
 // Used by `decl_worker_main!`.
 pub use sp_tracing;
 
+// `sp-virtualization` / `sc-virtualization` are only consumed under `#[cfg(revive_jit)]`
+// in `executor_interface`. Cargo deps cannot themselves be gated on a `--cfg` so the
+// crates are unconditionally declared as workspace deps; keep them alive in the
+// default-build case so `unused_crate_dependencies` doesn't fire.
+#[cfg(not(revive_jit))]
+use sc_virtualization as _;
+#[cfg(not(revive_jit))]
+use sp_virtualization as _;
+
 const LOG_TARGET: &str = "parachain::pvf-common";
 
 use codec::{Decode, Encode};

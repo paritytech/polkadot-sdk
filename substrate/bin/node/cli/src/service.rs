@@ -33,6 +33,8 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use kitchensink_runtime::RuntimeApi;
 use node_primitives::Block;
+#[cfg(revive_jit)]
+use sc_client_api::ExecutorProvider;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{
@@ -51,17 +53,27 @@ use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{path::Path, sync::Arc};
 
 /// Host functions required for kitchensink runtime and Substrate node.
-#[cfg(not(feature = "runtime-benchmarks"))]
+///
+/// `sp_virtualization::HostFunctions` is unstable and only included when JIT is enabled
+/// (via the `revive_jit` cfg) or when building with `runtime-benchmarks`. These host
+/// functions are not available on Polkadot and subject to breaking changes.
+#[cfg(all(not(feature = "runtime-benchmarks"), not(revive_jit)))]
 pub type HostFunctions =
 	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+
+/// Host functions required for kitchensink runtime and Substrate node.
+#[cfg(all(not(feature = "runtime-benchmarks"), revive_jit))]
+pub type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+	sp_virtualization::HostFunctions,
+);
 
 /// Host functions required for kitchensink runtime and Substrate node.
 #[cfg(feature = "runtime-benchmarks")]
 pub type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
-	// Unstable: Only needed here for benchmarking. Do not use in production runtimes.
-	// These host functions are not available on Polkadot and subject to breaking changes.
 	sp_virtualization::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
@@ -237,6 +249,11 @@ pub fn new_partial(
 			vec![Arc::new(grandpa::GrandpaPruningFilter)],
 		)?;
 	let client = Arc::new(client);
+
+	#[cfg(revive_jit)]
+	client
+		.execution_extensions()
+		.set_extensions_factory(sc_virtualization::ExtensionsFactory);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
 		task_manager.spawn_handle().spawn("telemetry", None, worker.run());
