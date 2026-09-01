@@ -1,0 +1,41 @@
+title: 'pallet-alliance: migrate candidacy deposit from Currency reserves to fungible
+  holds'
+doc:
+- audience: Runtime Dev
+  description: |
+    Part of #12399, which tracks #226.
+
+    Migrates `pallet-alliance` off the deprecated `ReservableCurrency` trait onto
+    `fungible` holds via `Consideration`, with a reserve-to-hold storage migration,
+    as part of the FRAME `Currency`→`fungible` effort.
+
+    Config changes (breaking):
+    - `Currency: ReservableCurrency` is replaced by `OldCurrency: ReservableCurrency`,
+      kept only so `migration::Migration` can convert pre-existing reserved deposits
+      to holds. It can be removed once the migration has run.
+    - The candidacy deposit is now taken via `Consideration: Consideration<AccountId, Footprint>`
+      (e.g. `fungible::HoldConsideration`). The `AllyDeposit` config item and the
+      `Slashed: OnUnbalanced` handler are removed; the deposit amount is now set by the
+      `Consideration` implementation.
+    - A new `HoldReason::AllianceDeposit` is added; runtimes must expose it through their
+      `RuntimeHoldReason` and run `pallet_alliance::migration::Migration`.
+
+    Behavior change — slashed deposits are now BURNED, not routed to `Slashed`/Treasury:
+    Previously `kick_member` slashed the reserved deposit and sent the proceeds to the
+    `type Slashed` handler (e.g. `Treasury` in the kitchensink node runtime). With holds,
+    `kick_member` calls `Consideration::burn`, which for `HoldConsideration` destroys the
+    held balance via `fungible::MutateHold::burn_held` rather than redirecting it anywhere.
+    Runtimes that relied on slash proceeds reaching the Treasury (or another destination)
+    will no longer receive them. If routing the proceeds is still required, provide a custom
+    `Consideration` implementation that burns the hold and mints an equivalent credit to the
+    desired destination instead of using the default `HoldConsideration`.
+
+    The deposit-bearing events lost their now-redundant balance fields: `NewAllyJoined` no
+    longer carries `reserved`, `MemberRetired` no longer carries `unreserved`, `MemberKicked`
+    no longer carries `slashed`, and `AllianceDisbanded`'s `unreserved` count is renamed to
+    `released`.
+crates:
+- name: collectives-westend-runtime
+  bump: major
+- name: pallet-alliance
+  bump: major

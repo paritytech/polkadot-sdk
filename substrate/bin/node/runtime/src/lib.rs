@@ -2389,6 +2389,8 @@ parameter_types! {
 	pub const MaxAllies: u32 = 100;
 	pub const AllyDeposit: Balance = 10 * DOLLARS;
 	pub const RetirementPeriod: BlockNumber = ALLIANCE_MOTION_DURATION_IN_BLOCKS + (1 * DAYS);
+	pub const AllianceHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Alliance(pallet_alliance::HoldReason::AllianceDeposit);
 }
 
 impl pallet_alliance::Config for Runtime {
@@ -2406,8 +2408,14 @@ impl pallet_alliance::Config for Runtime {
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
 	>;
-	type Currency = Balances;
-	type Slashed = Treasury;
+	type OldCurrency = Balances;
+	// Flat `AllyDeposit` candidacy bond, held under the alliance hold reason. Kicking now burns it.
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		AllianceHoldReason,
+		LinearStoragePrice<AllyDeposit, ConstU128<0>, Balance>,
+	>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -2422,7 +2430,6 @@ impl pallet_alliance::Config for Runtime {
 	type MaxWebsiteUrlLength = ConstU32<255>;
 	type MaxAnnouncementsCount = ConstU32<100>;
 	type MaxMembersCount = AllianceMaxMembers;
-	type AllyDeposit = AllyDeposit;
 	type WeightInfo = pallet_alliance::weights::SubstrateWeight<Runtime>;
 	type RetirementPeriod = RetirementPeriod;
 }

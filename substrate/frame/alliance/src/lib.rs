@@ -101,7 +101,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
-	traits::{Dispatchable, Saturating, StaticLookup, Zero},
+	traits::{Dispatchable, Saturating, StaticLookup},
 	Debug, DispatchError,
 };
 
@@ -109,7 +109,7 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure,
 	traits::{
-		ChangeMembers, Currency, Get, InitializeMembers, IsSubType, OnUnbalanced,
+		ChangeMembers, Consideration, Currency, Footprint, Get, InitializeMembers, IsSubType,
 		ReservableCurrency,
 	},
 	weights::Weight,
@@ -128,11 +128,9 @@ pub type ProposalIndex = u32;
 
 type UrlOf<T, I> = BoundedVec<u8, <T as pallet::Config<I>>::MaxWebsiteUrlLength>;
 
+/// Balance type of the legacy [`Config::OldCurrency`], used only by [`crate::migration`].
 type BalanceOf<T, I> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config<I>>::OldCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Interface required for identity verification.
 pub trait IdentityVerifier<AccountId> {
@@ -250,11 +248,13 @@ pub mod pallet {
 		/// Origin for making announcements and adding/removing unscrupulous items.
 		type AnnouncementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The currency used for deposits.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// Legacy reservable currency, kept only so [`crate::migration`] can convert pre-existing
+		/// reserved deposits to holds. Removable once `MigrateToV3` has run.
+		type OldCurrency: ReservableCurrency<Self::AccountId>;
 
-		/// What to do with slashed funds.
-		type Slashed: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+		/// Takes and holds the candidacy deposit. Held while an account is a member or retiring;
+		/// released on retirement/disband and burned on kick. Amount is set by the runtime.
+		type Consideration: Consideration<Self::AccountId, Footprint>;
 
 		/// What to do with initial voting members of the Alliance.
 		type InitializeMembers: InitializeMembers<Self::AccountId>;
@@ -293,10 +293,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxWebsiteUrlLength: Get<u32>;
 
-		/// The deposit required for submitting candidacy.
-		#[pallet::constant]
-		type AllyDeposit: Get<BalanceOf<Self, I>>;
-
 		/// The maximum number of announcements.
 		#[pallet::constant]
 		type MaxAnnouncementsCount: Get<u32>;
@@ -311,6 +307,14 @@ pub mod pallet {
 		/// The number of blocks a member must wait between giving a retirement notice and retiring.
 		/// Supposed to be greater than time required to `kick_member`.
 		type RetirementPeriod: Get<BlockNumberFor<Self>>;
+	}
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// The funds are held as a deposit for being or becoming an Alliance member.
+		#[codec(index = 0)]
+		AllianceDeposit,
 	}
 
 	#[pallet::error]
@@ -377,26 +381,22 @@ pub mod pallet {
 		AnnouncementRemoved { announcement: Cid },
 		/// Some accounts have been initialized as members (fellows/allies).
 		MembersInitialized { fellows: Vec<T::AccountId>, allies: Vec<T::AccountId> },
-		/// An account has been added as an Ally and reserved its deposit.
-		NewAllyJoined {
-			ally: T::AccountId,
-			nominator: Option<T::AccountId>,
-			reserved: Option<BalanceOf<T, I>>,
-		},
+		/// An account has been added as an Ally and held its deposit.
+		NewAllyJoined { ally: T::AccountId, nominator: Option<T::AccountId> },
 		/// An ally has been elevated to Fellow.
 		AllyElevated { ally: T::AccountId },
 		/// A member gave retirement notice and their retirement period started.
 		MemberRetirementPeriodStarted { member: T::AccountId },
-		/// A member has retired with its deposit unreserved.
-		MemberRetired { member: T::AccountId, unreserved: Option<BalanceOf<T, I>> },
-		/// A member has been kicked out with its deposit slashed.
-		MemberKicked { member: T::AccountId, slashed: Option<BalanceOf<T, I>> },
+		/// A member has retired and had its deposit released.
+		MemberRetired { member: T::AccountId },
+		/// A member has been kicked out and had its deposit burned.
+		MemberKicked { member: T::AccountId },
 		/// Accounts or websites have been added into the list of unscrupulous items.
 		UnscrupulousItemAdded { items: Vec<UnscrupulousItemOf<T, I>> },
 		/// Accounts or websites have been removed from the list of unscrupulous items.
 		UnscrupulousItemRemoved { items: Vec<UnscrupulousItemOf<T, I>> },
-		/// Alliance disbanded. Includes number deleted members and unreserved deposits.
-		AllianceDisbanded { fellow_members: u32, ally_members: u32, unreserved: u32 },
+		/// Alliance disbanded. Includes number of deleted members and released deposits.
+		AllianceDisbanded { fellow_members: u32, ally_members: u32, released: u32 },
 		/// A Fellow abdicated their voting rights. They are now an Ally.
 		FellowAbdicated { fellow: T::AccountId },
 	}
@@ -462,10 +462,10 @@ pub mod pallet {
 	pub type Announcements<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<Cid, T::MaxAnnouncementsCount>, ValueQuery>;
 
-	/// Maps members to their candidacy deposit.
+	/// Maps members to their candidacy deposit ticket.
 	#[pallet::storage]
 	pub type DepositOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T, I>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountId, T::Consideration, OptionQuery>;
 
 	/// Maps member type to members of each type.
 	#[pallet::storage]
@@ -618,12 +618,12 @@ pub mod pallet {
 			T::MembershipChanged::change_members_sorted(&[], &voting_members, &[]);
 
 			let ally_members = Self::members_of(MemberRole::Ally);
-			let mut unreserve_count: u32 = 0;
+			let mut released_count: u32 = 0;
 			for member in voting_members.iter().chain(ally_members.iter()) {
 				if let Some(deposit) = DepositOf::<T, I>::take(&member) {
-					let err_amount = T::Currency::unreserve(&member, deposit);
-					debug_assert!(err_amount.is_zero());
-					unreserve_count += 1;
+					let res = deposit.drop(&member);
+					debug_assert!(res.is_ok());
+					released_count += 1;
 				}
 			}
 
@@ -633,13 +633,13 @@ pub mod pallet {
 			Self::deposit_event(Event::AllianceDisbanded {
 				fellow_members: voting_members.len() as u32,
 				ally_members: ally_members.len() as u32,
-				unreserved: unreserve_count,
+				released: released_count,
 			});
 
 			Ok(Some(T::WeightInfo::disband(
 				voting_members.len() as u32,
 				ally_members.len() as u32,
-				unreserve_count,
+				released_count,
 			))
 			.into())
 		}
@@ -708,17 +708,13 @@ pub mod pallet {
 			// website.
 			Self::has_identity(&who)?;
 
-			let deposit = T::AllyDeposit::get();
-			T::Currency::reserve(&who, deposit).map_err(|_| Error::<T, I>::InsufficientFunds)?;
+			let deposit = T::Consideration::new(&who, Self::deposit_footprint())
+				.map_err(|_| Error::<T, I>::InsufficientFunds)?;
 			<DepositOf<T, I>>::insert(&who, deposit);
 
 			Self::add_member(&who, MemberRole::Ally)?;
 
-			Self::deposit_event(Event::NewAllyJoined {
-				ally: who,
-				nominator: None,
-				reserved: Some(deposit),
-			});
+			Self::deposit_event(Event::NewAllyJoined { ally: who, nominator: None });
 			Ok(())
 		}
 
@@ -739,11 +735,7 @@ pub mod pallet {
 
 			Self::add_member(&who, MemberRole::Ally)?;
 
-			Self::deposit_event(Event::NewAllyJoined {
-				ally: who,
-				nominator: Some(nominator),
-				reserved: None,
-			});
+			Self::deposit_event(Event::NewAllyJoined { ally: who, nominator: Some(nominator) });
 			Ok(())
 		}
 
@@ -798,12 +790,11 @@ pub mod pallet {
 
 			Self::remove_member(&who, MemberRole::Retiring)?;
 			<RetiringMembers<T, I>>::remove(&who);
-			let deposit = DepositOf::<T, I>::take(&who);
-			if let Some(deposit) = deposit {
-				let err_amount = T::Currency::unreserve(&who, deposit);
-				debug_assert!(err_amount.is_zero());
+			if let Some(deposit) = DepositOf::<T, I>::take(&who) {
+				let res = deposit.drop(&who);
+				debug_assert!(res.is_ok());
 			}
-			Self::deposit_event(Event::MemberRetired { member: who, unreserved: deposit });
+			Self::deposit_event(Event::MemberRetired { member: who });
 			Ok(())
 		}
 
@@ -815,12 +806,11 @@ pub mod pallet {
 
 			let role = Self::member_role_of(&member).ok_or(Error::<T, I>::NotMember)?;
 			Self::remove_member(&member, role)?;
-			let deposit = DepositOf::<T, I>::take(member.clone());
-			if let Some(deposit) = deposit {
-				T::Slashed::on_unbalanced(T::Currency::slash_reserved(&member, deposit).0);
+			if let Some(deposit) = DepositOf::<T, I>::take(member.clone()) {
+				deposit.burn(&member);
 			}
 
-			Self::deposit_event(Event::MemberKicked { member, slashed: deposit });
+			Self::deposit_event(Event::MemberKicked { member });
 			Ok(())
 		}
 
@@ -926,6 +916,11 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Footprint of a candidacy deposit: a single item, no variable size (a flat bond).
+	pub(crate) fn deposit_footprint() -> Footprint {
+		Footprint::from_parts(1, 0)
+	}
+
 	/// Check if the Alliance has been initialized.
 	fn is_initialized() -> bool {
 		Self::has_member(MemberRole::Fellow) || Self::has_member(MemberRole::Ally)

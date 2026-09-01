@@ -107,7 +107,7 @@ fn init_members_works() {
 fn disband_works() {
 	build_and_execute(|| {
 		let id_deposit = test_identity_info_deposit();
-		let expected_join_deposit = <Test as Config>::AllyDeposit::get();
+		let expected_join_deposit = AllyDeposit::get();
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 		// ensure alliance is set
 		assert_eq!(Alliance::voting_members(), vec![1, 2, 3]);
@@ -119,7 +119,7 @@ fn disband_works() {
 		// join alliance and reserve funds
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(9)));
-		assert_eq!(alliance::DepositOf::<Test>::get(9), Some(expected_join_deposit));
+		assert!(alliance::DepositOf::<Test>::contains_key(9));
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit - expected_join_deposit);
 		assert!(Alliance::is_member_of(&9, MemberRole::Ally));
 
@@ -155,7 +155,7 @@ fn disband_works() {
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::AllianceDisbanded {
 			fellow_members: 2,
 			ally_members: 1,
-			unreserved: 1,
+			released: 1,
 		}));
 
 		// the Alliance must be set first
@@ -363,7 +363,7 @@ fn remove_announcement_works() {
 fn join_alliance_works() {
 	build_and_execute(|| {
 		let id_deposit = test_identity_info_deposit();
-		let join_deposit = <Test as Config>::AllyDeposit::get();
+		let join_deposit = AllyDeposit::get();
 		assert_eq!(Balances::free_balance(9), 1000 - id_deposit);
 		// check already member
 		assert_noop!(
@@ -395,7 +395,7 @@ fn join_alliance_works() {
 		// success to submit
 		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(4)));
 		assert_eq!(Balances::free_balance(4), 1000 - id_deposit - join_deposit);
-		assert_eq!(alliance::DepositOf::<Test>::get(4), Some(25));
+		assert!(alliance::DepositOf::<Test>::contains_key(4));
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Ally), vec![4]);
 
 		// check already member
@@ -539,7 +539,6 @@ fn retire_works() {
 		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2]);
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::MemberRetired {
 			member: (3),
-			unreserved: None,
 		}));
 
 		// Move time on:
@@ -573,14 +572,23 @@ fn kick_member_works() {
 			Error::<Test, ()>::NotMember
 		);
 
-		<DepositOf<Test, ()>>::insert(2, 25);
-		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 2, 3]);
-		assert_ok!(Alliance::kick_member(RuntimeOrigin::signed(2), 2));
-		assert_eq!(alliance::Members::<Test>::get(MemberRole::Fellow), vec![1, 3]);
-		assert_eq!(<DepositOf<Test, ()>>::get(2), None);
+		// An ally joins and places a real hold for its candidacy deposit.
+		let id_deposit = test_identity_info_deposit();
+		let deposit = AllyDeposit::get();
+		assert_ok!(Alliance::join_alliance(RuntimeOrigin::signed(4)));
+		assert!(Alliance::is_member_of(&4, MemberRole::Ally));
+		assert!(<DepositOf<Test, ()>>::contains_key(4));
+		assert_eq!(Balances::free_balance(4), 1000 - id_deposit - deposit);
+		let issuance_before = Balances::total_issuance();
+
+		// Kicking the member burns its deposit: it is not returned and total issuance drops.
+		assert_ok!(Alliance::kick_member(RuntimeOrigin::signed(2), 4));
+		assert!(!Alliance::is_member(&4));
+		assert_eq!(<DepositOf<Test, ()>>::get(4), None);
+		assert_eq!(Balances::free_balance(4), 1000 - id_deposit - deposit);
+		assert_eq!(Balances::total_issuance(), issuance_before - deposit);
 		System::assert_last_event(mock::RuntimeEvent::Alliance(crate::Event::MemberKicked {
-			member: (2),
-			slashed: Some(25),
+			member: (4),
 		}));
 	});
 }
