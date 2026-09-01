@@ -103,6 +103,8 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec, vec::Vec};
 
+#[cfg(any(feature = "try-runtime", test))]
+use frame::traits::fungible::hold::Inspect as _;
 use frame::{
 	prelude::*,
 	traits::{
@@ -954,6 +956,13 @@ pub mod pallet {
 			let bitfield = ApprovalBitfieldOf::<T>::default();
 			assert!(bitfield.0.len() >= 1, "Default works");
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_n: BlockNumberFor<T>,
+		) -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
+			Pallet::<T>::do_try_state()
+		}
 	}
 }
 
@@ -1038,5 +1047,150 @@ impl<T: Config> Pallet<T> {
 			defensive!("could not slash full security deposit");
 		}
 		T::Slash::on_unbalanced(credit);
+	}
+
+	/// State-consistency checks for `try-runtime` and verification contexts.
+	///
+	/// Invariants checked (hard errors except where noted as `warn`):
+	/// 1. Every `Attempt[lost, _]` has a matching `FriendGroups[lost]` entry.
+	/// 2. Every `Attempt[lost, idx]` has `idx < FriendGroups[lost].0.len()`.
+	/// 3. No bit is set in `attempt.approvals` at a position past `friends.len()` for the attempt's
+	///    friend group.
+	/// 4. (warn) For every `Inheritor[lost]` with `FriendGroups[lost]` present: either `priority ==
+	///    0`, or some friend group in `FriendGroups[lost].0` has `inheritance_priority < priority`.
+	///    If not, the lost account is locked into the existing inheritor and can only escape by
+	///    signing `revoke_inheritor`. This is reachable through legal single-signer actions, so it
+	///    is a warning.
+	/// 5. Every storage entry has a non-zero balance on hold for its depositor under the
+	///    corresponding `HoldReason`. Catches a diverged ticket/balance bookkeeping (one-direction
+	///    check; the inverse, orphan holds, would require an account iteration we don't perform).
+	/// 6. Every `attempt.approvals.count_ones()` is `<= friends_needed`.
+	/// 7. Every attempt has `init_block <= last_approval_block`.
+	/// 8. `Inheritor[lost].1 != lost`. Surfaces an unenforced precondition in `set_friend_groups`.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub(crate) fn do_try_state() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
+		use frame::deps::sp_runtime::TryRuntimeError;
+
+		for (lost, friend_group_index, (attempt, ticket, _deposit)) in pallet::Attempt::<T>::iter()
+		{
+			// 1. No orphan attempts.
+			let friend_groups_entry = FriendGroups::<T>::get(&lost).ok_or_else(|| {
+				TryRuntimeError::Other("Attempt without matching FriendGroups entry")
+			})?;
+			let friend_groups = friend_groups_entry.0;
+
+			// 2. In-range friend group index.
+			let friend_group = friend_groups
+				.get(friend_group_index as usize)
+				.ok_or_else(|| TryRuntimeError::Other("Attempt friend_group_index out of range"))?;
+
+			let friends_len = friend_group.friends.len();
+
+			// 3. No bit set past friends.len() in attempt.approvals.
+			for (word_index, word) in attempt.approvals.0.iter().enumerate() {
+				for bit_index in 0..16usize {
+					if (word & (1u16 << bit_index)) != 0 {
+						let absolute = word_index * 16 + bit_index;
+						if absolute >= friends_len {
+							return Err(TryRuntimeError::Other(
+								"Attempt approvals has a bit set past friends.len()",
+							));
+						}
+					}
+				}
+			}
+
+			// 6. approvals count <= friends_needed.
+			let count = attempt.approvals.count_ones();
+			if count > friend_group.friends_needed {
+				return Err(TryRuntimeError::Other(
+					"Attempt approvals count exceeds friends_needed",
+				));
+			}
+
+			// 7. init_block <= last_approval_block.
+			if attempt.init_block > attempt.last_approval_block {
+				return Err(TryRuntimeError::Other(
+					"Attempt init_block is later than last_approval_block",
+				));
+			}
+
+			// 5a. Attempt depositor has a non-zero AttemptStorage hold.
+			if ticket.ticket.is_some() &&
+				T::Currency::balance_on_hold(
+					&HoldReason::AttemptStorage.into(),
+					&ticket.depositor,
+				)
+				.is_zero()
+			{
+				return Err(TryRuntimeError::Other(
+					"Attempt ticket exists but depositor has zero AttemptStorage hold",
+				));
+			}
+			// 5b. Attempt initiator has a non-zero SecurityDeposit hold.
+			if T::Currency::balance_on_hold(&HoldReason::SecurityDeposit.into(), &attempt.initiator)
+				.is_zero()
+			{
+				return Err(TryRuntimeError::Other(
+					"Attempt has zero SecurityDeposit hold on initiator",
+				));
+			}
+		}
+
+		for (lost, (friend_groups, _consideration)) in FriendGroups::<T>::iter() {
+			// 5c. FriendGroups depositor (the lost account) has a non-zero
+			// FriendGroupsStorage hold whenever the group set is non-empty.
+			let _ = friend_groups;
+			if T::Currency::balance_on_hold(&HoldReason::FriendGroupsStorage.into(), &lost)
+				.is_zero()
+			{
+				return Err(TryRuntimeError::Other(
+					"FriendGroups entry has zero FriendGroupsStorage hold on lost",
+				));
+			}
+		}
+
+		for (lost, (priority, inheritor, ticket)) in Inheritor::<T>::iter() {
+			// 8. inheritor != lost.
+			if inheritor == lost {
+				return Err(TryRuntimeError::Other("Inheritor entry has inheritor == lost"));
+			}
+
+			// 4. (warn) The stored inheritor can still be overridden by a future finish_attempt
+			//    from some currently-configured group, OR the existing inheritor is already at the
+			//    strongest priority (== 0), OR no friend groups remain. Otherwise the lost account
+			//    is locked into the current inheritor and can only escape it by signing
+			//    `revoke_inheritor` itself. This is a warning rather than a hard error because the
+			//    state is reachable through legal single-signer actions (e.g. the user reconfigures
+			//    after recovery), and the pallet does not promise to prevent it.
+			if let Some((friend_groups, _)) = FriendGroups::<T>::get(&lost) {
+				let overridable = priority == 0 ||
+					friend_groups.iter().any(|g| g.inheritance_priority < priority);
+				if !overridable {
+					log::warn!(
+						target: "runtime::recovery",
+						"Inheritor of {:?} at priority {:?} cannot be overridden by any \
+						currently-configured friend group; only revoke_inheritor can clear it",
+						lost,
+						priority,
+					);
+				}
+			}
+
+			// 5d. Inheritor ticket depositor has a non-zero InheritorStorage hold.
+			if ticket.ticket.is_some() &&
+				T::Currency::balance_on_hold(
+					&HoldReason::InheritorStorage.into(),
+					&ticket.depositor,
+				)
+				.is_zero()
+			{
+				return Err(TryRuntimeError::Other(
+					"Inheritor ticket exists but depositor has zero InheritorStorage hold",
+				));
+			}
+		}
+
+		Ok(())
 	}
 }
