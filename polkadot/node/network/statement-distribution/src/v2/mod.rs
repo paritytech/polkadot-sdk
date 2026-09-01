@@ -1489,6 +1489,7 @@ async fn handle_incoming_statement<Context>(
 				COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE,
 			)
 			.await;
+			metrics.on_v2_unexpected_statement("missing_knowledge");
 			return;
 		},
 		Some(p) => p,
@@ -1531,6 +1532,7 @@ async fn handle_incoming_statement<Context>(
 					COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR,
 				)
 				.await;
+				metrics.on_v2_unexpected_statement("not_validator");
 			}
 			return;
 		},
@@ -1548,6 +1550,7 @@ async fn handle_incoming_statement<Context>(
 					COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND,
 				)
 				.await;
+				metrics.on_v2_unexpected_statement("validator_not_found");
 				return;
 			},
 		};
@@ -1590,6 +1593,12 @@ async fn handle_incoming_statement<Context>(
 			Ok(None) => return,
 			Err(rep) => {
 				modify_reputation(reputation, ctx.sender(), peer, rep).await;
+				// Track which unexpected statement error occurred
+				if rep == COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED {
+					metrics.on_v2_unexpected_statement("cluster_rejected");
+				} else if rep == COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP {
+					metrics.on_v2_unexpected_statement("not_in_group");
+				}
 				return;
 			},
 		}
@@ -1642,6 +1651,7 @@ async fn handle_incoming_statement<Context>(
 				COST_UNEXPECTED_STATEMENT_INVALID_SENDER,
 			)
 			.await;
+			metrics.on_v2_unexpected_statement("invalid_sender");
 			return;
 		}
 	};
@@ -1670,6 +1680,7 @@ async fn handle_incoming_statement<Context>(
 				COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE,
 			)
 			.await;
+			metrics.on_v2_unexpected_statement("bad_advertise");
 			return;
 		}
 	}
@@ -2850,7 +2861,11 @@ async fn apply_post_confirmation<Context>(
 
 /// Dispatch pending requests for candidate data & statements.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut State) {
+pub(crate) async fn dispatch_requests<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	metrics: &Metrics,
+) {
 	if !state.request_manager.has_pending_requests() {
 		return;
 	}
@@ -2937,6 +2952,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 			IfDisconnected::ImmediateError,
 		))
 		.await;
+		metrics.on_v2_request_sent();
 	}
 }
 
@@ -3024,14 +3040,17 @@ pub(crate) async fn handle_response<Context>(
 		}
 
 		let (candidate, pvd, statements) = match res.request_status {
-			requests::CandidateRequestStatus::Outdated => return,
+			requests::CandidateRequestStatus::Outdated => {
+				metrics.on_v2_response_received(false);
+				return;
+			},
 			requests::CandidateRequestStatus::Incomplete => {
 				gum::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					"Response incomplete. Retrying"
 				);
-
+				metrics.on_v2_response_received(false);
 				return;
 			},
 			requests::CandidateRequestStatus::Complete {
@@ -3045,7 +3064,7 @@ pub(crate) async fn handle_response<Context>(
 					n_statements = statements.len(),
 					"Successfully received candidate"
 				);
-
+				metrics.on_v2_response_received(true);
 				(candidate, persisted_validation_data, statements)
 			},
 		};
