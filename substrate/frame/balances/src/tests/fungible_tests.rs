@@ -574,6 +574,69 @@ fn unholding_frees_hold_slot() {
 }
 
 #[test]
+fn can_hold_amount_causing_free_below_ed_without_dusting_when_second_provider() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 100);
+			System::inc_providers(&1);
+			assert_eq!(System::providers(&1), 2);
+
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 95));
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 95);
+
+			assert_eq!(Balances::free_balance(&1), 5);
+			assert_eq!(System::providers(&1), 1);
+
+			assert_ok!(Balances::release(&TestId::Foo, &1, 95, Exact));
+			assert_eq!(Balances::free_balance(&1), 100);
+			assert_eq!(System::providers(&1), 2);
+		});
+}
+
+#[test]
+fn release_above_balance_max_should_always_cause_error() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 100);
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 50));
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 50);
+
+			assert_ok!(Balances::increase_balance(&1, u64::MAX, BestEffort));
+			assert_ok!(Balances::decrease_balance(&1, 10, Exact, Preserve, Force));
+			assert_eq!(Balances::free_balance(&1), u64::MAX - 10);
+
+			// Trying to release 50, while "free == (u64::MAX - 10)", so there is room only for 10
+			assert_noop!(Balances::release(&TestId::Foo, &1, 50, Exact), TokenError::CannotCreate);
+			assert_noop!(
+				Balances::release(&TestId::Foo, &1, 50, BestEffort),
+				TokenError::CannotCreate
+			);
+		});
+}
+
+#[test]
+fn trying_to_release_more_than_hold_should_increase_free_only_up_to_hold() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(false)
+		.build_and_execute_with(|| {
+			<Balances as fungible::Mutate<_>>::set_balance(&1, 100);
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 50));
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 50);
+			assert_eq!(Balances::free_balance(&1), 50);
+
+			// Trying to release 100 while only 50 on hold
+			assert_eq!(Balances::release(&TestId::Foo, &1, 100, BestEffort), Ok(50));
+			// Expecting free to raise by 50 and not by 100
+			assert_eq!(Balances::free_balance(&1), 100);
+		});
+}
+
+#[test]
 fn sufficients_work_properly_with_reference_counting() {
 	ExtBuilder::default()
 		.existential_deposit(1)
