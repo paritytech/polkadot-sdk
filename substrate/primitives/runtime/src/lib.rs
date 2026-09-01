@@ -233,19 +233,6 @@ pub trait BuildStorage {
 	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String>;
 }
 
-/// Something that can build the genesis storage of a module.
-#[cfg(feature = "std")]
-#[deprecated(
-	note = "`BuildModuleGenesisStorage` is planned to be removed in December 2023. Use `BuildStorage` instead of it."
-)]
-pub trait BuildModuleGenesisStorage<T, I>: Sized {
-	/// Create the module genesis storage into the given `storage` and `child_storage`.
-	fn build_module_genesis_storage(
-		&self,
-		storage: &mut sp_core::storage::Storage,
-	) -> Result<(), String>;
-}
-
 #[cfg(feature = "std")]
 impl BuildStorage for sp_core::storage::Storage {
 	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
