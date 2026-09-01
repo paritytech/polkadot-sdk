@@ -88,10 +88,13 @@ module main {
   /// package for the same para chains off the first's new head. The result is
   /// parent `headHash(curHead)`, new head `curHead + 1`, which chains correctly
   /// and passes Accumulate's parent-head check (§5.1 step 3).
-  /// `declParent` / `declHead` model whether the PVF called
-  /// `set_parent_head_hash` / `set_head`; when false the corresponding
-  /// declaration is `None`, which Refine rejects with `MissingHeadDeclaration`
-  /// (§4.2). `staleParent` models a candidate built on a non-current (stale)
+  /// `declParent` models whether the PVF called `set_parent_head_hash`; when
+  /// false the declaration is `None`, which Refine rejects with
+  /// `MissingHeadDeclaration` (§4.2). `headDecl` selects the `set_head` case the
+  /// same way: `HeadUndeclared` (never called) and `HeadOversized` (past the
+  /// 4 KiB cap, rejected with `HeadDataTooLarge`) pass through, while
+  /// `HeadDeclared`'s payload is ignored and replaced by the chained head below.
+  /// `staleParent` models a candidate built on a non-current (stale)
   /// head: it declares the `StaleParentHead` sentinel as its parent (and new
   /// head) while still carrying its normal messages, so the candidate is
   /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 3),
@@ -105,11 +108,11 @@ module main {
     numMsgs: int,
     itemCount: int,
     declParent: bool,
-    declHead: bool,
+    headDecl: HeadDeclaration,
     staleParent: bool
   ): {
     pkg: WorkPackage, msgs: List[UpwardMessage],
-    parentHead: Option[HeadHash], newHead: Option[HeadData]
+    parentHead: Option[HeadHash], newHead: HeadDeclaration
   } = {
     val msgs =
       if (numMsgs == 0) List()
@@ -125,8 +128,12 @@ module main {
         if (staleParent) Some(headHash(StaleParentHead))
         else if (declParent) Some(headHash(curHead)) else None,
       newHead:
-        if (staleParent) Some(StaleParentHead)
-        else if (declHead) Some(curHead + 1) else None
+        if (staleParent) HeadDeclared(StaleParentHead)
+        else match headDecl {
+          | HeadDeclared(_) => HeadDeclared(curHead + 1)
+          | HeadUndeclared => HeadUndeclared
+          | HeadOversized => HeadOversized
+        }
     }
   }
 
@@ -170,10 +177,12 @@ module main {
     // work-item before the service's refine ran. Accumulate sees the no-op
     // case (§3.3).
     nondet wp1IsJamSkip = oneOf(Set(false, true))
-    // Whether the PVF declared its parent head / new head (§4.2). When
-    // false, Refine rejects with `MissingHeadDeclaration`.
+    // Whether the PVF declared its parent head (§4.2). When false, Refine
+    // rejects with `MissingHeadDeclaration`; an oversized `set_head` is
+    // rejected with `HeadDataTooLarge`. The `HeadDeclared` payload is a
+    // placeholder: `buildPackage` substitutes the para's chained head.
     nondet wp1DeclParent = oneOf(Set(false, true))
-    nondet wp1DeclHead = oneOf(Set(false, true))
+    nondet wp1HeadDecl = oneOf(Set(HeadDeclared(0), HeadUndeclared, HeadOversized))
     // A stale-parent candidate (built on a non-current head) exercises the
     // parent-head check's rejection (§5.1 step 3). Forced to active code so it
     // is rejected on the parent rather than on the code.
@@ -184,7 +193,7 @@ module main {
     val wp1Head = if (svc.isLive(wp1Para)) svc.paraInfo(wp1Para).headData else 0
     val wp1 = buildPackage(
       wp1Head, wp1Para, wp1Candidate, wp1M1, wp1M2,
-      wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1DeclHead, wp1StaleParent
+      wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1HeadDecl, wp1StaleParent
     )
     val wp1Wr: WorkResult = {
       result:
@@ -210,7 +219,7 @@ module main {
     nondet wp2AuthTrace = oneOf(Set(0, 1, 2))
     nondet wp2IsJamSkip = oneOf(Set(false, true))
     nondet wp2DeclParent = oneOf(Set(false, true))
-    nondet wp2DeclHead = oneOf(Set(false, true))
+    nondet wp2HeadDecl = oneOf(Set(HeadDeclared(0), HeadUndeclared, HeadOversized))
     nondet wp2StaleParent = oneOf(Set(false, true))
     // Chain off wp1's new head when same para; else wp2's own pre-block head.
     val wp2Head =
@@ -218,7 +227,7 @@ module main {
       else if (svc.isLive(wp2Para)) svc.paraInfo(wp2Para).headData else 0
     val wp2 = buildPackage(
       wp2Head, wp2Para, wp2Candidate, wp2M1, wp2M2,
-      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2DeclHead, wp2StaleParent
+      wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2HeadDecl, wp2StaleParent
     )
     val wp2Wr: WorkResult = {
       result:

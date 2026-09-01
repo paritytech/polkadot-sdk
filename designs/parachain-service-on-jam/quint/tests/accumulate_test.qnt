@@ -134,7 +134,7 @@ module accumulate_test {
     // No para named at all: the old code fabricated `MkParaId(0)` here.
     val noParas: WorkPackage = { authorizedParas: List(), items: List(wi) }
     pure def go(pkg: WorkPackage, noPrefix: bool): WorkExecResult =
-      refine(initialState, pkg, noPrefix, PvfOk, Some(headHash(0)), Some(1), List(), 0)[0]
+      refine(initialState, pkg, noPrefix, PvfOk, Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
     all {
       // Config carries no `Vec<ParaId>` prefix, so no para can be sourced.
       assert(go(good, true) == WorkErr),

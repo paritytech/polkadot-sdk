@@ -52,6 +52,9 @@ module messages {
   // The PVF exited without calling `set_parent_head_hash` and/or `set_head`
   // exactly once: both head declarations are mandatory (§4.2).
   | MissingHeadDeclaration
+  // `set_head` was called with head data beyond the 4 KiB `HeadData` bound
+  // (§4.3).
+  | HeadDataTooLarge
 
   // --- Accumulate-side log payloads ---------------------------------------
 

@@ -49,7 +49,7 @@ module support {
       val wr: WorkResult = {
         result: refine(
           svc, pkg, false, PvfOk,
-          Some(headHash(pi.headData)), Some(pi.headData + 1), p._3, 0
+          Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), p._3, 0
         )[0],
         authTrace: 0
       }
@@ -168,7 +168,7 @@ module support {
     val wr: WorkResult = {
       result: refine(
         svc, pkg, false, PvfOk,
-        Some(headHash(StaleParentHead)), Some(StaleParentHead), msgs, 0
+        Some(headHash(StaleParentHead)), HeadDeclared(StaleParentHead), msgs, 0
       )[0],
       authTrace: 0
     }
@@ -229,7 +229,7 @@ module support {
       })
     }
     refine(s, pkg, false, PvfOk,
-      Some(headHash(pi.headData)), Some(pi.headData + 1), msgs, 0)[0]
+      Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), msgs, 0)[0]
   }
 
   pure def isOkDigest(r: WorkExecResult): bool =

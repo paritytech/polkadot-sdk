@@ -201,13 +201,25 @@ module refine {
     | PvfReportError(int)
     | PvfPanic
 
+  /// What the PVF's mandatory `set_head` call amounts to (§4.2):
+  ///   - `HeadUndeclared`: never called, rejected with `MissingHeadDeclaration`.
+  ///   - `HeadOversized`: called with head data past the 4 KiB `HeadData` cap,
+  ///     rejected with `HeadDataTooLarge` (§4.3). `HeadData` is opaque in the
+  ///     model (types.qnt), so the violation is a case of its own rather than a
+  ///     measured length.
+  ///   - `HeadDeclared(h)`: a well-formed declaration of `h`.
+  type HeadDeclaration =
+    | HeadUndeclared
+    | HeadOversized
+    | HeadDeclared(HeadData)
+
   /// Per-item Refine semantics (§4.1). The PVF is modeled as an oracle whose
   /// visible effects are how it terminated (`pvf`), the `set_parent_head_hash`
-  /// and `set_head` declarations (`parentHead` / `newHead`, both `None` if the
-  /// PVF never called them, §4.2), and the emitted upward `msgs`. The wrapper
-  /// applies the §4.1/§4.3 checks in order and otherwise forwards the
-  /// declarations verbatim; the authoritative parent-head match and the head
-  /// write happen in Accumulate (§5.1).
+  /// and `set_head` declarations (`parentHead` `None` / `newHead`
+  /// `HeadUndeclared` if the PVF never called them, §4.2), and the emitted
+  /// upward `msgs`. The wrapper applies the §4.1/§4.3 checks in order and
+  /// otherwise forwards the declarations verbatim; the authoritative
+  /// parent-head match and the head write happen in Accumulate (§5.1).
   ///
   /// `None` means the invocation produced no digest at all (`PvfPanic`).
   ///
@@ -220,7 +232,7 @@ module refine {
     candidate: ParachainCandidate,
     pvf: PvfOutcome,
     parentHead: Option[HeadHash],
-    newHead: Option[HeadData],
+    newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot
   ): Option[ParachainWorkDigest] = {
@@ -247,13 +259,16 @@ module refine {
         Some(refineErr(para_id, RefineOutputTooLarge))
         else
         // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
-        // missing declaration (`None`) is rejected with `MissingHeadDeclaration`.
-        match parentHead {
-          | None => Some(refineErr(para_id, MissingHeadDeclaration))
-          | Some(ph) =>
-            match newHead {
+        // missing declaration is rejected with `MissingHeadDeclaration`. An
+        // oversized head is checked first because `set_head` aborts in the call
+        // itself, before the wrapper can observe what else the PVF skipped.
+        match newHead {
+          | HeadOversized => Some(refineErr(para_id, HeadDataTooLarge))
+          | HeadUndeclared => Some(refineErr(para_id, MissingHeadDeclaration))
+          | HeadDeclared(nh) =>
+            match parentHead {
               | None => Some(refineErr(para_id, MissingHeadDeclaration))
-              | Some(nh) =>
+              | Some(ph) =>
                 Some(refineOk(para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor))
             }
         }
@@ -268,9 +283,9 @@ module refine {
   /// `para_id` sourced from `authorized_paras`.
   ///
   /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`, and
-  /// `msgs` are per-item scalars declared by the PVF. `parentHead` / `newHead`
-  /// are `None` when the PVF skipped the corresponding mandatory host call
-  /// (§4.2).
+  /// `msgs` are per-item scalars declared by the PVF. `parentHead` is `None` and
+  /// `newHead` is `HeadUndeclared` when the PVF skipped the corresponding
+  /// mandatory host call (§4.2).
   pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
@@ -279,7 +294,7 @@ module refine {
     authParasPrefixMissing: bool,
     pvf: PvfOutcome,
     parentHead: Option[HeadHash],
-    newHead: Option[HeadData],
+    newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
     lookupAnchor: Timeslot
   ): List[WorkExecResult] = {
