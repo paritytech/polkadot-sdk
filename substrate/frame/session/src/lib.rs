@@ -594,6 +594,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Validators<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
+	/// The validator set that was active *before* the current session rotation.
+	#[pallet::storage]
+	pub type CurrentBlockValidators<T: Config> = StorageValue<_, Vec<T::ValidatorId>>;
+
 	/// Current index of the session.
 	#[pallet::storage]
 	pub type CurrentIndex<T> = StorageValue<_, SessionIndex, ValueQuery>;
@@ -678,6 +682,11 @@ pub mod pallet {
 				// cache.
 				Weight::zero()
 			}
+		}
+
+		/// Clear the pre-rotation validator snapshot at the end of every block.
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			CurrentBlockValidators::<T>::kill();
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -786,6 +795,9 @@ impl<T: Config> Pallet<T> {
 		let session_keys = QueuedKeys::<T>::get();
 		let validators =
 			session_keys.iter().map(|(validator, _)| validator.clone()).collect::<Vec<_>>();
+
+		CurrentBlockValidators::<T>::put(Validators::<T>::get());
+
 		Validators::<T>::put(&validators);
 
 		if changed {
@@ -1274,7 +1286,8 @@ impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
 	{
 		let i = Inner::find_author(digests)?;
 
-		let validators = Validators::<T>::get();
+		let validators =
+			CurrentBlockValidators::<T>::get().unwrap_or_else(|| Validators::<T>::get());
 		validators.get(i as usize).cloned()
 	}
 }
