@@ -1,0 +1,17 @@
+title: 'sc-rpc-server: bound the RPC metrics `method` label to registered methods'
+doc:
+  - audience: Node Operator
+    description: |
+      The RPC metrics (`substrate_rpc_calls_*`) recorded the client-sent method name as a
+      Prometheus label before checking that the method exists, so an unauthenticated caller
+      reaching the RPC port could send unlimited distinct made-up names and grow the node's
+      memory without bound (one series per name, kept forever), leading to OOM. See
+      https://github.com/paritytech/eng_findings/issues/42.
+
+      The `method` label is now bounded to the registered method set; any other name is
+      recorded as `unknown`. Series count is capped at the number of registered methods
+      plus one. `RpcMetrics::with_known_methods` sets the allowlist and the RPC server
+      wires it at start; a metrics instance without it keeps the previous behaviour.
+crates:
+  - name: sc-rpc-server
+    bump: minor
