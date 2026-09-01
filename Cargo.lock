@@ -1589,7 +1589,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.37.1"
+version = "0.39.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1724,7 +1724,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.51.1"
+version = "0.52.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -1868,7 +1868,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "35.0.0"
+version = "37.0.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-parachain-system",
@@ -1898,7 +1898,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "cumulus-primitives-core",
  "ethereum-standards",
@@ -2654,7 +2654,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-rococo"
-version = "0.28.0"
+version = "0.30.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2671,7 +2671,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-westend"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2705,7 +2705,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-cumulus"
-version = "0.32.0"
+version = "0.34.0"
 dependencies = [
  "bp-messages",
  "bp-polkadot-core",
@@ -2720,7 +2720,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-rococo"
-version = "0.32.0"
+version = "0.34.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2735,7 +2735,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-westend"
-version = "0.28.0"
+version = "0.30.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -3014,7 +3014,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.32.1"
+version = "0.34.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3117,7 +3117,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.34.0"
+version = "0.36.0"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -3223,7 +3223,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.29.1"
+version = "0.31.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3625,7 +3625,7 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "polkadot-sdk-frame",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "scale-info",
  "serde",
  "serde_json",
@@ -3891,7 +3891,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "30.0.1"
+version = "32.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4267,7 +4267,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.26.1"
+version = "0.28.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4860,7 +4860,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-bootnodes"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -4874,7 +4874,7 @@ dependencies = [
  "parity-scale-codec",
  "prost 0.12.6",
  "prost-build 0.13.2",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-service",
  "sp-consensus-babe",
  "sp-runtime 48.0.0",
@@ -4883,11 +4883,11 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-cli"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "clap",
  "parity-scale-codec",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sc-client-api 47.0.1",
  "sc-service",
@@ -4899,7 +4899,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-collator"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
@@ -4929,7 +4929,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -4955,7 +4955,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-babe",
  "sc-consensus-slots",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-telemetry 33.0.0",
  "sc-utils 23.0.0",
  "schnellru",
@@ -4983,7 +4983,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-common"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "async-trait",
  "cumulus-client-pov-recovery",
@@ -5001,7 +5001,7 @@ dependencies = [
  "sc-client-api 47.0.1",
  "sc-consensus",
  "sc-consensus-babe",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "schnellru",
  "sp-blockchain 46.0.1",
  "sp-consensus 0.49.0",
@@ -5019,7 +5019,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-relay-chain"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
@@ -5041,7 +5041,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-network"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -5060,7 +5060,7 @@ dependencies = [
  "polkadot-test-client",
  "rstest",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sp-api 43.0.0",
  "sp-blockchain 46.0.1",
  "sp-consensus 0.49.0",
@@ -5076,7 +5076,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-parachain-inherent"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -5086,7 +5086,7 @@ dependencies = [
  "parity-scale-codec",
  "sc-client-api 47.0.1",
  "sc-consensus-babe",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sp-crypto-hashing 0.1.0",
  "sp-inherents 43.0.0",
  "sp-runtime 48.0.0",
@@ -5097,7 +5097,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-pov-recovery"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -5116,7 +5116,7 @@ dependencies = [
  "rstest",
  "sc-client-api 47.0.1",
  "sc-consensus",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-utils 23.0.0",
  "sp-api 43.0.0",
  "sp-blockchain 46.0.1",
@@ -5143,7 +5143,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-service"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "async-channel 1.9.0",
  "cumulus-client-cli",
@@ -5164,7 +5164,7 @@ dependencies = [
  "prometheus",
  "sc-client-api 47.0.1",
  "sc-consensus",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-sync",
  "sc-network-transactions",
  "sc-rpc",
@@ -5355,7 +5355,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "approx",
  "bitflags 1.3.2",
@@ -5492,7 +5492,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -5508,7 +5508,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-inprocess-interface"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -5524,7 +5524,7 @@ dependencies = [
  "prioritized-metered-channel",
  "sc-cli",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-sysinfo",
  "sc-telemetry 33.0.0",
  "sc-tracing",
@@ -5538,7 +5538,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-interface"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -5547,7 +5547,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-overseer",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sp-api 43.0.0",
  "sp-blockchain 46.0.1",
  "sp-state-machine 0.53.0",
@@ -5558,7 +5558,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -5577,7 +5577,7 @@ dependencies = [
  "polkadot-service",
  "sc-authority-discovery",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-service",
  "sc-tracing",
@@ -5593,7 +5593,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-rpc-interface"
-version = "0.32.0"
+version = "0.33.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -5626,7 +5626,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-streams"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "cumulus-relay-chain-interface",
  "futures",
@@ -5780,7 +5780,7 @@ dependencies = [
  "rand 0.8.5",
  "sc-basic-authorship",
  "sc-block-builder",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sc-client-api 47.0.1",
  "sc-consensus",
@@ -5788,7 +5788,7 @@ dependencies = [
  "sc-executor 0.50.0",
  "sc-executor-common 0.47.0",
  "sc-executor-wasmtime 0.47.0",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-service",
  "sc-telemetry 33.0.0",
  "sc-tracing",
@@ -6649,7 +6649,7 @@ checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "34.0.0"
+version = "36.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -7396,7 +7396,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "58.0.1"
+version = "59.0.0"
 dependencies = [
  "Inflector",
  "anyhow",
@@ -7424,7 +7424,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_pcg",
  "sc-block-builder",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sc-client-api 47.0.1",
  "sc-client-db",
@@ -7645,7 +7645,7 @@ dependencies = [
 
 [[package]]
 name = "frame-omni-bencher"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -7653,7 +7653,7 @@ dependencies = [
  "cumulus-test-runtime",
  "frame-benchmarking-cli",
  "polkadot-jemalloc-shim",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sp-crypto-ec-utils",
  "sp-genesis-builder 0.24.0",
@@ -7665,7 +7665,7 @@ dependencies = [
 
 [[package]]
 name = "frame-remote-externalities"
-version = "0.60.0"
+version = "0.61.0"
 dependencies = [
  "frame-support",
  "futures",
@@ -8356,7 +8356,7 @@ dependencies = [
 
 [[package]]
 name = "glutton-westend-runtime"
-version = "28.0.0"
+version = "30.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -11454,7 +11454,7 @@ dependencies = [
 
 [[package]]
 name = "mmr-gadget"
-version = "53.0.0"
+version = "54.0.0"
 dependencies = [
  "futures",
  "log",
@@ -11923,7 +11923,7 @@ dependencies = [
  "mmr-rpc",
  "node-primitives",
  "pallet-transaction-payment-rpc",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-consensus-babe",
  "sc-consensus-babe-rpc",
@@ -13503,7 +13503,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-phase"
-version = "49.0.0"
+version = "50.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -14104,7 +14104,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools-benchmarking"
-version = "47.0.0"
+version = "48.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -14541,7 +14541,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.19.0"
+version = "0.21.0"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -14853,7 +14853,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -15163,7 +15163,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-runtime-constants"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
@@ -15215,7 +15215,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-state-trie-migration"
-version = "55.0.0"
+version = "56.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-remote-externalities",
@@ -15665,7 +15665,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-common"
-version = "32.1.0"
+version = "34.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
@@ -15719,7 +15719,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "33.0.0"
+version = "35.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -15938,7 +15938,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.41.0"
+version = "0.43.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -16042,7 +16042,7 @@ dependencies = [
 
 [[package]]
 name = "people-westend-runtime"
-version = "0.26.1"
+version = "0.28.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -16323,7 +16323,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "35.0.0"
+version = "36.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -16344,7 +16344,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "futures",
@@ -16372,7 +16372,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-availability-bitfield-distribution"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -16397,7 +16397,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-availability-distribution"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -16415,7 +16415,7 @@ dependencies = [
  "polkadot-subsystem-bench",
  "rand 0.8.5",
  "rstest",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "schnellru",
  "sp-core 43.0.0",
  "sp-keyring",
@@ -16427,7 +16427,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-availability-recovery"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16446,7 +16446,7 @@ dependencies = [
  "polkadot-subsystem-bench",
  "rand 0.8.5",
  "rstest",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "schnellru",
  "sp-core 43.0.0",
  "sp-keyring",
@@ -16468,7 +16468,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "36.0.0"
+version = "37.0.0"
 dependencies = [
  "clap",
  "frame-benchmarking-cli",
@@ -16480,7 +16480,7 @@ dependencies = [
  "pyroscope",
  "pyroscope_pprofrs",
  "sc-cli",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-service",
  "sc-storage-monitor",
  "sc-sysinfo",
@@ -16494,7 +16494,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-collator-protocol"
-version = "32.1.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16515,8 +16515,8 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rstest",
  "sc-keystore",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "schnellru",
  "sp-consensus-babe",
  "sp-consensus-slots",
@@ -16544,7 +16544,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-dispute-distribution"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-channel 1.9.0",
@@ -16562,7 +16562,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "sc-keystore",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sp-application-crypto 48.0.0",
  "sp-keyring",
  "sp-keystore 0.49.0",
@@ -16588,7 +16588,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-gossip-support"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16603,7 +16603,7 @@ dependencies = [
  "quickcheck",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sp-application-crypto 48.0.0",
  "sp-authority-discovery",
  "sp-consensus-babe",
@@ -16617,7 +16617,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-jemalloc-shim"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "polkadot-cli",
  "polkadot-node-core-pvf",
@@ -16628,7 +16628,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-network-bridge"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "always-assert",
  "assert_matches",
@@ -16647,7 +16647,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sp-consensus 0.49.0",
  "sp-core 43.0.0",
  "sp-keyring",
@@ -16665,7 +16665,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-collation-generation"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "futures",
@@ -16687,7 +16687,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-approval-voting"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16729,7 +16729,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-approval-voting-parallel"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16760,7 +16760,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-av-store"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -16786,7 +16786,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-backing"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -16814,7 +16814,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-bitfield-signing"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "futures",
  "polkadot-node-subsystem",
@@ -16830,7 +16830,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-candidate-validation"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16860,7 +16860,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-chain-api"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "futures",
  "maplit",
@@ -16880,7 +16880,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-chain-selection"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "futures",
@@ -16901,7 +16901,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-dispute-coordinator"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -16930,7 +16930,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-parachains-inherent"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -16946,7 +16946,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-prospective-parachains"
-version = "31.0.0"
+version = "32.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -16967,7 +16967,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-provisioner"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "bitvec",
  "fatality",
@@ -16989,7 +16989,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "always-assert",
  "array-bytes 6.2.2",
@@ -17032,7 +17032,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf-checker"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "futures",
  "futures-timer",
@@ -17118,7 +17118,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-runtime-api"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -17139,7 +17139,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-metrics"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "bs58",
  "futures",
@@ -17162,7 +17162,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-network-protocol"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -17177,8 +17177,8 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "sc-authority-discovery",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "sp-runtime 48.0.0",
  "strum 0.26.3",
  "thiserror 1.0.65",
@@ -17210,7 +17210,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-overseer",
@@ -17239,7 +17239,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem-types"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "async-trait",
  "derive_more 0.99.17",
@@ -17251,8 +17251,8 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-statement-table",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "sc-transaction-pool-api 46.0.0",
  "smallvec",
  "sp-api 43.0.0",
@@ -17266,7 +17266,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem-util"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -17300,7 +17300,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -17311,7 +17311,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.18.2"
+version = "0.19.0"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_cmd",
@@ -17350,7 +17350,7 @@ dependencies = [
  "polkadot-cli",
  "polkadot-primitives",
  "sc-basic-authorship",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sc-client-api 47.0.1",
  "sc-client-db",
@@ -17360,7 +17360,7 @@ dependencies = [
  "sc-executor 0.50.0",
  "sc-hop",
  "sc-keystore",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-statement",
  "sc-network-sync",
  "sc-offchain",
@@ -17407,7 +17407,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-overseer"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -17451,7 +17451,7 @@ dependencies = [
  "people-westend-runtime",
  "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sc-service",
  "serde",
@@ -17525,13 +17525,13 @@ dependencies = [
 
 [[package]]
 name = "polkadot-rpc"
-version = "34.0.0"
+version = "35.0.0"
 dependencies = [
  "jsonrpsee",
  "mmr-rpc",
  "pallet-transaction-payment-rpc",
  "polkadot-primitives",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-consensus-babe",
  "sc-consensus-babe-rpc",
@@ -17557,7 +17557,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "29.0.0"
+version = "30.0.0"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -17682,7 +17682,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2606.1.0"
+version = "2606.2.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -17940,7 +17940,7 @@ dependencies = [
  "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-block-builder",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-chain-spec-derive 11.0.0",
  "sc-cli",
  "sc-client-api 47.0.1",
@@ -17965,14 +17965,14 @@ dependencies = [
  "sc-informant",
  "sc-keystore",
  "sc-mixnet",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-network-gossip",
  "sc-network-light",
  "sc-network-statement",
  "sc-network-sync",
  "sc-network-transactions",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-offchain",
  "sc-proposer-metrics",
  "sc-rpc",
@@ -18127,7 +18127,7 @@ dependencies = [
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "rand 0.8.5",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -18137,7 +18137,7 @@ dependencies = [
  "sc-consensus-manual-seal",
  "sc-consensus-pow",
  "sc-executor 0.50.0",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
@@ -18238,7 +18238,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "36.0.0"
+version = "37.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -18301,7 +18301,7 @@ dependencies = [
  "rococo-runtime-constants",
  "sc-authority-discovery",
  "sc-basic-authorship",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-consensus",
  "sc-consensus-babe",
@@ -18310,7 +18310,7 @@ dependencies = [
  "sc-consensus-slots",
  "sc-executor 0.50.0",
  "sc-keystore",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-sync",
  "sc-offchain",
  "sc-service",
@@ -18355,7 +18355,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-statement-distribution"
-version = "32.0.0"
+version = "33.0.0"
 dependencies = [
  "assert_matches",
  "async-channel 1.9.0",
@@ -18375,7 +18375,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rstest",
  "sc-keystore",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sp-application-crypto 48.0.0",
  "sp-authority-discovery",
  "sp-core 43.0.0",
@@ -18439,8 +18439,8 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_distr",
  "sc-keystore",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "sc-service",
  "serde",
  "serde_json",
@@ -18589,12 +18589,12 @@ dependencies = [
  "polkadot-service",
  "polkadot-test-runtime",
  "rand 0.8.5",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-cli",
  "sc-client-api 47.0.1",
  "sc-consensus",
  "sc-consensus-grandpa",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-service",
  "sc-tracing",
  "serde_json",
@@ -18614,7 +18614,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-voter-bags"
-version = "35.0.0"
+version = "36.0.0"
 dependencies = [
  "clap",
  "generate-bags",
@@ -20039,7 +20039,7 @@ dependencies = [
  "quick_cache",
  "rand 0.8.5",
  "relay-utils",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-rpc-api",
  "sc-transaction-pool-api 46.0.0",
  "scale-info",
@@ -20528,7 +20528,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime"
-version = "34.0.1"
+version = "35.0.0"
 dependencies = [
  "binary-merkle-tree 13.0.0",
  "bitvec",
@@ -20628,7 +20628,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime-constants"
-version = "30.0.0"
+version = "31.0.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
@@ -21155,7 +21155,7 @@ dependencies = [
 
 [[package]]
 name = "sc-authority-discovery"
-version = "0.59.0"
+version = "0.60.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -21170,8 +21170,8 @@ dependencies = [
  "quickcheck",
  "rand 0.8.5",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "sc-service",
  "serde",
  "serde_json",
@@ -21260,7 +21260,7 @@ dependencies = [
 
 [[package]]
 name = "sc-chain-spec"
-version = "51.0.0"
+version = "52.0.0"
 dependencies = [
  "array-bytes 6.2.2",
  "clap",
@@ -21272,7 +21272,7 @@ dependencies = [
  "sc-chain-spec-derive 11.0.0",
  "sc-client-api 47.0.1",
  "sc-executor 0.50.0",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-telemetry 33.0.0",
  "serde",
  "serde_json",
@@ -21314,7 +21314,7 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.61.0"
+version = "0.62.0"
 dependencies = [
  "array-bytes 6.2.2",
  "bip39",
@@ -21335,7 +21335,7 @@ dependencies = [
  "sc-client-db",
  "sc-keystore",
  "sc-mixnet",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-service",
  "sc-telemetry 33.0.0",
  "sc-tracing",
@@ -21446,7 +21446,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -21454,7 +21454,7 @@ dependencies = [
  "mockall",
  "parking_lot 0.12.3",
  "sc-client-api 47.0.1",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-utils 23.0.0",
  "serde",
  "sp-blockchain 46.0.1",
@@ -21469,7 +21469,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-aura"
-version = "0.58.0"
+version = "0.59.0"
 dependencies = [
  "async-trait",
  "fork-tree",
@@ -21482,7 +21482,7 @@ dependencies = [
  "sc-consensus",
  "sc-consensus-slots",
  "sc-keystore",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-test",
  "sc-telemetry 33.0.0",
  "sp-api 43.0.0",
@@ -21508,7 +21508,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-babe"
-version = "0.58.0"
+version = "0.59.0"
 dependencies = [
  "async-trait",
  "fork-tree",
@@ -21550,7 +21550,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-babe-rpc"
-version = "0.59.0"
+version = "0.60.0"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -21576,7 +21576,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-beefy"
-version = "37.0.1"
+version = "38.0.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -21588,11 +21588,11 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 47.0.1",
  "sc-consensus",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-gossip",
  "sc-network-sync",
  "sc-network-test",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-utils 23.0.0",
  "serde",
  "sp-api 43.0.0",
@@ -21615,7 +21615,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-beefy-rpc"
-version = "38.0.1"
+version = "39.0.0"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -21636,7 +21636,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-epochs"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "fork-tree",
  "parity-scale-codec",
@@ -21648,7 +21648,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
@@ -21664,16 +21664,16 @@ dependencies = [
  "parking_lot 0.12.3",
  "rand 0.8.5",
  "sc-block-builder",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-client-db",
  "sc-consensus",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-network-gossip",
  "sc-network-sync",
  "sc-network-test",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-telemetry 33.0.0",
  "sc-transaction-pool-api 46.0.0",
  "sc-utils 23.0.0",
@@ -21698,7 +21698,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa-rpc"
-version = "0.44.0"
+version = "0.45.0"
 dependencies = [
  "finality-grandpa",
  "futures",
@@ -21722,7 +21722,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-manual-seal"
-version = "0.59.0"
+version = "0.60.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -21762,7 +21762,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-pow"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -21786,7 +21786,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-slots"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -21993,14 +21993,14 @@ dependencies = [
 
 [[package]]
 name = "sc-informant"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "console",
  "futures",
  "futures-timer",
  "log",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-sync",
  "sp-blockchain 46.0.1",
  "sp-runtime 48.0.0",
@@ -22022,7 +22022,7 @@ dependencies = [
 
 [[package]]
 name = "sc-mixnet"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "array-bytes 6.2.2",
  "arrayvec 0.7.6",
@@ -22035,8 +22035,8 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "sc-transaction-pool-api 46.0.0",
  "sp-api 43.0.0",
  "sp-consensus 0.49.0",
@@ -22100,7 +22100,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.58.0"
+version = "0.59.0"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -22134,7 +22134,7 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 47.0.1",
  "sc-network-common 0.55.0",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-utils 23.0.0",
  "schnellru",
  "serde",
@@ -22185,7 +22185,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-gossip"
-version = "0.58.0"
+version = "0.59.0"
 dependencies = [
  "ahash 0.8.11",
  "async-trait",
@@ -22194,10 +22194,10 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "quickcheck",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-network-sync",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "schnellru",
  "sp-runtime 48.0.0",
  "substrate-prometheus-endpoint 0.17.0",
@@ -22208,7 +22208,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-light"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -22218,8 +22218,8 @@ dependencies = [
  "prost 0.12.6",
  "prost-build 0.13.2",
  "sc-client-api 47.0.1",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "sp-blockchain 46.0.1",
  "sp-core 43.0.0",
  "sp-runtime 48.0.0",
@@ -22228,7 +22228,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-statement"
-version = "0.41.0"
+version = "0.42.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -22241,10 +22241,10 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "sc-keystore",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-network-sync",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-statement-store",
  "sp-api 43.0.0",
  "sp-blockchain 46.0.1",
@@ -22262,7 +22262,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-sync"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -22278,9 +22278,9 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 47.0.1",
  "sc-consensus",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-utils 23.0.0",
  "schnellru",
  "smallvec",
@@ -22313,11 +22313,11 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 47.0.1",
  "sc-consensus",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-network-light",
  "sc-network-sync",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-service",
  "sc-utils 23.0.0",
  "sp-blockchain 46.0.1",
@@ -22332,16 +22332,16 @@ dependencies = [
 
 [[package]]
 name = "sc-network-transactions"
-version = "0.57.0"
+version = "0.58.0"
 dependencies = [
  "array-bytes 6.2.2",
  "futures",
  "log",
  "parity-scale-codec",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-network-sync",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-utils 23.0.0",
  "sp-consensus 0.49.0",
  "sp-runtime 48.0.0",
@@ -22372,7 +22372,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "bs58",
  "bytes",
@@ -22393,7 +22393,7 @@ dependencies = [
 
 [[package]]
 name = "sc-offchain"
-version = "53.0.0"
+version = "54.0.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -22413,8 +22413,8 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api 47.0.1",
  "sc-client-db",
- "sc-network 0.58.0",
- "sc-network-types 0.22.0",
+ "sc-network 0.59.0",
+ "sc-network-types 0.23.0",
  "sc-transaction-pool",
  "sc-transaction-pool-api 46.0.0",
  "sc-utils 23.0.0",
@@ -22442,7 +22442,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc"
-version = "54.0.0"
+version = "55.0.0"
 dependencies = [
  "assert_matches",
  "async-channel 1.9.0",
@@ -22454,11 +22454,11 @@ dependencies = [
  "parking_lot 0.12.3",
  "pretty_assertions",
  "sc-block-builder",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-keystore",
  "sc-mixnet",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-rpc-api",
  "sc-statement-store",
  "sc-tracing",
@@ -22485,11 +22485,11 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-api"
-version = "0.58.0"
+version = "0.59.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-mixnet",
  "sc-transaction-pool-api 46.0.0",
  "scale-info",
@@ -22505,7 +22505,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-server"
-version = "31.0.0"
+version = "32.0.0"
 dependencies = [
  "dyn-clone",
  "forwarded-header-value",
@@ -22531,7 +22531,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-spec-v2"
-version = "0.59.0"
+version = "0.60.0"
 dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
@@ -22549,7 +22549,7 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.5",
  "sc-block-builder",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-rpc",
  "sc-service",
@@ -22611,7 +22611,7 @@ dependencies = [
 
 [[package]]
 name = "sc-service"
-version = "0.60.0"
+version = "0.61.0"
 dependencies = [
  "async-trait",
  "directories",
@@ -22624,19 +22624,19 @@ dependencies = [
  "parking_lot 0.12.3",
  "pin-project",
  "rand 0.8.5",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-client-db",
  "sc-consensus",
  "sc-executor 0.50.0",
  "sc-informant",
  "sc-keystore",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-common 0.55.0",
  "sc-network-light",
  "sc-network-sync",
  "sc-network-transactions",
- "sc-network-types 0.22.0",
+ "sc-network-types 0.23.0",
  "sc-rpc",
  "sc-rpc-server",
  "sc-rpc-spec-v2",
@@ -22690,7 +22690,7 @@ dependencies = [
  "sc-client-db",
  "sc-consensus",
  "sc-executor 0.50.0",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-network-sync",
  "sc-service",
  "sc-transaction-pool-api 46.0.0",
@@ -22721,7 +22721,7 @@ dependencies = [
 
 [[package]]
 name = "sc-statement-store"
-version = "30.0.0"
+version = "31.0.0"
 dependencies = [
  "anyhow",
  "async-channel 1.9.0",
@@ -22764,11 +22764,11 @@ dependencies = [
 
 [[package]]
 name = "sc-sync-state-rpc"
-version = "0.58.0"
+version = "0.59.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-client-api 47.0.1",
  "sc-consensus-babe",
  "sc-consensus-epochs",
@@ -24274,7 +24274,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue-primitives"
-version = "0.14.0"
+version = "0.16.0"
 dependencies = [
  "alloy-core",
  "assets-common",
@@ -24418,7 +24418,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.25.0"
+version = "0.27.0"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
@@ -24446,7 +24446,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -24458,7 +24458,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.14.0"
+version = "0.16.0"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -24494,7 +24494,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2-fixtures"
-version = "0.14.0"
+version = "0.16.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -24650,7 +24650,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-test-common"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
@@ -24782,7 +24782,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-grandpa",
  "sc-executor 0.50.0",
- "sc-network 0.58.0",
+ "sc-network 0.59.0",
  "sc-offchain",
  "sc-service",
  "sc-telemetry 33.0.0",
@@ -26574,13 +26574,13 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staging-chain-spec-builder"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "clap",
  "cmd_lib",
  "docify",
  "pretty_assertions",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "serde",
  "serde_json",
  "sp-tracing 16.0.0",
@@ -26626,7 +26626,7 @@ dependencies = [
 
 [[package]]
 name = "staging-node-inspect"
-version = "0.37.0"
+version = "0.38.0"
 dependencies = [
  "clap",
  "parity-scale-codec",
@@ -26910,7 +26910,7 @@ dependencies = [
 
 [[package]]
 name = "subkey"
-version = "34.0.0"
+version = "35.0.0"
 dependencies = [
  "clap",
  "sc-cli",
@@ -26978,7 +26978,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-frame-rpc-support"
-version = "54.0.0"
+version = "55.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -26995,7 +26995,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-frame-rpc-system"
-version = "53.0.0"
+version = "54.0.0"
 dependencies = [
  "assert_matches",
  "docify",
@@ -27090,7 +27090,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-rpc-client"
-version = "0.58.0"
+version = "0.59.0"
 dependencies = [
  "async-trait",
  "jsonrpsee",
@@ -27104,7 +27104,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-state-trie-migration-rpc"
-version = "52.0.0"
+version = "53.0.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -27161,7 +27161,7 @@ dependencies = [
  "parity-scale-codec",
  "pretty_assertions",
  "sc-block-builder",
- "sc-chain-spec 51.0.0",
+ "sc-chain-spec 52.0.0",
  "sc-executor 0.50.0",
  "sc-executor-common 0.47.0",
  "sc-service",
@@ -28397,7 +28397,7 @@ dependencies = [
 
 [[package]]
 name = "testnet-parachains-constants"
-version = "23.0.0"
+version = "24.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -30473,7 +30473,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "35.0.1"
+version = "36.0.0"
 dependencies = [
  "approx",
  "binary-merkle-tree 13.0.0",
@@ -30578,7 +30578,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime-constants"
-version = "30.0.0"
+version = "31.0.0"
 dependencies = [
  "frame-support",
  "polkadot-primitives",
@@ -31294,7 +31294,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.31.0"
+version = "0.33.0"
 dependencies = [
  "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",
