@@ -837,7 +837,7 @@ These produce effects carried in the work digest and applied by Accumulate:
 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 | `set_provides_root(root: StreamsRoot)` | `()` | Declare the speculative-messaging root this candidate publishes. **Optional.** At most once per Refine; a repeat aborts with `Err(RefineLog::SpecMsgCallRepeated)`. The service treats `root` as opaque and never derives it from head data. |
-| `set_requires_root(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare every source this candidate consumed from. **Optional**; one call carries the whole set. A repeat aborts with `SpecMsgCallRepeated`; more than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or an entry naming the candidate's own `para_id` aborts with `InvalidSpecMsgRequires`. Whether the PoV justifies these entries is the parachain's own concern; whether they are settleable is decided on-chain (§5.1 step 6). |
+| `set_requires_root(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare every source this candidate consumed from. **Optional**; one call carries the whole set. A repeat aborts with `SpecMsgCallRepeated`; more than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or an entry naming the candidate's own `para_id` aborts with `SpecMsgInvalidRequires`. Whether the PoV justifies these entries is the parachain's own concern; whether they are settleable is decided on-chain (§5.1 step 6). |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the PVF. The 40 KiB
@@ -1875,7 +1875,7 @@ JAM changes.
 - **Work digest (§3.3)** — `spec_msg_provides: Option<StreamsRoot>` (33 B when
   present) and `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), MAX_REQUIRES_SOURCES>`
   (36 B per entry, ~1.1 KiB at full fan-in).
-- **Refine failures (§3.1)** — `SpecMsgCallRepeated`, `DuplicatSpecMsgInvalidRequireseRequiresEntry`.
+- **Refine failures (§3.1)** — `SpecMsgCallRepeated`, `SpecMsgInvalidRequires`.
 - **State (§3.1)** — the settlement ring: `spec_msg_cursor`, `spec_msg_member`,
   `spec_msg_queue`, under tags `0x09`–`0x0b`.
 - **Accumulate (§5.1 step 6)** — the settlement check runs before the head write;
