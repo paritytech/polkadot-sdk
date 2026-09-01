@@ -1,0 +1,12 @@
+title: 'pallet-uniques: repatriate collection deposit in force_item_status on owner
+  change'
+doc:
+- audience: Runtime Dev
+  description: "Fixes #12193.\n\n`force_item_status` lets `ForceOrigin` reassign a\
+    \ collection's owner, but it only\nmoved `item.owner` and the `CollectionAccount`\
+    \ index to the new owner \u2014 it never\nmoved the reserved collection deposit.\
+    \ This left `total_deposit` reserved under the\n*old* owner while the collection\
+    \ was owned by the *new* account."
+crates:
+- name: pallet-uniques
+  bump: patch
