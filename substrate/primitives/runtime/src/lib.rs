@@ -486,13 +486,23 @@ impl Verify for MultiSignature {
 			Self::Ed25519(sig) => sig.verify(msg, &who.into()),
 			Self::Sr25519(sig) => sig.verify(msg, &who.into()),
 			Self::Ecdsa(sig) => {
+				let sig_ref: &[u8; 65] = sig.as_ref();
+				// Reject high-S signatures (BIP-62 malleability protection)
+				if !ecdsa::is_signature_normalized(sig_ref) {
+					return false;
+				}
 				let m = sp_io::hashing::blake2_256(msg.get());
-				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_ref, &m)
 					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 			Self::Eth(sig) => {
+				let sig_ref: &[u8; 65] = sig.as_ref();
+				// Reject high-S signatures (EIP-2 / BIP-62 malleability protection)
+				if !ecdsa::is_signature_normalized(sig_ref) {
+					return false;
+				}
 				let m = sp_io::hashing::keccak_256(msg.get());
-				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_ref, &m)
 					.map_or(false, |pubkey| {
 						&MultiSigner::Eth(pubkey.into()).into_account() == signer
 					})
@@ -1259,6 +1269,81 @@ mod tests {
 		let multi_sig = MultiSignature::Eth(signature);
 		let multi_signer = MultiSigner::Eth(pair.public());
 		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
+	}
+
+	/// Helper: compute high-S malleable variant of a 65-byte ECDSA signature.
+	/// Returns `s' = order - s` with `v' = v ^ 1`.
+	pub(crate) fn make_high_s_signature(sig: &[u8; 65]) -> [u8; 65] {
+		// secp256k1 curve order N
+		let order: [u8; 32] = [
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+			0xd0, 0x36, 0x41, 0x41,
+		];
+		let s_bytes: [u8; 32] = sig[32..64].try_into().unwrap();
+		let mut s_prime = [0u8; 32];
+		let mut borrow = 0i16;
+		for i in (0..32).rev() {
+			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
+			if diff < 0 {
+				s_prime[i] = (diff + 256) as u8;
+				borrow = 1;
+			} else {
+				s_prime[i] = diff as u8;
+				borrow = 0;
+			}
+		}
+		let mut out = [0u8; 65];
+		out[0..32].copy_from_slice(&sig[0..32]);
+		out[32..64].copy_from_slice(&s_prime);
+		out[64] = sig[64] ^ 1;
+		out
+	}
+
+	#[test]
+	fn multi_signature_ecdsa_rejects_high_s() {
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::Pair::generate();
+
+		let signature = pair.sign(&msg);
+		let multi_signer = MultiSigner::from(pair.public());
+		let account = multi_signer.into_account();
+
+		// Low-S signature verifies
+		let multi_sig = MultiSignature::from(signature);
+		assert!(multi_sig.verify(msg, &account));
+
+		// Construct high-S malleable variant
+		let sig_bytes: &[u8; 65] = signature.as_ref();
+		let malleable = make_high_s_signature(sig_bytes);
+		let malleable_sig = MultiSignature::Ecdsa(ecdsa::Signature::from_raw(malleable));
+		assert!(
+			!malleable_sig.verify(msg, &account),
+			"high-S ECDSA signature should be rejected by MultiSignature"
+		);
+	}
+
+	#[test]
+	fn multi_signature_eth_rejects_high_s() {
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::KeccakPair::generate();
+
+		let signature = pair.sign(&msg);
+		let multi_signer = MultiSigner::Eth(pair.public());
+		let account = multi_signer.into_account();
+
+		// Low-S signature verifies
+		let multi_sig = MultiSignature::Eth(signature);
+		assert!(multi_sig.verify(msg, &account));
+
+		// Construct high-S malleable variant
+		let sig_bytes: &[u8; 65] = signature.as_ref();
+		let malleable = make_high_s_signature(sig_bytes);
+		let malleable_sig = MultiSignature::Eth(ecdsa::KeccakSignature::from_raw(malleable));
+		assert!(
+			!malleable_sig.verify(msg, &account),
+			"high-S Eth signature should be rejected by MultiSignature"
+		);
 	}
 
 	#[test]
