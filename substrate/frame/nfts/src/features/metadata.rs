@@ -86,12 +86,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let old_depositor = old_deposit.account.unwrap_or(collection_details.owner.clone());
 
 			if depositor != old_depositor {
-				T::Currency::unreserve(&old_depositor, old_deposit.amount);
-				T::Currency::reserve(&depositor, deposit)?;
+				Self::release_deposit(&old_depositor, old_deposit.amount);
+				Self::hold_deposit(&depositor, deposit)?;
 			} else if deposit > old_deposit.amount {
-				T::Currency::reserve(&depositor, deposit - old_deposit.amount)?;
+				Self::hold_deposit(&depositor, deposit - old_deposit.amount)?;
 			} else if deposit < old_deposit.amount {
-				T::Currency::unreserve(&depositor, old_deposit.amount - deposit);
+				Self::release_deposit(&depositor, old_deposit.amount - deposit);
 			}
 
 			if maybe_depositor.is_none() {
@@ -151,7 +151,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(is_root || !is_locked, Error::<T, I>::LockedItemMetadata);
 
 		collection_details.item_metadatas.saturating_dec();
-		T::Currency::unreserve(&depositor_account, metadata.deposit.amount);
+		Self::release_deposit(&depositor_account, metadata.deposit.amount);
 
 		if depositor_account == collection_details.owner {
 			collection_details.owner_deposit.saturating_reduce(metadata.deposit.amount);
@@ -209,9 +209,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.saturating_add(T::MetadataDepositBase::get());
 			}
 			if deposit > old_deposit {
-				T::Currency::reserve(&details.owner, deposit - old_deposit)?;
+				Self::hold_deposit(&details.owner, deposit - old_deposit)?;
 			} else if deposit < old_deposit {
-				T::Currency::unreserve(&details.owner, old_deposit - deposit);
+				Self::release_deposit(&details.owner, old_deposit - deposit);
 			}
 			details.owner_deposit.saturating_accrue(deposit);
 
@@ -260,7 +260,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		CollectionMetadataOf::<T, I>::try_mutate_exists(collection, |metadata| {
 			let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
-			T::Currency::unreserve(&details.owner, deposit);
+			Self::release_deposit(&details.owner, deposit);
 			details.owner_deposit.saturating_reduce(deposit);
 			Collection::<T, I>::insert(&collection, details);
 			Self::deposit_event(Event::CollectionMetadataCleared { collection });
