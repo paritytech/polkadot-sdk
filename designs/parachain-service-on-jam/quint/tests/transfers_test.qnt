@@ -175,7 +175,9 @@ module transfers_test {
       parentHeadHash: headHash(paid.paraInfo(ah).headData),
       headData: paid.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(fresh)),
-      lookupAnchor: fresh
+      lookupAnchor: fresh,
+      specMsgProvides: None,
+      specMsgRequires: List()
     }
     val out = accumulateOnePackage(
       paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen,
