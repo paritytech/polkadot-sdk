@@ -234,8 +234,20 @@
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
-- job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement"
-  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test"
+- job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement-para-rollback"
+  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test::case_1_para_rollback"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-scheduling-v3-dynamic-enablement-para-rollback-rpo-2"
+  test-filter: "functional::v3_dynamic_enablement::v3_dynamic_enablement_test::case_2_para_rollback_rpo_2"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-polkadot-v4-collation-protocol-version-negotiation"
+  test-filter: "functional::collation_protocol_version_negotiation::collation_protocol_version_negotiation"
   runner-type: "default"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"

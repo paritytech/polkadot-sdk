@@ -60,6 +60,7 @@ use sc_network_sync::{
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		chain_sync::{GapSyncBodyPolicy, GapSyncBodyPolicyProvider},
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		SyncingStrategy,
 	},
@@ -1015,6 +1016,10 @@ where
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Which block bodies gap sync downloads after warp sync. `None` derives the
+	/// default from the block pruning configuration, see
+	/// [`default_gap_sync_body_policy`].
+	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -1048,6 +1053,7 @@ where
 		warp_sync_config,
 		block_relay,
 		metrics,
+		gap_sync_body_policy,
 	} = params;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
@@ -1085,6 +1091,8 @@ where
 		),
 	};
 
+	let gap_sync_body_policy =
+		gap_sync_body_policy.unwrap_or_else(|| default_gap_sync_body_policy(config.blocks_pruning));
 	let syncing_strategy = build_polkadot_syncing_strategy(
 		protocol_id.clone(),
 		fork_id,
@@ -1094,7 +1102,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
-		config.blocks_pruning.is_archive(),
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1112,7 +1120,9 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	build_network_advanced(BuildNetworkAdvancedParams {
 		role: config.role,
@@ -1390,13 +1400,16 @@ where
 	pub num_peers_hint: usize,
 	/// A handle for spawning tasks.
 	pub spawn_handle: &'a SpawnTaskHandle,
+	/// A handle for spawning essential tasks. Used for the syncing engine itself.
+	pub spawn_essential_handle: &'a SpawnEssentialTaskHandle,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
-	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
-	/// block history.
-	pub archive_blocks: bool,
+	/// Resolves the gap sync body policy when a `ChainSync` instance is created. Use
+	/// [`default_gap_sync_body_policy`] unless the node opts into storage-chain body
+	/// recovery.
+	pub gap_sync_body_policy: GapSyncBodyPolicyProvider,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1427,9 +1440,10 @@ where
 		import_queue_service,
 		num_peers_hint,
 		spawn_handle,
+		spawn_essential_handle,
 		metrics_registry,
 		metrics,
-		archive_blocks,
+		gap_sync_body_policy,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1450,7 +1464,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
-		archive_blocks,
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1468,7 +1482,9 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	Ok((sync_service, block_announce_config))
 }
@@ -1508,6 +1524,21 @@ where
 	downloader
 }
 
+/// The default gap sync body policy provider, derived from the block pruning
+/// configuration: archive nodes backfill the whole gap with bodies, pruned nodes
+/// headers and justifications only.
+///
+/// Storage-chain nodes install their own provider instead, via
+/// [`BuildNetworkParams::gap_sync_body_policy`].
+pub fn default_gap_sync_body_policy(blocks_pruning: BlocksPruning) -> GapSyncBodyPolicyProvider {
+	Arc::new(move || {
+		Ok(blocks_pruning
+			.is_archive()
+			.then_some(GapSyncBodyPolicy::All)
+			.unwrap_or(GapSyncBodyPolicy::HeadersOnly))
+	})
+}
+
 /// Build standard polkadot syncing strategy
 pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	protocol_id: ProtocolId,
@@ -1518,7 +1549,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
-	archive_blocks: bool,
+	gap_sync_body_policy: GapSyncBodyPolicyProvider,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1588,7 +1619,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
-		archive_blocks,
+		gap_sync_body_policy,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,
