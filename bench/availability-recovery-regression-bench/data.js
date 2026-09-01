@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788260447457,
+  "lastUpdate": 1788276417531,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexandre.balde@parity.io",
-            "name": "Alexandre R. Baldé",
-            "username": "rockbmb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "eeee11ea6f7d34ad79199c33d28ecb0940fd6c31",
-          "message": "Expand multisig pallet tests (#10843)\n\n# Description\n\n* Add tests to `SenderInSignatories/SignatoriesOutOfOrder` error cases\n* Add clarifying note to `approve_as_multi/as_multi` comments\n\nFollow-up from\nhttps://github.com/open-web3-stack/polkadot-ecosystem-tests/pull/305 and\nhttps://github.com/open-web3-stack/polkadot-ecosystem-tests/pull/323\n\n## Integration\n\nN/A\n\n## Review Notes\n\nN/A\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-02-04T02:43:48Z",
-          "tree_id": "82b0a20956dbae44ac339cdeb69f63f05031ffb8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/eeee11ea6f7d34ad79199c33d28ecb0940fd6c31"
-        },
-        "date": 1770180958706,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.3708287267,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12375631353333331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14364612403333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "022ef2df06121bd594c7653c6e1708690959340b",
+          "message": "ci: update ai review action (#13046)\n\nNow it uses public action so should work\n\ncc https://github.com/paritytech/devops/issues/5505",
+          "timestamp": "2026-09-01T13:57:09Z",
+          "tree_id": "6003ca24ddc28d3e81d31cfcac6250d1bc7a04de",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/022ef2df06121bd594c7653c6e1708690959340b"
+        },
+        "date": 1788276379692,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.197772542100001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13651585840000002,
             "unit": "seconds"
           }
         ]
