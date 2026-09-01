@@ -1,0 +1,17 @@
+title: 'sp-io: report runtime panic messages to the host by default'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The runtime panic handler in `sp-io` now marshals panic (and OOM) messages
+    to the host via the `PanicHandler::abort_on_panic` host function by
+    default, so callers receive `Runtime panicked: <message>` instead of an
+    opaque `wasm trap: wasm 'unreachable' instruction executed` error. This
+    was previously opt-in behind the `improved_panic_error_reporting` feature,
+    which is now a deprecated no-op. Runtimes targeting a host client without
+    the `PanicHandler` host functions can restore the previous behavior with
+    the new `legacy_panic_error_reporting` feature. The polkadot PVF executor
+    instantiates with `allow_missing_func_imports`, so parachain validation is
+    unaffected: a panic during validation traps exactly as before.
+crates:
+- name: sp-io
+  bump: minor
