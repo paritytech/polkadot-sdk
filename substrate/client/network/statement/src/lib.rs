@@ -559,6 +559,8 @@ impl StatementHandlerPrototype {
 		mut num_submission_workers: usize,
 		statements_per_second: u32,
 		configured_topics: &[Topic],
+		bloom_seed: Option<u128>,
+		bloom_false_pos: f64,
 		replication_factor: std::num::NonZeroUsize,
 		gossip_target: std::num::NonZeroUsize,
 		retention: RetentionHandle,
@@ -637,6 +639,8 @@ impl StatementHandlerPrototype {
 		};
 		let mut v2dht = V2DhtOrchestrator::new(
 			configured_topics,
+			bloom_seed,
+			bloom_false_pos,
 			network.local_peer_id(),
 			PeersTopologyConfig { replication_factor, gossip_target },
 			self.protocol_name.clone(),
@@ -1136,6 +1140,8 @@ where
 		let local_peer = network.local_peer_id();
 		let v2dht = V2DhtOrchestrator::new(
 			&[],
+			None,
+			crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 			local_peer,
 			PeersTopologyConfig {
 				replication_factor: crate::config::DEFAULT_REPLICATION_FACTOR,
@@ -3303,6 +3309,8 @@ mod tests {
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
 			v2dht: V2DhtOrchestrator::new(
 				&[],
+				None,
+				crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
@@ -4139,6 +4147,8 @@ mod tests {
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
 			v2dht: V2DhtOrchestrator::new(
 				&[],
+				None,
+				crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
@@ -4202,6 +4212,8 @@ mod tests {
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
 			v2dht: V2DhtOrchestrator::new(
 				&[],
+				None,
+				crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
@@ -6358,6 +6370,8 @@ mod tests {
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
 			v2dht: V2DhtOrchestrator::new(
 				&[],
+				None,
+				crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
@@ -6862,6 +6876,8 @@ mod tests {
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
 			v2dht: V2DhtOrchestrator::new(
 				&[],
+				None,
+				crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
@@ -6956,6 +6972,8 @@ mod tests {
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
 			v2dht: V2DhtOrchestrator::new(
 				&[],
+				None,
+				crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
@@ -7053,6 +7071,8 @@ mod tests {
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
 			v2dht: V2DhtOrchestrator::new(
 				&[],
+				None,
+				crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 				network.local_peer_id(),
 				topology_config(20, 3),
 				"/statement/test".into(),
@@ -7174,6 +7194,8 @@ mod tests {
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
 					v2dht: V2DhtOrchestrator::new(
 						&[],
+						None,
+						crate::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 						local_peer,
 						topology_config(20, 3),
 						"/statement/test".into(),

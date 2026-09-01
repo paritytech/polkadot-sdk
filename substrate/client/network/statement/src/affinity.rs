@@ -47,10 +47,6 @@ const MAX_NUM_HASHES: u32 = 64;
 /// of the exact count keeps the encoded length from revealing how many topics a node follows.
 const MIN_EXPECTED_ITEMS: usize = 128;
 
-/// Default false-positive rate used when building a filter from a local topic list.
-// TODO: make this configurable through the statement-protocol config.
-const BLOOM_FALSE_POS_RATE: f64 = 0.01;
-
 /// A [`BuildHasher`] factory that produces [`PortableHasher`] instances with
 /// platform-independent hashing.  This ensures bloom-filter bits are identical
 /// on `wasm32` and 64-bit targets when hashing types whose `Hash` impl calls
@@ -172,10 +168,14 @@ impl AffinityFilter {
 	/// An empty topic set yields a filter that matches nothing, not everything;
 	/// use [`Self::match_all`] for the latter.
 	#[allow(dead_code)]
-	pub(crate) fn from_topics<'a>(topics: impl Iterator<Item = &'a [u8; 32]>, seed: u128) -> Self {
+	pub(crate) fn from_topics<'a>(
+		topics: impl Iterator<Item = &'a [u8; 32]>,
+		seed: u128,
+		false_pos: f64,
+	) -> Self {
 		let topics: Vec<&[u8; 32]> = topics.collect();
 		let expected_items = topics.len().max(MIN_EXPECTED_ITEMS);
-		let mut filter = Self::new(seed, BLOOM_FALSE_POS_RATE, expected_items);
+		let mut filter = Self::new(seed, false_pos, expected_items);
 		for topic in topics {
 			filter.insert(topic);
 		}
@@ -230,6 +230,7 @@ impl Decode for AffinityFilter {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::config::DEFAULT_BLOOM_FALSE_POS_RATE;
 
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
@@ -441,13 +442,18 @@ mod tests {
 
 	#[test]
 	fn from_topics_applies_minimum_floor() {
-		let reference = AffinityFilter::new(BLOOM_SEED, BLOOM_FALSE_POS_RATE, MIN_EXPECTED_ITEMS)
-			.encode()
-			.len();
+		let reference =
+			AffinityFilter::new(BLOOM_SEED, DEFAULT_BLOOM_FALSE_POS_RATE, MIN_EXPECTED_ITEMS)
+				.encode()
+				.len();
 
 		// Counts at or below the floor must encode identically, so the count is not observable.
 		for count in [0usize, 1, MIN_EXPECTED_ITEMS / 2, MIN_EXPECTED_ITEMS] {
-			let filter = AffinityFilter::from_topics(topics(count).iter(), BLOOM_SEED);
+			let filter = AffinityFilter::from_topics(
+				topics(count).iter(),
+				BLOOM_SEED,
+				DEFAULT_BLOOM_FALSE_POS_RATE,
+			);
 			assert_eq!(
 				filter.encode().len(),
 				reference,
@@ -455,7 +461,11 @@ mod tests {
 			);
 		}
 
-		let filter = AffinityFilter::from_topics(topics(MIN_EXPECTED_ITEMS * 4).iter(), BLOOM_SEED);
+		let filter = AffinityFilter::from_topics(
+			topics(MIN_EXPECTED_ITEMS * 4).iter(),
+			BLOOM_SEED,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+		);
 		assert!(
 			filter.encode().len() > reference,
 			"a filter sized above the floor must encode larger"
@@ -464,7 +474,11 @@ mod tests {
 
 	#[test]
 	fn from_topics_empty_is_not_match_all() {
-		let filter = AffinityFilter::from_topics(core::iter::empty::<&[u8; 32]>(), BLOOM_SEED);
+		let filter = AffinityFilter::from_topics(
+			core::iter::empty::<&[u8; 32]>(),
+			BLOOM_SEED,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+		);
 
 		// Empty set ("nothing specific") must reject a concrete topic, not match everything.
 		let mut stmt = Statement::new();
@@ -483,8 +497,12 @@ mod tests {
 		// A built filter must always pass its own decode path. `num_hashes` is the bound at risk:
 		// the smallest `expected_items` is the worst case, yielding the most hash functions.
 		let cases = [
-			AffinityFilter::new(BLOOM_SEED, BLOOM_FALSE_POS_RATE, 1),
-			AffinityFilter::from_topics(topics(MIN_EXPECTED_ITEMS * 4).iter(), BLOOM_SEED),
+			AffinityFilter::new(BLOOM_SEED, DEFAULT_BLOOM_FALSE_POS_RATE, 1),
+			AffinityFilter::from_topics(
+				topics(MIN_EXPECTED_ITEMS * 4).iter(),
+				BLOOM_SEED,
+				DEFAULT_BLOOM_FALSE_POS_RATE,
+			),
 			AffinityFilter::match_all(BLOOM_SEED),
 		];
 		for filter in cases {

@@ -58,6 +58,9 @@ pub const DEFAULT_STATEMENTS_PER_SECOND: u32 = 50_000;
 /// Burst capacity coefficient for the rate limiter.
 pub const STATEMENTS_BURST_COEFFICIENT: u32 = 5;
 
+/// Default false-positive rate for an affinity bloom filter built from a local topic list.
+pub const DEFAULT_BLOOM_FALSE_POS_RATE: f64 = 0.01;
+
 /// Default replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
 /// responsible for storing a given topic.
 pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expect("20 is non-zero");

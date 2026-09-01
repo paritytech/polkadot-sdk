@@ -100,6 +100,8 @@ pub(crate) fn build_statement_store<
 		network_workers,
 		rate_limit,
 		&affinity_topics,
+		None,
+		sc_network_statement::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		replication_factor,
 		gossip_target,
 		retention,

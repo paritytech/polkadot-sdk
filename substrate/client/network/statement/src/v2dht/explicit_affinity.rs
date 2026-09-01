@@ -104,9 +104,10 @@ pub(crate) enum AffinitySource {
 pub(crate) struct ExplicitAffinity {
 	/// Seed for the advertised filter. Encoded on the wire so peers rebuild the same bloom; it
 	/// only needs to stay stable for the node's lifetime, so a fresh random value per node
-	/// suffices.
-	// TODO: source it from the protocol config (as the light client does) once that is plumbed.
+	/// suffices when the configuration provides none.
 	seed: u128,
+	/// False-positive rate for the advertised filter.
+	false_pos: f64,
 	/// Local topics, each mapped to its per-source reference counts. A topic stays in the map only
 	/// while some source references it.
 	local: HashMap<Topic, HashMap<AffinitySource, u32>>,
@@ -118,9 +119,14 @@ pub(crate) struct ExplicitAffinity {
 
 #[allow(dead_code)]
 impl ExplicitAffinity {
-	pub(crate) fn new(configured_topics: &[Topic]) -> Self {
+	pub(crate) fn new(
+		configured_topics: &[Topic],
+		bloom_seed: Option<u128>,
+		bloom_false_pos: f64,
+	) -> Self {
 		let mut this = Self {
-			seed: rand::random(),
+			seed: bloom_seed.unwrap_or_else(rand::random),
+			false_pos: bloom_false_pos,
 			local: HashMap::new(),
 			local_changed: false,
 			peers: HashMap::new(),
@@ -200,7 +206,11 @@ impl ExplicitAffinity {
 
 	/// The [`AffinityFilter`] this node advertises, built from its current topics.
 	pub(crate) fn local_filter(&self) -> AffinityFilter {
-		AffinityFilter::from_topics(self.local.keys().map(|topic| topic.as_ref()), self.seed)
+		AffinityFilter::from_topics(
+			self.local.keys().map(|topic| topic.as_ref()),
+			self.seed,
+			self.false_pos,
+		)
 	}
 
 	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
@@ -251,7 +261,10 @@ impl TopicAffinity {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_helpers::{filter_over, statement_on, topic};
+	use crate::{
+		config::DEFAULT_BLOOM_FALSE_POS_RATE,
+		test_helpers::{filter_over, statement_on, topic},
+	};
 
 	fn topic_set(affinity: &ExplicitAffinity) -> HashSet<Topic> {
 		affinity.topics().into_iter().collect()
@@ -259,15 +272,18 @@ mod tests {
 
 	#[test]
 	fn configured_topics_enter_the_set_at_construction() {
-		let affinity = ExplicitAffinity::new(&[topic(1), topic(2)]);
+		let affinity =
+			ExplicitAffinity::new(&[topic(1), topic(2)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		assert_eq!(topic_set(&affinity), HashSet::from([topic(1), topic(2)]));
 
-		assert!(ExplicitAffinity::new(&[]).topics().is_empty());
+		assert!(ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE)
+			.topics()
+			.is_empty());
 	}
 
 	#[test]
 	fn replace_source_topics_reconciles_membership() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 
 		affinity.replace_source_topics(
 			AffinitySource::RpcSubscription,
@@ -289,7 +305,7 @@ mod tests {
 	#[test]
 	fn replace_source_topics_leaves_other_sources_intact() {
 		// topic(1) is configured; the subscription source also wants it plus topic(2).
-		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		let mut affinity = ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		affinity.replace_source_topics(
 			AffinitySource::RpcSubscription,
 			&HashSet::from([topic(1), topic(2)]),
@@ -303,7 +319,7 @@ mod tests {
 
 	#[test]
 	fn replace_source_topics_changes_local() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		assert!(!affinity.local_changed);
 
 		// Change the local set
@@ -324,7 +340,8 @@ mod tests {
 
 	#[test]
 	fn configured_duplicates_collapse_to_one_reference() {
-		let mut affinity = ExplicitAffinity::new(&[topic(1), topic(1)]);
+		let mut affinity =
+			ExplicitAffinity::new(&[topic(1), topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		// A repeated configured value holds a single reference: one remove clears the topic.
 		affinity.remove_topics(AffinitySource::Configured, &[topic(1)]);
 		assert!(affinity.topics().is_empty());
@@ -332,7 +349,7 @@ mod tests {
 
 	#[test]
 	fn topic_survives_until_last_source_drops() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
 
@@ -349,7 +366,7 @@ mod tests {
 
 	#[test]
 	fn topic_survives_until_last_holder_of_one_source_drops() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		// Two subscriptions on the same topic each hold a reference.
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(1)]);
@@ -363,7 +380,7 @@ mod tests {
 
 	#[test]
 	fn remove_absent_is_noop() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1)]);
 
 		// Unheld topic and unheld source both leave the set untouched, without underflow.
@@ -374,7 +391,7 @@ mod tests {
 
 	#[test]
 	fn topics_lists_each_live_topic_once() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		affinity.add_topics(AffinitySource::Configured, &[topic(1), topic(2)]);
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2), topic(3)]);
 
@@ -385,7 +402,7 @@ mod tests {
 
 	#[test]
 	fn local_filter_advertises_every_followed_topic() {
-		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		let mut affinity = ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
 
 		let filter = affinity.local_filter();
@@ -396,13 +413,13 @@ mod tests {
 
 	#[test]
 	fn local_filter_empty_set_matches_nothing_concrete() {
-		let affinity = ExplicitAffinity::new(&[]);
+		let affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		assert!(!affinity.local_filter().matches_statement(&statement_on(topic(1))));
 	}
 
 	#[test]
 	fn take_local_filter_if_changed_yields_once_per_change() {
-		let mut affinity = ExplicitAffinity::new(&[topic(1)]);
+		let mut affinity = ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let filter = affinity.take_local_filter_if_changed().expect("construction marks a change");
 		assert!(filter.contains(&topic(1)));
 
@@ -419,7 +436,8 @@ mod tests {
 
 	#[test]
 	fn topic_affinity_tracks_membership() {
-		let affinity = ExplicitAffinity::new(&[topic(1)]).topic_affinity();
+		let affinity =
+			ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE).topic_affinity();
 
 		assert!(affinity.is_affine(&statement_on(topic(1))));
 		assert!(!affinity.is_affine(&statement_on(topic(2))));
@@ -431,7 +449,7 @@ mod tests {
 
 	#[test]
 	fn peer_has_explicit_affinity_reads_the_stored_filter() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let peer = PeerId::random();
 		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
@@ -441,13 +459,13 @@ mod tests {
 
 	#[test]
 	fn unknown_peer_has_no_affinity() {
-		let affinity = ExplicitAffinity::new(&[]);
+		let affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		assert!(!affinity.peer_has_explicit_affinity(PeerId::random(), &statement_on(topic(1))));
 	}
 
 	#[test]
 	fn update_peer_filter_replaces_the_previous_one() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let peer = PeerId::random();
 
 		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
@@ -459,7 +477,7 @@ mod tests {
 
 	#[test]
 	fn on_peer_disconnected_drops_the_filter() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let peer = PeerId::random();
 		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
@@ -469,7 +487,7 @@ mod tests {
 
 	#[test]
 	fn peer_with_a_filter_accepts_broadcast_statements() {
-		let mut affinity = ExplicitAffinity::new(&[]);
+		let mut affinity = ExplicitAffinity::new(&[], None, DEFAULT_BLOOM_FALSE_POS_RATE);
 		let peer = PeerId::random();
 		affinity.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 

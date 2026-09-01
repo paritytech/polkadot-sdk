@@ -820,6 +820,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_network_workers,
 		statement_rate_limit,
 		&statement_affinity_topics,
+		None,
+		sc_network_statement::config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		statement_replication_factor,
 		statement_gossip_target,
 		retention,

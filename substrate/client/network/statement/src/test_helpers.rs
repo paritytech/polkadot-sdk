@@ -18,7 +18,10 @@
 
 //! Fixtures shared across the crate's test modules.
 
-use crate::{affinity::AffinityFilter, v2dht::peers_topology::PeersTopologyConfig};
+use crate::{
+	affinity::AffinityFilter, config::DEFAULT_BLOOM_FALSE_POS_RATE,
+	v2dht::peers_topology::PeersTopologyConfig,
+};
 use sc_network_types::PeerId;
 use sp_statement_store::{Statement, Topic};
 use std::num::NonZeroUsize;
@@ -51,7 +54,11 @@ pub(crate) fn statement_on(topic: Topic) -> Statement {
 
 /// A filter advertising the given `topics`.
 pub(crate) fn filter_over(topics: &[Topic]) -> AffinityFilter {
-	AffinityFilter::from_topics(topics.iter().map(|topic| topic.as_ref()), 0)
+	AffinityFilter::from_topics(
+		topics.iter().map(|topic| topic.as_ref()),
+		0,
+		DEFAULT_BLOOM_FALSE_POS_RATE,
+	)
 }
 
 /// A topology config with the given `replication_factor` and `gossip_target`.

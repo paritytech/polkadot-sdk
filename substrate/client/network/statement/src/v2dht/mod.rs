@@ -115,6 +115,8 @@ pub(crate) struct V2DhtOrchestrator {
 impl V2DhtOrchestrator {
 	pub(crate) fn new(
 		configured_topics: &[Topic],
+		bloom_seed: Option<u128>,
+		bloom_false_pos: f64,
 		local_peer: PeerId,
 		peers_topology_config: PeersTopologyConfig,
 		protocol: ProtocolName,
@@ -122,7 +124,11 @@ impl V2DhtOrchestrator {
 	) -> Self {
 		Self {
 			peers_topology: PeersTopology::new(local_peer, peers_topology_config),
-			explicit_affinity: ExplicitAffinity::new(configured_topics),
+			explicit_affinity: ExplicitAffinity::new(
+				configured_topics,
+				bloom_seed,
+				bloom_false_pos,
+			),
 			peer_steering: PeerSteering::new(protocol),
 			retention: None,
 			metrics,
@@ -320,11 +326,16 @@ impl V2DhtOrchestrator {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config};
+	use crate::{
+		config::DEFAULT_BLOOM_FALSE_POS_RATE,
+		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
+	};
 
 	fn orchestrator() -> V2DhtOrchestrator {
 		V2DhtOrchestrator::new(
 			&[],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
 			PeerId::random(),
 			topology_config(20, 3),
 			"/statement/test".into(),
@@ -335,7 +346,15 @@ mod tests {
 	/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
 	/// distances the propagation tests assert on stay reproducible across runs.
 	fn orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -> V2DhtOrchestrator {
-		V2DhtOrchestrator::new(&[], peer(local_seed), config, "/statement/test".into(), None)
+		V2DhtOrchestrator::new(
+			&[],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
+			peer(local_seed),
+			config,
+			"/statement/test".into(),
+			None,
+		)
 	}
 
 	fn statement(seed: u8, topics: &[Topic]) -> (u64, Hash, Statement) {
@@ -436,7 +455,9 @@ mod tests {
 		let (dht, topic) = dht_without_local_affinity();
 		let handle = RetentionHandle::new(peer(1), nz(1));
 		handle.set_dht_affinity(dht);
-		handle.set_topic_affinity(ExplicitAffinity::new(&[topic]).topic_affinity());
+		handle.set_topic_affinity(
+			ExplicitAffinity::new(&[topic], None, DEFAULT_BLOOM_FALSE_POS_RATE).topic_affinity(),
+		);
 
 		let mask = handle.resolver()(&statement_on(topic));
 
@@ -470,6 +491,8 @@ mod tests {
 	fn publish_dht_affinity_reflects_the_orchestrator_topology() {
 		let mut orchestrator = V2DhtOrchestrator::new(
 			&[],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
 			peer(1),
 			topology_config(1, 1),
 			"/statement/test".into(),
@@ -500,6 +523,8 @@ mod tests {
 		// any peer or subscription event.
 		let mut orchestrator = V2DhtOrchestrator::new(
 			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
 			peer(1),
 			topology_config(1, 1),
 			"/statement/test".into(),
@@ -516,6 +541,8 @@ mod tests {
 	fn set_rpc_subscription_topics_publishes_topic_affinity() {
 		let mut orchestrator = V2DhtOrchestrator::new(
 			&[],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
 			peer(1),
 			topology_config(1, 1),
 			"/statement/test".into(),
@@ -539,7 +566,9 @@ mod tests {
 		// topic so both retention reasons hold at once.
 		let handle = RetentionHandle::new(peer(1), nz(1));
 		handle.set_dht_affinity(PeersTopology::new(peer(1), topology_config(20, 1)).dht_affinity());
-		handle.set_topic_affinity(ExplicitAffinity::new(&[topic(9)]).topic_affinity());
+		handle.set_topic_affinity(
+			ExplicitAffinity::new(&[topic(9)], None, DEFAULT_BLOOM_FALSE_POS_RATE).topic_affinity(),
+		);
 
 		let mask = handle.resolver()(&statement_on(topic(9)));
 
@@ -587,6 +616,8 @@ mod tests {
 	fn affinity_tick_marks_coverage_peers_for_connection() {
 		let mut orchestrator = V2DhtOrchestrator::new(
 			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
 			PeerId::random(),
 			topology_config(20, 3),
 			"/statement/test".into(),
@@ -613,6 +644,8 @@ mod tests {
 	fn connected_coverage_peer_is_never_disconnected() {
 		let mut orchestrator = V2DhtOrchestrator::new(
 			&[topic(1)],
+			None,
+			DEFAULT_BLOOM_FALSE_POS_RATE,
 			peer(1),
 			topology_config(20, 3),
 			"/statement/test".into(),
