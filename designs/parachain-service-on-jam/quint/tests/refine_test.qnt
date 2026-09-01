@@ -20,13 +20,13 @@ module refine_test {
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
     val parentOnly =
-      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), None, List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadUndeclared, List(), 0)[0]
     val headOnly =
-      refine(initialState, pkg, false, PvfOk, None, Some(1), List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, None, HeadDeclared(1), List(), 0)[0]
     val neither =
-      refine(initialState, pkg, false, PvfOk, None, None, List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, None, HeadUndeclared, List(), 0)[0]
     val both =
-      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), List(), 0)[0]
+      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
     all {
       // Missing new head, missing parent head, or both → rejected.
       assert(parentOnly == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
@@ -57,8 +57,10 @@ module refine_test {
     val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1024 })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
-    val overOut = refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), over, 0)[0]
-    val atCapOut = refine(initialState, pkg, false, PvfOk, Some(headHash(0)), Some(1), atCap, 0)[0]
+    val overOut =
+      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadDeclared(1), over, 0)[0]
+    val atCapOut =
+      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadDeclared(1), atCap, 0)[0]
     all {
       assert(over.length() == 1025),
       assert(overOut == WorkOk(Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages }))),
@@ -132,9 +134,9 @@ module refine_test {
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
     val reported = refine(initialState, pkg, false, PvfReportError(42),
-      Some(headHash(0)), Some(1), List(), 0)[0]
+      Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
     val panicked = refine(initialState, pkg, false, PvfPanic,
-      Some(headHash(0)), Some(1), List(), 0)[0]
+      Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
       initialState, { result: panicked, authTrace: 7 }, Set(), None, FixedCodeLen, 5, Map())
@@ -147,6 +149,29 @@ module refine_test {
       assert(accPanic.state == initialState),
       assert(accPanic.state.paraLog(para) == List()),
       assert(accPanic.logPruned == None),
+      init
+    }
+  }
+
+  /// §4.3: `set_head` with head data past the 4 KiB `HeadData` cap aborts Refine
+  /// with `HeadDataTooLarge`. The abort happens inside `set_head`, so it wins
+  /// over the wrapper's post-exit check for a missing `set_parent_head_hash`.
+  /// Like every other structural refine failure it is nullary (1 B encoded) and
+  /// the most disposable eviction rank (§5.1).
+  run headDataTooLargeTest = {
+    val pkg: WorkPackage = {
+      authorizedParas: List(CoretimeParaId),
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+    }
+    val withParent =
+      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadOversized, List(), 0)[0]
+    val withoutParent =
+      refine(initialState, pkg, false, PvfOk, None, HeadOversized, List(), 0)[0]
+    all {
+      assert(withParent == WorkOk(Err({ paraId: CoretimeParaId, error: HeadDataTooLarge }))),
+      assert(withoutParent == WorkOk(Err({ paraId: CoretimeParaId, error: HeadDataTooLarge }))),
+      assert(refineLogSize(HeadDataTooLarge) == 1),
+      assert(entryRank((0, RefineLogEntry({ error: HeadDataTooLarge, authTrace: 0 }))) == 0),
       init
     }
   }
