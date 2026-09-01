@@ -103,7 +103,10 @@
 //! - Use [`StatementHandlerPrototype::build`] then [`StatementHandler::run`] to obtain a `Future`
 //!   that processes statements.
 
+#[cfg(not(feature = "test-helpers"))]
 mod affinity;
+#[cfg(feature = "test-helpers")]
+pub mod affinity;
 
 use crate::config::*;
 
@@ -183,7 +186,7 @@ impl PeerProtocolVersion {
 }
 
 #[derive(Debug, Encode, Decode)]
-enum StatementMessage {
+pub enum StatementMessage {
 	#[codec(index = 0)]
 	Statements(StatementBatch),
 	/// Bloom filter bytes representing the topics this peer is interested in.
