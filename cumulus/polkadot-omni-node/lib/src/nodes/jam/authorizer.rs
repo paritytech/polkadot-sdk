@@ -222,9 +222,9 @@ fn own_key_missing(
 	ours: &[ed25519::Public],
 ) -> String {
 	format!(
-		"none of this node's `coll` keys is in the collator set `{names}`. The set is {collators:?} \
-		 and the keystore holds {ours:?}; provision the signing key with `key insert --scheme \
-		 ed25519 --key-type coll --suri //<Name>`",
+		"none of this node's `coll` keys is in the collator set `{names}`. The set is \
+		 {collators:?} and the keystore holds {ours:?}; provision the signing key with `key \
+		 insert --scheme ed25519 --key-type coll --suri //<Name>`",
 	)
 }
 

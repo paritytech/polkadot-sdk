@@ -50,8 +50,8 @@
 
 use super::{
 	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET,
-	authorizer::AuraAuthorizer, fetch_anchor_state_proof, jam_slot_at, para_head_stream,
-	resubmission::*,
+	authorizer::AuraAuthorizer, choose_lookup_anchor, fetch_anchor_state_proof, jam_read,
+	jam_slot_at, para_head_stream, resubmission::*,
 };
 use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
@@ -693,8 +693,15 @@ where
 		let block_hash = entry.block_hash;
 		self.log_deadline(index, jam_slot_at(Timestamp::current()), reason);
 
-		let Ok(anchored) =
-			recontext(&*self.jam, self.service_id, self.para_id, &entry.anchored, block_hash).await
+		let Ok(anchored) = recontext(
+			&*self.jam,
+			self.service_id,
+			self.para_id,
+			&self.authorizer,
+			&entry.anchored,
+			block_hash,
+		)
+		.await
 		else {
 			self.forget(index, "the package failed and could not be re-anchored");
 			return;
@@ -991,6 +998,7 @@ async fn recontext<Jam, BlockHash>(
 	jam: &Jam,
 	service_id: ServiceId,
 	para_id: u32,
+	authorizer: &AuraAuthorizer,
 	previous: &Anchored,
 	block_hash: BlockHash,
 ) -> Result<Anchored, ()>
@@ -998,7 +1006,7 @@ where
 	Jam: JamChainSource + JamStateSource + ?Sized,
 	BlockHash: std::fmt::Debug,
 {
-	let (context, anchor_slot) = match fresh_context(jam).await {
+	let (context, anchor_slot) = match fresh_context(jam, authorizer).await {
 		Ok(context) => context,
 		Err(error) => {
 			tracing::error!(
@@ -1046,18 +1054,32 @@ where
 	Ok(Anchored { state_root: *context.state_root, head_proof, context, anchor_slot })
 }
 
-/// The refine context around the current best JAM block (anchor = parent of best, lookup anchor
-/// = parent of finalized), as in polkajam's `create_refine_context`, plus the anchor's slot.
-async fn fresh_context<Jam>(jam: &Jam) -> jam_interface::Result<(RefineContext, JamSlot)>
+/// The refine context around the current best JAM block (anchor = parent of best), as in
+/// polkajam's `create_refine_context`, plus the anchor's slot.
+///
+/// The lookup anchor is *not* simply the parent of the finalized block: it is the newest finalized
+/// block the AURA round-robin names this collator for, because that slot is what the guest reads
+/// to decide whose signature the token has to carry. A re-anchored package is re-signed against
+/// this one, so the policy has to be the same as the builder's.
+async fn fresh_context<Jam>(
+	jam: &Jam,
+	authorizer: &AuraAuthorizer,
+) -> Result<(RefineContext, JamSlot), String>
 where
 	Jam: JamChainSource + ?Sized,
 {
-	let best = jam.best_block().await?;
-	let anchor = jam.parent(best.header_hash).await?;
-	let state_root = jam.state_root(anchor.header_hash).await?;
-	let beefy_root = jam.beefy_root(anchor.header_hash).await?;
-	let finalized = jam.finalized_block().await?;
-	let lookup_anchor = jam.parent(finalized.header_hash).await?;
+	let best = jam_read("bestBlock", HeaderHash::default(), jam.best_block()).await?;
+	let anchor = jam_read("parent", best.header_hash, jam.parent(best.header_hash)).await?;
+	let state_root =
+		jam_read("stateRoot", anchor.header_hash, jam.state_root(anchor.header_hash)).await?;
+	let beefy_root =
+		jam_read("beefyRoot", anchor.header_hash, jam.beefy_root(anchor.header_hash)).await?;
+	let finalized = jam_read("finalizedBlock", anchor.header_hash, jam.finalized_block()).await?;
+	let newest_lookup_anchor =
+		jam_read("parent", finalized.header_hash, jam.parent(finalized.header_hash)).await?;
+	let lookup_anchor = choose_lookup_anchor(jam, &anchor, newest_lookup_anchor, authorizer)
+		.await
+		.ok_or_else(|| "no finalized block in reach names this collator".to_string())?;
 	Ok((
 		RefineContext {
 			anchor: anchor.header_hash,

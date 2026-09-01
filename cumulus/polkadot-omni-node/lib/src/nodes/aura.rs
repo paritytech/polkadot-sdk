@@ -690,6 +690,7 @@ where
 						keystore,
 						para_id,
 						service_id: jam_params.service_id,
+						authorizer: jam_authorizer.clone(),
 						jam: jam.clone(),
 						message_sender,
 					})),

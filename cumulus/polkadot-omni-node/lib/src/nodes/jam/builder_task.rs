@@ -47,7 +47,8 @@
 //! instead of recomputing them from their own clock — exactly as in relay mode.
 
 use super::{
-	JamCollatorMessage, LOG_TARGET, fetch_anchor_state_proof, jam_slot_as_relay_slot, jam_slot_at,
+	JamCollatorMessage, LOG_TARGET, authorizer::AuraAuthorizer, choose_lookup_anchor,
+	fetch_anchor_state_proof, jam_read, jam_slot_as_relay_slot, jam_slot_at,
 };
 use crate::common::{
 	ConstructNodeRuntimeApi, NodeBlock,
@@ -83,7 +84,6 @@ use sp_timestamp::Timestamp;
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{
 	collections::VecDeque,
-	future::Future,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -134,6 +134,9 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub keystore: KeystorePtr,
 	pub para_id: ParaId,
 	pub service_id: ServiceId,
+	/// The para's AURA authorizer, which decides which lookup anchors this collator may sign
+	/// against and which core its packages belong on.
+	pub authorizer: Arc<AuraAuthorizer>,
 	pub jam: Arc<Jam>,
 	pub message_sender: mpsc::Sender<JamCollatorMessage<Block>>,
 }
@@ -596,37 +599,6 @@ fn tip_is_fresh(wall_jam_slot: JamSlot, tip_slot: JamSlot) -> bool {
 	wall_jam_slot.saturating_sub(tip_slot) <= MAX_TIP_LAG_SLOTS
 }
 
-/// Run one JAM read, logging the method, the block it was read at, what came back and the
-/// round-trip: latency is a first-class debugging signal on this path.
-async fn jam_read<T, F>(method: &'static str, at: HeaderHash, read: F) -> Result<T, String>
-where
-	F: Future<Output = jam_interface::Result<T>>,
-	T: std::fmt::Debug,
-{
-	let started = Instant::now();
-	let result = read.await;
-	let elapsed_ms = started.elapsed().as_millis();
-	match &result {
-		Ok(value) => tracing::debug!(
-			target: LOG_TARGET,
-			method,
-			?at,
-			?value,
-			elapsed_ms,
-			"JAM read.",
-		),
-		Err(error) => tracing::warn!(
-			target: LOG_TARGET,
-			method,
-			?at,
-			?error,
-			elapsed_ms,
-			"JAM read failed.",
-		),
-	}
-	result.map_err(|error| format!("{method}: {error}"))
-}
-
 /// Run the builder task. Ends (taking the node down, it is an essential task) only if the JAM
 /// best-block stream cannot be (re-)established or the collation task is gone.
 pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
@@ -648,6 +620,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		keystore,
 		para_id,
 		service_id,
+		authorizer,
 		jam,
 		mut message_sender,
 	} = params;
@@ -735,6 +708,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			&keystore,
 			para_id,
 			service_id,
+			&authorizer,
 			&*jam,
 			slot_duration,
 			tip,
@@ -784,6 +758,7 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	keystore: &KeystorePtr,
 	para_id: ParaId,
 	service_id: ServiceId,
+	authorizer: &AuraAuthorizer,
 	jam: &Jam,
 	slot_duration: SlotDuration,
 	tip: BlockDesc,
@@ -845,7 +820,7 @@ where
 	let (reads, reports) = match tokio::time::timeout(
 		slot_duration.as_duration(),
 		futures::future::join(
-			read_anchor(jam, tip, service_id, para_id_u32),
+			read_anchor(jam, tip, service_id, para_id_u32, authorizer),
 			monitor_in_flight::<Block::Header, _>(jam, tip.header_hash, service_id),
 		),
 	)
@@ -1188,6 +1163,7 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 	tip: BlockDesc,
 	service_id: ServiceId,
 	para_id: u32,
+	authorizer: &AuraAuthorizer,
 ) -> Result<Option<AnchorReads>, String> {
 	// Anchoring at the cached tip itself is what buys back the freshness the phase-4 "parent of
 	// best" convention gave away; `ANCHOR_OFFSET` walks back from it when distance is wanted.
@@ -1200,8 +1176,13 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 	let beefy_root =
 		jam_read("beefyRoot", anchor.header_hash, jam.beefy_root(anchor.header_hash)).await?;
 	let finalized = jam_read("finalizedBlock", anchor.header_hash, jam.finalized_block()).await?;
-	let lookup_anchor =
+	let newest_lookup_anchor =
 		jam_read("parent", finalized.header_hash, jam.parent(finalized.header_hash)).await?;
+	let Some(lookup_anchor) =
+		choose_lookup_anchor(jam, &anchor, newest_lookup_anchor, authorizer).await
+	else {
+		return Ok(None);
+	};
 	let included = jam_read(
 		"serviceValue",
 		anchor.header_hash,
