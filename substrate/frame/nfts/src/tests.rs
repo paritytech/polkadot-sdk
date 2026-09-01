@@ -805,7 +805,7 @@ fn set_collection_metadata_should_work() {
 		));
 		assert_noop!(
 			Nfts::set_collection_metadata(RuntimeOrigin::signed(account(1)), 0, bvec![0u8; 15]),
-			Error::<Test, _>::LockedCollectionMetadata,
+			Error::<Test, ()>::LockedCollectionMetadata,
 		);
 		assert_noop!(
 			Nfts::clear_collection_metadata(RuntimeOrigin::signed(account(1)), 0),
@@ -880,7 +880,7 @@ fn set_item_metadata_should_work() {
 		));
 		assert_noop!(
 			Nfts::set_metadata(RuntimeOrigin::signed(account(1)), 0, 42, bvec![0u8; 15]),
-			Error::<Test, _>::LockedItemMetadata,
+			Error::<Test, ()>::LockedItemMetadata,
 		);
 		assert_noop!(
 			Nfts::clear_metadata(RuntimeOrigin::signed(account(1)), 0, 42),
@@ -3873,5 +3873,292 @@ fn clear_collection_metadata_works() {
 		));
 		assert_eq!(Collection::<Test>::get(0), None);
 		assert_eq!(Balances::reserved_balance(&account(1)), 10);
+	});
+}
+
+#[test]
+fn create_with_id_basic_should_work() {
+	new_test_ext().execute_with(|| {
+		let owner = account(1);
+		let admin = account(2);
+
+		Balances::make_free_balance_be(&owner, 100);
+
+		// account(1) claims ID 1
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(owner.clone()),
+			1u32,
+			admin.clone(),
+			collection_config_with_all_settings_enabled()
+		));
+
+		assert_eq!(collections(), vec![(owner.clone(), 1)]);
+
+		let collection = Collection::<Test>::get(1).unwrap();
+		assert_eq!(collection.owner, owner);
+		assert_eq!(collection.owner_deposit, 2);
+
+		let config = CollectionConfigOf::<Test>::get(1).unwrap();
+		assert_eq!(config, collection_config_with_all_settings_enabled());
+
+		assert!(events().contains(&Event::<Test>::Created {
+			collection: 1,
+			creator: owner,
+			owner: admin,
+		}));
+
+		// counter was unset; the claim seeds it past the claimed ID
+		assert_eq!(NextCollectionId::<Test>::get(), Some(2));
+	});
+}
+
+#[test]
+fn create_with_id_collection_id_already_in_use() {
+	new_test_ext().execute_with(|| {
+		let owner1 = account(1);
+		let owner2 = account(2);
+
+		Balances::make_free_balance_be(&owner1, 100);
+		Balances::make_free_balance_be(&owner2, 100);
+
+		// account(1) claims ID 1
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(owner1.clone()),
+			1u32,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		// account(1) tries again — same derived ID 1, already taken
+		assert_noop!(
+			Nfts::create_with_id(
+				RuntimeOrigin::signed(owner1.clone()),
+				1u32,
+				account(2),
+				collection_config_with_all_settings_enabled()
+			),
+			Error::<Test>::CollectionIdInUse
+		);
+
+		assert_eq!(collections(), vec![(owner1, 1)]);
+	});
+}
+
+#[test]
+fn create_with_id_bumps_next_collection_id() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+		Balances::make_free_balance_be(&account(100), 100);
+
+		// Set NextCollectionId to 5
+		NextCollectionId::<Test>::set(Some(5));
+
+		// account(100) derives ID 100, which is > 5, so bump to 101
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(account(100)),
+			100u32,
+			account(100),
+			collection_config_with_all_settings_enabled()
+		));
+
+		assert_eq!(NextCollectionId::<Test>::get(), Some(101));
+		assert_eq!(collections(), vec![(account(100), 100)]);
+
+		// create() should continue from 101
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		assert_eq!(NextCollectionId::<Test>::get(), Some(102));
+		assert_eq!(collections(), vec![(account(1), 101), (account(100), 100)]);
+	});
+}
+
+#[test]
+fn create_with_id_does_not_bump_when_behind() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		// Advance NextCollectionId to 10
+		NextCollectionId::<Test>::set(Some(10));
+
+		// account(1) claims ID 1, which is < 10, so no bump
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			1u32,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		// NextCollectionId should stay at 10
+		assert_eq!(NextCollectionId::<Test>::get(), Some(10));
+
+		// create() should use 10, bump to 11
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		assert_eq!(NextCollectionId::<Test>::get(), Some(11));
+		assert_eq!(collections(), vec![(account(1), 1), (account(1), 10)]);
+	});
+}
+
+#[test]
+fn disabled_next_id_returns_method_disabled() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(DisabledNextId::<Test>::next(), Err(Error::<Test>::MethodDisabled.into()));
+	});
+}
+
+#[test]
+fn claiming_the_max_id_does_not_reset_the_counter() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		// Occupy id 0, so a counter that restarts from `initial_value()` collides.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(1));
+
+		// `u32::MAX` has no successor, so the claim cannot advance the counter.
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			u32::MAX,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		// Clearing it would alias to "unset" and send the next `create()` back to 0.
+		assert_eq!(NextCollectionId::<Test>::get(), Some(1));
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(2));
+	});
+}
+
+#[test]
+fn exhausting_the_counter_does_not_reset_it() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		// Occupy id 0, so a counter that restarts from `initial_value()` collides.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+
+		// A single claim below the top is enough to park the counter on `u32::MAX`.
+		assert_ok!(Nfts::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			u32::MAX - 1,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(u32::MAX));
+
+		// Allocating the last id must leave the counter where it is.
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(NextCollectionId::<Test>::get(), Some(u32::MAX));
+
+		// Exhausted, so `create` fails cleanly instead of restarting from 0.
+		assert_noop!(
+			Nfts::create(
+				RuntimeOrigin::signed(account(1)),
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			Error::<Test, ()>::CollectionIdInUse
+		);
+	});
+}
+
+#[test]
+fn disabled_next_id_blocks_auto_creation() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		assert_noop!(
+			NftsDisabled::create(
+				RuntimeOrigin::signed(account(1)),
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			Error::<Test, Instance2>::MethodDisabled
+		);
+		assert_noop!(
+			NftsDisabled::force_create(
+				RuntimeOrigin::root(),
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			Error::<Test, Instance2>::MethodDisabled
+		);
+
+		// `create_with_id` is the only way into this instance.
+		assert_ok!(NftsDisabled::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			1u32,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert!(Collection::<Test, Instance2>::contains_key(1));
+		// `claim` is a no-op on this provider, so nothing seeds the counter.
+		assert_eq!(NextCollectionId::<Test, Instance2>::get(), None);
+	});
+}
+
+#[test]
+fn create_with_id_origin_can_gate_on_the_requested_id() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		assert_ok!(NftsDisabled::create_with_id(
+			RuntimeOrigin::signed(account(1)),
+			99u32,
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_noop!(
+			NftsDisabled::create_with_id(
+				RuntimeOrigin::signed(account(1)),
+				100u32,
+				account(1),
+				collection_config_with_all_settings_enabled()
+			),
+			sp_runtime::DispatchError::BadOrigin
+		);
+		assert!(!Collection::<Test, Instance2>::contains_key(100));
+	});
+}
+
+#[test]
+fn create_with_id_rejects_disabled_deposit() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		assert_noop!(
+			Nfts::create_with_id(
+				RuntimeOrigin::signed(account(1)),
+				1u32,
+				account(1),
+				collection_config_from_disabled_settings(CollectionSetting::DepositRequired.into())
+			),
+			Error::<Test>::WrongSetting
+		);
 	});
 }

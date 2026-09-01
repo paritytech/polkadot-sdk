@@ -22,7 +22,7 @@ use crate as pallet_nfts;
 
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, EnsureOrigin, EnsureOriginWithArg},
 };
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
@@ -38,6 +38,7 @@ construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		Nfts: pallet_nfts,
+		NftsDisabled: pallet_nfts::<Instance2>,
 	}
 );
 
@@ -68,6 +69,8 @@ impl Config for Test {
 	type ItemId = u32;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<Self::AccountId>>;
+	type CreateWithIdOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<Self::AccountId>>;
+	type NextId = IncrementalNextId<Test>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type Locker = ();
 	type CollectionDeposit = ConstU64<2>;
@@ -88,6 +91,60 @@ impl Config for Test {
 	/// It needs to be From<MultiSignature> for benchmarking.
 	type OffchainSignature = Signature;
 	/// Using `AccountPublic` here makes it trivial to convert to `AccountId` via `into_account()`.
+	type OffchainPublic = AccountPublic;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
+}
+
+/// Rejects any requested collection ID at or above 100, otherwise defers to `EnsureSigned`.
+pub struct OnlyLowIds;
+impl EnsureOriginWithArg<RuntimeOrigin, u32> for OnlyLowIds {
+	type Success = AccountId;
+
+	fn try_origin(o: RuntimeOrigin, collection: &u32) -> Result<Self::Success, RuntimeOrigin> {
+		if *collection >= 100 {
+			return Err(o);
+		}
+		<frame_system::EnsureSigned<AccountId> as EnsureOrigin<RuntimeOrigin>>::try_origin(o)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(collection: &u32) -> Result<RuntimeOrigin, ()> {
+		if *collection >= 100 {
+			return Err(());
+		}
+		Ok(RuntimeOrigin::signed([0u8; 32].into()))
+	}
+}
+
+/// Second instance: IDs come only from `create_with_id`, and only below 100.
+impl Config<Instance2> for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type CollectionId = u32;
+	type ItemId = u32;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<Self::AccountId>>;
+	type CreateWithIdOrigin = OnlyLowIds;
+	type NextId = DisabledNextId<Test, Instance2>;
+	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Locker = ();
+	type CollectionDeposit = ConstU64<2>;
+	type ItemDeposit = ConstU64<1>;
+	type MetadataDepositBase = ConstU64<1>;
+	type AttributeDepositBase = ConstU64<1>;
+	type DepositPerByte = ConstU64<1>;
+	type StringLimit = ConstU32<50>;
+	type KeyLimit = ConstU32<50>;
+	type ValueLimit = ConstU32<50>;
+	type ApprovalsLimit = ConstU32<10>;
+	type ItemAttributesApprovalsLimit = ConstU32<2>;
+	type MaxTips = ConstU32<10>;
+	type MaxDeadlineDuration = ConstU64<10000>;
+	type MaxAttributesPerCall = ConstU32<2>;
+	type Features = Features;
+	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]

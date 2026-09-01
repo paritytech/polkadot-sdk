@@ -620,3 +620,62 @@ pub struct PreSignedAttributes<CollectionId, ItemId, AccountId, Deadline> {
 	/// A deadline for the signature.
 	pub deadline: Deadline,
 }
+
+/// Source of collection IDs for `create()` and `force_create()`.
+pub trait NextCollectionIdProvider {
+	/// The collection ID type.
+	type Id: Member + Parameter + MaxEncodedLen + Copy + Incrementable + PartialOrd;
+
+	/// Return the next collection ID, advancing any internal state.
+	fn next() -> Result<Self::Id, DispatchError>;
+
+	/// Claim `id` so later `next()` calls won't return it. No-op by default.
+	/// At the top of the range there is nothing to advance to, so `next()` may still
+	/// return `id` and fail with `CollectionIdInUse`.
+	fn claim(_id: Self::Id) {}
+}
+
+/// Default implementation. Reads and increments the `NextCollectionId` storage item.
+/// Use this in any runtime that wants standard auto-incrementing behaviour.
+pub struct IncrementalNextId<T, I = ()>(core::marker::PhantomData<(T, I)>);
+
+/// Use this when the runtime only uses `create_with_id()`.
+/// Makes `create()` and `force_create()` fail with `Error::MethodDisabled`.
+pub struct DisabledNextId<T, I = ()>(core::marker::PhantomData<(T, I)>);
+
+impl<T: pallet::Config<I>, I: 'static> NextCollectionIdProvider for IncrementalNextId<T, I> {
+	type Id = T::CollectionId;
+
+	fn next() -> Result<Self::Id, DispatchError> {
+		let id = pallet::NextCollectionId::<T, I>::get()
+			.or(Self::Id::initial_value())
+			.ok_or(pallet::Error::<T, I>::UnknownCollection)?;
+		// Storing `None` reads back as unset and restarts from `initial_value()`.
+		if let Some(next_id) = id.increment() {
+			pallet::NextCollectionId::<T, I>::set(Some(next_id));
+			pallet::Pallet::<T, I>::deposit_event(pallet::Event::NextCollectionIdIncremented {
+				next_id: Some(next_id),
+			});
+		}
+		Ok(id)
+	}
+
+	fn claim(id: Self::Id) {
+		let current = pallet::NextCollectionId::<T, I>::get().or(Self::Id::initial_value());
+		if current.map_or(true, |current| id >= current) {
+			let Some(next_id) = id.increment() else { return };
+			pallet::NextCollectionId::<T, I>::set(Some(next_id));
+			pallet::Pallet::<T, I>::deposit_event(pallet::Event::NextCollectionIdIncremented {
+				next_id: Some(next_id),
+			});
+		}
+	}
+}
+
+impl<T: pallet::Config<I>, I: 'static> NextCollectionIdProvider for DisabledNextId<T, I> {
+	type Id = T::CollectionId;
+
+	fn next() -> Result<Self::Id, DispatchError> {
+		Err(pallet::Error::<T, I>::MethodDisabled.into())
+	}
+}

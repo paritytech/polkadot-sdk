@@ -1,0 +1,63 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add `create_with_id` to pallet-nfts
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a `create_with_id` extrinsic to `pallet-nfts` that creates a collection
+      at a caller-specified `CollectionId` instead of the auto-incrementing
+      counter, e.g. for a 1:1 mapping between a DAO and its collection.
+
+      Gated by a new `CreateWithIdOrigin`, separate from `CreateOrigin` so that
+      picking an explicit ID can be restricted independently. Fails with
+      `CollectionIdInUse` if the ID is taken and `WrongSetting` if
+      `DepositRequired` is disabled in the config.
+
+      Breaking: `pallet_nfts::Config` gains two required items:
+
+      - `CreateWithIdOrigin: EnsureOriginWithArg<RuntimeOrigin, CollectionId,
+        Success = AccountId>` gates `create_with_id`. The provided runtimes leave
+        it unrestricted (equal to `CreateOrigin`); the `Config` item documents how
+        to restrict it (a member set, or an ID-range check on the `CollectionId`
+        arg) so callers cannot take IDs they could not reach via `create()`.
+      - `NextId: NextCollectionIdProvider` is the sole source of collection IDs;
+        `create()` and `force_create()` no longer access `NextCollectionId`
+        directly. Two implementations are provided: `IncrementalNextId<T, I>`
+        reads and increments `NextCollectionId` (existing behaviour), and
+        `DisabledNextId<T, I>` makes `create()`/`force_create()` fail with
+        `Error::MethodDisabled` for runtimes that only use `create_with_id()`.
+
+      `create_with_id` calls `claim(id)` on the provider. With
+      `IncrementalNextId`, claiming an ID at or above the counter (or with the
+      counter unset) sets the counter to `id.increment()` so later `create()`
+      calls cannot collide. Lower IDs leave the counter unchanged. Custom
+      providers can track used IDs via `next()` and `claim(id)`.
+
+      `NextCollectionId` is `OptionQuery` and `None` resolves to
+      `initial_value()`, so neither `next()` nor `claim()` stores a `None`
+      increment. At the top of the range the counter holds and `create()` fails
+      with `CollectionIdInUse`.
+
+      `NextCollectionIdIncremented` is now emitted when an ID is allocated,
+      before `Created`/`ForceCreated`, and from `create_with_id` when the claim
+      moves the counter. It is no longer emitted with `next_id: None`.
+
+      The `Create` trait method `create_collection_with_id` now also calls
+      `claim(id)`, so callers no longer risk claiming a value in the ID sequence.
+
+crates:
+  - name: pallet-nfts
+    bump: major
+  - name: pallet-nft-fractionalization
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
+

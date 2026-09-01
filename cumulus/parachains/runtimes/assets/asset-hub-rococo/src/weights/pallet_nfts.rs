@@ -776,4 +776,24 @@ impl<T: frame_system::Config> pallet_nfts::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2954).saturating_mul(n.into()))
 	}
+	/// Storage: `Nfts::Collection` (r:1 w:1)
+	/// Proof: `Nfts::Collection` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `MaxEncodedLen`)
+	/// Storage: `Nfts::NextCollectionId` (r:1 w:1)
+	/// Proof: `Nfts::NextCollectionId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Nfts::CollectionRoleOf` (r:0 w:1)
+	/// Proof: `Nfts::CollectionRoleOf` (`max_values`: None, `max_size`: Some(69), added: 2544, mode: `MaxEncodedLen`)
+	/// Storage: `Nfts::CollectionConfigOf` (r:0 w:1)
+	/// Proof: `Nfts::CollectionConfigOf` (`max_values`: None, `max_size`: Some(73), added: 2548, mode: `MaxEncodedLen`)
+	/// Storage: `Nfts::CollectionAccount` (r:0 w:1)
+	/// Proof: `Nfts::CollectionAccount` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
+	fn create_with_id() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4`
+		//  Estimated: `3549`
+		// Minimum execution time: 36_968_000 picoseconds.
+		Weight::from_parts(39_959_000, 0)
+			.saturating_add(Weight::from_parts(0, 3549))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(5))
+	}
 }

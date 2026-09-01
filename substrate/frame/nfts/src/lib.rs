@@ -52,9 +52,13 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::traits::{
-	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
-	ReservableCurrency,
+use frame_support::{
+	pallet_prelude::{DispatchError, MaxEncodedLen, Member},
+	traits::{
+		tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
+		ReservableCurrency,
+	},
+	Parameter,
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
@@ -138,10 +142,9 @@ pub mod pallet {
 		/// of the implementation both return `None`, the automatic CollectionId generation
 		/// should not be used. So the `create` and `force_create` extrinsics and the
 		/// `create_collection` function will return an `UnknownCollection` Error. Instead use
-		/// the `create_collection_with_id` function. However, if the `Incrementable` trait
-		/// implementation has an incremental order, the `create_collection_with_id` function
-		/// should not be used as it can claim a value in the ID sequence.
-		type CollectionId: Member + Parameter + MaxEncodedLen + Copy + Incrementable;
+		/// the `create_collection_with_id` function, which claims the given ID so a later
+		/// `next()` cannot reissue it.
+		type CollectionId: Member + Parameter + MaxEncodedLen + Copy + Incrementable + PartialOrd;
 
 		/// The type used to identify a unique item within a collection.
 		type ItemId: Member + Parameter + MaxEncodedLen + Copy;
@@ -160,6 +163,23 @@ pub mod pallet {
 			Self::CollectionId,
 			Success = Self::AccountId,
 		>;
+
+		/// Origin allowed to call `create_with_id`, which takes a caller-chosen collection ID.
+		/// Separate from `CreateOrigin` so picking an explicit ID can be gated on its own; an
+		/// unrestricted origin can take any free ID and advance the counter past it. `Success`
+		/// owns the collection and pays `CollectionDeposit`. Limit the caller with a member set
+		/// (`EnsureSignedBy` over `SortedMembers`); to also limit which IDs, use a custom
+		/// `EnsureOriginWithArg` that inspects the `CollectionId`.
+		type CreateWithIdOrigin: EnsureOriginWithArg<
+			Self::RuntimeOrigin,
+			Self::CollectionId,
+			Success = Self::AccountId,
+		>;
+
+		/// Controls how `create()` and `force_create()` generate collection IDs.
+		/// Use [`IncrementalNextId`] for standard behaviour or [`DisabledNextId`]
+		/// to forbid auto-creation and require `create_with_id()` instead.
+		type NextId: NextCollectionIdProvider<Id = Self::CollectionId>;
 
 		/// Locker trait to enable Locking mechanism downstream.
 		type Locker: Locker<Self::CollectionId, Self::ItemId>;
@@ -714,10 +734,7 @@ pub mod pallet {
 			admin: AccountIdLookupOf<T>,
 			config: CollectionConfigFor<T, I>,
 		) -> DispatchResult {
-			let collection = NextCollectionId::<T, I>::get()
-				.or(T::CollectionId::initial_value())
-				.ok_or(Error::<T, I>::UnknownCollection)?;
-
+			let collection = T::NextId::next()?;
 			let owner = T::CreateOrigin::ensure_origin(origin, &collection)?;
 			let admin = T::Lookup::lookup(admin)?;
 
@@ -736,7 +753,6 @@ pub mod pallet {
 				Event::Created { collection, creator: owner, owner: admin },
 			)?;
 
-			Self::set_next_collection_id(collection);
 			Ok(())
 		}
 
@@ -764,11 +780,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let owner = T::Lookup::lookup(owner)?;
-
-			let collection = NextCollectionId::<T, I>::get()
-				.or(T::CollectionId::initial_value())
-				.ok_or(Error::<T, I>::UnknownCollection)?;
-
+			let collection = T::NextId::next()?;
 			Self::do_create_collection(
 				collection,
 				owner.clone(),
@@ -778,7 +790,6 @@ pub mod pallet {
 				Event::ForceCreated { collection, owner },
 			)?;
 
-			Self::set_next_collection_id(collection);
 			Ok(())
 		}
 
@@ -1931,6 +1942,57 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			Self::validate_signature(&Encode::encode(&data), &signature, &signer)?;
 			Self::do_set_attributes_pre_signed(origin, data, signer)
+		}
+
+		/// Issue a new collection of non-fungible items at a caller-chosen `collection` ID,
+		/// instead of the auto-incrementing counter used by `create`.
+		///
+		/// The origin must conform to `CreateWithIdOrigin` and the returned account becomes the
+		/// owner. `CollectionDeposit` funds of that account are reserved. The chosen ID is
+		/// claimed on the `NextId` provider so a later `create` cannot reissue it.
+		///
+		/// Parameters:
+		/// - `collection`: The requested ID for the new collection.
+		/// - `admin`: The admin of this collection.
+		///
+		/// Fails with `CollectionIdInUse` if the ID is taken.
+		///
+		/// Emits `Created` event when successful.
+		///
+		/// Weight: `O(1)`
+		#[pallet::call_index(39)]
+		#[pallet::weight(T::WeightInfo::create_with_id())]
+		pub fn create_with_id(
+			origin: OriginFor<T>,
+			collection: T::CollectionId,
+			admin: AccountIdLookupOf<T>,
+			config: CollectionConfigFor<T, I>,
+		) -> DispatchResult {
+			let owner = T::CreateWithIdOrigin::ensure_origin(origin, &collection)?;
+
+			ensure!(
+				!Collection::<T, I>::contains_key(&collection),
+				Error::<T, I>::CollectionIdInUse
+			);
+
+			let admin = T::Lookup::lookup(admin)?;
+
+			ensure!(
+				!config.has_disabled_setting(CollectionSetting::DepositRequired),
+				Error::<T, I>::WrongSetting
+			);
+
+			T::NextId::claim(collection);
+
+			Self::do_create_collection(
+				collection,
+				owner.clone(),
+				admin.clone(),
+				config,
+				T::CollectionDeposit::get(),
+				Event::Created { collection, creator: owner, owner: admin },
+			)?;
+			Ok(())
 		}
 	}
 }

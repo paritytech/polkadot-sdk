@@ -137,6 +137,7 @@ use impls::AllianceProposalProvider;
 
 /// Constant values used within the runtime.
 pub mod constants;
+
 use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
@@ -2301,6 +2302,8 @@ impl pallet_nfts::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CreateWithIdOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type NextId = pallet_nfts::IncrementalNextId<Runtime>;
 	type Locker = ();
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }

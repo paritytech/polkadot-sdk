@@ -25,7 +25,7 @@ use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
 };
 use frame_support::{
-	assert_ok,
+	assert_ok, ensure,
 	traits::{EnsureOrigin, Get, UnfilteredDispatchable},
 	BoundedVec,
 };
@@ -235,7 +235,13 @@ benchmarks_instance_pallet! {
 		let call = Call::<T, I>::create { admin, config: default_collection_config::<T, I>() };
 	}: { call.dispatch_bypass_filter(origin)? }
 	verify {
-		assert_last_event::<T, I>(Event::NextCollectionIdIncremented { next_id: Some(T::Helper::collection(1)) }.into());
+		assert_last_event::<T, I>(
+			Event::Created {
+				collection: T::Helper::collection(0),
+				creator: caller.clone(),
+				owner: caller,
+			}.into()
+		);
 	}
 
 	force_create {
@@ -243,7 +249,9 @@ benchmarks_instance_pallet! {
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 	}: _(SystemOrigin::Root, caller_lookup, default_collection_config::<T, I>())
 	verify {
-		assert_last_event::<T, I>(Event::NextCollectionIdIncremented { next_id: Some(T::Helper::collection(1)) }.into());
+		assert_last_event::<T, I>(
+			Event::ForceCreated { collection: T::Helper::collection(0), owner: caller }.into()
+		);
 	}
 
 	destroy {
@@ -875,6 +883,54 @@ benchmarks_instance_pallet! {
 				namespace: AttributeNamespace::Account(signer.clone()),
 			}
 			.into(),
+		);
+	}
+	create_with_id {
+		let collection = T::Helper::collection(0);
+
+		ensure!(!Collection::<T, I>::contains_key(&collection), "Collection ID already in use");
+
+		let origin = T::CreateWithIdOrigin::try_successful_origin(&collection)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+
+		let caller = T::CreateWithIdOrigin::ensure_origin(origin.clone(), &collection)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+
+		whitelist_account!(caller);
+
+
+		let admin_lookup = T::Lookup::unlookup(caller.clone());
+
+
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+
+
+		let config = default_collection_config::<T, I>();
+
+
+		let call = Call::<T, I>::create_with_id {
+			collection,
+			admin: admin_lookup,
+			config,
+		};
+
+	}: { call.dispatch_bypass_filter(origin)? }
+
+	verify {
+		assert!(Collection::<T, I>::contains_key(&collection));
+
+		let collection_details = Collection::<T, I>::get(&collection).unwrap();
+
+		assert_eq!(collection_details.owner, caller);
+
+		assert_last_event::<T, I>(
+			Event::Created {
+				collection,
+				creator: caller.clone(),
+				owner: caller,
+			}.into()
 		);
 	}
 

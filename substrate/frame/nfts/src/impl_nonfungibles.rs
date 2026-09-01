@@ -165,9 +165,7 @@ impl<T: Config<I>, I: 'static> Create<<T as SystemConfig>::AccountId, Collection
 			Error::<T, I>::WrongSetting
 		);
 
-		let collection = NextCollectionId::<T, I>::get()
-			.or(T::CollectionId::initial_value())
-			.ok_or(Error::<T, I>::UnknownCollection)?;
+		let collection = T::NextId::next()?;
 
 		Self::do_create_collection(
 			collection,
@@ -178,18 +176,12 @@ impl<T: Config<I>, I: 'static> Create<<T as SystemConfig>::AccountId, Collection
 			Event::Created { collection, creator: who.clone(), owner: admin.clone() },
 		)?;
 
-		Self::set_next_collection_id(collection);
-
 		Ok(collection)
 	}
 
 	/// Create a collection of nonfungible items with `collection` Id to be owned by `who` and
 	/// managed by `admin`. Should be only used for applications that do not have an
 	/// incremental order for the collection IDs and is a replacement for the auto id creation.
-	///
-	///
-	/// SAFETY: This function can break the pallet if it is used in combination with the auto
-	/// increment functionality, as it can claim a value in the ID sequence.
 	fn create_collection_with_id(
 		collection: T::CollectionId,
 		who: &T::AccountId,
@@ -201,6 +193,9 @@ impl<T: Config<I>, I: 'static> Create<<T as SystemConfig>::AccountId, Collection
 			!config.has_disabled_setting(CollectionSetting::DepositRequired),
 			Error::<T, I>::WrongSetting
 		);
+
+		// Advance the ID sequence past `collection` so a later `next()` can't reissue it.
+		T::NextId::claim(collection);
 
 		Self::do_create_collection(
 			collection,
