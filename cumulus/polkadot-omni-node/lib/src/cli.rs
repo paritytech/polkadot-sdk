@@ -198,6 +198,29 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = 0)]
 	pub jam_core: u16,
 
+	/// EXPERIMENTAL (JAM): Dev names of the para's collator set, comma-separated, in the order
+	/// the AURA round-robin walks them (e.g. `alice,bob,charlie`).
+	///
+	/// The names alone determine the keys: each derives the `//<Name>` ed25519 key whose public
+	/// half sits in the collator-set trie the core's authorizer commits to, and whose private
+	/// half this node reads from its `coll` keystore. Required in JAM mode.
+	#[arg(long, value_name = "NAMES")]
+	pub jam_collators: Option<String>,
+
+	/// EXPERIMENTAL (JAM): Path to the AURA authorizer blob deployed on the JAM chain.
+	///
+	/// Only its hash is used, and it has to be the hash whoever installed the core's authorizer
+	/// queue computed from the same file. Required in JAM mode.
+	#[arg(long, value_name = "PATH")]
+	pub jam_authorizer_blob: Option<PathBuf>,
+
+	/// EXPERIMENTAL (JAM): Length of a parachain slot in JAM timeslots.
+	///
+	/// The divisor of the AURA round-robin, and part of the authorizer config, so it has to match
+	/// the value the core's authorizer was installed with.
+	#[arg(long, default_value_t = 1)]
+	pub jam_slot_duration: u32,
+
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
 	/// Use slot-based collator which can handle elastic scaling.
@@ -297,6 +320,12 @@ pub struct JamNodeParams {
 	pub service_id: u32,
 	/// The core to submit work packages to.
 	pub core: u16,
+	/// Dev names of the para's collator set, in round-robin order.
+	pub collators: String,
+	/// The AURA authorizer blob whose hash the para's cores run.
+	pub authorizer_blob: PathBuf,
+	/// Length of a parachain slot in JAM timeslots.
+	pub slot_duration: u32,
 }
 
 /// Development sealing mode.
@@ -365,10 +394,19 @@ impl<Config: CliConfig> Cli<Config> {
 		let Some(service_id) = self.jam_service_id else {
 			return Err("JAM mode requires `--jam-service-id`".into());
 		};
+		let Some(collators) = self.jam_collators.clone() else {
+			return Err("JAM mode requires `--jam-collators`".into());
+		};
+		let Some(authorizer_blob) = self.jam_authorizer_blob.clone() else {
+			return Err("JAM mode requires `--jam-authorizer-blob`".into());
+		};
 		Ok(Some(JamNodeParams {
 			rpc_urls: self.run.jam_rpc_urls.clone(),
 			service_id,
 			core: self.jam_core,
+			collators,
+			authorizer_blob,
+			slot_duration: self.jam_slot_duration,
 		}))
 	}
 

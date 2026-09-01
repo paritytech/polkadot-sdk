@@ -575,10 +575,30 @@ where
 
 		log::info!(
 			"🍇 Starting in JAM mode: para id {para_id}, service id {}, core {}, \
-			 collator: {is_authority}",
+			 collators {}, collator: {is_authority}",
 			jam_params.service_id,
 			jam_params.core,
+			jam_params.collators,
 		);
+
+		// Up front, and fatal: a collator that cannot reproduce its core's authorizer config, or
+		// that holds no key of the set that config commits to, would author blocks whose packages
+		// no guarantor can ever authorize — and the only symptom would be silence. A full node
+		// signs nothing, so it is not asked for a key it has no reason to hold.
+		let jam_authorizer = is_authority
+			.then(|| {
+				jam::authorizer::AuraAuthorizer::new(
+					&jam_params.collators,
+					&jam_params.authorizer_blob,
+					para_id.into(),
+					jam_params.service_id,
+					jam_params.slot_duration,
+					keystore_container.keystore(),
+				)
+				.map(Arc::new)
+			})
+			.transpose()
+			.map_err(sc_service::Error::Other)?;
 
 		let jam_init = {
 			let client = client.clone();
@@ -645,10 +665,10 @@ where
 					)),
 				);
 
-				if !is_authority {
+				let Some(jam_authorizer) = jam_authorizer else {
 					// Essential task: park forever, returning would shut the node down.
 					return futures::future::pending::<()>().await;
-				}
+				};
 
 				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
 				let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
@@ -684,6 +704,7 @@ where
 							para_id,
 							service_id: jam_params.service_id,
 							core: jam_params.core,
+							authorizer: jam_authorizer,
 							message_receiver,
 							announce_block,
 							max_resubmits: 3,

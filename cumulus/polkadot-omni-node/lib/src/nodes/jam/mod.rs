@@ -32,6 +32,7 @@
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
 
+pub(crate) mod authorizer;
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod resubmission;

@@ -17326,6 +17326,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
+ "parachain-authorizer",
  "parachains-common-types",
  "parity-scale-codec",
  "polkadot-cli",
