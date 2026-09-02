@@ -59,8 +59,7 @@ pub trait HopApi<BlockHash> {
 	/// * `submit_timestamp`: Wall-clock timestamp (ms since unix epoch) bound into the signed
 	///   payload. The runtime rejects promotions whose timestamp is too far from on-chain time.
 	///
-	/// `data.len()` must not exceed `HopRuntimeApi::max_promotion_size()`, and
-	/// the signer must be authorized by the runtime (checked via
+	/// The signer must be authorized by the runtime (checked via
 	/// `HopRuntimeApi::can_account_promote`).
 	///
 	/// # Returns
@@ -226,10 +225,11 @@ where
 		// Reject oversized payloads before the per-account authorization lookup so
 		// a flood of too-big submits cannot force runtime state reads. The cap is
 		// the runtime-declared `max_promotion_size`; the runtime is authoritative.
+		// The crate-level `MAX_DATA_SIZE` cap in the pool still applies independently.
 		let runtime_max = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
 			.map_err(HopError::from)?;
 		if data_len > runtime_max as usize {
-			return Err(HopError::DataTooLarge(data_len, runtime_max));
+			return Err(HopError::DataTooLarge(data_len, runtime_max).into());
 		}
 
 		// Check authorization before verifying the signature: a flood of unauthorized
@@ -267,7 +267,10 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::pool::HopDataPool;
+	use crate::{
+		pool::HopDataPool,
+		types::{entry_accounted_size, MAX_DATA_SIZE},
+	};
 	use codec::Encode;
 	use sp_api::{ApiError, CallApiAtParams};
 	use sp_blockchain::{self, Info};
@@ -283,11 +286,19 @@ mod tests {
 
 	struct MockClient {
 		authorized: AtomicBool,
+		max_promotion_size: u32,
 	}
 
 	impl MockClient {
 		fn new(authorized: bool) -> Self {
-			Self { authorized: AtomicBool::new(authorized) }
+			Self {
+				authorized: AtomicBool::new(authorized),
+				max_promotion_size: MAX_DATA_SIZE as u32,
+			}
+		}
+
+		fn with_max_promotion_size(authorized: bool, max_promotion_size: u32) -> Self {
+			Self { authorized: AtomicBool::new(authorized), max_promotion_size }
 		}
 	}
 
@@ -339,7 +350,7 @@ mod tests {
 
 		fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
 			match params.function {
-				"HopRuntimeApi_max_promotion_size" => Ok((2u32 * 1024 * 1024).encode()),
+				"HopRuntimeApi_max_promotion_size" => Ok(self.max_promotion_size.encode()),
 				"HopRuntimeApi_can_account_promote" => {
 					Ok(self.authorized.load(Ordering::Relaxed).encode())
 				},
@@ -371,12 +382,17 @@ mod tests {
 		}
 	}
 
+	/// Smallest `max_size` / `max_user_size` the pool constructor accepts.
+	fn min_pool_size() -> u64 {
+		entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize)
+	}
+
 	fn setup(authorized: bool) -> (HopRpcServer<MockClient, Block>, Arc<HopDataPool>, TempDir) {
 		let dir = TempDir::new().unwrap();
 		let pool = Arc::new(
 			HopDataPool::new(
-				1024 * 1024,
-				1024 * 1024,
+				min_pool_size(),
+				min_pool_size(),
 				100,
 				dir.path().to_path_buf(),
 				crate::rate_limit::RateLimitConfig::disabled(),
@@ -550,6 +566,44 @@ mod tests {
 	}
 
 	#[test]
+	fn submit_rejects_data_over_runtime_max_promotion_size() {
+		// The runtime advertises the largest blob that fits a block when promoted
+		// via `HopRuntimeApi::max_promotion_size`; the node must reject anything
+		// larger at the RPC boundary — even for an authorized account — so data
+		// that can never be promoted is not admitted into the pool.
+		let limit: u32 = 100;
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(
+			HopDataPool::new(
+				min_pool_size(),
+				min_pool_size(),
+				100,
+				dir.path().to_path_buf(),
+				crate::rate_limit::RateLimitConfig::disabled(),
+			)
+			.unwrap(),
+		);
+		let client = Arc::new(MockClient::with_max_promotion_size(true, limit));
+		let rpc = HopRpcServer::new(pool.clone(), client);
+
+		let (pair, signer) = make_keypair();
+		let data = vec![0u8; limit as usize + 1];
+		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
+
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
+		assert!(result.is_err(), "oversized submission must be rejected");
+		let err = result.unwrap_err();
+		assert!(err.message().contains("Data too large"), "got: {}", err.message());
+		assert_eq!(pool.status().entry_count, 0, "rejected data must not enter the pool");
+	}
+
+	#[test]
 	fn submit_rejects_oversized_recipient_list() {
 		let (rpc, _, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
@@ -608,6 +662,6 @@ mod tests {
 		let status = rpc.pool_status().unwrap();
 		assert_eq!(status.entry_count, 0);
 		assert_eq!(status.total_bytes, 0);
-		assert_eq!(status.max_bytes, 1024 * 1024);
+		assert_eq!(status.max_bytes, min_pool_size());
 	}
 }

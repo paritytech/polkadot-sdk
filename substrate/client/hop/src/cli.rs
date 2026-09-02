@@ -38,12 +38,13 @@ use crate::{
 	rate_limit::RateLimitConfig,
 	types::{
 		HopError, DEFAULT_BANDWIDTH_BURST_MIB, DEFAULT_BANDWIDTH_PER_MIN_MIB,
-		DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_MAX_POOL_SIZE_MIB, DEFAULT_MAX_USER_SIZE_MIB,
-		DEFAULT_PROMOTION_BUFFER_SECS, DEFAULT_RETENTION_SECS, DEFAULT_SUBMIT_BURST,
-		DEFAULT_SUBMIT_RATE_PER_MIN,
+		DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB,
+		DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB, DEFAULT_MAX_POOL_SIZE_MIB,
+		DEFAULT_MAX_RATE_LIMIT_SENDERS, DEFAULT_MAX_USER_SIZE_MIB, DEFAULT_PROMOTION_BUFFER_SECS,
+		DEFAULT_RETENTION_SECS, DEFAULT_SUBMIT_BURST, DEFAULT_SUBMIT_RATE_PER_MIN,
 	},
 };
-use clap::Parser;
+use clap::{builder::TypedValueParser, Parser};
 use prometheus_endpoint::Registry;
 use std::{path::PathBuf, sync::Arc};
 
@@ -130,6 +131,36 @@ pub struct HopParams {
 	)]
 	pub bandwidth_burst_mib: u64,
 
+	/// Aggregate (cross-account) sustained bandwidth cap (MiB per minute). Prevents a coordinated
+	/// multi-account attack from saturating the pool even when each individual account stays
+	/// within its own per-account limit. Must be at least 1 when rate limiting is enabled.
+	#[arg(
+		long = "hop-global-bandwidth-per-min-mib",
+		default_value_t = DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
+	pub global_bandwidth_per_min_mib: u64,
+
+	/// Burst size for the aggregate bandwidth cap (MiB). Must be at least 1.
+	#[arg(
+		long = "hop-global-bandwidth-burst-mib",
+		default_value_t = DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
+	pub global_bandwidth_burst_mib: u64,
+
+	/// Maximum number of distinct sender accounts tracked in the rate-limiter map.
+	///
+	/// When this limit is reached the least-recently-active sender is evicted to
+	/// make room. Bounds the rate-limiter's memory usage to roughly
+	/// `max_rate_limit_senders × 200` bytes. Must be at least 1.
+	#[arg(
+		long = "hop-max-rate-limit-senders",
+		default_value_t = DEFAULT_MAX_RATE_LIMIT_SENDERS,
+		value_parser = clap::value_parser!(u64).range(1..).map(|v| v as usize),
+	)]
+	pub max_rate_limit_senders: usize,
+
 	/// Disable per-account submit rate limiting (intended for tests and dev nodes).
 	#[arg(long = "hop-disable-rate-limit")]
 	pub disable_rate_limit: bool,
@@ -154,6 +185,9 @@ impl Default for HopParams {
 			submit_burst: DEFAULT_SUBMIT_BURST,
 			bandwidth_per_min_mib: DEFAULT_BANDWIDTH_PER_MIN_MIB,
 			bandwidth_burst_mib: DEFAULT_BANDWIDTH_BURST_MIB,
+			global_bandwidth_per_min_mib: DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB,
+			global_bandwidth_burst_mib: DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB,
+			max_rate_limit_senders: DEFAULT_MAX_RATE_LIMIT_SENDERS,
 			disable_rate_limit: false,
 			data_dir: None,
 		}
@@ -172,6 +206,9 @@ impl HopParams {
 			submit_burst: self.submit_burst,
 			bandwidth_per_min: self.bandwidth_per_min_mib.saturating_mul(1024 * 1024),
 			bandwidth_burst: self.bandwidth_burst_mib.saturating_mul(1024 * 1024),
+			global_bandwidth_per_min: self.global_bandwidth_per_min_mib.saturating_mul(1024 * 1024),
+			global_bandwidth_burst: self.global_bandwidth_burst_mib.saturating_mul(1024 * 1024),
+			max_tracked_senders: self.max_rate_limit_senders,
 		}
 	}
 
@@ -264,6 +301,9 @@ mod tests {
 			"--hop-submit-burst",
 			"--hop-bandwidth-per-min-mib",
 			"--hop-bandwidth-burst-mib",
+			"--hop-global-bandwidth-per-min-mib",
+			"--hop-global-bandwidth-burst-mib",
+			"--hop-max-rate-limit-senders",
 		];
 		for flag in zero_flags {
 			let argv = ["test-bin", flag, "0"];

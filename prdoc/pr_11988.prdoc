@@ -1,0 +1,30 @@
+title: "sc-hop: harden data pool against DOS vectors"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Follow-up to #11662 hardening the HOP node service:
+
+      - Aggregate cross-account bandwidth bucket in `RateLimiter` — a coordinated
+        set of authorized accounts can no longer saturate the pool by each
+        staying within its per-account limit.
+      - Per-sender rate-limiter map bounded at `max_tracked_senders`; when full,
+        the sender with the most remaining capacity is evicted so exhausted
+        senders stay tracked.
+      - Crate-level `MAX_DATA_SIZE` (2 MiB) hard cap on a single submission,
+        enforced in the pool independently of the runtime-reported
+        `max_promotion_size`. `HopError::DataTooLarge`'s limit field widens
+        from `u32` to `u64` accordingly.
+      - `HopDataPool::new` rejects `max_size`, `max_user_size`, and both
+        `bandwidth_burst` values that are smaller than the accounted cost of a
+        max-size blob at full recipient fan-out — new `HopError::InvalidConfig`.
+
+  - audience: Node Operator
+    description: |
+      New flags: `--hop-global-bandwidth-per-min-mib` (1024),
+      `--hop-global-bandwidth-burst-mib` (2048), `--hop-max-rate-limit-senders`
+      (100 000).
+
+crates:
+  - name: sc-hop
+    bump: major

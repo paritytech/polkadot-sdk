@@ -162,7 +162,7 @@ pub struct SubmitResult {
 #[derive(Debug, thiserror::Error)]
 pub enum HopError {
 	#[error("Data too large: {0} bytes (max: {1})")]
-	DataTooLarge(usize, u32),
+	DataTooLarge(usize, u64),
 
 	#[error("Pool full: {0}/{1} bytes used")]
 	PoolFull(u64, u64),
@@ -220,6 +220,9 @@ pub enum HopError {
 
 	#[error("No database path available and --hop-data-dir not specified")]
 	MissingDataDir,
+
+	#[error("Invalid configuration: {0}")]
+	InvalidConfig(String),
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -245,11 +248,17 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::DuplicateRecipient => 1019,
 			HopError::RateLimited { .. } => 1020,
 			HopError::MissingDataDir => 1021,
+			HopError::InvalidConfig(_) => 1022,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
 	}
 }
+
+/// Crate-level upper bound on a HOP entry's data size (2 MiB). Used to
+/// validate pool configuration (e.g. that `bandwidth_burst >= MAX_DATA_SIZE`)
+/// so a single submission cannot overshoot a bandwidth bucket by construction.
+pub const MAX_DATA_SIZE: u64 = 2 * 1024 * 1024;
 
 /// Default retention period in seconds (24 hours).
 pub const DEFAULT_RETENTION_SECS: u64 = 86_400;
@@ -294,6 +303,21 @@ pub const DEFAULT_BANDWIDTH_PER_MIN_MIB: u64 = 128;
 
 /// Default bandwidth burst per account in MiB.
 pub const DEFAULT_BANDWIDTH_BURST_MIB: u64 = 256;
+
+/// Default aggregate (cross-account) sustained bandwidth in MiB per minute.
+///
+/// Sized at 8× the per-account default — roughly the point at which
+/// coordinated multi-account ingest begins to crowd out legitimate traffic.
+pub const DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB: u64 = 1024;
+
+/// Default aggregate bandwidth burst in MiB.
+pub const DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB: u64 = 2048;
+
+/// Default maximum number of distinct senders tracked in the rate-limiter map.
+///
+/// At ~200 bytes per entry this bounds the rate-limiter's memory footprint to
+/// ~20 MiB regardless of how many unique authorized accounts submit.
+pub const DEFAULT_MAX_RATE_LIMIT_SENDERS: usize = 100_000;
 
 /// Domain-separator prefix for `hop_submit` signatures.
 pub const HOP_SUBMIT_CONTEXT: &[u8] = b"hop-submit-v1:";
