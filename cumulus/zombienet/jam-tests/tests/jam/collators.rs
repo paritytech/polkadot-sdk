@@ -133,7 +133,7 @@ impl Collators {
 				// Discovery is explicit: without this the collators would find, and try to sync
 				// with, any other parachain node running on this machine.
 				.arg("--no-mdns")
-				.args(["-l", "jam-collator=info,jam-rpc-interface=info"])
+				.args(["-l", "jam-collator=debug,jam-rpc-interface=debug"])
 				.stdout(Stdio::from(log.try_clone()?))
 				.stderr(Stdio::from(log));
 
