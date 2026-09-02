@@ -21,7 +21,7 @@ use std::{cell::RefCell, collections::BTreeMap};
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
+	traits::{fungible::InspectFreeze, ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
 use sp_runtime::BuildStorage;
 
@@ -57,6 +57,11 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	// NOTE: `derive_impl` resolves the prelude's `Self::RuntimeFreezeReason` against the
+	// prelude struct (`()`), so `FreezeIdentifier`/`MaxFreezes` must be overridden explicitly.
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -150,6 +155,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type Currency = pallet_balances::Pallet<Self>;
 	type VoteLockingPeriod = ConstU64<3>;
 	type MaxVotes = ConstU32<3>;
@@ -1087,5 +1093,40 @@ fn empty_tally_approval_is_zero() {
 			<TallyOf<Test> as VoteTally<u64, u8>>::approval(&mixed, 0),
 			Perbill::from_percent(30),
 		);
+	});
+}
+
+#[test]
+fn freeze_is_registered_under_the_vote_reason() {
+	// The typed successor of the old `*b"pyconvot"` lock id: the pallet's encumbrance is a
+	// `fungible` freeze under `FreezeReason::Vote`, inspectable per reason.
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
+		assert_eq!(Balances::balance_frozen(&FreezeReason::Vote.into(), &1), 2);
+
+		// Voting bigger extends the freeze...
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 1)));
+		assert_eq!(Balances::balance_frozen(&FreezeReason::Vote.into(), &1), 10);
+
+		// ...while re-voting smaller never shrinks it (only `unlock` recomputes downwards).
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
+		assert_eq!(Balances::balance_frozen(&FreezeReason::Vote.into(), &1), 10);
+	});
+}
+
+#[test]
+fn unlock_thaws_the_freeze_entirely() {
+	// Once no votes or prior locks remain, `unlock` must `thaw` rather than set a zero
+	// freeze: no residual `Freezes` entry may stay behind on the account.
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		// Removing the (still-ongoing) vote leaves nothing to freeze for.
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
+
+		assert!(pallet_balances::Freezes::<Test>::get(1).is_empty());
+		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }

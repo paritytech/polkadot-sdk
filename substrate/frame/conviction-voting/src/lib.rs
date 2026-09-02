@@ -33,8 +33,8 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible, Currency, Get, LockIdentifier, LockableCurrency, PollStatus, Polling,
-		ReservableCurrency, WithdrawReasons,
+		fungible::{Inspect as FunInspect, Mutate as FunMutate, MutateFreeze as FunMutateFreeze},
+		Get, PollStatus, Polling,
 	},
 };
 use sp_runtime::{
@@ -64,14 +64,12 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-const CONVICTION_VOTING_ID: LockIdentifier = *b"pyconvot";
-
 pub type BlockNumberFor<T, I> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 pub type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config<I>>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type VotingOf<T, I = ()> = Voting<
 	BalanceOf<T, I>,
 	<T as frame_system::Config>::AccountId,
@@ -94,7 +92,8 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::{
-			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap, ValueQuery,
+			DispatchResultWithPostInfo, IsType, StorageDoubleMap, StorageMap, StorageVersion,
+			ValueQuery,
 		},
 		traits::ClassCountOf,
 		Twox64Concat,
@@ -102,8 +101,22 @@ pub mod pallet {
 	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
 	use sp_runtime::BoundedVec;
 
+	/// The in-code storage version. Version 1 replaces the `LockableCurrency` lock
+	/// (`*b"pyconvot"`) with a `fungible::MutateFreeze` freeze (`FreezeReason::Vote`).
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
+
+	/// A reason for this pallet placing a freeze on funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason<I: 'static = ()> {
+		/// Funds are frozen because they back (or backed, until unlocked) a conviction vote or
+		/// a vote delegation.
+		#[codec(index = 0)]
+		Vote,
+	}
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + Sized {
@@ -113,10 +126,14 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-		/// Currency type with which voting happens.
-		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self, I>>
-			+ fungible::Inspect<Self::AccountId>;
+		/// Currency type with which voting happens. Voting balances are frozen (in place, on
+		/// top of any holds) rather than moved out of the account.
+		type Currency: FunInspect<Self::AccountId>
+			+ FunMutate<Self::AccountId>
+			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason<I>>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
@@ -344,7 +361,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::update_lock(&class, &target);
+			Self::update_freeze(&class, &target)?;
 			Self::deposit_event(Event::VoteUnlocked { who: target, class });
 			Ok(())
 		}
@@ -463,9 +480,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				} else {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
-				// Extend the lock to `balance` (rather than setting it) since we don't know what
-				// other votes are in place.
-				Self::extend_lock(who, &class, vote.balance());
+				// Extend the freeze to `balance` (rather than setting it) since we don't know
+				// what other votes are in place.
+				Self::extend_freeze_for(who, &class, vote.balance())?;
 				Self::deposit_event(Event::Voted { who: who.clone(), vote, poll_index });
 				Ok(())
 			})
@@ -657,9 +674,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				let votes =
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
-				// Extend the lock to `balance` (rather than setting it) since we don't know what
-				// other votes are in place.
-				Self::extend_lock(&who, &class, balance);
+				// Extend the freeze to `balance` (rather than setting it) since we don't know
+				// what other votes are in place.
+				Self::extend_freeze_for(&who, &class, balance)?;
 				Ok(votes)
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
@@ -705,7 +722,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(votes)
 	}
 
-	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
+	/// Extend the `FreezeReason::Vote` freeze of `who` to at least `amount`, recording the
+	/// per-class requirement in `ClassLocksFor`.
+	///
+	/// The `ClassLocksFor` bookkeeping happens before the (fallible) freeze on purpose: every
+	/// caller runs inside a transactional `try_mutate`, so an `Err` here unwinds the
+	/// bookkeeping along with the vote itself.
+	fn extend_freeze_for(
+		who: &T::AccountId,
+		class: &ClassOf<T, I>,
+		amount: BalanceOf<T, I>,
+	) -> DispatchResult {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
 				Some(i) => locks[i].1 = locks[i].1.max(amount),
@@ -720,17 +747,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			}
 		});
-		T::Currency::extend_lock(
-			CONVICTION_VOTING_ID,
-			who,
-			amount,
-			WithdrawReasons::except(WithdrawReasons::RESERVE),
-		);
+		T::Currency::extend_freeze(&FreezeReason::Vote.into(), who, amount)
 	}
 
-	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
-	/// a security hole) but may be reduced from what they are currently.
-	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) {
+	/// Rejig the freeze on an account. It will never get more stringent (since that would
+	/// indicate a security hole) but may be reduced from what it is currently.
+	fn update_freeze(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
 		let class_lock_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
 			voting.rejig(T::BlockNumberProvider::current_block_number());
 			voting.locked_balance()
@@ -749,14 +771,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
 		});
 		if lock_needed.is_zero() {
-			T::Currency::remove_lock(CONVICTION_VOTING_ID, who);
+			T::Currency::thaw(&FreezeReason::Vote.into(), who)
 		} else {
-			T::Currency::set_lock(
-				CONVICTION_VOTING_ID,
-				who,
-				lock_needed,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
-			);
+			T::Currency::set_freeze(&FreezeReason::Vote.into(), who, lock_needed)
 		}
 	}
 }
