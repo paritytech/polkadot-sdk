@@ -1,0 +1,8 @@
+title: 'Add Retracted Event in Fork Aware Transaction Pool'
+doc:
+- audience: Node Dev
+  description: |-
+    Adds a retracted event into the fork aware transaction pool
+crates:
+- name: sc-transaction-pool
+  bump: minor
