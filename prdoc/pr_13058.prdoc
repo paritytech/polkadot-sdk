@@ -1,0 +1,12 @@
+title: 'statement gossip: schedule initial sync only after affinity filter arrived'
+doc:
+- audience: Node Operator
+  description: |-
+    With the v2 DHT path enabled (`STATEMENT_STORE_V2_DHT_ENABLED=1`), a
+    `statement/2` peer receives no statements until its affinity filter
+    arrives: peers exchange filters as the first message on connect, and the
+    initial sync then replays only the stored statements the peer's filter
+    matches. Without the flag, behavior is unchanged.
+crates:
+- name: sc-network-statement
+  bump: minor
