@@ -792,8 +792,8 @@ struct InsertPlan {
 /// Whether a removed statement may be re-accepted.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Readmission {
-	/// An unexpired statement is journaled in the `EXPIRED` column and rejected until its purge
-	/// period elapses.
+	/// An unexpired statement is journaled in the `EXPIRED` column and rejected on network
+	/// redelivery until its purge period elapses.
 	Banned,
 	/// The statement may be re-accepted immediately.
 	Allowed,
@@ -2149,6 +2149,8 @@ impl Store {
 		for hash in tracked {
 			let encoded = match self.db.get(col::STATEMENTS, &hash) {
 				Ok(Some(encoded)) => encoded,
+				// The body vanished mid-sweep: the concurrent remover also cleared the
+				// tracking entry, so the hash is gone from the next sweep's snapshot.
 				Ok(None) => continue,
 				Err(e) => {
 					log::warn!(
@@ -2189,7 +2191,7 @@ impl Store {
 		}
 	}
 
-	/// Perform periodic store maintenance: drop statements whose explicit affinity lapsed,
+	/// Perform periodic store maintenance: drop explicit-affine statements no affinity covers,
 	/// permanently delete statements whose purge period has elapsed, and refresh store metrics.
 	///
 	/// Expired and evicted statements are not removed from the database immediately; they are kept
@@ -3012,7 +3014,7 @@ impl StatementStore for Store {
 					query_index.explicit_only.remove(&key.hash);
 				}
 				// The admission-time mask decides sweep eligibility for good: a statement the
-				// DHT also covers is never re-checked.
+				// DHT also covered at admission is never re-checked.
 				let explicit_only = mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
 					!mask.contains(RetentionReasonMask::DHT_AFFINITY);
 				query_index.note_insert(hash, &statement, plan.seq, explicit_only);
@@ -3129,8 +3131,8 @@ impl StatementStore for Store {
 			for (hash, statement) in &removed_statements {
 				query_index.note_remove(hash, statement);
 			}
-			// Clear affinity tracking even where the body failed to decode above: the set is
-			// in-memory bookkeeping, so this is not a database repair.
+			// Clear affinity tracking even where the body could not be read or decoded above:
+			// the set is in-memory bookkeeping, so this is not a database repair.
 			for (key, _) in &entries {
 				query_index.explicit_only.remove(&key.hash);
 			}
@@ -4637,28 +4639,28 @@ mod tests {
 		assert!(!store.has_statement(&hash), "the first, transient resolver still applies");
 	}
 
-	/// A resolver that reports the given mask while the returned flag holds `true`, and
-	/// `TRANSIENT` after — modeling affinity that lapses.
+	/// A resolver that reports `affine` while the returned flag holds `true`, and `lapsed`
+	/// otherwise — modeling affinity that lapses or shifts.
 	fn switchable_resolver(
-		mask: RetentionReasonMask,
+		affine: RetentionReasonMask,
+		lapsed: RetentionReasonMask,
 	) -> (Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>, std::sync::Arc<AtomicBool>)
 	{
-		let affine = std::sync::Arc::new(AtomicBool::new(true));
-		let view = affine.clone();
-		let resolver = Box::new(move |_: &Statement| {
-			if view.load(Ordering::Relaxed) {
-				mask
-			} else {
-				RetentionReasonMask::TRANSIENT
-			}
-		});
-		(resolver, affine)
+		let flag = std::sync::Arc::new(AtomicBool::new(true));
+		let view = flag.clone();
+		let resolver = Box::new(
+			move |_: &Statement| if view.load(Ordering::Relaxed) { affine } else { lapsed },
+		);
+		(resolver, flag)
 	}
 
 	#[test]
 	fn sweep_drops_statement_once_explicit_affinity_lapses() {
 		let (store, _temp) = test_store();
-		let (resolver, affine) = switchable_resolver(RetentionReasonMask::EXPLICIT_AFFINITY);
+		let (resolver, affine) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::TRANSIENT,
+		);
 		store.set_retention_resolver(resolver);
 		let statement = signed_statement(0);
 		let hash = statement.hash();
@@ -4691,7 +4693,10 @@ mod tests {
 	#[test]
 	fn sweep_spares_statements_not_yet_handed_to_propagation() {
 		let (store, _temp) = test_store();
-		let (resolver, affine) = switchable_resolver(RetentionReasonMask::EXPLICIT_AFFINITY);
+		let (resolver, affine) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::TRANSIENT,
+		);
 		store.set_retention_resolver(resolver);
 		let statement = signed_statement(0);
 		let hash = statement.hash();
@@ -4710,9 +4715,30 @@ mod tests {
 	}
 
 	#[test]
+	fn sweep_keeps_statements_another_affinity_still_covers() {
+		let (store, _temp) = test_store();
+		let (resolver, affine) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::DHT_AFFINITY,
+		);
+		store.set_retention_resolver(resolver);
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// Explicit affinity lapsed but the DHT covers the statement at sweep time: the sweep
+		// checks for any persistent reason, not the explicit bit, and keeps it.
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+	}
+
+	#[test]
 	fn sweep_leaves_dht_affine_statements_untouched() {
 		let (store, _temp) = test_store();
-		let (resolver, affine) = switchable_resolver(RetentionReasonMask::DHT_AFFINITY);
+		let (resolver, affine) =
+			switchable_resolver(RetentionReasonMask::DHT_AFFINITY, RetentionReasonMask::TRANSIENT);
 		store.set_retention_resolver(resolver);
 		let statement = signed_statement(0);
 		let hash = statement.hash();
@@ -4729,7 +4755,7 @@ mod tests {
 		let (store, _temp) = test_store();
 		let mut mask = RetentionReasonMask::EXPLICIT_AFFINITY;
 		mask.insert(RetentionReasonMask::DHT_AFFINITY);
-		let (resolver, affine) = switchable_resolver(mask);
+		let (resolver, affine) = switchable_resolver(mask, RetentionReasonMask::TRANSIENT);
 		store.set_retention_resolver(resolver);
 		let statement = signed_statement(0);
 		let hash = statement.hash();
@@ -4780,6 +4806,21 @@ mod tests {
 		assert!(store.query_index.read().explicit_only.contains(&hash));
 
 		store.remove(&hash).unwrap();
+		assert!(store.query_index.read().explicit_only.is_empty());
+	}
+
+	#[test]
+	fn removing_by_account_clears_affinity_tracking() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		let account = statement.account_id().unwrap();
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		assert!(store.query_index.read().explicit_only.contains(&hash));
+
+		store.remove_by(account).unwrap();
+		assert!(!store.has_statement(&hash));
 		assert!(store.query_index.read().explicit_only.is_empty());
 	}
 
