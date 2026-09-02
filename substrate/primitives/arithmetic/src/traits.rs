@@ -808,20 +808,23 @@ mod ensure {
 		///     Ok(())
 		/// }
 		///
-		/// fn underflow() -> Result<(), ArithmeticError> {
+		/// fn overflow() -> Result<(), ArithmeticError> {
 		///     FixedI64::ensure_from_rational(i64::MAX, -1)?;
 		///     Ok(())
 		/// }
 		///
 		/// assert_eq!(extrinsic_zero(), Err(ArithmeticError::DivisionByZero));
-		/// assert_eq!(underflow(), Err(ArithmeticError::Underflow));
+		/// assert_eq!(overflow(), Err(ArithmeticError::Overflow));
 		/// ```
 		fn ensure_from_rational<N: FixedPointOperand, D: FixedPointOperand>(
 			n: N,
 			d: D,
 		) -> Result<Self, ArithmeticError> {
+			if d == D::zero() {
+				return Err(ArithmeticError::DivisionByZero);
+			}
 			<Self as FixedPointNumber>::checked_from_rational(n, d)
-				.ok_or_else(|| error::division(&n, &d))
+				.ok_or(ArithmeticError::Overflow)
 		}
 
 		/// Ensure multiplication for integer type `N`. Equal to `self * n`.
@@ -839,16 +842,16 @@ mod ensure {
 		///     Ok(())
 		/// }
 		///
-		/// fn underflow() -> Result<(), ArithmeticError> {
+		/// fn negative_overflow() -> Result<(), ArithmeticError> {
 		///     FixedI64::from(i64::MAX).ensure_mul_int(-2)?;
 		///     Ok(())
 		/// }
 		///
 		/// assert_eq!(overflow(), Err(ArithmeticError::Overflow));
-		/// assert_eq!(underflow(), Err(ArithmeticError::Underflow));
+		/// assert_eq!(negative_overflow(), Err(ArithmeticError::Overflow));
 		/// ```
 		fn ensure_mul_int<N: FixedPointOperand>(self, n: N) -> Result<N, ArithmeticError> {
-			self.checked_mul_int(n).ok_or_else(|| error::multiplication(&self, &n))
+			self.checked_mul_int(n).ok_or(ArithmeticError::Overflow)
 		}
 
 		/// Ensure division for integer type `N`. Equal to `self / d`.
@@ -875,7 +878,10 @@ mod ensure {
 		/// assert_eq!(overflow(), Err(ArithmeticError::Overflow));
 		/// ```
 		fn ensure_div_int<D: FixedPointOperand>(self, d: D) -> Result<D, ArithmeticError> {
-			self.checked_div_int(d).ok_or_else(|| error::division(&self, &d))
+			if d == D::zero() {
+				return Err(ArithmeticError::DivisionByZero);
+			}
+			self.checked_div_int(d).ok_or(ArithmeticError::Overflow)
 		}
 	}
 

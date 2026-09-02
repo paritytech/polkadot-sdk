@@ -43,12 +43,14 @@
 //!
 
 use crate::{
-	helpers_128bit::{multiply_by_rational_with_rounding, sqrt},
+	helpers_128bit::{
+		checked_multiply_by_rational_with_rounding, multiply_by_rational_with_rounding, sqrt,
+	},
 	traits::{
 		Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedSub, One,
 		SaturatedConversion, Saturating, UniqueSaturatedInto, Zero,
 	},
-	PerThing, Perbill, Rounding, SignedRounding,
+	ArithmeticError, PerThing, Perbill, Rounding, SignedRounding,
 };
 use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode};
 use core::{
@@ -226,9 +228,13 @@ pub trait FixedPointNumber:
 
 	/// Checked division for integer type `N`. Equal to `self / d`.
 	///
-	/// Returns `None` if the result does not fit in `N` or `d == 0`.
+	/// Returns `None` if `d == 0` or the result does not fit in `N`.
 	#[must_use]
 	fn checked_div_int<N: FixedPointOperand>(self, d: N) -> Option<N> {
+		if d == N::zero() {
+			return None;
+		}
+
 		let lhs: I129 = self.into_inner().into();
 		let rhs: I129 = d.into();
 		let negative = lhs.negative != rhs.negative;
@@ -503,28 +509,35 @@ macro_rules! implement_fixed {
 
 			/// Convert into a `Perbill` value. Will saturate if above one or below zero.
 			pub const fn into_perbill(self) -> Perbill {
+				match self.try_into_perbill() {
+					Ok(v) => v,
+					// Saturate: values below zero or above one are clamped, and
+					// intermediate overflow is not possible for valid fixed-point
+					// representations, so this fallback is purely defensive.
+					Err(_) => Perbill::zero(),
+				}
+			}
+
+			/// Checked conversion into a `Perbill` value.
+			///
+			/// Returns `Err(ArithmeticError::Overflow)` if the conversion results in a value
+			/// that cannot be represented by `Perbill` or if an intermediate calculation overflows.
+			pub const fn try_into_perbill(self) -> Result<Perbill, ArithmeticError> {
 				if self.0 <= 0 {
-					Perbill::zero()
-				} else if self.0 >= $div {
-					Perbill::one()
+					Ok(Perbill::zero())
+				} else if self.0 >= Self::DIV {
+					Ok(Perbill::one())
 				} else {
-					match multiply_by_rational_with_rounding(
+					match checked_multiply_by_rational_with_rounding(
 						self.0 as u128,
 						1_000_000_000,
 						Self::DIV as u128,
 						Rounding::NearestPrefDown,
 					) {
-						Some(value) => {
-							if value > (u32::max_value() as u128) {
-								panic!(
-									"prior logic ensures 0<self.0<DIV; \
-									multiply ensures 0<self.0<1000000000; \
-									qed"
-								);
-							}
-							Perbill::from_parts(value as u32)
-						},
-						None => Perbill::zero(),
+						Ok(value) if value > (u32::MAX as u128) =>
+							Err(ArithmeticError::Overflow),
+						Ok(value) => Ok(Perbill::from_parts(value as u32)),
+						Err(e) => Err(e),
 					}
 				}
 			}
@@ -706,15 +719,40 @@ macro_rules! implement_fixed {
 			/// WARNING: This is a `const` function designed for convenient use at build time and
 			/// will panic on overflow. Ensure that any inputs are sensible.
 			pub const fn from_rational_with_rounding(a: u128, b: u128, rounding: Rounding) -> Self {
-				if b == 0 {
-					panic!("attempt to divide by zero in from_rational")
+				match Self::checked_from_rational_with_rounding(a, b, rounding) {
+					Ok(x) => x,
+					Err(_) => panic!("overflow or division by zero in from_rational"),
 				}
-				match multiply_by_rational_with_rounding(Self::DIV as u128, a, b, rounding) {
-					Some(value) => match Self::from_i129(I129 { value, negative: false }) {
-						Some(x) => x,
-						None => panic!("overflow in from_rational"),
-					},
-					None => panic!("overflow in from_rational"),
+			}
+
+			/// Checked calculation of an approximation of a rational with custom rounding.
+			///
+			/// Converts a rational number `a/b` into the fixed-point representation.
+			/// Returns `Err(ArithmeticError::DivisionByZero)` if `b` is zero.
+			/// Returns `Err(ArithmeticError::Overflow)` if any intermediate calculation overflows
+			/// or if the final result does not fit into the fixed-point type.
+			pub const fn checked_from_rational_with_rounding(
+				a: u128,
+				b: u128,
+				rounding: Rounding,
+			) -> Result<Self, ArithmeticError> {
+				if b == 0 {
+					return Err(ArithmeticError::DivisionByZero);
+				}
+
+				let value = match checked_multiply_by_rational_with_rounding(
+					Self::DIV as u128,
+					a,
+					b,
+					rounding,
+				) {
+					Ok(v) => v,
+					Err(e) => return Err(e),
+				};
+
+				match Self::from_i129(I129 { value, negative: false }) {
+					Some(x) => Ok(x),
+					None => Err(ArithmeticError::Overflow),
 				}
 			}
 
@@ -1048,7 +1086,12 @@ macro_rules! implement_fixed {
 						quotient
 							.checked_mul(div_u128)
 							.and_then(|base| {
-								let remainder_scaled = (remainder * div_u128) / scale_factor;
+								let remainder_scaled = multiply_by_rational_with_rounding(
+									remainder,
+									div_u128,
+									scale_factor,
+									Rounding::Down,
+								)?;
 								base.checked_add(remainder_scaled)
 							})
 							.ok_or("fractional part overflow")?
@@ -1569,23 +1612,23 @@ macro_rules! implement_fixed {
 				let a = $name::checked_from_rational(inner_min, accuracy).unwrap();
 				assert_eq!(a.into_inner(), inner_min);
 
-				// Max + 1 => Overflow => None.
+				// Max + 1 => None.
 				let a = $name::checked_from_rational(inner_min, 0.saturating_sub(accuracy));
-				assert_eq!(a, None);
+				assert!(a.is_none());
 
 				if $name::SIGNED {
-					// Min - 1 => Underflow => None.
+					// Min - 1 => None.
 					let a = $name::checked_from_rational(
 						inner_max as u128 + 2,
 						0.saturating_sub(accuracy),
 					);
-					assert_eq!(a, None);
+					assert!(a.is_none());
 
 					let a = $name::checked_from_rational(inner_max, 0 - 3 * accuracy).unwrap();
 					assert_eq!(a.into_inner(), 0 - inner_max / 3);
 
 					let a = $name::checked_from_rational(inner_min, 0 - accuracy / 3);
-					assert_eq!(a, None);
+					assert!(a.is_none());
 
 					let a = $name::checked_from_rational(1, 0 - accuracy).unwrap();
 					assert_eq!(a.into_inner(), 0.saturating_sub(1));
@@ -1594,7 +1637,7 @@ macro_rules! implement_fixed {
 					assert_eq!(a.into_inner(), 0);
 
 					let a = $name::checked_from_rational(inner_min, accuracy / 3);
-					assert_eq!(a, None);
+					assert!(a.is_none());
 				}
 
 				let a = $name::checked_from_rational(inner_max, 3 * accuracy).unwrap();
@@ -1653,7 +1696,7 @@ macro_rules! implement_fixed {
 				// Max.
 				assert_eq!(a.checked_mul_int(i128::MAX / 2), Some(i128::MAX - 1));
 				// Max + 1 => None.
-				assert_eq!(a.checked_mul_int(i128::MAX / 2 + 1), None);
+				assert!(a.checked_mul_int(i128::MAX / 2 + 1).is_none());
 
 				if $name::SIGNED {
 					// Min - 1.
@@ -1661,11 +1704,11 @@ macro_rules! implement_fixed {
 					// Min.
 					assert_eq!(a.checked_mul_int(i128::MIN / 2), Some(i128::MIN));
 					// Min + 1 => None.
-					assert_eq!(a.checked_mul_int(i128::MIN / 2 - 1), None);
+					assert!(a.checked_mul_int(i128::MIN / 2 - 1).is_none());
 
 					let b = $name::saturating_from_rational(1, -2);
 					assert_eq!(b.checked_mul_int(42i128), Some(-21));
-					assert_eq!(b.checked_mul_int(u128::MAX), None);
+					assert!(b.checked_mul_int(u128::MAX).is_none());
 					assert_eq!(b.checked_mul_int(i128::MAX), Some(i128::MAX / -2));
 					assert_eq!(b.checked_mul_int(i128::MIN), Some(i128::MIN / -2));
 				}
@@ -1676,10 +1719,10 @@ macro_rules! implement_fixed {
 				assert_eq!(a.checked_mul_int(i128::MIN), Some(i128::MIN / 2));
 
 				let c = $name::saturating_from_integer(255);
-				assert_eq!(c.checked_mul_int(2i8), None);
+				assert!(c.checked_mul_int(2i8).is_none());
 				assert_eq!(c.checked_mul_int(2i128), Some(510));
-				assert_eq!(c.checked_mul_int(i128::MAX), None);
-				assert_eq!(c.checked_mul_int(i128::MIN), None);
+				assert!(c.checked_mul_int(i128::MAX).is_none());
+				assert!(c.checked_mul_int(i128::MIN).is_none());
 			}
 
 			#[test]
@@ -1873,7 +1916,7 @@ macro_rules! implement_fixed {
 				assert_eq!(a.checked_div_int(i128::MAX), Some(0));
 				assert_eq!(a.checked_div_int(2), Some(inner_max / (2 * accuracy)));
 				assert_eq!(a.checked_div_int(inner_max / accuracy), Some(1));
-				assert_eq!(a.checked_div_int(1i8), None);
+				assert!(a.checked_div_int(1i8).is_none());
 
 				if b < c {
 					// Not executed by unsigned inners.
@@ -1887,7 +1930,7 @@ macro_rules! implement_fixed {
 					);
 					assert_eq!(b.checked_div_int(i128::MIN), Some(0));
 					assert_eq!(b.checked_div_int(inner_min / accuracy), Some(1));
-					assert_eq!(b.checked_div_int(1i8), None);
+					assert!(b.checked_div_int(1i8).is_none());
 					assert_eq!(
 						b.checked_div_int(0.saturating_sub(2)),
 						Some(0.saturating_sub(inner_min / (2 * accuracy)))
@@ -2377,6 +2420,15 @@ macro_rules! implement_fixed {
 					assert!($name::from_str("-1.0").is_err());
 					assert!($name::from_str("-0.5").is_err());
 					assert!($name::from_str("-123.456").is_err());
+				}
+
+				// Test intermediate overflow in in previousy unchecked remainder * div_u128.
+				if $name::accuracy() >= 1_000_000_000_000_000_000 {
+					let val = $name::from_str("0.999999999999999999999").unwrap();
+					assert_eq!(val.into_inner() as u128, 999999999999999999u128);
+				} else {
+					let val = $name::from_str("0.999999999999999999999999999999").unwrap();
+					assert_eq!(val.into_inner() as u128, 999999999u128);
 				}
 
 				// Test error cases

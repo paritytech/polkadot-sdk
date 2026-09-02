@@ -53,9 +53,12 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::traits::{
-	BaseArithmetic, Bounded, CheckedAdd, CheckedMul, CheckedSub, One, SaturatedConversion,
-	Saturating, UniqueSaturatedInto, Unsigned, Zero,
+use crate::{
+	traits::{
+		BaseArithmetic, Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedRem, CheckedSub, One,
+		SaturatedConversion, Saturating, UniqueSaturatedInto, Unsigned, Zero,
+	},
+	ArithmeticError,
 };
 use codec::{CompactAs, DecodeWithMemTracking, Encode};
 use core::{
@@ -230,6 +233,11 @@ pub trait PerThing:
 		Self::from_rational::<Self::Upper>(p * p, q * q)
 	}
 
+	/// Checked version of `square`.
+	///
+	/// Returns `ArithmeticError::Overflow` on overflow during calculation.
+	fn checked_square(self) -> Result<Self, ArithmeticError>;
+
 	/// Return the part left when `self` is saturating-subtracted from `Self::one()`.
 	#[must_use]
 	fn left_from_one(self) -> Self {
@@ -260,6 +268,22 @@ pub trait PerThing:
 		overflow_prune_mul::<N, Self>(b, self.deconstruct(), Rounding::Down)
 	}
 
+	/// Checked multiplication that always rounds down to a whole number.
+	///
+	/// Returns `ArithmeticError::Overflow` on overflow.
+	fn checked_mul_floor<N>(self, b: N) -> Result<N, ArithmeticError>
+	where
+		N: MultiplyArg
+			+ UniqueSaturatedInto<Self::Inner>
+			+ CheckedAdd
+			+ CheckedSub
+			+ CheckedMul
+			+ CheckedDiv,
+		Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+		Self::Upper: CheckedMul<Output = Self::Upper>
+			+ CheckedDiv<Output = Self::Upper>
+			+ CheckedRem<Output = Self::Upper>;
+
 	/// Multiplication that always rounds the result up to a whole number. The standard `Mul`
 	/// rounds to the nearest whole number.
 	///
@@ -284,6 +308,22 @@ pub trait PerThing:
 		overflow_prune_mul::<N, Self>(b, self.deconstruct(), Rounding::Up)
 	}
 
+	/// Checked multiplication that always rounds the result up to a whole number.
+	///
+	/// Returns `ArithmeticError::Overflow` on overflow.
+	fn checked_mul_ceil<N>(self, b: N) -> Result<N, ArithmeticError>
+	where
+		N: MultiplyArg
+			+ UniqueSaturatedInto<Self::Inner>
+			+ CheckedAdd
+			+ CheckedSub
+			+ CheckedMul
+			+ CheckedDiv,
+		Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+		Self::Upper: CheckedMul<Output = Self::Upper>
+			+ CheckedDiv<Output = Self::Upper>
+			+ CheckedRem<Output = Self::Upper>;
+
 	/// Saturating multiplication by the reciprocal of `self`.	The result is rounded to the
 	/// nearest whole number and saturates at the numeric bounds instead of overflowing.
 	///
@@ -296,7 +336,7 @@ pub trait PerThing:
 	#[must_use]
 	fn saturating_reciprocal_mul<N>(self, b: N) -> N
 	where
-		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
+		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + Bounded,
 		Self::Inner: Into<N>,
 	{
 		saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::NearestPrefUp)
@@ -317,7 +357,7 @@ pub trait PerThing:
 	#[must_use]
 	fn saturating_reciprocal_mul_floor<N>(self, b: N) -> N
 	where
-		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
+		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + Bounded,
 		Self::Inner: Into<N>,
 	{
 		saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::Down)
@@ -338,7 +378,7 @@ pub trait PerThing:
 	#[must_use]
 	fn saturating_reciprocal_mul_ceil<N>(self, b: N) -> N
 	where
-		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
+		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner> + Bounded,
 		Self::Inner: Into<N>,
 	{
 		saturating_reciprocal_mul::<N, Self>(b, self.deconstruct(), Rounding::Up)
@@ -449,6 +489,32 @@ pub trait PerThing:
 		N: RationalArg + TryInto<Self::Inner> + TryInto<Self::Upper>,
 		Self::Inner: Into<N>;
 
+	/// Checked version of `from_rational_with_rounding`.
+	///
+	/// Returns `ArithmeticError::DivisionByZero` if `q` is zero, or
+	/// `ArithmeticError::Overflow` if the result overflows `Self::Inner`.
+	fn checked_from_rational_with_rounding<N>(
+		p: N,
+		q: N,
+		rounding: Rounding,
+	) -> Result<Self, ArithmeticError>
+	where
+		N: RationalArg + TryInto<Self::Inner> + TryInto<Self::Upper>,
+		Self::Inner: Into<N>;
+
+	/// Checked integer division. Returns `ArithmeticError::DivisionByZero` if `b` is zero.
+	fn checked_int_div(self, b: Self) -> Result<Self::Inner, ArithmeticError>;
+
+	/// Checked division with rounding. Compute `self / rhs`.
+	///
+	/// Returns `ArithmeticError::DivisionByZero` if `rhs` is zero.
+	/// Returns `ArithmeticError::Overflow` if `rhs < self`.
+	fn checked_div_with_rounding(
+		self,
+		rhs: Self,
+		rounding: Rounding,
+	) -> Result<Self, ArithmeticError>;
+
 	/// Same as `Self::from_rational`.
 	#[deprecated = "Use from_rational instead"]
 	fn from_rational_approximation<N>(p: N, q: N) -> Self
@@ -513,7 +579,7 @@ impl Rounding {
 }
 
 /// Saturating reciprocal multiplication. Compute `x / self`, saturating at the numeric
-/// bounds instead of overflowing.
+/// bounds instead of overflowing. Returns `Bounded::max_value()` when `part` is zero.
 fn saturating_reciprocal_mul<N, P>(x: N, part: P::Inner, rounding: Rounding) -> N
 where
 	N: Clone
@@ -523,10 +589,14 @@ where
 		+ ops::Add<N, Output = N>
 		+ ops::Rem<N, Output = N>
 		+ Saturating
-		+ Unsigned,
+		+ Unsigned
+		+ Bounded,
 	P: PerThing,
 	P::Inner: Into<N>,
 {
+	if part.is_zero() {
+		return Bounded::max_value();
+	}
 	let maximum: N = P::ACCURACY.into();
 	let c = rational_mul_correction::<N, P>(x.clone(), P::ACCURACY, part, rounding);
 	(x / part.into()).saturating_mul(maximum).saturating_add(c)
@@ -543,6 +613,36 @@ where
 	let part_n: N = part.into();
 	let c = rational_mul_correction::<N, P>(x.clone(), part, P::ACCURACY, rounding);
 	(x / maximum) * part_n + c
+}
+
+/// Checked overflow-prune multiplication. Accurately multiply a value by `self` without
+/// overflowing. Returns `ArithmeticError::Overflow` on overflow.
+fn checked_overflow_prune_mul<N, P>(
+	x: N,
+	part: P::Inner,
+	rounding: Rounding,
+) -> Result<N, ArithmeticError>
+where
+	N: MultiplyArg
+		+ UniqueSaturatedInto<P::Inner>
+		+ CheckedAdd
+		+ CheckedSub
+		+ CheckedMul
+		+ CheckedDiv,
+	P: PerThing,
+	P::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+	P::Upper: CheckedMul<Output = P::Upper>
+		+ CheckedDiv<Output = P::Upper>
+		+ CheckedRem<Output = P::Upper>,
+{
+	let maximum: N = P::ACCURACY.into();
+	let part_n: N = part.into();
+	let c = checked_rational_mul_correction::<N, P>(x.clone(), part, P::ACCURACY, rounding)?;
+
+	// Perform calculations with checked operations
+	let term1 = x.checked_div(&maximum).ok_or(ArithmeticError::DivisionByZero)?; // P::ACCURACY should not be zero
+	let term2 = term1.checked_mul(&part_n).ok_or(ArithmeticError::Overflow)?;
+	term2.checked_add(&c).ok_or(ArithmeticError::Overflow)
 }
 
 /// Compute the error due to integer division in the expression `x / denom * numer`.
@@ -592,6 +692,91 @@ where
 	rem_mul_div_inner.into()
 }
 
+/// Checked version of `rational_mul_correction`.
+/// Compute the error due to integer division in the expression `x / denom * numer`.
+///
+/// Returns `ArithmeticError::DivisionByZero` if `denom` is zero.
+/// Returns `ArithmeticError::Overflow` on overflow.
+fn checked_rational_mul_correction<N, P>(
+	x: N,
+	numer: P::Inner,
+	denom: P::Inner,
+	rounding: Rounding,
+) -> Result<N, ArithmeticError>
+where
+	N: MultiplyArg
+		+ UniqueSaturatedInto<P::Inner>
+		+ CheckedAdd
+		+ CheckedSub
+		+ CheckedMul
+		+ CheckedDiv,
+	P: PerThing,
+	P::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+	P::Upper: CheckedMul<Output = P::Upper>
+		+ CheckedDiv<Output = P::Upper>
+		+ CheckedRem<Output = P::Upper>,
+{
+	if denom.is_zero() {
+		return Err(ArithmeticError::DivisionByZero);
+	}
+	let numer_upper = P::Upper::from(numer);
+	let denom_n: N = denom.into();
+	let denom_upper = P::Upper::from(denom);
+
+	let rem = x.rem(denom_n);
+	// `rem` is less than `denom`, which fits in `P::Inner`.
+	let rem_inner = rem.saturated_into::<P::Inner>();
+
+	// `P::Upper` always fits `P::Inner::max_value().pow(2)`, thus it fits `rem * numer`.
+	// Use checked_mul for the upper type multiplication.
+	let rem_mul_upper = P::Upper::from(rem_inner)
+		.checked_mul(&numer_upper)
+		.ok_or(ArithmeticError::Overflow)?;
+
+	// denom was verified non-zero above; these checks are defense-in-depth.
+	let rem_mul_div_upper =
+		rem_mul_upper.checked_div(&denom_upper).ok_or(ArithmeticError::Overflow)?;
+	let remainder_upper =
+		rem_mul_upper.checked_rem(&denom_upper).ok_or(ArithmeticError::Overflow)?;
+
+	// `rem` is less than `denom`, so `rem * numer / denom` is less than `numer`, which fits in
+	// `P::Inner`. Conversion should be safe.
+	let mut rem_mul_div_inner: P::Inner =
+		rem_mul_div_upper.try_into().map_err(|_| ArithmeticError::Overflow)?;
+
+	let one_inner: P::Inner = One::one();
+	let two_upper: P::Upper = <P::Upper as One>::one() + <P::Upper as One>::one();
+
+	match rounding {
+		Rounding::Down => {},
+		Rounding::Up => {
+			if remainder_upper > Zero::zero() {
+				rem_mul_div_inner =
+					rem_mul_div_inner.checked_add(&one_inner).ok_or(ArithmeticError::Overflow)?;
+			}
+		},
+		Rounding::NearestPrefDown => {
+			let threshold = denom_upper.checked_div(&two_upper).ok_or(ArithmeticError::Overflow)?;
+			if remainder_upper > threshold {
+				rem_mul_div_inner =
+					rem_mul_div_inner.checked_add(&one_inner).ok_or(ArithmeticError::Overflow)?;
+			}
+		},
+		Rounding::NearestPrefUp => {
+			let threshold = denom_upper.checked_div(&two_upper).ok_or(ArithmeticError::Overflow)?; // Cannot fail for denom > 0
+			let tie_breaker =
+				denom_upper.checked_rem(&two_upper).ok_or(ArithmeticError::Overflow)?; // Cannot fail
+			if remainder_upper >=
+				threshold.checked_add(&tie_breaker).ok_or(ArithmeticError::Overflow)?
+			{
+				rem_mul_div_inner =
+					rem_mul_div_inner.checked_add(&one_inner).ok_or(ArithmeticError::Overflow)?;
+			}
+		},
+	}
+	Ok(rem_mul_div_inner.into())
+}
+
 macro_rules! implement_per_thing {
 	(
 		$name:ident,
@@ -633,7 +818,7 @@ macro_rules! implement_per_thing {
 			fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 				if $max == <$type>::max_value() {
 					// Not a power of ten: show as N/D and approx %
-					let pc = (self.0 as f64) / (self.0 as f64) * 100f64;
+					let pc = (self.0 as f64) / ($max as f64) * 100f64;
 					write!(fmt, "{:.2}% ({}/{})", pc, self.0, $max)
 				} else {
 					// A power of ten: calculate exact percent
@@ -712,13 +897,74 @@ macro_rules! implement_per_thing {
 					+ $crate::MultiplyRational,
 				Self::Inner: Into<N>
 			{
-				// q cannot be zero.
-				if q.is_zero() { return Err(()) }
-				// p should not be bigger than q.
-				if p > q { return Err(()) }
+				Self::checked_from_rational_with_rounding(p, q, r).map_err(|_| ())
+			}
+
+			fn checked_from_rational_with_rounding<N>(p: N, q: N, r: Rounding) -> Result<Self, ArithmeticError>
+			where
+				N: Clone
+					+ Ord
+					+ TryInto<Self::Inner>
+					+ TryInto<Self::Upper>
+					+ ops::Div<N, Output = N>
+					+ ops::Rem<N, Output = N>
+					+ ops::Add<N, Output = N>
+					+ ops::AddAssign<N>
+					+ Unsigned
+					+ Zero
+					+ One
+					+ $crate::MultiplyRational,
+				Self::Inner: Into<N>
+			{
+				if q.is_zero() { return Err(ArithmeticError::DivisionByZero) }
+				if p > q { return Err(ArithmeticError::Overflow) }
 
 				let max: N = $max.into();
-				max.multiply_rational(p, q, r).ok_or(())?.try_into().map(|x| $name(x)).map_err(|_| ())
+				max.multiply_rational(p, q, r)
+					.ok_or(ArithmeticError::Overflow)?
+					.try_into()
+					.map(|x| $name(x))
+					.map_err(|_| ArithmeticError::Overflow)
+			}
+
+			fn checked_mul_floor<N>(self, b: N) -> Result<N, ArithmeticError>
+			where
+				N: MultiplyArg + UniqueSaturatedInto<Self::Inner> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+				Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+				Self::Upper: CheckedMul<Output = Self::Upper> + CheckedDiv<Output = Self::Upper> + CheckedRem<Output = Self::Upper>,
+			{
+				checked_overflow_prune_mul::<N, Self>(b, self.deconstruct(), Rounding::Down)
+			}
+
+			fn checked_mul_ceil<N>(self, b: N) -> Result<N, ArithmeticError>
+			where
+				N: MultiplyArg + UniqueSaturatedInto<Self::Inner> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+				Self::Inner: Into<N> + CheckedAdd + CheckedSub + CheckedMul + CheckedDiv,
+				Self::Upper: CheckedMul<Output = Self::Upper> + CheckedDiv<Output = Self::Upper> + CheckedRem<Output = Self::Upper>,
+			{
+				checked_overflow_prune_mul::<N, Self>(b, self.deconstruct(), Rounding::Up)
+			}
+
+			fn checked_square(self) -> Result<Self, ArithmeticError> {
+				let p_upper = Self::Upper::from(self.deconstruct());
+				let q_upper = Self::Upper::from(Self::ACCURACY);
+
+				// Calculate p*p and q*q using checked multiplication
+				let p_squared = p_upper.checked_mul(p_upper).ok_or(ArithmeticError::Overflow)?;
+				let q_squared = q_upper.checked_mul(q_upper).ok_or(ArithmeticError::Overflow)?;
+				Self::checked_from_rational_with_rounding(p_squared, q_squared, Rounding::Down)
+			}
+
+			fn checked_div_with_rounding(self, rhs: Self, rounding: Rounding) -> Result<Self, ArithmeticError> {
+				Self::checked_from_rational_with_rounding(self.deconstruct(), rhs.deconstruct(), rounding)
+			}
+
+			fn checked_int_div(self, b: Self) -> Result<Self::Inner, ArithmeticError> {
+				if b.is_zero() {
+					Err(ArithmeticError::DivisionByZero)
+				} else {
+					self.deconstruct().checked_div(b.deconstruct()).ok_or(ArithmeticError::DivisionByZero)
+				}
 			}
 		}
 
@@ -827,7 +1073,7 @@ macro_rules! implement_per_thing {
 			/// See [`PerThing::saturating_reciprocal_mul`].
 			pub fn saturating_reciprocal_mul<N>(self, b: N) -> N
 				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type>,
+					N: ReciprocalArg + UniqueSaturatedInto<$type> + Bounded,
 					$type: Into<N>,
 			{
 				PerThing::saturating_reciprocal_mul(self, b)
@@ -836,7 +1082,7 @@ macro_rules! implement_per_thing {
 			/// See [`PerThing::saturating_reciprocal_mul_floor`].
 			pub fn saturating_reciprocal_mul_floor<N>(self, b: N) -> N
 				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type>,
+					N: ReciprocalArg + UniqueSaturatedInto<$type> + Bounded,
 					$type: Into<N>,
 			{
 				PerThing::saturating_reciprocal_mul_floor(self, b)
@@ -845,10 +1091,15 @@ macro_rules! implement_per_thing {
 			/// See [`PerThing::saturating_reciprocal_mul_ceil`].
 			pub fn saturating_reciprocal_mul_ceil<N>(self, b: N) -> N
 				where
-					N: ReciprocalArg + UniqueSaturatedInto<$type>,
+					N: ReciprocalArg + UniqueSaturatedInto<$type> + Bounded,
 					$type: Into<N>,
 			{
 				PerThing::saturating_reciprocal_mul_ceil(self, b)
+			}
+
+			/// See [`PerThing::checked_int_div`].
+			pub fn checked_int_div(self, b: Self) -> Result<$type, ArithmeticError> {
+				PerThing::checked_int_div(self, b)
 			}
 
 			/// Saturating division. Compute `self / rhs`, saturating at one if `rhs < self`.
@@ -1090,7 +1341,7 @@ macro_rules! implement_per_thing {
 		mod $test_mod {
 			use codec::{Encode, Decode};
 			use super::{$name, Saturating, PerThing};
-			use crate::traits::Zero;
+			use crate::{traits::Zero, ArithmeticError};
 
 			#[test]
 			fn macro_expanded_correctly() {
@@ -1786,6 +2037,111 @@ macro_rules! implement_per_thing {
 					Some($name::from_percent(0))
 				);
 			}
+
+			#[test]
+			fn saturating_reciprocal_mul_zero_returns_max() {
+				let zero = $name::zero();
+				let fifty = $name::from_percent(50);
+				let val = 10 as $type;
+
+				// Division by zero saturates to max.
+				assert_eq!(zero.saturating_reciprocal_mul(val), <$type>::MAX);
+				assert_eq!(zero.saturating_reciprocal_mul_floor(val), <$type>::MAX);
+				assert_eq!(zero.saturating_reciprocal_mul_ceil(val), <$type>::MAX);
+
+				// Also saturates to max when x is zero.
+				assert_eq!(zero.saturating_reciprocal_mul(0 as $type), <$type>::MAX);
+
+				// Normal values still work.
+				assert_eq!(fifty.saturating_reciprocal_mul(val), 20);
+			}
+
+			#[test]
+			fn checked_from_rational_works() {
+				use crate::Rounding::*;
+				assert_eq!(
+					$name::checked_from_rational_with_rounding(1 as $type, 0 as $type, Down),
+					Err(ArithmeticError::DivisionByZero)
+				);
+				assert_eq!(
+					$name::checked_from_rational_with_rounding(2 as $type, 1 as $type, Down),
+					Err(ArithmeticError::Overflow)
+				);
+				assert_eq!(
+					$name::checked_from_rational_with_rounding(1 as $type, 2 as $type, Down),
+					Ok($name::from_percent(50))
+				);
+			}
+
+			#[test]
+			fn checked_arithmetic_works() {
+				use crate::Rounding::*;
+				let zero = $name::zero();
+				let one = $name::one();
+				let half = $name::from_percent(50);
+				let quarter = $name::from_percent(25);
+				let three_quarters = $name::from_percent(75);
+				let val_n: $type = 10;
+
+				assert_eq!(half.checked_mul_floor(val_n), Ok(half.mul_floor(val_n)));
+				assert_eq!(quarter.checked_mul_floor(val_n), Ok(quarter.mul_floor(val_n)));
+				assert_eq!(one.checked_mul_floor(<$type>::MAX), Ok(<$type>::MAX));
+
+				assert_eq!(half.checked_mul_ceil(val_n), Ok(half.mul_ceil(val_n)));
+				assert_eq!(quarter.checked_mul_ceil(val_n), Ok(quarter.mul_ceil(val_n)));
+				assert_eq!(one.checked_mul_ceil(<$type>::MAX), Ok(<$type>::MAX));
+				assert_eq!(one.checked_square(), Ok(one));
+				assert_eq!(zero.checked_square(), Ok(zero));
+				// checked_square computes: from_rational(p^2, ACCURACY^2, Down)
+				// whose inner value is ACCURACY * p^2 / ACCURACY^2 = p^2 / ACCURACY.
+				// Use u128 intermediate to avoid overflow.
+				let h = half.deconstruct() as u128;
+				let q = quarter.deconstruct() as u128;
+				let acc = <$name>::ACCURACY as u128;
+				assert_eq!(half.checked_square(), Ok($name::from_parts((h * h / acc) as $type)));
+				assert_eq!(quarter.checked_square(), Ok($name::from_parts((q * q / acc) as $type)));
+				assert_eq!(half.checked_div_with_rounding(quarter, Down).map_err(|e| e), Err(ArithmeticError::Overflow));
+				// quarter / half may not equal exactly half due to from_percent truncation
+				// (e.g. PerU16). Use checked_from_rational_with_rounding as oracle.
+				assert_eq!(
+					quarter.checked_div_with_rounding(half, Down),
+					$name::checked_from_rational_with_rounding(
+						quarter.deconstruct(), half.deconstruct(), Down
+					)
+				);
+				assert_eq!(one.checked_div_with_rounding(one, Down), Ok(one));
+				assert_eq!(one.checked_div_with_rounding(half, Down).map_err(|e| e), Err(ArithmeticError::Overflow));
+				assert_eq!(half.checked_div_with_rounding(one, Down), Ok(half));
+				assert_eq!(three_quarters.checked_div_with_rounding(half, Down).map_err(|e| e), Err(ArithmeticError::Overflow));
+				assert_eq!(three_quarters.checked_div_with_rounding(half, Up).map_err(|e| e), Err(ArithmeticError::Overflow));
+				assert_eq!(
+					one.checked_div_with_rounding(zero, Down),
+					Err(ArithmeticError::DivisionByZero)
+				);
+				assert_eq!(
+					half.checked_div_with_rounding(zero, Up),
+					Err(ArithmeticError::DivisionByZero)
+				);
+			}
+
+			#[test]
+			fn checked_int_div_works() {
+				let zero = $name::zero();
+				let one = $name::one();
+				let half = $name::from_percent(50);
+				let quarter = $name::from_percent(25);
+
+				assert_eq!(one.checked_int_div(one), Ok(1 as $type));
+				assert_eq!(half.checked_int_div(quarter), Ok(2 as $type));
+				assert_eq!(one.checked_int_div(half), Ok(2 as $type));
+				assert_eq!(quarter.checked_int_div(half), Ok(0 as $type));
+				assert_eq!(half.checked_int_div(one), Ok(0 as $type));
+				assert_eq!(one.checked_int_div(zero), Err(ArithmeticError::DivisionByZero));
+				assert_eq!(half.checked_int_div(zero), Err(ArithmeticError::DivisionByZero));
+				assert_eq!(zero.checked_int_div(zero), Err(ArithmeticError::DivisionByZero));
+				assert_eq!(zero.checked_int_div(one), Ok(0 as $type));
+				assert_eq!(zero.checked_int_div(half), Ok(0 as $type));
+			}
 		}
 	};
 }
@@ -1830,6 +2186,29 @@ macro_rules! implement_per_thing_with_perthousand {
 			#[allow(unused)]
 			fn const_fns_work() {
 				const C1: $name = $name::from_perthousand(500);
+			}
+
+			#[test]
+			fn debug_fmt_shows_correct_percentage() {
+				// PerU16's Debug impl previously divided self.0 by self.0 instead of
+				// $max, causing all non-zero values to display as 100.00%.
+				if $max == <$type>::max_value() {
+					let half = $name::from_percent(50);
+					let dbg = format!("{:?}", half);
+					assert!(
+						dbg.starts_with("49.") || dbg.starts_with("50."),
+						"PerU16 50% debug should show ~50%, got: {}",
+						dbg
+					);
+
+					let zero = $name::zero();
+					let dbg = format!("{:?}", zero);
+					assert!(
+						dbg.starts_with("0.00%"),
+						"PerU16 zero debug should show 0.00%, got: {}",
+						dbg
+					);
+				}
 			}
 		}
 	}
