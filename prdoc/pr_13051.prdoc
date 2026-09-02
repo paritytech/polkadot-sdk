@@ -52,6 +52,14 @@ doc:
     extra branch depth costs roughly nine SHA-256 compressions. Weights are unchanged and
     should be regenerated on reference hardware as usual.
 
+    `ForkVersions::is_ordered()` is a new `const fn` asserting the fork epochs are
+    non-decreasing. `select_fork_version` tests the newest fork first, so a fork scheduled
+    below its predecessor is unreachable, and nothing detects that at runtime -- the fork
+    version feeds the BLS signing domain, so it surfaces as a signature failure after every
+    merkle branch has already verified. Each schedule now carries
+    `const _: () = assert!(ChainForkVersions::get().is_ordered());` beside it, so a misordered
+    schedule fails to build. This covers the production schedules too, which no test compiles.
+
     The test and benchmark fork schedule in both bridge hub runtimes sets fulu to epoch 0, so
     fulu is the pre-Gloas era there. This is coupled to the benchmarks running Gloas fixtures:
     nothing in that schedule needs the Electra signing domain. The pallet mock deliberately

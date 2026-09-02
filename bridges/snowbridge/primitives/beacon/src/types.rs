@@ -49,6 +49,37 @@ pub struct Fork {
 	pub epoch: u64,
 }
 
+impl ForkVersions {
+	/// Whether the fork epochs are non-decreasing, oldest to newest.
+	///
+	/// `select_fork_version` tests the newest fork first and returns on the first whose
+	/// epoch the slot has reached. A fork scheduled below its predecessor is therefore
+	/// unreachable: no epoch ever selects it. Nothing detects that at runtime, and the
+	/// consequence is not an obviously wrong fork -- the fork version feeds the BLS
+	/// signing domain, so it surfaces as a signature failure after every merkle branch
+	/// has already verified.
+	///
+	/// Equal epochs are allowed: a schedule may deliberately collapse older forks, which
+	/// is how the test schedules make one fork the effective default for everything
+	/// below the next scheduled fork.
+	///
+	/// Intended for `const` assertions next to a schedule definition, so a misordered
+	/// schedule fails to build rather than failing a benchmark that may not be run:
+	///
+	/// ```ignore
+	/// const _: () = assert!(ChainForkVersions::get().is_ordered());
+	/// ```
+	pub const fn is_ordered(&self) -> bool {
+		self.genesis.epoch <= self.altair.epoch &&
+			self.altair.epoch <= self.bellatrix.epoch &&
+			self.bellatrix.epoch <= self.capella.epoch &&
+			self.capella.epoch <= self.deneb.epoch &&
+			self.deneb.epoch <= self.electra.epoch &&
+			self.electra.epoch <= self.fulu.epoch &&
+			self.fulu.epoch <= self.gloas.epoch
+	}
+}
+
 #[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct PublicKey(pub [u8; PUBKEY_SIZE]);
 

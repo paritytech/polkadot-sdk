@@ -199,6 +199,11 @@ parameter_types! {
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
+// Both schedules above must be ordered oldest to newest; a fork below its predecessor is
+// unreachable. Checked at compile time so a misordered schedule fails the build rather than
+// a benchmark that may not be run.
+const _: () = assert!(ChainForkVersions::get().is_ordered());
+
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;

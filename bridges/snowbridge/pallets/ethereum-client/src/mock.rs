@@ -176,6 +176,8 @@ parameter_types! {
 
 pub const FREE_SLOTS_INTERVAL: u32 = config::SLOTS_PER_EPOCH as u32;
 
+const _: () = assert!(ChainForkVersions::get().is_ordered());
+
 impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
