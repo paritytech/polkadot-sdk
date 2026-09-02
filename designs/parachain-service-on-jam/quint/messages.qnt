@@ -134,14 +134,19 @@ module messages {
   // small, or the transfer would leave it below its threshold balance.
   | InsufficientServiceBalance
 
+  /// Why `parachain_set_state_balance` was rejected (§6.1).
+  type StateBalanceRejection =
+  // attempted < current_used.
+  | BelowUsed({ currentTotal: Balance, currentUsed: Balance })
+  // The para is deregistering (§6.4).
+  | ParachainIsDeregistering
+
   type AccumulateLog =
   // Available state balance insufficient; see the reason for the cause.
   | InsufficientStateBalance(InsufficientBalanceReason)
-  // parachain_set_state_balance rejected because attempted < current_used.
+  // parachain_set_state_balance(paraId, attempted) rejected; see the reason.
   | StateBalanceUpdateRejected({
-      attempted: Balance,
-      currentTotal: Balance,
-      currentUsed: Balance
+      paraId: ParaId, attempted: Balance, reason: StateBalanceRejection
   })
   // JAM `designate` rejected the assembled validator-key set (its length is
   // not in `valcount`, i.e. not a multiple of 3 in [6, 1023]); the staging

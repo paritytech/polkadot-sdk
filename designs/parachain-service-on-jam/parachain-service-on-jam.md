@@ -294,16 +294,24 @@ enum InsufficientBalanceReason {
     SetKV { key_hash: Hash },
 }
 
+/// Why `parachain_set_state_balance` was rejected (see §6.1).
+enum StateBalanceRejection {
+    /// `attempted < current_used`.
+    BelowUsed { current_total: Compact<Balance>, current_used: Compact<Balance> },
+    /// `para_id` is deregistering (§6.4).
+    ParachainIsDeregistering,
+}
+
 enum AccumulateLog {
     /// Available state balance insufficient for the operation described by
     /// `reason`. See §6.1.
     InsufficientStateBalance { reason: InsufficientBalanceReason },
-    /// `parachain_set_state_balance(para_id, attempted)` was rejected
-    /// because `attempted < current_used`. See §6.1.
+    /// `parachain_set_state_balance(para_id, attempted)` was rejected for
+    /// `reason`. See §6.1.
     StateBalanceUpdateRejected {
+        para_id: ParaId,
         attempted: Compact<Balance>,
-        current_total: Compact<Balance>,
-        current_used: Compact<Balance>,
+        reason: StateBalanceRejection,
     },
     /// JAM `designate` rejected the assembled validator-key set because its
     /// `len` is not in `valcount`. The staging buffer is cleared regardless. See §5.3.
@@ -630,8 +638,9 @@ enum UpwardMessage {
     /// parachain was ever charged for it. Removing the last referencer may need
     /// a follow-up `Forget` (two-step expunge, see §6.1). For that parachain's
     /// active or pending validation code it only clears `pinned` (§5.2). A
-    /// `Service` target is **Asset Hub only**. Accumulate must check that the
-    /// preimage is not the Parachain Service's own current code (§5.4).
+    /// `Service` target is **Asset Hub only**. For an Asset Hub target,
+    /// Accumulate must check that the preimage is not the Parachain Service's
+    /// own current code (§5.4).
     Forget { target: Target, hash: Hash, len: Compact<u32> },
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
@@ -640,7 +649,8 @@ enum UpwardMessage {
     /// `is_deregistering == true` (§6.4).
     SetKV { key: Vec<u8>, value: Vec<u8> },
     /// Remove `key_value_storage[(para_id, key)]`, refunding its footprint to
-    /// `para_id` (see §6.1).
+    /// `para_id` (see §6.1). No-op if `para_id` has `is_deregistering == true`
+    /// (§6.4).
     RemoveKV { para_id: ParaId, key: Vec<u8> },
     /// Transfer balance to another JAM service.
     /// `deferred` is `None` for a plain move and `Some((memo, gas))` for a
@@ -706,8 +716,9 @@ enum UpwardMessage {
     /// Remove all per-parachain state. **Coretime chain only.**
     ParachainCleanUp(ParaId),
     /// Overwrite `ParaInfo[para_id].total_state_balance`. See §6.1.
-    /// **Coretime chain only.** No-op if `para_id` has `is_deregistering == true`
-    /// (§6.4).
+    /// **Coretime chain only.** Rejected with
+    /// `StateBalanceUpdateRejected { reason: ParachainIsDeregistering }` if
+    /// `para_id` has `is_deregistering == true` (§6.4).
     ParachainSetStateBalance { para_id: ParaId, new_total: Compact<Balance> },
 }
 ```
@@ -1310,9 +1321,12 @@ an existing `ParaId`, it overwrites `total_state_balance` in place.
 In either case the call is applied only if `new_total >= used_state_balance` (so
 the Coretime chain cannot strand currently-paid-for state by under-funding the
 parachain). Otherwise no state change happens and an
-`AccumulateLog::StateBalanceUpdateRejected { attempted, current_total, current_used }`
-is appended to the Coretime chain's `parachain_log` (§5.1) so it can observe the
-rejection and size a retry. To free state balance, `used_state_balance` must first be reduced
+`AccumulateLog::StateBalanceUpdateRejected { para_id, attempted, reason }` with reason
+`BelowUsed { current_total, current_used }` is appended to the Coretime
+chain's `parachain_log` (§5.1) so it can observe the rejection and size a retry. A
+deregistering `ParaId` (§6.4) is rejected the same way with reason
+`ParachainIsDeregistering`. To free state balance,
+`used_state_balance` must first be reduced
 by releasing state via `forget` / `kv_remove`, called either by the parachain
 itself or by the Coretime chain on its behalf (see §6.4).
 

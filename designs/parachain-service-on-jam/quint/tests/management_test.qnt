@@ -223,4 +223,47 @@ module management_test {
       init
     }
   }
+
+
+  /// §6, §6.4: once clean-up has set `isDeregistering`, the para is treated as
+  /// if it no longer existed. `parachain_set_state_balance` is rejected as
+  /// `ParachainIsDeregistering`; the two other Coretime calls, a `Solicit` naming
+  /// it and a `SetKV` for it no-op without a log. So a half-removed para cannot
+  /// be revived or grow state; only `parachain_clean_up` still acts.
+  run deregisteringParaIsFrozenTest = {
+    val para = MkParaId(5)
+    val code: ValidationCodeHash = { vchBytes: 0x55 }
+    val other: ValidationCodeHash = { vchBytes: 0x56 }
+    val extra: Hash = { hashBytes: 0x99 }
+    val bal = BaselineFootprint + preimageFootprint(FixedCodeLen) * 2
+    val s0 = parachainSetStateBalance(initialState, para, bal).state
+    val s1 = markProvided(
+      parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state,
+      vchAsHash(code), FixedCodeLen)
+    val frozen = parachainCleanUp(s1, para, 0).state
+    val setBal = parachainSetStateBalance(frozen, para, bal * 2)
+    val setHead = parachainSetHead(frozen, para, 42)
+    val setCode = parachainSetValidationCode(frozen, para, other, FixedCodeLen, 0)
+    val solicit = replay(frozen, CoretimeParaId, 0,
+      Solicit({ target: Parachain(para), hash: extra, len: 1024 }))
+    val setKv = replay(frozen, para, 0, SetKV({ key: List(0), value: List(0) }))
+    val removeKv = replay(frozen, CoretimeParaId, 0, RemoveKV({ paraId: para, key: List(0) }))
+    val retried = parachainCleanUp(frozen, para, ExpungePeriod + 1)
+    all {
+      assert(frozen.paraInfo(para).isDeregistering),
+      assert(setBal.state == frozen),
+      assert(setBal.logs == List(StateBalanceUpdateRejected({
+        paraId: para, attempted: bal * 2, reason: ParachainIsDeregistering }))),
+      assert(setHead.state == frozen and setHead.logs == List()),
+      assert(setCode.state == frozen and setCode.logs == List()),
+      assert(setCode.jamSolicit == Set() and setCode.jamForget == Set()),
+      assert(solicit.state == frozen and solicit.logs == List()),
+      assert(solicit.jamSolicit == Set()),
+      assert(setKv.state == frozen and setKv.logs == List()),
+      assert(removeKv.state == frozen and removeKv.logs == List()),
+      // Clean-up itself still completes.
+      assert(not(retried.state.isLive(para))),
+      init
+    }
+  }
 }
