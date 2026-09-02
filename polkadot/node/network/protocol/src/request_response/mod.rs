@@ -75,6 +75,9 @@ pub mod v1;
 /// Actual versioned requests and responses that are sent over the wire.
 pub mod v2;
 
+/// Actual versioned requests and responses that are sent over the wire.
+pub mod v3;
+
 /// A protocol per subsystem seems to make the most sense, this way we don't need any dispatching
 /// within protocols.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, EnumIter)]
@@ -85,6 +88,8 @@ pub enum Protocol {
 	CollationFetchingV1,
 	/// Protocol for fetching collations from collators when async backing is enabled.
 	CollationFetchingV2,
+	/// Protocol for fetching collations from collators by output head data hash.
+	CollationFetchingV3,
 	/// Protocol for fetching seconded PoVs from validators of the same group.
 	PoVFetchingV1,
 	/// Protocol for fetching available data.
@@ -205,7 +210,9 @@ impl Protocol {
 				CHUNK_REQUEST_TIMEOUT,
 				tx,
 			),
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => {
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => {
 				N::request_response_config(
 					name,
 					legacy_names,
@@ -264,7 +271,9 @@ impl Protocol {
 			// as well.
 			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => 100,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => 10,
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => 10,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
 			Protocol::PoVFetchingV1 => 10,
 			// Validators are constantly self-selecting to request available data which may lead
@@ -311,6 +320,7 @@ impl Protocol {
 			Protocol::AttestedCandidateV2 => None,
 			Protocol::CollationFetchingV2 => None,
 			Protocol::ChunkFetchingV2 => None,
+			Protocol::CollationFetchingV3 => None,
 		}
 	}
 }
@@ -372,6 +382,8 @@ impl ReqProtocolNames {
 			Protocol::CollationFetchingV2 => "/req_collation/2",
 			Protocol::AttestedCandidateV2 => "/req_attested_candidate/2",
 			Protocol::ChunkFetchingV2 => "/req_chunk/2",
+			// V3:
+			Protocol::CollationFetchingV3 => "/req_collation/3",
 		};
 
 		format!("{}{}", prefix, short_name).into()
