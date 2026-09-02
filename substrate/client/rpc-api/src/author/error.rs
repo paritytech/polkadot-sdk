@@ -21,6 +21,13 @@
 use jsonrpsee::types::error::{ErrorObject, ErrorObjectOwned};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModuleInvalidityDetails {
+	pallet_index: u8,
+	error: u16,
+}
+
 /// Author RPC Result type.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -111,6 +118,13 @@ impl From<Error> for ErrorObjectOwned {
 					Some(format!("Custom error: {}", e)),
 				)
 			},
+			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
+				ErrorObject::owned(
+					POOL_INVALID_TX,
+					"Invalid Transaction",
+					Some(ModuleInvalidityDetails { pallet_index: e.index, error: e.error }),
+				)
+			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();
 				ErrorObject::owned(
@@ -185,5 +199,26 @@ impl From<Error> for ErrorObjectOwned {
 				None::<()>,
 			)
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use jsonrpsee::types::ErrorObjectOwned;
+	use sc_transaction_pool_api::error::Error as PoolError;
+	use sp_runtime::ModuleInvalidity;
+
+	/// After validation, the node exposes pallet index and error number for diagnostics.
+	#[test]
+	fn author_submit_extrinsic_module_invalidity_rpc_data() {
+		let on_node = ModuleInvalidity { index: 42, error: 1 };
+		let err = Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(on_node)));
+		let rpc_error: ErrorObjectOwned = err.into();
+
+		let details: ModuleInvalidityDetails =
+			serde_json::from_str(rpc_error.data().unwrap().get()).unwrap();
+		assert_eq!(details.pallet_index, 42);
+		assert_eq!(details.error, 1);
 	}
 }

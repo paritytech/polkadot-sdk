@@ -47,6 +47,14 @@ impl<Hash> From<Error> for TransactionEvent<Hash> {
 					error: format!("Invalid transaction with custom error: {}", e),
 				})
 			},
+			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
+				TransactionEvent::Invalid(TransactionError {
+					error: format!(
+						"Invalid transaction: module invalidity (pallet: {}, error: {})",
+						e.index, e.error
+					),
+				})
+			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();
 				TransactionEvent::Invalid(TransactionError {

@@ -568,6 +568,30 @@ impl PartialEq for ModuleError {
 	}
 }
 
+/// Reason why a transaction was invalid due to a module-specific reason.
+///
+/// Semantically different from [`ModuleError`] (dispatch error). Carries a per-module error
+/// number when validation fails.
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ModuleInvalidity {
+	/// Module index, matching the metadata module index.
+	pub index: u8,
+	/// Module-specific error number.
+	pub error: u16,
+}
+
 /// Errors related to transactional storage layers.
 #[derive(
 	Eq,
@@ -1189,6 +1213,15 @@ mod tests {
 			decoded,
 			DispatchError::Module(ModuleError { index: 1, error: [2, 0, 0, 0], message: None })
 		);
+	}
+
+	#[test]
+	fn module_invalidity_should_encode_and_decode() {
+		let invalidity = ModuleInvalidity { index: 7, error: 3 };
+		let encoded = invalidity.encode();
+		let decoded = ModuleInvalidity::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(encoded, vec![7, 3, 0]);
+		assert_eq!(decoded, invalidity);
 	}
 
 	#[test]
