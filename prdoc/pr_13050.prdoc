@@ -3,11 +3,12 @@ title: 'statement-store: drop explicit-affine statements once affinity lapses'
 doc:
 - audience: Node Dev
   description: |-
-    Statements persisted only for explicit topic affinity are now dropped during store
-    maintenance once no affinity covers them, typically after the last matching RPC
-    subscription ends. The removal skips the re-acceptance ban, so peers may redeliver a
-    dropped statement should affinity return. Configured-topic and DHT-affine statements
-    are unaffected.
+    On nodes running the v2 DHT statement path, statements persisted only for explicit
+    topic affinity are now dropped during store maintenance once no affinity covers them,
+    typically after the last matching RPC subscription ends. The removal skips the
+    re-acceptance ban, so peers may redeliver a dropped statement should affinity return.
+    Configured-topic and DHT-affine statements, and nodes with the v2 gate off, are
+    unaffected.
 
 crates:
 - name: sc-statement-store

@@ -2134,7 +2134,7 @@ impl Store {
 	/// mid-sweep may still be dropped — the skipped ban leaves redelivery open.
 	///
 	/// Statements not yet handed to propagation are exempt: a locally submitted statement no
-	/// peer has seen gets at least one broadcast before the sweep may drop it.
+	/// peer has seen is handed to propagation at least once before the sweep may drop it.
 	fn sweep_explicit_affinity(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
 		let tracked: Vec<Hash> = {
@@ -4703,7 +4703,7 @@ mod tests {
 		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
 
 		// Affinity lapsed before the outbox took the statement: the sweep leaves it alone,
-		// so a locally submitted statement is broadcast at least once.
+		// so a locally submitted statement is handed to propagation at least once.
 		affine.store(false, Ordering::Relaxed);
 		store.maintain();
 		assert!(store.has_statement(&hash));
@@ -4743,6 +4743,7 @@ mod tests {
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
 
 		// A statement admitted for DHT affinity is never re-checked, even once affinity lapses.
 		affine.store(false, Ordering::Relaxed);
@@ -4760,6 +4761,7 @@ mod tests {
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
 
 		// The DHT bit in the admission mask exempts the statement from the sweep.
 		affine.store(false, Ordering::Relaxed);
