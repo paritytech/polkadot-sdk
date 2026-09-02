@@ -108,34 +108,13 @@ spec_msg_member: Map<(ParaId, StreamsRoot), MemberEntry {
 
 The settlement check is a single 75 B point read of `spec_msg_member` per `Requires` entry.
 
+When a new root is added, the system drops the oldest tail entry if the queue is full
+(unless a recent duplicate exists), inserts the new root at the head, logs its position,
+and advances the cursor to save the state.
+
 Eviction from the ring is based entirely on position. A root is only pushed out after the parachain adds 64 newer roots.
 If a block sends nothing, nothing is pushed. If a root happens to be repeated, the `MemberEntry` simply shifts to the
 new position while the old queue slot is left behind.
-
-```rust
-fn push(para: ParaId, root: StreamsRoot) {
-  let mut cursor = spec_msg_cursor.get(para);                              // 47 B read
-
-  // Eviction
-  while cursor.head.wrapping_sub(cursor.tail) >= W_MAX {
-    let to_evict = spec_msg_queue.get(&(para, cursor.tail));               // 75 B read
-    spec_msg_queue.remove(&(para, cursor.tail));                           // delete
-
-    let entry = spec_msg_member.get(&(para, to_evict));                    // 75 B read
-    if entry.seq == cursor.tail {
-      // Tail slot is this root's latest occurrence: membership expires.
-      spec_msg_member.remove(&(para, to_evict));                           // delete
-    }
-    // else: root was re-pushed since; the newer slot keeps it alive.
-    cursor.tail = cursor.tail.wrapping_add(1);
-  }
-
-  spec_msg_queue.insert((para, cursor.head), root);                        // 75 B write
-  spec_msg_member.insert((para, root), MemberEntry { seq: cursor.head });  // 75 B write
-  cursor.head = cursor.head.wrapping_add(1);
-  spec_msg_cursor.set(para, cursor);                                       // 47 B write
-}
-```
 
 **Teardown.** When `parachain_set_head` overwrites a live head, or `parachain_clean_up` is
 called, the ring is cleared. The ring is bounded by `W_MAX`, so teardown is bounded too
