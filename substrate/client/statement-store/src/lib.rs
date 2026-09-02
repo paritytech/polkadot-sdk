@@ -2167,7 +2167,7 @@ impl Store {
 					}
 				},
 				Err(e) => {
-					log::debug!(
+					log::warn!(
 						target: LOG_TARGET,
 						"Error removing statement {:?}: {:?}",
 						HexDisplay::from(&hash),
