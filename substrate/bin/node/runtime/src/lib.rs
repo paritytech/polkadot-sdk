@@ -2671,6 +2671,7 @@ impl pallet_registrar_para::Config for Runtime {
 	>;
 	type SendToRelay = DiscardRegistrarMessages;
 	type RelayOrigin = EnsureRoot<AccountId>;
+	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
 	type FirstPublicParaId = ConstU32<2000>;
 	type MinCodeSize = ConstU32<9>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
