@@ -19,9 +19,14 @@ use util::*;
 mod benchmarks {
 	use super::*;
 
+	/// The weight-bearing benchmarks below run on Gloas fixtures rather than the Electra
+	/// ones, because Gloas is the worst case: every branch it verifies is deeper (finality
+	/// 9 vs 7, sync committee 11 vs 6, block_roots 8 vs 6). Weights measured on Electra
+	/// inputs would under-charge a Gloas consensus update. Measuring the deeper fork over-
+	/// charges the shallower one instead, which is the safe direction.
 	#[benchmark]
 	fn force_checkpoint() -> Result<(), BenchmarkError> {
-		let checkpoint_update = make_checkpoint();
+		let checkpoint_update = make_gloas_checkpoint();
 		let block_root: H256 = checkpoint_update.header.hash_tree_root().unwrap();
 
 		#[extrinsic_call]
@@ -36,8 +41,8 @@ mod benchmarks {
 	#[benchmark]
 	fn submit() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let checkpoint_update = make_checkpoint();
-		let finalized_header_update = make_finalized_header_update();
+		let checkpoint_update = make_gloas_checkpoint();
+		let finalized_header_update = make_gloas_finalized_header_update();
 		let block_root: H256 = finalized_header_update.finalized_header.hash_tree_root().unwrap();
 		EthereumBeaconClient::<T>::process_checkpoint_update(&checkpoint_update)?;
 
@@ -53,8 +58,8 @@ mod benchmarks {
 	#[benchmark]
 	fn submit_with_sync_committee() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let checkpoint_update = make_checkpoint();
-		let sync_committee_update = make_sync_committee_update();
+		let checkpoint_update = make_gloas_checkpoint();
+		let sync_committee_update = make_gloas_sync_committee_update();
 		EthereumBeaconClient::<T>::process_checkpoint_update(&checkpoint_update)?;
 
 		#[extrinsic_call]
@@ -105,6 +110,13 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Branch verification at the Electra finality index, depth 7.
+	///
+	/// The fork schedule here must put the fixture in the era whose branch it carries.
+	/// It previously placed electra above the fixture's slot, which selected the Altair
+	/// index at depth 6 against a 7-element branch, so `verify_merkle_branch` returned on
+	/// the length check and the benchmark measured no hashing at all. The assertion below
+	/// is what stops that recurring.
 	#[benchmark(extra)]
 	fn verify_merkle_proof() -> Result<(), BenchmarkError> {
 		EthereumBeaconClient::<T>::process_checkpoint_update(&make_checkpoint())?;
@@ -117,17 +129,18 @@ mod benchmarks {
 			bellatrix: Fork { version: hex!("02000000"), epoch: 0 },
 			capella: Fork { version: hex!("03000000"), epoch: 0 },
 			deneb: Fork { version: hex!("04000000"), epoch: 0 },
-			electra: Fork { version: hex!("05000000"), epoch: 80000000000 },
-			fulu: Fork { version: hex!("06000000"), epoch: 80000000001 },
+			electra: Fork { version: hex!("05000000"), epoch: 0 },
+			fulu: Fork { version: hex!("06000000"), epoch: 80000000000 },
 			gloas: Fork { version: hex!("07000000"), epoch: 80000000001 },
 		};
 		let finalized_root_gindex = EthereumBeaconClient::<T>::finalized_root_gindex_at_slot(
 			update.attested_header.slot,
 			fork_versions,
 		);
+		let verified;
 		#[block]
 		{
-			verify_merkle_branch(
+			verified = verify_merkle_branch(
 				block_root,
 				&update.finality_branch,
 				subtree_index(finalized_root_gindex),
@@ -135,6 +148,7 @@ mod benchmarks {
 				update.attested_header.state_root,
 			);
 		}
+		assert!(verified, "benchmark must measure a real verification, not a length rejection");
 
 		Ok(())
 	}

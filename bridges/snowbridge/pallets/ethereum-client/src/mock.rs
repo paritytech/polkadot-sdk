@@ -162,8 +162,13 @@ parameter_types! {
 			version: hex!("06000000"),
 			epoch: 2000,
 		},
+		// The real Plataberget Gloas fork version, not a placeholder. The Gloas fixtures
+		// carry genuine sync committee signatures from that chain, and the fork version is
+		// an input to the signing domain, so a made-up value here fails BLS verification
+		// after every merkle branch has already passed -- which reads as a bad signature
+		// rather than a misconfigured fork schedule.
 		gloas: Fork {
-			version: hex!("07000000"),
+			version: hex!("80733183"),
 			epoch: 3000,
 		}
 	};

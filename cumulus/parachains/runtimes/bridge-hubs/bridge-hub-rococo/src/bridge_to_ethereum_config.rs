@@ -147,12 +147,11 @@ parameter_types! {
 		},
 		fulu: Fork {
 			version: hex!("06000000"),
-			epoch: 5000000,
+			epoch: 0,
 		},
 		gloas: Fork {
-			// TODO(gloas): placeholder. Set the real fork version and epoch before the fork.
-			version: hex!("07000000"),
-			epoch: u64::MAX,
+			version: hex!("80733183"),
+			epoch: 3000,
 		}
 	};
 }
@@ -189,9 +188,8 @@ parameter_types! {
 			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
 		},
 		gloas: Fork {
-			// TODO(gloas): placeholder. Set the real fork version and epoch before the fork.
 			version: hex!("90000076"),
-			epoch: u64::MAX,
+			epoch: 351232,
 		},
 	};
 }

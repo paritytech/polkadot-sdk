@@ -41,11 +41,24 @@ doc:
     placeholders until the fork is scheduled; until then no epoch selects Gloas and Gloas proofs
     are refused rather than mis-verified.
 
-    Not included: weights are still measured on pre-Gloas inputs and must be regenerated before
-    this is relied on in production, and the relayer-side changes are separate.
+    The benchmarks now run on real Gloas fixtures from a public Gloas testnet rather than
+    Electra ones, because Gloas is the worst case: every branch it verifies is deeper. An A/B
+    run on one machine puts the difference below the noise floor -- `force_checkpoint` 560.1 ms
+    on Electra against 558.0 ms on Gloas, `submit` 23.7 against 24.1 ms,
+    `submit_with_sync_committee` 582.1 against 584.9 ms. The signs disagree and
+    `force_checkpoint` comes out nominally faster on the strictly deeper branches, which is
+    scatter rather than an effect. These extrinsics are almost entirely BLS: one aggregate
+    verification is 23.5 ms against a 24.1 ms `submit`, and the rest is decompressing 512 sync
+    committee pubkeys. The extra depth costs roughly nine SHA-256 compressions, orders of
+    magnitude below what the measurement resolves, so the committed weights do not move.
+
+    Not included: the Gloas fork version and epoch are placeholders in the production
+    configuration until the fork is scheduled, and the relayer-side changes are separate.
 crates:
 - name: snowbridge-beacon-primitives
   bump: major
+- name: snowbridge-pallet-ethereum-client-fixtures
+  bump: minor
 - name: snowbridge-pallet-ethereum-client
   bump: major
 - name: snowbridge-pallet-inbound-queue
