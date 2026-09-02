@@ -145,6 +145,49 @@ index, so the order is part of the hash: `chain_spec::in_authority_order` is wha
 them to the tool by key. A single-collator run cannot see any of this, which is how it stayed
 broken while one test kept passing.
 
+## Running a runtime other than the template
+
+`RUNTIME_WASM` chooses the parachain runtime. Two have been run: the parachain template (the
+default) and Asset Hub Rococo, which is the first real chain's runtime on this stack.
+
+```sh
+cargo build --release -p asset-hub-rococo-runtime
+export RUNTIME_WASM=target/release/wbuild/asset-hub-rococo-runtime/\
+asset_hub_rococo_runtime.compact.compressed.wasm
+```
+
+What `chain_spec.rs` needs from that runtime's `development` preset, and checks before it patches:
+
+* **`session.keys` entries shaped `[account, account, { aura: key }]`.** The harness replaces the
+  whole list with one entry per collator it is about to start, so a runtime whose `SessionKeys`
+  has a second field beside `aura` would have it dropped and produce a genesis the runtime cannot
+  decode. The check is on that shape only — *not* on which collators the preset names, because
+  every runtime names its own (the template two, Asset Hub one).
+* **`balances`, `collatorSelection.invulnerables`, `parachainInfo`.** A collator the preset does
+  not endow is topped up with the preset's own endowment, so no amount is hardcoded per runtime.
+  Asset Hub Rococo's preset funds only Alice and Bob, so anything past two collators needs this;
+  the template funds all six.
+* **An sr25519 `AuraId` matching `AUTHORIZER_BLOB`.** Both of these runtimes use
+  `parachains_common::AuraId`. Nothing can check the pairing — see the note above.
+
+**The para id stays the harness's, and 0 is fine for a real runtime.** Asset Hub Rococo's preset
+pins 1000; the harness overwrites it with the id whose core `assign-core` names, exactly as it does
+for the template. Nothing on the collator's path carries a para id of its own: it reads the id from
+the runtime (`GetParachainInfo`) and threads that same value into the mocked relay state proof, so
+the proof's para-keyed entries and the runtime's `SelfParaId` cannot disagree whatever the id is.
+Asset Hub uses its id only to build XCM locations, which a run that sends no XCM never evaluates.
+
+Asset Hub Rococo is a six-second chain like the template — `SLOT_DURATION` and
+`RELAY_CHAIN_SLOT_DURATION_MILLIS` are both 6000, which is what the mocked relay slot assumes — and
+its async-backing limits are looser, not tighter (velocity 12 and unincluded-segment capacity 36,
+against the template's 1 and 3). So `--jam-slot-duration` stays at its default.
+
+Measured 2026-09-02, para 0: `two_jam_collators_build_blocks` best 30 / finalized 27 in 310s and
+`three_jam_collators_build_blocks` the same in 309s — the six-second median the template gives,
+with no runtime warning of its own in any collator log. The three-collator run is the one that
+exercises the endowment top-up, Charlie being the first collator Asset Hub's preset does not fund.
+The demo ran two collators to best 42 / finalized 39 and stopped cleanly on Ctrl-C.
+
 ## What the JAM side is set up with, and in what order
 
 `network.rs` does four things to the freshly spawned chain, and the order is not free. What fixes
