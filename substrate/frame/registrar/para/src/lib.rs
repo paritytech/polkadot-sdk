@@ -338,11 +338,33 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Accept a report from the relay chain's registrar pallet.
+		///
+		/// Not callable by users: the origin must be the relay chain.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::receive())]
+		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
+			T::RelayOrigin::ensure_origin_or_root(origin)?;
+
+			match message {
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_register_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CancelResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_cancel_response(para_id, message_id, outcome),
+			}
+		}
+
 		/// Reserve the next free para id for the caller.
 		///
 		/// Takes [`Config::ReservationConsideration`]. The caller becomes the manager of the new
 		/// id and is the only account that may [`Pallet::register`] against it.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::reserve())]
 		pub fn reserve(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -379,7 +401,7 @@ pub mod pallet {
 		/// Takes [`Config::RegistrationConsideration`] for the head data and the *declared* code
 		/// length, on top of the para id reservation. It is returned if the relay chain rejects
 		/// the registration or if the caller later abandons it.
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register(genesis_head.len() as u32))]
 		pub fn register(
 			origin: OriginFor<T>,
@@ -442,7 +464,7 @@ pub mod pallet {
 		/// which of the two happened.
 		///
 		/// The para id itself stays reserved either way, so the manager can simply try again.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::cancel_registration())]
 		pub fn cancel_registration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -475,32 +497,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Accept a report from the relay chain's registrar pallet.
-		///
-		/// Not callable by users: the origin must be the relay chain.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::receive())]
-		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
-			T::RelayOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToPara::V1(MessageToParaV1::RegisterResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_register_response(para_id, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::CancelResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_cancel_response(para_id, message_id, outcome),
-			}
-		}
-
 		/// Lock a registered para, keeping the manager out of it.
-		///
-		/// Call indices 4 and 5 are reserved for the deregistration flow.
-		#[pallet::call_index(6)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::add_lock())]
 		pub fn add_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
@@ -521,7 +519,7 @@ pub mod pallet {
 		/// Unlock a para, handing control back to the manager.
 		///
 		/// The manager is not accepted here: a lock it could lift would not be a lock.
-		#[pallet::call_index(7)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_lock())]
 		pub fn remove_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
