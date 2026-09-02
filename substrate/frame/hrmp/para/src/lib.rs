@@ -233,8 +233,9 @@ pub mod pallet {
 
 		/// This chain's own para id.
 		///
-		/// Used for the channel opened with every para this chain registers. A constant rather
-		/// than something read from the transport, so the pallet stays testable without XCM.
+		/// Lets the pallet name itself as one end of a channel — a system chain pairing with
+		/// another through [`Pallet::establish_system_channel`]. A constant rather than something
+		/// read from the transport, so the pallet stays testable without XCM.
 		#[pallet::constant]
 		type SelfParaId: Get<ParaId>;
 
@@ -1048,9 +1049,9 @@ impl<T: Config> Pallet<T> {
 		let MigratedChannel { channel, confirmed } = migrated;
 		ensure!(channel.sender != channel.recipient, Error::<T>::ToSelf);
 
-		// This chain opens a control channel with every para it takes over, so a channel that
-		// already ran between this chain and that para arrives twice: once established here,
-		// once handed over. They describe the same thing — a system channel takes no deposit at
+		// A system channel can arrive twice: established here through
+		// `establish_system_channel`, and handed over by the migration because it also existed on
+		// the relay chain. They describe the same thing — a system channel takes no deposit at
 		// either end, so neither record holds anything the other does not — and the established
 		// one is authoritative, because the relay chain has already been told to open it in both
 		// directions. Any other collision is still a real error.
