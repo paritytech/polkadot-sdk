@@ -1,0 +1,26 @@
+title: 'statement-store: source the bloom false-positive rate and seed from CLI'
+doc:
+- audience: Node Operator
+  description: |-
+    Two hidden CLI flags on the substrate node and omni-node set the parameters
+    of the topic-affinity bloom filter advertised on the v2 DHT statement path:
+    `--statement-bloom-false-positive-rate` and `--statement-bloom-seed`. The
+    seed defaults to a random value per node, as before. The default
+    false-positive rate drops from 0.01 to 0.001, which also serves as the
+    accepted minimum: lower rates would push the filter past the wire limits
+    peers enforce at decode.
+- audience: Node Dev
+  description: |-
+    `sc_statement_store::Config` gains `bloom_false_pos_rate` and `bloom_seed`,
+    checked by `Config::validate` against `DEFAULT_BLOOM_FALSE_POS_RATE` as the
+    floor. `StatementHandlerPrototype::build` takes both values as new
+    arguments and passes them to `ExplicitAffinity`.
+crates:
+- name: sc-statement-store
+  bump: major
+- name: sc-network-statement
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: staging-node-cli
+  bump: minor
