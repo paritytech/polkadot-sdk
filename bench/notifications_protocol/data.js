@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788374899983,
+  "lastUpdate": 1788388925359,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -215423,6 +215423,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2238241568,
             "range": "± 24337262",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "Chima",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c2323b3b3429764ffce37ce37be93f1182d53c5",
+          "message": "`frame-support`: fix `CountedStorageMap` and `CountedStorageNMap` counter drift (#13031)\n\nCloses #12782.\n\n### Problem\n\n`try_append` increments the counter on every append that fits the bound:\n\n```rust\nif current < bound {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n```\n\nAppending to an existing key creates no entry, so `count()` climbs above\nthe number of stored keys. remove decrements once per key, so the drift\nnever clears.\n\nEvery other method in the file already guards this: `insert`, `append`\nand `remove` check `contains_key`, and `try_mutate_exists` tracks the\n`existed/exist` transition.\n\n### Change\n\n```rust\nif !<Self as MapWrapper>::Map::contains_key(Ref::from(&key)) {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n}\n```\n\nThe same guard `append` uses. `contains_key` rather than `current == 0`,\nbecause `decode_len(..).unwrap_or_default()` returns 0 both for an\nabsent key and for an existing empty value.\n\n`try_append_decode_len_works` already appends twice to one key but\nasserts only on `decode_len`, which is why this went unnoticed. The new\ntest asserts `count()`.\n\nNo pallet calls `try_append` on a `CountedStorageMap` today, so nothing\non-chain changes. The cost is one extra storage read per call, the same\nread insert and append already pay.",
+          "timestamp": "2026-09-02T21:03:52Z",
+          "tree_id": "ee7934a92e85173f28428cdb7c41a5267f4fed9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c2323b3b3429764ffce37ce37be93f1182d53c5"
+        },
+        "date": 1788388886799,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4785881,
+            "range": "± 111956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 313525,
+            "range": "± 5864",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4605188,
+            "range": "± 160981",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 355381,
+            "range": "± 2795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4989014,
+            "range": "± 16647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 874656,
+            "range": "± 6616",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10603185,
+            "range": "± 49262",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4754602,
+            "range": "± 74037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43704044,
+            "range": "± 649060",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37859686,
+            "range": "± 324992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 369755755,
+            "range": "± 4570160",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 305754683,
+            "range": "± 3000016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2584094998,
+            "range": "± 8843945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2862968768,
+            "range": "± 81529595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3330744,
+            "range": "± 25503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1814956,
+            "range": "± 11036",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3431842,
+            "range": "± 7621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1874216,
+            "range": "± 7264",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3863885,
+            "range": "± 31102",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2213656,
+            "range": "± 8243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7822572,
+            "range": "± 31425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5212803,
+            "range": "± 65636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36678106,
+            "range": "± 264290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36408661,
+            "range": "± 281630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 325879240,
+            "range": "± 1998318",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 284801453,
+            "range": "± 5399654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2549778882,
+            "range": "± 35644505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2492843898,
+            "range": "± 70555581",
             "unit": "ns/iter"
           }
         ]
