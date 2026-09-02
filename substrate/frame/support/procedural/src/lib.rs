@@ -801,10 +801,7 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 			_ => continue,
 		};
 		attrs.retain(|attr| {
-			let segments = &attr.path().segments;
-			!(segments.len() == 2 &&
-				segments[0].ident == "pallet" &&
-				segments[1].ident == "no_default")
+			!is_no_default_attr(attr)
 		});
 	}
 
