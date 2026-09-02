@@ -1,0 +1,35 @@
+title: 'pallet-conviction-voting: migrate from Currency locks to fungible freezes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    pallet-conviction-voting no longer uses the deprecated `Currency`/`LockableCurrency`
+    traits (see https://github.com/paritytech/polkadot-sdk/issues/226). The `Config::Currency`
+    associated type keeps its name but now requires
+    `fungible::Inspect + fungible::Mutate + fungible::MutateFreeze`, and voting balances are
+    frozen under the new typed `FreezeReason::Vote` (aggregated via the new
+    `Config::RuntimeFreezeReason` associated type) instead of being locked under the untyped
+    `*b"pyconvot"` lock id. Behavior is unchanged: locks and freezes both floor the account's
+    `frozen` balance by `max`, holds keep composing (`untouchable = frozen - reserved`), and
+    voting power remains gated by `total_balance`.
+
+    Integration steps for runtimes:
+    - add `type RuntimeFreezeReason = RuntimeFreezeReason;` to the pallet's `Config` impl;
+    - make sure `pallet_balances::Config::FreezeIdentifier` is `RuntimeFreezeReason` and
+      `MaxFreezes` accounts for the new variant (e.g. `VariantCountOf<RuntimeFreezeReason>`);
+    - schedule `pallet_conviction_voting::migrations::MigrateV0ToV1<Runtime, Balances>` to move
+      existing `pyconvot` locks over to freezes. The migration iterates all voters in a single
+      block; chains with large voter counts must convert it to a multi-block/stepped migration
+      before adopting this release.
+crates:
+- name: pallet-conviction-voting
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: kitchensink-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
