@@ -43,14 +43,20 @@ doc:
 
     The benchmarks now run on real Gloas fixtures from a public Gloas testnet rather than
     Electra ones, because Gloas is the worst case: every branch it verifies is deeper. An A/B
-    run on one machine puts the difference below the noise floor -- `force_checkpoint` 560.1 ms
-    on Electra against 558.0 ms on Gloas, `submit` 23.7 against 24.1 ms,
-    `submit_with_sync_committee` 582.1 against 584.9 ms. The signs disagree and
-    `force_checkpoint` comes out nominally faster on the strictly deeper branches, which is
-    scatter rather than an effect. These extrinsics are almost entirely BLS: one aggregate
-    verification is 23.5 ms against a 24.1 ms `submit`, and the rest is decompressing 512 sync
-    committee pubkeys. The extra depth costs roughly nine SHA-256 compressions, orders of
-    magnitude below what the measurement resolves, so the committed weights do not move.
+    run put the difference below the noise floor -- the signs disagreed across extrinsics, and
+    `force_checkpoint` came out nominally faster on the strictly deeper branches. Repeating a
+    run with no code change then moved that same figure by more than the fork difference
+    itself, so the measurement cannot resolve the effect. That is expected: these extrinsics
+    are almost entirely BLS, with one aggregate verification accounting for nearly all of
+    `submit` and the remainder going on decompressing 512 sync committee pubkeys, while the
+    extra branch depth costs roughly nine SHA-256 compressions. Weights are unchanged and
+    should be regenerated on reference hardware as usual.
+
+    The test and benchmark fork schedule in both bridge hub runtimes sets fulu to epoch 0, so
+    fulu is the pre-Gloas era there. This is coupled to the benchmarks running Gloas fixtures:
+    nothing in that schedule needs the Electra signing domain. The pallet mock deliberately
+    differs, keeping fulu above the Electra fixtures, because its unit tests do verify
+    Electra-era signatures.
 
     Not included: the Gloas fork version and epoch are placeholders in the production
     configuration until the fork is scheduled, and the relayer-side changes are separate.

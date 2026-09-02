@@ -284,9 +284,12 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 0,
 		},
+		// Fulu is the pre-gloas era here: the benchmarks all run Gloas fixtures, so nothing
+		// in this schedule needs the electra domain. The pallet mock deliberately differs
+		// (fulu at 2000) because its unit tests do verify Electra-era signatures.
 		fulu: Fork {
 			version: hex!("06000000"),
-			epoch: 5000000,
+			epoch: 0,
 		},
 		gloas: Fork {
 			version: hex!("80733183"),

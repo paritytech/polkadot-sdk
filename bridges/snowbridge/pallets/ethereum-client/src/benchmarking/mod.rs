@@ -72,8 +72,8 @@ mod benchmarks {
 
 	#[benchmark(extra)]
 	fn bls_fast_aggregate_verify_pre_aggregated() -> Result<(), BenchmarkError> {
-		EthereumBeaconClient::<T>::process_checkpoint_update(&make_checkpoint())?;
-		let update = make_sync_committee_update();
+		EthereumBeaconClient::<T>::process_checkpoint_update(&make_gloas_checkpoint())?;
+		let update = make_gloas_sync_committee_update();
 		let participant_pubkeys = participant_pubkeys::<T>(&update)?;
 		let signing_root = signing_root::<T>(&update)?;
 		let agg_sig =
@@ -90,8 +90,8 @@ mod benchmarks {
 
 	#[benchmark(extra)]
 	fn bls_fast_aggregate_verify() -> Result<(), BenchmarkError> {
-		EthereumBeaconClient::<T>::process_checkpoint_update(&make_checkpoint())?;
-		let update = make_sync_committee_update();
+		EthereumBeaconClient::<T>::process_checkpoint_update(&make_gloas_checkpoint())?;
+		let update = make_gloas_sync_committee_update();
 		let current_sync_committee = <CurrentSyncCommittee<T>>::get();
 		let absent_pubkeys = absent_pubkeys::<T>(&update)?;
 		let signing_root = signing_root::<T>(&update)?;
