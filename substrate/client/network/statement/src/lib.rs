@@ -984,10 +984,7 @@ fn unix_timestamp_secs() -> u64 {
 
 /// Fetch the next chunk of statements admitted between `cursor` and `watermark`, filtering
 /// in the `admitted_statements` callback so non-matching statements are never cloned into
-/// the batch. A statement passes the affinity check when the peer advertises no filter, its
-/// filter matches, or `is_dht_target` marks the peer as a DHT routing target for it — light
-/// peers get filter matches only. Expired statements and those the peer itself supplied are
-/// skipped regardless.
+/// the batch.
 ///
 /// Returns the batch and the accumulated encoded size. A size above `max_size` signals a
 /// lone oversized statement: it is taken and the cursor sits past it, so the caller must
@@ -2541,9 +2538,8 @@ where
 		let peer_version = peer_data.protocol_version;
 		let envelope_overhead = peer_version.envelope_overhead();
 		let max_size = max_statement_payload_size(envelope_overhead);
-		// The topology cannot change during the synchronous chunk walk, so each topic's routing
-		// decision is resolved at most once per burst.
 		let v2dht = &self.v2dht;
+		// Checking a topic scans all connected peers, so cache the answer per topic for this chunk.
 		let dht_target_topics = std::cell::RefCell::new(HashMap::new());
 		let is_dht_target = |stmt: &Statement| {
 			stmt.topics().iter().any(|topic| {

@@ -426,7 +426,7 @@ mod tests {
 		for seed in 2u8..=60 {
 			let peer = peer(seed);
 			orchestrator.on_peers_discovered([peer]);
-			orchestrator.on_peer_identified(peer, /* supports_statement_protocol */ true);
+			orchestrator.on_peer_identified(peer, true);
 			orchestrator.on_substream_opened(peer);
 		}
 		let topic = Topic([7; 32]);
