@@ -1,0 +1,21 @@
+[package]
+name = "cumulus-jam-interface"
+description = "Traits a Cumulus collator uses to talk to a JAM node"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+# Not publishable while `jam-types`/`jam-std-common` are git dependencies.
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+futures = { workspace = true }
+jam-codec = { workspace = true, features = ["std"] }
+jam-std-common = { workspace = true }
+jam-types = { workspace = true, features = ["std"] }

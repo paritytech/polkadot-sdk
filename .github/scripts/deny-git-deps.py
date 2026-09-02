@@ -14,6 +14,9 @@ from cargo_workspace import Workspace, DependencyLocation
 # Some crates are allowed to have git dependencies until we fix them.
 ALLOWED_GIT_DEPS = {
 	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
+	# Until the JIP-2 state-proof API is released to crates.io.
+	'jam-std-common': ['workspace', 'cumulus-jam-interface', 'cumulus-jam-rpc-interface'],
+	'jam-types': ['workspace', 'cumulus-jam-interface', 'cumulus-jam-rpc-interface'],
 }
 
 root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
