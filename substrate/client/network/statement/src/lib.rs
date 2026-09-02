@@ -95,6 +95,10 @@
 //! those statements in an initial burst on connect. Full nodes receive all statements unless they
 //! opt into an affinity.
 //!
+//! With the v2 DHT path enabled, every `statement/2` peer sends its affinity filter as the first
+//! message on connect, and the initial sync waits for the peer's filter, replaying only the
+//! statements it matches.
+//!
 //! ## Usage
 //!
 //! - Use [`StatementHandlerPrototype::new`] to create a prototype.
@@ -1098,11 +1102,12 @@ impl Peer {
 
 	/// Whether this peer is ready to receive statements.
 	///
-	/// Light V2 peers must set their topic affinity before receiving any statements.
+	/// Light V2 peers must set their topic affinity before receiving any statements; with the
+	/// v2 DHT path on, every V2 peer must.
 	fn can_receive(&self) -> bool {
-		!(self.is_light &&
-			self.protocol_version == PeerProtocolVersion::V2 &&
-			self.topic_affinity.is_none())
+		!(self.protocol_version == PeerProtocolVersion::V2 &&
+			self.topic_affinity.is_none() &&
+			(self.is_light || v2dht_enabled()))
 	}
 
 	fn kind(&self) -> &'static str {
@@ -1251,15 +1256,6 @@ where
 							self.broadcast_local_filter(filter).await;
 						}
 
-						// TODO: serve the backlog of stored statements here.
-						//
-						// When a peer advertises new topics, `on_peer_filter_update` records its
-						// filter in the orchestrator, but nothing sends it the statements we
-						// already hold — so a fresh v2 subscriber receives only statements that
-						// arrive after it subscribed, never the backlog. `on_pending_affinities`
-						// should close that gap: for each peer whose advertised topics changed,
-						// send the matching stored statements. This is the v2 counterpart of v1's
-						// `process_pending_affinities` -> `schedule_initial_sync_for_peer`.
 						self.v2dht.on_pending_affinities();
 						self.v2dht.refresh_connections(&self.network);
 					}
@@ -1594,8 +1590,7 @@ where
 					self.send_local_filter(&peer).await;
 				}
 
-				// Light V2 peers must set topic affinity before receiving statements.
-				// All other peers get initial sync immediately.
+				// Peers awaiting their affinity filter are synced by the pending-affinity tick.
 				if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
 					self.schedule_initial_sync_for_peer(peer);
 				}
@@ -6186,6 +6181,45 @@ mod tests {
 		assert!(make_peer(true, PeerProtocolVersion::V2, true).can_receive());
 		// Full node, V2, with affinity → can receive
 		assert!(make_peer(false, PeerProtocolVersion::V2, true).can_receive());
+	}
+
+	#[tokio::test]
+	async fn local_filter_is_sent_to_v2_peers_only() {
+		let (mut handler, _statement_store, _network, notification_service) =
+			build_handler_no_peers();
+
+		let v2_peer = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: v2_peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		let v1_peer = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: v1_peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
+			})
+			.await;
+		notification_service.clear_sent_notifications();
+
+		handler.send_local_filter(&v2_peer).await;
+		handler.send_local_filter(&v1_peer).await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 1, "only the V2 peer receives the local filter");
+		let (recipient, notification) = &sent[0];
+		assert_eq!(*recipient, v2_peer);
+		let message = StatementMessage::decode(&mut notification.as_slice()).unwrap();
+		assert!(
+			matches!(message, StatementMessage::ExplicitTopicAffinity(_)),
+			"the local filter arrives as ExplicitTopicAffinity"
+		);
 	}
 
 	#[tokio::test]
