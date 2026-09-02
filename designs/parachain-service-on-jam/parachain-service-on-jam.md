@@ -618,7 +618,8 @@ enum UpwardMessage {
     /// parachain was ever charged for it. Removing the last referencer may need
     /// a follow-up `Forget` (two-step expunge, see §6.1). For that parachain's
     /// active or pending validation code it only clears `pinned` (§5.2). A
-    /// `Service` target is **Asset Hub only**.
+    /// `Service` target is **Asset Hub only**. Accumulate must check that the
+    /// preimage is not the Parachain Service's own current code (§5.4).
     Forget { target: Target, hash: Hash, len: Compact<u32> },
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
