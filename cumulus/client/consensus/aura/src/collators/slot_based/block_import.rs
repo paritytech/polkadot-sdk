@@ -20,6 +20,7 @@ use codec::{Decode, Encode};
 use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
 use cumulus_client_consensus_common::old_finalized_hash;
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
+use cumulus_primitives_additional_data::{RelayStateExt, RELAY_PROOF_KEY};
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
 use sc_client_api::{
@@ -29,7 +30,7 @@ use sc_client_api::{
 };
 use sc_consensus::{BlockImport, StateAction};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
-use sp_additional_data::AdditionalDataExt;
+use sp_additional_data::{AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
 	ProvideRuntimeApi, StorageProof,
@@ -263,13 +264,27 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		// The relay state proof uses the relay hasher (`BlakeTwo256`); the carried root is trusted
 		// here (relay finality; the PVF is the authoritative validator).
 		if let Some(blob) = params.additional_data.as_ref() {
-			let provider = VerifyingAdditionalDataProvider::<BlakeTwo256>::from_map(blob.clone())
-				.ok_or_else(|| {
-				sp_consensus::Error::Other(
-					"additional_data map could not be built into a relay-read provider".into(),
-				)
-			})?;
-			runtime_api.register_extension(AdditionalDataExt(Box::new(provider)));
+			let provider = Arc::new(
+				VerifyingAdditionalDataProvider::<BlakeTwo256>::from_map(blob.clone()).ok_or_else(
+					|| {
+						sp_consensus::Error::Other(
+							"additional_data map could not be built into a relay-read provider"
+								.into(),
+						)
+					},
+				)?,
+			);
+			// One `Arc`-shared provider serves reads (`RelayStateExt`) and the additional-data
+			// digest (`AdditionalDataExt`, keyed by `RELAY_PROOF_KEY`, recomputed by
+			// `frame_executive` on this re-execution path) off the same recorder.
+			runtime_api.register_extension(RelayStateExt(Box::new(provider.clone())));
+			runtime_api.register_extension(AdditionalDataExt(
+				[(
+					RELAY_PROOF_KEY.to_string(),
+					Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
+				)]
+				.into(),
+			));
 		}
 
 		// Only blocks imported at the tip (built by other collators) are forwarded to the

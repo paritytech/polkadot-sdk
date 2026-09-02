@@ -125,7 +125,7 @@ pub struct BuiltBlock<Block: BlockT> {
 	/// This contains all the state changes.
 	pub backend_transaction: BackendTransaction<HashingFor<Block>>,
 	/// The additional-data map produced while building the block (e.g. the recorded relay-state
-	/// proof under [`RELAY_PROOF_KEY`](sp_additional_data::RELAY_PROOF_KEY)).
+	/// proof under [`RELAY_PROOF_KEY`](cumulus_primitives_additional_data::RELAY_PROOF_KEY)).
 	///
 	/// `None` when no `additional_data_handle` was supplied, or when the block read no relay state
 	/// (the shared recorder is empty, so `take_data()` returns `None`).

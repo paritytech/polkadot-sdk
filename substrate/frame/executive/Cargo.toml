@@ -23,6 +23,7 @@ frame-system = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-additional-data = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -51,6 +52,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
+	"sp-additional-data/std",
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io/std",

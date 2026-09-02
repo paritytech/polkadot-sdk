@@ -32,6 +32,7 @@ std = [
 	"cumulus-pallet-xcm?/std",
 	"cumulus-pallet-xcmp-queue?/std",
 	"cumulus-ping?/std",
+	"cumulus-primitives-additional-data?/std",
 	"cumulus-primitives-aura?/std",
 	"cumulus-primitives-core?/std",
 	"cumulus-primitives-parachain-inherent?/std",
@@ -608,6 +609,7 @@ runtime-full = [
 	"cumulus-pallet-xcm",
 	"cumulus-pallet-xcmp-queue",
 	"cumulus-ping",
+	"cumulus-primitives-additional-data",
 	"cumulus-primitives-aura",
 	"cumulus-primitives-core",
 	"cumulus-primitives-parachain-inherent",
@@ -1184,6 +1186,11 @@ path = "../cumulus/pallets/xcmp-queue"
 default-features = false
 optional = true
 path = "../cumulus/parachains/pallets/ping"
+
+[dependencies.cumulus-primitives-additional-data]
+default-features = false
+optional = true
+path = "../cumulus/primitives/additional-data"
 
 [dependencies.cumulus-primitives-aura]
 default-features = false

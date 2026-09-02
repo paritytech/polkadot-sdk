@@ -216,7 +216,7 @@ mod tests {
 	use cumulus_primitives_core::relay_chain;
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use rstest::rstest;
-	use sp_additional_data::{AdditionalData, AdditionalDataExt};
+	use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 	use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest, PrimaryPreDigest},
 		AuthorityId, AuthorityPair, BabeAuthorityWeight, ConsensusLog, BABE_ENGINE_ID,
@@ -530,13 +530,27 @@ mod tests {
 		expected_number_of_descendants: u32,
 	) -> Result<(), RelayParentVerificationError<TestHeader>> {
 		let mut map = AdditionalData::new();
-		map.insert(sp_additional_data::RELAY_PROOF_KEY.into(), (root, proof).encode());
-		let provider = cumulus_client_additional_data::VerifyingAdditionalDataProvider::<
-			sp_runtime::traits::BlakeTwo256,
-		>::from_map_with_root(root, map)
-		.expect("valid relay-proof map");
+		map.insert(
+			cumulus_primitives_additional_data::RELAY_PROOF_KEY.into(),
+			(root, proof).encode(),
+		);
+		let provider = std::sync::Arc::new(
+			cumulus_client_additional_data::VerifyingAdditionalDataProvider::<
+				sp_runtime::traits::BlakeTwo256,
+			>::from_map_with_root(root, map)
+			.expect("valid relay-proof map"),
+		);
 		let mut ext = sp_io::TestExternalities::default();
-		ext.register_extension(AdditionalDataExt(Box::new(provider)));
+		ext.register_extension(cumulus_primitives_additional_data::RelayStateExt(Box::new(
+			provider.clone(),
+		)));
+		ext.register_extension(AdditionalDataExt(
+			[(
+				cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
+				Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
+			)]
+			.into(),
+		));
 		ext.execute_with(|| {
 			let relay_state_proof = RelayChainStateProof::new(PARA_ID.into());
 			verify_relay_parent_descendants(

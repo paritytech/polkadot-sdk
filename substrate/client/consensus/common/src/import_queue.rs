@@ -483,8 +483,10 @@ fn verify_additional_data_non_executing<B: BlockT>(
 	});
 	match (additional_data, digest_hash) {
 		(Some(blob), Some(expected)) => {
-			let actual = sp_additional_data::hash(blob);
-			if actual != expected {
+			if sp_additional_data::hash_commitments(
+				blob.values().map(|v| sp_additional_data::hash_value(v)),
+			) != Some(expected)
+			{
 				return Err(BlockImportError::Other(ConsensusError::ClientImport(
 					"additional data hash mismatch on non-executing import path".into(),
 				)));
@@ -533,9 +535,15 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_additional_data::{hash, AdditionalData};
+	use sp_additional_data::{hash_commitments, hash_value, AdditionalData};
 	use sp_runtime::generic::{Digest, DigestItem};
 	use sp_test_primitives::{Block as TestBlock, Header as TestHeader};
+
+	/// The additional-data digest a carried map must commit to: the same fold the runtime and the
+	/// import path compute (see [`sp_additional_data::hash_commitments`]).
+	fn digest_of(blob: &AdditionalData) -> [u8; 32] {
+		hash_commitments(blob.values().map(|v| hash_value(v))).expect("blob is non-empty; qed")
+	}
 
 	struct PanicImport;
 
@@ -659,7 +667,7 @@ mod tests {
 	fn warp_correct_match_accepted() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(digest_of(&blob)));
 			let block = incoming_warp(header, Some(blob));
 			let r = verify_single_block_metered(
 				&PanicImport,
@@ -677,7 +685,7 @@ mod tests {
 	fn warp_tampered_data_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(digest_of(&blob)));
 			let mut tampered = blob.clone();
 			tampered.insert("tampered".to_string(), vec![0xff]);
 			let block = incoming_warp(header, Some(tampered));
@@ -698,7 +706,7 @@ mod tests {
 	fn warp_digest_present_data_absent_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(digest_of(&blob)));
 			let block = incoming_warp(header, None);
 			let r = verify_single_block_metered(
 				&PanicImport,
@@ -737,7 +745,7 @@ mod tests {
 	fn skip_exec_correct_match_accepted() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(digest_of(&blob)));
 			let block = incoming_skip(header, Some(blob));
 			let r = verify_single_block_metered(
 				&OkCheckImport,
@@ -755,7 +763,7 @@ mod tests {
 	fn skip_exec_tampered_data_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(digest_of(&blob)));
 			let mut tampered = blob.clone();
 			tampered.insert("tampered".to_string(), vec![0xff]);
 			let block = incoming_skip(header, Some(tampered));
@@ -776,7 +784,7 @@ mod tests {
 	fn skip_exec_digest_present_data_absent_rejected() {
 		futures::executor::block_on(async {
 			let blob = make_blob();
-			let header = header_with_digest_item(DigestItem::AdditionalData(hash(&blob)));
+			let header = header_with_digest_item(DigestItem::AdditionalData(digest_of(&blob)));
 			let block = incoming_skip(header, None);
 			let r = verify_single_block_metered(
 				&OkCheckImport,

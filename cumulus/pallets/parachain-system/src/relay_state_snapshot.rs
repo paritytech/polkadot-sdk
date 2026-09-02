@@ -168,7 +168,9 @@ impl RelayChainStateProof {
 	fn read_raw_inner(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ReadEntryErr> {
 		match &self.backend {
 			Some(backend) => backend.storage(key).map_err(|_| ReadEntryErr::Proof),
-			None => Ok(sp_additional_data::additional_data::read_relay_chain_state(key)),
+			None => Ok(
+				cumulus_primitives_additional_data::relay_chain_state::read_relay_chain_state(key),
+			),
 		}
 	}
 

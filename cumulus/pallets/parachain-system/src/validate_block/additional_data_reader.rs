@@ -20,8 +20,9 @@ use super::{trie_cache::CacheProvider, trie_recorder::ProofRecorderProvider};
 use crate::relay_state_snapshot::Error;
 use alloc::vec::Vec;
 use codec::Encode;
+use cumulus_primitives_additional_data::RelayStateReader;
 use cumulus_primitives_core::relay_chain::{Block, Hash};
-use sp_additional_data::{hash, AdditionalData, AdditionalDataProvider, RELAY_PROOF_KEY};
+use sp_additional_data::{hash_value, AdditionalDataFinalizer};
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackendBuilder};
 use sp_trie::{HashDBT, MemoryDB, ProofSizeProvider, StorageProof, EMPTY_PREFIX};
@@ -50,9 +51,9 @@ impl AdditionalDataReader {
 	}
 }
 
-impl AdditionalDataProvider for AdditionalDataReader {
+impl RelayStateReader for AdditionalDataReader {
 	/// Read the stored bytes under `key` (proven absence returns `None`), recording the nodes
-	/// accessed so [`Self::finalize`] can reassemble exactly what was read.
+	/// accessed so [`AdditionalDataFinalizer::finalize`] can reassemble exactly what was read.
 	///
 	/// A fresh (empty) cache is used per read so the recorder observes every node on the access
 	/// path. `new_with_cache` (rather than `new`) is what lets us give the backend our
@@ -72,24 +73,21 @@ impl AdditionalDataProvider for AdditionalDataReader {
 			.expect("relay-state read from an incomplete proof; candidate omitted required nodes")
 	}
 
-	/// blake2 hash of the additional-data map reassembled from exactly the nodes read so far, or
-	/// `None` if nothing was read. Mirrors what the collator committed for an honest, minimal
-	/// candidate: `frame_executive`'s digest-equality rejects a candidate whose carried map differs
-	/// from what its execution actually requested.
-	fn finalize(&self) -> Option<[u8; 32]> {
-		let proof = self.recorder.to_storage_proof();
-		if proof.is_empty() {
-			return None;
-		}
-		let mut map = AdditionalData::new();
-		map.insert(RELAY_PROOF_KEY.into(), (self.root, proof).encode());
-		Some(hash(&map))
-	}
-
 	/// Estimated encoded size of the relay-read proof recorded so far — the additional-data
 	/// contribution to the PoV. Summed into `storage_proof_size` so the runtime budgets for it.
 	/// Uses the same per-node metric as the build-side recorder (see [`ProofRecorderProvider`]).
 	fn proof_size(&self) -> usize {
 		self.recorder.estimate_encoded_size()
+	}
+}
+
+impl AdditionalDataFinalizer for AdditionalDataReader {
+	/// blake2 commitment to the relay-read value `(root, proof)` reassembled from exactly the nodes
+	/// read so far, or `None` if nothing was read. Mirrors what the collator committed for an
+	/// honest, minimal candidate: `frame_executive`'s digest-equality rejects a candidate whose
+	/// carried value differs from what its execution actually requested.
+	fn finalize(&self) -> Option<[u8; 32]> {
+		let proof = self.recorder.to_storage_proof();
+		(!proof.is_empty()).then(|| hash_value(&(self.root, proof).encode()))
 	}
 }

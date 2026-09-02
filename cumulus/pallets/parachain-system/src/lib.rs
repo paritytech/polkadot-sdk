@@ -541,25 +541,6 @@ pub mod pallet {
 			}
 
 			HrmpOutboundMessages::<T>::put(outbound_messages);
-
-			// Commit the relay-chain reads made anywhere in THIS block by depositing their hash
-			// into the header. The reads are
-			// recorded into a minimal proof carried in the block's additional data;
-			// `validate_block`/import re-serve them and re-derive the same hash, so any
-			// divergence (a lying collator) is rejected. This is the sole `AdditionalData`
-			// digest a block carries.
-			//
-			// INVARIANT: no relay read may happen AFTER this point — i.e. not in any pallet's
-			// `on_finalize` that runs after parachain-system's. Such a read would land in the
-			// carried proof but not in this digest, and `validate_block` would then reject the
-			// block. Today all relay reads happen in `set_validation_data` (an early inherent),
-			// so this holds; a generic future use of the additional-data channel must respect
-			// it.
-			if let Some(hash) = sp_additional_data::additional_data::finalize() {
-				frame_system::Pallet::<T>::deposit_log(
-					sp_runtime::generic::DigestItem::AdditionalData(hash),
-				);
-			}
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {

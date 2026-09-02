@@ -60,7 +60,7 @@ use sp_blockchain::{
 use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataProviderFactory};
+use sp_additional_data::{AdditionalData, CreateAdditionalDataExtensions};
 use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
@@ -169,11 +169,12 @@ pub struct ClientConfig<Block: BlockT> {
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
 	/// Enable recording of storage proofs during block import
 	pub enable_import_proof_recording: bool,
-	/// Factory that builds the [`AdditionalDataProvider`] to serve `read_relay_chain_state` while
-	/// re-executing a block carrying additional data on the generic import path. Injected by the
-	/// node so the concrete (relay/JAM-specific) verifier lives outside substrate; `None` on
-	/// chains that don't use the additional-data channel.
-	pub additional_data_provider_factory: Option<AdditionalDataProviderFactory>,
+	/// Factory that builds the externalities extensions needed to serve `read_relay_chain_state`
+	/// and recompute the additional-data digest while re-executing a block carrying additional
+	/// data on the generic import path. Injected by the node so the concrete (relay/JAM-specific)
+	/// verifier lives outside substrate; `None` on chains that don't use the additional-data
+	/// channel.
+	pub create_additional_data_extensions: Option<CreateAdditionalDataExtensions>,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -185,7 +186,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
 			enable_import_proof_recording: false,
-			additional_data_provider_factory: None,
+			create_additional_data_extensions: None,
 		}
 	}
 }
@@ -890,7 +891,7 @@ where
 						// carried in the map
 						// (relay finality; the PVF is the authoritative validator).
 						let factory =
-							self.config.additional_data_provider_factory.as_ref().ok_or_else(
+							self.config.create_additional_data_extensions.as_ref().ok_or_else(
 								|| {
 									Error::Consensus(ConsensusError::ClientImport(
 									"block carries additional data but no additional-data provider \
@@ -899,13 +900,20 @@ where
 								))
 								},
 							)?;
-						let provider = factory.0(blob).ok_or_else(|| {
+						// The factory (producer-specific, injected from outside substrate) turns
+						// the carried map into the full set of extensions re-execution needs
+						// — e.g. a relay-state read extension plus its additional-data
+						// finalizer. Each is type-erased (`Box<dyn Extension>`) and registers
+						// under its own type id.
+						let exts = factory.0(blob).ok_or_else(|| {
 							Error::Consensus(ConsensusError::ClientImport(
-								"additional_data map could not be built into a relay-read provider"
+								"additional_data map could not be built into the required extensions"
 									.into(),
 							))
 						})?;
-						runtime_api.register_extension(AdditionalDataExt(provider));
+						for ext in exts {
+							runtime_api.register_extension(ext);
+						}
 					},
 					None => {
 						if additional_data_digest_count > 0 {

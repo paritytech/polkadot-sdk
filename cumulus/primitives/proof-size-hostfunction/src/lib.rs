@@ -24,7 +24,7 @@ use sp_externalities::ExternalitiesExt;
 use sp_runtime_interface::runtime_interface;
 
 #[cfg(feature = "std")]
-use sp_additional_data::AdditionalDataExt;
+use cumulus_primitives_additional_data::RelayStateExt;
 #[cfg(feature = "std")]
 use sp_trie::proof_size_extension::ProofSizeExt;
 
@@ -45,9 +45,9 @@ pub trait StorageProofSize {
 		};
 		// The relay-read proof (additional data) rides in the PoV outside the block body; include
 		// its size so the runtime's proof-size accounting budgets for the full PoV. `0` when no
-		// `AdditionalDataExt` is registered (chains not using the relay-read channel). Symmetric
-		// with the PVF's `host_storage_proof_size`.
-		let relay = self.extension::<AdditionalDataExt>().map_or(0, |e| e.0.proof_size() as u64);
+		// `RelayStateExt` is registered (chains not using the relay-read channel). Symmetric with
+		// the PVF's `host_storage_proof_size`.
+		let relay = self.extension::<RelayStateExt>().map_or(0, |e| e.0.proof_size() as u64);
 		para + relay
 	}
 }

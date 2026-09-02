@@ -166,6 +166,10 @@ pub use cumulus_pallet_xcmp_queue;
 #[cfg(feature = "cumulus-ping")]
 pub use cumulus_ping;
 
+/// Relay/JAM chain-state read side of the additional-data channel.
+#[cfg(feature = "cumulus-primitives-additional-data")]
+pub use cumulus_primitives_additional_data;
+
 /// Core primitives for Aura in Cumulus.
 #[cfg(feature = "cumulus-primitives-aura")]
 pub use cumulus_primitives_aura;

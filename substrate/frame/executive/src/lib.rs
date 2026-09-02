@@ -365,6 +365,7 @@ where
 		let header = block.header();
 		Self::on_idle_hook(*header.number());
 		Self::on_finalize_hook(*header.number());
+		Self::note_additional_data();
 
 		// run the try-state checks of all pallets, ensuring they don't alter any state.
 		let _guard = frame_support::StorageNoopGuard::default();
@@ -717,6 +718,7 @@ where
 			let header = block.header();
 			Self::on_idle_hook(*header.number());
 			Self::on_finalize_hook(*header.number());
+			Self::note_additional_data();
 			<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 			Self::final_checks(&header);
 		}
@@ -795,6 +797,7 @@ where
 		let block_number = <frame_system::Pallet<System>>::block_number();
 		Self::on_idle_hook(block_number);
 		Self::on_finalize_hook(block_number);
+		Self::note_additional_data();
 		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 		<frame_system::Pallet<System>>::finalize()
 	}
@@ -848,6 +851,22 @@ where
 	/// Run the `on_finalize` hook of all pallet.
 	fn on_finalize_hook(block_number: NumberFor<Block>) {
 		<AllPalletsWithSystem as OnFinalize<BlockNumberFor<System>>>::on_finalize(block_number);
+	}
+
+	/// Deposit the block's additional-data digest, if any.
+	///
+	/// Additional data is a generic keyed channel (see `sp-additional-data`) recorded during block
+	/// execution; its 32-byte digest is committed to the header here — *after* every pallet's
+	/// `on_finalize`, so data produced by any hook is captured. Deposits nothing when no additional
+	/// data was recorded (every block that does not use the channel), so this is inert for such
+	/// runtimes. Runs identically on authoring and (re-)execution, so the digest recomputed on
+	/// import matches the one in the header.
+	fn note_additional_data() {
+		if let Some(hash) = sp_additional_data::additional_data::finalize() {
+			frame_system::Pallet::<System>::deposit_log(
+				sp_runtime::generic::DigestItem::AdditionalData(hash),
+			);
+		}
 	}
 
 	/// Apply extrinsic outside of the block execution function.

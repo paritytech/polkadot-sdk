@@ -38,6 +38,7 @@ use cumulus_client_consensus_common::{
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
+use cumulus_primitives_additional_data::{RelayStateExt, RELAY_PROOF_KEY};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -51,7 +52,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_additional_data::{AdditionalData, AdditionalDataExt};
+use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
@@ -836,9 +837,20 @@ where
 		let additional_data_handle = match relay_client.relay_state_prover(relay_parent_hash).await
 		{
 			Ok(prover) => {
-				let recorder = RecordingAdditionalDataProvider::new(prover);
-				let getter = recorder.getter();
-				extra_extensions.register(AdditionalDataExt(Box::new(recorder)));
+				// One `Arc`-shared provider serves both `read_relay_chain_state` (as the reader in
+				// `RelayStateExt`) and the additional-data digest (as the finalizer keyed by
+				// `RELAY_PROOF_KEY` in `AdditionalDataExt`, driven by `frame_executive`) — same
+				// recorder behind both. Keep a getter to extract the carried map after the build.
+				let provider = Arc::new(RecordingAdditionalDataProvider::new(prover));
+				let getter = provider.getter();
+				extra_extensions.register(RelayStateExt(Box::new(provider.clone())));
+				extra_extensions.register(AdditionalDataExt(
+					[(
+						RELAY_PROOF_KEY.to_string(),
+						Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
+					)]
+					.into(),
+				));
 				Some(getter)
 			},
 			Err(err) => {

@@ -52,6 +52,7 @@ xcm-builder = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { workspace = true }
+cumulus-primitives-additional-data = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
@@ -88,6 +89,7 @@ std = [
 	"bytes/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
+	"cumulus-primitives-additional-data/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
 	"cumulus-primitives-proof-size-hostfunction/std",

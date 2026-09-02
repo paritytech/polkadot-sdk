@@ -15,8 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! Cumulus-specific [`AdditionalDataProvider`](sp_additional_data::AdditionalDataProvider)
-//! implementations for the dynamic `read_relay_chain_state` mechanism.
+//! Cumulus-specific relay-state providers for the dynamic `read_relay_chain_state` mechanism. Each
+//! implements both
+//! [`RelayStateReader`](cumulus_primitives_additional_data::RelayStateReader) (the read host
+//! function) and [`AdditionalDataFinalizer`](sp_additional_data::AdditionalDataFinalizer) (the
+//! additional-data digest), so one instance backs both the `RelayStateExt` and `AdditionalDataExt`
+//! extensions.
 //!
 //! - [`RecordingAdditionalDataProvider`]: build side — records the relay state a runtime reads
 //!   while authoring, and assembles the additional-data map carried in the PoV.

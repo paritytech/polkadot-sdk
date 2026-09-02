@@ -17,17 +17,19 @@
 use crate::Client;
 use codec::Encode;
 use cumulus_client_additional_data::RecordingAdditionalDataProvider;
+use cumulus_primitives_additional_data::{RelayStateExt, RELAY_PROOF_KEY};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
-use sp_additional_data::{AdditionalDataExt, AdditionalDataGetter};
+use sp_additional_data::{AdditionalDataExt, AdditionalDataFinalizer, AdditionalDataGetter};
 use sp_api::{ApiExt, ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_externalities::Extensions;
 use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
 use sp_trie::proof_size_extension::ProofSizeExt;
+use std::sync::Arc;
 
 /// A struct containing a block builder and support data required to build test scenarios.
 pub struct BlockBuilderAndSupportData<'a> {
@@ -203,13 +205,22 @@ fn init_block_builder(
 	.expect("Relay sproof produces a valid proof-check backend; qed");
 
 	// The recorder records the relay reads into a minimal proof; we keep a backend-free getter to
-	// extract the recorded map after the block is built.
-	let additional_data_provider = RecordingAdditionalDataProvider::over_backend(relay_backend);
+	// extract the recorded map after the block is built. One `Arc`-shared provider is registered as
+	// both the reader (`RelayStateExt`) and the finalizer (`AdditionalDataExt`).
+	let additional_data_provider =
+		Arc::new(RecordingAdditionalDataProvider::over_backend(relay_backend));
 	let additional_data_recorder = additional_data_provider.getter();
 
 	let mut extra_extensions = Extensions::default();
 	extra_extensions.register(ProofSizeExt::new(proof_recorder.clone()));
-	extra_extensions.register(AdditionalDataExt(Box::new(additional_data_provider)));
+	extra_extensions.register(RelayStateExt(Box::new(additional_data_provider.clone())));
+	extra_extensions.register(AdditionalDataExt(
+		[(
+			RELAY_PROOF_KEY.to_string(),
+			Box::new(additional_data_provider) as Box<dyn AdditionalDataFinalizer>,
+		)]
+		.into(),
+	));
 
 	let mut block_builder = sc_block_builder::BlockBuilderBuilder::new(client)
 		.on_parent_block(at)

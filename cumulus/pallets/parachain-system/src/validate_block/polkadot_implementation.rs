@@ -59,18 +59,26 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 // lives in its own module because `environmental!` emits a scope-level `GLOBAL` static that would
 // otherwise collide with the `recorder` invocation above.
 mod additional_data {
-	use sp_additional_data::AdditionalDataProvider;
-	environmental::environmental!(env: trait AdditionalDataProvider);
-	pub(super) fn using<R, F: FnOnce() -> R>(t: &mut dyn AdditionalDataProvider, f: F) -> R {
+	use cumulus_primitives_additional_data::RelayStateReader;
+	use sp_additional_data::AdditionalDataFinalizer;
+
+	/// The combined read + finalize provider served to the relay-read and finalize host functions
+	/// during PVF block execution. Read side comes from [`RelayStateReader`], digest side from
+	/// [`AdditionalDataFinalizer`]; blanket-implemented for any reader that is both (e.g. the
+	/// `AdditionalDataReader`).
+	pub(super) trait Provider: RelayStateReader + AdditionalDataFinalizer {}
+	impl<T: RelayStateReader + AdditionalDataFinalizer> Provider for T {}
+
+	environmental::environmental!(env: trait Provider);
+	pub(super) fn using<R, F: FnOnce() -> R>(t: &mut dyn Provider, f: F) -> R {
 		env::using(t, f)
 	}
-	pub(super) fn with<R, F: for<'a> FnOnce(&'a mut (dyn AdditionalDataProvider + 'a)) -> R>(
-		f: F,
-	) -> Option<R> {
+	pub(super) fn with<R, F: for<'a> FnOnce(&'a mut (dyn Provider + 'a)) -> R>(f: F) -> Option<R> {
 		env::with(f)
 	}
 }
 
+use cumulus_primitives_additional_data::RELAY_PROOF_KEY;
 use sp_additional_data::AdditionalData;
 
 /// Validate the given parachain block.
@@ -157,7 +165,7 @@ where
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
-		sp_additional_data::additional_data::host_read_relay_chain_state_into
+		cumulus_primitives_additional_data::relay_chain_state::host_read_relay_chain_state_into
 			.replace_implementation(host_read_relay_chain_state_into),
 		sp_additional_data::additional_data::host_finalize_into
 			.replace_implementation(host_finalize_into),
@@ -326,18 +334,6 @@ where
 			_ => {},
 		}
 
-		// Integrity: the carried map must hash to the header's committed digest. Checked up front
-		// so a tampered map is rejected by this explicit, named assertion rather than implicitly
-		// later by `frame_executive`'s digest-item equality (which would panic with a less
-		// specific message).
-		if let Some(ref map) = map_opt {
-			assert_eq!(
-				sp_additional_data::hash(map),
-				expected_hash.expect("checked above that both are Some; qed"),
-				"additional data hash does not match header digest"
-			);
-		}
-
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
 			&mut Default::default(),
@@ -360,7 +356,7 @@ where
 		// different root (a lying collator, or wrong validation params) — reject it loudly.
 		let mut verify_provider: Option<AdditionalDataReader> = map_opt.as_ref().map(|map| {
 			let proof_bytes = map
-				.get(sp_additional_data::RELAY_PROOF_KEY)
+				.get(RELAY_PROOF_KEY)
 				.expect("additional data map (present) must contain the relay-proof entry");
 			let (_, proof) = <(RHash, StorageProof)>::decode(&mut &proof_bytes[..])
 				.expect("relay-proof entry must decode as (root, proof)");
@@ -888,9 +884,14 @@ fn host_read_relay_chain_state_into(key: &[u8], value_out: &mut [u8]) -> i64 {
 }
 
 fn host_finalize_into(hash_out: &mut [u8]) -> u32 {
+	// The digest folds each producer's sub-hash; on the PVF the sole producer is the relay reader,
+	// so fold exactly its one commitment to match what the collator committed (and what
+	// `AdditionalDataExt::finalize` recomputes on build/import).
 	match additional_data::with(|p| p.finalize()).flatten() {
-		Some(h) => {
-			hash_out[..32].copy_from_slice(&h);
+		Some(sub) => {
+			let folded = sp_additional_data::hash_commitments(core::iter::once(sub))
+				.expect("non-empty input yields Some; qed");
+			hash_out[..32].copy_from_slice(&folded);
 			1
 		},
 		None => 0,

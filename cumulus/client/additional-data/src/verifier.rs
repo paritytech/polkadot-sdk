@@ -25,15 +25,15 @@
 //! It is *not* the provider used inside the PVF: `validate_block` has its own no_std reader
 //! (`AdditionalDataReader`, in `cumulus-pallet-parachain-system`). This type is the std analogue of
 //! that reader, and is kept in Cumulus (not in `sp-additional-data`) because it is
-//! Cumulus-specific: substrate only knows the [`AdditionalDataProvider`] trait, and the node
+//! Cumulus-specific: substrate only knows the `AdditionalDataFinalizer` trait, and the node
 //! injects a factory that builds this provider.
 
 use codec::{Decode, Encode};
+use cumulus_primitives_additional_data::{RelayStateReader, RELAY_PROOF_KEY};
 use hash_db::Hasher;
-use sp_additional_data::{hash, AdditionalData, AdditionalDataProvider, RELAY_PROOF_KEY};
+use sp_additional_data::{hash_value, AdditionalData, AdditionalDataFinalizer};
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
 use sp_trie::{recorder::Recorder, HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
-use std::collections::btree_map::BTreeMap;
 
 /// Generic block-import provider: reads relay/JAM keys back from the carried proof, authenticating
 /// each read (including proven absence) against `root`, and recording the nodes it accesses so
@@ -73,7 +73,7 @@ where
 	}
 }
 
-impl<H> AdditionalDataProvider for VerifyingAdditionalDataProvider<H>
+impl<H> RelayStateReader for VerifyingAdditionalDataProvider<H>
 where
 	H: Hasher + Send + 'static,
 	H::Out: Ord + codec::Codec + Send + Clone,
@@ -89,31 +89,23 @@ where
 			.expect("relay-state read from an incomplete/invalid proof; candidate is invalid")
 	}
 
-	fn finalize(&self) -> Option<[u8; 32]> {
-		// Hash the map assembled from what was actually requested (recorded), NOT the carried
-		// map. `frame_executive`'s digest-equality then rejects any candidate whose carried map
-		// differs from what its execution requested.
-		relay_proof_map(&self.recorder, &self.root).as_ref().map(hash)
-	}
-
 	fn proof_size(&self) -> usize {
 		self.recorder.estimate_encoded_size()
 	}
 }
 
-/// Assemble the [`AdditionalData`] map from a recorded relay-read proof + root, or `None` when
-/// nothing was recorded. This is what both build and verify hash for `finalize`.
-fn relay_proof_map<H: Hasher>(recorder: &Recorder<H>, root: &H::Out) -> Option<AdditionalData>
+impl<H> AdditionalDataFinalizer for VerifyingAdditionalDataProvider<H>
 where
-	H::Out: Ord + codec::Codec + Clone,
+	H: Hasher + Send + 'static,
+	H::Out: Ord + codec::Codec + Send + Clone,
 {
-	let proof = recorder.to_storage_proof();
-	if proof.is_empty() {
-		return None;
+	fn finalize(&self) -> Option<[u8; 32]> {
+		// Commit to the value assembled from exactly what this verifier's reads recorded (NOT the
+		// carried bytes). `frame_executive`'s digest-equality then rejects any candidate whose
+		// carried value differs from what its execution requested.
+		let proof = self.recorder.to_storage_proof();
+		(!proof.is_empty()).then(|| hash_value(&(self.root.clone(), proof).encode()))
 	}
-	let mut map = BTreeMap::new();
-	map.insert(RELAY_PROOF_KEY.into(), (*root, proof).encode());
-	Some(map)
 }
 
 /// Build a trie backend over the relay-read proof carried in `map[RELAY_PROOF_KEY]`, verifying

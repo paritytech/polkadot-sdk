@@ -20,4 +20,5 @@ sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
+cumulus-primitives-additional-data = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }

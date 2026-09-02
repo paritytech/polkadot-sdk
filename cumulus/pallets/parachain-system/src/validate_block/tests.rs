@@ -17,6 +17,7 @@
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
+use cumulus_primitives_additional_data::RelayStateExt;
 use cumulus_primitives_core::{
 	relay_chain,
 	relay_chain::{UMPSignal, UMP_SEPARATOR},
@@ -38,7 +39,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use rstest::rstest;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sp_additional_data::{AdditionalData, AdditionalDataExt};
+use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_consensus_babe::SlotDuration;
 use sp_core::{Hasher, H256};
@@ -403,14 +404,23 @@ fn build_multiple_blocks_with_witness(
 			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
 			api.record_proof_with_recorder(proof_recorder.clone());
 			api.register_extension(ProofSizeExt::new(proof_recorder));
-			// Serve `read_relay_chain_state` from the recorded proof for this re-execution.
+			// Serve `read_relay_chain_state` from the recorded proof for this re-execution, and
+			// register a finalizer sharing the same recorder for the additional-data digest.
 			if let Some(ref map) = additional_data {
-				api.register_extension(AdditionalDataExt(Box::new(
+				let provider = std::sync::Arc::new(
 					VerifyingAdditionalDataProvider::<sp_runtime::traits::BlakeTwo256>::from_map(
 						map.clone(),
 					)
 					.expect("valid relay-proof map"),
-				)));
+				);
+				api.register_extension(RelayStateExt(Box::new(provider.clone())));
+				api.register_extension(AdditionalDataExt(
+					[(
+						cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
+						Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
+					)]
+					.into(),
+				));
 			}
 			api.execute_block(parent_hash, pop_seal(built_block.block.clone()).into())
 				.unwrap();
@@ -1761,7 +1771,7 @@ fn validate_block_v3_tampered_additional_data_fails() {
 			build_v3_with_runtime_relay_read(&client, parent_head.clone());
 		if let ParachainBlockData::V3 { ref mut additional_data, .. } = block {
 			additional_data[0] = Some(AdditionalData::from([(
-				sp_additional_data::RELAY_PROOF_KEY.to_string(),
+				cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
 				vec![0u8; 32],
 			)]));
 		}
@@ -1775,7 +1785,7 @@ fn validate_block_v3_tampered_additional_data_fails() {
 			.expect("Runs the test");
 		assert!(output.status.success());
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("additional data hash does not match header digest"));
+			.contains("relay-proof entry must decode as (root, proof)"));
 	}
 }
 
@@ -1829,7 +1839,7 @@ fn validate_block_v3_additional_data_without_digest_fails() {
 			proof,
 			scheduling_proof: dummy_scheduling_proof(),
 			additional_data: vec![Some(AdditionalData::from([(
-				sp_additional_data::RELAY_PROOF_KEY.to_string(),
+				cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
 				vec![1u8, 2, 3],
 			)]))],
 		};
@@ -1851,7 +1861,7 @@ fn validate_block_v3_additional_data_without_digest_fails() {
 fn decode_relay_proof(blob: &AdditionalData) -> (Hash, StorageProof) {
 	<(Hash, StorageProof)>::decode(
 		&mut &blob
-			.get(sp_additional_data::RELAY_PROOF_KEY)
+			.get(cumulus_primitives_additional_data::RELAY_PROOF_KEY)
 			.expect("relay-read blob carries the relay-proof entry")[..],
 	)
 	.expect("relay-proof entry decodes as (root, proof)")
@@ -1860,15 +1870,16 @@ fn decode_relay_proof(blob: &AdditionalData) -> (Hash, StorageProof) {
 /// An [`AdditionalData`] map carrying `(root, proof)` under [`RELAY_PROOF_KEY`].
 fn relay_proof_map(root: Hash, proof: StorageProof) -> AdditionalData {
 	AdditionalData::from([(
-		sp_additional_data::RELAY_PROOF_KEY.to_string(),
+		cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
 		(root, proof).encode(),
 	)])
 }
 
 /// Rebuild a single-block `V3` candidate carrying `new_map` as its additional data: rewrite the
-/// header's `AdditionalData` digest to `hash(new_map)` and re-seal, so the candidate stays
-/// *self-consistent* — it passes the up-front `hash(map) == header digest` integrity check and thus
-/// exercises the deeper proof-verification layers instead of being rejected at that check.
+/// header's `AdditionalData` digest to the fold of `new_map`'s per-entry commitments and re-seal,
+/// so the candidate stays *self-consistent* — its header digest matches what re-execution
+/// recomputes from the carried data, so it reaches the deeper proof-verification layers instead of
+/// being rejected by `frame_executive`'s digest equality check.
 fn reseal_v3_with_additional_data(
 	client: &Client,
 	block: ParachainBlockData<Block>,
@@ -1876,7 +1887,12 @@ fn reseal_v3_with_additional_data(
 ) -> ParachainBlockData<Block> {
 	let (mut blocks, proof) = block.into_inner();
 	let mut inner = pop_seal(blocks[0].clone());
-	let new_digest = DigestItem::AdditionalData(sp_additional_data::hash(&new_map));
+	let new_digest = DigestItem::AdditionalData(
+		sp_additional_data::hash_commitments(
+			new_map.values().map(|v| sp_additional_data::hash_value(v)),
+		)
+		.expect("new_map is non-empty; qed"),
+	);
 	for item in inner.header.digest.logs.iter_mut() {
 		if item.as_additional_data().is_some() {
 			*item = new_digest.clone();
@@ -2071,7 +2087,7 @@ fn validate_block_v3_malformed_additional_data_in_second_block_fails() {
 
 		let mut additional_data = block.additional_data().to_vec();
 		additional_data[1] = Some(AdditionalData::from([(
-			sp_additional_data::RELAY_PROOF_KEY.to_string(),
+			cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
 			vec![0u8; 32],
 		)]));
 		let (blocks, proof) = block.into_inner();
@@ -2099,6 +2115,6 @@ fn validate_block_v3_malformed_additional_data_in_second_block_fails() {
 			.expect("Runs the test");
 		assert!(output.status.success());
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("additional data hash does not match header digest"));
+			.contains("relay-proof entry must decode as (root, proof)"));
 	}
 }
