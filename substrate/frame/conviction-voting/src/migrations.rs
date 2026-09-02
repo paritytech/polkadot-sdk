@@ -66,8 +66,7 @@ pub mod v1 {
 				iterated.saturating_inc();
 				// The invariant the pallet has always enforced: on-chain encumbrance = max
 				// over the per-class requirements.
-				let amount =
-					class_locks.iter().map(|x| x.1).max().unwrap_or_else(Zero::zero);
+				let amount = class_locks.iter().map(|x| x.1).max().unwrap_or_else(Zero::zero);
 				if amount.is_zero() {
 					// Empty entry: `update_lock` already removed the legacy lock for it.
 					continue;
@@ -95,18 +94,14 @@ pub mod v1 {
 			);
 			// Per account: 1 read (iteration) + freeze (account + freezes r/w) + lock removal
 			// (account + locks r/w).
-			T::DbWeight::get().reads_writes(
-				iterated.saturating_mul(3),
-				migrated.saturating_mul(4),
-			)
+			T::DbWeight::get().reads_writes(iterated.saturating_mul(3), migrated.saturating_mul(4))
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let expected: Vec<(T::AccountId, BalanceOf<T, I>)> = ClassLocksFor::<T, I>::iter()
 				.map(|(who, class_locks)| {
-					let amount =
-						class_locks.iter().map(|x| x.1).max().unwrap_or_else(Zero::zero);
+					let amount = class_locks.iter().map(|x| x.1).max().unwrap_or_else(Zero::zero);
 					(who, amount)
 				})
 				.collect();
