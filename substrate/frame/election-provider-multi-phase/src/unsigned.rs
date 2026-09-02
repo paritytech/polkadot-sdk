@@ -1107,7 +1107,7 @@ mod tests {
 	use codec::Decode;
 	use frame_election_provider_support::IndexAssignment;
 	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};
-	use sp_npos_elections::ElectionScore;
+	use sp_npos_elections::{ElectionScore, Winner};
 	use sp_runtime::{
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
@@ -1462,7 +1462,7 @@ mod tests {
 
 				// an initial solution
 				let result = ElectionResult {
-					winners: vec![(10, 12)],
+					winners: vec![Winner { who: 10, backed_stake: 12, round: 0 }],
 					assignments: vec![
 						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
 						Assignment {
@@ -1496,7 +1496,7 @@ mod tests {
 				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
 				// of 12.
 				let result = ElectionResult {
-					winners: vec![(10, 10)],
+					winners: vec![Winner { who: 10, backed_stake: 10, round: 0 }],
 					assignments: vec![Assignment {
 						who: 10,
 						distribution: vec![(10, PerU16::one())],
@@ -1521,7 +1521,7 @@ mod tests {
 				// trial 2: try resubmitting another solution with same score (12) as the queued
 				// solution.
 				let result = ElectionResult {
-					winners: vec![(10, 12)],
+					winners: vec![Winner { who: 10, backed_stake: 12, round: 0 }],
 					assignments: vec![
 						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
 						Assignment {
@@ -1551,7 +1551,7 @@ mod tests {
 				// trial 3: a solution who's minimal stake is 13, i.e. 1 better than the queued
 				// solution of 12.
 				let result = ElectionResult {
-					winners: vec![(10, 12)],
+					winners: vec![Winner { who: 10, backed_stake: 12, round: 0 }],
 					assignments: vec![
 						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
 						Assignment { who: 7, distribution: vec![(10, PerU16::one())] },
@@ -1580,7 +1580,7 @@ mod tests {
 				// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last
 				// solution.
 				let result = ElectionResult {
-					winners: vec![(10, 12)],
+					winners: vec![Winner { who: 10, backed_stake: 12, round: 0 }],
 					assignments: vec![
 						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
 						Assignment { who: 7, distribution: vec![(10, PerU16::one())] },
