@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788375669437,
+  "lastUpdate": 1788389780615,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "89669b38344e4378581c34b7833d109e3ad477a5",
-          "message": "Remove unused code in staking-async (#10842)\n\n- remove the `reward-fn` from `pallet-staking-async`. This crate is no\nlonger needed.\n- rename `ahm-test` to `integration-tests`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T11:34:00Z",
-          "tree_id": "a8b5a9abec24dd000c1670c0722bf883b0ecf7a6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/89669b38344e4378581c34b7833d109e3ad477a5"
-        },
-        "date": 1770208859046,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.19,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52947.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.682448803170001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.920629458419995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.684569112200001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.643390401742947,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001986385,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005552571749999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3498694422699993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7965811154199954,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00003185492,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6961387353000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00003185492,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001986385,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7054696783099987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.8106180673599988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "Chima",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c2323b3b3429764ffce37ce37be93f1182d53c5",
+          "message": "`frame-support`: fix `CountedStorageMap` and `CountedStorageNMap` counter drift (#13031)\n\nCloses #12782.\n\n### Problem\n\n`try_append` increments the counter on every append that fits the bound:\n\n```rust\nif current < bound {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n```\n\nAppending to an existing key creates no entry, so `count()` climbs above\nthe number of stored keys. remove decrements once per key, so the drift\nnever clears.\n\nEvery other method in the file already guards this: `insert`, `append`\nand `remove` check `contains_key`, and `try_mutate_exists` tracks the\n`existed/exist` transition.\n\n### Change\n\n```rust\nif !<Self as MapWrapper>::Map::contains_key(Ref::from(&key)) {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n}\n```\n\nThe same guard `append` uses. `contains_key` rather than `current == 0`,\nbecause `decode_len(..).unwrap_or_default()` returns 0 both for an\nabsent key and for an existing empty value.\n\n`try_append_decode_len_works` already appends twice to one key but\nasserts only on `decode_len`, which is why this went unnoticed. The new\ntest asserts `count()`.\n\nNo pallet calls `try_append` on a `CountedStorageMap` today, so nothing\non-chain changes. The cost is one extra storage read per call, the same\nread insert and append already pay.",
+          "timestamp": "2026-09-02T21:03:52Z",
+          "tree_id": "ee7934a92e85173f28428cdb7c41a5267f4fed9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c2323b3b3429764ffce37ce37be93f1182d53c5"
+        },
+        "date": 1788389747158,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63563.67999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020073419999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005122460929999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7982790293799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.341272644530005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001839289,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7836005965600004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7452727976299998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7777963006099529,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001839289,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020073419999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7555108105499997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.20685464018996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.395860189962601,
             "unit": "seconds"
           }
         ]
