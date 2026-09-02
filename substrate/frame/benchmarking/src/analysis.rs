@@ -76,11 +76,19 @@ impl BenchmarkSelector {
 	}
 
 	fn scale_weight(self, value: u128) -> u128 {
-		if let BenchmarkSelector::ExtrinsicTime = self { value.saturating_mul(1000) } else { value }
+		if let BenchmarkSelector::ExtrinsicTime = self {
+			value.saturating_mul(1000)
+		} else {
+			value
+		}
 	}
 
 	fn nanos_from_weight(self, value: u128) -> u128 {
-		if let BenchmarkSelector::ExtrinsicTime = self { value / 1000 } else { value }
+		if let BenchmarkSelector::ExtrinsicTime = self {
+			value / 1000
+		} else {
+			value
+		}
 	}
 
 	fn get_value(self, result: &BenchmarkResult) -> u128 {
