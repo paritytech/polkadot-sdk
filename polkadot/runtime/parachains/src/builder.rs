@@ -171,7 +171,7 @@ pub(crate) struct Bench<T: paras_inherent::Config> {
 }
 
 #[allow(dead_code)]
-impl<T: paras_inherent::Config + crate::coretime::Config> BenchBuilder<T> {
+impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Create a new `BenchBuilder` with some opinionated values that should work with the rest
 	/// of the functions in this implementation.
 	pub(crate) fn new() -> Self {

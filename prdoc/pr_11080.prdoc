@@ -5,6 +5,8 @@ doc:
     fixes #8869
 
     This PR ensures the broker parachain is reachable before running benchmarks by calling `SendXcm::ensure_successful_delivery()` to set up the necessary XCM routing infrastructure.
+
+    Since the `paras_inherent` benchmark scenario builder now goes through the coretime pallet, `paras_inherent::Config` gained `coretime::Config` as a supertrait. Every relay chain already runs the coretime pallet, so no runtime configuration changes are required.
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
