@@ -379,7 +379,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#229 id=229 data-nosnippet>229</a>		</span><span class="kw">let </span>runtime_max = runtime_api::max_promotion_size::&lt;Block, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;*</span><span class="self">self</span>.client, best_hash)
 <a href=#230 id=230 data-nosnippet>230</a>			.map_err(HopError::from)<span class="question-mark">?</span>;
 <a href=#231 id=231 data-nosnippet>231</a>		<span class="kw">if </span>data_len &gt; runtime_max <span class="kw">as </span>usize {
-<a href=#232 id=232 data-nosnippet>232</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(HopError::DataTooLarge(data_len, runtime_max));
+<a href=#232 id=232 data-nosnippet>232</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(HopError::DataTooLarge(data_len, runtime_max).into());
 <a href=#233 id=233 data-nosnippet>233</a>		}
 <a href=#234 id=234 data-nosnippet>234</a>
 <a href=#235 id=235 data-nosnippet>235</a>		<span class="comment">// Check authorization before verifying the signature: a flood of unauthorized
