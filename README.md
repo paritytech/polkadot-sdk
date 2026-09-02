@@ -1,3 +1,5 @@
+<div align="center">
+
 # Polkadot SDK
 
 ![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
