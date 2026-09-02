@@ -17,13 +17,14 @@
 
 //! Test mock for the on-demand pallet.
 
-use crate::{self as pallet_on_demand, Config, QueueOnDemandOrders};
+use crate::{self as pallet_on_demand, Config, QueueOnDemandOrders, DEFAULT_BASE_FEE};
 use fp_coretime::TaskId;
 use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Hooks},
+	derive_impl, ord_parameter_types, parameter_types,
+	traits::{EitherOfDiverse, Hooks},
 	PalletId,
 };
+use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{traits::BlockNumberProvider, BuildStorage};
 use std::cell::RefCell;
 
@@ -80,19 +81,19 @@ impl QueueOnDemandOrders<RelayBlockNumber> for RecordingOrderQueue {
 parameter_types! {
 	pub const OnDemandPalletId: PalletId = PalletId(*b"TsOnDmnd");
 }
+ord_parameter_types! {
+	pub const One: u64 = 1;
+}
 
-pub(crate) const BASE_FEE: u64 = 1_000;
+type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
 impl Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
+	type AdminOrigin = EnsureOneOrRoot;
 	type RelayBlockNumberProvider = MockRelayBlockNumberProvider;
 	type OrderQueue = RecordingOrderQueue;
 	type PalletId = OnDemandPalletId;
-	type DefaultOrderCap = ConstU32<100>;
-	type DefaultDrainRatePerBlock = ConstU32<1>;
-	type DefaultPriceStep = ConstU32<3>;
-	type DefaultBaseFee = ConstU64<BASE_FEE>;
 }
 
 /// Move the Relay chain to `relay_block_number`.
@@ -119,7 +120,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 1_000_000), (2, 1_000_000), (3, 1_000_000)],
+		balances: vec![
+			(1, DEFAULT_BASE_FEE as u64 * 1000),
+			(2, DEFAULT_BASE_FEE as u64 * 1000),
+			(3, DEFAULT_BASE_FEE as u64 * 1000),
+		],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)

@@ -17,7 +17,10 @@
 
 //! Types used by this pallet.
 
-use crate::{Config, RelayBlockNumberOf};
+use crate::{
+	Config, RelayBlockNumberOf, DEFAULT_BASE_FEE, DEFAULT_DRAIN_RATE_PER_BLOCK, DEFAULT_ORDER_CAP,
+	DEFAULT_PRICE_STEP,
+};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use fp_coretime::TaskId;
 use frame_support::traits::fungible::Inspect;
@@ -40,6 +43,20 @@ pub struct PriceParameters<Balance> {
 	pub price_step: Perbill,
 	/// The base spot price when the queue is empty.
 	pub base_fee: Balance,
+}
+
+impl<T> Default for PriceParameters<T>
+where
+	T: From<u32>,
+{
+	fn default() -> Self {
+		Self {
+			order_cap: DEFAULT_ORDER_CAP,
+			drain_rate_per_block: DEFAULT_DRAIN_RATE_PER_BLOCK,
+			price_step: Perbill::from_percent(DEFAULT_PRICE_STEP),
+			base_fee: T::from(DEFAULT_BASE_FEE),
+		}
+	}
 }
 
 pub type PriceParametersOf<T> = PriceParameters<BalanceOf<T>>;

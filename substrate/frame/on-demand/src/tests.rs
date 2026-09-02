@@ -17,15 +17,18 @@
 
 //! Tests for the on-demand pallet.
 
-use crate::{mock::*, Error, Event, PendingBatch, PriceConfig, QueueState};
+use crate::{
+	mock::*, Error, Event, PendingBatch, PriceConfig, QueueState, DEFAULT_BASE_FEE,
+	DEFAULT_PRICE_STEP,
+};
 use frame_support::{assert_noop, assert_ok, traits::fungible::Inspect};
 
 const ALICE: u64 = 1;
 
 fn set_order_cap(order_cap: u32) {
-	PriceConfig::<Test>::mutate(|config| {
-		config.as_mut().expect("initialized by `new_test_ext`; qed").order_cap = order_cap;
-	});
+	let mut config = PriceConfig::<Test>::get().unwrap_or_default();
+	config.order_cap = order_cap;
+	PriceConfig::<Test>::put(config);
 }
 
 fn on_demand_events() -> Vec<Event<Test>> {
@@ -43,11 +46,15 @@ fn place_order_charges_spot_price_and_batches_the_order() {
 	new_test_ext().execute_with(|| {
 		let before = Balances::balance(&ALICE);
 
-		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, BASE_FEE));
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			2000,
+			DEFAULT_BASE_FEE as u64
+		));
 
 		// The spot price of the first order is the base fee, and it went to the pallet's pot.
-		assert_eq!(Balances::balance(&ALICE), before - BASE_FEE);
-		assert_eq!(Balances::balance(&OnDemand::account_id()), BASE_FEE);
+		assert_eq!(Balances::balance(&ALICE), before - DEFAULT_BASE_FEE as u64);
+		assert_eq!(Balances::balance(&OnDemand::account_id()), DEFAULT_BASE_FEE as u64);
 
 		// The order is pending, waiting to be forwarded to the Relay chain.
 		let batch = PendingBatch::<Test>::get();
@@ -60,7 +67,11 @@ fn place_order_charges_spot_price_and_batches_the_order() {
 
 		assert_eq!(
 			on_demand_events(),
-			vec![Event::OrderPlaced { para_id: 2000, spot_price: BASE_FEE, ordered_by: ALICE }]
+			vec![Event::OrderPlaced {
+				para_id: 2000,
+				spot_price: DEFAULT_BASE_FEE as u64,
+				ordered_by: ALICE
+			}]
 		);
 	});
 }
@@ -69,7 +80,10 @@ fn place_order_charges_spot_price_and_batches_the_order() {
 fn spot_price_grows_with_the_queue_depth() {
 	new_test_ext().execute_with(|| {
 		// Every order already outstanding raises the price by 3%.
-		for expected_price in [1_000, 1_030, 1_060] {
+		let price_0 = DEFAULT_BASE_FEE as u64;
+		let price_1 = price_0 / 100 * (100 + DEFAULT_PRICE_STEP as u64);
+		let price_2 = price_1 / 100 * (100 + DEFAULT_PRICE_STEP as u64);
+		for expected_price in [price_0, price_1, price_2] {
 			let before = Balances::balance(&ALICE);
 			assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, expected_price));
 			assert_eq!(Balances::balance(&ALICE), before - expected_price);
@@ -83,7 +97,7 @@ fn spot_price_grows_with_the_queue_depth() {
 fn place_order_respects_max_amount() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, BASE_FEE - 1),
+			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_BASE_FEE as u64 - 1),
 			Error::<Test>::SpotPriceHigherThanMaxAmount
 		);
 		assert!(PendingBatch::<Test>::get().is_empty());
@@ -94,7 +108,11 @@ fn place_order_respects_max_amount() {
 fn place_order_fails_once_the_order_cap_is_reached() {
 	new_test_ext().execute_with(|| {
 		set_order_cap(1);
-		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, BASE_FEE));
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			2000,
+			DEFAULT_BASE_FEE as u64
+		));
 		assert_noop!(
 			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, Balance::MAX),
 			Error::<Test>::QueueFull
@@ -114,8 +132,12 @@ fn the_queue_estimate_drains_over_relay_chain_blocks() {
 		// is considered empty again and the next order costs the base fee.
 		set_relay_block_number(5);
 		let before = Balances::balance(&ALICE);
-		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, BASE_FEE));
-		assert_eq!(Balances::balance(&ALICE), before - BASE_FEE);
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			2000,
+			DEFAULT_BASE_FEE as u64
+		));
+		assert_eq!(Balances::balance(&ALICE), before - DEFAULT_BASE_FEE as u64);
 
 		let queue_state = QueueState::<Test>::get().unwrap();
 		assert_eq!(queue_state.outstanding_orders, 1);

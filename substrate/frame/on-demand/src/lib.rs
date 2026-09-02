@@ -46,16 +46,30 @@ mod tests;
 
 use alloc::vec::Vec;
 use fp_coretime::TaskId;
+use frame_support::traits::EnsureOrigin;
 use sp_runtime::traits::BlockNumberProvider;
 
 pub use types::*;
 pub use weights::WeightInfo;
 
-/// The log target for this pallet.
-const LOG_TARGET: &str = "runtime::on-demand";
-
 /// Maximum pending batch size.
 const MAX_BATCH_SIZE: u32 = 1000;
+
+/// The default maximum number of outstanding on-demand orders beyond which new orders will be
+/// rejected.
+const DEFAULT_ORDER_CAP: u32 = 100;
+
+/// The default number of orders assumed to be drained out of the order queue per Relay-chain
+/// block.
+const DEFAULT_DRAIN_RATE_PER_BLOCK: u32 = 1;
+
+/// The default percentage by which every additional on-demand order in the queue increases
+/// the spot price for new orders.
+const DEFAULT_PRICE_STEP: u32 = 3;
+
+/// The default base fee for an on-demand order, which will be the spot price when the queue
+/// is empty.
+const DEFAULT_BASE_FEE: u32 = 10_000_000;
 
 /// The Relay-chain block number, as seen by this pallet.
 pub type RelayBlockNumberOf<T> =
@@ -88,7 +102,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_arithmetic::{
 		traits::{ensure_pow, One, SaturatedConversion, Saturating},
-		FixedPointNumber, FixedU128, Perbill,
+		FixedPointNumber, FixedU128,
 	};
 	use sp_runtime::traits::AccountIdConversion;
 
@@ -106,6 +120,9 @@ pub mod pallet {
 		/// Currency used to pay for on-demand Coretime.
 		type Currency: Mutate<Self::AccountId>;
 
+		/// The origin test needed for administrating this pallet.
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Provider of the current Relay-chain block number.
 		type RelayBlockNumberProvider: BlockNumberProvider;
 
@@ -115,26 +132,6 @@ pub mod pallet {
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
-
-		/// The default maximum number of outstanding on-demand orders beyond which new orders will
-		/// be rejected.
-		#[pallet::constant]
-		type DefaultOrderCap: Get<u32>;
-
-		/// The default number of orders assumed to be drained out of the order queue per
-		/// Relay-chain block.
-		#[pallet::constant]
-		type DefaultDrainRatePerBlock: Get<u32>;
-
-		/// The default percentage by which every additional on-demand order in the queue increases
-		/// the spot price for new orders.
-		#[pallet::constant]
-		type DefaultPriceStep: Get<u32>;
-
-		/// The default base fee for an on-demand order, which will be the spot price when the queue
-		/// is empty.
-		#[pallet::constant]
-		type DefaultBaseFee: Get<BalanceOf<Self>>;
 	}
 
 	/// The configuration used for pricing on-demand Coretime orders.
@@ -169,8 +166,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The pallet has not been initialized yet.
-		Uninitialized,
 		/// The estimated on-demand order queue has reached its order cap.
 		QueueFull,
 		/// The batch of orders pending to be sent to the Relay chain is full.
@@ -182,8 +177,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			Self::initialize();
-			// TODO: benchmark initialization and `on_finalize`.
+			// TODO: benchmark `on_finalize`.
 			T::DbWeight::get().reads_writes(1, 2)
 		}
 
@@ -201,6 +195,20 @@ pub mod pallet {
 
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
+		/// Configure the pallet.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `config`: The configuration for this pallet.
+		#[pallet::call_index(0)]
+		pub fn configure(
+			origin: OriginFor<T>,
+			config: PriceParametersOf<T>,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			PriceConfig::<T>::put(config);
+			Ok(Pays::No.into())
+		}
+
 		/// Place an on-demand Coretime order for `para_id`.
 		///
 		/// The caller is charged the current estimated spot price, which must not exceed
@@ -209,7 +217,7 @@ pub mod pallet {
 		/// - `origin`: Must be a signed account with enough funds to pay the spot price.
 		/// - `para_id`: The parachain to schedule.
 		/// - `max_amount`: The maximum spot price the caller is willing to pay.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		pub fn place_order(
 			origin: OriginFor<T>,
 			para_id: TaskId,
@@ -226,37 +234,15 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		/// Populate the pricing parameters and the queue estimate with the configured defaults.
-		///
-		/// A no-op once the pallet has been initialized.
-		pub(crate) fn initialize() {
-			if PriceConfig::<T>::exists() {
-				return;
-			}
-
-			PriceConfig::<T>::put(PriceParameters {
-				order_cap: T::DefaultOrderCap::get(),
-				drain_rate_per_block: T::DefaultDrainRatePerBlock::get(),
-				price_step: Perbill::from_percent(T::DefaultPriceStep::get()),
-				base_fee: T::DefaultBaseFee::get(),
-			});
-
-			QueueState::<T>::put(QueueTracker {
-				outstanding_orders: 0,
-				last_updated: T::RelayBlockNumberProvider::current_block_number(),
-			});
-
-			log::debug!(target: LOG_TARGET, "On-demand pricing parameters initialized.");
-		}
-
 		pub(crate) fn do_place_order(
 			who: T::AccountId,
 			para_id: TaskId,
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let now = T::RelayBlockNumberProvider::current_block_number();
-			let mut queue_state = QueueState::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-			let pricing_config = PriceConfig::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+			let mut queue_state = QueueState::<T>::get()
+				.unwrap_or(QueueTracker { outstanding_orders: 0, last_updated: now });
+			let pricing_config = PriceConfig::<T>::get().unwrap_or_default();
 
 			// Assume the Relay chain has drained part of the queue since we last looked at it.
 			let elapsed = now.saturating_sub(queue_state.last_updated).saturated_into();
