@@ -158,7 +158,7 @@ This, together with the host calls the service forwards, presupposes four privil
 registrations in JAM's protocol state: membership in the always-accumulate set (with a gas
 allowance), being the **delegator** (required for `designate`, §5.3), being the registered
 **assigner** of every core it manages (required for `assign`, §7.1), and being the
-**registrar** (required for `create_service`'s `desired_id`, §6.5).
+**registrar** (required for `CreateService`'s `desired_id`, §3.3).
 
 ### 3.1 Service State Layout
 
@@ -394,7 +394,9 @@ enum ServiceSupervisorError {
 
 /// How a `create_service` turned out.
 enum ServiceCreationResult {
-    /// Succeeded, carrying the id JAM assigned.
+    /// Succeeded, carrying the id JAM assigned. JAM honours `desired_id` only
+    /// while the Parachain Service is the registrar and otherwise picks an id
+    /// itself without signalling an error, so this may differ from `desired_id`.
     Created(ServiceId),
     /// The Parachain Service cannot fund the new service.
     CannotAfford,
@@ -443,8 +445,16 @@ struct PendingAssign {
 type BucketId = u64;
 
 /// One fixed-size bucket in the `incoming_transfers` queue, in arrival order.
-type IncomingTransfers =
-    BoundedVec<(ServiceId, Amount, Memo), MAX_TRANSFERS_PER_BUCKET>;
+type IncomingTransfers = BoundedVec<IncomingTransfer, MAX_TRANSFERS_PER_BUCKET>;
+
+/// One recorded incoming transfer.
+struct IncomingTransfer {
+    source: ServiceId,
+    amount: Compact<Amount>,
+    /// Whether the amount went to the supervisor balance (JAM `destsupervisor`).
+    to_supervisor_balance: bool,
+    memo: Memo,
+}
 
 /// Endpoints of the `incoming_transfers` queue. The occupied ids are exactly
 /// `first_bucket ..= last_bucket`. Absent from state while the queue is empty.
@@ -608,7 +618,9 @@ enum UpwardMessage {
         min_item_gas: u64,
         min_memo_gas: u64,
         id: Compact<u64>,
-        /// Index to create the service at, in JAM's protected range.
+        /// Index to create the service at, in JAM's protected range. Silently
+        /// ignored by JAM unless the Parachain Service is the registrar. Asset
+        /// Hub must compare it against the id echoed in `ServiceCreation`.
         desired_id: Option<ServiceId>,
         source_supervisor_balance: bool,
         new_supervisor_balance: bool,
@@ -1188,9 +1200,10 @@ Phase 5: Forget
 
 ### 5.5 Parachain Head Commitment
 
-`accumulate` returns a 32-byte hash. The Parachain Service returns a commitment to
-**parachain heads**: each block it builds a binary Merkle tree over the heads that
-changed in that block, and returns its root.
+`accumulate` may return a 32-byte hash. The Parachain Service uses it to commit to
+**parachain heads**: an accumulate invocation that changed at least one head builds a
+binary Merkle tree over the heads it changed and returns its root. One that changed
+none returns nothing and adds no entry to the accumulation output log.
 
 ```rust
 enum MerkleTree {
@@ -1204,19 +1217,22 @@ enum MerkleTree {
   The variant discriminant is therefore covered by the hash, so a leaf hash can never
   collide with a node hash. A `Leaf` encodes to 37 octets (discriminant, 4-octet
   `para_id`, 32-octet `head_hash`) and a `Node` to 65 (discriminant, two hashes).
-- One leaf per parachain whose `head_data` changed during the block, carrying the value
-  it ended the block with. A parachain written more than once, by a candidate and then a
-  forced `parachain_set_head`, or across successive accumulate invocations, still
+- One leaf per parachain whose `head_data` changed during the invocation, carrying the
+  value it holds when the invocation ends. A parachain written more than once within
+  the invocation, by a candidate and then a forced `parachain_set_head`, still
   contributes exactly one leaf.
 - Leaves are ordered by ascending `para_id`, so every verifier builds the same tree and
   can locate a parachain's leaf without extra data.
-- With exactly one changed head the root is that leaf's hash. With none, no hash is
-  returned and the service contributes no entry for that block.
+- With exactly one changed head the root is that leaf's hash.
+
+**A block may carry more than one root.** JAM can invoke `accumulate` of the same
+service several times in one block. Each invocation yields its
+own root, and the accumulation output log records all of them.
 
 **A root proves only what changed.** The absence of a leaf means a parachain's head did
-not change in that block, not that it holds any particular value. Proving a parachain's
-current head therefore means locating the most recent block whose tree carries a leaf
-for it, and proving against that block's root.
+not change in that invocation, not that it holds any particular value. Proving a
+parachain's current head therefore means locating the most recent root whose tree
+carries a leaf for it, and proving against that.
 
 ---
 
@@ -1413,15 +1429,15 @@ Of these only `incoming_transfers` grows with the transfer bound. Taking
 staged_validator_keys: BoundedVec<ValidatorKey, 1023>  · 1 item
   34 + 1 (key) + 2 + 1023 × 336                            octets    343 765
 pending_assigns: Map<CoreIndex, PendingAssign>  · 341 items
-  341 × (34 + 3 (key) + 2 + 79 × 32 + 5 (Option<ServiceId>))  octets    877 052
+  341 × (34 + 3 (key) + 2 + 80 × 32 + 5 (Option<ServiceId>))  octets    887 964
 pending_assign_cores: BoundedVec<(CoreIndex, Timeslot), 341>  · 1 item
   34 + 1 (key) + 2 + 341 × (2 + 4)                         octets      2 083
 incoming_transfer_buckets: IncomingTransferBuckets  · 1 item
   34 + 1 (key) + 8 + 8 + 4 (count)                         octets         55
-                                                  octets subtotal   1 222 955
+                                                  octets subtotal   1 233 867
                                                     344 items × 10      3 440
                                                                     ---------
-                                                                    1 226 395
+                                                                    1 237 307
 ```
 
 Writing `N` for `MAX_INCOMING_TRANSFERS`, the queue's worst case is **maximal
@@ -1432,23 +1448,23 @@ count therefore bounds the bucket count too, since a bucket always holds at leas
 
 ```
 incoming_transfers: Map<BucketId, IncomingTransfers>  — worst case N items
-  N × (34 + 9 (key) + 1 + 141 (transfer))                       185 × N
+  N × (34 + 9 (key) + 1 + 142 (transfer))                       186 × N
   N storage items × 10                                           10 × N
                                                               ---------
-                                                              195 × N
+                                                              196 × N
 ```
 
 The whole reservation is therefore
 
 ```
-asset_hub_global_items = 1 226 395 + 195 × N
+asset_hub_global_items = 1 237 307 + 196 × N
 ```
 
 `N` is provisional until `min_memo_gas` is benchmarked and the bound derived from it
 (§5.1), and it is the only input that moves. Entries past `N` are not part of this
 reservation: each is charged to Asset Hub as it arrives and refunded as it drains
-(§5.1). At `N = 1000` the reservation is `1 226 395 + 195 000 = 1 421 395`, or
-**≈ 1.36 MiB**, on top of the generic per-para baseline.
+(§5.1). At `N = 1000` the reservation is `1 237 307 + 196 000 = 1 433 307`, or
+**≈ 1.37 MiB**, on top of the generic per-para baseline.
 
 #### Key-Value storage footprint
 
