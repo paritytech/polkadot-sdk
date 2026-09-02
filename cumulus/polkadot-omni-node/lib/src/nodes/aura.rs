@@ -580,6 +580,47 @@ where
 			jam_params.service_id,
 		);
 
+		// Before anything reads a key: `spawn_tasks` is what puts this node's session keys in the
+		// keystore (`generate_initial_session_keys`, which is where `--alice` and friends land), so
+		// the authorizer below would find an empty keystore if it ran first. The relay-chain path
+		// orders itself the same way, starting consensus only once this has run.
+		let spawn_handle = Arc::new(task_manager.spawn_handle());
+		let rpc_extensions_builder = {
+			let client = client.clone();
+			let transaction_pool = transaction_pool.clone();
+			let backend_for_rpc = backend.clone();
+
+			Box::new(move |_| {
+				let module = Self::BuildRpcExtensions::build_rpc_extensions(
+					client.clone(),
+					backend_for_rpc.clone(),
+					transaction_pool.clone(),
+					None,
+					None,
+					spawn_handle.clone(),
+				)?;
+				Ok(module)
+			})
+		};
+
+		let database_path = config.database.path().map(|p| p.to_path_buf());
+
+		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			network,
+			client: client.clone(),
+			keystore: keystore_container.keystore(),
+			task_manager: &mut task_manager,
+			transaction_pool: transaction_pool.clone(),
+			rpc_builder: rpc_extensions_builder,
+			backend: backend.clone(),
+			system_rpc_tx,
+			tx_handler_controller,
+			sync_service,
+			config,
+			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
+		})?;
+
 		// Up front, and fatal: a collator that cannot reproduce its core's authorizer config, or
 		// that holds no aura key of the set that config commits to, would author blocks whose
 		// packages no guarantor can ever authorize — and the only symptom would be silence. A full
@@ -728,43 +769,6 @@ where
 		task_manager
 			.spawn_essential_handle()
 			.spawn("jam-init", Some("jam"), Box::pin(jam_init));
-
-		let spawn_handle = Arc::new(task_manager.spawn_handle());
-		let rpc_extensions_builder = {
-			let client = client.clone();
-			let transaction_pool = transaction_pool.clone();
-			let backend_for_rpc = backend.clone();
-
-			Box::new(move |_| {
-				let module = Self::BuildRpcExtensions::build_rpc_extensions(
-					client.clone(),
-					backend_for_rpc.clone(),
-					transaction_pool.clone(),
-					None,
-					None,
-					spawn_handle.clone(),
-				)?;
-				Ok(module)
-			})
-		};
-
-		let database_path = config.database.path().map(|p| p.to_path_buf());
-
-		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-			network,
-			client,
-			keystore: keystore_container.keystore(),
-			task_manager: &mut task_manager,
-			transaction_pool,
-			rpc_builder: rpc_extensions_builder,
-			backend,
-			system_rpc_tx,
-			tx_handler_controller,
-			sync_service,
-			config,
-			telemetry: telemetry.as_mut(),
-			tracing_execute_block: None,
-		})?;
 
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(
