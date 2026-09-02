@@ -4,6 +4,7 @@ import { runPresetUntilLaunched, spawnMiner } from "../src/cmd";
 import { EventOutcome, runTest, TestCase } from "../src/test-case";
 import { getApis, GlobalTimeout } from "../src/utils";
 import { commonSignedSteps } from "./common";
+import { exportWeightDiagram } from "../src/export-diagram";
 
 const PRESET: Presets = Presets.FakeKsm;
 
@@ -25,6 +26,7 @@ test(
 		);
 
 		const outcome = await runTest(testCase, apis, paraLog);
+		exportWeightDiagram(testCase.summary, `./signed-ksm.html`);
 		expect(outcome).toEqual(EventOutcome.Done);
 	},
 	{ timeout: GlobalTimeout }

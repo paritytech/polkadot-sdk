@@ -53,6 +53,12 @@ interface IAuthorshipData {
 	time: number;
 }
 
+export interface WeightSummary {
+	authorshipWeights: IAuthorshipData;
+	onchainWeights: IWeight;
+	matchedEvent: IEvent[];
+}
+
 /// Print an event.
 function pe(e: IEvent): string {
 	return `${e.module} ${e.event} ${e.data ? safeJsonStringify(e.data) : "no data"}`;
@@ -68,7 +74,7 @@ interface IObservableEvent {
 
 export class Observe {
 	e: IObservableEvent;
-	onPass: () => void = () => {};
+	onPass: () => void = () => { };
 
 	constructor(
 		chain: Chain,
@@ -76,16 +82,15 @@ export class Observe {
 		event: string,
 		dataCheck: ((data: any) => boolean) | undefined = undefined,
 		byBlock: number | undefined = undefined,
-		onPass: () => void = () => {}
+		onPass: () => void = () => { }
 	) {
 		this.e = { chain, module, event, dataCheck, byBlock };
 		this.onPass = onPass;
 	}
 
 	toString(): string {
-		return `Observe(${this.e.chain}, ${this.e.module}, ${this.e.event}, ${
-			this.e.dataCheck ? "dataCheck" : "no dataCheck"
-		}, ${this.e.byBlock ? this.e.byBlock : "no byBlock"})`;
+		return `Observe(${this.e.chain}, ${this.e.module}, ${this.e.event}, ${this.e.dataCheck ? "dataCheck" : "no dataCheck"
+			}, ${this.e.byBlock ? this.e.byBlock : "no byBlock"})`;
 	}
 
 	static on(chain: Chain, mod: string, event: string): ObserveBuilder {
@@ -99,7 +104,7 @@ export class ObserveBuilder {
 	private event: string;
 	private dataCheck?: (data: any) => boolean;
 	private byBlockVal?: number;
-	private onPassCallback: () => void = () => {};
+	private onPassCallback: () => void = () => { };
 
 	constructor(chain: Chain, module: string, event: string) {
 		this.chain = chain;
@@ -147,10 +152,11 @@ export class TestCase {
 	eventSequence: Observe[];
 	onKill: () => void;
 	allowPerChainInterleavedEvents: boolean = false;
-	private resolveTestPromise: (outcome: EventOutcome) => void = () => {};
+	summary: Map<number, WeightSummary> = new Map();
+	private resolveTestPromise: (outcome: EventOutcome) => void = () => { };
 
 	/// See `example.test.ts` for more info.
-	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => {}) {
+	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => { }) {
 		this.eventSequence = e;
 		this.onKill = onKill;
 		this.allowPerChainInterleavedEvents = interleave;
@@ -251,15 +257,28 @@ export class TestCase {
 			this.resolveTestPromise(EventOutcome.TimedOut);
 		}
 
+		if (blockData.chain == Chain.Parachain) {
+			this.summary.set(blockData.number, {
+				authorshipWeights: blockData.authorship!,
+				onchainWeights: blockData.weights,
+				matchedEvent: [],
+			});
+		}
+
 		for (const e of blockData.events) {
-			this.onEvent(e, blockData);
+			if (this.onEvent(e, blockData) && blockData.chain == Chain.Parachain) {
+				const summary = this.summary.get(blockData.number)!;
+				summary.matchedEvent.push(e);
+				this.summary.set(blockData.number, summary);
+			}
 		}
 	}
 
-	onEvent(e: IEvent, blockData: IBlock) {
+	/// Returns `true` if the `e` matched and was processed.
+	onEvent(e: IEvent, blockData: IBlock): boolean {
 		if (!this.eventSequence.length) {
 			logger.warn(`No events to process for ${blockData.chain}, event: ${pe(e)}`);
-			return;
+			return false;
 		}
 		logger.verbose(`${this.commonLog(blockData)} Processing event: ${pe(e)}`);
 		const [primary, maybeSecondary] = this.nextEvent(blockData.chain);
@@ -273,19 +292,21 @@ export class TestCase {
 				this.resolveTestPromise(EventOutcome.Done);
 			} else {
 				logger.verbose(
-					`Next expected event: ${this.eventSequence[0]!.toString()}, remaining events: ${
-						this.eventSequence.length
+					`Next expected event: ${this.eventSequence[0]!.toString()}, remaining events: ${this.eventSequence.length
 					}`
 				);
 			}
+			return true;
 		} else if (maybeSecondary && this.match(maybeSecondary.e, e, blockData.chain)) {
 			maybeSecondary.onPass();
 			this.removeEvent(maybeSecondary);
 			logger.info(`Secondary event passed`);
 			// when we check secondary events, we must have at least 2 items in the list, so no
 			// need to check for the end of list.
+			return true;
 		} else {
 			logger.debug(`event not relevant`);
+			return false;
 		}
 	}
 }
