@@ -646,14 +646,9 @@ pub mod pallet {
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
 		/// Weight information for the extrinsics of this pallet.
-		///
-		/// Not defaulted by the production presets (the `()` reference weights are wrong for most
-		/// runtimes); only `TestDefaultConfig` keeps `()`.
 		type SystemWeightInfo: WeightInfo;
 
 		/// Weight information for the transaction extensions of this pallet.
-		///
-		/// Same default policy as [`Config::SystemWeightInfo`].
 		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
