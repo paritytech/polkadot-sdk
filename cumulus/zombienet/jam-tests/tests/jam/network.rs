@@ -177,23 +177,32 @@ impl JamNetwork {
 		)
 	}
 
-	/// Point every para's core at its AURA authorizer, and hand parasim the cores' assigner
-	/// privilege where the chain still allows it.
+	/// Point every para's core at its AURA authorizer, and hand parasim every one of those cores'
+	/// assigner privilege.
 	///
-	/// The order per para is `assign-core` then `grant-assigner`, and it is forced by who may
-	/// assign a core. Service 0 is the assigner of every core at genesis, and a bootstrap
-	/// instruction only rides a core that still holds the genesis authorizer — so `assign-core`
-	/// goes first, riding the very core it is about to assign. `grant-assigner` then moves the
-	/// privilege to parasim, which is what lets a later `free-core` or re-assignment travel inside
-	/// an AURA package's token instead of the bootstrap lane.
+	/// Both steps are bootstrap instructions to start with, and a bootstrap instruction only rides
+	/// a core that still holds the genesis authorizer — a supply that only ever shrinks, because
+	/// assignment to parasim is one-way and `free-core` parks a core rather than returning it.
+	/// That is what fixes the order here, and it is not the obvious one:
 	///
-	/// That grant is itself a bootstrap instruction, so it needs *another* core still holding the
-	/// genesis authorizer. On a run that assigns every core the chain has, the last one therefore
-	/// keeps service 0 as its assigner; nothing can free or re-assign it for the rest of the run.
+	/// 1. The *first* para's `assign-core`, riding the very core it assigns. Something has to run
+	///    on the genesis lane before an AURA core exists at all, and this is it.
+	/// 2. `grant-assigner` for **every** core, while cores still holding the genesis authorizer
+	///    are left to carry them. A grant takes no carrier of its own choosing, so this is the
+	///    step that must not be left until last. Granting a core does not assign it: the queue is
+	///    untouched, so a core granted here still holds the genesis authorizer and can still carry
+	///    the grants after it.
+	/// 3. The remaining paras' `assign-core`, each riding the core step 1 assigned. Their own
+	///    cores now answer to parasim, so these travel the control lane and need a carrier that
+	///    runs an AURA authorizer — which the first para's core is.
+	///
+	/// The earlier shape (assign, grant, assign, grant) ran out of genesis-authorizer cores on the
+	/// last core of a full network and left it stuck with service 0 as its assigner, unfreeable
+	/// for the rest of the run. Nothing is skipped now.
 	pub fn assign_cores(&self, binaries: &Binaries, paras: &[Para]) -> anyhow::Result<()> {
 		// A core each, and a real one. Two paras sharing a core would silently leave the first
-		// one's authorizer overwritten, and the "no genesis-authorizer core left" reasoning below
-		// counts paras as if each took its own.
+		// one's authorizer overwritten, and the carrier reasoning above counts paras as if each
+		// took its own.
 		let mut cores: Vec<u32> = paras.iter().map(|para| para.core).collect();
 		cores.sort_unstable();
 		cores.dedup();
@@ -202,54 +211,77 @@ impl JamNetwork {
 			"this network has {CORE_COUNT} cores, one each, which does not fit {:?}",
 			paras.iter().map(|para| (para.id, para.core)).collect::<Vec<_>>()
 		);
+		let (first, rest) = paras.split_first().context("a run assigns at least one para")?;
 
-		for (assigned, para) in paras.iter().enumerate() {
-			let names = para.collator_names();
-			self.assign_core(binaries, para, para.core)?;
-
-			if assigned + 1 == CORE_COUNT {
-				log::warn!(
-					"core {}: keeping service 0 as its assigner. All {CORE_COUNT} cores are now \
-					 assigned, so no core is left holding the genesis authorizer to carry the \
-					 grant. free-core and re-assignment are unavailable on this core.",
-					para.core
-				);
-				continue;
-			}
+		self.assign_core(binaries, first, first.core, None)?;
+		for para in paras {
 			run_step(
 				&format!("grant-assigner: core {} to service {}", para.core, self.service_id),
 				self.parasim_tool(binaries)
-					.args(["--collators", &names])
+					.args(["--collators", &para.collator_names()])
 					.args(["grant-assigner", &para.core.to_string()]),
 			)?;
+		}
+		for para in rest {
+			self.assign_core(binaries, para, para.core, Some(first))?;
 		}
 		Ok(())
 	}
 
-	/// Point `core`'s authorizer queue at `para`'s AURA authorizer.
+	/// Point `core`'s authorizer queue at `para`'s AURA authorizer, carried by `via`.
 	///
-	/// Which lane the command travels down is not this caller's business: `parasim-tool` reads who
-	/// holds the core's assigner privilege and either rides an unassigned core as a bootstrap
-	/// instruction (service 0 still assigns it) or puts the command in an AURA package's token
-	/// (parasim assigns it). It returns only once the core's *pool* holds the new authorizer, so
-	/// afterwards the core really can carry the para's packages.
-	pub fn assign_core(&self, binaries: &Binaries, para: &Para, core: u32) -> anyhow::Result<()> {
+	/// `via` names another para whose core carries the command. It is `None` whenever `core` can
+	/// carry the command itself, which covers both of the cases the tests use: a core still
+	/// holding the genesis authorizer (the bootstrap lane rides the core it assigns), and a core
+	/// parked by [`Self::free_core`], which still runs this para's own authorizer code.
+	///
+	/// Which lane the command travels is `parasim-tool`'s business, not this caller's: it reads
+	/// who holds the core's assigner privilege, and — for the control lane — whether the carrier
+	/// is parked or running the named para, checking either way that what it builds matches the
+	/// hash the carrier core actually holds. It returns only once the core's *pool* holds the new
+	/// authorizer, so afterwards the core really can carry the para's packages.
+	pub fn assign_core(
+		&self,
+		binaries: &Binaries,
+		para: &Para,
+		core: u32,
+		via: Option<&Para>,
+	) -> anyhow::Result<()> {
 		let names = para.collator_names();
+		// With no carrier, `--via-core` is left off rather than filled in: the tool defaults it to
+		// the core being assigned, which is exactly what is wanted, and that is not this para's
+		// own core — the reassignment test assigns core 1 to a para sitting on core 0.
+		let carrier = via.unwrap_or(para);
+		let mut command = self.parasim_tool(binaries);
+		command
+			.args(["--collators", &names])
+			.args(["assign-core", &para.id.to_string(), &core.to_string()])
+			.args(["--via-para", &carrier.id.to_string()])
+			.args(["--via-collators", &carrier.collator_names()]);
+		if let Some(via) = via {
+			command.args(["--via-core", &via.core.to_string()]);
+		}
 		run_step(
-			&format!("assign-core: para {} onto core {core} for {names}", para.id),
-			self.parasim_tool(binaries)
-				.args(["--collators", &names])
-				.args(["assign-core", &para.id.to_string(), &core.to_string()])
-				.args(["--via-para", &para.id.to_string()]),
+			&format!(
+				"assign-core: para {} onto core {core} for {names}, carried on core {}",
+				para.id,
+				via.map_or(core, |via| via.core)
+			),
+			&mut command,
 		)
 	}
 
-	/// Return `core` to the unassigned authorizer, so its pool drains over the next few blocks.
+	/// Park `core`: keep the AURA authorizer on it under a config naming no para, so its pool
+	/// drains over the next few blocks and it stops carrying `para`'s work.
 	///
-	/// Only a core parasim was granted can be freed this way, and the command rides the core
+	/// Only a core parasim was granted can be parked this way, and the command rides the core
 	/// itself: it is a control package under the AURA authorizer that is about to go away, signed
-	/// by `para`'s own collator set. Returns once the pool holds the unassigned authorizer, which
-	/// is the moment the drain of the old one starts being visible.
+	/// by `para`'s own collator set. Returns once the pool holds the parked authorizer, which is
+	/// the moment the drain of the old one starts being visible.
+	///
+	/// Parked is not unassigned. The core keeps the same authorizer code, so it keeps taking
+	/// control packages — which is what leaves [`Self::assign_core`] able to put a para back on it
+	/// without a second core to carry the command.
 	pub fn free_core(&self, binaries: &Binaries, para: &Para, core: u32) -> anyhow::Result<()> {
 		let names = para.collator_names();
 		run_step(
@@ -278,14 +310,20 @@ impl JamNetwork {
 
 	/// A `parasim-tool` invocation carrying the arguments every phase-6 command needs.
 	///
-	/// `--authorizer-blob` and `--collators` are what an AURA authorizer hash is built from, so
-	/// they have to be exactly what the para's collators are started with. A mismatch installs a
-	/// hash nobody will ever satisfy, and the only symptom is a core that authorizes nothing.
+	/// `--authorizer-blob`, `--collators` and `--scheme` are what an AURA authorizer hash is built
+	/// from, so they have to be exactly what the para's collators are started with. A mismatch
+	/// installs a hash nobody will ever satisfy, and the only symptom is a core that authorizes
+	/// nothing.
+	///
+	/// `--scheme` is spelled out even though sr25519 is the tool's default: it is the parachain
+	/// template runtime's `AuraId`, and a default that moves in the other repo would silently
+	/// point every core here at the wrong verifier blob.
 	fn parasim_tool(&self, binaries: &Binaries) -> Command {
 		let mut command = Command::new(&binaries.parasim_tool);
 		command
 			.args(["--rpc", &self.rpc_url])
 			.args(["--service", &self.service_id.to_string()])
+			.args(["--scheme", "sr25519"])
 			.arg("--authorizer-blob")
 			.arg(&self.authorizer_blob)
 			.envs(polkavm_env());

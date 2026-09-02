@@ -24,8 +24,11 @@
 #      Alternatively set JAMT_BIN + PARASIM_BLOB below and this script registers a fresh
 #      service (from a copy) on every run, which is what the automated tests use.
 #   3. The AURA authorizer blob and the parasim-tool binary, from the same repo:
-#        cargo build --release -p parachain-authorizer-bin -p parasim-tool
+#        cargo build --release -p parachain-authorizer-sr25519-bin -p parasim-tool
 #      This script hosts the blob on the chain and points a core at it; see step 1 below.
+#      There is one blob per signature scheme; sr25519 is the one the parachain template
+#      runtime's AuraId asks for, and it must match the --scheme passed below. Nothing can
+#      check that: a blob's scheme is not visible in its bytes.
 #   4. This repo built: cargo build --release -p polkadot-omni-node -p parachain-template-runtime
 #
 # The demo parachain uses PARA ID 0. That id is what `parasim-tool assign-core 0 <core>`
@@ -39,7 +42,8 @@
 # Usage: JAM_RPC=ws://127.0.0.1:19800 JAM_SERVICE_ID=5 cumulus/scripts/jam-collator-demo.sh
 #
 # Required environment:
-#   AUTHORIZER_BLOB   path to parachain-authorizer.jam (the AURA authorizer the core runs)
+#   AUTHORIZER_BLOB   path to parachain-authorizer-sr25519.jam (the AURA authorizer the
+#                     core runs; sr25519 because the template runtime's AuraId is)
 #   PARASIM_TOOL_BIN  path to the parasim-tool binary (deploy, assign, grant)
 #
 # Optional environment (all default to the single-collator demo behaviour):
@@ -144,16 +148,24 @@ echo "JAM_SERVICE_ID=$JAM_SERVICE_ID"
 #                         token. It is a bootstrap instruction too, so it needs *another*
 #                         core still holding the genesis authorizer.
 #
+#    Afterwards the core is parked rather than emptied when it is freed: free-core leaves
+#    the same authorizer code on it under a config naming no para, so its pool drains and it
+#    stops carrying parachain work, but it still accepts control packages. A re-assign
+#    therefore rides the parked core itself and needs no second core to carry it.
+#
 #    Deploy from a COPY, for the same reason the service blob is copied: the authorizer
 #    hash is a hash of exactly these bytes, and the collators below are given this file.
 AUTHORIZER_COPY="$WORK_DIR/parachain-authorizer.jam"
 cp "$AUTHORIZER_BLOB" "$AUTHORIZER_COPY"
 
 parasim_tool() {
-	# --collators and --authorizer-blob are what the authorizer hash is built from, so they
-	# have to be exactly what the collators are started with below.
+	# --collators, --scheme and --authorizer-blob are what the authorizer hash is built
+	# from, so they have to be exactly what the collators are started with below. The scheme
+	# is the template runtime's AuraId and is passed explicitly rather than left to the
+	# tool's default: it is a cross-repo contract, not a local convenience.
 	"$PARASIM_TOOL_BIN" --rpc "$JAM_RPC" --service "$JAM_SERVICE_ID" \
-		--authorizer-blob "$AUTHORIZER_COPY" --collators "$COLLATOR_NAMES" "$@"
+		--authorizer-blob "$AUTHORIZER_COPY" --collators "$COLLATOR_NAMES" \
+		--scheme sr25519 "$@"
 }
 
 echo "deploying the AURA authorizer $AUTHORIZER_COPY"

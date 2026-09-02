@@ -73,7 +73,11 @@ impl Binaries {
 			("JAMT_BIN (the jamt CLI)", &binaries.jamt),
 			("PARASIM_TOOL_BIN (the parasim-tool CLI)", &binaries.parasim_tool),
 			("PARASIM_BLOB (the parasim service .jam blob)", &binaries.parasim_blob),
-			("AUTHORIZER_BLOB (the parachain-authorizer .jam blob)", &binaries.authorizer_blob),
+			(
+				"AUTHORIZER_BLOB (parachain-authorizer-sr25519.jam, the scheme the template \
+				 runtime's AuraId asks for)",
+				&binaries.authorizer_blob,
+			),
 			("OMNI_NODE_BIN (cargo build --release -p polkadot-omni-node)", &binaries.omni_node),
 			(
 				"RUNTIME_WASM (cargo build --release -p parachain-template-runtime)",

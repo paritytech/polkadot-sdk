@@ -20,7 +20,12 @@ The `polkadot` binary is not used by the test itself — see "Why a relay chain"
 
 From the polkajam repository: the `polkajam` node binary and the `jamt` CLI.
 From the parachain-service repository: the compiled `parasim-service.jam` and
-`parachain-authorizer.jam` blobs, and the `parasim-tool` CLI.
+`parachain-authorizer-sr25519.jam` blobs, and the `parasim-tool` CLI.
+
+There is one authorizer blob per signature scheme, and which one a para needs is decided by its
+runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite runs and the
+scheme it passes `parasim-tool`. Nothing can check the pairing — a blob's scheme is not visible in
+its bytes — so a mismatch shows up only as a core no collator ever authorizes on.
 
 ## Running
 
@@ -28,7 +33,7 @@ From the parachain-service repository: the compiled `parasim-service.jam` and
 export JAM_NODE_BIN=/path/to/polkajam/target/release/polkajam
 export JAMT_BIN=/path/to/polkajam/target/release/jamt
 export PARASIM_BLOB=/path/to/parachain-service/.../parasim-service.jam
-export AUTHORIZER_BLOB=/path/to/parachain-service/.../parachain-authorizer.jam
+export AUTHORIZER_BLOB=/path/to/parachain-service/.../parachain-authorizer-sr25519.jam
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
 
 cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
@@ -43,7 +48,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | `JAMT_BIN` | the `jamt` CLI, used once to register parasim |
 | `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, used to host the authorizer and assign cores |
 | `PARASIM_BLOB` | `parasim-service.jam`, the service the collators talk to |
-| `AUTHORIZER_BLOB` | `parachain-authorizer.jam`, the AURA authorizer the cores run |
+| `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
 | `OMNI_NODE_BIN`, `RUNTIME_WASM`, `RELAY_NODE_BIN` | override the `target/release` defaults |
 | `JAM_TEST_BASE_DIR` | keep every run's work dir under this directory |
 | `NUM_COLLATORS` | how many collators the demo runs (default 1) |
@@ -124,16 +129,20 @@ straight out of this spec, so the two have to agree — otherwise the collator c
 authorizer hash no core holds and never finds a core to submit to. The existing tests all run
 para 0.
 
-Each collator needs a `coll` key on disk before it starts: an ed25519 key derived from the same
-`//<Name>` seed it authors under, which is what it signs work packages with and what the core's
-authorizer checks. `--alice` only ever produces an in-memory sr25519 aura key, so the harness
-inserts this one explicitly, next to the node network key. Its public half is in the collator-set
-trie the authorizer hash commits to, which is why `--jam-collators` and `parasim-tool
---collators` must name the same set in the same order.
+A collator needs no key of its own for JAM. It signs work packages with the aura session key it
+already claims slots with — `--alice` puts that in the keystore in memory — and it learns the
+collator set from `AuraApi::authorities()` at startup, which is the same set the harness wrote
+into `session.keys` above. So the only thing that has to be kept in step is `parasim-tool
+--collators` and `--scheme`: they build the collator-set trie the authorizer hash commits to, and
+naming a different set, a different order or a different curve installs a hash no collator will
+ever match.
 
 ## What the JAM side is set up with, and in what order
 
-`network.rs` does four things to the freshly spawned chain, and the order is not free:
+`network.rs` does four things to the freshly spawned chain, and the order is not free. What fixes
+it is one scarce resource: a **bootstrap instruction only rides a core that still holds the
+genesis authorizer**, and that supply only ever shrinks. Assignment to parasim is one-way, and
+`free-core` parks a core under the AURA authorizer rather than handing it back.
 
 1. **`jamt create-service`** registers parasim under a fixed id. `jamt` builds its packages under
    the genesis authorizer, so this — and any `jamt` call added later — has to happen before any
@@ -143,20 +152,24 @@ trie the authorizer hash commits to, which is why `--jam-collators` and `parasim
    service and provides it. Validators fetch authorizer code by preimage lookup, so a core pointed
    at a code hash nobody hosts authorizes nothing and says nothing about why. The tool waits until
    the preimage is readable at a finalized block, so the deploy is complete before step 3 starts.
-3. **`parasim-tool assign-core <para> <core>`**, once per para, points the core's authorizer queue
-   at that para's AURA authorizer. Service 0 is the assigner of every core at genesis and a
-   bootstrap instruction only rides a core that still holds the genesis authorizer, so this rides
-   the very core it assigns.
-4. **`parasim-tool grant-assigner <core>`** hands the core's assigner privilege to parasim, which
-   is what lets a later `free-core` or re-assignment travel inside an AURA package's token. It is
-   a bootstrap instruction too, so it needs *another* core still holding the genesis authorizer —
-   which means a run that assigns every core the chain has leaves the last one with service 0 as
-   its assigner. The harness says so in a warning rather than failing, because a run that never
-   frees a core does not care.
+3. **`parasim-tool assign-core`, for the first para only**, riding the very core it assigns.
+   Something has to travel the bootstrap lane before any AURA core exists, and this is it.
+4. **`parasim-tool grant-assigner <core>`, for every para's core**, handing each core's assigner
+   privilege to parasim — which is what lets a later `free-core` or re-assignment travel the
+   control lane inside an AURA package. A grant is a bootstrap instruction that picks its own
+   carrier (it has no `--via-*` flags), so it must run while cores still holding the genesis
+   authorizer are left to carry it. Granting does not assign: the queue is written back unchanged,
+   so a core granted here still holds the genesis authorizer and can still carry the grants after
+   it.
+5. **`parasim-tool assign-core --via-core …`, for the remaining paras.** Their cores answer to
+   parasim now, so these take the control lane and need a carrier running an AURA authorizer —
+   the first para's core, named with `--via-core`/`--via-para`/`--via-collators`.
 
 A tiny network has exactly two cores: polkajam ties `core_count` to the validator count (six
 validators, three per core) and the next step up is 78 validators. So two paras is the most this
-harness can run, and doing so uses up the bootstrap lane, per step 4.
+harness can run. Granting every core before the last one is assigned is what lets it do so with
+no core left stranded under service 0 — the earlier assign/grant/assign/grant order ran the
+genesis lane dry and left the last core unfreeable for the rest of the run.
 
 ## Taking cores away and moving them, mid-run
 
@@ -170,14 +183,18 @@ harness exposes it as `JamNetwork::para_head` and every phase wait is written ag
 readings together are the assertion: a frozen head with a climbing local best is a stall, and both
 climbing is a healthy para.
 
-**Which lane a mid-run `assign-core` or `free-core` can take is decided by the setup.** Freeing a
-core needs parasim to hold its assigner privilege, and the command then rides that very core as a
-control package under the AURA authorizer it is about to remove. That works only while the core
-still runs an authorizer this collator set can sign for — so once a single para's only core has
-been freed, nothing can assign it again: parasim owns it and no AURA core is left to carry a
-command to parasim. The way back is the *other* core, which in a single-para run was never
-assigned and so still holds the genesis authorizer and service 0 as its assigner, leaving the
-bootstrap lane open. The stall test heals that way deliberately, and says so where it does it.
+**Freeing a core parks it; it does not empty it.** `free-core` installs the same authorizer code
+under a config naming no para, so the para's hash drains out of the pool and the core stops
+carrying parachain work — but the core still accepts *control* packages, because the code that
+authorizes them is still there. So a re-`assign-core` rides the parked core itself, and a para
+that has lost its only core can be given it straight back. That is what the stall test does, and
+it is why these tests need no spare core to recover.
+
+**A carrier is only needed to reach a core that can not carry the command itself.** That is what
+`--via-core`/`--via-para`/`--via-collators` are for: the setup's step 5 above, and nothing in the
+tests. The tool checks the carrier it builds against the hash the carrier core actually holds and
+refuses to submit on a mismatch, naming both hashes — so a wrong carrier is a loud failure, not a
+core that quietly authorizes nothing.
 
 ## The zombienet-sdk dependency
 
