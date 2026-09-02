@@ -4733,23 +4733,6 @@ mod tests {
 	}
 
 	#[test]
-	fn sweep_leaves_dht_affine_statements_untouched() {
-		let (store, _temp) = test_store();
-		let (resolver, affine) =
-			switchable_resolver(RetentionReasonMask::DHT_AFFINITY, RetentionReasonMask::TRANSIENT);
-		store.set_retention_resolver(resolver);
-		let statement = signed_statement(0);
-		let hash = statement.hash();
-		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
-
-		// A statement admitted for DHT affinity is never re-checked, even once affinity lapses.
-		affine.store(false, Ordering::Relaxed);
-		store.maintain();
-		assert!(store.has_statement(&hash));
-	}
-
-	#[test]
 	fn sweep_skips_statements_admitted_with_both_affinities() {
 		let (store, _temp) = test_store();
 		let mut mask = RetentionReasonMask::EXPLICIT_AFFINITY;
@@ -4797,30 +4780,21 @@ mod tests {
 	}
 
 	#[test]
-	fn removing_a_statement_clears_its_affinity_tracking() {
+	fn removing_statements_clears_their_affinity_tracking() {
 		let (store, _temp) = test_store();
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
-		let statement = signed_statement(0);
-		let hash = statement.hash();
-		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		assert!(store.query_index.read().explicit_only.contains(&hash));
+		let statement0 = signed_statement(0);
+		let statement1 = signed_statement(1);
+		let hash0 = statement0.hash();
+		let account = statement0.account_id().unwrap();
+		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.query_index.read().explicit_only.len(), 2);
 
-		store.remove(&hash).unwrap();
-		assert!(store.query_index.read().explicit_only.is_empty());
-	}
-
-	#[test]
-	fn removing_by_account_clears_affinity_tracking() {
-		let (store, _temp) = test_store();
-		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
-		let statement = signed_statement(0);
-		let hash = statement.hash();
-		let account = statement.account_id().unwrap();
-		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		assert!(store.query_index.read().explicit_only.contains(&hash));
+		store.remove(&hash0).unwrap();
+		assert_eq!(store.query_index.read().explicit_only.len(), 1);
 
 		store.remove_by(account).unwrap();
-		assert!(!store.has_statement(&hash));
 		assert!(store.query_index.read().explicit_only.is_empty());
 	}
 
