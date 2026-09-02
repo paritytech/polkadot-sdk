@@ -68,13 +68,14 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
 
 use frame_support::{
-	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound, defensive,
+	defensive,
 	dispatch::DispatchResultWithPostInfo,
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
-		EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers, RankedMembersSwapHandler,
-		tokens::Balance as BalanceTrait,
+		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
+		RankedMembersSwapHandler,
 	},
+	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 
 #[cfg(test)]
@@ -145,10 +146,10 @@ pub struct ParamsType<
 }
 
 impl<
-	Balance: Default + Copy + Eq + Debug,
-	BlockNumber: Default + Copy + Eq + Debug,
-	Ranks: Get<u32>,
-> Default for ParamsType<Balance, BlockNumber, Ranks>
+		Balance: Default + Copy + Eq + Debug,
+		BlockNumber: Default + Copy + Eq + Debug,
+		Ranks: Get<u32>,
+	> Default for ParamsType<Balance, BlockNumber, Ranks>
 {
 	fn default() -> Self {
 		Self {
@@ -185,7 +186,7 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::Pays,
 		pallet_prelude::*,
-		traits::{EnsureOrigin, tokens::GetSalary},
+		traits::{tokens::GetSalary, EnsureOrigin},
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
 	use sp_runtime::traits::BlockNumberProvider;
@@ -207,7 +208,10 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The current membership of the fellowship.
-		type Members: RankedMembers<AccountId = <Self as frame_system::Config>::AccountId, Rank = u16>;
+		type Members: RankedMembers<
+			AccountId = <Self as frame_system::Config>::AccountId,
+			Rank = u16,
+		>;
 
 		/// The type in which salaries/budgets are measured.
 		type Balance: BalanceTrait;
@@ -744,9 +748,13 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>>
+		for Pallet<T, I>
+	{
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(
+			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}

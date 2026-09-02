@@ -19,10 +19,10 @@
 
 use super::*;
 use frame_support::{
-	BoundedVec,
 	pallet_prelude::*,
 	storage_alias,
 	traits::{DefensiveTruncateFrom, UncheckedOnRuntimeUpgrade},
+	BoundedVec,
 };
 
 #[cfg(feature = "try-runtime")]

@@ -24,7 +24,7 @@ use crate::{BlockNumberFor as CoreFellowshipBlockNumberFor, Pallet as CoreFellow
 
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
-use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
+use frame_system::RawOrigin;
 use sp_arithmetic::traits::Bounded;
 use sp_runtime::traits::BlockNumberProvider;
 
