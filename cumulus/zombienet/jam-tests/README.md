@@ -137,6 +137,14 @@ into `session.keys` above. So the only thing that has to be kept in step is `par
 naming a different set, a different order or a different curve installs a hash no collator will
 ever match.
 
+**The runtime does not return that set in the order genesis names it.** Collator-selection keeps
+its invulnerables sorted by account id and pallet-session builds the aura authorities from that,
+so `alice,bob` comes back as `bob,alice`. A leaf's position in the collator trie *is* the collator
+index, so the order is part of the hash: `chain_spec::in_authority_order` is what every
+`--collators` string goes through, and it is why the harness lists its collators by name but names
+them to the tool by key. A single-collator run cannot see any of this, which is how it stayed
+broken while one test kept passing.
+
 ## What the JAM side is set up with, and in what order
 
 `network.rs` does four things to the freshly spawned chain, and the order is not free. What fixes
@@ -231,32 +239,43 @@ There was no workaround from the test side: `JamNodeConfigBuilder` has `with_rpc
 `with_p2p_port`. The fix is one line — write `n.port` into `net_addr` instead of `n.rpc_port` —
 and it is in the local checkout this crate now builds against.
 
-### Current status of the three tests
+### Current status of the collator-progress tests
 
-All three pass against a zombienet-spawned network, once the SDK carries the genesis address fix:
+All four pass. Figures from the full-suite run of 2026-09-02 (sr25519 throughout, collator
+identity read from the runtime):
 
 | test | result | wall clock | effective block rate |
 | --- | --- | --- | --- |
-| `two_jam_collators_build_blocks` | best 30 / finalized 28 | 325s | 6s median |
-| `three_jam_collators_build_blocks` | best 30 / finalized 26 | 301s | 6s median |
-| `six_jam_collators_build_blocks` | best 30 / finalized 27 | 312s | 6s median |
+| `one_jam_collator_builds_blocks` | best 30 / finalized 27 | 311s | 6s median |
+| `two_jam_collators_build_blocks` | best 30 / finalized 27 | 307s | 6s median |
+| `three_jam_collators_build_blocks` | best 30 / finalized 26 | 310s | 6s median |
+| `six_jam_collators_build_blocks` | best 30 / finalized 27 | 320s | 6s median |
 
 `three_` and `six_` used to stall part-way: all collators submit to the same core, so they
 multiplied the work-package contention that the genesis address bug had already made unreliable.
-With the mesh intact they are no slower than the two-collator case. Across all three runs every
-validator held `6 peers (5 vals)` for the entire run, where before it decayed to `4 peers
-(3 vals)` within a few minutes and never recovered.
+With the mesh intact they are no slower than the two-collator case. Every validator held
+`6 peers (5 vals)` for the entire run, where before it decayed to `4 peers (3 vals)` within a few
+minutes and never recovered.
+
+The multi-collator three were also the ones that caught the authority-order bug above: they are
+the only progress tests where the runtime's order of the set differs from the harness's, so they
+sat at best 3 until `--collators` was given the runtime's order.
 
 ### Current status of the core tests
 
-All three pass, and the two runs of the stall test reached the same head numbers at the same
-points, so the timings below are what a healthy stack does rather than one lucky run:
+All three pass. Two consecutive full runs of the stall test reached the same head numbers at the
+same points, so the figures below are what a healthy stack does rather than one lucky run:
 
 | test | wall clock | what it observed |
 | --- | --- | --- |
-| `two_paras_on_two_cores_build_blocks` | 328s | both paras best 30 / finalized 27, JAM head #28 each, neither collator knowing the other's head |
-| `freeing_the_core_freezes_the_para_head_until_it_is_assigned_again` | 386s | six more heads drained through after the free, then frozen at #12 for 90s while nine blocks were authored and six re-rooted; #13 within 72s of the re-assign |
-| `moving_the_para_to_the_other_core_keeps_its_head_moving` | 356s | head #5 to #28 with no pause; the collator saw both cores and stayed on core 0, and submitted to core 1 42s (seven JAM slots, the pool drain) after core 0 was freed |
+| `two_paras_on_two_cores_build_blocks` | ~345s | para 0 best 30 / finalized 27, para 1 best 31 / finalized 28, neither collator knowing the other's head |
+| `freeing_the_core_freezes_the_para_head_until_it_is_assigned_again` | 401s | healthy at head #5, parked at #6, seven more heads drained through, then frozen at #13 for 90s while 18 blocks were authored and 13 re-rooted; #14 within 72s of the re-assign onto the parked core |
+| `moving_the_para_to_the_other_core_keeps_its_head_moving` | 372s | head #5 to #28 with no pause; the collator saw both cores and stayed on core 0, then submitted 11 packages to core 1 once core 0 was parked |
+
+The stall test heals on **core 0 itself**, the core it just lost. That is the parked-core
+property: the core keeps the authorizer code and so keeps taking the control package that puts a
+para back on it. Before parking, this test had to escape to the spare core, and a single-para
+network that lost its only core could not be recovered at all.
 
 ### What upstream support should replace
 
