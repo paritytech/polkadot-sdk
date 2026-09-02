@@ -95,7 +95,7 @@ where
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + 'static,
 	Block: traits::Block,
-	AccountId: Clone + Display + Codec + codec::EncodeLike + Send + 'static,
+	AccountId: Clone + Display + Codec + Send + 'static,
 	Nonce: Clone + Display + Codec + Send + traits::AtLeast32Bit + 'static,
 {
 	async fn nonce(&self, account: AccountId) -> RpcResult<Nonce> {

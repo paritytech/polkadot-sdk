@@ -10,30 +10,37 @@ error: Only `&self` is supported!
 33 |         fn test2(&mut self, data: u64) {}
    |                  ^
 
-error[E0049]: method `test` has 0 type parameters but its trait declaration has 1 type parameter
-  --> tests/ui/mock_only_self_reference.rs:31:10
+error[E0050]: method `test` has 2 parameters but the declaration in trait `Api::test` has 3
+  --> tests/ui/mock_only_self_reference.rs:29:1
    |
 20 | / sp_api::decl_runtime_apis! {
 21 | |     pub trait Api {
 22 | |         fn test(data: u64);
-23 | |         fn test2(data: u64);
-24 | |     }
-25 | | }
-   | |_- expected 1 type parameter
+   | |_________________________- trait requires 3 parameters
 ...
-31 |           fn test(self, data: u64) {}
-   |                  ^ found 0 type parameters
+29 | / sp_api::mock_impl_runtime_apis! {
+30 | |     impl Api<Block> for MockApi {
+31 | |         fn test(self, data: u64) {}
+...  |
+35 | | }
+   | |_^ expected 3 parameters, found 2
+   |
+   = note: this error originates in the macro `sp_api::mock_impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0049]: method `test2` has 0 type parameters but its trait declaration has 1 type parameter
-  --> tests/ui/mock_only_self_reference.rs:33:11
+error[E0050]: method `test2` has 2 parameters but the declaration in trait `Api::test2` has 3
+  --> tests/ui/mock_only_self_reference.rs:29:1
    |
 20 | / sp_api::decl_runtime_apis! {
 21 | |     pub trait Api {
 22 | |         fn test(data: u64);
 23 | |         fn test2(data: u64);
-24 | |     }
-25 | | }
-   | |_- expected 1 type parameter
+   | |__________________________- trait requires 3 parameters
 ...
-33 |           fn test2(&mut self, data: u64) {}
-   |                   ^ found 0 type parameters
+29 | / sp_api::mock_impl_runtime_apis! {
+30 | |     impl Api<Block> for MockApi {
+31 | |         fn test(self, data: u64) {}
+...  |
+35 | | }
+   | |_^ expected 3 parameters, found 2
+   |
+   = note: this error originates in the macro `sp_api::mock_impl_runtime_apis` (in Nightly builds, run with -Z macro-backtrace for more info)

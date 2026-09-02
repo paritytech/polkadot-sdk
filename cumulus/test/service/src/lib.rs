@@ -933,7 +933,7 @@ pub fn fetch_nonce(client: &Client, account: sp_core::sr25519::Public) -> u32 {
 	let best_hash = client.chain_info().best_hash;
 	client
 		.runtime_api()
-		.account_nonce(best_hash, sp_runtime::AccountId32::from(account))
+		.account_nonce(best_hash, account.into())
 		.expect("Fetching account nonce works; qed")
 }
 

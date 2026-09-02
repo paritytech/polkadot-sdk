@@ -90,12 +90,12 @@ where
 		if version < 2 {
 			#[allow(deprecated)]
 			runtime_api
-				.generate_session_keys_before_version_2(best_block_hash, None::<Vec<u8>>)
+				.generate_session_keys_before_version_2(best_block_hash, None)
 				.map(|sk| GeneratedSessionKeys { keys: sk.into(), proof: None })
 				.map_err(|api_err| Error::Client(Box::new(api_err)).into())
 		} else {
 			runtime_api
-				.generate_session_keys(best_block_hash, owner, None::<Vec<u8>>)
+				.generate_session_keys(best_block_hash, owner, None)
 				.map(|sk| GeneratedSessionKeys {
 					keys: sk.keys.into(),
 					proof: Some(sk.proof.into()),

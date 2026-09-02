@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::API_VERSION_ATTRIBUTE;
+use crate::common::{API_VERSION_ATTRIBUTE, ENCODE_LIKE_ATTRIBUTE};
 use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
@@ -158,6 +158,25 @@ pub fn extract_parameter_names_types_and_borrows(
 	}
 
 	Ok(result)
+}
+
+/// Removes `#[encode_like]` from every typed parameter of `sig` and reports which ones carried it.
+///
+/// The result is aligned with [`extract_parameter_names_types_and_borrows`]. A marked parameter
+/// becomes a generic bounded by `EncodeLike<T>` on the client side, at the cost of inference at
+/// the call sites.
+pub fn take_encode_like_attributes(sig: &mut Signature) -> Vec<bool> {
+	sig.inputs
+		.iter_mut()
+		.filter_map(|input| match input {
+			FnArg::Typed(arg) => {
+				let before = arg.attrs.len();
+				arg.attrs.retain(|attr| !attr.path().is_ident(ENCODE_LIKE_ATTRIBUTE));
+				Some(arg.attrs.len() != before)
+			},
+			FnArg::Receiver(_) => None,
+		})
+		.collect()
 }
 
 /// Prefix the given function with the trait name.

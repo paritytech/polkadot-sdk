@@ -360,7 +360,7 @@ where
 					)?;
 
 				// The old versions require us to call `initialize_block` before.
-				runtime_api.initialize_block(at, &<Block::Header as sp_runtime::traits::Header>::new(
+				runtime_api.initialize_block(at, &sp_runtime::traits::Header::new(
 					block_number + sp_runtime::traits::One::one(),
 					Default::default(),
 					Default::default(),

@@ -445,7 +445,7 @@ where
 		runtime_api.register_extension(ProofSizeExt::new(recorder));
 
 		runtime_api
-			.execute_block(parent_hash, block.into())
+			.execute_block(parent_hash, block)
 			.map_err(|e| Error::ExecuteBlock {
 				block: format!("{:?}", params.post_hash()),
 				error: e,

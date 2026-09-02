@@ -169,7 +169,6 @@ where
 	Header: HeaderT + MaybeSerializeDeserialize,
 	Extrinsic: Member
 		+ Codec
-		+ EncodeLike
 		+ DecodeWithMemTracking
 		+ traits::ExtrinsicLike
 		+ Into<OpaqueExtrinsic>

@@ -137,7 +137,7 @@ where
 			runtime_api.generate_session_keys_before_version_2(at, seed.clone())?;
 		} else {
 			// `owner` isn't important here as we don't need a `proof`.
-			runtime_api.generate_session_keys(at, Vec::<u8>::new(), seed.clone())?;
+			runtime_api.generate_session_keys(at, vec![], seed.clone())?;
 		}
 	}
 

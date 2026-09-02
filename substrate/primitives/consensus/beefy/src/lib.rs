@@ -47,7 +47,7 @@ pub use commitment::{Commitment, KnownSignature, SignedCommitment, VersionedFina
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 
 use alloc::vec::Vec;
-use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode};
 use core::fmt::{Debug, Display};
 use scale_info::TypeInfo;
 pub use sp_application_crypto::key_types::BEEFY as KEY_TYPE;
@@ -87,7 +87,7 @@ pub trait BeefyAuthorityId: RuntimeAppPublic {
 /// A trait bound which lists all traits which are required to be implemented by
 /// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
 pub trait AuthorityIdBound:
-	Ord + AppPublic + EncodeLike + Display + BeefyAuthorityId<Signature = Self::BoundedSignature>
+	Ord + AppPublic + Display + BeefyAuthorityId<Signature = Self::BoundedSignature>
 {
 	/// Necessary bounds on the Signature associated with the AuthorityId
 	type BoundedSignature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec + Send + Sync;

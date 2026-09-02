@@ -1242,7 +1242,6 @@ pub trait Header:
 	+ Send
 	+ Sync
 	+ Codec
-	+ EncodeLike
 	+ DecodeWithMemTracking
 	+ Eq
 	+ MaybeSerialize
@@ -1335,7 +1334,7 @@ pub trait LazyExtrinsic: Sized {
 }
 
 /// A Substrate block that allows us to lazily decode its extrinsics.
-pub trait LazyBlock: Debug + Encode + EncodeLike + Decode + Sized {
+pub trait LazyBlock: Debug + Encode + Decode + Sized {
 	/// Type for the decoded extrinsics.
 	type Extrinsic: LazyExtrinsic;
 	/// Header type.
@@ -1372,12 +1371,7 @@ pub trait Block:
 	+ 'static
 {
 	/// Type for extrinsics.
-	type Extrinsic: Member
-		+ Codec
-		+ EncodeLike
-		+ ExtrinsicLike
-		+ MaybeSerialize
-		+ Into<OpaqueExtrinsic>;
+	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize + Into<OpaqueExtrinsic>;
 	/// Header type.
 	type Header: Header<Hash = Self::Hash> + MaybeSerializeDeserialize;
 	/// Block hash type.

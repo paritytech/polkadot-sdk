@@ -206,6 +206,32 @@ use std::cell::RefCell;
 /// function `has_api<A>()`. Also the `ApiExt` provides a function `has_api<A>(at: Hash)`
 /// to check if the runtime at the given block id implements the requested runtime api trait.
 ///
+/// # Accepting any type with the same encoding
+///
+/// Parameters are forwarded to the runtime as SCALE bytes, so the client side only needs
+/// something that encodes like the declared type. A parameter marked with `#[encode_like]`
+/// becomes a generic bounded by [`codec::EncodeLike`], letting a caller pass a value it
+/// already holds.
+///
+/// ```rust
+/// sp_api::decl_runtime_apis! {
+///     pub trait Balance {
+///         /// Callable with a `Vec<u8>`, but also with a `&[u8]`, which encodes the same way.
+///         fn set_metadata(#[encode_like] metadata: Vec<u8>);
+///     }
+/// }
+///
+/// # fn main() {}
+/// ```
+///
+/// This costs inference: callers can no longer write `value.into()`, `None` or `vec![]`
+/// without naming the type. Only mark a parameter when callers would otherwise be forced to
+/// convert a value they already have.
+///
+/// Client side only, the runtime decodes into the declared type and `impl_runtime_apis!` is
+/// unaffected. `mock_impl_runtime_apis!` never sees the declaration, so it has to repeat the
+/// marker on the same parameter.
+///
 /// # Declaring multiple api versions
 ///
 /// Optionally multiple versions of the same api can be declared. This is useful for
@@ -832,7 +858,9 @@ decl_runtime_apis! {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
-		fn execute_block(block: Block::LazyBlock);
+		///
+		/// `#[encode_like]` so that callers holding a `Block` do not have to convert it first.
+		fn execute_block(#[encode_like] block: Block::LazyBlock);
 		/// Initialize a block with the given header.
 		#[changed_in(5)]
 		#[renamed("initialise_block", 2)]
