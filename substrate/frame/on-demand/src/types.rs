@@ -19,9 +19,9 @@
 
 use crate::{Config, RelayBlockNumberOf};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use fp_coretime::TaskId;
 use frame_support::traits::fungible::Inspect;
 use frame_system::Config as SConfig;
-use polkadot_parachain_primitives::primitives::Id as ParaId;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
 
@@ -50,7 +50,7 @@ pub type PriceParametersOf<T> = PriceParameters<BalanceOf<T>>;
 )]
 pub struct EnqueuedOrder<RelayBlockNumber> {
 	/// The parachain the order was placed for.
-	pub para_id: ParaId,
+	pub para_id: TaskId,
 	/// The Relay-chain block number the order came in at.
 	pub ordered_at: RelayBlockNumber,
 }

@@ -13980,14 +13980,13 @@ dependencies = [
 name = "pallet-on-demand"
 version = "0.1.0"
 dependencies = [
+ "fp-coretime",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "pallet-balances",
  "parity-scale-codec",
- "polkadot-parachain-primitives",
- "polkadot-primitives",
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-io 30.0.0",

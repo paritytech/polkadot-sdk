@@ -17,7 +17,8 @@
 
 //! Test mock for the on-demand pallet.
 
-use crate::{self as pallet_on_demand, Config, ParaId, QueueOnDemandOrders};
+use crate::{self as pallet_on_demand, Config, QueueOnDemandOrders};
+use fp_coretime::TaskId;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Hooks},
@@ -54,7 +55,7 @@ thread_local! {
 	/// The current Relay-chain block number, as seen by the pallet.
 	pub static RELAY_BLOCK_NUMBER: RefCell<RelayBlockNumber> = const { RefCell::new(0) };
 	/// Records every batch handed to [`RecordingOrderQueue`].
-	pub static QUEUED_BATCHES: RefCell<Vec<Vec<(ParaId, RelayBlockNumber)>>> =
+	pub static QUEUED_BATCHES: RefCell<Vec<Vec<(TaskId, RelayBlockNumber)>>> =
 		const { RefCell::new(Vec::new()) };
 }
 
@@ -71,7 +72,7 @@ impl BlockNumberProvider for MockRelayBlockNumberProvider {
 /// Stands in for the XCM that would carry the batch to the Relay chain.
 pub struct RecordingOrderQueue;
 impl QueueOnDemandOrders<RelayBlockNumber> for RecordingOrderQueue {
-	fn queue_batch(batch: Vec<(ParaId, RelayBlockNumber)>) {
+	fn queue_batch(batch: Vec<(TaskId, RelayBlockNumber)>) {
 		QUEUED_BATCHES.with(|b| b.borrow_mut().push(batch));
 	}
 }
@@ -100,7 +101,7 @@ pub fn set_relay_block_number(relay_block_number: RelayBlockNumber) {
 }
 
 /// All batches forwarded to the Relay chain so far.
-pub fn queued_batches() -> Vec<Vec<(ParaId, RelayBlockNumber)>> {
+pub fn queued_batches() -> Vec<Vec<(TaskId, RelayBlockNumber)>> {
 	QUEUED_BATCHES.with(|b| b.borrow().clone())
 }
 

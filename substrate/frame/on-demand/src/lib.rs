@@ -45,14 +45,17 @@ mod mock;
 mod tests;
 
 use alloc::vec::Vec;
+use fp_coretime::TaskId;
 use sp_runtime::traits::BlockNumberProvider;
 
-pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 pub use types::*;
 pub use weights::WeightInfo;
 
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::on-demand";
+
+/// Maximum pending batch size.
+const MAX_BATCH_SIZE: u32 = 1000;
 
 /// The Relay-chain block number, as seen by this pallet.
 pub type RelayBlockNumberOf<T> =
@@ -67,11 +70,11 @@ pub trait QueueOnDemandOrders<RelayBlockNumber> {
 	///
 	/// Each entry is the parachain the order was placed for and the Relay-chain block number it was
 	/// ordered at.
-	fn queue_batch(batch: Vec<(ParaId, RelayBlockNumber)>);
+	fn queue_batch(batch: Vec<(TaskId, RelayBlockNumber)>);
 }
 
 impl<RelayBlockNumber> QueueOnDemandOrders<RelayBlockNumber> for () {
-	fn queue_batch(_batch: Vec<(ParaId, RelayBlockNumber)>) {}
+	fn queue_batch(_batch: Vec<(TaskId, RelayBlockNumber)>) {}
 }
 
 #[frame_support::pallet]
@@ -83,7 +86,6 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use polkadot_primitives::ON_DEMAND_MAX_QUEUE_MAX_SIZE;
 	use sp_arithmetic::{
 		traits::{ensure_pow, One, SaturatedConversion, Saturating},
 		FixedPointNumber, FixedU128, Perbill,
@@ -147,7 +149,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingBatch<T> = StorageValue<
 		_,
-		BoundedVec<EnqueuedOrder<RelayBlockNumberOf<T>>, ConstU32<ON_DEMAND_MAX_QUEUE_MAX_SIZE>>,
+		BoundedVec<EnqueuedOrder<RelayBlockNumberOf<T>>, ConstU32<MAX_BATCH_SIZE>>,
 		ValueQuery,
 	>;
 
@@ -157,7 +159,7 @@ pub mod pallet {
 		/// An on-demand order was placed at `spot_price` by `ordered_by`.
 		OrderPlaced {
 			/// The parachain the order was placed for.
-			para_id: ParaId,
+			para_id: TaskId,
 			/// The spot price that was paid for the order.
 			spot_price: BalanceOf<T>,
 			/// The account that placed and paid for the order.
@@ -210,7 +212,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		pub fn place_order(
 			origin: OriginFor<T>,
-			para_id: ParaId,
+			para_id: TaskId,
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -249,7 +251,7 @@ pub mod pallet {
 
 		pub(crate) fn do_place_order(
 			who: T::AccountId,
-			para_id: ParaId,
+			para_id: TaskId,
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let now = T::RelayBlockNumberProvider::current_block_number();
