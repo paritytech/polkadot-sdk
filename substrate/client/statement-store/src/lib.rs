@@ -525,7 +525,8 @@ pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 /// Default gossip target for v2 DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
-/// Default false-positive rate of the advertised topic-affinity bloom filter.
+/// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
+/// filter.
 pub use sc_network_statement::config::DEFAULT_BLOOM_FALSE_POS_RATE;
 
 /// Statement store and network handler configuration.
@@ -546,6 +547,7 @@ pub struct Config {
 	/// Topics this node advertises affinity for, so peers route matching statements to it.
 	pub affinity_topics: Vec<sp_statement_store::Topic>,
 	/// False-positive rate of the topic-affinity bloom filter this node advertises.
+	/// Must be at least [`DEFAULT_BLOOM_FALSE_POS_RATE`] and below 1.
 	pub bloom_false_pos_rate: f64,
 	/// Seed of the advertised topic-affinity bloom filter, random per node when `None`.
 	pub bloom_seed: Option<u128>,
@@ -571,10 +573,12 @@ impl Config {
 		if self.network_workers == 0 {
 			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
 		}
-		if !(self.bloom_false_pos_rate > 0.0 && self.bloom_false_pos_rate < 1.0) {
-			return Err(Error::InvalidConfig(
-				"bloom_false_pos_rate must lie strictly between 0 and 1".into(),
-			));
+		if !(self.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE &&
+			self.bloom_false_pos_rate < 1.0)
+		{
+			return Err(Error::InvalidConfig(format!(
+				"bloom_false_pos_rate must be at least {DEFAULT_BLOOM_FALSE_POS_RATE} and below 1"
+			)));
 		}
 		Ok(())
 	}

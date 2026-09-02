@@ -495,7 +495,8 @@ mod tests {
 	#[test]
 	fn built_filters_satisfy_decode_bounds() {
 		// A built filter must always pass its own decode path. `num_hashes` is the bound at risk:
-		// the smallest `expected_items` is the worst case, yielding the most hash functions.
+		// the smallest `expected_items` and the lowest accepted false-positive rate (the default,
+		// per `Config::validate`) are the worst cases, yielding the most hash functions.
 		let cases = [
 			AffinityFilter::new(BLOOM_SEED, DEFAULT_BLOOM_FALSE_POS_RATE, 1),
 			AffinityFilter::from_topics(
