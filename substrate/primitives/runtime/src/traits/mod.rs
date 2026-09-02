@@ -152,6 +152,9 @@ impl Verify for sp_core::sr25519::Signature {
 impl Verify for sp_core::ecdsa::Signature {
 	type Signer = sp_core::ecdsa::Public;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa::Public) -> bool {
+		if !sp_core::ecdsa::is_signature_normalized(self.as_ref()) {
+			return false;
+		}
 		match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 			self.as_ref(),
 			&sp_io::hashing::blake2_256(msg.get()),
@@ -2820,6 +2823,13 @@ mod tests {
 	#[test]
 	fn ecdsa_verify_works() {
 		signature_verify_test!(ecdsa);
+
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::Pair::generate();
+		let signature = pair.sign(msg);
+		let high_s_signature =
+			ecdsa::Signature::from_raw(crate::tests::make_high_s_signature(signature.as_ref()));
+		assert!(!high_s_signature.verify(msg, &pair.public()));
 	}
 
 	#[test]
