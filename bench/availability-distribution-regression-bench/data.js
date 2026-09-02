@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788326799393,
+  "lastUpdate": 1788357465740,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a40ab3cd1348c871523a2bfccb71f484cd5591af",
-          "message": "collator-protocol-revamp: CollationManager and subsystem impl (#8541)\n\nImplements the `CollationManager` and the new collator protocol\n(validator side) subsystem.\n\nIssues https://github.com/paritytech/polkadot-sdk/issues/8182 and\nhttps://github.com/paritytech/polkadot-sdk/issues/7752.\n\nThese are the big remaining parts which would enable us to test the\nentire implementation.\n\nTODO:\n- [ ] add a couple more unit tests (see the suggestions at the bottom of\nthe tests file)\n- [x] polish the ClaimQueueState and verify if it's sufficiently covered\nby unit tests\n  - https://github.com/paritytech/polkadot-sdk/pull/10334\n  - https://github.com/paritytech/polkadot-sdk/pull/10368\n- [x] add metrics and polish logs -\nhttps://github.com/paritytech/polkadot-sdk/pull/10730\n- [x] add a CLI parameter for enabling the experimental subsystem (and\nremove the compile-time feature) ->\nhttps://github.com/paritytech/polkadot-sdk/pull/10285\n- [x] implement registered paras update, using\nhttps://github.com/paritytech/polkadot-sdk/pull/9055\n- [ ] do some manual zombienet tests with v1 protocol version and with\nrestarting validators (including syncing with warp sync)\n- [x] prdoc\n- [x] Rollback \n-\nhttps://github.com/paritytech/polkadot-sdk/pull/8541/commits/03e89150bd87e63a6a74e9ce1b9d1122b9239d14\n-\nhttps://github.com/paritytech/polkadot-sdk/pull/8541/commits/05e1497a3f785f41aac81e08f13676bdc96b9035\nThese commits were added just to run the CI tests for this PR with the\nnew experimental protocol\n\nAfter merging: \n- [ ] versi testing\n\n\n\nUses a slightly modified version of the ClaimQueueState written by\n@tdimitrov in https://github.com/paritytech/polkadot-sdk/pull/7114.\n\n---------\n\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T08:56:37Z",
-          "tree_id": "7ee158481ac5f452aa18dcac48dc2b98b1a1aa9b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a40ab3cd1348c871523a2bfccb71f484cd5591af"
-        },
-        "date": 1770201522137,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14634880668666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006896440966666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023029282133333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009739121953333313,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1454870153800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4df31e571c613a0c76315604e0b0df266c24238f",
+          "message": "`pallet-broker`: make storage changes made on revenue claim atomic on transfer (#13040)\n\n`do_claim_revenue` removes the contribution and reduces the stored\npayouts, then pays the payee. The payment used `defensive_ok`, which\ndiscards the error and returns `None`.\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/90c177d163860c7836bdd118306f0459de9e7f28/substrate/frame/broker/src/dispatchable_impls.rs#L461-L462\n\nIts `debug_assert!` does not run in a release build, so the function\nsent `RevenueClaimPaid` and returned `Ok`. If the payment failed, the\npayee lost the claim and received no money, and a second attempt gave\n`UnknownContribution`. An empty pot causes this failure, and the payee\ncannot control it.\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/90c177d163860c7836bdd118306f0459de9e7f28/substrate/frame/broker/src/dispatchable_impls.rs#L424-L425\n\nThe payment now uses `?`. `claim_revenue` is the only caller. Dispatch\nthus reverts the storage changes when a call returns an error, so the\nclaim stays in storage and the payee can try again.\n\nThe new test empties the pot, then confirms that the claim fails and\nstays in storage. It adds funds and confirms that the payee receives the\nfull amount. The test calls the extrinsic and not the helper, because a\ndirect call to the helper does not revert the changes.",
+          "timestamp": "2026-09-02T11:36:03Z",
+          "tree_id": "6f52d46edda343a5002193e3d6919b7e8fab4fb8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4df31e571c613a0c76315604e0b0df266c24238f"
+        },
+        "date": 1788357425407,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00765976680666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14733881088000012,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025301750113333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010027885739999966,
             "unit": "seconds"
           }
         ]
