@@ -304,8 +304,7 @@ impl HopMaintenanceTask {
 			}
 		}
 
-		// Always clean up expired entries.
-		let freed = self.hop_pool.cleanup_expired();
+		let freed = self.hop_pool.cleanup_expired(self.buffer_secs);
 		if freed > 0 {
 			tracing::info!(
 				target: "hop",
@@ -313,6 +312,8 @@ impl HopMaintenanceTask {
 				"Cleaned up expired HOP entries"
 			);
 		}
+
+		self.hop_pool.metrics().record_maintenance_tick();
 	}
 }
 
@@ -365,6 +366,7 @@ mod tests {
 				retention_secs,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				crate::metrics::HopMetrics::disabled(),
 			)
 			.unwrap(),
 		)

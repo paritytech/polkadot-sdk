@@ -35,6 +35,7 @@
 //! by a previous crash are removed during both scans.
 
 use crate::{
+	metrics::{removal_reasons, HopMetrics},
 	rate_limit::{RateLimitConfig, RateLimiter},
 	types::{
 		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
@@ -99,6 +100,8 @@ pub struct HopDataPool {
 	data_dir: PathBuf,
 	/// Per-account submit rate limiter.
 	rate_limiter: Arc<RateLimiter>,
+	/// Prometheus metrics (no-ops without a registry).
+	metrics: HopMetrics,
 }
 
 impl HopDataPool {
@@ -112,6 +115,7 @@ impl HopDataPool {
 		retention_secs: u64,
 		data_dir: PathBuf,
 		rate_limit_cfg: RateLimitConfig,
+		metrics: HopMetrics,
 	) -> Result<Self, HopError> {
 		let min_capacity = entry_accounted_size(MAX_DATA_SIZE, MAX_RECIPIENTS as usize);
 		if max_size < min_capacity {
@@ -155,6 +159,9 @@ impl HopDataPool {
 		let mut index = HashMap::new();
 		let mut user_usage: HashMap<SenderId, AtomicU64> = HashMap::new();
 		let mut current_size = 0u64;
+		// Orphan `.blob`s are not counted: without a `.meta` they were never a
+		// claimable entry.
+		let mut dropped = 0u64;
 
 		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
 		for i in 0..SHARD_COUNT {
@@ -184,6 +191,7 @@ impl HopDataPool {
 					let Some(hash) = parse_hex_hash(&stem) else {
 						tracing::warn!(target: "hop", path = ?path, "Removing .meta with invalid name");
 						let _ = fs::remove_file(&path);
+						dropped += 1;
 						continue;
 					};
 
@@ -192,6 +200,7 @@ impl HopDataPool {
 						Err(e) => {
 							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing unreadable .meta");
 							let _ = fs::remove_file(&path);
+							dropped += 1;
 							continue;
 						},
 					};
@@ -200,6 +209,7 @@ impl HopDataPool {
 						Err(e) => {
 							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing corrupt .meta");
 							let _ = fs::remove_file(&path);
+							dropped += 1;
 							continue;
 						},
 					};
@@ -215,6 +225,7 @@ impl HopDataPool {
 						let _ = fs::remove_file(Self::entry_path(
 							&data_dir, &hash, BLOBS_DIR, BLOB_EXT,
 						));
+						dropped += 1;
 						continue;
 					}
 
@@ -222,6 +233,7 @@ impl HopDataPool {
 					if !blob_path.exists() {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .meta (no .blob)");
 						let _ = fs::remove_file(&path);
+						dropped += 1;
 						continue;
 					}
 
@@ -275,8 +287,12 @@ impl HopDataPool {
 			target: "hop",
 			entries = index.len(),
 			total_bytes = current_size,
+			dropped,
 			"Recovered HOP pool from disk"
 		);
+
+		metrics.set_pool_status(index.len() as u64, current_size, max_size);
+		metrics.record_removed(removal_reasons::STARTUP_DROPPED, dropped);
 
 		Ok(Self {
 			index: Mutex::new(index),
@@ -287,7 +303,22 @@ impl HopDataPool {
 			retention_secs,
 			data_dir,
 			rate_limiter: Arc::new(RateLimiter::new(rate_limit_cfg)),
+			metrics,
 		})
+	}
+
+	/// Metrics shared by the pool, RPC server, and maintenance task.
+	pub(crate) fn metrics(&self) -> &HopMetrics {
+		&self.metrics
+	}
+
+	/// Snapshot the pool size gauges after a mutation, from inside the index
+	/// critical section with `entries` read from the locked index: publishing
+	/// after the unlock would let an earlier writer overtake a later one and
+	/// leave the gauges stale.
+	fn publish_size_metrics(&self, entries: usize) {
+		self.metrics
+			.set_pool_size(entries as u64, self.current_size.load(Ordering::Relaxed));
 	}
 
 	/// Charge `accounted` bytes against `sender_id`'s per-user quota, creating
@@ -488,7 +519,9 @@ impl HopDataPool {
 				return Err(e);
 			}
 			index.insert(hash, meta);
+			self.publish_size_metrics(index.len());
 		}
+		self.metrics.record_inserted_bytes(accounted);
 
 		tracing::info!(
 			target: "hop",
@@ -535,12 +568,16 @@ impl HopDataPool {
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
 		let removed = {
 			let mut index = self.index.lock();
-			index.remove(hash)
+			index.remove(hash).map(|meta| {
+				let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+				self.publish_size_metrics(index.len());
+				(meta.sender_id, accounted)
+			})
 		};
-		if let Some(meta) = removed {
-			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			self.release_user_quota(&meta.sender_id, accounted);
+		if let Some((sender_id, accounted)) = removed {
+			self.release_user_quota(&sender_id, accounted);
+			self.metrics.record_removed(removal_reasons::CORRUPT, 1);
 		}
 		let _ = fs::remove_file(self.blob_path(hash));
 		let _ = fs::remove_file(self.meta_path(hash));
@@ -675,8 +712,10 @@ impl HopDataPool {
 			let sender = meta.sender_id;
 			index.remove(hash);
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			self.publish_size_metrics(index.len());
 			self.release_user_quota(&sender, accounted);
 			drop(index);
+			self.metrics.record_removed(removal_reasons::ACKED, 1);
 
 			// Delete files from disk (best-effort; orphans cleaned on restart).
 			let _ = fs::remove_file(self.blob_path(hash));
@@ -760,7 +799,11 @@ impl HopDataPool {
 	/// Processes entries in bounded batches to keep the index write lock from
 	/// being held across the full HashMap on huge pools. After all batches the
 	/// per-sender `user_usage` map is GC'd in a single pass.
-	pub fn cleanup_expired(&self) -> u64 {
+	///
+	/// `promotion_buffer_secs` does not affect what is cleaned up. As in
+	/// [`Self::get_promotable`] the caller owns the promotion window; here it
+	/// only scopes the backlog gauge, snapshot from the phase-4 pass.
+	pub fn cleanup_expired(&self, promotion_buffer_secs: u64) -> u64 {
 		const CLEANUP_BATCH_SIZE: usize = 10_000;
 		let mut total_freed: u64 = 0;
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
@@ -788,13 +831,24 @@ impl HopDataPool {
 				break;
 			}
 
-			// Phase 2: Update counters and batch user-quota release.
-			let freed: u64 = expired
-				.iter()
-				.map(|(_, meta)| entry_accounted_size(meta.size, meta.recipients.len()))
-				.sum();
+			// Phase 2: Update counters and batch user-quota release. Entries
+			// expiring unpromoted are the data-loss case; count them separately.
+			let mut freed = 0u64;
+			let mut promoted = 0u64;
+			let mut unpromoted = 0u64;
+			for (_, meta) in &expired {
+				freed =
+					freed.saturating_add(entry_accounted_size(meta.size, meta.recipients.len()));
+				if meta.promoted {
+					promoted = promoted.saturating_add(1);
+				} else {
+					unpromoted = unpromoted.saturating_add(1);
+				}
+			}
 			self.current_size.fetch_sub(freed, Ordering::Relaxed);
 			total_freed = total_freed.saturating_add(freed);
+			self.metrics.record_removed(removal_reasons::EXPIRED_PROMOTED, promoted);
+			self.metrics.record_removed(removal_reasons::EXPIRED_UNPROMOTED, unpromoted);
 
 			{
 				let usage = self.user_usage.read();
@@ -819,20 +873,43 @@ impl HopDataPool {
 		// new index entry under our held index lock; concurrent
 		// `release_user_quota` only takes `user_usage.read()` which is
 		// excluded). Build a live-sender set in one index pass so retain is
-		// O(senders + entries) instead of O(senders × entries).
-		{
+		// O(senders + entries) instead of O(senders × entries). The same pass
+		// counts the promotion backlog and publishes the size gauges.
+		let backlog = {
 			let index = self.index.lock();
 			let mut usage = self.user_usage.write();
-			let live: HashSet<&SenderId> = index.values().map(|m| &m.sender_id).collect();
+			let mut live: HashSet<&SenderId> = HashSet::new();
+			let mut backlog = 0u64;
+			// The window test exists only to feed a gauge.
+			let count_backlog = self.metrics.is_enabled();
+			for meta in index.values() {
+				live.insert(&meta.sender_id);
+				if count_backlog && Self::in_promotion_window(meta, now_secs, promotion_buffer_secs)
+				{
+					backlog = backlog.saturating_add(1);
+				}
+			}
 			usage.retain(|sender_id, counter| {
 				counter.load(Ordering::Relaxed) > 0 || live.contains(sender_id)
 			});
-		}
+			self.publish_size_metrics(index.len());
+			backlog
+		};
 
 		// Let the rate limiter shed stale per-sender state on the same cadence.
 		self.rate_limiter.evict_stale();
 
+		self.metrics.set_promotion_backlog(backlog);
+
 		total_freed
+	}
+
+	/// Outstanding promotion candidate: unpromoted, near expiry, attempts left.
+	/// Ignores the back-off deadline — a backing-off entry is still outstanding.
+	fn in_promotion_window(meta: &HopEntryMeta, now_secs: u64, buffer_secs: u64) -> bool {
+		!meta.promoted &&
+			now_secs.saturating_add(buffer_secs) >= meta.expires_at &&
+			meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS
 	}
 
 	/// Return hashes of entries within `buffer_secs` of expiry that have not yet been promoted.
@@ -846,12 +923,13 @@ impl HopDataPool {
 	) -> Vec<HopHash> {
 		let now_secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
 		let index = self.index.lock();
+		// `take(limit)` stays lazy: this holds the index lock, so a full scan
+		// would block inserts and acks. The backlog gauge is snapshot in
+		// `cleanup_expired` instead.
 		index
 			.iter()
 			.filter(|(_, meta)| {
-				!meta.promoted &&
-					now_secs.saturating_add(buffer_secs) >= meta.expires_at &&
-					meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS &&
+				Self::in_promotion_window(meta, now_secs, buffer_secs) &&
 					current_block >= meta.next_promotion_attempt_at
 			})
 			.map(|(h, _)| *h)
@@ -864,10 +942,15 @@ impl HopDataPool {
 	pub fn mark_promoted(&self, hash: &HopHash) {
 		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
+			// Count the transition, not the call: this setter is idempotent.
+			let newly_promoted = !meta.promoted;
 			meta.promoted = true;
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
 			drop(index);
+			if newly_promoted {
+				self.metrics.record_promotion_confirmed();
+			}
 
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 				tracing::error!(
@@ -975,6 +1058,7 @@ mod tests {
 			retention_secs,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
 		)
 		.unwrap();
 		(pool, dir)
@@ -992,6 +1076,7 @@ mod tests {
 			retention_secs,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
 		)
 		.unwrap();
 		(pool, dir)
@@ -1041,6 +1126,103 @@ mod tests {
 		let recipients: Vec<Recipient> =
 			v.into_iter().map(|signer| Recipient { signer, claimed: false }).collect();
 		RecipientVec::try_from(recipients).expect("test recipient list exceeds MAX_RECIPIENTS")
+	}
+
+	#[test]
+	fn metrics_track_insert_ack_and_expiry() {
+		let registry = prometheus_endpoint::Registry::new();
+		let dir = TempDir::new().unwrap();
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			0, // entries expire immediately
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::new(Some(&registry)).unwrap(),
+		)
+		.unwrap();
+		let (pair, signer) = test_recipient();
+
+		// Insert + full ack removes the entry under `acked`.
+		let hash = pool
+			.insert(
+				vec![1u8; 50],
+				bv(vec![signer.clone()]),
+				SENDER_A,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
+			.unwrap();
+		assert_eq!(pool.metrics().pool_gauges(), (1, acct(50, 1)));
+		let ack = sign_ed(&pair, HOP_ACK_CONTEXT, &hash);
+		pool.ack(&hash, &ack).unwrap();
+		assert_eq!(pool.metrics().removed_count(removal_reasons::ACKED), 1);
+		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
+
+		// An entry expiring without promotion counts as data loss.
+		pool.insert(vec![2u8; 30], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+		pool.cleanup_expired(0);
+		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_UNPROMOTED), 1);
+		assert_eq!(pool.metrics().removed_count(removal_reasons::EXPIRED_PROMOTED), 0);
+		assert_eq!(pool.metrics().pool_gauges(), (0, 0));
+	}
+
+	/// Pool with registered metrics, so counters can be read back.
+	fn make_metered_pool(retention_secs: u64) -> (HopDataPool, TempDir) {
+		let registry = prometheus_endpoint::Registry::new();
+		let dir = TempDir::new().unwrap();
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			retention_secs,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+			HopMetrics::new(Some(&registry)).unwrap(),
+		)
+		.unwrap();
+		(pool, dir)
+	}
+
+	#[test]
+	fn backlog_gauge_counts_backing_off_entries() {
+		let (pool, _dir) = make_metered_pool(/* retention = */ 100);
+		let (_, signer) = test_recipient();
+		let buffer = 300_u64;
+		let hash = pool
+			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+
+		// Outside the window with a buffer of 0, inside it with 300s.
+		pool.cleanup_expired(0);
+		assert_eq!(pool.metrics().promotion_backlog(), 0);
+
+		pool.cleanup_expired(buffer);
+		assert_eq!(pool.metrics().promotion_backlog(), 1);
+
+		// Backing off drops it from `get_promotable` but not from the backlog.
+		pool.record_promotion_attempt(&hash, 60, /* check_interval_blocks = */ 10);
+		assert!(pool.get_promotable(60, buffer, 10).is_empty());
+		pool.cleanup_expired(buffer);
+		assert_eq!(pool.metrics().promotion_backlog(), 1);
+
+		pool.mark_promoted(&hash);
+		pool.cleanup_expired(buffer);
+		assert_eq!(pool.metrics().promotion_backlog(), 0);
+	}
+
+	#[test]
+	fn confirmed_counter_ignores_repeated_mark_promoted() {
+		let (pool, _dir) = make_metered_pool(100);
+		let (_, signer) = test_recipient();
+		let hash = pool
+			.insert(vec![1u8; 10], bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+
+		pool.mark_promoted(&hash);
+		pool.mark_promoted(&hash);
+		assert_eq!(pool.metrics().promotions_confirmed(), 1, "only the transition counts");
 	}
 
 	#[test]
@@ -1451,7 +1633,7 @@ mod tests {
 		let charged = acct(100, 1);
 		assert_eq!(user_usage(&pool, &SENDER_A), charged);
 
-		let freed = pool.cleanup_expired();
+		let freed = pool.cleanup_expired(0);
 		assert_eq!(freed, charged);
 		assert_eq!(pool.status().total_bytes, 0);
 		assert_eq!(user_usage(&pool, &SENDER_A), 0);
@@ -1470,7 +1652,7 @@ mod tests {
 
 		// Not yet expired — cleanup must be a no-op.
 		assert_eq!(
-			pool.cleanup_expired(),
+			pool.cleanup_expired(0),
 			0,
 			"entry should still be live before retention elapses"
 		);
@@ -1479,7 +1661,7 @@ mod tests {
 		std::thread::sleep(std::time::Duration::from_millis(1_200));
 
 		assert!(
-			pool.cleanup_expired() > 0,
+			pool.cleanup_expired(0) > 0,
 			"entry should be reaped once wall-clock retention elapses"
 		);
 		assert!(!pool.has(&hash));
@@ -1524,7 +1706,7 @@ mod tests {
 		pool.ack(&hash, &ack).unwrap();
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 
-		pool.cleanup_expired();
+		pool.cleanup_expired(0);
 		assert!(!pool.user_usage.read().contains_key(&SENDER_A));
 	}
 
@@ -1541,7 +1723,7 @@ mod tests {
 		// Cleanup at a block where the entry is not yet expired must not
 		// reclaim the sender's slot — a concurrent insert would otherwise
 		// orphan its `Arc`.
-		pool.cleanup_expired();
+		pool.cleanup_expired(0);
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 	}
 
@@ -1563,6 +1745,7 @@ mod tests {
 			0,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
 		)
 		.unwrap();
 		let (_, signer) = test_recipient();
@@ -1581,7 +1764,7 @@ mod tests {
 		}
 		assert_eq!(pool.status().entry_count, total as usize);
 
-		pool.cleanup_expired();
+		pool.cleanup_expired(0);
 		assert_eq!(pool.status().entry_count, 0);
 		assert_eq!(pool.status().total_bytes, 0);
 		assert!(pool.user_usage.read().is_empty());
@@ -1601,6 +1784,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
 			)
 			.unwrap();
 			hash = pool
@@ -1625,6 +1809,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
 			)
 			.unwrap();
 			assert!(pool.has(&hash));
@@ -1647,6 +1832,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
 			)
 			.unwrap();
 		}
@@ -1662,6 +1848,7 @@ mod tests {
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
 		)
 		.unwrap();
 		assert!(!blob_path.exists());
@@ -1677,6 +1864,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
 			)
 			.unwrap();
 		}
@@ -1692,6 +1880,7 @@ mod tests {
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
 		)
 		.unwrap();
 		assert!(!meta_path.exists());
@@ -2004,6 +2193,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
 			)
 			.unwrap(),
 		);
@@ -2042,6 +2232,7 @@ mod tests {
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
+			HopMetrics::disabled(),
 		)
 		.unwrap();
 
@@ -2143,6 +2334,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
 			)
 			.unwrap();
 			hash = pool
@@ -2165,6 +2357,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
+				HopMetrics::disabled(),
 			)
 			.unwrap();
 			let promotable = pool.get_promotable(80, 180, usize::MAX);
@@ -2184,7 +2377,7 @@ mod tests {
 		pool.mark_promoted(&hash);
 		assert!(pool.has(&hash));
 
-		let freed = pool.cleanup_expired();
+		let freed = pool.cleanup_expired(0);
 		assert!(freed > 0);
 		assert!(!pool.has(&hash));
 	}
@@ -2204,8 +2397,15 @@ mod tests {
 			global_bandwidth_burst: min_burst,
 			max_tracked_senders: 1_000_000,
 		};
-		let pool =
-			HopDataPool::new(min_burst, min_burst, 100, dir.path().to_path_buf(), cfg).unwrap();
+		let pool = HopDataPool::new(
+			min_burst,
+			min_burst,
+			100,
+			dir.path().to_path_buf(),
+			cfg,
+			HopMetrics::disabled(),
+		)
+		.unwrap();
 		let (_, signer) = test_recipient();
 
 		pool.insert(
@@ -2261,17 +2461,20 @@ mod tests {
 		fs::write(&meta_path, meta.encode()).unwrap();
 		fs::write(&blob_path, b"x").unwrap();
 
+		let registry = prometheus_endpoint::Registry::new();
 		let pool = HopDataPool::new(
 			min_pool_size(),
 			min_pool_size(),
 			100,
 			dir.path().to_path_buf(),
 			RateLimitConfig::disabled(),
+			HopMetrics::new(Some(&registry)).unwrap(),
 		)
 		.unwrap();
 		assert!(!meta_path.exists(), "stale-version .meta should be removed");
 		assert!(!blob_path.exists(), "matching .blob should also be removed");
 		assert_eq!(pool.status().entry_count, 0);
+		assert_eq!(pool.metrics().removed_count(removal_reasons::STARTUP_DROPPED), 1);
 	}
 
 	#[test]
