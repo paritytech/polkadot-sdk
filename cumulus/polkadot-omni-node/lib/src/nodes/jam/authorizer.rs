@@ -40,7 +40,7 @@ use jam_cumulus_facade::{
 };
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
-use parachain_authorizer::aura::{CollatorKey, CollatorSignature, Command, build_collator_tree};
+use parachain_authorizer::aura::{CollatorKey, CollatorSignature, build_collator_tree};
 use sp_core::{
 	Pair,
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
@@ -232,16 +232,13 @@ impl AuraAuthorizer {
 	///
 	/// The signed hash excludes the authorization by construction, which is exactly what lets the
 	/// signature live inside the package it signs — so this runs *after* the package is otherwise
-	/// complete, and re-anchoring re-signs. The command slot is always `None` here (only
-	/// `parasim-tool` ever sends one) but is still bound into the payload, because the guest binds
-	/// it too.
+	/// complete, and re-anchoring re-signs. `sudo` is always false here: it is the control lane's
+	/// escalation (parasim-tool reaching a parked core), and a collator never needs it.
 	pub(crate) fn authorize(&self, package: &mut WorkPackage) -> Result<(), String> {
 		let wp_hash = signable_work_package_hash(package);
-		let command: Option<Command> = None;
-		let payload = AuthToken::signing_payload(wp_hash, &command);
 		let signature = self
 			.keystore
-			.sign_with(self.key_type, self.crypto_id, &self.own_key, payload.as_bytes())
+			.sign_with(self.key_type, self.crypto_id, &self.own_key, wp_hash.as_bytes())
 			.map_err(|error| format!("the aura keystore refused to sign: {error}"))?
 			.ok_or_else(|| {
 				format!(
@@ -255,18 +252,13 @@ impl AuraAuthorizer {
 				signature.len(),
 			)
 		})?;
-		let token = AuthToken {
-			proof: self.own_proof.clone(),
-			key: self.own_key,
-			signature,
-			control_command: command,
-		};
+		let token =
+			AuthToken { proof: self.own_proof.clone(), key: self.own_key, signature, sudo: false };
 		let authorization = Authorization(token.encode());
 
 		tracing::debug!(
 			target: LOG_TARGET,
 			?wp_hash,
-			signing_payload = ?payload,
 			lookup_anchor_slot = package.context.lookup_anchor_slot,
 			expected_collator = self.collator_for(package.context.lookup_anchor_slot),
 			own_index = self.own_index,
@@ -546,7 +538,7 @@ pub(crate) mod tests {
 
 	/// The drift alarm between this node and the guest: a token this node assembles must satisfy
 	/// the very checks `is_authorized` runs on it — the proof against the set root, and the
-	/// signature over the token-free package hash bound to the (absent) command, verified by the
+	/// signature over the token-free package hash, verified by the
 	/// ed25519 blob's own verifier. If either side's hashing, bit order or payload ever moves,
 	/// every package this collator sends starts failing in-core with nothing but a guarantor's
 	/// silence to show for it, so it has to fail here.
@@ -567,7 +559,7 @@ pub(crate) mod tests {
 		token
 			.check_signature::<Ed25519>(signable_work_package_hash(&package))
 			.expect("the signature is over the payload the guest recomputes");
-		assert!(token.control_command.is_none(), "a collator never sends a command");
+		assert!(!token.sudo, "a collator never escalates");
 		// ...and the same token must fail once it is read as a *different* collator's, which is
 		// the only thing standing between the round-robin and any collator authoring any slot.
 		assert!(token.check_proof(&bob.config, 0).is_err(), "Bob's proof is not Alice's");
@@ -588,10 +580,7 @@ pub(crate) mod tests {
 		token
 			.check_proof(&bob.config, bob.own_index())
 			.expect("the proof puts Bob at his leaf");
-		let payload = GuestToken::signing_payload(
-			signable_work_package_hash(&package),
-			&token.control_command,
-		);
+		let payload = signable_work_package_hash(&package);
 		let key = schnorrkel::PublicKey::from_bytes(&token.key).expect("a valid ristretto key");
 		let signature =
 			schnorrkel::Signature::from_bytes(&token.signature).expect("a valid signature");
