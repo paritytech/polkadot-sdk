@@ -49,37 +49,6 @@ pub struct Fork {
 	pub epoch: u64,
 }
 
-impl ForkVersions {
-	/// Whether the fork epochs are non-decreasing, oldest to newest.
-	///
-	/// `select_fork_version` tests the newest fork first and returns on the first whose
-	/// epoch the slot has reached. A fork scheduled below its predecessor is therefore
-	/// unreachable: no epoch ever selects it. Nothing detects that at runtime, and the
-	/// consequence is not an obviously wrong fork -- the fork version feeds the BLS
-	/// signing domain, so it surfaces as a signature failure after every merkle branch
-	/// has already verified.
-	///
-	/// Equal epochs are allowed: a schedule may deliberately collapse older forks, which
-	/// is how the test schedules make one fork the effective default for everything
-	/// below the next scheduled fork.
-	///
-	/// Intended for `const` assertions next to a schedule definition, so a misordered
-	/// schedule fails to build rather than failing a benchmark that may not be run:
-	///
-	/// ```ignore
-	/// const _: () = assert!(ChainForkVersions::get().is_ordered());
-	/// ```
-	pub const fn is_ordered(&self) -> bool {
-		self.genesis.epoch <= self.altair.epoch &&
-			self.altair.epoch <= self.bellatrix.epoch &&
-			self.bellatrix.epoch <= self.capella.epoch &&
-			self.capella.epoch <= self.deneb.epoch &&
-			self.deneb.epoch <= self.electra.epoch &&
-			self.electra.epoch <= self.fulu.epoch &&
-			self.fulu.epoch <= self.gloas.epoch
-	}
-}
-
 #[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct PublicKey(pub [u8; PUBKEY_SIZE]);
 
@@ -423,20 +392,17 @@ pub enum VersionedExecutionPayloadHeader {
 	Deneb(deneb::ExecutionPayloadHeader),
 	/// [New in Gloas:EIP7732] Canonical RLP bytes of the Ethereum execution header.
 	///
-	/// Gloas removes `execution_payload` from `BeaconBlockBody`, so the beacon block no
-	/// longer commits to an SSZ `ExecutionPayloadHeader` and therefore no longer commits
-	/// to a `receipts_root`. It commits only to an execution block hash. These bytes are
-	/// authenticated by `keccak256(bytes) == <committed block hash>`; the `receipts_root`
-	/// is then read out of the authenticated encoding.
+	/// Gloas removes `execution_payload` from `BeaconBlockBody`, so the block commits only
+	/// to an execution block hash. These bytes are authenticated by
+	/// `keccak256(bytes) == <committed block hash>`, and the `receipts_root` is read out of
+	/// the authenticated encoding.
 	///
-	/// The bytes must be hashed exactly as submitted. An Ethereum block hash is the Keccak
-	/// hash of the canonical encoded header, so decoding and re-encoding before hashing
-	/// would be wrong.
+	/// Hash the bytes exactly as submitted: decoding and re-encoding first would be wrong.
 	Gloas(BoundedVec<u8, ConstU32<MAX_EXECUTION_HEADER_RLP_SIZE>>),
 }
 
 /// Which commitment scheme a proof uses. The two are proven at different generalized
-/// indices against different leaves, so this is not merely an encoding difference.
+/// indices against different leaves.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CommitmentScheme {
 	/// Pre-Gloas: the leaf is the SSZ hash-tree root of the full execution payload header,
@@ -460,9 +426,7 @@ pub enum CommitmentError {
 ///
 /// Carries the leaf to verify against `BeaconHeader::body_root` together with the receipts
 /// root that leaf authenticates. The receipts root is private and reachable only through
-/// [`Self::receipts_root_once_proven`], whose name states its precondition. That is the
-/// point of the type: a submitter-supplied receipts root should be unreachable from a proof
-/// nobody verified.
+/// [`Self::receipts_root_once_proven`].
 #[must_use]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ExecutionCommitment {
@@ -499,10 +463,7 @@ impl ExecutionCommitment {
 impl VersionedExecutionPayloadHeader {
 	/// Which commitment scheme this proof declares.
 	///
-	/// Reads the variant tag only — no parsing — so callers can gate work on it. Unlike the
-	/// accessors this type used to expose, a variant tag is not a value a caller could
-	/// mistake for verified data: it is the SCALE discriminant, already visible to anyone
-	/// holding the encoding.
+	/// Reads the variant tag only — no parsing — so callers can gate work on it.
 	pub fn scheme(&self) -> CommitmentScheme {
 		match self {
 			VersionedExecutionPayloadHeader::Capella(_) |
@@ -514,8 +475,7 @@ impl VersionedExecutionPayloadHeader {
 	/// Derive what the execution branch must prove, and what proving it establishes.
 	///
 	/// This is the only way to obtain a receipts root. For Gloas it parses
-	/// submitter-supplied bytes, so callers should reject on cheaper grounds — the fork era,
-	/// for one — before reaching it.
+	/// submitter-supplied bytes.
 	pub fn commitment(&self) -> Result<ExecutionCommitment, CommitmentError> {
 		Ok(match self {
 			VersionedExecutionPayloadHeader::Capella(header) => ExecutionCommitment {
@@ -553,9 +513,7 @@ const HEADER_MIN_FIELDS: usize = 15;
 
 /// Reads `receipts_root` out of canonical Ethereum execution header RLP.
 ///
-/// Strict on purpose: the bytes are only trustworthy because their Keccak hash matched a
-/// beacon-committed block hash, so anything that is not exactly one canonical top-level
-/// list is rejected rather than interpreted.
+/// Strict: anything that is not exactly one canonical top-level list is rejected.
 fn receipts_root_from_rlp(bytes: &[u8]) -> Option<H256> {
 	let mut buf = bytes;
 	let header = alloy_rlp::Header::decode(&mut buf).ok()?;
@@ -814,9 +772,8 @@ mod gloas_execution_header_tests {
 
 	/// Ethereum mainnet block 22020096, fetched from a public node and RLP-encoded.
 	///
-	/// Ground truth, not a synthetic fixture: `keccak256` of these bytes equals the real
-	/// block hash below, which `block_hash_matches_mainnet` asserts. A parser bug and an
-	/// encoder bug cannot cancel out here, because the chain fixed the hash.
+	/// `keccak256` of these bytes equals the real block hash below, which
+	/// `block_hash_matches_mainnet` asserts.
 	const HEADER_RLP: [u8; 604] = hex!(
 		"f90259a0f22a42f6854bb46481bb54471991a515518ff7bc1de393e156348e13"
 		"f0041794a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142"

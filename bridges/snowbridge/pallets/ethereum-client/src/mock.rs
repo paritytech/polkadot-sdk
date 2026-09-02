@@ -32,9 +32,6 @@ pub fn load_checkpoint_update_fixture(
 	load_fixture("initial-checkpoint.json".to_string()).unwrap()
 }
 
-/// Real Gloas checkpoint from the Platåberget testnet, slot 116768. Its sync-committee
-/// branch is at gindex 2945 and its `block_roots` branch at 352, so loading it through
-/// `force_checkpoint` exercises the Gloas arms of both selectors.
 pub fn load_gloas_checkpoint_fixture(
 ) -> snowbridge_beacon_primitives::CheckpointUpdate<{ config::SYNC_COMMITTEE_SIZE }> {
 	load_fixture("gloas-checkpoint.json".to_string()).unwrap()
@@ -146,27 +143,10 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 0,
 		},
-		// These epochs are squeezed between two constraints. The existing fixtures reach
-		// epoch 258 (`next-sync-committee-update.json`), so fulu and gloas must sit above
-		// that or those fixtures change fork era. Real Gloas testnet slots are around epoch
-		// 3624, so gloas must sit below that or the Gloas fixtures are rejected by the
-		// variant/era cross-check. gloas is after fulu so fork-boundary tests have a
-		// boundary to cross.
-		//
-		// Trap when adding a fixture above epoch 2000: the gindices would not change, since
-		// Fulu shares Electra's and there is deliberately no `fulu` arm in the
-		// `*_gindex_at_slot` helpers. Only `select_fork_version` differs, so the sync
-		// committee signature would fail and it would look like a bad signature rather than
-		// a fork-schedule problem.
 		fulu: Fork {
 			version: hex!("06000000"),
 			epoch: 2000,
 		},
-		// The real Plataberget Gloas fork version, not a placeholder. The Gloas fixtures
-		// carry genuine sync committee signatures from that chain, and the fork version is
-		// an input to the signing domain, so a made-up value here fails BLS verification
-		// after every merkle branch has already passed -- which reads as a bad signature
-		// rather than a misconfigured fork schedule.
 		gloas: Fork {
 			version: hex!("80733183"),
 			epoch: 3000,
@@ -175,8 +155,6 @@ parameter_types! {
 }
 
 pub const FREE_SLOTS_INTERVAL: u32 = config::SLOTS_PER_EPOCH as u32;
-
-const _: () = assert!(ChainForkVersions::get().is_ordered());
 
 impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

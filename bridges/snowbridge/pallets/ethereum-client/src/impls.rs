@@ -28,9 +28,6 @@ impl<T: Config> Verifier for Pallet<T> {
 		// pending relayer rewards while the bridge is halted).
 		ensure!(!Self::operating_mode().is_halted(), VerificationError::Halted);
 
-		// The receipts root must come out of verification, not off the submitted header.
-		// Otherwise a submitter could pair a genuine beacon proof with an unrelated receipt
-		// trie of their own construction.
 		let receipts_root = Self::verify_execution_proof(&proof.execution_proof)
 			.map_err(|e| InvalidExecutionProof(e.into()))?;
 
@@ -123,12 +120,8 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 
-		// Reject a legacy proof presented for a Gloas-era block, and vice versa. The slot the
-		// sync committee signed over is the arbiter, not the variant the submitter chose.
-		//
-		// This runs before the commitment is built, so a proof that cannot be valid for this
-		// slot is rejected without interpreting any submitter-controlled bytes. Reading the
-		// variant tag costs nothing; deriving the commitment parses RLP.
+		// Reject a legacy proof presented for a Gloas-era block, and vice versa. Checked
+		// before the commitment is built, so no submitter-controlled bytes are parsed first.
 		let is_gloas = execution_proof.execution_header.scheme() == CommitmentScheme::BlockHash;
 		let fork_versions = T::ForkVersions::get();
 		let is_gloas_slot =
@@ -136,13 +129,8 @@ impl<T: Config> Pallet<T> {
 				fork_versions.gloas.epoch;
 		ensure!(is_gloas == is_gloas_slot, Error::<T>::InvalidExecutionHeaderProof);
 
-		// What the branch must prove differs by fork. Pre-Gloas the leaf is the SSZ root of
-		// the full execution payload header. Gloas (EIP-7732) removes that field from the
-		// body, leaving only an execution block hash, so the leaf is
-		// `keccak256(canonical header RLP)` at a different generalized index.
-		//
-		// The commitment also carries the receipts root, which stays unreachable until the
-		// leaf below has been proven.
+		// Pre-Gloas the leaf is the SSZ root of the execution payload header; Gloas removes
+		// that field, so the leaf is `keccak256(canonical header RLP)` at a different index.
 		let commitment = execution_proof.execution_header.commitment().map_err(|e| match e {
 			CommitmentError::Merkleization => Error::<T>::BlockBodyHashTreeRootFailed,
 			CommitmentError::MalformedExecutionHeader => Error::<T>::InvalidExecutionHeaderProof,
@@ -160,7 +148,6 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::InvalidExecutionHeaderProof
 		);
 
-		// The leaf is proven, so the receipts root it authenticates may now be released.
 		Ok(commitment.receipts_root_once_proven())
 	}
 

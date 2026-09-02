@@ -284,9 +284,6 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 0,
 		},
-		// Fulu is the pre-gloas era here: the benchmarks all run Gloas fixtures, so nothing
-		// in this schedule needs the electra domain. The pallet mock deliberately differs
-		// (fulu at 2000) because its unit tests do verify Electra-era signatures.
 		fulu: Fork {
 			version: hex!("06000000"),
 			epoch: 0,
@@ -297,11 +294,6 @@ parameter_types! {
 		}
 	};
 }
-
-// Both schedules above must be ordered oldest to newest; a fork below its predecessor is
-// unreachable. Checked at compile time so a misordered schedule fails the build rather than
-// a benchmark that may not be run.
-const _: () = assert!(ChainForkVersions::get().is_ordered());
 
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

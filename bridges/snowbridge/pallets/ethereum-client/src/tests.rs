@@ -1083,24 +1083,9 @@ fn signing_root_handles_signature_slot_zero() {
 	});
 }
 
-/// Gloas merkle-branch fixtures, all from real consensus data.
-///
-/// Source: the [Platåberget](https://plataberget.dev/) public Gloas (ePBS) testnet, block
-/// and finalized state at slot 115968. Nothing here is hand-built.
-///
-/// Both were merkleized locally from the EIP-7495/7916 rules and both reproduced the roots
-/// the beacon node reports — the block root
-/// `0xe992e2a80c28003ec1c8856043e097708759a6e37d97538b1783c33b711e3e98`
-/// and the state root
-/// `0x2a6dfcdb7ac509685c815fe141fd7da7f7b24eb8da488aa9d24eb1ff59d410e3`.
-/// Those matches are what make these fixtures meaningful: they pin the progressive-container
-/// tree shape against a live client rather than against our own model of it, and with it
-/// that gindex 2856 addresses `signed_execution_payload_bid.message.parent_block_hash` and
-/// gindex 352 addresses `block_roots`.
-///
-/// 352 in particular has no published spec constant to check against — the ancestry proof is
-/// a Snowbridge addition — so real data is the only independent evidence that the Electra
-/// value of 69 is wrong for Gloas.
+/// Gloas merkle-branch fixtures from the Platåberget public Gloas testnet, block and
+/// finalized state at slot 115968. Both were merkleized locally and reproduce the roots the
+/// beacon node reports.
 mod gloas_branches {
 	use super::*;
 
@@ -1177,7 +1162,7 @@ mod gloas_branches {
 			as usize
 	}
 
-	/// The fixtures are only meaningful if they sit at the indices the pallet selects.
+	/// The fixtures must sit at the indices the pallet selects.
 	#[test]
 	fn pallet_selects_the_gloas_indices() {
 		new_tester().execute_with(|| {
@@ -1273,9 +1258,7 @@ mod gloas_branches {
 		));
 	}
 
-	/// The correction this work exists for. On real Gloas data the Electra index does not
-	/// verify, so shipping 69 would have broken every ancestry proof and `force_checkpoint`
-	/// with it.
+	/// The Electra index does not verify against Gloas data.
 	#[test]
 	fn electra_block_roots_index_rejects_gloas_data() {
 		let electra = 69usize;
@@ -1288,9 +1271,8 @@ mod gloas_branches {
 		));
 	}
 
-	/// The inner half of the ancestry proof, indexed exactly as `verify_ancestry_proof` does
-	/// it. `BLOCK_ROOT_AT_INDEX_DEPTH` is unchanged by Gloas because `BlockRoots` is still a
-	/// plain `Vector[Root, 8192]`; this pins that against real data.
+	/// The inner half of the ancestry proof. `BLOCK_ROOT_AT_INDEX_DEPTH` is unchanged by
+	/// Gloas, since `BlockRoots` is still a `Vector[Root, 8192]`.
 	#[test]
 	fn ancestry_branch_verifies() {
 		assert_eq!(ancestry_branch().len(), crate::config::BLOCK_ROOT_AT_INDEX_DEPTH);
@@ -1312,9 +1294,8 @@ mod gloas_branches {
 		));
 	}
 
-	/// The two halves compose, which is what the pallet actually relies on: `block_roots_root`
-	/// is proven out of the state once and cached, then reused as the root for every ancestry
-	/// proof. Both legs here are real data from the same slot.
+	/// The two halves compose: `block_roots_root` is proven out of the state once and cached,
+	/// then reused as the root for every ancestry proof.
 	#[test]
 	fn ancestry_path_chains_from_state_root() {
 		let g = EthereumBeaconClient::block_roots_gindex_at_slot(
@@ -1340,14 +1321,9 @@ mod gloas_branches {
 
 /// Sync-committee signature verification at, and across, the Gloas fork boundary.
 ///
-/// Two things are covered. The boundary rule is pure logic: per
-/// `validate_light_client_update` the fork version comes from `max(signature_slot, 1) - 1`,
-/// so an update whose `signature_slot` is the *first* slot of the Gloas epoch still signs
-/// under the Fulu version. Getting that backwards would reject every update across the
-/// boundary.
-///
-/// The second is a real Gloas sync aggregate from Platåberget slot 115968, verified under a
-/// domain built from that network's real Gloas fork version and genesis validators root.
+/// Per `validate_light_client_update` the fork version comes from `max(signature_slot, 1) - 1`,
+/// so an update whose `signature_slot` is the first slot of the Gloas epoch still signs under
+/// the Fulu version.
 mod gloas_sync_committee {
 	use super::*;
 	use snowbridge_beacon_primitives::{
@@ -1355,8 +1331,8 @@ mod gloas_sync_committee {
 		PublicKey, Signature, SigningData,
 	};
 
-	/// `max(signature_slot, 1) - 1` lands in the previous epoch, so the *previous* fork
-	/// version signs. This is the case most likely to be got wrong.
+	/// `max(signature_slot, 1) - 1` lands in the previous epoch, so the previous fork
+	/// version signs.
 	#[test]
 	fn first_slot_of_gloas_epoch_still_signs_under_fulu() {
 		new_tester().execute_with(|| {
@@ -1439,10 +1415,7 @@ mod gloas_sync_committee {
 		"5ce19f5a6a962afb93bd7941e719d1e616bd1d1f7d27df71ff7590df9cf3100f"
 	);
 
-	/// A real Gloas sync aggregate verifies under a domain the pallet computed. This is the
-	/// end-to-end check that the Gloas fork version, `compute_domain` and the signing root
-	/// still compose after EIP-7688 — the sync-committee signature scheme itself is
-	/// unchanged, and this pins that.
+	/// A real Gloas sync aggregate verifies under a domain the pallet computed.
 	#[test]
 	fn real_gloas_sync_aggregate_verifies() {
 		new_tester().execute_with(|| {
@@ -1469,8 +1442,7 @@ mod gloas_sync_committee {
 		});
 	}
 
-	/// The same aggregate must not verify under the Fulu version. Without this, a wrong
-	/// fork-version arm would pass the test above unnoticed.
+	/// The same aggregate must not verify under the Fulu version.
 	#[test]
 	fn real_gloas_aggregate_rejects_the_wrong_fork_version() {
 		new_tester().execute_with(|| {

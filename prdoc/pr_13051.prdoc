@@ -12,31 +12,6 @@ doc:
     execution block hash, at gindex 2856. A Gloas execution proof carries the canonical RLP of
     the execution header, authenticated by `keccak256(bytes) == committed hash`, and the
     `receipts_root` is read out of those authenticated bytes.
-
-    Breaking changes in `snowbridge-beacon-primitives`:
-
-    - `ForkVersions` gains a `gloas` field. Every runtime, mock and benchmark configuration must
-      set it.
-    - `VersionedExecutionPayloadHeader` gains a `Gloas(BoundedVec<u8, ConstU32<1024>>)` variant.
-      It is appended, so existing SCALE encodings continue to decode.
-    - `hash_tree_root()`, `receipts_root()`, `block_hash()` and `block_number()` are removed
-      from it. `commitment()` replaces them, returning an opaque `ExecutionCommitment`; the
-      receipts root is reachable only through the consuming `receipts_root_once_proven()`, so it
-      cannot be read off a proof that was never verified.
-    - `ForkVersions::is_ordered()` is new: a `const fn` asserting fork epochs are non-decreasing.
-      Each schedule asserts it at compile time, so a misordered schedule fails to build.
-
-    In `snowbridge-pallet-ethereum-client`, `execution_header_gindex()` becomes
-    `execution_commitment_gindex(is_gloas)` and `verify_execution_proof` returns the
-    authenticated `receipts_root` instead of `()`. A proof whose variant disagrees with the fork
-    era of its beacon header slot is rejected.
-
-    The production fork schedule carries a provisional Sepolia Gloas entry, epoch 351232 and
-    version `0x90000076`, neither yet confirmed against `eth-clients/sepolia`.
-
-    Benchmarks run on real Gloas fixtures, which are the worst case. The difference against
-    Electra sat below the noise floor, so weights are unchanged; regenerate them on reference
-    hardware as usual. Relayer-side changes are separate.
 crates:
 - name: snowbridge-beacon-primitives
   bump: major

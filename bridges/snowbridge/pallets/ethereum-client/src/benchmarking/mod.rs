@@ -19,11 +19,6 @@ use util::*;
 mod benchmarks {
 	use super::*;
 
-	/// The weight-bearing benchmarks below run on Gloas fixtures rather than the Electra
-	/// ones, because Gloas is the worst case: every branch it verifies is deeper (finality
-	/// 9 vs 7, sync committee 11 vs 6, block_roots 8 vs 6). Weights measured on Electra
-	/// inputs would under-charge a Gloas consensus update. Measuring the deeper fork over-
-	/// charges the shallower one instead, which is the safe direction.
 	#[benchmark]
 	fn force_checkpoint() -> Result<(), BenchmarkError> {
 		let checkpoint_update = make_gloas_checkpoint();
@@ -110,13 +105,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Branch verification at the Electra finality index, depth 7.
-	///
-	/// The fork schedule here must put the fixture in the era whose branch it carries.
-	/// It previously placed electra above the fixture's slot, which selected the Altair
-	/// index at depth 6 against a 7-element branch, so `verify_merkle_branch` returned on
-	/// the length check and the benchmark measured no hashing at all. The assertion below
-	/// is what stops that recurring.
 	#[benchmark(extra)]
 	fn verify_merkle_proof() -> Result<(), BenchmarkError> {
 		EthereumBeaconClient::<T>::process_checkpoint_update(&make_checkpoint())?;
