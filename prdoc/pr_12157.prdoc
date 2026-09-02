@@ -1,0 +1,9 @@
+title: "docs: use stable release versions in deprecation checklist"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Updates DEPRECATION_CHECKLIST.md to recommend stable release identifiers (e.g.
+    stable2509) instead of calendar dates for new deprecations. Part of #11561.
+    Does not remove any deprecated code.
+
+crates: []
