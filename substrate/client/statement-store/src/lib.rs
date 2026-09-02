@@ -596,7 +596,6 @@ struct QueryIndex {
 	explicit_only: HashSet<Hash>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
 enum RetentionTrack {
 	ExplicitOnly,
 	Persistent,
@@ -614,6 +613,12 @@ impl From<RetentionReasonMask> for RetentionTrack {
 	}
 }
 
+impl RetentionTrack {
+	fn is_explicit_only(&self) -> bool {
+		matches!(self, RetentionTrack::ExplicitOnly)
+	}
+}
+
 impl QueryIndex {
 	fn new() -> Self {
 		QueryIndex {
@@ -627,13 +632,7 @@ impl QueryIndex {
 
 	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent
 	/// under its admission sequence number.
-	fn note_insert(
-		&mut self,
-		hash: Hash,
-		statement: &Statement,
-		seq: u64,
-		tracking: RetentionTrack,
-	) {
+	fn note_insert(&mut self, hash: Hash, statement: &Statement, seq: u64, track: RetentionTrack) {
 		let mut nt = 0;
 		while let Some(topic) = statement.topic(nt) {
 			*self.topic_counts.entry(topic).or_insert(0) += 1;
@@ -642,7 +641,7 @@ impl QueryIndex {
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
 		self.recent.insert(hash, seq);
-		if tracking == RetentionTrack::ExplicitOnly {
+		if track.is_explicit_only() {
 			self.explicit_only.insert(hash);
 		}
 	}
@@ -816,10 +815,15 @@ struct InsertPlan {
 	banned: Vec<(Hash, u64)>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
 enum Resubmission {
 	Banned,
 	Allowed,
+}
+
+impl Resubmission {
+	fn is_banned(&self) -> bool {
+		matches!(self, Resubmission::Banned)
+	}
 }
 
 /// A single on-disk index set referenced during a query: either the set of hashes carrying a
@@ -3211,7 +3215,7 @@ impl Store {
 	/// `Ok(false)` means no (decodable) statement is stored under `hash` — it was already gone,
 	/// or its body is corrupt. A corrupt body cannot be tied back to its index rows, so nothing
 	/// is removed at all.
-	fn remove_statement(&self, hash: &Hash, readmission: Resubmission) -> Result<bool> {
+	fn remove_statement(&self, hash: &Hash, resubmission: Resubmission) -> Result<bool> {
 		let current_time = self.timestamp();
 		{
 			let mut submit_index = self.submit_index.write();
@@ -3255,8 +3259,8 @@ impl Store {
 					HexDisplay::from(hash)
 				),
 			}
-			let banned = readmission == Resubmission::Banned &&
-				current_time < expiry.get_expiration_timestamp_secs();
+			let banned =
+				resubmission.is_banned() && current_time < expiry.get_expiration_timestamp_secs();
 			if banned {
 				let purge_at = expiry
 					.get_expiration_timestamp_secs()
