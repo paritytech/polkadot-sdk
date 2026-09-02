@@ -53,6 +53,27 @@ fn make_pending<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError>
 	Ok(para_id)
 }
 
+/// Reserve a para id and put it into `Registered`.
+fn make_registered<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
+	let para_id = make_pending::<T>(who)?;
+	Pallet::<T>::receive(
+		RawOrigin::Root.into(),
+		MessageToPara::V1(MessageToParaV1::RegisterResponse {
+			para_id,
+			message_id: 0,
+			outcome: Ok(()),
+		}),
+	)?;
+	Ok(para_id)
+}
+
+/// Reserve a para id, register it and lock it.
+fn make_locked<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
+	let para_id = make_registered::<T>(who)?;
+	Pallet::<T>::add_lock(RawOrigin::Signed(who.clone()).into(), para_id)?;
+	Ok(para_id)
+}
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -129,6 +150,32 @@ mod benchmarks {
 		_(RawOrigin::Root, message);
 
 		assert_eq!(Paras::<T>::get(para_id).map(|i| i.state), Some(RegistrationState::Reserved));
+		Ok(())
+	}
+
+	/// Locking a registered para: one state read and write.
+	#[benchmark]
+	fn add_lock() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id);
+
+		assert!(Paras::<T>::get(para_id).map(|i| i.locked).unwrap_or(false));
+		Ok(())
+	}
+
+	/// Unlocking, with root standing in for the para itself: both do the same read and write.
+	#[benchmark]
+	fn remove_lock() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_locked::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id);
+
+		assert!(!Paras::<T>::get(para_id).map(|i| i.locked).unwrap_or(true));
 		Ok(())
 	}
 
