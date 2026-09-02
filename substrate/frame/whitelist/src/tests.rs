@@ -734,9 +734,16 @@ fn mis_witnessed_dispatch_is_rejected_at_the_pool() {
 
 		// The exact witness is admitted, and so is an over-witnessed one.
 		let honest = authorize(call_weight).expect("whitelisted submission is admitted").0.provides;
-		assert!(authorize(call_weight + Weight::from_parts(1, 0)).is_ok());
+		let over_witnessed = authorize(call_weight + Weight::from_parts(1, 1))
+			.expect("whitelisted submission is admitted")
+			.0
+			.provides;
 
-		// The inline variant witnesses the same values, so it shares the slot.
+		// The tag comes off the decoded call, so an over-witnessed submission cannot claim a
+		// slot of its own.
+		assert_eq!(over_witnessed, honest);
+
+		// The inline variant reads the same values off the call, so it shares the slot too.
 		let (inline, _) = crate::Pallet::<Test>::authorize_dispatch_whitelisted_call_with_preimage(
 			TransactionSource::External,
 			&Box::new(call),

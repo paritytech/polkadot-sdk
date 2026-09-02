@@ -332,18 +332,14 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Pool-level authorization shared by both permissionless dispatch calls.
+	/// Origin and whitelist gate shared by both permissionless dispatch calls.
 	///
-	/// Admits the unsigned submission only when [`Config::DispatchWhitelistedOrigin`] accepts
-	/// the `Authorized` system origin and `call_hash` is present in [`WhitelistedCall`].
-	///
-	/// Tagged by `(call_hash, call_encoded_len, call_weight)`, so the two dispatch calls share a
-	/// slot when they witness the same values.
-	fn authorize_whitelisted_dispatch(
+	/// Passes when [`Config::DispatchWhitelistedOrigin`] accepts the `Authorized` system origin
+	/// and `call_hash` is present in [`WhitelistedCall`]. Runs before any preimage read, so an
+	/// unwhitelisted submission costs one map read.
+	fn ensure_authorized_whitelisted_dispatch(
 		call_hash: T::Hash,
-		call_encoded_len: u32,
-		call_weight: Weight,
-	) -> TransactionValidityWithRefund {
+	) -> Result<(), TransactionValidityError> {
 		let authorized: T::RuntimeOrigin =
 			frame_system::RawOrigin::<T::AccountId>::Authorized.into();
 		T::DispatchWhitelistedOrigin::try_origin(authorized)
@@ -353,6 +349,18 @@ impl<T: Config> Pallet<T> {
 			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
 		}
 
+		Ok(())
+	}
+
+	/// Pool validity for an authorized dispatch of `call_hash`.
+	///
+	/// Tagged by `(call_hash, call_encoded_len, call_weight)`, all three read off the call
+	/// itself, so every submission dispatching it shares one slot.
+	fn whitelisted_dispatch_validity(
+		call_hash: T::Hash,
+		call_encoded_len: u32,
+		call_weight: Weight,
+	) -> TransactionValidityWithRefund {
 		Ok((
 			ValidTransaction {
 				provides: vec![(call_hash, call_encoded_len, call_weight).encode()],
@@ -369,11 +377,7 @@ impl<T: Config> Pallet<T> {
 		call_encoded_len: &u32,
 		call_weight_witness: &Weight,
 	) -> TransactionValidityWithRefund {
-		let validity = Self::authorize_whitelisted_dispatch(
-			*call_hash,
-			*call_encoded_len,
-			*call_weight_witness,
-		)?;
+		Self::ensure_authorized_whitelisted_dispatch(*call_hash)?;
 
 		// Every way this call can fail at dispatch fails with nobody charged, so both witnesses
 		// are checked against the preimage here. `fetch` covers the length witness.
@@ -386,11 +390,14 @@ impl<T: Config> Pallet<T> {
 		)
 		.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Call))?;
 
-		if !call.get_dispatch_info().call_weight.all_lte(*call_weight_witness) {
+		let call_weight = call.get_dispatch_info().call_weight;
+		if !call_weight.all_lte(*call_weight_witness) {
 			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
 		}
 
-		Ok(validity)
+		// `all_lte` admits any witness above the call's weight, so the tag uses the decoded
+		// weight to keep those submissions in one slot.
+		Self::whitelisted_dispatch_validity(*call_hash, *call_encoded_len, call_weight)
 	}
 
 	/// [`pallet::authorize`] callback for [`Pallet::dispatch_whitelisted_call_with_preimage`].
@@ -399,8 +406,10 @@ impl<T: Config> Pallet<T> {
 		call: &Box<<T as Config>::RuntimeCall>,
 	) -> TransactionValidityWithRefund {
 		let call_hash = T::Hashing::hash_of(call).into();
-		// Both witnesses travel with the transaction, so neither is forgeable.
-		Self::authorize_whitelisted_dispatch(
+		Self::ensure_authorized_whitelisted_dispatch(call_hash)?;
+
+		// The call travels with the transaction, so there is no witness to check.
+		Self::whitelisted_dispatch_validity(
 			call_hash,
 			call.encoded_size() as u32,
 			call.get_dispatch_info().call_weight,
