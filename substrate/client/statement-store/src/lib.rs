@@ -2995,6 +2995,11 @@ impl StatementStore for Store {
 				for evicted_statement in &evicted_statements {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
+				// Clear affinity tracking even where the evicted body could not be read or decoded
+				// above: the set is in-memory bookkeeping, so this is not a database repair.
+				for (key, _) in &plan.evicted {
+					query_index.explicit_only.remove(&key.hash);
+				}
 				// The admission-time mask decides sweep eligibility for good: a statement the
 				// DHT also covers is never re-checked.
 				let explicit_only = mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
