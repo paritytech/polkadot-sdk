@@ -56,7 +56,7 @@ use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
 	BlockV1, CallTracerConfigV1, CodeV1, GenericTransactionV1, HashesOrTransactionInfosV1,
 	TraceBlockInputPayloadV1, TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload,
-	TraceBlockVersionedOutputPayload, TraceV1, TraceV2, TracerTypeV1,
+	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1,
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -2099,12 +2099,14 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 	let TraceBlockVersionedOutputPayload::V2(v2_output) = v2_output else {
 		return Err(anyhow!("V2 trace_block input should return V2 output"));
 	};
-	let (_, trace_v2) = v2_output
-		.traces
+	let (_, entry_v2) = v2_output
+		.entries
 		.into_iter()
-		.find(|(_, trace)| matches!(trace, TraceV2::Call(call) if !call.logs.is_empty()))
+		.find(
+			|(_, entry)| matches!(entry, TraceEntryV1::Traced(TraceV2::Call(call)) if !call.logs.is_empty()),
+		)
 		.ok_or_else(|| anyhow!("V2 output should include a call trace with logs"))?;
-	let TraceV2::Call(call_v2) = trace_v2 else {
+	let TraceEntryV1::Traced(TraceV2::Call(call_v2)) = entry_v2 else {
 		return Err(anyhow!("V2 output should include a call trace"));
 	};
 	let indexes = call_v2.logs.iter().map(|log| log.index).collect::<Vec<_>>();
