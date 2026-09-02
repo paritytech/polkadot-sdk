@@ -57,14 +57,10 @@ sp_api::decl_runtime_apis! {
 		fn query_length_to_fee(length: u32) -> Balance;
 	}
 
-	/// Estimate the assets that would be charged for an extrinsic.
+	/// Estimate the assets that would be charged to the sender of an extrinsic.
 	///
-	/// Unlike [`TransactionPaymentApi`], this reports what would be charged to the sender
-	/// in the payment assets, rather than the protocol fee in native units.
-	///
-	/// The estimate is read-only: no funds are withdrawn. It may differ from the amount later
-	/// charged because the fee can change before inclusion, and unused weight is refunded after
-	/// dispatch. A successful estimate does not imply the sender can pay.
+	/// The estimate is read-only and best-effort: it does not imply the sender can pay, and the
+	/// amount finally charged can differ.
 	#[api_version(1)]
 	pub trait TransactionChargeApi<Balance, AssetId>
 	where
@@ -73,9 +69,8 @@ sp_api::decl_runtime_apis! {
 	{
 		/// Estimate the assets that would be charged for `uxt`.
 		///
-		/// Returns `None` if no estimate is available. An empty vector means nothing would be
-		/// charged. Otherwise each entry is the asset and amount that would be withdrawn from
-		/// the sender.
+		/// `None` means the runtime cannot produce an estimate, which says nothing about whether
+		/// the transaction is valid. An empty vector means nothing would be charged.
 		fn estimate_charge(uxt: Block::Extrinsic, len: u32) -> Option<Vec<(AssetId, Balance)>>;
 	}
 }

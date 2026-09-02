@@ -102,12 +102,10 @@ pub enum InitialPayment<T: Config> {
 	Asset((T::AssetId, AssetLiquidityInfoOf<T>)),
 }
 
-/// Estimated fee that would be charged for an extrinsic.
-///
-/// Returned by [`ChargeAssetTxPayment::quote_fee`].
+/// The fee that [`ChargeAssetTxPayment::quote_fee`] would request, if any.
 #[derive(DebugNoBound, PartialEqNoBound, EqNoBound)]
 pub enum FeeQuote<T: Config> {
-	/// No fee would be charged.
+	/// No payment would be requested.
 	Nothing,
 	/// Fee with no payment asset selected ([`ChargeAssetTxPayment::from`] with `None`).
 	Native(BalanceOf<T>),
@@ -203,10 +201,10 @@ where
 		Self { tip, asset_id }
 	}
 
-	/// Quote the fee that would be charged for this transaction.
+	/// Quote the fee this extension would request.
 	///
-	/// Does not withdraw funds or check the account balance. The quote uses the pre-dispatch fee
-	/// from `info` (including tip). It can differ from the amount later charged: unused weight is
+	/// Does not withdraw funds or check the account balance. The quote is the pre-dispatch fee for
+	/// `info`, with the tip added. It can differ from the amount later charged: unused weight is
 	/// refunded after dispatch, and the fee can change before inclusion.
 	///
 	/// Returns [`FeeQuote::Nothing`] if the origin is not a signer or the computed fee is zero, and
