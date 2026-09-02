@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788357465740,
+  "lastUpdate": 1788375620369,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "89669b38344e4378581c34b7833d109e3ad477a5",
-          "message": "Remove unused code in staking-async (#10842)\n\n- remove the `reward-fn` from `pallet-staking-async`. This crate is no\nlonger needed.\n- rename `ahm-test` to `integration-tests`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T11:34:00Z",
-          "tree_id": "a8b5a9abec24dd000c1670c0722bf883b0ecf7a6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/89669b38344e4378581c34b7833d109e3ad477a5"
-        },
-        "date": 1770208826068,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14560050247333342,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009885016399999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007007276459999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023033555939999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010027885739999966,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "52418509+georgepisaltu@users.noreply.github.com",
+            "name": "georgepisaltu",
+            "username": "georgepisaltu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5c52f17d7029a06185c811da79f3e0d016cf0ef7",
+          "message": "Add sufficiency method in `fungibles` (#13059)\n\n# Description\n\nThis PR adds a method in the `fungibles` trait family to query whether\nan asset is sufficient or not. The notion of sufficiency was already\nintroduced in `fungibles::Create` but up until now it has only been used\ninternally.\n\n## Review Notes\n\nThe new method has a default impl so that this would not be a breaking\nchange. The same could be accomplished with another trait extending\n`Inspect`, but that seemed too complex for what we are trying to achieve\nhere. If the breaking change is acceptable, we can remove the default\nimpl.\n\nAlso, the method does not assume anything about `fungible` impls as they\nnever carried any notion of sufficiency. `fungible` is generally used as\nthe native currency but this is not necessarily so since it's just a\ntrait for a single fungible currency. IMO it is worse to add\n\"sufficient\" logic to `fungible` than to just default to `false` in our\n`UnionOf` adapters when `fungible` is encountered.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>",
+          "timestamp": "2026-09-02T17:07:53Z",
+          "tree_id": "89df7f001ebad36a7aa52cff0f6f1617a2bdb6e8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5c52f17d7029a06185c811da79f3e0d016cf0ef7"
+        },
+        "date": 1788375581547,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14578420352000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009900518599999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007545495406666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025065295913333337,
             "unit": "seconds"
           }
         ]
