@@ -936,7 +936,8 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
 
 All `AccumulateLog` events emitted while processing a work package (necessarily from
 the step 7 replay, since no earlier step emits any) are collected and appended to
-`parachain_log[para_id]` as a single `LogEntry::Accumulate`. Every append to
+`parachain_log[para_id]` as a single `LogEntry::Accumulate`, where `para_id` is the
+parachain that submitted the work package. Every append to
 `parachain_log[para_id]`, whether the `RefineLogEntry` from step 2 or this
 `LogEntry::Accumulate`, is subject to the eviction rules below.
 
@@ -1293,8 +1294,8 @@ In either case the call is applied only if `new_total >= used_state_balance` (so
 the Coretime chain cannot strand currently-paid-for state by under-funding the
 parachain). Otherwise no state change happens and an
 `AccumulateLog::StateBalanceUpdateRejected { attempted, current_total, current_used }`
-is appended to the parachain log so the Coretime chain can observe the rejection
-and size a retry. To free state balance, `used_state_balance` must first be reduced
+is appended to the Coretime chain's `parachain_log` (§5.1) so it can observe the
+rejection and size a retry. To free state balance, `used_state_balance` must first be reduced
 by releasing state via `forget` / `kv_remove`, called either by the parachain
 itself or by the Coretime chain on its behalf (see §6.4).
 
@@ -1319,9 +1320,10 @@ earlier than `C_expungeperiod = 19 200` timeslots (~32 h) later, actually expung
 it. The service keeps no bookkeeping for this. When a `forget` removes the last
 referencer without expunging the preimage, Accumulate appends an
 `AccumulateLog::ForgetAgainAt { hash, len, due }`, where `due = now +
-C_expungeperiod`, and leaves the last referencer in `referencers`, still charged
-the full footprint. The parachain calls `forget(para_id, hash, len)` again once the
-timeslot is *strictly after* `due` to complete the expunge and free the footprint.
+C_expungeperiod`, to the log of the parachain that emitted the `forget` (§5.1), and
+leaves the last referencer in `referencers`, still charged the full footprint. That
+parachain calls `forget(para_id, hash, len)` again once the timeslot is *strictly
+after* `due` to complete the expunge and free the footprint.
 
 A preimage that was solicited but **never provided** to JAM is different: a single
 `forget` of its last referencer drops the request outright - there is nothing to
@@ -1476,7 +1478,7 @@ within `total_state_balance` before the write is applied; when it is negative
 Every mutation that would grow `used_state_balance` is guarded by a headroom
 pre-check against `total_state_balance` before the write. On insufficient
 headroom the write is skipped and `AccumulateLog::InsufficientStateBalance` is
-appended to the parachain log; otherwise the write is applied and
+appended to the emitting parachain's log (§5.1); otherwise the write is applied and
 `used_state_balance` is bumped atomically. Baseline-covered state is
 pre-charged and needs no per-write check.
 
@@ -1573,7 +1575,8 @@ allowance the check compares against must keep counting them.
 
 While `is_deregistering` is set the service rejects every work package for the
 parachain (§5.1), so no new state accrues. Each not-yet-expungeable validation
-code emits a `ForgetAgainAt { .., due }` log (§6.1). The Coretime chain retries
+code emits a `ForgetAgainAt { .., due }` into the Coretime chain's `parachain_log`
+(§6.1), as does `TooMuchStateHeld` above. The Coretime chain retries
 the call once the timeslot is strictly past the latest such `due`, and the
 parachain is fully removed. This keeps all follow-up in a single host call rather
 than tracking per-preimage `forget` deadlines.
