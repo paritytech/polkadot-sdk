@@ -3316,6 +3316,53 @@ mod mmr {
 	pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
 }
 
+/// Helpers for [`pallet_transaction_payment_rpc_runtime_api::TransactionChargeApi`].
+mod transaction_charge {
+	use super::*;
+	use frame_support::dispatch::GetDispatchInfo;
+	use frame_system::RawOrigin;
+	use pallet_asset_conversion_tx_payment::{ChargeAssetTxPayment, FeeQuote};
+	use sp_runtime::{generic::Preamble, traits::StaticLookup};
+
+	/// Quotes [`ChargeAssetTxPayment`] only.
+	///
+	/// `AsScarcity` and `SkipCheckIfFeeless` are ignored, so the estimate can be non-zero
+	/// for a transaction that would not be charged.
+	///
+	/// General transactions are not quoted at all, since their origin is resolved by the
+	/// transaction extension pipeline, which this helper does not run.
+	pub fn estimate_charge(
+		uxt: &UncheckedExtrinsic,
+		len: u32,
+	) -> Option<Vec<(NativeOrWithId<u32>, Balance)>> {
+		let quote = match &uxt.0.preamble {
+			// Bare extrinsics carry no extension data and have no payer.
+			Preamble::Bare(_) => FeeQuote::Nothing,
+			Preamble::Signed(address, _, tx_ext) => {
+				let who =
+					<Runtime as frame_system::Config>::Lookup::lookup(address.clone()).ok()?;
+				tx_payment(tx_ext).quote_fee(
+					RawOrigin::Signed(who).into(),
+					&uxt.get_dispatch_info(),
+					len,
+				)?
+			},
+			Preamble::General(_) => return None,
+		};
+
+		Some(match quote {
+			FeeQuote::Nothing => vec![],
+			FeeQuote::Native(fee) => vec![(NativeOrWithId::Native, fee)],
+			FeeQuote::Asset((asset_id, fee)) => vec![(asset_id, fee)],
+		})
+	}
+
+	fn tx_payment(tx_ext: &TxExtension) -> &ChargeAssetTxPayment<Runtime> {
+		let (_, _, _, _, _, _, _, _, skip_feeless, _, _, _) = tx_ext;
+		&skip_feeless.0
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetConversionTxHelper;
 
@@ -3837,6 +3884,14 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 		fn query_length_to_fee(length: u32) -> Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionChargeApi<Block, Balance, NativeOrWithId<u32>>
+		for Runtime
+	{
+		fn estimate_charge(uxt: <Block as BlockT>::Extrinsic, len: u32) -> Option<Vec<(NativeOrWithId<u32>, Balance)>> {
+			transaction_charge::estimate_charge(&uxt, len)
 		}
 	}
 
