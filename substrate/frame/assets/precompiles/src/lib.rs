@@ -148,6 +148,15 @@ where
 }
 
 /// An ERC20 precompile with EIP-2612 permit support.
+///
+/// # Wiring
+///
+/// This precompile does not emit the `Transfer` log for a balance-changing call. The log is
+/// produced by [`Erc20TransferLogsCallback`], which must be wired as the instance's
+/// `pallet_assets::Config::CallbackHandle` for the token to be EIP-20 compliant — mirroring every
+/// balance change, whether it came through this precompile or through pallet-assets directly. A
+/// runtime that registers the precompile without it compiles and answers calls, but emits no
+/// `Transfer` log for any non-zero transfer.
 pub struct ERC20<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -416,6 +425,9 @@ where
 	}
 
 	/// Execute the transfer call.
+	///
+	/// Only the zero-value `Transfer` is emitted here; every other one comes from the instance's
+	/// `CallbackHandle` (see [`ERC20`]).
 	fn transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		contract_addr: H160,
@@ -598,6 +610,9 @@ where
 	}
 
 	/// Execute the transfer_from call.
+	///
+	/// Only the zero-value `Transfer` is emitted here; every other one comes from the instance's
+	/// `CallbackHandle` (see [`ERC20`]).
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		contract_addr: H160,

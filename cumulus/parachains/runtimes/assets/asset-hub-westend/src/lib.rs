@@ -1441,13 +1441,20 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
-	// Sized above the per-block ceiling on mirrored logs. That ceiling is PoV-bound: the normal
-	// dispatch budget (75% * MAX_POV_SIZE = 0.75 * 10 MiB ~= 7.86 MB) divided by one
-	// `assets::transfer`'s proof size (~6208 B) is ~1267 transfers, i.e. ~1267 logs. 1300 clears it
-	// with headroom so legitimate logs are not dropped. Each log's weight is charged where it is
-	// emitted, so the cap costs nothing until it is approached and a larger value is only a larger
-	// buffer, not a standing reservation.
-	type MaxOutsideFrameLogs = ConstU32<1300>;
+	// A storage backstop, not a cost bound: each log's weight is charged where it is emitted, so a
+	// larger value is only a larger buffer and never a standing reservation.
+	//
+	// No honest per-block ceiling is available to size this against. Dividing block PoV by one
+	// `assets::transfer`'s proof size bounds how *few* logs exhaust a block, not how many it can
+	// carry; that needs the cheapest marginal producer, and repeated transfers between the same
+	// accounts re-touch keys already in the proof, so the marginal cost of one more log is close to
+	// the buffer insert alone. Nothing refuses at a class limit either, since the per-log charge is
+	// registered unchecked.
+	//
+	// So 2048 raises the price of filling the buffer without bounding it, and the runtime reports
+	// the count it committed (`Revive::eth_synthetic_transaction`) so that a block which does hit
+	// the cap is visible to the serving layer rather than silently over-reported.
+	type MaxOutsideFrameLogs = ConstU32<2048>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
 		Assets,

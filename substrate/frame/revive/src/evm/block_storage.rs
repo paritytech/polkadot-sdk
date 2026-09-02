@@ -18,9 +18,11 @@ use crate::{
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
 	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
 	OutsideFrameLogCount, OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData,
-	StorageDeposit, Weight, dispatch_result,
+	StorageDeposit, SyntheticReceiptInfo, Weight, dispatch_result,
 	evm::{
-		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+		block_hash::{
+			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, SyntheticTransactionInfo,
+		},
 		burn_with_dust,
 		fees::InfoT,
 	},
@@ -256,6 +258,7 @@ fn deposit_eth_extrinsic_revert_event<T: Config>(dispatch_error: DispatchError) 
 /// Clear the storage used to capture the block hash related data.
 pub fn on_initialize<T: Config>() {
 	ReceiptInfoData::<T>::kill();
+	SyntheticReceiptInfo::<T>::kill();
 	EthereumBlock::<T>::kill();
 }
 
@@ -271,6 +274,11 @@ fn synthetic_transaction<T: Config>(block_number: BlockNumberFor<T>) -> Vec<u8> 
 }
 
 /// Build the ethereum block and store it into the pallet storage.
+///
+/// A pallet that mirrors balance changes as logs must not do so from an `on_finalize` that
+/// `construct_runtime!` orders after this pallet's: the drain below has already run, so the log
+/// would be committed to the next block while its event stays in this one. Mirroring from
+/// `on_initialize` or `on_idle` is safe, both running before any `on_finalize`.
 pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	EthBlockBuilderIR::<T>::kill();
@@ -281,11 +289,13 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	// they enter the block bloom / receipts_root / transaction trie. Must run after all real
 	// transactions have been processed, since the trie builders are order-sensitive.
 	let outside_frame_log_count = OutsideFrameLogCount::<T>::take();
+	let mut committed_log_count = 0u32;
 	if outside_frame_log_count > 0 {
 		let mut receipt = AccumulateReceipt::new();
 		for index in 0..outside_frame_log_count {
 			if let Some((contract, topics, data)) = OutsideFrameLogs::<T>::take(index) {
 				receipt.add_log(&contract, &data, &topics);
+				committed_log_count.saturating_inc();
 			}
 		}
 		block_builder.process_transaction(
@@ -297,7 +307,17 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 		);
 	}
 
-	let (block, receipt_data) = block_builder.build_block(block_number);
+	let (block, mut receipt_data) = block_builder.build_block(block_number);
+
+	// The synthetic transaction is processed after every real one, so its entry is the trailing
+	// one.
+	let synthetic = if outside_frame_log_count > 0 {
+		receipt_data
+			.pop()
+			.map(|gas_info| SyntheticTransactionInfo { gas_info, log_count: committed_log_count })
+	} else {
+		None
+	};
 
 	// Put the block hash into storage.
 	BlockHash::<T>::insert(block_number, block.hash);
@@ -312,6 +332,11 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	EthereumBlock::<T>::put(block);
 	// Store the receipt info data for offchain reconstruction.
 	ReceiptInfoData::<T>::put(receipt_data);
+	// Only when there is one: `on_initialize` already cleared it, so a block with no mirrored logs
+	// — the common case — writes nothing here.
+	if let Some(synthetic) = synthetic {
+		SyntheticReceiptInfo::<T>::put(synthetic);
+	}
 }
 
 /// Process a transaction payload with extra details.

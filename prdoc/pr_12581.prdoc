@@ -34,18 +34,29 @@ doc:
     balance change — have no receipt to attach to, so they are buffered per block and flushed in
     `on_finalize` as one synthetic transaction, entering the block's `logs_bloom`, `receipts_root`
     and transaction trie. It is an unsigned legacy transaction distinguished only by
-    `nonce = block_number`, is not executable, and reports a zero sender; eth-rpc rebuilds the same
-    payload from block number and chain id to recover its hash and serves those logs against it via
-    `eth_getLogs` and `eth_getTransactionReceipt`. Consumers therefore see one more transaction in
-    such a block than it has real ethereum transactions. The `on_finalize` drain of each such log
+    `nonce = block_number` and is not executable; eth-rpc rebuilds the same payload from block
+    number and chain id to recover its hash and serves those logs against it via `eth_getLogs` and
+    `eth_getTransactionReceipt`. Consumers therefore see one more transaction in such a block than
+    it has real ethereum transactions. It is served as `from: 0x0` with `to: null`,
+    `contractAddress: null`, `gasUsed: 0`, type 0 and a dummy signature — so `ecrecover` on it
+    yields neither the served sender nor a meaningful one, and the `to: null` that usually marks a
+    contract creation is paired with no created address. `eth_receipt_data_versioned` is bumped to
+    version 2, which reports the synthetic transaction separately from the ethereum transactions:
+    its gas entry, plus the number of logs the block committed to it. Version 1 keeps its contract
+    of one entry per ethereum transaction and omits it, so an eth-rpc that predates this change
+    keeps serving the block's real transactions and simply does not see the mirrored logs. A
+    consumer that rebuilds those logs from block events must reconcile against the reported count,
+    because the events are a superset in emission order of what the header commits to. The
+    `on_finalize` drain of each such log
     is charged against the block where the log is emitted, rather than reserved up front, since
     the mirroring paths have no gas meter and the drain belongs to no extrinsic's benchmark. A
     contract's `LOG` reaches the same buffer whenever it runs off the ethereum path (`Revive::call`,
     an XCM `Transact`), but pays the drain through the gas it is already charged per event. A new
     `Config` item `MaxOutsideFrameLogs` bounds the buffer's size as a backstop; a log arriving past
     the cap is not buffered, so the block's `logs_bloom` and `receipts_root` omit it while its
-    `ContractEmitted` still stands. Setting the cap to zero turns the buffer off, so logs emitted
-    outside an ethereum transaction stay substrate-only, as they were before.
+    `ContractEmitted` still stands — which is why the committed count is reported, letting the
+    serving layer serve only what the header covers. Setting the cap to zero turns the buffer off,
+    so logs emitted outside an ethereum transaction stay substrate-only, as they were before.
 
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
@@ -70,8 +81,14 @@ crates:
 - name: pallet-assets
   bump: major
 - name: pallet-revive
-  bump: minor
+  bump: major
+- name: pallet-revive-types
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major
 - name: pallet-assets-precompiles
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
+- name: penpal-runtime
+  bump: patch

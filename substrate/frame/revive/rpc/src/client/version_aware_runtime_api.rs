@@ -743,31 +743,56 @@ impl VersionAwareRuntimeApi {
 		)
 	}
 
-	/// Get the receipt data for the current block.
+	/// Get the receipt data for the current block: one entry per ethereum transaction, plus the
+	/// entry for the block's synthetic transaction when the runtime reports one.
+	///
+	/// Only version 2 reports the synthetic transaction. Against anything older the block's
+	/// mirrored logs stay invisible, which is how this client behaved before they existed.
 	pub fn eth_receipt_data(
 		&self,
-	) -> Option<BoxFuture<'_, Result<Vec<ReceiptGasInfoV1>, ClientError>>> {
+	) -> Option<
+		BoxFuture<'_, Result<(Vec<ReceiptGasInfoV1>, Option<SyntheticTransactionV1>), ClientError>>,
+	> {
 		self.capabilities.eth_receipt_data.handle(
 			|| async move {
 				let payload = subxt_client::runtime_apis().revive_api().eth_receipt_data();
 				self.call(payload)
 					.await
-					.map(|receipt_data| receipt_data.into_iter().map(|item| item.0).collect())
-					.map_err(Into::into)
-			},
-			|_| async move {
-				let input = ReceiptDataInputPayloadV1;
-				let payload = subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
-					ReceiptDataVersionedInputPayload::from(input).into(),
-				);
-				self.call(payload)
-					.await
-					.map(|output| {
-						ReceiptDataOutputPayloadV1::try_from(output.0)
-							.expect("v1 input must produce v1 output; qed")
-							.receipt_data
+					.map(|receipt_data| {
+						(receipt_data.into_iter().map(|item| item.0).collect(), None)
 					})
 					.map_err(Into::into)
+			},
+			|version| async move {
+				if version < 2 {
+					let input = ReceiptDataInputPayloadV1;
+					let payload =
+						subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
+							ReceiptDataVersionedInputPayload::from(input).into(),
+						);
+					self.call(payload)
+						.await
+						.map(|output| {
+							let output = ReceiptDataOutputPayloadV1::try_from(output.0)
+								.expect("v1 input must produce v1 output; qed");
+							(output.receipt_data, None)
+						})
+						.map_err(Into::into)
+				} else {
+					let input = ReceiptDataInputPayloadV2;
+					let payload =
+						subxt_client::runtime_apis().revive_api().eth_receipt_data_versioned(
+							ReceiptDataVersionedInputPayload::from(input).into(),
+						);
+					self.call(payload)
+						.await
+						.map(|output| {
+							let output = ReceiptDataOutputPayloadV2::try_from(output.0)
+								.expect("v2 input must produce v2 output; qed");
+							(output.receipt_data, output.synthetic)
+						})
+						.map_err(Into::into)
+				}
 			},
 		)
 	}

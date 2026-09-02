@@ -286,12 +286,24 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataInputPayloadV1>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataInputPayloadV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataInputPayloadV2>"
+	),
+	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataVersionedInputPayload",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataVersionedInputPayload>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataOutputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV1>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataOutputPayloadV2",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV2>"
+	),
+	substitute_type(
+		path = "pallet_revive_types::runtime_api::payloads::receipt_data::SyntheticTransactionV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::SyntheticTransactionV1>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::receipt_data::ReceiptDataVersionedOutputPayload",

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
+	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo, SyntheticTransactionV1,
 	client::{
 		SubstrateBlock, SubstrateBlockNumber,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
@@ -185,21 +185,20 @@ fn extract_revive_events(
 	(reverted_extrinsics, logs_by_extrinsic, outside_frame_logs)
 }
 
-/// Returns the revive transactions from a block, and whether any extrinsic decode failed.
+/// Returns the revive transactions from a block.
 fn extract_eth_transacts<C: OfflineClientAtBlockT<SrcChainConfig>>(
 	block_extrinsics: &Extrinsics<'_, SrcChainConfig, C>,
 	block_number: SubstrateBlockNumber,
-) -> Result<(Vec<(EthTransact, usize)>, bool), ClientError> {
+) -> Result<Vec<(EthTransact, usize)>, ClientError> {
 	let mut extrinsics = Vec::new();
-	let mut undecoded_extrinsic = false;
 	for (ext_idx, ext) in block_extrinsics.iter().enumerate() {
 		let ext = match ext {
 			Ok(ext) => ext,
-			// Don't error here since the call type is unknown.
+			// Don't error here since the call type is unknown. An undecodable `eth_transact` shows
+			// up as a length mismatch against the runtime's gas entries.
 			Err(err) => {
 				log::debug!(target: LOG_TARGET,
 					"Failed to decode extrinsic {ext_idx} of block #{block_number}: {err:?}");
-				undecoded_extrinsic = true;
 				continue;
 			},
 		};
@@ -216,33 +215,19 @@ fn extract_eth_transacts<C: OfflineClientAtBlockT<SrcChainConfig>>(
 		}
 	}
 
-	Ok((extrinsics, undecoded_extrinsic))
+	Ok(extrinsics)
 }
 
 /// Reconcile the runtime's per-transaction gas entries against the ethereum transactions decoded
-/// from the block body, splitting off the synthetic transaction's trailing entry.
+/// from the block body.
 ///
-/// The runtime emits one entry per ethereum transaction, and — when the block has outside-of-frame
-/// logs — one extra trailing entry for the synthetic transaction carrying them. So `receipt_data`
-/// holds either `extrinsics_len` entries or `extrinsics_len + 1`.
-///
-/// An extrinsic the metadata cannot decode produces the same `+ 1` without a synthetic transaction,
-/// since the runtime counted a transaction this side dropped. The two are indistinguishable from
-/// the lengths alone, so `undecoded_extrinsic` suppresses the split: taking the entry would pair
-/// every later transaction with the wrong gas info and serve the dropped transaction's logs under
-/// the synthetic hash. Erroring keeps metadata skew as loud as it was before the synthetic
-/// transaction existed.
-fn split_receipt_data(
-	mut receipt_data: Vec<ReceiptGasInfoV1>,
+/// A difference means the two sides disagree about what the block contains — most likely an
+/// extrinsic the metadata could not decode. Erroring beats pairing every later transaction with the
+/// wrong gas info.
+fn check_receipt_data_len(
+	receipt_data: &[ReceiptGasInfoV1],
 	extrinsics_len: usize,
-	undecoded_extrinsic: bool,
-) -> Result<(Vec<ReceiptGasInfoV1>, Option<ReceiptGasInfoV1>), ClientError> {
-	let synthetic_gas_info = if !undecoded_extrinsic && receipt_data.len() == extrinsics_len + 1 {
-		receipt_data.pop()
-	} else {
-		None
-	};
-
+) -> Result<(), ClientError> {
 	if receipt_data.len() != extrinsics_len {
 		log::error!(
 			target: LOG_TARGET,
@@ -252,13 +237,46 @@ fn split_receipt_data(
 		return Err(ClientError::ReceiptDataLengthMismatch);
 	}
 
-	Ok((receipt_data, synthetic_gas_info))
+	Ok(())
+}
+
+/// Cut the logs rebuilt from block events down to what the block actually committed.
+///
+/// The two can disagree: the runtime bounds the buffer these logs are drained from, and a log that
+/// arrives past the bound is still deposited as an event. The events are therefore a superset, in
+/// emission order, of what reached the block's `logs_bloom` and `receipts_root` — so the committed
+/// set is the first `committed` of them, and serving more would hand out logs the header does not
+/// commit to.
+///
+/// A count only catches a difference in size. Losing one log to a decode failure (see
+/// [`extract_revive_events`]) while the buffer dropped another leaves the counts equal over
+/// different members, which this cannot see; closing that would need the runtime to report the logs
+/// themselves rather than how many there were.
+fn reconcile_outside_frame_logs(
+	mut logs: Vec<Log>,
+	committed: u32,
+	substrate_block_number: SubstrateBlockNumber,
+) -> Vec<Log> {
+	let committed = committed as usize;
+	if logs.len() == committed {
+		return logs;
+	}
+
+	log::warn!(
+		target: LOG_TARGET,
+		"Block #{substrate_block_number} committed {committed} outside-of-frame log(s) but {} \
+		decoded from its events",
+		logs.len(),
+	);
+	logs.truncate(committed);
+	logs
 }
 
 /// Outcome of querying the runtime for a block's receipt gas entries.
 enum ReceiptData {
-	/// The block's entries, one per ethereum transaction plus an optional trailing synthetic one.
-	Available(Vec<ReceiptGasInfoV1>),
+	/// The block's entries: one per ethereum transaction, plus the synthetic transaction's when the
+	/// runtime reports one.
+	Available { receipt_data: Vec<ReceiptGasInfoV1>, synthetic: Option<SyntheticTransactionV1> },
 	/// The runtime at this block has no `eth_receipt_data` API.
 	///
 	/// Permanent, and expected for pre-EVM history — such a block has neither ethereum
@@ -381,7 +399,9 @@ impl ReceiptExtractor {
 					return ReceiptData::Unsupported;
 				};
 				match query.await {
-					Ok(data) => ReceiptData::Available(data),
+					Ok((receipt_data, synthetic)) => {
+						ReceiptData::Available { receipt_data, synthetic }
+					},
 					Err(err) => {
 						log::debug!(
 							target: LOG_TARGET,
@@ -589,7 +609,7 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		let (extrinsics, synthetic_gas_info) = self.get_block_extrinsics(block).await?;
+		let (extrinsics, synthetic) = self.get_block_extrinsics(block).await?;
 		let eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfoV1)> = extrinsics
 			.into_iter()
 			.map(|(call, receipt_gas_info, extrinsic_index)| {
@@ -599,8 +619,8 @@ impl ReceiptExtractor {
 			.collect();
 
 		// Nothing to reconstruct: no ethereum transactions and no synthetic transaction (the
-		// latter is present iff the runtime appended a trailing receipt-gas entry).
-		if eth_tx_by_index.is_empty() && synthetic_gas_info.is_none() {
+		// latter is present iff the runtime reported one).
+		if eth_tx_by_index.is_empty() && synthetic.is_none() {
 			return Ok(vec![]);
 		}
 
@@ -646,27 +666,22 @@ impl ReceiptExtractor {
 			.collect::<Result<Vec<_>, _>>()?;
 
 		// Append the synthetic transaction receipt for the block's outside-of-frame logs. Keyed on
-		// the gas entry alone — the same condition `extract_from_transaction` uses — because the
+		// the runtime's entry — the same condition `extract_from_transaction` uses — because that
 		// entry is what the block header commits to. Deciding on the decoded logs instead would
 		// omit a transaction the block contains whenever the logs fail to decode.
-		if let Some(gas_info) = synthetic_gas_info {
-			// The receipt's bloom is derived from the logs decoded here, so an entry with none of
-			// them serves a zero bloom against a block that committed a non-zero one. Always a
-			// disagreement between the block and its events, and invisible without this.
-			if outside_frame_logs.is_empty() {
-				log::warn!(
-					target: LOG_TARGET,
-					"Block #{substrate_block_number} commits a synthetic transaction but none of \
-					its events decoded into an outside-of-frame log"
-				);
-			}
+		if let Some(synthetic) = synthetic {
+			let logs = reconcile_outside_frame_logs(
+				outside_frame_logs,
+				synthetic.log_count,
+				substrate_block_number,
+			);
 
 			receipts.push(self.build_synthetic_receipt(
 				eth_block_hash,
 				eth_block_number,
 				synthetic_tx_index,
-				gas_info,
-				outside_frame_logs,
+				synthetic.gas_info,
+				logs,
 			)?);
 		}
 
@@ -674,29 +689,30 @@ impl ReceiptExtractor {
 	}
 
 	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info and
-	/// extrinsic index, plus the optional trailing gas entry for the block's synthetic transaction.
+	/// extrinsic index, plus the block's synthetic transaction when it has one.
 	///
-	/// See [`split_receipt_data`] for how the gas entries are matched up.
+	/// See [`check_receipt_data_len`] for how the gas entries are reconciled.
 	async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
-	) -> Result<(Vec<(EthTransact, ReceiptGasInfoV1, usize)>, Option<ReceiptGasInfoV1>), ClientError>
-	{
+	) -> Result<
+		(Vec<(EthTransact, ReceiptGasInfoV1, usize)>, Option<SyntheticTransactionV1>),
+		ClientError,
+	> {
 		let block_extrinsics = block.extrinsics().fetch().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.block_number());
 		})?;
 
 		let block_number = block.block_number();
-		let (extrinsics, undecoded_extrinsic) =
-			extract_eth_transacts(&block_extrinsics, block_number)?;
+		let extrinsics = extract_eth_transacts(&block_extrinsics, block_number)?;
 
 		// Queried unconditionally: a block with no ethereum transactions can still carry a
 		// synthetic transaction for its outside-of-frame logs.
-		let receipt_data = match (self.fetch_receipt_data)(block.clone()).await {
-			ReceiptData::Available(data) => data,
-			// A block predating the runtime API has no ethereum transactions and no mirrored logs,
-			// so it reconstructs as an empty block instead of failing the request.
-			ReceiptData::Unsupported => Vec::new(),
+		let (receipt_data, synthetic) = match (self.fetch_receipt_data)(block.clone()).await {
+			ReceiptData::Available { receipt_data, synthetic } => (receipt_data, synthetic),
+			// A block predating the runtime API has no ethereum transactions and no mirrored
+			// logs, so it reconstructs as an empty block instead of failing the request.
+			ReceiptData::Unsupported => (Vec::new(), None),
 			ReceiptData::Failed => {
 				log::trace!(target: LOG_TARGET,
 					"Receipt data not found for block #{} ({:?})",
@@ -705,8 +721,7 @@ impl ReceiptExtractor {
 			},
 		};
 
-		let (receipt_data, synthetic_gas_info) =
-			split_receipt_data(receipt_data, extrinsics.len(), undecoded_extrinsic)?;
+		check_receipt_data_len(&receipt_data, extrinsics.len())?;
 
 		Ok((
 			extrinsics
@@ -714,7 +729,7 @@ impl ReceiptExtractor {
 				.zip(receipt_data)
 				.map(|((call, ext_idx), rec)| (call, rec, ext_idx))
 				.collect(),
-			synthetic_gas_info,
+			synthetic,
 		))
 	}
 
@@ -725,7 +740,7 @@ impl ReceiptExtractor {
 		block: &SubstrateBlock,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let (extrinsics, synthetic_gas_info) = self.get_block_extrinsics(block).await?;
+		let (extrinsics, synthetic) = self.get_block_extrinsics(block).await?;
 		let mut eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfoV1)> =
 			extrinsics
 				.into_iter()
@@ -736,7 +751,7 @@ impl ReceiptExtractor {
 				.collect();
 
 		let synthetic_tx_index = eth_tx_by_index.keys().max().map_or(0, |max| max + 1);
-		let is_synthetic = transaction_index == synthetic_tx_index && synthetic_gas_info.is_some();
+		let is_synthetic = transaction_index == synthetic_tx_index && synthetic.is_some();
 
 		if !eth_tx_by_index.contains_key(&transaction_index) && !is_synthetic {
 			log::trace!(target: LOG_TARGET,
@@ -765,12 +780,18 @@ impl ReceiptExtractor {
 			);
 
 		if is_synthetic {
+			let synthetic = synthetic.expect("is_synthetic implies Some; qed");
+			let logs = reconcile_outside_frame_logs(
+				outside_frame_logs,
+				synthetic.log_count,
+				substrate_block_number,
+			);
 			return self.build_synthetic_receipt(
 				eth_block_hash,
 				eth_block_number,
 				synthetic_tx_index,
-				synthetic_gas_info.expect("is_synthetic implies Some; qed"),
-				outside_frame_logs,
+				synthetic.gas_info,
+				logs,
 			);
 		}
 
@@ -1225,9 +1246,7 @@ mod tests {
 	}
 
 	/// Run the extraction over a synthetic block body.
-	async fn extract_from(
-		blobs: Vec<Vec<u8>>,
-	) -> Result<(Vec<(EthTransact, usize)>, bool), ClientError> {
+	async fn extract_from(blobs: Vec<Vec<u8>>) -> Result<Vec<(EthTransact, usize)>, ClientError> {
 		const BLOCK_NUMBER: SubstrateBlockNumber = 42;
 
 		let client = offline_client();
@@ -1240,12 +1259,10 @@ mod tests {
 
 	#[tokio::test]
 	async fn extract_eth_transacts_collects_revive_calls() {
-		let (calls, undecoded) =
-			extract_from(vec![non_revive_extrinsic(), eth_transact_extrinsic()])
-				.await
-				.unwrap();
+		let calls = extract_from(vec![non_revive_extrinsic(), eth_transact_extrinsic()])
+			.await
+			.unwrap();
 
-		assert!(!undecoded, "every extrinsic decoded");
 		assert_eq!(calls.len(), 1, "only the revive extrinsic is collected");
 		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
 		assert_eq!(calls[0].0.payload, ETH_TRANSACT_PAYLOAD, "the call fields are decoded");
@@ -1253,13 +1270,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn extract_eth_transacts_keeps_revive_calls_next_to_an_undecodable_one() {
-		let (calls, undecoded) =
-			extract_from(vec![vec![0xff; 4], eth_transact_extrinsic()]).await.unwrap();
+		let calls = extract_from(vec![vec![0xff; 4], eth_transact_extrinsic()]).await.unwrap();
 
 		assert_eq!(calls.len(), 1, "an undecodable extrinsic must not hide a decoded one");
 		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
 		assert_eq!(calls[0].0.payload, ETH_TRANSACT_PAYLOAD, "the call fields are decoded");
-		assert!(undecoded, "it may be a revive one, so report it");
 	}
 
 	/// `n` distinguishable gas entries, so a mispairing shows up as a wrong value.
@@ -1273,52 +1288,47 @@ mod tests {
 	}
 
 	#[test]
-	fn split_receipt_data_without_a_synthetic_entry() {
-		let (data, synthetic) = split_receipt_data(gas_infos(2), 2, false).unwrap();
+	fn receipt_data_is_reconciled_against_the_block_body() {
+		// The synthetic transaction is reported separately, so a block carrying one still has
+		// exactly one entry per ethereum transaction here.
+		check_receipt_data_len(&gas_infos(2), 2).unwrap();
 
-		assert_eq!(data, gas_infos(2), "every entry belongs to an ethereum transaction");
-		assert!(synthetic.is_none());
-	}
-
-	#[test]
-	fn split_receipt_data_takes_the_trailing_synthetic_entry() {
-		let (data, synthetic) = split_receipt_data(gas_infos(3), 2, false).unwrap();
-
-		assert_eq!(data, gas_infos(2), "the transactions keep their own entries in order");
-		assert_eq!(synthetic.unwrap().gas_used, U256::from(2), "the last entry is the synthetic");
-	}
-
-	#[test]
-	fn split_receipt_data_rejects_a_trailing_entry_left_by_an_undecodable_extrinsic() {
-		// A dropped `eth_transact` leaves the same `+ 1` a synthetic transaction does. Taking it
-		// would pair every later transaction with the preceding one's gas info and serve the
-		// dropped transaction's logs under the synthetic hash, so this must stay an error.
-		let err = split_receipt_data(gas_infos(3), 2, true).unwrap_err();
-
+		// An extrinsic the metadata could not decode leaves an entry with no transaction to pair
+		// it with. Accepting it would pair every later transaction with the preceding one's gas
+		// info.
+		let err = check_receipt_data_len(&gas_infos(3), 2).unwrap_err();
 		assert!(matches!(err, ClientError::ReceiptDataLengthMismatch));
 	}
 
-	#[test]
-	fn split_receipt_data_rejects_an_undecodable_extrinsic_alongside_a_synthetic_entry() {
-		let err = split_receipt_data(gas_infos(4), 2, true).unwrap_err();
-
-		assert!(matches!(err, ClientError::ReceiptDataLengthMismatch));
+	fn outside_frame_logs(n: usize) -> Vec<Log> {
+		(0..n)
+			.map(|i| Log { address: H160::from_low_u64_be(i as u64), ..Default::default() })
+			.collect()
 	}
 
 	#[test]
-	fn split_receipt_data_accepts_an_undecodable_non_ethereum_extrinsic() {
-		// The dropped extrinsic was not an `eth_transact`, so the runtime never counted it and the
-		// lengths still line up.
-		let (data, synthetic) = split_receipt_data(gas_infos(2), 2, true).unwrap();
+	fn outside_frame_logs_are_served_as_emitted_when_they_all_fitted() {
+		let logs = reconcile_outside_frame_logs(outside_frame_logs(3), 3, 1);
 
-		assert_eq!(data, gas_infos(2));
-		assert!(synthetic.is_none());
+		assert_eq!(logs, outside_frame_logs(3));
 	}
 
 	#[test]
-	fn split_receipt_data_rejects_fewer_entries_than_transactions() {
-		let err = split_receipt_data(gas_infos(1), 2, false).unwrap_err();
+	fn outside_frame_logs_past_what_the_block_committed_are_not_served() {
+		// The buffer fills in emission order and drops what arrives after, so the committed logs
+		// are the leading ones. Serving the rest would hand out logs absent from the block's
+		// `logs_bloom` and `receipts_root`.
+		let logs = reconcile_outside_frame_logs(outside_frame_logs(5), 2, 1);
 
-		assert!(matches!(err, ClientError::ReceiptDataLengthMismatch));
+		assert_eq!(logs, outside_frame_logs(2));
+	}
+
+	#[test]
+	fn fewer_outside_frame_logs_than_committed_are_served_as_decoded() {
+		// Nothing to cut: the events decoded into less than the block committed, which the warning
+		// reports and truncation cannot repair.
+		let logs = reconcile_outside_frame_logs(outside_frame_logs(1), 4, 1);
+
+		assert_eq!(logs, outside_frame_logs(1));
 	}
 }

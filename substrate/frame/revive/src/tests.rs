@@ -540,6 +540,9 @@ impl ExtBuilder {
 	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
+		// A test that lowers the cap would otherwise leave it lowered for every later test sharing
+		// the thread.
+		MaxOutsideFrameLogsFlag::set(1024);
 	}
 	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
 		self.genesis_state_overrides = Some(storage);
@@ -772,8 +775,6 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 	use sp_crypto_hashing::keccak_256;
 
 	ExtBuilder::default().build().execute_with(|| {
-		MaxOutsideFrameLogsFlag::set(1024);
-
 		let contract = H160::from_low_u64_be(0x1234);
 		let topic = H256::repeat_byte(0x11);
 
@@ -869,8 +870,6 @@ fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 	// Emit the three logs in the given order and return what the block commits to them.
 	let commit_in_order = |order: [usize; 3]| {
 		ExtBuilder::default().build().execute_with(|| {
-			MaxOutsideFrameLogsFlag::set(1024);
-
 			for i in order {
 				Pallet::<Test>::emit_contract_log_outside_frame(
 					contracts[i],

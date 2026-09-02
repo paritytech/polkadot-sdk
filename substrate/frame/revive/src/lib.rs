@@ -105,7 +105,10 @@ pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
-	evm::{Address as EthAddress, Block as EthBlock, block_hash::ReceiptGasInfo},
+	evm::{
+		Address as EthAddress, Block as EthBlock,
+		block_hash::{ReceiptGasInfo, SyntheticTransactionInfo},
+	},
 	exec::{
 		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
 		ReentrancyProtection,
@@ -808,6 +811,15 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
+
+	/// What the block committed to its synthetic transaction, if it has one.
+	///
+	/// Separate from [`ReceiptInfoData`] rather than a field alongside it, so that item's encoding
+	/// is unchanged: a runtime upgrade enacts mid-block, and a runtime API call at the enacting
+	/// block reads what the previous runtime wrote.
+	#[pallet::storage]
+	pub(crate) type SyntheticReceiptInfo<T: Config> =
+		StorageValue<_, SyntheticTransactionInfo, OptionQuery>;
 
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
@@ -2504,6 +2516,11 @@ impl<T: Config> Pallet<T> {
 		ReceiptInfoData::<T>::get()
 	}
 
+	/// What the block committed to its synthetic transaction, if it has one.
+	pub fn eth_synthetic_transaction() -> Option<SyntheticTransactionInfo> {
+		SyntheticReceiptInfo::<T>::get()
+	}
+
 	/// Set the EVM balance of an account.
 	///
 	/// The account's total balance becomes the EVM value plus the existential deposit,
@@ -2999,7 +3016,10 @@ sp_api::decl_runtime_apis! {
 		///
 		/// # Note
 		///
-		/// Each entry corresponds to the appropriate Ethereum transaction in the current block.
+		/// Each entry corresponds to the appropriate Ethereum transaction in the current block. A
+		/// block may also carry a synthetic transaction for the logs emitted outside any ethereum
+		/// transaction; it has no entry here, and only `eth_receipt_data_versioned` at version 2
+		/// or above reports it.
 		#[deprecated(note = "Use the versioned equivalent `eth_receipt_data_versioned` if available on your runtime")]
 		fn eth_receipt_data() -> Vec<ReceiptGasInfoV1>;
 
@@ -3734,7 +3754,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					ReviveRuntimeApiVersionDeclarations::new()
 						.insert("eth_block_versioned", 1)
 						.insert("eth_block_hash_versioned", 1)
-						.insert("eth_receipt_data_versioned", 1)
+						.insert("eth_receipt_data_versioned", 2)
 						.insert("block_gas_limit_versioned", 1)
 						.insert("max_extrinsic_weight_in_gas_versioned", 1)
 						.insert("balance_versioned", 1)
@@ -3817,10 +3837,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							ReceiptDataInputPayload::from(payload),
 							Box::new(|output| ReceiptDataVersionedOutputPayload::V1(output.into())),
 						),
+						ReceiptDataVersionedInputPayload::V2(payload) => (
+							ReceiptDataInputPayload::from(payload),
+							Box::new(|output| ReceiptDataVersionedOutputPayload::V2(output.into())),
+						),
 					};
 
 					let output = ReceiptDataOutputPayload {
-						receipt_data: $crate::Pallet::<Self>::eth_receipt_data()
+						receipt_data: $crate::Pallet::<Self>::eth_receipt_data(),
+						synthetic: $crate::Pallet::<Self>::eth_synthetic_transaction(),
 					};
 					output_wrapper(output)
 				}
