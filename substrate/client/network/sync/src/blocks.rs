@@ -79,6 +79,7 @@ impl<B: BlockT> BlockCollection<B> {
 	pub fn clear(&mut self) {
 		self.blocks.clear();
 		self.peer_requests.clear();
+		self.queued_blocks.clear();
 	}
 
 	/// Insert a set of blocks into collection.
