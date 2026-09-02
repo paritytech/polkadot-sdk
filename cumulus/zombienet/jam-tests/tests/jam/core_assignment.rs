@@ -12,6 +12,12 @@
 //!
 //! A tiny network has exactly two cores, which is why two paras is the widest test there is and
 //! why a single para's spare core is core 1.
+//!
+//! Freeing a core parks it rather than emptying it: the same authorizer code stays on it under a
+//! config naming no para, so it stops carrying parachain work but keeps taking control packages.
+//! That is what lets the stall test heal on the very core it took away, and it is the difference
+//! between the two single-para tests here — one puts the para back where it was, the other moves
+//! it somewhere else.
 
 use super::{
 	collators::Para,
@@ -26,7 +32,8 @@ const PARA: u32 = 0;
 const CORE: u32 = 0;
 
 /// The other core of a tiny network. In a single-para run nothing is assigned to it, so it keeps
-/// the genesis authorizer and service 0 as its assigner — which is what leaves it reachable.
+/// the genesis authorizer and service 0 as its assigner — which is what leaves the bootstrap lane
+/// open to it, and is how the reassignment test moves a para onto it.
 const SPARE_CORE: u32 = 1;
 
 /// The accumulated height a para has to reach before a test starts interfering with its cores.
@@ -125,8 +132,8 @@ async fn heads_belong_to_their_own_para(run: &mut Run) -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Taking a para's core away freezes its head on JAM while it keeps authoring, and giving it a
-/// core again brings the head back.
+/// Taking a para's core away freezes its head on JAM while it keeps authoring, and giving the
+/// same core back brings the head back.
 ///
 /// This is the failure mode the whole core layer has to survive: nothing tells a collator that its
 /// core is gone. Packages keep being submitted for as long as the old authorizer lasts in the
@@ -172,7 +179,7 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 	// nothing about what taking it away does.
 	let reroots_before = reroots(run);
 	let authored_before = authored(run);
-	log::info!("core {CORE} is unassigned; para {PARA} was at {freed} when it went");
+	log::info!("core {CORE} is parked; para {PARA} was at {freed} when it went");
 
 	let frozen = run.wait_for_frozen_jam_head(0, &rpc, STILL_FOR, STALL_BUDGET).await?;
 	// Counted rather than read off the chain's height on purpose: a builder that has re-rooted is
@@ -197,15 +204,15 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 	);
 	log::info!("the builder authored {rerooted} blocks re-rooted onto the stuck head");
 
-	// The heal goes to the *other* core, and it has to. Freeing core 0 left parasim holding its
-	// assigner privilege but left it running the genesis authorizer, and a control command can
-	// only ride a core that runs an AURA authorizer this collator set can sign for — of which a
-	// single-para run now has none. Core 1 still has service 0 as its assigner, so the bootstrap
-	// lane can point it at the para.
-	run.network.assign_core(&run.binaries, &para, SPARE_CORE)?;
+	// The heal goes back to the *same* core, which is the point. Parking left core 0 running the
+	// same authorizer code under a config naming no para, so it still takes a control package
+	// even though it carries no parachain work — and parasim, granted its assigner privilege in
+	// setup, can act on one. No spare core is involved, so what this asserts is that losing a
+	// core is recoverable on a network with nothing else to fall back on.
+	run.network.assign_core(&run.binaries, &para, CORE, None)?;
 	let frozen_at = frozen.jam_head.context("the head froze before anything accumulated")?;
 	let healed = run.wait_for_jam_head(0, &rpc, frozen_at.number + 1, HEAL_BUDGET).await?;
-	log::info!("para {PARA} healed on core {SPARE_CORE}: {frozen_at} -> {healed}");
+	log::info!("para {PARA} healed on core {CORE}, the core it lost: {frozen_at} -> {healed}");
 	Ok(())
 }
 
@@ -213,7 +220,7 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 ///
 /// The move is two steps and the overlap between them is the whole point. Assigning the spare core
 /// leaves the para's authorizer in *both* pools, and the collator's lowest-index policy keeps it
-/// submitting to the core it is already on. Freeing that core does not cut anything off either:
+/// submitting to the core it is already on. Parking that core does not cut anything off either:
 /// its pool drains over the following blocks and the packages already under it are still reported
 /// and accumulated. So the head is never allowed to pause, which is what the walk below asserts —
 /// one head at a time, each within a bounded wait, so that a stall anywhere across the handover
@@ -246,7 +253,10 @@ async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
 	let before = run.wait_for_jam_head(0, &rpc, HEALTHY_HEAD, WARM_UP).await?;
 	log::info!("para {PARA} is healthy on core {CORE}: {before}");
 
-	run.network.assign_core(&run.binaries, &para, SPARE_CORE)?;
+	// Core 1 was never assigned in a single-para run, so it still holds the genesis authorizer and
+	// service 0 as its assigner: this rides the bootstrap lane on core 1 itself, and needs no
+	// carrier.
+	run.network.assign_core(&run.binaries, &para, SPARE_CORE, None)?;
 	let overlapping = walk_heads(run, &rpc, OVERLAP_HEADS, GAP_TOLERANCE).await?;
 	log::info!("both cores hold the authorizer and the head kept moving: {overlapping}");
 
@@ -262,7 +272,7 @@ async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
 
 	run.network.free_core(&run.binaries, &para, CORE)?;
 	let moved = walk_heads(run, &rpc, MOVED_HEADS, GAP_TOLERANCE).await?;
-	log::info!("core {CORE} is gone and the head kept moving: {moved}");
+	log::info!("core {CORE} is parked and the head kept moving: {moved}");
 
 	// The same two fields as above, on the submission line this time (`package_len` is only on
 	// that one): proof that packages are now going to the core the para was moved to.
