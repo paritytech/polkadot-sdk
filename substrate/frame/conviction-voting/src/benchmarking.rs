@@ -27,7 +27,7 @@ use frame_support::{
 	traits::{
 		fungible,
 		tokens::{Fortitude::Polite, Preservation::Expendable},
-		Currency, Get,
+		Get,
 	},
 };
 use sp_runtime::traits::Bounded;
@@ -55,7 +55,13 @@ fn fill_voting<T: Config<I>, I: 'static>(
 
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+	// `set_balance` mints the difference into `TotalIssuance`, so `max_value()` would
+	// overflow issuance (unlike the old `make_free_balance_be`, which saturated). A tenth is
+	// still far beyond any vote amount while leaving room for several funded accounts.
+	let _ = <T::Currency as fungible::Mutate<T::AccountId>>::set_balance(
+		&caller,
+		BalanceOf::<T, I>::max_value() / 10u32.into(),
+	);
 	caller
 }
 
@@ -256,8 +262,9 @@ benchmarks_instance_pallet! {
 		let caller = funded_account::<T, I>("caller", 0);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		whitelist_account!(caller);
-		let normal_account_vote = account_vote::<T, I>(T::Currency::free_balance(&caller) - 100u32.into());
-		let big_account_vote = account_vote::<T, I>(T::Currency::free_balance(&caller));
+		let free_balance = <T::Currency as fungible::Inspect<T::AccountId>>::balance(&caller);
+		let normal_account_vote = account_vote::<T, I>(free_balance - 100u32.into());
+		let big_account_vote = account_vote::<T, I>(free_balance);
 
 		// Fill everything up to the max by filling all classes with votes and voting on them all.
 		let (class, all_polls) = fill_voting::<T, I>();
