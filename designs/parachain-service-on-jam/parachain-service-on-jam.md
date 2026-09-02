@@ -198,13 +198,13 @@ struct ParachainServiceState {
 
     /// Cross-parachain preimage registry. Holds every preimage the service
     /// has solicited from JAM (each parachain's active validation code, any
-    /// pending-upgrade code, and PVF-initiated `solicit` requests) under the
+    /// pending-upgrade code, and PVF-initiated `Solicit` requests) under the
     /// same referencer-sharing scheme. In the key, `Hash` is
     /// the preimage's hash and `u32` its byte length. See §6.1.
     preimage_registry: Map<(Hash, u32), PreimageEntry>,
 
     /// Validator-key set being assembled chunk by chunk by
-    /// `set_validator_keys`. See §5.3.
+    /// `SetValidatorKeys`. See §5.3.
     staged_validator_keys: BoundedVec<ValidatorKey, 1023>,
 
     /// Per-parachain key/value store. 
@@ -252,7 +252,7 @@ enum RefineLog {
     /// Opaque payload with which the PVF aborted itself via `report_error(data)`
     /// (max 1024 bytes). See §4.2.
     Opaque(BoundedVec<u8, 1024>),
-    /// `set_validator_keys` was called more than once in a single Refine
+    /// `SetValidatorKeys` was called more than once in a single Refine
     /// invocation. See §4.3, §5.3.
     SetValidatorKeysRepeated,
     /// A `SetValidatorKeys` chunk carried more than 30 keys. See §4.3, §5.3.
@@ -286,15 +286,15 @@ enum RefineLog {
 
 /// Why a state-balance reservation failed (see §6.1).
 enum InsufficientBalanceReason {
-    /// A `solicit` (or code-upgrade solicit) of the preimage with `hash` and `len`.
+    /// A `Solicit` (or `RequestCodeUpgrade`) of the preimage with `hash` and `len`.
     Solicit { hash: Hash, len: Compact<u32> },
-    /// A `kv_set(key, value)` write to `key_value_storage`. Only the
+    /// A `SetKV { key, value }` write to `key_value_storage`. Only the
     /// hash of `key` is recorded so an arbitrarily large
     /// user key cannot inflate `parachain_log`.
     SetKV { key_hash: Hash },
 }
 
-/// Why `parachain_set_state_balance` was rejected (see §6.1).
+/// Why `ParachainSetStateBalance` was rejected (see §6.1).
 enum StateBalanceRejection {
     /// `attempted < current_used`.
     BelowUsed { current_total: Compact<Balance>, current_used: Compact<Balance> },
@@ -306,7 +306,7 @@ enum AccumulateLog {
     /// Available state balance insufficient for the operation described by
     /// `reason`. See §6.1.
     InsufficientStateBalance { reason: InsufficientBalanceReason },
-    /// `parachain_set_state_balance(para_id, attempted)` was rejected for
+    /// `ParachainSetStateBalance { para_id, new_total: attempted }` was rejected for
     /// `reason`. See §6.1.
     StateBalanceUpdateRejected {
         para_id: ParaId,
@@ -316,7 +316,7 @@ enum AccumulateLog {
     /// JAM `designate` rejected the assembled validator-key set because its
     /// `len` is not in `valcount`. The staging buffer is cleared regardless. See §5.3.
     DesignateRejected { len: Compact<u32> },
-    /// A `set_validator_keys` chunk would grow `staged_validator_keys` beyond
+    /// A `SetValidatorKeys` chunk would grow `staged_validator_keys` beyond
     /// its reserved capacity (`MaxStagedValidatorKeys`); the append is rejected
     /// and the buffer left unchanged. See §5.3.
     StagedValidatorKeysOverflow,
@@ -329,44 +329,44 @@ enum AccumulateLog {
     /// A `forget` left the preimage in place. It must be forgotten again at
     /// `due`. See §6.1.
     ForgetAgainAt { hash: Hash, len: Compact<u32>, due: Timeslot },
-    /// A `forget` or `remove_service_storage` on a supervised service's store
+    /// A `Forget` or `RemoveServiceStorage` on a supervised service's store
     /// failed.
     ServiceStoreFailed { service: ServiceId, error: ServiceStoreError },
-    /// A `Service`-targeted `solicit` failed.
+    /// A `Service`-targeted `Solicit` failed.
     ServiceSolicitFailed { service: ServiceId, error: ServiceSolicitError },
-    /// An `eject_service` failed.
+    /// An `EjectService` failed.
     ServiceEjectFailed { service: ServiceId, error: ServiceEjectError },
-    /// A `set_service_supervisor` failed.
+    /// A `SetServiceSupervisor` failed.
     ServiceSupervisorFailed { service: ServiceId, error: ServiceSupervisorError },
     /// Announces a `CreateService` outcome to Asset Hub. `id` is the
     /// caller-supplied identifier from the `CreateService`, echoed back so Asset
     /// Hub can match the outcome to its request.
     ServiceCreation { id: Compact<u64>, result: ServiceCreationResult },
-    /// `parachain_clean_up` was rejected because the parachain still holds state
+    /// `ParachainCleanUp` was rejected because the parachain still holds state
     /// beyond its baseline and validation code(s); it must release the rest
     /// first. See §6.4.
     TooMuchStateHeld,
 }
 
-/// What a `forget` acts on: a registered parachain's share of this service's
+/// What a `Forget` acts on: a registered parachain's share of this service's
 /// own store, or a supervised service's store.
 enum Target {
     Parachain(ParaId),
     Service(ServiceId),
 }
 
-/// Why a `forget` or `remove_service_storage` against a supervised service's
+/// Why a `Forget` or `RemoveServiceStorage` against a supervised service's
 /// store failed.
 enum ServiceStoreError {
     /// The named service does not exist.
     UnknownService,
     /// The Parachain Service is not its effective supervisor.
     NotSupervised,
-    /// A `forget` naming a preimage the target never requested.
+    /// A `Forget` naming a preimage the target never requested.
     NotRequested,
 }
 
-/// Why a `Service`-targeted `solicit` failed.
+/// Why a `Service`-targeted `Solicit` failed.
 enum ServiceSolicitError {
     UnknownService,
     NotSupervised,
@@ -377,7 +377,7 @@ enum ServiceSolicitError {
     AlreadySolicited,
 }
 
-/// Why an `eject_service` failed.
+/// Why an `EjectService` failed.
 enum ServiceEjectError {
     UnknownService,
     NotSupervised,
@@ -390,7 +390,7 @@ enum ServiceEjectError {
     TargetIsSelf,
 }
 
-/// Why a `set_service_supervisor` failed.
+/// Why a `SetServiceSupervisor` failed.
 enum ServiceSupervisorError {
     /// The named service does not exist.
     UnknownService,
@@ -400,7 +400,7 @@ enum ServiceSupervisorError {
     NotSupervised,
 }
 
-/// How a `create_service` turned out.
+/// How a `CreateService` turned out.
 enum ServiceCreationResult {
     /// Succeeded, carrying the id JAM assigned. JAM honours `desired_id` only
     /// while the Parachain Service is the registrar and otherwise picks an id
@@ -504,13 +504,13 @@ struct ParaInfo {
     /// deadline timeslot after which the upgrade is rejected. See §5.2.
     pending_upgrade: Option<(ValidationCode, Timeslot)>,
     /// Total state balance allocated to this parachain. Set exclusively by
-    /// the Coretime chain via `parachain_set_state_balance`. See §6.1.
+    /// the Coretime chain via `ParachainSetStateBalance`. See §6.1.
     total_state_balance: Compact<Balance>,
     /// State balance currently consumed by this parachain's solicited PVF
     /// preimages (active validation code + pending upgrade, if any).
-    /// Increased on `solicit()`, decreased on `forget()`. See §6.1.
+    /// Increased on `Solicit`, decreased on `Forget`. See §6.1.
     used_state_balance: Compact<Balance>,
-    /// Set once `parachain_clean_up` has begun deregistering this parachain
+    /// Set once `ParachainCleanUp` has begun deregistering this parachain
     /// but some preimage still awaits its second, expunging `forget`. See §6.4.
     is_deregistering: bool,
 }
@@ -829,7 +829,7 @@ Accumulate:
 | Index | Host function | Returns | Purpose |
 |---|---|---|---|
 | 100 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
-| 101 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `parachain_set_head`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
+| 101 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | 102 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 103 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 
@@ -902,7 +902,7 @@ it ends. The next arrival opens `last_bucket + 1`, or `0` when the queue is empt
 are thus contiguous, so Asset Hub enumerates the queue from the two endpoints alone, and
 the cap bounds what reading any one bucket can cost.
 
-`clean_up_buckets_up_to(bucket_id)` removes whole buckets from `first_bucket` up to and
+`CleanUpBucketsUpTo(bucket_id)` removes whole buckets from `first_bucket` up to and
 including `bucket_id` and points `first_bucket` at the first survivor. Once nothing
 remains, the `incoming_transfer_buckets` entry is removed, so ids restart from `0` rather
 than increasing forever.
@@ -1030,7 +1030,7 @@ selects between the two modes that host-call offers (Gray Paper, `transfer`):
 `gas` is charged to the **Parachain Service's own Accumulate gas**, which JAM pools
 from the gas limits the block's work items registered for the service. A transfer's
 `gas` must therefore be accounted against the limit registered by the candidate that
-requested it, so that one parachain cannot spend gas another registered. `transfer_out`
+requested it, so that one parachain cannot spend gas another registered. `TransferOut`
 is Asset Hub only, so keeping its demands within that allowance is Asset Hub's responsibility.
 
 `source` names the debited account, `None` meaning the Parachain Service itself.
@@ -1057,10 +1057,10 @@ up to two independent reasons: it is the parachain's active/pending code (the
 service's own reason), and/or the parachain solicited it itself. The latter is
 recorded per-code by the `pinned` bit in `ParaInfo` (§3.1):
 
-- **Parachain `solicit` of its active/pending code** sets the corresponding
+- **Parachain `Solicit` of its active/pending code** sets the corresponding
   `pinned` bit. No extra state balance is charged, since the code is already
   referenced.
-- **Parachain `forget` of its active/pending code** clears that bit but does
+- **Parachain `Forget` of its active/pending code** clears that bit but does
   **not** release the referencer or forward a JAM `forget`: the service still
   needs the code available, so it stays solicited (§4.3).
 - When a code **ceases to be active/pending** (activation, timeout reap, or a
@@ -1076,7 +1076,7 @@ recorded per-code by the `pinned` bit in `ParaInfo` (§3.1):
 
 ```
 Phase 1: Request
-    Parachain calls request_code_upgrade(new_code_hash, len) during Refine.
+    Parachain emits RequestCodeUpgrade { hash: new_code_hash, len } during Refine.
     │
     ▼
 Phase 2: Request Preimage
@@ -1145,7 +1145,7 @@ A full `stagingset` (Gray Paper, Safrole section, validator-key definitions) is 
 result-blob budget, and JAM's `designate` accepts only the complete vector.
 The Parachain Service therefore buffers chunks in `staged_validator_keys`
 across multiple Asset Hub blocks (one chunk per block, since
-`set_validator_keys` may be called at most once per Refine; see §4.3) until
+`SetValidatorKeys` may be sent at most once per Refine; see §4.3) until
 Asset Hub signals completion via `is_last`.
 
 When Accumulate replays a `SetValidatorKeys { keys, is_last }` upward message
@@ -1162,7 +1162,7 @@ it:
    `designate` and never persists in storage); otherwise `designate` is **not**
    called. The length check rejects the set and
    `AccumulateLog::DesignateRejected` is recorded against the Asset Hub `ParaId`.
-   This also gives Asset Hub the abort path: `set_validator_keys(vec![], true)`
+   This also gives Asset Hub the abort path: `SetValidatorKeys { keys: vec![], is_last: true }`
    yields a length-zero set, which the length check rejects, clearing the staging
    area.
 
@@ -1173,9 +1173,8 @@ buffer is covered in §6.1.
 ### 5.4 Service Self-Upgrade
 
 Authority over Parachain Service code upgrades is held by **Asset Hub**. Asset Hub
-triggers the upgrade via `parachain_service_upgrade` (§4.3), which emits
-`UpwardMessage::UpgradeService` and is rejected by the Refine wrapper
-for any other parachain. Accumulate forwards it to JAM's `upgrade`
+triggers the upgrade by emitting `UpwardMessage::UpgradeService` (§3.3), which the
+Refine wrapper rejects from any other parachain. Accumulate forwards it to JAM's `upgrade`
 host call after verifying that the new code's preimage is **available for lookup**,
 meaning JAM's `query` reports it as provided and not since unrequested (§6.1).
 Solicitation alone is not enough: JAM's `upgrade` performs no such check itself, so
@@ -1184,7 +1183,8 @@ no code to run at all, and it could not upgrade its way back out.
 
 ```
 Phase 1: Solicit
-    Asset Hub calls solicit(new_code_hash, len) (§6.1).
+    Asset Hub emits Solicit { target: Parachain(asset_hub_para_id), hash: new_code_hash, len }
+    (§6.1).
 
 Phase 2: Verify Solicit
     Asset Hub waits for its next block to be built on top of a JAM
@@ -1194,7 +1194,7 @@ Phase 2: Verify Solicit
     insufficient, Asset Hub aborts.
 
 Phase 3: Upgrade
-    Asset Hub calls parachain_service_upgrade(new_code_hash, ...).
+    Asset Hub emits UpgradeService { code_hash: new_code_hash, .. }.
     Accumulate forwards to JAM upgrade if the preimage is available;
     otherwise it logs AccumulateLog::ServiceUpgradePreimageMissing.
 
@@ -1204,7 +1204,7 @@ Phase 4: Activate
 
 Phase 5: Forget
     Asset Hub observes the new codehash in Parachain Service state
-    and calls forget(asset_hub_para_id, old_code_hash, len) (§6.1).
+    and emits Forget { target: Parachain(asset_hub_para_id), hash: old_code_hash, len } (§6.1).
 ```
 
 ---
@@ -1230,7 +1230,7 @@ enum MerkleTree {
   `para_id`, 32-octet `head_hash`) and a `Node` to 65 (discriminant, two hashes).
 - One leaf per parachain whose `head_data` changed during the invocation, carrying the
   value it holds when the invocation ends. A parachain written more than once within
-  the invocation, by a candidate and then a forced `parachain_set_head`, still
+  the invocation, by a candidate and then a forced `ParachainSetHead`, still
   contributes exactly one leaf.
 - Leaves are ordered by ascending `para_id`, so every verifier builds the same tree and
   can locate a parachain's leaf without extra data.
@@ -1253,23 +1253,23 @@ Parachain lifecycle and management is driven by the **Coretime chain**, which ow
 policy layer: ParaId allocation, deposits, and deciding when to create, overwrite, or
 clean up a parachain's state.
 
-The Parachain Service exposes four low-level, idempotent host functions that drive
+The Parachain Service accepts four low-level, idempotent upward messages (§3.3) that drive
 state-balance management, registration, forced updates, and deregistration:
 
-- `parachain_set_state_balance(para_id, new_total)`: set the parachain's quota
-- `parachain_set_head(para_id, new_head)`: upsert head data
-- `parachain_set_validation_code(para_id, new_validation_code_hash, new_validation_code_len)`: upsert validation code
-- `parachain_clean_up(para_id)`: remove all per-parachain state
+- `ParachainSetStateBalance { para_id, new_total }`: set the parachain's quota
+- `ParachainSetHead { para_id, new_head }`: upsert head data
+- `ParachainSetValidationCode { para_id, new_validation_code_hash, new_validation_code_len }`: upsert validation code
+- `ParachainCleanUp(para_id)`: remove all per-parachain state
 
 All four are Coretime-chain-only; the Parachain Service performs no rights-checking
 of its own and in particular **does not enforce ParaId uniqueness**. The Coretime
 chain is the sole authority on which `ParaId`s are live and who owns them.
-`parachain_set_state_balance` is the sole creator of `ParaInfo` (see §6.1);
-`parachain_set_head`, `parachain_set_validation_code`, and `parachain_clean_up`
+`ParachainSetStateBalance` is the sole creator of `ParaInfo` (see §6.1);
+`ParachainSetHead`, `ParachainSetValidationCode`, and `ParachainCleanUp`
 silently no-op when invoked on a `ParaId` whose `ParaInfo` doesn't exist yet, so
-Coretime must call `parachain_set_state_balance` first in any registration
-sequence. On an existing `ParaId`, `parachain_set_head` /
-`parachain_set_validation_code` simply overwrite (useful for forced recovery).
+Coretime must emit `ParachainSetStateBalance` first in any registration
+sequence. On an existing `ParaId`, `ParachainSetHead` /
+`ParachainSetValidationCode` simply overwrite (useful for forced recovery).
 
 ### 6.1 State-Balance Accounting
 
@@ -1307,15 +1307,15 @@ recomputing when the referencer set changes.
 #### Total balance management (Coretime chain only)
 
 The Coretime chain is the sole authority on `total_state_balance`. It calls
-`parachain_set_state_balance(para_id, new_total)` to set the value: at registration
+`ParachainSetStateBalance { para_id, new_total }` to set the value: at registration
 to create the initial budget (see §6.2), and at any later point to grant additional
 headroom for any additional state requirements or to reclaim slack once the parachain stabilizes.
 
-`parachain_set_state_balance` is the sole creator of `ParaInfo`. Called on a
+`ParachainSetStateBalance` is the sole creator of `ParaInfo`. Called on a
 previously-unused `ParaId`, it creates a fresh entry with
 `total_state_balance = new_total`, `used_state_balance = baseline_footprint`, and
-the other fields uninitialized (to be filled in by subsequent `parachain_set_head` /
-`parachain_set_validation_code` calls in the same registration sequence). Called on
+the other fields uninitialized (to be filled in by subsequent `ParachainSetHead` /
+`ParachainSetValidationCode` calls in the same registration sequence). Called on
 an existing `ParaId`, it overwrites `total_state_balance` in place.
 
 In either case the call is applied only if `new_total >= used_state_balance` (so
@@ -1327,7 +1327,7 @@ chain's `parachain_log` (§5.1) so it can observe the rejection and size a retry
 deregistering `ParaId` (§6.4) is rejected the same way with reason
 `ParachainIsDeregistering`. To free state balance,
 `used_state_balance` must first be reduced
-by releasing state via `forget` / `kv_remove`, called either by the parachain
+by releasing state via `Forget` / `RemoveKV`, emitted either by the parachain
 itself or by the Coretime chain on its behalf (see §6.4).
 
 Verifying the user has enough balance to cover at least the baseline is the Coretime
@@ -1335,7 +1335,7 @@ chain's responsibility, done before starting the registration sequence.
 
 Deposits, sizing, and refunds are owned end-to-end by the Coretime chain; end users
 interact with it via its usual extrinsics, and the Coretime chain reflects those
-interactions into the Parachain Service via `parachain_set_state_balance`.
+interactions into the Parachain Service via `ParachainSetStateBalance`.
 
 #### Preimage handling
 
@@ -1351,9 +1351,10 @@ earlier than `C_expungeperiod = 19 200` timeslots (~32 h) later, actually expung
 it. The service keeps no bookkeeping for this. When a `forget` removes the last
 referencer without expunging the preimage, Accumulate appends an
 `AccumulateLog::ForgetAgainAt { hash, len, due }`, where `due = now +
-C_expungeperiod`, to the log of the parachain that emitted the `forget` (§5.1), and
+C_expungeperiod`, to the log of the parachain that emitted the `Forget` (§5.1), and
 leaves the last referencer in `referencers`, still charged the full footprint. That
-parachain calls `forget(para_id, hash, len)` again once the timeslot is *strictly
+parachain emits `Forget { target: Parachain(para_id), hash, len }` again once the
+timeslot is *strictly
 after* `due` to complete the expunge and free the footprint.
 
 A preimage that was solicited but **never provided** to JAM is different: a single
@@ -1494,7 +1495,7 @@ kv_entry_footprint(k, v) = 44
  = 49 + compactLen(k) + k + compactLen(v) + v
 ```
 
-A `kv_set` computes the change in `used_state_balance`: the new entry's
+A `SetKV` computes the change in `used_state_balance`: the new entry's
 footprint, or `compactLen(new_v) + new_v − compactLen(old_v) − old_v` when
 overwriting an existing key. The old value's length is recovered without
 materializing the old value: since it is a SCALE-encoded `Vec<u8>`, reading
@@ -1502,7 +1503,7 @@ just the first 4 bytes (via JAM `read`'s offset/length) is enough to decode
 the `Compact<u32>` length prefix. When the change is positive it must fit
 within `total_state_balance` before the write is applied; when it is negative
 (an overwrite with a smaller value) the freed balance is credited back. A
-`kv_remove` refunds `kv_entry_footprint(k, v)` for the removed entry.
+`RemoveKV` refunds `kv_entry_footprint(k, v)` for the removed entry.
 
 #### Write-time invariant
 
@@ -1519,17 +1520,17 @@ service stuck until manual intervention.
 
 ### 6.2 Registration
 
-Registration is the composition of `parachain_set_state_balance`,
-`parachain_set_head`, and `parachain_set_validation_code` on a previously-unused
+Registration is the composition of `ParachainSetStateBalance`,
+`ParachainSetHead`, and `ParachainSetValidationCode` on a previously-unused
 `ParaId`, in that order:
 
 ```
 Coretime chain
     │  Account submits registration: genesis head + validation code hash + len.
-    │  Coretime sizes the deposit per §6.1, allocates the ParaId, and calls:
-    │      parachain_set_state_balance(para_id, total)
-    │      parachain_set_head(para_id, genesis_head)
-    │      parachain_set_validation_code(para_id, validation_code_hash, validation_code_len)
+    │  Coretime sizes the deposit per §6.1, allocates the ParaId, and emits:
+    │      ParachainSetStateBalance { para_id, new_total: total }
+    │      ParachainSetHead { para_id, new_head: genesis_head }
+    │      ParachainSetValidationCode { para_id, validation_code_hash, validation_code_len }
     ▼
 Parachain Service (Accumulate)
     │  ParaInfo created (rejected if total < baseline), head_data set,
@@ -1543,19 +1544,19 @@ Registration does **not** wait for the preimage.
 
 ### 6.3 Forced Updates (Recovery)
 
-The same two host functions also handle exceptional recovery, e.g. unsticking a chain
+The same two messages also handle exceptional recovery, e.g. unsticking a chain
 whose last included block cannot be built on, or swapping in a new PVF outside the normal
 upgrade lifecycle:
 
-- `parachain_set_head(para_id, new_head)` overwrites `ParaInfo.head_data`.
-- `parachain_set_validation_code(para_id, new_hash, new_len)` sets
+- `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data`.
+- `ParachainSetValidationCode { para_id, new_hash, new_len }` sets
   `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
   `pending_upgrade`. Unless the parachain already references `new_hash`, in which case
   the solicit is a no-op and nothing is charged, `used_state_balance` grows by
   `preimage_footprint(new_len)`
   to hold the new validation code. The displaced validation codes (the old active
   code and any pending code) are released via the normal `forget` step (§6.1).
-  Each keeps its footprint charged until the parachain calls `forget` again to
+  Each keeps its footprint charged until the parachain emits `Forget` again to
   complete the two-step release. So while those releases are in flight the
   parachain holds the new validation code plus every not-yet-forgotten displaced
   validation code. That is two validation codes when there was no pending
@@ -1567,9 +1568,9 @@ upgrade lifecycle:
 ```
 Coretime chain
     │  Verifies the rights of the caller
-    │  Calls parachain_set_state_balance(para_id, new_total) if needed
-    │  Calls parachain_set_head(para_id, new_head) OR
-    │        parachain_set_validation_code(para_id, new_validation_code_hash, new_validation_code_len)
+    │  Emits ParachainSetStateBalance { para_id, new_total } if needed
+    │  Emits ParachainSetHead { para_id, new_head } OR
+    │        ParachainSetValidationCode { para_id, new_validation_code_hash, new_validation_code_len }
     ▼
 Parachain Service (Accumulate)
     │  Applies the change, re-soliciting/forgetting preimages and adjusting
@@ -1581,7 +1582,7 @@ Parachain Service (Accumulate)
 ```
 Coretime chain
     │  Verifies the rights of the caller
-    │  Calls parachain_clean_up(para_id)
+    │  Emits ParachainCleanUp(para_id)
     ▼
 Parachain Service (Accumulate)
 	│  Rejects with `AccumulateLog::TooMuchStateHeld` unless used_state_balance
@@ -1597,7 +1598,7 @@ Parachain Service (Accumulate)
 Requiring the parachain to drain its own extra state first keeps clean-up bounded:
 the service only ever has to forget the two validation codes, never an unbounded
 set of solicited preimages or KV entries. A parachain that can no longer produce
-blocks cannot drain itself, so `forget` and `kv_remove` take a `para_id` (§4.3),
+blocks cannot drain itself, so `Forget` and `RemoveKV` take a `para_id` (§3.3),
 letting the Coretime chain free any parachain's state on its behalf.
 
 A clean-up that stops for a retry leaves `validation_code` and `pending_upgrade` in
@@ -1609,7 +1610,7 @@ parachain (§5.1), so no new state accrues. Each not-yet-expungeable validation
 code emits a `ForgetAgainAt { .., due }` into the Coretime chain's `parachain_log`
 (§6.1), as does `TooMuchStateHeld` above. The Coretime chain retries
 the call once the timeslot is strictly past the latest such `due`, and the
-parachain is fully removed. This keeps all follow-up in a single host call rather
+parachain is fully removed. This keeps all follow-up in a single message rather
 than tracking per-preimage `forget` deadlines.
 
 Coretime also handles deposit refund and any economic unwinding according to its
@@ -1743,7 +1744,7 @@ slots with the next 80 entries of that set repeated endlessly:
 
 - X = 80, or X < 80 with `80 % X == 0`: the 80 slots tile the set a whole number of
   times, so the installed queue keeps cycling correctly on its own and is written once. A
-  handoff to another assigner likewise has to be self-sufficient, so `assign_core` with a
+  handoff to another assigner likewise has to be self-sufficient, so `AssignCore` with a
   `Some` assigner demands an exact 80-hash queue (§4.3).
 - X < 80 with `80 % X != 0`: 80 slots do not land on a set boundary, so each cycle must
   resume where the last one stopped. The service keeps the queue and rewrites it every
@@ -1759,7 +1760,7 @@ Parachain runtime
     │  Sends XCM to Coretime chain with new collator set root + size
     ▼
 Coretime chain
-    │  calls assign_core(core, authorizers, None, jam_slot)
+    │  emits AssignCore { core, queue: authorizers, new_assigner: None, jam_slot }
     │  (new authorizer hashes computed from same code + updated config)
     ▼
 Parachain Service (Accumulate)
@@ -1775,7 +1776,7 @@ Pool (up to 8 entries)
 
 On-demand coretime is not a special case for the Parachain Service. It is handled
 entirely by the **Coretime chain**. When someone buys a single-slot coretime allocation,
-the Coretime chain just calls `assign_core(core, queue, None, jam_slot)` with a
+the Coretime chain just emits `AssignCore { core, queue, new_assigner: None, jam_slot }` with a
 near-term `jam_slot` to install the buyer's authorizer on the target core for the
 duration of that slot. The
 Parachain Service sees no difference between on-demand and bulk-purchased coretime; it
@@ -1791,7 +1792,7 @@ Two plausible policies on the Coretime chain side:
   holds a valid token can then submit work packages against the pre-registered authorizer.
 
 In both cases, the Parachain Service implementation is unchanged. The Coretime chain
-decides the policy, constructs the authorizer config, and calls `assign_core`.
+decides the policy, constructs the authorizer config, and emits `AssignCore`.
 
 ---
 
