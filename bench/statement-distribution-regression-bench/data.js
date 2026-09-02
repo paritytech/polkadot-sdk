@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788357560720,
+  "lastUpdate": 1788375718308,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4535807e489a0e71e15e420729ee2d09efa32195",
-          "message": "auth-discovery: Ensure DHT published addresses have ports (#10954)\n\nWe have seen instances in production where validators will propagate\nmultiaddresses without ports.\nThese addresses are effectively unreachable from the networking layer\nperspective.\nThey might be discovered via:\n- identify protocol\n- or simply a wrongly configured CLI for public addresses\n\nTo close the gap on this issue, this PR checks that the published\naddresses will always contain a port.\n\nCloses:\n- https://github.com/paritytech/polkadot-sdk/issues/10466\n\nPart of:\n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-03T21:52:12Z",
-          "tree_id": "4ea966b3227373ed5ba3c795f900f32ecaecde86",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4535807e489a0e71e15e420729ee2d09efa32195"
-        },
-        "date": 1770160192722,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.07199999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03833524491599999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06374509983999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0859394265319999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "52418509+georgepisaltu@users.noreply.github.com",
+            "name": "georgepisaltu",
+            "username": "georgepisaltu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5c52f17d7029a06185c811da79f3e0d016cf0ef7",
+          "message": "Add sufficiency method in `fungibles` (#13059)\n\n# Description\n\nThis PR adds a method in the `fungibles` trait family to query whether\nan asset is sufficient or not. The notion of sufficiency was already\nintroduced in `fungibles::Create` but up until now it has only been used\ninternally.\n\n## Review Notes\n\nThe new method has a default impl so that this would not be a breaking\nchange. The same could be accomplished with another trait extending\n`Inspect`, but that seemed too complex for what we are trying to achieve\nhere. If the breaking change is acceptable, we can remove the default\nimpl.\n\nAlso, the method does not assume anything about `fungible` impls as they\nnever carried any notion of sufficiency. `fungible` is generally used as\nthe native currency but this is not necessarily so since it's just a\ntrait for a single fungible currency. IMO it is worse to add\n\"sufficient\" logic to `fungible` than to just default to `false` in our\n`UnionOf` adapters when `fungible` is encountered.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>",
+          "timestamp": "2026-09-02T17:07:53Z",
+          "tree_id": "89df7f001ebad36a7aa52cff0f6f1617a2bdb6e8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5c52f17d7029a06185c811da79f3e0d016cf0ef7"
+        },
+        "date": 1788375678839,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038811482386,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08617591683999994,
             "unit": "seconds"
           }
         ]
