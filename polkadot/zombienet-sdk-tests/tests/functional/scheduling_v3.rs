@@ -62,8 +62,6 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
 				.with_genesis_overrides(json!({
@@ -96,8 +94,6 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 		.with_parachain(|p| {
 			p.with_id(2700)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain(parachain)
 				.with_default_args(vec![
@@ -110,8 +106,6 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 		.with_parachain(|p| {
 			p.with_id(2500)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("async-backing")
 				.with_default_args(vec![
@@ -213,8 +207,6 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
 				.with_genesis_overrides(json!({
@@ -247,8 +239,6 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 		.with_parachain(|p| {
 			p.with_id(2800)
 				.with_default_command("test-parachain")
-				.with_chain_spec_command("test-parachain export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-v3")
 				.with_default_args(vec![

@@ -27,8 +27,6 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
 					("-lparachain=debug").into(),
@@ -54,8 +52,6 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
@@ -64,8 +60,6 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2001)
 				.with_default_command("adder-collator")
-				.with_chain_spec_command("adder-collator export-chain-spec --chain {{chainName}}")
-				.chain_spec_command_is_local(true)
 				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])

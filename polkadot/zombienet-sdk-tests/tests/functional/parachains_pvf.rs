@@ -133,8 +133,6 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		let r = r
 			.with_chain("rococo-local")
 			.with_default_command("polkadot")
-			.with_chain_spec_command("polkadot export-chain-spec --chain {{chainName}}")
-			.chain_spec_command_is_local(true)
 			.with_default_image(polkadot_image.as_str())
 			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
 				"-lparachain=debug,runtime=debug".into(),
@@ -162,8 +160,6 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			.cumulus_based(false)
 			.with_default_image(col_image.as_str())
 			.with_default_command("undying-collator")
-			.with_chain_spec_command("undying-collator export-chain-spec --chain {{chainName}}")
-			.chain_spec_command_is_local(true)
 			.with_default_args(vec![
 				"-lruntime=debug,parachain=trace".into(),
 				format!("--pov-size={pov_size}").as_str().into(),
