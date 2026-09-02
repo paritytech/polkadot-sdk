@@ -332,6 +332,7 @@ pub mod pallet {
 		/// therefore highly advised to stay with the default (local) values. If you still want to
 		/// swap block number providers on the fly, then please at least ensure that you do not run
 		/// any pallet migration in the same runtime upgrade.
+		#[pallet::constant(::IDENTIFIER)]
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 

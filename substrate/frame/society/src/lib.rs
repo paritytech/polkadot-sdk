@@ -548,6 +548,7 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		#[pallet::constant(::IDENTIFIER)]
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 

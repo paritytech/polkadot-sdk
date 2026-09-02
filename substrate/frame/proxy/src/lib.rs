@@ -222,6 +222,7 @@ pub mod pallet {
 		///   - are freshly deploying this pallet: no strong recommendation. Both local and remote
 		///     providers can be used. Relay provider can be a bit better in cases where the
 		///     parachain is lagging its block production to avoid clock skew.
+		#[pallet::constant(::IDENTIFIER)]
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
