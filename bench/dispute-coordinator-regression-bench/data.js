@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788285712203,
+  "lastUpdate": 1788326933318,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "684c79ccace32f8813b2570acac7dfb29f515656",
-          "message": "fix(revive): handle transaction hash conflicts during re-org (#10950)\n\n## Summary\n\nFixes a UNIQUE constraint violation when processing blocks after a\nre-org:\n```\nUNIQUE constraint failed: transaction_hashes.transaction_hash\n```\n\n## Problem\n\nWhen a blockchain re-org occurs:\n1. Block A contains transaction TX1 → stored in `transaction_hashes`\n2. Server restarts (clearing the in-memory `block_number_to_hashes` map)\n3. Re-org happens, Block B (different hash) now contains the same TX1\n4. INSERT fails because TX1 already exists with old block_hash\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T21:49:20Z",
-          "tree_id": "077c704684a65444f754d1995eede215c0ac6a71",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/684c79ccace32f8813b2570acac7dfb29f515656"
-        },
-        "date": 1769813882797,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026681363100000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009241196759999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006491227629999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009482024889999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "32168055+antkve@users.noreply.github.com",
+            "name": "Anthony Kveder",
+            "username": "antkve"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c81f7bffebbaab0ec77d0130f2d25f04ff30d0b",
+          "message": "HOP Pool: Move Metadata into a KV Store (#12076)\n\nDrops the .meta files and the in-memory hashmap, replaces them with a\nsingle parity-db column keyed by HopHash → SCALE-encoded HopEntryMeta.\nKeeps the blob layout on disk untouched. This is the same pattern\nsubstrate/client/statement-store uses\n(statement-store/src/lib.rs:757–780).\n\nIn-memory counters (current_size, user_usage) stay as AtomicU64 /\ndashmap and are rebuilt by iterating the column at startup.\n\n---------\n\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>\nCo-authored-by: Ilia Churin <ilia@parity.io>\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-02T03:58:49Z",
+          "tree_id": "9f5c013c0d4e48ee88df5655ed894d4341830415",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c81f7bffebbaab0ec77d0130f2d25f04ff30d0b"
+        },
+        "date": 1788326898768,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025035831999999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009891769089999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009255598599999994,
             "unit": "seconds"
           }
         ]
