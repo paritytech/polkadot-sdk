@@ -21900,6 +21900,7 @@ dependencies = [
  "futures-timer",
  "hex",
  "jsonrpsee",
+ "parity-db",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "polkadot-primitives",

@@ -23,8 +23,9 @@ jobs:
       contents: read
       pull-requests: write
       id-token: write
-    uses: paritytech/ci-actions/.github/workflows/vertex-ai-review.yaml@main # zizmor: ignore[unpinned-uses]
+    uses: paritytech/ci-actions-public/.github/workflows/vertex-ai-review.yaml@main # zizmor: ignore[unpinned-uses]
     with:
+      vertex_project: ${{ vars.VERTEX_PROJECT }}
       comment_trigger: "/aireview"
     secrets:
       GCP_SA_VERTEX_AI_REVIEW: ${{ secrets.GCP_SA_VERTEX_AI_REVIEW }}
