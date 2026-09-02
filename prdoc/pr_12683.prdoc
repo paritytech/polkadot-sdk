@@ -19,6 +19,10 @@ doc:
     kitchensink runtimes.
 
     `MaxApprovals` stays because the bounties pallet bounds its own `BountyApprovals` queue with it.
+
+    Removed the deprecated `Config::RuntimeEvent` associated type from `pallet_bounties::Config`;
+    external runtimes must bound `frame_system::Config` with
+    `RuntimeEvent: From<pallet_bounties::Event>`.
 crates:
 - name: asset-hub-westend-runtime
   bump: major
@@ -27,7 +31,7 @@ crates:
 - name: rococo-runtime
   bump: major
 - name: pallet-bounties
-  bump: patch
+  bump: major
 - name: pallet-child-bounties
   bump: patch
 - name: pallet-tips

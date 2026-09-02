@@ -122,7 +122,6 @@ parameter_types! {
 
 }
 impl pallet_bounties::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
 	type BountyUpdatePeriod = ConstU64<10>;

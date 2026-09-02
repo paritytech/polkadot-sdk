@@ -1416,7 +1416,6 @@ parameter_types! {
 }
 
 impl pallet_bounties::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = BountyDepositBase;
 	type BountyDepositPayoutDelay = BountyDepositPayoutDelay;
 	type BountyUpdatePeriod = BountyUpdatePeriod;
