@@ -25,7 +25,7 @@ use xcm_executor::XcmExecutor;
 
 #[test]
 fn predefined_id_collection() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let id = AssetId(Location::new(1, [Parachain(1111), PalletInstance(42), GeneralIndex(1)]));
 
 		// An invalid origin is rejected.
@@ -84,7 +84,7 @@ fn predefined_id_collection() {
 
 #[test]
 fn auto_id_collection() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let id_a =
 			AssetId(Location::new(1, [Parachain(2222), PalletInstance(42), GeneralIndex(1)]));
 		let id_b =
@@ -194,7 +194,7 @@ fn duplicate_derivative_id_is_rejected() {
 
 #[test]
 fn local_nfts() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let collection_owner = 1;
 		let nft_initial_owner = 2;
 		let nft_beneficiary = 3;
@@ -264,7 +264,7 @@ fn local_nfts() {
 #[test]
 fn derivative_nfts() {
 	sp_tracing::try_init_simple();
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let foreign_para_id = 2222;
 
 		// Create derivative NFT collection
