@@ -689,8 +689,6 @@ pub mod pallet {
 		/// - [`Error::FeeTooHigh`]: If the configured minting fee exceeds `max_fee`.
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed this PSM's debt ceiling
 		///   (aggregate or per-asset).
-		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
-		///   registration.
 		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
 		///   rounds to zero; swap would transfer nothing.
 		///
@@ -713,8 +711,8 @@ pub mod pallet {
 				.ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(external.status.allows_minting(), Error::<T>::MintingStopped);
 
-			let (ext_decimals, internal_decimals) =
-				Self::ensure_decimals_match(&info, &internal_asset, &external_asset, &external)?;
+			let ext_decimals = external.decimals;
+			let internal_decimals = info.internal_decimals;
 
 			let internal_equivalent =
 				Self::external_to_internal(external_amount, ext_decimals, internal_decimals)?;
@@ -1644,26 +1642,6 @@ pub mod pallet {
 		fn pow10(exp: u32) -> Result<BalanceOf<T>, Error<T>> {
 			let factor_u128 = 10u128.checked_pow(exp).ok_or(Error::<T>::ConversionOverflow)?;
 			factor_u128.try_into().map_err(|_| Error::<T>::ConversionOverflow)
-		}
-
-		/// Verify the live decimals for an external still match the snapshot taken at
-		/// registration on this PSM, and that the internal asset's live decimals still
-		/// match the snapshot stored in [`PsmInfo`].
-		pub(crate) fn ensure_decimals_match(
-			info: &PsmInfo<T>,
-			internal_asset: &T::AssetId,
-			external_asset: &T::AssetId,
-			external: &ExternalAssetInfo,
-		) -> Result<(u8, u8), DispatchError> {
-			ensure!(
-				T::Fungibles::decimals(external_asset.clone()) == external.decimals,
-				Error::<T>::DecimalsMismatch
-			);
-			ensure!(
-				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-				Error::<T>::DecimalsMismatch
-			);
-			Ok((external.decimals, info.internal_decimals))
 		}
 
 		/// Authorise an operation on the PSM keyed by `internal_asset`.

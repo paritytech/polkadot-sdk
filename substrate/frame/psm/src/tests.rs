@@ -2949,12 +2949,13 @@ mod decimal_scaling {
 		});
 	}
 
-	// Runtime decimals guard
+	// Metadata changes after registration
 
 	#[test]
-	fn mint_halts_when_asset_decimals_drift() {
+	fn mint_uses_snapshot_when_asset_decimals_drift() {
 		new_test_ext().execute_with(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(USDX_ASSET_ID);
 
 			// Owner (ALICE) unilaterally changes USDX decimals from 2 -> 4.
 			assert_ok!(Assets::set_metadata(
@@ -2965,15 +2966,16 @@ mod decimal_scaling {
 				4
 			));
 
-			assert_noop!(
-				Psm::mint(
-					RuntimeOrigin::signed(BOB),
-					INTERNAL_ASSET_ID,
-					USDX_ASSET_ID,
-					10_000 * USDX_UNIT,
-					Permill::zero()
-				),
-				Error::<Test>::DecimalsMismatch
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(BOB),
+				INTERNAL_ASSET_ID,
+				USDX_ASSET_ID,
+				10_000 * USDX_UNIT,
+				Permill::zero()
+			));
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID),
+				10_000 * INTERNAL_UNIT
 			);
 		});
 	}
@@ -3028,8 +3030,9 @@ mod decimal_scaling {
 	}
 
 	#[test]
-	fn mint_halts_when_internal_decimals_drift() {
+	fn mint_uses_snapshot_when_internal_decimals_drift() {
 		new_test_ext().execute_with(|| {
+			set_zero_fees(USDC_ASSET_ID);
 			// internal starts at 6 decimals; InternalDecimals snapshot matches. The owner
 			// (ALICE) changes the internal asset's live metadata to simulate drift.
 			assert_ok!(Assets::set_metadata(
@@ -3040,15 +3043,16 @@ mod decimal_scaling {
 				8
 			));
 
-			assert_noop!(
-				Psm::mint(
-					RuntimeOrigin::signed(ALICE),
-					INTERNAL_ASSET_ID,
-					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT,
-					Permill::from_percent(1)
-				),
-				Error::<Test>::DecimalsMismatch
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1000 * INTERNAL_UNIT,
+				Permill::zero()
+			));
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID),
+				1000 * INTERNAL_UNIT
 			);
 		});
 	}
