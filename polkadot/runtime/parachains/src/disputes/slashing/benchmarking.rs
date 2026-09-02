@@ -144,7 +144,7 @@ mod benchmarks {
 		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
 
 		#[extrinsic_call]
-		_(RawOrigin::None, Box::new(dispute_proof), key_owner_proof);
+		_(RawOrigin::Authorized, Box::new(dispute_proof), key_owner_proof);
 
 		let unapplied = <UnappliedSlashes<T>>::get(session_index, CANDIDATE_HASH);
 		assert!(unapplied.is_none());
