@@ -64,11 +64,11 @@ impl Para {
 		Para { id: 0, core: 0, collators: (0..count).collect() }
 	}
 
-	/// The collator set as `parasim-tool --collators` and `--jam-collators` spell it.
+	/// The collator set as `parasim-tool --collators` spells it.
 	///
-	/// Every collator of the para is started with this exact string, and the core is assigned with
-	/// it too: a name's position in the list is the collator index the authorizer hash commits to,
-	/// so a list that differs anywhere is a different hash.
+	/// The core is assigned with this exact string, and the same names go into the chain spec's
+	/// authorities: a name's position in the list is the collator index the authorizer hash
+	/// commits to, so a list that differs anywhere is a different hash.
 	pub fn collator_names(&self) -> String {
 		let names: Vec<String> =
 			self.collators.iter().map(|index| chain_spec::dev_name(*index)).collect();
@@ -94,7 +94,6 @@ impl Collators {
 		)?;
 
 		let count = para.collators.len();
-		let collator_names = para.collator_names();
 		let first_port = NEXT_PORT.fetch_add(count as u16 * PORTS_PER_COLLATOR, Ordering::Relaxed);
 		let mut collators = Vec::with_capacity(count);
 		let mut bootnode: Option<String> = None;
@@ -106,7 +105,6 @@ impl Collators {
 			let rpc_port = p2p_port + 1;
 			let prometheus_port = p2p_port + 2;
 			let peer_id = node_key(&binaries.omni_node, &base_path, &spec)?;
-			insert_collator_key(&binaries.omni_node, &base_path, &spec, account)?;
 
 			let log_path = work_dir.join(format!("{name}.log"));
 			let log = File::create(&log_path)?;
@@ -125,9 +123,9 @@ impl Collators {
 				.args(["--prometheus-port", &prometheus_port.to_string()])
 				.args(["--jam-rpc-urls", &jam.rpc_url])
 				.args(["--jam-service-id", &jam.service_id.to_string()])
-				// The core is not named: the collator finds it by scanning the authorizer pools
-				// for the hash these two arguments produce.
-				.args(["--jam-collators", &collator_names])
+				// Neither the core nor the set is named: the collator reads its set from the
+				// runtime and finds the core by scanning the authorizer pools for the resulting
+				// hash.
 				.arg("--jam-authorizer-blob")
 				.arg(&jam.authorizer_blob)
 				// Discovery is explicit: without this the collators would find, and try to sync
@@ -252,59 +250,6 @@ fn node_key(omni_node: &Path, base_path: &Path, spec: &Path) -> anyhow::Result<S
 		.arg(&key_file))?;
 	anyhow::ensure!(!peer_id.is_empty(), "no peer id for the key at {}", key_file.display());
 	Ok(peer_id)
-}
-
-/// Give the collator the ed25519 key it signs work packages with: key type `coll`, derived from
-/// the same `//<Name>` seed as everything else it runs as.
-///
-/// `--alice` only ever produces an in-memory sr25519 aura key, so without this the on-disk
-/// keystore holds nothing the AURA authorizer would accept and the collator refuses to start.
-/// Re-inserting the same suri rewrites the same file, which is what makes a re-run against an
-/// existing work dir safe.
-fn insert_collator_key(
-	omni_node: &Path,
-	base_path: &Path,
-	spec: &Path,
-	account: usize,
-) -> anyhow::Result<()> {
-	let name = chain_spec::dev_name(account);
-	let suri = chain_spec::dev_suri(account);
-	let started = std::time::Instant::now();
-
-	run(Command::new(omni_node)
-		.args(["key", "insert", "--base-path"])
-		.arg(base_path)
-		.arg("--chain")
-		.arg(spec)
-		.args(["--scheme", "ed25519", "--key-type", "coll", "--suri", &suri]))?;
-
-	// `key insert` prints nothing on success, and a keystore the node then finds empty is a
-	// collator that signs nothing — so read the file back rather than trust the exit code.
-	let key_file = collator_key_file(base_path)
-		.with_context(|| format!("`key insert` left no coll key under {}", base_path.display()))?;
-	log::info!(
-		"collator {name}: coll key {suri} -> {} in {:?}",
-		key_file.display(),
-		started.elapsed()
-	);
-	Ok(())
-}
-
-/// The `coll` keystore file, if there is one. File names are the key type id followed by the
-/// public key, and `636f6c6c` is `"coll"` in hex.
-fn collator_key_file(base_path: &Path) -> Option<PathBuf> {
-	let chains = std::fs::read_dir(base_path.join("chains")).ok()?;
-	chains
-		.flatten()
-		.filter_map(|chain| std::fs::read_dir(chain.path().join("keystore")).ok())
-		.flatten()
-		.flatten()
-		.map(|entry| entry.path())
-		.find(|path| {
-			path.file_name()
-				.and_then(|name| name.to_str())
-				.is_some_and(|name| name.starts_with("636f6c6c"))
-		})
 }
 
 /// Run a command to completion and return its trimmed stdout.

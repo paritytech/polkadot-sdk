@@ -28,15 +28,10 @@ pub const DEV_ACCOUNTS: [Sr25519Keyring; 6] = [
 	Sr25519Keyring::Ferdie,
 ];
 
-/// The lowercase dev name of [`DEV_ACCOUNTS`]`[index]`, which is what `--jam-collators` and
-/// `parasim-tool --collators` name a collator by.
+/// The lowercase dev name of [`DEV_ACCOUNTS`]`[index]`, which is what `parasim-tool
+/// --collators` names a collator by.
 pub fn dev_name(index: usize) -> String {
 	DEV_ACCOUNTS[index].to_string().to_lowercase()
-}
-
-/// The seed [`DEV_ACCOUNTS`]`[index]`'s keys all derive from, in every scheme.
-pub fn dev_suri(index: usize) -> String {
-	format!("//{}", DEV_ACCOUNTS[index])
 }
 
 /// The `--alice` .. `--ferdie` flag that makes a collator author as [`DEV_ACCOUNTS`]`[index]`.

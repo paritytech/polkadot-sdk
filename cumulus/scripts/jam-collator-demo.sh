@@ -33,7 +33,8 @@
 # pins, so the two have to stay in step.
 #
 # The core is NOT named to the collator: it computes its para's authorizer hash from
-# AUTHORIZER_BLOB plus the collator set, and scans the authorizer pools for it.
+# AUTHORIZER_BLOB plus the collator set its runtime names, and scans the authorizer pools
+# for it.
 #
 # Usage: JAM_RPC=ws://127.0.0.1:19800 JAM_SERVICE_ID=5 cumulus/scripts/jam-collator-demo.sh
 #
@@ -91,9 +92,9 @@ if (( NUM_COLLATORS < 1 || NUM_COLLATORS > ${#COLLATORS[@]} )); then
 	echo "NUM_COLLATORS must be between 1 and ${#COLLATORS[@]}" >&2
 	exit 1
 fi
-# The collator set as both sides spell it: the position of a name in this list is the
-# collator index the authorizer hash commits to, so `--jam-collators` and `--collators`
-# below are the same string, and every collator gets all of it, not just its own name.
+# The collator set as `parasim-tool --collators` spells it: the position of a name in this
+# list is the collator index the authorizer hash commits to, and it is the same list the
+# chain spec's aura authorities are built from, which is where the collators read it.
 COLLATOR_NAMES="$(IFS=,; echo "${COLLATORS[*]:0:NUM_COLLATORS}")"
 
 # Collator 0 keeps the original path so an existing WORK_DIR still restarts the demo.
@@ -192,28 +193,15 @@ json.dump(spec, open(path, "w"), indent=2)
 EOF
 echo "chain spec: $SPEC"
 
-# 3. Two keys per collator.
-#
-#    The node network key: a collator is an authority and refuses to auto-generate one.
-#    Generation fails if the key exists, so a re-run with the same WORK_DIR (restart
-#    testing) must skip it.
-#
-#    The `coll` key: the ed25519 key the collator signs work packages with, derived from
-#    the same //<Name> seed it authors under. `--alice` only ever produces an in-memory
-#    sr25519 aura key, so without this the keystore holds nothing the AURA authorizer would
-#    accept and the collator refuses to start. Re-inserting the same suri rewrites the same
-#    file, so the restart path is safe and this needs no existence check.
+# 3. The node network key, one per collator: a collator is an authority and refuses to
+#    auto-generate one. Generation fails if the key exists, so a re-run with the same
+#    WORK_DIR (restart testing) must skip it. The key the collator signs work packages with
+#    is its aura key, which `--alice` and friends put in the keystore in memory.
 for ((i = 0; i < NUM_COLLATORS; i++)); do
 	base_path="$(collator_base_path "$i")"
-	name="${COLLATORS[i]}"
 	if ! ls "$base_path"/chains/*/network/secret_* >/dev/null 2>&1; then
 		"$OMNI_NODE" key generate-node-key --base-path "$base_path" --chain "$SPEC" 2>/dev/null
 	fi
-	"$OMNI_NODE" key insert --base-path "$base_path" --chain "$SPEC" \
-		--scheme ed25519 --key-type coll --suri "//${name^}"
-	# `key insert` prints nothing on success, and a keystore the node then finds empty is a
-	# collator that signs nothing, so say which file appeared. 636f6c6c is "coll" in hex.
-	echo "collator $name: coll key //${name^} -> $(ls "$base_path"/chains/*/keystore/636f6c6c*)"
 done
 
 # The keys are hex on disk, so collator 0's peer id is known before anything is launched.
@@ -227,7 +215,6 @@ collator_args() {
 		--collator "--${COLLATORS[$index]}"
 		--jam-rpc-urls "$JAM_RPC"
 		--jam-service-id "$JAM_SERVICE_ID"
-		--jam-collators "$COLLATOR_NAMES"
 		--jam-authorizer-blob "$AUTHORIZER_COPY"
 		--base-path "$(collator_base_path "$index")"
 		--port "$((P2P_PORT + index))"
