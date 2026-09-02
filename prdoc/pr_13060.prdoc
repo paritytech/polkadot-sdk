@@ -1,0 +1,29 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Registrar: add lock and unlock'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Moves the manager lock to the parachain side of the registrar, where the relay chain used to
+      keep it as a silent flag with no events.
+
+      `pallet-registrar-para::add_lock` shuts the manager out of a registered para, and is callable
+      by the manager, the para itself or root. `remove_lock` lifts it again, but only for root or
+      the para itself: a lock the manager could lift would not be a lock. Both emit an event, so a
+      change of control is visible on chain rather than inferred from a storage read.
+
+      `ParaInfo` grows a `locked` flag, and the new `ensure_root_para_or_manager` helper turns it
+      into an authorization check: a locked para refuses the manager and still answers to root and
+      to itself, matching what `paras_registrar` does today. The calls that exist so far cannot be
+      reached by a locked para, since locking requires a registered one, but the helper is what the
+      head-data and code-upgrade flows will check.
+
+      There is also a new `ParachainOrigin` config type so a para can act as itself.
+
+      Still not wired into a production runtime.
+
+crates:
+  - name: pallet-registrar-para
+    bump: major
