@@ -29,6 +29,7 @@ Polkadot SDK is the starting point for runtime, chain, and protocol development.
 If you're working directly on Polkadot SDK, continue with the quickstart below.
 
 ## ⚡ Polkadot SDK quickstart
+
 If you want to get an example node running quickly you can execute the following getting started script:
 
 ```
