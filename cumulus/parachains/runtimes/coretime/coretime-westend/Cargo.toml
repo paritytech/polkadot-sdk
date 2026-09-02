@@ -35,7 +35,6 @@ pallet-broker = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-meta-tx = { workspace = true }
 pallet-multisig = { workspace = true }
-pallet-on-demand = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
@@ -122,7 +121,6 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
 	"pallet-multisig/std",
-	"pallet-on-demand/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
@@ -181,7 +179,6 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
-	"pallet-on-demand/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
@@ -221,7 +218,6 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
 	"pallet-multisig/try-runtime",
-	"pallet-on-demand/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-sudo/try-runtime",

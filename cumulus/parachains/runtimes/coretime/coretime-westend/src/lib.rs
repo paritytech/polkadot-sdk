@@ -46,8 +46,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter,
-		TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -709,7 +708,6 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
-		OnDemand: pallet_on_demand = 51,
 
 		// Sudo
 		Sudo: pallet_sudo = 100,
