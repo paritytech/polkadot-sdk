@@ -23179,18 +23179,6 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "0.8.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "763f8cd0d4c71ed8389c90cb8100cba87e763bd01a8e614d4f0af97bcd50a161"
-dependencies = [
- "dyn-clone",
- "schemars_derive 0.8.13",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "schemars"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
@@ -23209,21 +23197,9 @@ checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
  "dyn-clone",
  "ref-cast",
- "schemars_derive 1.2.1",
+ "schemars_derive",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "schemars_derive"
-version = "0.8.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec0f696e21e10fa546b7ffb1c9672c6de8fbc7a81acf59524386d8639bf12737"
-dependencies = [
- "proc-macro2 1.0.95",
- "quote 1.0.40",
- "serde_derive_internals 0.26.0",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -23234,7 +23210,7 @@ checksum = "7d115b50f4aaeea07e79c1912f645c7513d81715d0420f8bc77a18c6260b307f"
 dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
- "serde_derive_internals 0.29.1",
+ "serde_derive_internals",
  "syn 2.0.98",
 ]
 
@@ -23582,17 +23558,6 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
-]
-
-[[package]]
-name = "serde_derive_internals"
-version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85bf8229e7920a9f636479437026331ce11aa132b4dde37d121944a44d6e5f3c"
-dependencies = [
- "proc-macro2 1.0.95",
- "quote 1.0.40",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -26406,7 +26371,7 @@ dependencies = [
  "bounded-collections 0.3.2",
  "parity-scale-codec",
  "scale-info",
- "schemars 0.8.13",
+ "schemars 1.2.1",
  "serde",
  "smallvec",
  "sp-arithmetic 23.0.0",
@@ -26794,7 +26759,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
- "schemars 0.8.13",
+ "schemars 1.2.1",
  "serde",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
