@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788375620369,
+  "lastUpdate": 1788389738791,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3e53570b1619e7de01e71929179ec9d03d727425",
-          "message": "Add StakingOperator proxy type to Westend AssetHub (#10980)\n\nIntroduces StakingOperator proxy type that allows validator operational\ntasks (validate, chill, kick) and session key management (set_keys,\npurge_keys) without access to fund management operations.\n\nThis enables pure proxy stashes to delegate validator operations: now\nthat pallet_staking_async_rc_client provides\nset_keys/purge_keys on AssetHub, pure proxies can fully utilize\nStakingOperator.\n\n*NOTE**: This is similar to\nhttps://github.com/polkadot-fellows/runtimes/pull/1033, which introduced\nStakingOperator on Polkadot and Kusama. That change predated the\nintroduction of session key handling on AssetHub. Now that session key\nhandling is available, a follow-up PR will be implemented in the\nruntimes repository to restrict StakingOperator solely to AssetHub and\nenable session key handling via StakingOperator on AssetHub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T12:35:18Z",
-          "tree_id": "6c68b5404e6b048cf099afe2dae55c8df93cf43f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e53570b1619e7de01e71929179ec9d03d727425"
-        },
-        "date": 1770212970272,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006901423046666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14501502872666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02316240588666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010508049726666649,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025065295913333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "Chima",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c2323b3b3429764ffce37ce37be93f1182d53c5",
+          "message": "`frame-support`: fix `CountedStorageMap` and `CountedStorageNMap` counter drift (#13031)\n\nCloses #12782.\n\n### Problem\n\n`try_append` increments the counter on every append that fits the bound:\n\n```rust\nif current < bound {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n```\n\nAppending to an existing key creates no entry, so `count()` climbs above\nthe number of stored keys. remove decrements once per key, so the drift\nnever clears.\n\nEvery other method in the file already guards this: `insert`, `append`\nand `remove` check `contains_key`, and `try_mutate_exists` tracks the\n`existed/exist` transition.\n\n### Change\n\n```rust\nif !<Self as MapWrapper>::Map::contains_key(Ref::from(&key)) {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n}\n```\n\nThe same guard `append` uses. `contains_key` rather than `current == 0`,\nbecause `decode_len(..).unwrap_or_default()` returns 0 both for an\nabsent key and for an existing empty value.\n\n`try_append_decode_len_works` already appends twice to one key but\nasserts only on `decode_len`, which is why this went unnoticed. The new\ntest asserts `count()`.\n\nNo pallet calls `try_append` on a `CountedStorageMap` today, so nothing\non-chain changes. The cost is one extra storage read per call, the same\nread insert and append already pay.",
+          "timestamp": "2026-09-02T21:03:52Z",
+          "tree_id": "ee7934a92e85173f28428cdb7c41a5267f4fed9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c2323b3b3429764ffce37ce37be93f1182d53c5"
+        },
+        "date": 1788389704958,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025074975233333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009757729919999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14592530778666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007578049673333333,
             "unit": "seconds"
           }
         ]
