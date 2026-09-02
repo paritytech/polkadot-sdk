@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788326006219,
+  "lastUpdate": 1788357566644,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -120311,6 +120311,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3368701473,
             "range": "± 178622841",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4df31e571c613a0c76315604e0b0df266c24238f",
+          "message": "`pallet-broker`: make storage changes made on revenue claim atomic on transfer (#13040)\n\n`do_claim_revenue` removes the contribution and reduces the stored\npayouts, then pays the payee. The payment used `defensive_ok`, which\ndiscards the error and returns `None`.\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/90c177d163860c7836bdd118306f0459de9e7f28/substrate/frame/broker/src/dispatchable_impls.rs#L461-L462\n\nIts `debug_assert!` does not run in a release build, so the function\nsent `RevenueClaimPaid` and returned `Ok`. If the payment failed, the\npayee lost the claim and received no money, and a second attempt gave\n`UnknownContribution`. An empty pot causes this failure, and the payee\ncannot control it.\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/90c177d163860c7836bdd118306f0459de9e7f28/substrate/frame/broker/src/dispatchable_impls.rs#L424-L425\n\nThe payment now uses `?`. `claim_revenue` is the only caller. Dispatch\nthus reverts the storage changes when a call returns an error, so the\nclaim stays in storage and the payee can try again.\n\nThe new test empties the pot, then confirms that the claim fails and\nstays in storage. It adds funds and confirms that the payee receives the\nfull amount. The test calls the extrinsic and not the helper, because a\ndirect call to the helper does not revert the changes.",
+          "timestamp": "2026-09-02T11:36:03Z",
+          "tree_id": "6f52d46edda343a5002193e3d6919b7e8fab4fb8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4df31e571c613a0c76315604e0b0df266c24238f"
+        },
+        "date": 1788357527054,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20667466,
+            "range": "± 222883",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20814362,
+            "range": "± 167019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22413824,
+            "range": "± 160603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27010560,
+            "range": "± 154471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62406370,
+            "range": "± 1416715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 389525247,
+            "range": "± 9913967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2594095332,
+            "range": "± 33306568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17434761,
+            "range": "± 182985",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17647609,
+            "range": "± 171194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17862069,
+            "range": "± 216023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22284731,
+            "range": "± 128777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65057303,
+            "range": "± 490306",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 377205199,
+            "range": "± 7489966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2745496240,
+            "range": "± 30913493",
             "unit": "ns/iter"
           }
         ]
