@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788375572683,
+  "lastUpdate": 1788389696207,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "30b2aebc07f724c3ce85cb78c08d94ff40a0c3f0",
-          "message": "pallet-dap: mark funds as inactive  + expect buffer account to be pre-funded (#10957)\n\nIn pallet-dap, mark funds in the issuance buffer as inactive so they do\nnot participate in governance.\nIn production, the buffer account must be pre-funded (e.g., via genesis\nallocation or transfer) before the pallet receives any funds. These\npre-funded tokens are not deactivate. The expectation is that we\npre-fund with ED so this is negligible.\n\nDriven-by: \n- removed the `InitBufferAccount` migration since the buffer account is\nnow expected to be pre-funded externally.\n-  remove DAP dependency from main staking-async crate\n- For delegated staking, redirect slashes to DAP for Westend AssetHub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T13:29:05Z",
-          "tree_id": "6eefa4986f79a63d283698b86fe50864207bd521",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30b2aebc07f724c3ce85cb78c08d94ff40a0c3f0"
-        },
-        "date": 1770216716571,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13093979073333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.452606897033332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.164725525766666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "psykyodai@proton.me",
+            "name": "Chima",
+            "username": "PSYKYODAI"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c2323b3b3429764ffce37ce37be93f1182d53c5",
+          "message": "`frame-support`: fix `CountedStorageMap` and `CountedStorageNMap` counter drift (#13031)\n\nCloses #12782.\n\n### Problem\n\n`try_append` increments the counter on every append that fits the bound:\n\n```rust\nif current < bound {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n```\n\nAppending to an existing key creates no entry, so `count()` climbs above\nthe number of stored keys. remove decrements once per key, so the drift\nnever clears.\n\nEvery other method in the file already guards this: `insert`, `append`\nand `remove` check `contains_key`, and `try_mutate_exists` tracks the\n`existed/exist` transition.\n\n### Change\n\n```rust\nif !<Self as MapWrapper>::Map::contains_key(Ref::from(&key)) {\n    CounterFor::<Prefix>::mutate(|value| value.saturating_inc());\n}\n```\n\nThe same guard `append` uses. `contains_key` rather than `current == 0`,\nbecause `decode_len(..).unwrap_or_default()` returns 0 both for an\nabsent key and for an existing empty value.\n\n`try_append_decode_len_works` already appends twice to one key but\nasserts only on `decode_len`, which is why this went unnoticed. The new\ntest asserts `count()`.\n\nNo pallet calls `try_append` on a `CountedStorageMap` today, so nothing\non-chain changes. The cost is one extra storage read per call, the same\nread insert and append already pay.",
+          "timestamp": "2026-09-02T21:03:52Z",
+          "tree_id": "ee7934a92e85173f28428cdb7c41a5267f4fed9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c2323b3b3429764ffce37ce37be93f1182d53c5"
+        },
+        "date": 1788389662225,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.292098527566669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13405416176666668,
             "unit": "seconds"
           }
         ]
