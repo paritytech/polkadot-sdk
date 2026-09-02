@@ -47,6 +47,9 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame::traits::VariantCountOf<RuntimeFreezeReason>;
 	type AccountStore = System;
 }
 

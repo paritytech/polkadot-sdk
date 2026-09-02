@@ -63,6 +63,9 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type Balance = Balance;
 	type AccountStore = System;
 	type ExistentialDeposit = ConstU128<1>;
@@ -336,6 +339,8 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	// A currency to pay for things and its matcher, we are using the relay token
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = crate::IsConcrete<HereLocation>;
 	// Pallet benchmarks, no need for this recipe
 	type WeightInfo = pallet_xcm::TestWeightInfo;

@@ -16,8 +16,9 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
-	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
+	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason,
+	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo,
+	XcmpQueue,
 };
 use crate::bridge_to_ethereum_config::SnowbridgeFrontendLocation;
 use bridge_hub_common::DenyExportMessageFrom;
@@ -300,6 +301,8 @@ impl pallet_xcm::Config for Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = ();
 	type SovereignAccountOf = LocationToAccountId;

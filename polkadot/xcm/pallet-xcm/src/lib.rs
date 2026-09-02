@@ -42,8 +42,12 @@ use frame_support::{
 	pallet_prelude::*,
 	storage::with_transaction,
 	traits::{
-		Consideration, Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Footprint, Get,
-		LockableCurrency, OriginTrait, WithdrawReasons,
+		fungible::{
+			Inspect as FunInspect, InspectFreeze as FunInspectFreeze,
+			MutateFreeze as FunMutateFreeze,
+		},
+		Consideration, Contains, ContainsPair, Defensive, EnsureOrigin, Footprint, Get,
+		InspectLockableCurrency, LockIdentifier, LockableCurrency, OriginTrait,
 	},
 	PalletId,
 };
@@ -81,6 +85,10 @@ use xcm_runtime_apis::{
 
 mod errors;
 pub use errors::ExecutionError;
+
+/// The legacy [`LockIdentifier`] that [`FreezeReason::AssetLock`] replaced. Only used to release
+/// it.
+pub const XCM_LOCK_ID: LockIdentifier = *b"py/xcmlk";
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -266,8 +274,16 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	pub type BalanceOf<T> =
-		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	pub type TicketOf<T> = <T as Config>::AuthorizedAliasConsideration;
+
+	/// A reason for this pallet placing a freeze on funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Locked for an unlocker on a remote chain, see `LockedFungibles`.
+		#[codec(index = 0)]
+		AssetLock,
+	}
 
 	#[pallet::config]
 	/// The module configuration trait.
@@ -276,9 +292,23 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// A lockable currency.
-		// TODO: We should really use a trait which can handle multiple currencies.
-		type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
+		/// The fungible in which assets can be locked on this chain, by way of a freeze under
+		/// [`FreezeReason::AssetLock`].
+		// TODO: We should really use a trait which can handle multiple currencies. Needs a new
+		// `LockedFungibles` layout, since it stores no asset id, see #7226.
+		type Currency: FunInspect<Self::AccountId>
+			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
+
+		/// The legacy lockable currency, retained only to release [`XCM_LOCK_ID`] while migrating
+		/// accounts over to freezes. Removable once every legacy lock is gone.
+		type OldCurrency: InspectLockableCurrency<
+			Self::AccountId,
+			Moment = BlockNumberFor<Self>,
+			Balance = BalanceOf<Self>,
+		>;
 
 		/// The `Asset` matcher for `Currency`.
 		type CurrencyMatcher: MatchesFungible<BalanceOf<Self>>;
@@ -3591,6 +3621,25 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// The freeze reason under which locally locked fungibles are held.
+	pub(crate) fn freeze_reason() -> T::RuntimeFreezeReason {
+		FreezeReason::AssetLock.into()
+	}
+
+	/// Recompute `who`'s freeze from `locks`: one freeze of the largest amount covers every
+	/// unlocker. Then releases any legacy [`XCM_LOCK_ID`] lock, lazily migrating accounts that
+	/// [`migration::MigrateLocksToFreezes`] has not reached.
+	pub(crate) fn update_lock_freeze(
+		who: &T::AccountId,
+		locks: &[(BalanceOf<T>, VersionedLocation)],
+	) -> DispatchResult {
+		let frozen = locks.iter().map(|(amount, _)| *amount).max().unwrap_or_else(Zero::zero);
+		// A zero `amount` thaws, rather than leaving a zero-amount freeze behind.
+		T::Currency::set_freeze(&Self::freeze_reason(), who, frozen)?;
+		T::OldCurrency::remove_lock(XCM_LOCK_ID, who);
+		Ok(())
+	}
+
 	/// Ensure the correctness of the state of this pallet.
 	///
 	/// This should be valid before and after each state transition of this pallet.
@@ -3600,6 +3649,9 @@ impl<T: Config> Pallet<T> {
 	/// All entries stored in the `SupportedVersion` / `VersionNotifiers` / `VersionNotifyTargets`
 	/// need to be migrated to the `XCM_VERSION`. If they are not, then `CurrentMigration` has to be
 	/// set.
+	///
+	/// Every account in `LockedFungibles` has its largest locked amount frozen under
+	/// [`FreezeReason::AssetLock`], or still under the legacy [`XCM_LOCK_ID`] lock if unmigrated.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		use migration::data::NeedsMigration;
@@ -3629,6 +3681,20 @@ impl<T: Config> Pallet<T> {
 				"`LockedFungibles` data should be migrated to the higher xcm version!"
 			)
 		);
+
+		// check `LockedFungibles` against the restriction in place
+		for (who, locks) in LockedFungibles::<T>::iter() {
+			let expected = locks.iter().map(|(amount, _)| *amount).max().unwrap_or_else(Zero::zero);
+			let frozen = T::Currency::balance_frozen(&Self::freeze_reason(), &who);
+			// Unmigrated accounts still carry the legacy lock.
+			let locked = T::OldCurrency::balance_locked(XCM_LOCK_ID, &who);
+			ensure!(
+				frozen == expected || (frozen.is_zero() && locked == expected),
+				TryRuntimeError::Other(
+					"`LockedFungibles` amount is neither frozen nor covered by a legacy lock!"
+				)
+			);
+		}
 
 		// check `RemoteLockedFungibles`
 		ensure!(
@@ -3701,13 +3767,15 @@ impl<T: Config> xcm_executor::traits::Enact for LockTicket<T> {
 				)?;
 			},
 		}
+		// Freeze first: `enact` is not guaranteed to be rolled back on failure.
+		Pallet::<T>::update_lock_freeze(&self.sovereign_account, &locks).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::enact", ?error,
+				"Failed to freeze fungibles",
+			);
+			UnexpectedState
+		})?;
 		LockedFungibles::<T>::insert(&self.sovereign_account, locks);
-		T::Currency::extend_lock(
-			*b"py/xcmlk",
-			&self.sovereign_account,
-			self.amount,
-			WithdrawReasons::all(),
-		);
 		Ok(())
 	}
 }
@@ -3724,7 +3792,6 @@ impl<T: Config> xcm_executor::traits::Enact for UnlockTicket<T> {
 		let mut locks =
 			LockedFungibles::<T>::get(&self.sovereign_account).ok_or(UnexpectedState)?;
 		let mut maybe_remove_index = None;
-		let mut locked = BalanceOf::<T>::zero();
 		let mut found = false;
 		// We could just as well do with an into_iter, filter_map and collect, however this way
 		// avoids making an allocation.
@@ -3736,15 +3803,20 @@ impl<T: Config> xcm_executor::traits::Enact for UnlockTicket<T> {
 				}
 				found = true;
 			}
-			locked = locked.max(x.0);
 		}
 		ensure!(found, UnexpectedState);
 		if let Some(remove_index) = maybe_remove_index {
 			locks.swap_remove(remove_index);
 		}
+		// Thaw first: `enact` is not guaranteed to be rolled back on failure.
+		Pallet::<T>::update_lock_freeze(&self.sovereign_account, &locks).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::pallet_xcm::enact", ?error,
+				"Failed to thaw fungibles",
+			);
+			UnexpectedState
+		})?;
 		LockedFungibles::<T>::insert(&self.sovereign_account, locks);
-		let reasons = WithdrawReasons::all();
-		T::Currency::set_lock(*b"py/xcmlk", &self.sovereign_account, locked, reasons);
 		Ok(())
 	}
 }
@@ -3786,7 +3858,9 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 		use xcm_executor::traits::LockError::*;
 		let sovereign_account = T::SovereignAccountOf::convert_location(&owner).ok_or(BadOwner)?;
 		let amount = T::CurrencyMatcher::matches_fungible(&asset).ok_or(UnknownAsset)?;
-		ensure!(T::Currency::free_balance(&sovereign_account) >= amount, AssetNotOwned);
+		ensure!(T::Currency::balance(&sovereign_account) >= amount, AssetNotOwned);
+		// So that `LockTicket::enact` cannot fail on a full freeze list.
+		ensure!(T::Currency::can_freeze(&Self::freeze_reason(), &sovereign_account), NoResources);
 		let locks = LockedFungibles::<T>::get(&sovereign_account).unwrap_or_default();
 		let item_index = locks.iter().position(|x| x.1.try_as::<_>() == Ok(&unlocker));
 		ensure!(item_index.is_some() || locks.len() < T::MaxLockers::get() as usize, NoResources);
