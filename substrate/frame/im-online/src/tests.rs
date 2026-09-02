@@ -57,7 +57,7 @@ fn test_unresponsiveness_slash_fraction() {
 
 #[test]
 fn should_report_offline_validators() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		let block = 1;
 		System::set_block_number(block);
@@ -145,7 +145,7 @@ fn heartbeat(
 
 #[test]
 fn should_mark_online_validator_when_heartbeat_is_received() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		advance_session();
 		// given
 		Validators::mutate(|l| *l = Some(vec![1, 2, 3, 4, 5, 6]));
@@ -180,7 +180,7 @@ fn should_mark_online_validator_when_heartbeat_is_received() {
 
 #[test]
 fn late_heartbeat_and_invalid_keys_len_should_fail() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		advance_session();
 		// given
 		Validators::mutate(|l| *l = Some(vec![1, 2, 3, 4, 5, 6]));
@@ -257,7 +257,7 @@ fn should_generate_heartbeats() {
 
 #[test]
 fn should_cleanup_received_heartbeats_on_session_end() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		advance_session();
 
 		Validators::mutate(|l| *l = Some(vec![1, 2, 3]));
@@ -288,7 +288,7 @@ fn should_cleanup_received_heartbeats_on_session_end() {
 fn should_mark_online_validator_when_block_is_authored() {
 	use pallet_authorship::EventHandler;
 
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		advance_session();
 		// given
 		Validators::mutate(|l| *l = Some(vec![1, 2, 3, 4, 5, 6]));
@@ -362,6 +362,8 @@ fn should_not_send_a_report_if_already_online() {
 			heartbeat,
 			Heartbeat { block_number: 4, session_index: 2, authority_index: 0, validators_len: 3 }
 		);
+
+		ImOnline::do_try_state().expect("All invariants must hold after a test");
 	});
 }
 
