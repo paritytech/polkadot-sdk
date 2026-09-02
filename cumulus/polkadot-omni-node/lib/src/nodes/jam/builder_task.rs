@@ -1093,6 +1093,9 @@ where
 		.runtime_api()
 		.authorities(parent_hash)
 		.map_err(|e| format!("authorities: {e}"))?;
+	// The set that claims slots is the set the authorizer hash was built from; the moment the two
+	// part ways, blocks keep being authored but their packages stop being authorized.
+	authorizer.warn_on_set_drift(parent_hash, &authorities);
 	let Some(author_pub) = aura_internal::claim_slot::<<AuraId as AuraIdT>::BoundedPair>(
 		para_slot,
 		&authorities,

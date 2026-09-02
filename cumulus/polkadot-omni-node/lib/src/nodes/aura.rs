@@ -72,7 +72,9 @@ use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
+use sp_consensus_aura::AuraApi;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -574,30 +576,38 @@ where
 		);
 
 		log::info!(
-			"🍇 Starting in JAM mode: para id {para_id}, service id {}, collators {}, \
-			 collator: {is_authority}",
+			"🍇 Starting in JAM mode: para id {para_id}, service id {}, collator: {is_authority}",
 			jam_params.service_id,
-			jam_params.collators,
 		);
 
 		// Up front, and fatal: a collator that cannot reproduce its core's authorizer config, or
-		// that holds no key of the set that config commits to, would author blocks whose packages
-		// no guarantor can ever authorize — and the only symptom would be silence. A full node
-		// signs nothing, so it is not asked for a key it has no reason to hold.
-		let jam_authorizer = is_authority
-			.then(|| {
-				jam::authorizer::AuraAuthorizer::new(
-					&jam_params.collators,
-					&jam_params.authorizer_blob,
-					para_id.into(),
-					jam_params.service_id,
-					jam_params.slot_duration,
-					keystore_container.keystore(),
-				)
-				.map(Arc::new)
-			})
-			.transpose()
+		// that holds no aura key of the set that config commits to, would author blocks whose
+		// packages no guarantor can ever authorize — and the only symptom would be silence. A full
+		// node signs nothing, so it is not asked for a key it has no reason to hold.
+		//
+		// The set is read once, here: the authorizer hash commits to a snapshot of it, so
+		// re-reading it every block could only produce a hash no core holds. The builder warns
+		// when the runtime's set drifts away from this one.
+		let jam_authorizer = if is_authority {
+			let best_hash = client.info().best_hash;
+			let authorities = client.runtime_api().authorities(best_hash).map_err(|error| {
+				sc_service::Error::Other(format!(
+					"cannot read the runtime's aura authorities at {best_hash:?}: {error}",
+				))
+			})?;
+			let authorizer = jam::authorizer::AuraAuthorizer::new::<AuraId>(
+				&authorities,
+				&jam_params.authorizer_blob,
+				para_id.into(),
+				jam_params.service_id,
+				jam_params.slot_duration,
+				keystore_container.keystore(),
+			)
 			.map_err(sc_service::Error::Other)?;
+			Some(Arc::new(authorizer))
+		} else {
+			None
+		};
 
 		let jam_init = {
 			let client = client.clone();

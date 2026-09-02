@@ -191,15 +191,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub jam_service_id: Option<u32>,
 
-	/// EXPERIMENTAL (JAM): Dev names of the para's collator set, comma-separated, in the order
-	/// the AURA round-robin walks them (e.g. `alice,bob,charlie`).
-	///
-	/// The names alone determine the keys: each derives the `//<Name>` ed25519 key whose public
-	/// half sits in the collator-set trie the core's authorizer commits to, and whose private
-	/// half this node reads from its `coll` keystore. Required in JAM mode.
-	#[arg(long, value_name = "NAMES")]
-	pub jam_collators: Option<String>,
-
 	/// EXPERIMENTAL (JAM): Path to the AURA authorizer blob deployed on the JAM chain.
 	///
 	/// Only its hash is used, and it has to be the hash whoever installed the core's authorizer
@@ -311,8 +302,6 @@ pub struct JamNodeParams {
 	pub rpc_urls: Vec<url::Url>,
 	/// Id of the parachain service on the JAM chain.
 	pub service_id: u32,
-	/// Dev names of the para's collator set, in round-robin order.
-	pub collators: String,
 	/// The AURA authorizer blob whose hash the para's cores run.
 	pub authorizer_blob: PathBuf,
 	/// Length of a parachain slot in JAM timeslots.
@@ -385,16 +374,12 @@ impl<Config: CliConfig> Cli<Config> {
 		let Some(service_id) = self.jam_service_id else {
 			return Err("JAM mode requires `--jam-service-id`".into());
 		};
-		let Some(collators) = self.jam_collators.clone() else {
-			return Err("JAM mode requires `--jam-collators`".into());
-		};
 		let Some(authorizer_blob) = self.jam_authorizer_blob.clone() else {
 			return Err("JAM mode requires `--jam-authorizer-blob`".into());
 		};
 		Ok(Some(JamNodeParams {
 			rpc_urls: self.run.jam_rpc_urls.clone(),
 			service_id,
-			collators,
 			authorizer_blob,
 			slot_duration: self.jam_slot_duration,
 		}))

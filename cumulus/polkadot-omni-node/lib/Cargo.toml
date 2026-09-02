@@ -144,6 +144,13 @@ cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 # The consumer of the JAM PoV, so the wire contract is tested against the real reader.
 parasim-service = { path = "../../../../parachain-service/testing/parasim-service" }
+# The ed25519 verifier blob's own signature check, so the token this node assembles is tested
+# against the code the guest runs and not against a copy of it.
+parachain-authorizer-ed25519 = { path = "../../../../parachain-service/authorizer-ed25519" }
+# The sr25519 half of the same contract has no shipping verifier to test against yet, so it is
+# pinned against schnorrkel directly: what matters is the `b"substrate"` signing context, which
+# `Keystore::sr25519_sign` gives a signer no say over.
+schnorrkel = { workspace = true, default-features = true }
 nix = { features = ["signal"], workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }

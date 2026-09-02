@@ -42,7 +42,7 @@
 //! deepest there.
 //!
 //! Every package runs under the para's own [AURA authorizer](super::authorizer) and carries a
-//! token this collator signs with its `coll` key, so assembling a package and signing it are one
+//! token this collator signs with its aura key, so assembling a package and signing it are one
 //! step here, and re-anchoring re-signs.
 //!
 //! Phase-1 simplification that still stands: the PoV is NOT zstd-compressed (parasim rejects
@@ -1157,7 +1157,7 @@ mod tests {
 	/// A package as the manager builds one: assembled, then signed.
 	fn signed(source: &PackageSource<TestBlock>, anchored: &Anchored) -> WorkPackage {
 		let mut package = source.package(anchored);
-		aura().authorize(&mut package).expect("the keystore holds Alice's `coll` key; qed");
+		aura().authorize(&mut package).expect("the keystore holds Alice's aura key; qed");
 		package
 	}
 
@@ -1288,19 +1288,19 @@ mod tests {
 	/// A soft resubmission has to be the *same bytes*: a package rebuilt instead of replayed
 	/// would hash differently, and JAM would see a second package where the collator meant to
 	/// repeat one — a second refine, a second report, and a status subscription following a hash
-	/// nothing else knows about. The token is part of those bytes, so this also pins that signing
-	/// the same package twice yields the same signature.
+	/// nothing else knows about. Rebuilding is not even close to equivalent: everything the
+	/// source determines comes back identical, but the token does not, because an sr25519
+	/// signature carries a random nonce. Storing the signed package is the only way to repeat it.
 	#[test]
 	fn a_resubmission_replays_the_stored_package() {
 		let packages = in_flight(1);
 		let entry = &packages.entries[0];
+		let rebuilt = signed(&entry.source, &entry.anchored);
 
-		assert_eq!(work_package_hash(&entry.package), work_package_hash(&entry.package.clone()));
-		assert_eq!(
-			jam_codec::Encode::encode(&entry.package),
-			jam_codec::Encode::encode(&signed(&entry.source, &entry.anchored)),
-			"the stored package is exactly what the source would build and sign again",
-		);
+		assert_eq!(entry.package.items[0].payload.0, rebuilt.items[0].payload.0, "same block");
+		assert_eq!(entry.package.context, rebuilt.context, "same anchor");
+		assert_ne!(entry.package.authorization, rebuilt.authorization, "another signature");
+		assert_ne!(work_package_hash(&entry.package), work_package_hash(&rebuilt));
 	}
 
 	/// The para head advancing settles everything at or below its height: the block that became
