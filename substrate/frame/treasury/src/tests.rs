@@ -938,7 +938,8 @@ fn migrate_legacy_proposals_defers_unaffordable_payouts() {
 		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
 		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
 
-		// Once the pot can afford it, re-running the migration finishes the job.
+		// Re-running the migration after funding the pot clears the deferred entry. On live chains
+		// this only helps while the migration remains in the runtime `Migrations` tuple.
 		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
 		run_migration();
 

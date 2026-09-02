@@ -68,6 +68,11 @@
 //! [`migration::migrate_legacy_proposals::Migration`], which pays out whatever is still owed and
 //! then removes the legacy storage entirely. The bounties pallet keeps its own approvals queue,
 //! bounded by the same [`pallet::Config::MaxApprovals`].
+//!
+//! **Warning:** if the pot cannot cover an approved legacy proposal at upgrade time, the migration
+//! defers it and keeps the legacy storage. Once the migration is removed from the runtime's
+//! `Migrations` tuple, deferred entries are orphaned with no code path left to pay them out.
+//! Fund the pot, pay the proposal manually, or remove the approval before enacting the upgrade.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -282,8 +287,7 @@ pub mod pallet {
 		}
 	}
 
-	/// Legacy leftover from the removed `spend_local` call.
-	/// The amount which has been reported as inactive to Currency.
+	/// Amount reported as inactive to `Currency` during [`Pallet::on_initialize`] reconciliation.
 	#[pallet::storage]
 	pub type Deactivated<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceOf<T, I>, ValueQuery>;

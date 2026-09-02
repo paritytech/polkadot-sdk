@@ -367,7 +367,6 @@ fn propose_bounty_validation_works() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn close_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -392,7 +391,6 @@ fn close_bounty_works() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn close_bounty_with_additional_assets_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let pot = Bounties::bounty_account_id(0);
@@ -479,7 +477,6 @@ fn close_bounty_with_additional_assets_works() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn close_bounty_with_random_references_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let pot = Bounties::bounty_account_id(0);

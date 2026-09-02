@@ -237,13 +237,18 @@ pub mod migrate_legacy_proposals {
 	///   and an [`Event::Awarded`] is emitted.
 	/// - Unapproved proposals only get their bond refunded; their spend was never authorised.
 	///
-	/// A proposal the pot cannot cover is left in place, exactly as `spend_funds` did. In that
-	/// case the legacy storage is kept so a later upgrade can finish the job, rather than
-	/// discarding an approved payout.
+	/// If the pot cannot cover an approved payout, that proposal is left in place and its approval
+	/// is kept. The migration logs a warning naming each deferred index and amount.
+	///
+	/// **Warning:** once this migration is removed from a runtime's `Migrations` tuple, any
+	/// deferred entries are orphaned: `spend_local`, `remove_approval`, the `spend_funds` drain
+	/// loop and this migration are all gone, so there is no remaining code path to pay them out.
+	/// Before enacting the upgrade, a chain whose pot cannot cover an approved proposal must pay
+	/// it out manually, fund the pot, or remove the approval.
 	///
 	/// # Weight
-	/// Three reads and three writes per proposal, covering the proposal entry itself plus the
-	/// proposer's bond refund and the beneficiary's payout.
+	/// One read per legacy proposal visited, plus fixed reads for the pot, `Approvals` and
+	/// settlement. Up to three reads and three writes per proposal actually processed.
 	///
 	/// # Defensive
 	/// A non-zero `unreserve` remainder (bond partially slashed, or the proposer reaped since the
@@ -258,15 +263,21 @@ pub mod migrate_legacy_proposals {
 
 			let mut budget_remaining = Pallet::<T, I>::pot();
 			let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
+			let mut iterations: u64 = 0;
 			let mut processed: u64 = 0;
 			let mut paid: u64 = 0;
 			let mut deferred = false;
+			let mut deferred_payouts: alloc::vec::Vec<(ProposalIndex, BalanceOf<T, I>)> =
+				alloc::vec::Vec::new();
 
 			for (proposal_index, proposal) in legacy::Proposals::<T, I>::iter() {
+				iterations = iterations.saturating_add(1);
 				if approved.contains(&proposal_index) {
 					if proposal.value > budget_remaining {
-						// The pot cannot cover this payout, so leave it for a later attempt.
+						// The pot cannot cover this payout, so leave it for manual resolution
+						// before this migration is removed from the runtime's `Migrations` tuple.
 						deferred = true;
+						deferred_payouts.push((proposal_index, proposal.value));
 						continue;
 					}
 					budget_remaining -= proposal.value;
@@ -295,6 +306,14 @@ pub mod migrate_legacy_proposals {
 			}
 
 			if deferred {
+				for (proposal_index, amount) in deferred_payouts {
+					log::warn!(
+						target: LOG_TARGET,
+						"deferred legacy treasury payout: proposal {proposal_index} requires {amount:?} \
+						 but the pot is insufficient; fund the pot, pay it out manually or remove the \
+						 approval before this migration leaves the runtime Migrations tuple",
+					);
+				}
 				legacy::Approvals::<T, I>::mutate(|approvals| {
 					approvals.retain(|index| legacy::Proposals::<T, I>::contains_key(index))
 				});
@@ -323,11 +342,15 @@ pub mod migrate_legacy_proposals {
 				if deferred { "kept, some payouts exceed the pot" } else { "deleted" },
 			);
 
-			// Per proposal: the map entry, the proposer's bond refund and the beneficiary's
-			// payout. Fixed: the pot, `Approvals`, `ProposalCount` and the final settle.
-			let per_proposal = processed.saturating_mul(3);
-			T::DbWeight::get()
-				.reads_writes(per_proposal.saturating_add(4), per_proposal.saturating_add(4))
+			// One read per proposal visited, plus pot, `Approvals` and settlement. Up to three
+			// reads and three writes per proposal actually processed; one extra write when pruning
+			// `Approvals` for deferred payouts, two when deleting all legacy storage.
+			let fixed_reads = if deferred { 4 } else { 3 };
+			let fixed_writes = if deferred { 1 } else { 2 };
+			T::DbWeight::get().reads_writes(
+				iterations.saturating_add(fixed_reads),
+				processed.saturating_mul(3).saturating_add(fixed_writes),
+			)
 		}
 
 		#[cfg(feature = "try-runtime")]
