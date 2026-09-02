@@ -2325,13 +2325,7 @@ where
 		// parked peers are also refilled on the tick.
 		self.fill_parked_propagations();
 
-		let statements = match self.statement_store.take_recent_statements() {
-			Ok(statements) => statements,
-			Err(e) => {
-				log::warn!(target: LOG_TARGET, "Failed to drain statements for propagation: {e}");
-				return;
-			},
-		};
+		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			if v2dht_enabled() {
 				for (who, indices) in self.v2dht.propagation_plan(&statements) {

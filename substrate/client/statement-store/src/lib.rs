@@ -592,10 +592,26 @@ struct QueryIndex {
 	/// Statements held only until the next propagation.
 	// TODO: temporary PoC solution for the DHT-affinity work (#11932).
 	transient: HashMap<Hash, Statement>,
-	/// Statements persisted only for explicit affinity (per the admission-time retention mask),
-	/// dropped once no affinity covers them. In-memory only: statements admitted before a
-	/// restart are not tracked and are kept until natural expiry.
+	/// Statements persisted only for explicit affinity, dropped once no affinity covers them.
 	explicit_only: HashSet<Hash>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RetentionTrack {
+	ExplicitOnly,
+	Persistent,
+}
+
+impl From<RetentionReasonMask> for RetentionTrack {
+	fn from(mask: RetentionReasonMask) -> Self {
+		if mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
+			!mask.contains(RetentionReasonMask::DHT_AFFINITY)
+		{
+			RetentionTrack::ExplicitOnly
+		} else {
+			RetentionTrack::Persistent
+		}
+	}
 }
 
 impl QueryIndex {
@@ -610,9 +626,14 @@ impl QueryIndex {
 	}
 
 	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent
-	/// under its admission sequence number. `explicit_only` marks the statement for the
-	/// affinity sweep.
-	fn note_insert(&mut self, hash: Hash, statement: &Statement, seq: u64, explicit_only: bool) {
+	/// under its admission sequence number.
+	fn note_insert(
+		&mut self,
+		hash: Hash,
+		statement: &Statement,
+		seq: u64,
+		tracking: RetentionTrack,
+	) {
 		let mut nt = 0;
 		while let Some(topic) = statement.topic(nt) {
 			*self.topic_counts.entry(topic).or_insert(0) += 1;
@@ -621,7 +642,7 @@ impl QueryIndex {
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
 		self.recent.insert(hash, seq);
-		if explicit_only {
+		if tracking == RetentionTrack::ExplicitOnly {
 			self.explicit_only.insert(hash);
 		}
 	}
@@ -652,6 +673,12 @@ impl QueryIndex {
 	/// Takes and clears the set of recently added hashes with their admission sequence numbers.
 	fn take_recent(&mut self) -> HashMap<Hash, u64> {
 		std::mem::take(&mut self.recent)
+	}
+
+	fn forget_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
+		for key in keys {
+			self.explicit_only.remove(&key.hash);
+		}
 	}
 }
 
@@ -789,13 +816,9 @@ struct InsertPlan {
 	banned: Vec<(Hash, u64)>,
 }
 
-/// Whether a removed statement may be re-accepted.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Readmission {
-	/// An unexpired statement is journaled in the `EXPIRED` column and rejected on network
-	/// redelivery until its purge period elapses.
+enum Resubmission {
 	Banned,
-	/// The statement may be re-accepted immediately.
 	Allowed,
 }
 
@@ -2016,7 +2039,7 @@ impl Store {
 			log::warn!(target: LOG_TARGET, "Error scanning the expiry index: {:?}", e);
 		}
 		for (expiry, hash) in due {
-			match self.remove_statement(&hash, Readmission::Banned) {
+			match self.remove_statement(&hash, Resubmission::Banned) {
 				Ok(true) => {
 					expired += 1;
 					log::trace!(
@@ -2129,12 +2152,6 @@ impl Store {
 
 	/// Drop statements persisted only for explicit topic affinity once no affinity covers them,
 	/// skipping the re-acceptance ban so peers may redeliver them should affinity return.
-	///
-	/// The resolver runs outside the store locks, so a statement whose affinity returns
-	/// mid-sweep may still be dropped — the skipped ban leaves redelivery open.
-	///
-	/// Statements not yet handed to propagation are exempt: a locally submitted statement no
-	/// peer has seen is handed to propagation at least once before the sweep may drop it.
 	fn sweep_explicit_affinity(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
 		let tracked: Vec<Hash> = {
@@ -2149,8 +2166,6 @@ impl Store {
 		for hash in tracked {
 			let encoded = match self.db.get(col::STATEMENTS, &hash) {
 				Ok(Some(encoded)) => encoded,
-				// The body vanished mid-sweep: the concurrent remover also cleared the
-				// tracking entry, so the hash is gone from the next sweep's snapshot.
 				Ok(None) => continue,
 				Err(e) => {
 					log::warn!(
@@ -2169,24 +2184,13 @@ impl Store {
 			if resolver(&statement).is_persistent() {
 				continue;
 			}
-			match self.remove_statement(&hash, Readmission::Allowed) {
-				Ok(removed) => {
-					if removed {
-						log::trace!(
-							target: LOG_TARGET,
-							"Dropped statement {:?}: no affinity covers it any more",
-							HexDisplay::from(&hash)
-						);
-					}
-				},
-				Err(e) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"Error removing statement {:?}: {:?}",
-						HexDisplay::from(&hash),
-						e
-					);
-				},
+			if let Err(e) = self.remove_statement(&hash, Resubmission::Allowed) {
+				log::warn!(
+					target: LOG_TARGET,
+					"Error removing statement {:?}: {:?}",
+					HexDisplay::from(&hash),
+					e
+				);
 			}
 		}
 	}
@@ -3008,16 +3012,8 @@ impl StatementStore for Store {
 				for evicted_statement in &evicted_statements {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
-				// Clear affinity tracking even where the evicted body could not be read or decoded
-				// above: the set is in-memory bookkeeping, so this is not a database repair.
-				for (key, _) in &plan.evicted {
-					query_index.explicit_only.remove(&key.hash);
-				}
-				// The admission-time mask decides sweep eligibility for good: a statement the
-				// DHT also covered at admission is never re-checked.
-				let explicit_only = mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
-					!mask.contains(RetentionReasonMask::DHT_AFFINITY);
-				query_index.note_insert(hash, &statement, plan.seq, explicit_only);
+				query_index.forget_tracking(plan.evicted.iter().map(|(key, _)| key));
+				query_index.note_insert(hash, &statement, plan.seq, RetentionTrack::from(mask));
 			}
 			seq
 		}; // Release submit index lock
@@ -3031,7 +3027,7 @@ impl StatementStore for Store {
 	/// it in the `EXPIRED` column so it cannot be re-accepted until its purge period elapses (see
 	/// [`maintain`](Self::maintain)). No-op if the statement is unknown.
 	fn remove(&self, hash: &Hash) -> Result<()> {
-		self.remove_statement(hash, Readmission::Banned).map(|_| ())
+		self.remove_statement(hash, Resubmission::Banned).map(|_| ())
 	}
 
 	/// Remove every statement authored by `who`, applying the same soft-delete as
@@ -3131,11 +3127,7 @@ impl StatementStore for Store {
 			for (hash, statement) in &removed_statements {
 				query_index.note_remove(hash, statement);
 			}
-			// Clear affinity tracking even where the body could not be read or decoded above:
-			// the set is in-memory bookkeeping, so this is not a database repair.
-			for (key, _) in &entries {
-				query_index.explicit_only.remove(&key.hash);
-			}
+			query_index.forget_tracking(entries.iter().map(|(key, _)| key));
 		}
 		Ok(())
 	}
@@ -3219,7 +3211,7 @@ impl Store {
 	/// `Ok(false)` means no (decodable) statement is stored under `hash` — it was already gone,
 	/// or its body is corrupt. A corrupt body cannot be tied back to its index rows, so nothing
 	/// is removed at all.
-	fn remove_statement(&self, hash: &Hash, readmission: Readmission) -> Result<bool> {
+	fn remove_statement(&self, hash: &Hash, readmission: Resubmission) -> Result<bool> {
 		let current_time = self.timestamp();
 		{
 			let mut submit_index = self.submit_index.write();
@@ -3263,7 +3255,7 @@ impl Store {
 					HexDisplay::from(hash)
 				),
 			}
-			let banned = readmission == Readmission::Banned &&
+			let banned = readmission == Resubmission::Banned &&
 				current_time < expiry.get_expiration_timestamp_secs();
 			if banned {
 				let purge_at = expiry
@@ -3469,7 +3461,9 @@ impl Store {
 		self.db.commit(commit).expect("failed to commit the statement");
 		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new() };
 		submit_index.apply_insert(&account, None, hash, statement, &plan);
-		self.query_index.write().note_insert(hash, statement, seq, false);
+		self.query_index
+			.write()
+			.note_insert(hash, statement, seq, RetentionTrack::Persistent);
 	}
 }
 
