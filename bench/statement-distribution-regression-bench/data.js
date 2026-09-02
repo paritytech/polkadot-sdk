@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788285661868,
+  "lastUpdate": 1788326887843,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "684c79ccace32f8813b2570acac7dfb29f515656",
-          "message": "fix(revive): handle transaction hash conflicts during re-org (#10950)\n\n## Summary\n\nFixes a UNIQUE constraint violation when processing blocks after a\nre-org:\n```\nUNIQUE constraint failed: transaction_hashes.transaction_hash\n```\n\n## Problem\n\nWhen a blockchain re-org occurs:\n1. Block A contains transaction TX1 → stored in `transaction_hashes`\n2. Server restarts (clearing the in-memory `block_number_to_hashes` map)\n3. Re-org happens, Block B (different hash) now contains the same TX1\n4. INSERT fails because TX1 already exists with old block_hash\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-01-30T21:49:20Z",
-          "tree_id": "077c704684a65444f754d1995eede215c0ac6a71",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/684c79ccace32f8813b2570acac7dfb29f515656"
-        },
-        "date": 1769813850613,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.024,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03875778268199999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06385397173399994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08487599843799995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "32168055+antkve@users.noreply.github.com",
+            "name": "Anthony Kveder",
+            "username": "antkve"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c81f7bffebbaab0ec77d0130f2d25f04ff30d0b",
+          "message": "HOP Pool: Move Metadata into a KV Store (#12076)\n\nDrops the .meta files and the in-memory hashmap, replaces them with a\nsingle parity-db column keyed by HopHash → SCALE-encoded HopEntryMeta.\nKeeps the blob layout on disk untouched. This is the same pattern\nsubstrate/client/statement-store uses\n(statement-store/src/lib.rs:757–780).\n\nIn-memory counters (current_size, user_usage) stay as AtomicU64 /\ndashmap and are rebuilt by iterating the column at startup.\n\n---------\n\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>\nCo-authored-by: Ilia Churin <ilia@parity.io>\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-02T03:58:49Z",
+          "tree_id": "9f5c013c0d4e48ee88df5655ed894d4341830415",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c81f7bffebbaab0ec77d0130f2d25f04ff30d0b"
+        },
+        "date": 1788326853106,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.142,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09000580740199993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038483562550000024,
             "unit": "seconds"
           }
         ]
