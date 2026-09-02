@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788284636611,
+  "lastUpdate": 1788326006219,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -120203,6 +120203,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3696880761,
             "range": "± 85574478",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "32168055+antkve@users.noreply.github.com",
+            "name": "Anthony Kveder",
+            "username": "antkve"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c81f7bffebbaab0ec77d0130f2d25f04ff30d0b",
+          "message": "HOP Pool: Move Metadata into a KV Store (#12076)\n\nDrops the .meta files and the in-memory hashmap, replaces them with a\nsingle parity-db column keyed by HopHash → SCALE-encoded HopEntryMeta.\nKeeps the blob layout on disk untouched. This is the same pattern\nsubstrate/client/statement-store uses\n(statement-store/src/lib.rs:757–780).\n\nIn-memory counters (current_size, user_usage) stay as AtomicU64 /\ndashmap and are rebuilt by iterating the column at startup.\n\n---------\n\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrii <ndk@parity.io>\nCo-authored-by: Ilia Churin <ilia@parity.io>\nCo-authored-by: Francisco Aguirre <francisco@parity.io>\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-02T03:58:49Z",
+          "tree_id": "9f5c013c0d4e48ee88df5655ed894d4341830415",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c81f7bffebbaab0ec77d0130f2d25f04ff30d0b"
+        },
+        "date": 1788325964508,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 28161678,
+            "range": "± 3184334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 27882333,
+            "range": "± 2173918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 29274862,
+            "range": "± 4286767",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 36015149,
+            "range": "± 2437420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 102369625,
+            "range": "± 9073823",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 541095575,
+            "range": "± 43063488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3512055434,
+            "range": "± 360395010",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 25895378,
+            "range": "± 1937209",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 23588935,
+            "range": "± 2648974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 33011996,
+            "range": "± 3394429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 37144729,
+            "range": "± 1690571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 101650672,
+            "range": "± 11045307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 504151697,
+            "range": "± 27366619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3368701473,
+            "range": "± 178622841",
             "unit": "ns/iter"
           }
         ]
