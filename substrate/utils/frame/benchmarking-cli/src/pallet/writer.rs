@@ -29,12 +29,12 @@ use itertools::Itertools;
 use serde::Serialize;
 
 use crate::{
+	PalletCmd,
 	pallet::{
 		command::{PovEstimationMode, PovModesMap},
 		types::{ComponentRange, ComponentRangeMap},
 	},
 	shared::UnderscoreHelper,
-	PalletCmd,
 };
 use frame_benchmarking::{
 	Analysis, AnalysisChoice, BenchmarkBatchSplitResults, BenchmarkResult, BenchmarkSelector,
@@ -174,6 +174,35 @@ fn map_results(
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
+}
+
+/// Recorded proof sizes are `u32`. An analyzed intercept or slope at or above `u32::MAX` cannot
+/// come from real measurements; it is the signature of a rank-deficient PoV regression
+/// (see <https://github.com/paritytech/polkadot-sdk/issues/13066>).
+fn ensure_plausible_proof_size(
+	base: u128,
+	slopes: &[ComponentSlope],
+	pallet: &str,
+	benchmark: &str,
+) -> Result<(), sc_cli::Error> {
+	let max = u32::MAX as u128;
+	let implausible_slopes: Vec<_> = slopes
+		.iter()
+		.filter(|c| c.slope >= max)
+		.map(|c| (c.name.clone(), c.slope))
+		.collect();
+	if base < max && implausible_slopes.is_empty() {
+		return Ok(());
+	}
+	Err(format!(
+		"benchmark '{pallet}::{benchmark}' produced an implausible proof_size \
+		 (base={base}, slopes={implausible_slopes:?}). Values this large cannot come from \
+		 recorded proof sizes (u32) and typically indicate a rank-deficient PoV regression \
+		 — a storage prefix only observed at one component value, often an UNKNOWN KEY \
+		 without MaxEncodedLen. Implement MaxEncodedLen, set pov_mode = Measured or Ignored \
+		 for those keys, or reduce --steps."
+	)
+	.into())
 }
 
 // Get an iterator of errors.
@@ -346,6 +375,13 @@ fn get_benchmark_data(
 		}
 	}
 	used_calculated_proof_size.sort_by(|a, b| a.name.cmp(&b.name));
+
+	ensure_plausible_proof_size(
+		base_calculated_proof_size,
+		&used_calculated_proof_size,
+		&pallet,
+		&benchmark,
+	)?;
 
 	// This puts a marker on any component which is entirely unused in the weight formula.
 	let components = batch.time_results[0]
@@ -610,7 +646,9 @@ pub(crate) fn process_storage_results(
 			let is_all_ignored = pov_modes.get(&("ALL".to_string(), "ALL".to_string())) ==
 				Some(&PovEstimationMode::Ignored);
 			if is_all_ignored && override_pov_mode != Some(&PovEstimationMode::Ignored) {
-				panic!("The syntax currently does not allow to exclude single keys from a top-level `Ignored` pov-mode.");
+				panic!(
+					"The syntax currently does not allow to exclude single keys from a top-level `Ignored` pov-mode."
+				);
 			}
 
 			let pov_overhead = single_read_pov_overhead(
@@ -640,12 +678,15 @@ pub(crate) fn process_storage_results(
 				(None, None, PovEstimationMode::MaxEncodedLen) => {
 					// We add the overhead for a single read each time. In a more advanced version
 					// we could take node re-using into account and over-estimate a bit less.
-					prefix_result.proof_size += pov_overhead * *reads;
+					prefix_result.proof_size = prefix_result
+						.proof_size
+						.saturating_add(pov_overhead.saturating_mul(*reads));
 					PovEstimationMode::Measured
 				},
 				(Some(PovEstimationMode::MaxEncodedLen), Some(max_size), _) |
 				(None, Some(max_size), PovEstimationMode::MaxEncodedLen) => {
-					prefix_result.proof_size = (pov_overhead + max_size) * *reads;
+					prefix_result.proof_size =
+						pov_overhead.saturating_add(max_size).saturating_mul(*reads);
 					PovEstimationMode::MaxEncodedLen
 				},
 				(Some(PovEstimationMode::MaxEncodedLen), None, _) => {
@@ -654,7 +695,9 @@ pub(crate) fn process_storage_results(
 			};
 			// Add the additional trie layer overhead for every new prefix.
 			if *reads > 0 && !is_all_ignored {
-				prefix_result.proof_size += 15 * 33 * additional_trie_layers as u32;
+				prefix_result.proof_size = prefix_result.proof_size.saturating_add(
+					15u32.saturating_mul(33).saturating_mul(additional_trie_layers as u32),
+				);
 			}
 			storage_per_prefix.entry(prefix.clone()).or_default().push(prefix_result);
 
@@ -710,17 +753,17 @@ pub(crate) fn process_storage_results(
 							Some(new_pov) => {
 								let comment = format!(
 									"Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
-									key_info.max_values,
-									key_info.max_size,
-									new_pov,
-									used_pov_mode,
+									key_info.max_values, key_info.max_size, new_pov, used_pov_mode,
 								);
 								comments.push(comment)
 							},
 							None => {
 								let comment = format!(
 									"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, mode: `{:?}`)",
-									pallet_name, storage_name, key_info.max_values, key_info.max_size,
+									pallet_name,
+									storage_name,
+									key_info.max_values,
+									key_info.max_size,
 									used_pov_mode,
 								);
 								comments.push(comment);
@@ -839,6 +882,7 @@ where
 mod test {
 	use super::*;
 	use frame_benchmarking::{BenchmarkBatchSplitResults, BenchmarkParameter, BenchmarkResult};
+	use std::collections::HashMap;
 
 	fn test_data(
 		pallet: &[u8],
@@ -1355,5 +1399,160 @@ mod test {
 		assert_eq!(easy_log_16(16u32.pow(7)), 7);
 		assert_eq!(easy_log_16(16u32.pow(7) + 1), 8);
 		assert_eq!(easy_log_16(u32::MAX), 8);
+	}
+
+	fn unknown_key_batch(
+		component_values: impl IntoIterator<Item = u32>,
+		repeats: usize,
+		reads: u32,
+		proof_size: u32,
+	) -> BenchmarkBatchSplitResults {
+		let prefix = vec![0xABu8; 32];
+		let mut results = Vec::new();
+		for b in component_values {
+			for _ in 0..repeats {
+				results.push(BenchmarkResult {
+					components: vec![(BenchmarkParameter::b, b)],
+					extrinsic_time: 1_000,
+					storage_root_time: 0,
+					reads,
+					repeat_reads: 0,
+					writes: 0,
+					repeat_writes: 0,
+					proof_size,
+					keys: vec![(prefix.clone(), reads, 0, false)],
+				});
+			}
+		}
+		BenchmarkBatchSplitResults {
+			pallet: b"my_pallet".to_vec(),
+			instance: b"instance".to_vec(),
+			benchmark: b"dispatch_post".to_vec(),
+			time_results: results.clone(),
+			db_results: results,
+		}
+	}
+
+	fn map_unknown(batch: BenchmarkBatchSplitResults) -> BenchmarkData {
+		let mapped = map_results(
+			&[batch],
+			&[],
+			&Default::default(),
+			Default::default(),
+			PovEstimationMode::MaxEncodedLen,
+			&AnalysisChoice::default(),
+			&AnalysisChoice::MedianSlopes,
+			1_000_000,
+			0,
+		)
+		.unwrap();
+		mapped.get(&("my_pallet".to_string(), "instance".to_string())).unwrap()[0].clone()
+	}
+
+	/// #13066: a prefix observed only at the high end of Linear<0, 8192> (20 repeats
+	/// at b=8192, absent elsewhere) used to feed rank-deficient OLS and emit an
+	/// exabyte-scale intercept. Trie overhead for an unbounded 1e6-key map is
+	/// 5 layers × 15 × 33; plus the measured 85 and 50 reads.
+	#[test]
+	fn unknown_key_single_component_value_does_not_explode_proof_size() {
+		let prefix = vec![0xABu8; 32];
+		let mut results = Vec::new();
+		for step in 0..50u32 {
+			let b = step * 8192 / 49;
+			for _ in 0..20 {
+				let (keys, reads) = if b == 8192 {
+					(vec![(prefix.clone(), 50, 0, false)], 50)
+				} else {
+					(vec![], 0)
+				};
+				results.push(BenchmarkResult {
+					components: vec![(BenchmarkParameter::b, b)],
+					extrinsic_time: 1_000,
+					storage_root_time: 0,
+					reads,
+					repeat_reads: 0,
+					writes: 0,
+					repeat_writes: 0,
+					proof_size: 85,
+					keys,
+				});
+			}
+		}
+		let result = map_unknown(BenchmarkBatchSplitResults {
+			pallet: b"my_pallet".to_vec(),
+			instance: b"instance".to_vec(),
+			benchmark: b"dispatch_post".to_vec(),
+			time_results: results.clone(),
+			db_results: results,
+		});
+		let expected = 85u128 + (5 * 15 * 33 * 50);
+		assert_eq!(result.base_calculated_proof_size, expected);
+		assert!(result.base_calculated_proof_size < u32::MAX as u128);
+		assert!(
+			result.component_calculated_proof_size.is_empty(),
+			"constant model has no slope, got {:?}",
+			result.component_calculated_proof_size
+		);
+	}
+
+	/// #13066: 50 steps of Linear<0, 8192> with a constant unknown-key proof must stay
+	/// on the measured+overhead intercept, not jump into the 10^18 range.
+	#[test]
+	fn unknown_keys_across_fifty_steps_stay_plausible() {
+		let steps: Vec<u32> = (0..50u32).map(|s| s * 8192 / 49).collect();
+		let result = map_unknown(unknown_key_batch(steps, 20, 50, 85));
+		let expected = 85u128 + (5 * 15 * 33 * 50);
+		assert_eq!(result.base_calculated_proof_size, expected);
+		assert!(
+			result.component_calculated_proof_size.is_empty() ||
+				result.component_calculated_proof_size.iter().all(|c| c.slope == 0),
+			"constant y must not produce a non-zero slope, got {:?}",
+			result.component_calculated_proof_size
+		);
+		assert!(result.base_calculated_proof_size < 1_000_000);
+	}
+
+	/// `pov_overhead * reads` used to wrap in u32 (2475 × 2_000_000). Saturating keeps
+	/// the estimate at `u32::MAX` instead of a wrapped small number feeding OLS garbage.
+	#[test]
+	fn proof_size_overhead_does_not_wrap() {
+		let mut storage_per_prefix = HashMap::new();
+		let prefix = vec![0xABu8; 32];
+		let results = vec![BenchmarkResult {
+			components: vec![(BenchmarkParameter::b, 1)],
+			extrinsic_time: 0,
+			storage_root_time: 0,
+			reads: 2_000_000,
+			repeat_reads: 0,
+			writes: 0,
+			repeat_writes: 0,
+			proof_size: 85,
+			keys: vec![(prefix.clone(), 2_000_000, 0, false)],
+		}];
+		process_storage_results(
+			&mut storage_per_prefix,
+			&results,
+			&[],
+			&Default::default(),
+			PovEstimationMode::MaxEncodedLen,
+			1_000_000,
+			0,
+		);
+		let stored = &storage_per_prefix.get(&prefix).unwrap()[0];
+		assert_eq!(stored.proof_size, u32::MAX);
+	}
+
+	#[test]
+	fn ensure_plausible_proof_size_rejects_exabyte_intercept() {
+		let err = ensure_plausible_proof_size(
+			8_126_544_059_662_763_008,
+			&[],
+			"my_pallet",
+			"dispatch_post",
+		)
+		.unwrap_err();
+		let msg = err.to_string();
+		assert!(msg.contains("implausible proof_size"), "{msg}");
+		assert!(msg.contains("UNKNOWN KEY"), "{msg}");
 	}
 }

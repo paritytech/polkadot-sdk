@@ -47,6 +47,22 @@ fn mul_1000_into_u128(value: f64) -> u128 {
 		.saturating_add((value.fract() * 1000.0) as u128)
 }
 
+/// Convert a regression coefficient to `u128`.
+///
+/// Negative, NaN and -inf collapse to 0 (weights cannot be negative). +inf saturates. Finite
+/// values that would overflow `u128` saturate as well. Without this, a rank-deficient OLS fit
+/// (every sample at the same x) can emit an intercept in the 10^18 range via `as u128`.
+fn f64_to_u128_saturating(value: f64, round_up: bool) -> u128 {
+	let v = if round_up { value + 0.5 } else { value };
+	if v.is_nan() || v == f64::NEG_INFINITY || v <= 0.0 {
+		0
+	} else if v == f64::INFINITY || v >= u128::MAX as f64 {
+		u128::MAX
+	} else {
+		v as u128
+	}
+}
+
 impl BenchmarkSelector {
 	fn scale_and_cast_weight(self, value: f64, round_up: bool) -> u128 {
 		if let BenchmarkSelector::ExtrinsicTime = self {
@@ -55,28 +71,16 @@ impl BenchmarkSelector {
 			// which we most certainly always want to round up instead of truncating.
 			mul_1000_into_u128(value + 0.000_000_005)
 		} else {
-			if round_up {
-				(value + 0.5) as u128
-			} else {
-				value as u128
-			}
+			f64_to_u128_saturating(value, round_up)
 		}
 	}
 
 	fn scale_weight(self, value: u128) -> u128 {
-		if let BenchmarkSelector::ExtrinsicTime = self {
-			value.saturating_mul(1000)
-		} else {
-			value
-		}
+		if let BenchmarkSelector::ExtrinsicTime = self { value.saturating_mul(1000) } else { value }
 	}
 
 	fn nanos_from_weight(self, value: u128) -> u128 {
-		if let BenchmarkSelector::ExtrinsicTime = self {
-			value / 1000
-		} else {
-			value
-		}
+		if let BenchmarkSelector::ExtrinsicTime = self { value / 1000 } else { value }
 	}
 
 	fn get_value(self, result: &BenchmarkResult) -> u128 {
@@ -381,6 +385,14 @@ impl Analysis {
 			*rs = rs[ql..rs.len() - ql].to_vec();
 		}
 
+		// OLS needs at least two distinct x-values. A single unique component combination
+		// (many repeats at one x) makes the design matrix rank-deficient; the pseudo-inverse
+		// then emits intercepts in the 10^18 range. Fall back to the constant (median) model.
+		// See https://github.com/paritytech/polkadot-sdk/issues/13066.
+		if results.len() <= 1 {
+			return Self::median_value(r, selector);
+		}
+
 		let names = r[0].components.iter().map(|x| format!("{:?}", x.0)).collect::<Vec<_>>();
 		let value_dists = results
 			.iter()
@@ -416,10 +428,10 @@ impl Analysis {
 			})?;
 
 		Ok(Self {
-			base: selector.scale_and_cast_weight(intercept, true),
+			base: selector.scale_and_cast_weight(intercept.max(0f64), true),
 			slopes: slopes
 				.into_iter()
-				.map(|value| selector.scale_and_cast_weight(value, true))
+				.map(|value| selector.scale_and_cast_weight(value.max(0f64), true))
 				.collect(),
 			names,
 			value_dists: Some(value_dists),
@@ -648,6 +660,71 @@ mod tests {
 			err.to_string().contains("only has 1 unique value"),
 			"expected 'only has 1 unique value' diagnostic, got: {err}",
 		);
+	}
+
+	fn benchmark_result_with_proof(
+		components: Vec<(BenchmarkParameter, u32)>,
+		proof_size: u32,
+	) -> BenchmarkResult {
+		BenchmarkResult {
+			components,
+			extrinsic_time: 0,
+			storage_root_time: 0,
+			reads: 0,
+			repeat_reads: 0,
+			writes: 0,
+			repeat_writes: 0,
+			proof_size,
+			keys: vec![],
+		}
+	}
+
+	// Regression for #13066: many repeats at a single component value make the OLS
+	// design matrix rank-deficient. The pseudo-inverse then emits intercepts in the
+	// 10^18 range. With more than two samples we must fall back to the constant
+	// (median) model instead of running OLS.
+	#[test]
+	fn min_squares_iqr_many_repeats_at_one_x_uses_median_proof_size() {
+		let data: Vec<_> = (0..20)
+			.map(|_| benchmark_result_with_proof(vec![(BenchmarkParameter::b, 8192)], 2560))
+			.collect();
+		let analysis = Analysis::min_squares_iqr(&data, BenchmarkSelector::ProofSize).unwrap();
+		assert_eq!(analysis.base, 2560);
+		assert!(
+			analysis.slopes.is_empty(),
+			"a constant model has no slope, got {:?}",
+			analysis.slopes
+		);
+		assert!(
+			analysis.base < u32::MAX as u128,
+			"proof_size intercept must fit in u32, got {}",
+			analysis.base
+		);
+	}
+
+	#[test]
+	fn min_squares_iqr_fifty_steps_constant_proof_size_stays_plausible() {
+		// Linear<0, 8192> with 50 steps and a constant y: intercept equals y, slope 0.
+		let mut data = Vec::new();
+		for step in 0..50u32 {
+			let x = step * 8192 / 49;
+			for _ in 0..20 {
+				data.push(benchmark_result_with_proof(vec![(BenchmarkParameter::b, x)], 123_835));
+			}
+		}
+		let analysis = Analysis::min_squares_iqr(&data, BenchmarkSelector::ProofSize).unwrap();
+		assert_eq!(analysis.base, 123_835);
+		assert_eq!(analysis.slopes, vec![0]);
+	}
+
+	#[test]
+	fn f64_to_u128_saturating_handles_non_finite_and_negative() {
+		assert_eq!(f64_to_u128_saturating(-1.0, true), 0);
+		assert_eq!(f64_to_u128_saturating(f64::NAN, true), 0);
+		assert_eq!(f64_to_u128_saturating(f64::NEG_INFINITY, true), 0);
+		assert_eq!(f64_to_u128_saturating(f64::INFINITY, true), u128::MAX);
+		assert_eq!(f64_to_u128_saturating(85.6, true), 86);
+		assert_eq!(f64_to_u128_saturating(85.2, false), 85);
 	}
 
 	#[test]
