@@ -12,7 +12,11 @@ use snowbridge_beacon_primitives::{
 	merkle_proof::{generalized_index_length, subtree_index},
 	prepare_aggregate_pubkey, prepare_aggregate_signature, verify_merkle_branch, Fork,
 };
-use snowbridge_pallet_ethereum_client_fixtures::*;
+use snowbridge_pallet_ethereum_client_fixtures::{
+	make_gloas_checkpoint as make_checkpoint,
+	make_gloas_finalized_header_update as make_finalized_header_update,
+	make_gloas_sync_committee_update as make_sync_committee_update,
+};
 use util::*;
 
 #[benchmarks]
@@ -117,17 +121,18 @@ mod benchmarks {
 			bellatrix: Fork { version: hex!("02000000"), epoch: 0 },
 			capella: Fork { version: hex!("03000000"), epoch: 0 },
 			deneb: Fork { version: hex!("04000000"), epoch: 0 },
-			electra: Fork { version: hex!("05000000"), epoch: 80000000000 },
-			fulu: Fork { version: hex!("06000000"), epoch: 80000000001 },
-			gloas: Fork { version: hex!("07000000"), epoch: 80000000002 },
+			electra: Fork { version: hex!("05000000"), epoch: 0 },
+			fulu: Fork { version: hex!("06000000"), epoch: 0 },
+			gloas: Fork { version: hex!("07000000"), epoch: 0 },
 		};
 		let finalized_root_gindex = EthereumBeaconClient::<T>::finalized_root_gindex_at_slot(
 			update.attested_header.slot,
 			fork_versions,
 		);
+		let verified;
 		#[block]
 		{
-			verify_merkle_branch(
+			verified = verify_merkle_branch(
 				block_root,
 				&update.finality_branch,
 				subtree_index(finalized_root_gindex),
@@ -135,6 +140,7 @@ mod benchmarks {
 				update.attested_header.state_root,
 			);
 		}
+		assert!(verified, "benchmark must measure a real verification, not a length rejection");
 
 		Ok(())
 	}
