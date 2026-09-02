@@ -2132,9 +2132,20 @@ impl Store {
 	///
 	/// The resolver runs outside the store locks, so a statement whose affinity returns
 	/// mid-sweep may still be dropped — the skipped ban leaves redelivery open.
+	///
+	/// Statements not yet handed to propagation are exempt: a locally submitted statement no
+	/// peer has seen gets at least one broadcast before the sweep may drop it.
 	fn sweep_explicit_affinity(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
-		let tracked: Vec<Hash> = self.query_index.read().explicit_only.iter().copied().collect();
+		let tracked: Vec<Hash> = {
+			let query_index = self.query_index.read();
+			query_index
+				.explicit_only
+				.iter()
+				.filter(|hash| !query_index.recent.contains_key(*hash))
+				.copied()
+				.collect()
+		};
 		for hash in tracked {
 			let encoded = match self.db.get(col::STATEMENTS, &hash) {
 				Ok(Some(encoded)) => encoded,
@@ -4654,6 +4665,7 @@ mod tests {
 
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
 		assert!(store.has_statement(&hash));
+		store.take_recent_statements().unwrap();
 
 		// Affinity still holds: the sweep keeps the statement.
 		store.maintain();
@@ -4671,6 +4683,28 @@ mod tests {
 
 		// The redelivered statement is tracked again: a second lapse sweeps it once more.
 		affine.store(false, Ordering::Relaxed);
+		store.take_recent_statements().unwrap();
+		store.maintain();
+		assert!(!store.has_statement(&hash));
+	}
+
+	#[test]
+	fn sweep_spares_statements_not_yet_handed_to_propagation() {
+		let (store, _temp) = test_store();
+		let (resolver, affine) = switchable_resolver(RetentionReasonMask::EXPLICIT_AFFINITY);
+		store.set_retention_resolver(resolver);
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
+
+		// Affinity lapsed before the outbox took the statement: the sweep leaves it alone,
+		// so a locally submitted statement is broadcast at least once.
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		// Once propagation has taken it, the next sweep drops it.
+		store.take_recent_statements().unwrap();
 		store.maintain();
 		assert!(!store.has_statement(&hash));
 	}
