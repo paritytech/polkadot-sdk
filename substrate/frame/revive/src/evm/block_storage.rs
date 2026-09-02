@@ -123,16 +123,6 @@ impl EthereumCallResult {
 	}
 }
 
-/// What pays for draining a log that had to be buffered.
-pub enum DrainCharge {
-	/// The emitting contract's gas meter. The `LOG` opcode is charged
-	/// [`OnFinalizeBlockParts::on_finalize_block_per_event`], whose marginal is that drain.
-	GasMeter,
-	/// Nothing else does, so the block is charged at the emit site. For the mirroring paths, which
-	/// run outside any contract frame and so have no gas meter.
-	Block,
-}
-
 /// Capture the Ethereum log for the current transaction.
 ///
 /// Inside an ethereum transaction the log is added to that transaction's receipt. Outside of one
@@ -144,12 +134,7 @@ pub enum DrainCharge {
 /// on a runtime that leaves [`Config::MaxOutsideFrameLogs`] at zero. Callers deposit their
 /// `ContractEmitted` either way: an `Ext::deposit_event` that succeeded while losing the log
 /// outright would break the `LOG` opcode's guarantee that a log takes effect or its frame reverts.
-pub fn capture_ethereum_log<T: Config>(
-	contract: &H160,
-	data: &[u8],
-	topics: &[H256],
-	drain_charge: DrainCharge,
-) {
+pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
 	let captured = receipt::with(|receipt| {
 		receipt.add_log(contract, data, topics);
 	});
@@ -174,15 +159,14 @@ pub fn capture_ethereum_log<T: Config>(
 	OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
 	OutsideFrameLogCount::<T>::put(index.saturating_add(1));
 
-	if let DrainCharge::Block = drain_charge {
-		// This log's share of the `on_finalize` drain, charged to the block that emitted it, since
-		// `on_initialize` reserves only the fixed part of `on_finalize`. The insert above is
-		// measured by the emitting pallet's own benchmark.
-		frame_system::Pallet::<T>::register_extra_weight_unchecked(
-			<T as Config>::WeightInfo::per_outside_frame_log(),
-			DispatchClass::Normal,
-		);
-	}
+	// This log's share of the `on_finalize` drain, charged to the block that emitted it, since
+	// `on_initialize` reserves only the fixed part of `on_finalize`. Only a buffered log reaches
+	// here — one captured into a receipt returned above — and the insert itself is measured by the
+	// emitting pallet's own benchmark.
+	frame_system::Pallet::<T>::register_extra_weight_unchecked(
+		<T as Config>::WeightInfo::per_outside_frame_log(),
+		DispatchClass::Normal,
+	);
 }
 
 /// Get the receipt details of the current transaction.

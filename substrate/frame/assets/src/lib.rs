@@ -504,7 +504,7 @@ pub mod pallet {
 		/// Additional data to be stored with an account's asset balance.
 		type Extra: Member + Parameter + Default + MaxEncodedLen;
 
-		/// Callback methods for asset state change (e.g. asset created or destroyed)
+		/// Callback methods for asset state changes (creation, destruction) and balance changes.
 		///
 		/// Types implementing the [`AssetsCallback`] can be chained when listed together as a
 		/// tuple.

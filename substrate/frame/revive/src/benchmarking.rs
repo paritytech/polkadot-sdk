@@ -3605,6 +3605,14 @@ mod benchmarks {
 
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {
+			// Captured inside the ethereum context, so each lands on the transaction's own receipt
+			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`.
+			// Buffering them into `OutsideFrameLogs` instead would measure the outside-of-frame
+			// drain, which `outside_frame_log` covers and charges separately.
+			for _ in 0..e {
+				block_storage::capture_ethereum_log::<T>(&instance.address, &vec![], &vec![]);
+			}
+
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -3621,16 +3629,6 @@ mod benchmarks {
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 		});
 
-		// Create e events with minimal data to isolate event count overhead
-		for _ in 0..e {
-			block_storage::capture_ethereum_log::<T>(
-				&instance.address,
-				&vec![],
-				&vec![],
-				block_storage::DrainCharge::GasMeter,
-			);
-		}
-
 		#[block]
 		{
 			// Initialize block
@@ -3640,9 +3638,9 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// One real transaction, plus the synthetic transaction that carries the `e`
-		// outside-of-frame logs (only present when `e > 0`).
-		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1 + (e > 0) as usize);
+		// The real transaction only: its `e` logs are on its own receipt, so no synthetic
+		// transaction is built.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())
 	}
@@ -3674,24 +3672,6 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-
-			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
-
-			block_builder.process_transaction(
-				signed_transaction,
-				true,
-				receipt_gas_info,
-				encoded_logs,
-				bloom,
-			);
-
-			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
-
 		// Create one event with d bytes of data distributed across topics and data field
 		let (event_data, topics) = if d < 32 {
 			// If total data is less than 32 bytes, put all in data field
@@ -3715,12 +3695,29 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log::<T>(
-			&instance.address,
-			&event_data,
-			&topics,
-			block_storage::DrainCharge::GasMeter,
-		);
+		// Store transaction
+		let _ = block_storage::bench_with_ethereum_context(|| {
+			// Captured inside the ethereum context, so the log lands on the transaction's own
+			// receipt — the path `on_finalize_block_per_event` is charged for on every
+			// `DepositEvent`. Buffering it into `OutsideFrameLogs` instead would measure the
+			// outside-of-frame drain, which `outside_frame_log` covers and charges separately.
+			block_storage::capture_ethereum_log::<T>(&instance.address, &event_data, &topics);
+
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				receipt_gas_info,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+		});
 
 		#[block]
 		{
@@ -3731,8 +3728,9 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// One real transaction, plus the synthetic transaction carrying the outside-of-frame log.
-		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 2);
+		// The real transaction only: its log is on its own receipt, so no synthetic transaction is
+		// built.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())
 	}
@@ -3744,9 +3742,10 @@ mod benchmarks {
 	/// Only the drain. The `OutsideFrameLogs` insert happens inside the extrinsic that emitted the
 	/// log, so it is measured by that pallet's own benchmark; charging it here as well would
 	/// double-count it. The drain has no such home — it runs after every extrinsic is done — which
-	/// is why this marginal is charged at the emit site instead. Unlike `on_finalize_per_event`
-	/// this isolates the path with no real transaction present, and — being `pov_mode = Measured` —
-	/// captures the per-log **proof size**, which a constant estimate cannot infer.
+	/// is why this marginal is charged at the emit site instead. Disjoint from
+	/// `on_finalize_per_event`, which captures its logs into a real transaction's receipt and so
+	/// never reaches this buffer. Being `pov_mode = Measured`, it captures the per-log **proof
+	/// size**, which a constant estimate cannot infer.
 	///
 	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
 	/// data word.
@@ -3766,12 +3765,7 @@ mod benchmarks {
 		// No ethereum context is active, so each log is captured into `OutsideFrameLogs` rather
 		// than a transaction receipt. `n` stays under `MaxOutsideFrameLogs`, so all are buffered.
 		for _ in 0..n {
-			block_storage::capture_ethereum_log::<T>(
-				&instance.address,
-				&data,
-				&topics,
-				block_storage::DrainCharge::Block,
-			);
+			block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
 		}
 
 		#[block]

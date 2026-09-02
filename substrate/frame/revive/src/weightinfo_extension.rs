@@ -58,12 +58,14 @@ pub trait OnFinalizeBlockParts {
 	/// Returns the weight of draining one buffered outside-of-frame log (see `OutsideFrameLogs`)
 	/// in `on_finalize`.
 	///
-	/// Each such log is a `Transfer` log mirrored from a substrate-native balance change. Charged
-	/// at the emit site via `frame_system::register_extra_weight_unchecked`, so blocks pay for the
-	/// mirror logs they produce instead of reserving the cap up-front. The mirroring paths run
-	/// outside any contract frame, so there is no gas meter to charge against. A contract's `LOG`
-	/// reaches the same buffer when it runs off the ethereum path, but pays the drain through
-	/// [`Self::on_finalize_block_per_event`], so it is not charged here as well.
+	/// Charged at the emit site via `frame_system::register_extra_weight_unchecked`, so blocks pay
+	/// for the buffered logs they produce instead of reserving the cap up-front. Every emitter
+	/// pays it, whether a mirrored balance change or a contract's `LOG` running off the ethereum
+	/// path: the charge sits past the point where a log destined for a real transaction's receipt
+	/// has already been taken, so only a log that actually landed in the buffer reaches it.
+	///
+	/// Distinct from [`Self::on_finalize_block_per_event`], which covers folding a log into the
+	/// receipt of the transaction that emitted it — a path that never touches this buffer.
 	///
 	/// Only the drain. The buffer insert runs inside the emitting extrinsic and is covered by that
 	/// pallet's own benchmark; the drain runs after every extrinsic is done and so belongs to no
@@ -140,7 +142,7 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 
 	fn per_outside_frame_log() -> Weight {
 		// The dedicated benchmark is `pov_mode = Measured`, so this marginal carries the per-log
-		// proof size that `on_finalize_per_event` (constant proof estimate) does not.
+		// proof size of the buffer take.
 		W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0))
 	}
 }

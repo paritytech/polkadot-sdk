@@ -2705,8 +2705,8 @@ impl<T: Config> Pallet<T> {
 	/// via the outside-frame hook, captured into the current ethereum receipt — or the block's
 	/// synthetic receipt when outside an ethereum transaction — and deposited as
 	/// [`Event::ContractEmitted`]. For log-mirroring runtime components. Contract execution keeps
-	/// its own in-frame path (`Ext::deposit_event`), which differs in the tracer hook it calls and
-	/// in having a gas meter to charge the drain against.
+	/// its own in-frame path (`Ext::deposit_event`), which differs only in the tracer hook it
+	/// calls.
 	///
 	/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
 	/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
@@ -2720,12 +2720,7 @@ impl<T: Config> Pallet<T> {
 			tracer.log_event_outside_frame(contract, &topics, &data, log_index);
 		});
 
-		evm::block_storage::capture_ethereum_log::<T>(
-			&contract,
-			&data,
-			&topics,
-			evm::block_storage::DrainCharge::Block,
-		);
+		evm::block_storage::capture_ethereum_log::<T>(&contract, &data, &topics);
 
 		Self::deposit_event(Event::ContractEmitted {
 			contract,

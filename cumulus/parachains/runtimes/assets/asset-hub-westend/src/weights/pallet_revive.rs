@@ -1793,7 +1793,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	}
 	/// Placeholder — regenerate with `/cmd bench`. The per-`n` terms are the point of this entry:
 	/// they carry the cost and PoV of the `OutsideFrameLogs` take that drains one outside-of-frame
-	/// log in `on_finalize`, which `on_finalize_per_event` does not model.
+	/// log in `on_finalize`.
 	fn outside_frame_log(n: u32, ) -> Weight {
 		Weight::from_parts(54_202_186, 0)
 			.saturating_add(Weight::from_parts(0, 5680))
