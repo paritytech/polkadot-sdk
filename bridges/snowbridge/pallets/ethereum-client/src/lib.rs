@@ -627,6 +627,9 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.gloas.epoch {
+				return fork_versions.gloas.version;
+			}
 			if epoch >= fork_versions.fulu.epoch {
 				return fork_versions.fulu.version;
 			}
@@ -720,6 +723,10 @@ pub mod pallet {
 		pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::FINALIZED_ROOT_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::FINALIZED_ROOT_INDEX;
 			}
@@ -733,6 +740,10 @@ pub mod pallet {
 		) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::CURRENT_SYNC_COMMITTEE_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
 			}
@@ -742,6 +753,10 @@ pub mod pallet {
 
 		pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::NEXT_SYNC_COMMITTEE_INDEX;
+			}
 
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
@@ -753,6 +768,10 @@ pub mod pallet {
 		pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::BLOCK_ROOTS_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::BLOCK_ROOTS_INDEX;
 			}
@@ -760,8 +779,17 @@ pub mod pallet {
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 
-		pub fn execution_header_gindex() -> usize {
-			config::altair::EXECUTION_HEADER_INDEX
+		/// Generalized index of the execution commitment inside `BeaconBlockBody`.
+		///
+		/// Pre-Gloas this is the SSZ `execution_payload` root. Gloas removes that field, so
+		/// the commitment becomes the execution block hash carried by the payload bid, at a
+		/// different index and with a different leaf.
+		pub fn execution_commitment_gindex(is_gloas: bool) -> usize {
+			if is_gloas {
+				config::gloas::EXECUTION_BLOCK_HASH_INDEX
+			} else {
+				config::altair::EXECUTION_HEADER_INDEX
+			}
 		}
 	}
 }

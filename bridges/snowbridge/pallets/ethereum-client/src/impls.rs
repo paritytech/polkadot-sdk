@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 use frame_support::ensure;
-use snowbridge_beacon_primitives::ExecutionProof;
+use snowbridge_beacon_primitives::{CommitmentError, CommitmentScheme, ExecutionProof};
+use sp_runtime::DispatchError;
 
 use alloy_primitives::Log as AlloyLog;
 use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
@@ -27,11 +28,11 @@ impl<T: Config> Verifier for Pallet<T> {
 		// pending relayer rewards while the bridge is halted).
 		ensure!(!Self::operating_mode().is_halted(), VerificationError::Halted);
 
-		Self::verify_execution_proof(&proof.execution_proof)
+		let receipts_root = Self::verify_execution_proof(&proof.execution_proof)
 			.map_err(|e| InvalidExecutionProof(e.into()))?;
 
 		Self::verify_receipt_inclusion(
-			proof.execution_proof.execution_header.receipts_root(),
+			receipts_root,
 			event_log.tx_index,
 			&proof.receipt_proof,
 			event_log,
@@ -81,7 +82,9 @@ impl<T: Config> Pallet<T> {
 	/// Validates an execution header with ancestry_proof against a finalized checkpoint on
 	/// chain.The beacon header containing the execution header is sent, plus the execution header,
 	/// along with a proof that the execution header is rooted in the beacon header body.
-	pub(crate) fn verify_execution_proof(execution_proof: &ExecutionProof) -> DispatchResult {
+	pub(crate) fn verify_execution_proof(
+		execution_proof: &ExecutionProof,
+	) -> Result<H256, DispatchError> {
 		let latest_finalized_state =
 			FinalizedBeaconState::<T>::get(LatestFinalizedBlockRoot::<T>::get())
 				.ok_or(Error::<T>::NotBootstrapped)?;
@@ -117,26 +120,35 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 
-		// Gets the hash tree root of the execution header, in preparation for the execution
-		// header proof (used to check that the execution header is rooted in the beacon
-		// header body.
-		let execution_header_root: H256 = execution_proof
-			.execution_header
-			.hash_tree_root()
-			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
+		// Reject a legacy proof presented for a Gloas-era block, and vice versa. Checked
+		// before the commitment is built, so no submitter-controlled bytes are parsed first.
+		let is_gloas = execution_proof.execution_header.scheme() == CommitmentScheme::BlockHash;
+		let fork_versions = T::ForkVersions::get();
+		let is_gloas_slot =
+			compute_epoch(execution_proof.header.slot, config::SLOTS_PER_EPOCH as u64) >=
+				fork_versions.gloas.epoch;
+		ensure!(is_gloas == is_gloas_slot, Error::<T>::InvalidExecutionHeaderProof);
 
-		let execution_header_gindex = Self::execution_header_gindex();
+		// Pre-Gloas the leaf is the SSZ root of the execution payload header; Gloas removes
+		// that field, so the leaf is `keccak256(canonical header RLP)` at a different index.
+		let commitment = execution_proof.execution_header.commitment().map_err(|e| match e {
+			CommitmentError::Merkleization => Error::<T>::BlockBodyHashTreeRootFailed,
+			CommitmentError::MalformedExecutionHeader => Error::<T>::InvalidExecutionHeaderProof,
+		})?;
+
+		let gindex = Self::execution_commitment_gindex(is_gloas);
 		ensure!(
 			verify_merkle_branch(
-				execution_header_root,
+				commitment.leaf(),
 				&execution_proof.execution_branch,
-				subtree_index(execution_header_gindex),
-				generalized_index_length(execution_header_gindex),
+				subtree_index(gindex),
+				generalized_index_length(gindex),
 				execution_proof.header.body_root
 			),
 			Error::<T>::InvalidExecutionHeaderProof
 		);
-		Ok(())
+
+		Ok(commitment.receipts_root_once_proven())
 	}
 
 	/// Verify that `block_root` is an ancestor of `finalized_block_root` Used to prove that

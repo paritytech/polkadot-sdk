@@ -1,0 +1,29 @@
+title: 'snowbridge: Ethereum Gloas support in the beacon light client'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client.
+
+    EIP-7688 turns `BeaconState` and `BeaconBlockBody` into progressive containers, so every
+    generalized index moves: `finalized_checkpoint.root` 169 -> 735, `current_sync_committee`
+    86 -> 2945, `next_sync_committee` 87 -> 2946, `block_roots` 69 -> 352.
+
+    EIP-7732 removes `execution_payload` from `BeaconBlockBody`, so the body commits only to an
+    execution block hash, at gindex 2856. A Gloas execution proof carries the canonical RLP of
+    the execution header, authenticated by `keccak256(bytes) == committed hash`, and the
+    `receipts_root` is read out of those authenticated bytes.
+crates:
+- name: snowbridge-beacon-primitives
+  bump: major
+- name: snowbridge-pallet-ethereum-client-fixtures
+  bump: minor
+- name: snowbridge-pallet-ethereum-client
+  bump: major
+- name: snowbridge-pallet-inbound-queue
+  bump: none
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: none
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
