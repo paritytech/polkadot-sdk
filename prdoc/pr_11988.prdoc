@@ -24,9 +24,9 @@ doc:
       - Runtime API dispatch is now dynamic (`ApiExt::has_api_with`), removing
         the previous supertrait requirement on `NodeRuntimeApi`; runtimes
         without `HopRuntimeApi` fall back to cleanup-only automatically.
-      - Node-side per-submit size check dropped; enforcement is delegated to
-        `HopRuntimeApi::can_account_promote(who, data_len)` (the runtime is
-        authoritative and can express size-tiered policy).
+      - `HopError::DataTooLarge`'s second field widened from `u32` to `u64` so
+        both the runtime-declared `HopRuntimeApi::max_promotion_size` cap and
+        the crate-level `MAX_DATA_SIZE` can be reported in the same variant.
       - Wall-clock retention: `--hop-retention-blocks` /
         `--hop-promotion-buffer-blocks` renamed to `*-secs`.
 
