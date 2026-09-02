@@ -33,10 +33,9 @@ fn code_of(len: u32) -> Vec<u8> {
 
 /// Park a pending registration for `PARA_ID` expecting exactly `code`.
 ///
-/// Written straight to storage rather than pushed through [`Pallet::authorize_code`]: going
-/// through the call would put the whole range at the mercy of whatever minimum code size the
-/// configured [`ParachainRegistrar`] enforces, and `c = 0` would fail setup instead of measuring
-/// anything.
+/// Written straight to storage rather than pushed through [`Pallet::receive`]: going through the
+/// call would put the whole range at the mercy of whatever minimum code size the configured
+/// [`ParachainRegistrar`] enforces, and `c = 0` would fail setup instead of measuring anything.
 fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	let genesis_head = alloc::vec![2u8; T::MaxHeadDataSize::get() as usize];
 	let pending = PendingRegistration {
@@ -57,7 +56,7 @@ mod benchmarks {
 
 	/// Accepting a registration request. Dominated by writing the head data.
 	#[benchmark]
-	fn authorize_code(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+	fn receive_register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
 		let manager: T::AccountId = account("manager", 0, 0);
 		let code = code_of(T::MaxCodeSize::get());
 		let message = MessageToRelay::V1(MessageToRelayV1::Register {
@@ -70,7 +69,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		authorize_code(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(PendingRegistrations::<T>::contains_key(PARA_ID));
 		Ok(())
@@ -116,7 +115,7 @@ mod benchmarks {
 	/// Dropping an authorization. The worst case carries the largest head data, since that is what
 	/// the entry being removed holds.
 	#[benchmark]
-	fn cancel_authorization() -> Result<(), BenchmarkError> {
+	fn receive_cancel_registration() -> Result<(), BenchmarkError> {
 		park::<T>(&code_of(T::MaxCodeSize::get()))?;
 		let message = MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
 			para_id: PARA_ID,
@@ -124,7 +123,7 @@ mod benchmarks {
 		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		receive(RawOrigin::Root, message);
 
 		assert!(!PendingRegistrations::<T>::contains_key(PARA_ID));
 		Ok(())
