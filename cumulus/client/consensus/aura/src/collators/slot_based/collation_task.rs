@@ -20,17 +20,20 @@ use std::path::PathBuf;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_node_primitives::{MaybeCompressedPoV, SubmitCollationParams};
+use polkadot_node_primitives::{MaybeCompressedPoV, SegmentCollation, SubmitSegmentParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Id as ParaId};
+use polkadot_primitives::{CandidateDescriptorVersion, CollatorPair, Id as ParaId};
 
 use cumulus_primitives_core::relay_chain::BlockId;
 use futures::prelude::*;
 
 use crate::export_pov_to_path;
 use sc_utils::mpsc::TracingUnboundedReceiver;
-use sp_runtime::traits::{Block as BlockT, Header};
+use sp_runtime::{
+	traits::{Block as BlockT, Header},
+	BoundedVec,
+};
 
 use super::CollatorMessage;
 
@@ -188,20 +191,26 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
 		"Submitting collation for core.",
 	);
-
+	let (scheduling_parent, candidates_descriptor_version) = scheduling_parent
+		.map_or((relay_parent, CandidateDescriptorVersion::V2), |parent| {
+			(parent, CandidateDescriptorVersion::V3)
+		});
 	overseer_handle
 		.send_msg(
-			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
-				relay_parent,
-				collation,
-				validation_code_hash,
-				core_index,
-				result_sender: None,
+			CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
 				scheduling_parent,
-				session_index,
-				validation_data,
+				core_index,
+				candidates_descriptor_version,
+				collations: BoundedVec::try_from(vec![SegmentCollation {
+					relay_parent,
+					collation,
+					validation_code_hash,
+					session_index,
+					validation_data,
+				}])
+				.expect("One element segment should fit;qed!"),
 			}),
-			"SubmitCollation",
+			"SubmitSegment",
 		)
 		.await;
 }
