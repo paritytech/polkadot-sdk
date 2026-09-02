@@ -35,12 +35,14 @@ use crate::common::aura::AuraIdT;
 use codec::Encode;
 use jam_cumulus_facade::{
 	H256,
-	aura::{AuthConfig, AuthToken, expected_collator_index, signable_work_package_hash},
+	aura::{
+		AuthConfig, AuthToken, CollatorKey, CollatorSignature, build_collator_tree,
+		expected_collator_index, signable_work_package_hash,
+	},
 	authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, authorizer_hash},
 };
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
-use parachain_authorizer::aura::{CollatorKey, CollatorSignature, build_collator_tree};
 use sp_core::{
 	Pair,
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
@@ -341,8 +343,7 @@ pub(crate) mod tests {
 	use super::*;
 	use codec::DecodeAll;
 	use jam_types::{RefineContext, WorkItem, WorkPayload};
-	use parachain_authorizer::aura::AuthToken as GuestToken;
-	use parachain_authorizer_ed25519::Ed25519;
+	use jam_cumulus_facade::aura::{AuthToken as GuestToken, Ed25519, Sr25519};
 	use sp_consensus_aura::{
 		ed25519::AuthorityId as Ed25519AuraId, sr25519::AuthorityId as Sr25519AuraId,
 	};
@@ -565,10 +566,10 @@ pub(crate) mod tests {
 		assert!(token.check_proof(&bob.config, 0).is_err(), "Bob's proof is not Alice's");
 	}
 
-	/// The same contract on the other curve, verified against schnorrkel itself rather than
-	/// against a keystore call: what this pins is that `sign_with` signs under the `b"substrate"`
-	/// transcript context, which is the one thing an sr25519 guest verifier has to agree with and
-	/// the one thing `sp_core`'s API gives a signer no say over.
+	/// The same contract on the other curve, against the sr25519 blob's own verifier *and*
+	/// against schnorrkel directly. The direct check is what pins the transcript context: the
+	/// keystore signs under `b"substrate"` and `sp_core`'s API gives a signer no say over it, so
+	/// a verifier that picks its own context would reject every token this node ever sends.
 	#[test]
 	fn an_sr25519_token_verifies_under_the_substrate_context_works() {
 		let bob = authorizer_of("alice,bob,charlie", "Bob", 1);
@@ -581,6 +582,13 @@ pub(crate) mod tests {
 			.check_proof(&bob.config, bob.own_index())
 			.expect("the proof puts Bob at his leaf");
 		let payload = signable_work_package_hash(&package);
+		token
+			.check_signature::<Sr25519>(payload)
+			.expect("the sr25519 blob's verifier accepts what the keystore signed");
+		assert!(
+			token.check_signature::<Ed25519>(payload).is_err(),
+			"a core queued for the other scheme's blob authorizes nothing of ours",
+		);
 		let key = schnorrkel::PublicKey::from_bytes(&token.key).expect("a valid ristretto key");
 		let signature =
 			schnorrkel::Signature::from_bytes(&token.signature).expect("a valid signature");
