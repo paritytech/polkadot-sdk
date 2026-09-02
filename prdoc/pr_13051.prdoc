@@ -2,21 +2,15 @@ title: 'snowbridge: Ethereum Gloas support in the beacon light client'
 doc:
 - audience: Runtime Dev
   description: |-
-    Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client. Two
-    EIPs affect it independently.
+    Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client.
 
     EIP-7688 turns `BeaconState` and `BeaconBlockBody` into progressive containers, so every
-    generalized index moves even where the field itself is unchanged: `finalized_checkpoint.root`
-    169 -> 735, `current_sync_committee` 86 -> 2945, `next_sync_committee` 87 -> 2946, and
-    `block_roots` 69 -> 352. The first three are published in the light-client spec; `block_roots`
-    is not, because the ancestry proof is a Snowbridge addition. A stale 69 there breaks every
-    ancestry proof and `force_checkpoint` with it, so 352 is confirmed against a live Gloas
-    client rather than derived alone.
+    generalized index moves: `finalized_checkpoint.root` 169 -> 735, `current_sync_committee`
+    86 -> 2945, `next_sync_committee` 87 -> 2946, `block_roots` 69 -> 352.
 
-    EIP-7732 removes `execution_payload` from `BeaconBlockBody`, so the body no longer commits
-    to an `ExecutionPayloadHeader` and therefore no longer to a `receipts_root`. It commits only
-    to an execution block hash, at gindex 2856. A Gloas execution proof now carries the canonical
-    RLP of the execution header, authenticated by `keccak256(bytes) == committed hash`, and the
+    EIP-7732 removes `execution_payload` from `BeaconBlockBody`, so the body commits only to an
+    execution block hash, at gindex 2856. A Gloas execution proof carries the canonical RLP of
+    the execution header, authenticated by `keccak256(bytes) == committed hash`, and the
     `receipts_root` is read out of those authenticated bytes.
 
     Breaking changes in `snowbridge-beacon-primitives`:
@@ -25,49 +19,24 @@ doc:
       set it.
     - `VersionedExecutionPayloadHeader` gains a `Gloas(BoundedVec<u8, ConstU32<1024>>)` variant.
       It is appended, so existing SCALE encodings continue to decode.
-    - `hash_tree_root()`, `receipts_root()`, `block_hash()` and `block_number()` are removed from
-      `VersionedExecutionPayloadHeader`. `commitment()` replaces them, returning an opaque
-      `ExecutionCommitment` that carries both the merkle leaf and the receipts root that leaf
-      authenticates. The receipts root is reachable only through the consuming
-      `receipts_root_once_proven()`, so it cannot be read off a proof that was never verified.
+    - `hash_tree_root()`, `receipts_root()`, `block_hash()` and `block_number()` are removed
+      from it. `commitment()` replaces them, returning an opaque `ExecutionCommitment`; the
+      receipts root is reachable only through the consuming `receipts_root_once_proven()`, so it
+      cannot be read off a proof that was never verified.
+    - `ForkVersions::is_ordered()` is new: a `const fn` asserting fork epochs are non-decreasing.
+      Each schedule asserts it at compile time, so a misordered schedule fails to build.
 
     In `snowbridge-pallet-ethereum-client`, `execution_header_gindex()` becomes
-    `execution_commitment_gindex(is_gloas)` — after Gloas the commitment is a different field,
-    not just a different index — and `verify_execution_proof` returns the authenticated
-    `receipts_root` instead of `()`.
+    `execution_commitment_gindex(is_gloas)` and `verify_execution_proof` returns the
+    authenticated `receipts_root` instead of `()`. A proof whose variant disagrees with the fork
+    era of its beacon header slot is rejected.
 
-    A proof whose variant disagrees with the fork era of its beacon header slot is rejected, so
-    a submitter cannot select their own verification path. The Gloas fork version and epoch are
-    placeholders until the fork is scheduled; until then no epoch selects Gloas and Gloas proofs
-    are refused rather than mis-verified.
+    The production fork schedule carries a provisional Sepolia Gloas entry, epoch 351232 and
+    version `0x90000076`, neither yet confirmed against `eth-clients/sepolia`.
 
-    The benchmarks now run on real Gloas fixtures from a public Gloas testnet rather than
-    Electra ones, because Gloas is the worst case: every branch it verifies is deeper. An A/B
-    run put the difference below the noise floor -- the signs disagreed across extrinsics, and
-    `force_checkpoint` came out nominally faster on the strictly deeper branches. Repeating a
-    run with no code change then moved that same figure by more than the fork difference
-    itself, so the measurement cannot resolve the effect. That is expected: these extrinsics
-    are almost entirely BLS, with one aggregate verification accounting for nearly all of
-    `submit` and the remainder going on decompressing 512 sync committee pubkeys, while the
-    extra branch depth costs roughly nine SHA-256 compressions. Weights are unchanged and
-    should be regenerated on reference hardware as usual.
-
-    `ForkVersions::is_ordered()` is a new `const fn` asserting the fork epochs are
-    non-decreasing. `select_fork_version` tests the newest fork first, so a fork scheduled
-    below its predecessor is unreachable, and nothing detects that at runtime -- the fork
-    version feeds the BLS signing domain, so it surfaces as a signature failure after every
-    merkle branch has already verified. Each schedule now carries
-    `const _: () = assert!(ChainForkVersions::get().is_ordered());` beside it, so a misordered
-    schedule fails to build. This covers the production schedules too, which no test compiles.
-
-    The test and benchmark fork schedule in both bridge hub runtimes sets fulu to epoch 0, so
-    fulu is the pre-Gloas era there. This is coupled to the benchmarks running Gloas fixtures:
-    nothing in that schedule needs the Electra signing domain. The pallet mock deliberately
-    differs, keeping fulu above the Electra fixtures, because its unit tests do verify
-    Electra-era signatures.
-
-    Not included: the Gloas fork version and epoch are placeholders in the production
-    configuration until the fork is scheduled, and the relayer-side changes are separate.
+    Benchmarks run on real Gloas fixtures, which are the worst case. The difference against
+    Electra sat below the noise floor, so weights are unchanged; regenerate them on reference
+    hardware as usual. Relayer-side changes are separate.
 crates:
 - name: snowbridge-beacon-primitives
   bump: major
