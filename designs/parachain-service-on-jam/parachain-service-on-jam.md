@@ -589,7 +589,8 @@ enum UpwardMessage {
     RequestCodeUpgrade { hash: ValidationCodeHash, len: Compact<u32> },
     /// Request a preimage, charged to the target's state balance. See §6.1 for a
     /// `Parachain` target. A `Service` target requests into that service's own
-    /// store and is **Asset Hub only**.
+    /// store and is **Asset Hub only**. No-op if the `Parachain` target has
+    /// `is_deregistering == true` (§6.4).
     Solicit { target: Target, hash: Hash, len: Compact<u32> },
     /// Destroy an empty supervised service, crediting its balances to this
     /// service. **Asset Hub only.**
@@ -622,7 +623,8 @@ enum UpwardMessage {
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
     /// Upsert `key_value_storage[(para_id, key)] = value`. Accumulate replays it
-    /// with delta state-balance charging (see §6.1).
+    /// with delta state-balance charging (see §6.1). No-op if `para_id` has
+    /// `is_deregistering == true` (§6.4).
     SetKV { key: Vec<u8>, value: Vec<u8> },
     /// Remove `key_value_storage[(para_id, key)]`, refunding its footprint to
     /// `para_id` (see §6.1).
@@ -677,10 +679,12 @@ enum UpwardMessage {
     /// Replace the Parachain Service's own service code. See §5.4.
     /// **Asset Hub only.**
     UpgradeService { code_hash: Hash, len: Compact<u32>, min_acc_gas: u64, min_memo_gas: u64 },
-    /// Upsert a parachain's head data. **Coretime chain only.**
+    /// Upsert a parachain's head data. **Coretime chain only.** No-op if
+    /// `para_id` has `is_deregistering == true` (§6.4).
     ParachainSetHead { para_id: ParaId, new_head: HeadData },
     /// Upsert a parachain's validation code hash. The service must solicit the
-    /// validation code preimage. **Coretime chain only.**
+    /// validation code preimage. **Coretime chain only.** No-op if `para_id` has
+    /// `is_deregistering == true` (§6.4).
     ParachainSetValidationCode {
         para_id: ParaId,
         new_validation_code_hash: ValidationCodeHash,
@@ -689,7 +693,8 @@ enum UpwardMessage {
     /// Remove all per-parachain state. **Coretime chain only.**
     ParachainCleanUp(ParaId),
     /// Overwrite `ParaInfo[para_id].total_state_balance`. See §6.1.
-    /// **Coretime chain only.**
+    /// **Coretime chain only.** No-op if `para_id` has `is_deregistering == true`
+    /// (§6.4).
     ParachainSetStateBalance { para_id: ParaId, new_total: Compact<Balance> },
 }
 ```
