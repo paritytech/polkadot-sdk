@@ -234,8 +234,7 @@ impl AuraAuthorizer {
 	///
 	/// The signed hash excludes the authorization by construction, which is exactly what lets the
 	/// signature live inside the package it signs — so this runs *after* the package is otherwise
-	/// complete, and re-anchoring re-signs. `sudo` is always false here: it is the control lane's
-	/// escalation (parasim-tool reaching a parked core), and a collator never needs it.
+	/// complete, and re-anchoring re-signs.
 	pub(crate) fn authorize(&self, package: &mut WorkPackage) -> Result<(), String> {
 		let wp_hash = signable_work_package_hash(package);
 		let signature = self
@@ -254,8 +253,7 @@ impl AuraAuthorizer {
 				signature.len(),
 			)
 		})?;
-		let token =
-			AuthToken { proof: self.own_proof.clone(), key: self.own_key, signature, sudo: false };
+		let token = AuthToken { proof: self.own_proof.clone(), key: self.own_key, signature };
 		let authorization = Authorization(token.encode());
 
 		tracing::debug!(
@@ -560,7 +558,6 @@ pub(crate) mod tests {
 		token
 			.check_signature::<Ed25519>(signable_work_package_hash(&package))
 			.expect("the signature is over the payload the guest recomputes");
-		assert!(!token.sudo, "a collator never escalates");
 		// ...and the same token must fail once it is read as a *different* collator's, which is
 		// the only thing standing between the round-robin and any collator authoring any slot.
 		assert!(token.check_proof(&bob.config, 0).is_err(), "Bob's proof is not Alice's");
