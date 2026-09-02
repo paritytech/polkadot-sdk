@@ -6199,45 +6199,6 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn local_filter_is_sent_to_v2_peers_only() {
-		let (mut handler, _statement_store, _network, notification_service) =
-			build_handler_no_peers();
-
-		let v2_peer = PeerId::random();
-		handler
-			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
-				peer: v2_peer,
-				direction: sc_network::service::traits::Direction::Inbound,
-				handshake: vec![],
-				negotiated_fallback: None,
-			})
-			.await;
-		let v1_peer = PeerId::random();
-		handler
-			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
-				peer: v1_peer,
-				direction: sc_network::service::traits::Direction::Inbound,
-				handshake: vec![],
-				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
-			})
-			.await;
-		notification_service.clear_sent_notifications();
-
-		handler.send_local_filter(&v2_peer).await;
-		handler.send_local_filter(&v1_peer).await;
-
-		let sent = notification_service.get_sent_notifications();
-		assert_eq!(sent.len(), 1, "only the V2 peer receives the local filter");
-		let (recipient, notification) = &sent[0];
-		assert_eq!(*recipient, v2_peer);
-		let message = StatementMessage::decode(&mut notification.as_slice()).unwrap();
-		assert!(
-			matches!(message, StatementMessage::ExplicitTopicAffinity(_)),
-			"the local filter arrives as ExplicitTopicAffinity"
-		);
-	}
-
-	#[tokio::test]
 	async fn test_send_chunk_v1_vs_v2_encoding() {
 		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();

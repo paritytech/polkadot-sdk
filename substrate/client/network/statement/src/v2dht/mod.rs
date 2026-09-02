@@ -249,14 +249,6 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.peer_has_explicit_affinity(peer, stmt)
 	}
 
-	/// Whether the peer is a DHT routing target ([`PeersTopology::routing_targets`]) for any of
-	/// the statement's topics.
-	pub(crate) fn peer_is_dht_target(&self, peer: PeerId, stmt: &Statement) -> bool {
-		stmt.topics()
-			.iter()
-			.any(|topic| self.peer_is_dht_target_for_topic(peer, *topic))
-	}
-
 	/// Whether the peer is a DHT routing target for the topic.
 	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
 		self.peers_topology.routing_targets(topic).contains(&peer)
@@ -418,28 +410,6 @@ mod tests {
 			.map(|(_, indices)| indices.clone())
 			.expect("the shared target must be planned");
 		assert_eq!(batch, vec![0, 1]);
-	}
-
-	#[test]
-	fn dht_target_check_mirrors_routing_targets() {
-		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
-		for seed in 2u8..=60 {
-			let peer = peer(seed);
-			orchestrator.on_peers_discovered([peer]);
-			orchestrator.on_peer_identified(peer, true);
-			orchestrator.on_substream_opened(peer);
-		}
-		let topic = Topic([7; 32]);
-		let targets = routing_targets(&orchestrator, &[topic]);
-		let target = *targets.first().expect("fixture must yield a routing target");
-		let non_target = (2u8..=60)
-			.map(peer)
-			.find(|peer| !targets.contains(peer))
-			.expect("gossip_target caps targets below the fixture's peer count");
-
-		let statement = statement_on(topic);
-		assert!(orchestrator.peer_is_dht_target(target, &statement));
-		assert!(!orchestrator.peer_is_dht_target(non_target, &statement));
 	}
 
 	/// A DHT-affinity oracle from many peers with one replica per topic, leaving the local node
