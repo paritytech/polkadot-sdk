@@ -178,11 +178,6 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				// Use an old image that does not send out v2 receipts, as the old validators will
 				// still check the collator signatures.
 				.with_default_command(format!("polkadot-parachain{old_suffix}").as_str())
-				.with_chain_spec_command(
-					format!("polkadot-parachain{old_suffix} export-chain-spec --chain {{{{chainName}}}}")
-						.as_str(),
-				)
-				.chain_spec_command_is_local(true)
 				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_collator(|n| n.with_name(&format!("collator-{para_id}")))
 		})
