@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788357418784,
+  "lastUpdate": 1788375572683,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3e53570b1619e7de01e71929179ec9d03d727425",
-          "message": "Add StakingOperator proxy type to Westend AssetHub (#10980)\n\nIntroduces StakingOperator proxy type that allows validator operational\ntasks (validate, chill, kick) and session key management (set_keys,\npurge_keys) without access to fund management operations.\n\nThis enables pure proxy stashes to delegate validator operations: now\nthat pallet_staking_async_rc_client provides\nset_keys/purge_keys on AssetHub, pure proxies can fully utilize\nStakingOperator.\n\n*NOTE**: This is similar to\nhttps://github.com/polkadot-fellows/runtimes/pull/1033, which introduced\nStakingOperator on Polkadot and Kusama. That change predated the\nintroduction of session key handling on AssetHub. Now that session key\nhandling is available, a follow-up PR will be implemented in the\nruntimes repository to restrict StakingOperator solely to AssetHub and\nenable session key handling via StakingOperator on AssetHub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T12:35:18Z",
-          "tree_id": "6c68b5404e6b048cf099afe2dae55c8df93cf43f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e53570b1619e7de01e71929179ec9d03d727425"
-        },
-        "date": 1770212936754,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12446584746666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.273175634033333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1402312791333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "52418509+georgepisaltu@users.noreply.github.com",
+            "name": "georgepisaltu",
+            "username": "georgepisaltu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5c52f17d7029a06185c811da79f3e0d016cf0ef7",
+          "message": "Add sufficiency method in `fungibles` (#13059)\n\n# Description\n\nThis PR adds a method in the `fungibles` trait family to query whether\nan asset is sufficient or not. The notion of sufficiency was already\nintroduced in `fungibles::Create` but up until now it has only been used\ninternally.\n\n## Review Notes\n\nThe new method has a default impl so that this would not be a breaking\nchange. The same could be accomplished with another trait extending\n`Inspect`, but that seemed too complex for what we are trying to achieve\nhere. If the breaking change is acceptable, we can remove the default\nimpl.\n\nAlso, the method does not assume anything about `fungible` impls as they\nnever carried any notion of sufficiency. `fungible` is generally used as\nthe native currency but this is not necessarily so since it's just a\ntrait for a single fungible currency. IMO it is worse to add\n\"sufficient\" logic to `fungible` than to just default to `false` in our\n`UnionOf` adapters when `fungible` is encountered.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>",
+          "timestamp": "2026-09-02T17:07:53Z",
+          "tree_id": "89df7f001ebad36a7aa52cff0f6f1617a2bdb6e8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5c52f17d7029a06185c811da79f3e0d016cf0ef7"
+        },
+        "date": 1788375533586,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14178723333333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.164725525766666,
             "unit": "seconds"
           }
         ]
