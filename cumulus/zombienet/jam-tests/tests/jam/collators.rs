@@ -64,14 +64,18 @@ impl Para {
 		Para { id: 0, core: 0, collators: (0..count).collect() }
 	}
 
-	/// The collator set as `parasim-tool --collators` spells it.
+	/// The collator set as `parasim-tool --collators` spells it: the names in the order the
+	/// runtime's `AuraApi::authorities()` returns them.
 	///
-	/// The core is assigned with this exact string, and the same names go into the chain spec's
-	/// authorities: a name's position in the list is the collator index the authorizer hash
-	/// commits to, so a list that differs anywhere is a different hash.
+	/// The core is assigned with this exact string, and a name's position in it is the collator
+	/// index the authorizer hash commits to — so it has to be the runtime's order, not the order
+	/// this harness happens to list its collators in. See [`chain_spec::in_authority_order`]:
+	/// those two differ as soon as a para has more than one collator.
 	pub fn collator_names(&self) -> String {
-		let names: Vec<String> =
-			self.collators.iter().map(|index| chain_spec::dev_name(*index)).collect();
+		let names: Vec<String> = chain_spec::in_authority_order(&self.collators)
+			.into_iter()
+			.map(chain_spec::dev_name)
+			.collect();
 		names.join(",")
 	}
 }
