@@ -138,13 +138,20 @@ fn extract_revive_events(
 			},
 		};
 
-		let extrinsic_index = match event.phase() {
-			Phase::ApplyExtrinsic(idx) => idx as usize,
-			_ => continue,
+		// Only an `ApplyExtrinsic` event can belong to an ethereum transaction. A mirror firing in
+		// `on_initialize` (e.g. the message queue servicing an inbound XCM asset deposit) is
+		// committed into the synthetic transaction just like one from a plain extrinsic, so treat
+		// every other phase as outside-of-frame rather than dropping it.
+		let eth_tx = match event.phase() {
+			Phase::ApplyExtrinsic(idx) => {
+				let idx = idx as usize;
+				eth_tx_hash_for(idx).map(|hash| (idx, hash))
+			},
+			Phase::Initialization | Phase::Finalization => None,
 		};
 
-		match eth_tx_hash_for(extrinsic_index) {
-			Some(eth_tx_hash) => match decode_revive_event(
+		match eth_tx {
+			Some((extrinsic_index, eth_tx_hash)) => match decode_revive_event(
 				&event,
 				eth_block_number,
 				eth_tx_hash,
@@ -248,11 +255,21 @@ fn split_receipt_data(
 	Ok((receipt_data, synthetic_gas_info))
 }
 
-type FetchReceiptDataFn = Arc<
-	dyn Fn(SubstrateBlock) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfoV1>>> + Send>>
-		+ Send
-		+ Sync,
->;
+/// Outcome of querying the runtime for a block's receipt gas entries.
+enum ReceiptData {
+	/// The block's entries, one per ethereum transaction plus an optional trailing synthetic one.
+	Available(Vec<ReceiptGasInfoV1>),
+	/// The runtime at this block has no `eth_receipt_data` API.
+	///
+	/// Permanent, and expected for pre-EVM history — such a block has neither ethereum
+	/// transactions nor mirrored logs, so it is read as having no entries rather than as an error.
+	Unsupported,
+	/// The query failed. May succeed on retry, so it must not be mistaken for an empty block.
+	Failed,
+}
+
+type FetchReceiptDataFn =
+	Arc<dyn Fn(SubstrateBlock) -> Pin<Box<dyn Future<Output = ReceiptData> + Send>> + Send + Sync>;
 
 type FetchEthBlockHashFn = Arc<
 	dyn Fn(H256, SubstrateBlockNumber) -> Pin<Box<dyn Future<Output = Option<H256>> + Send>>
@@ -349,27 +366,30 @@ impl ReceiptExtractor {
 
 			let fut = async move {
 				let block_hash = at_block.block_hash();
-				let runtime_api = provider
-					.at_resolved_block(at_block)
-					.await
-					.inspect_err(|err| {
+				let runtime_api = match provider.at_resolved_block(at_block).await {
+					Ok(api) => api,
+					Err(err) => {
 						log::debug!(
 							target: LOG_TARGET,
 							"Failed to access the runtime API at block {block_hash:?} for an \
 							eth_receipt_data query: {err:?}"
 						);
-					})
-					.ok()?;
-				runtime_api
-					.eth_receipt_data()?
-					.await
-					.inspect_err(|err| {
+						return ReceiptData::Failed;
+					},
+				};
+				let Some(query) = runtime_api.eth_receipt_data() else {
+					return ReceiptData::Unsupported;
+				};
+				match query.await {
+					Ok(data) => ReceiptData::Available(data),
+					Err(err) => {
 						log::debug!(
 							target: LOG_TARGET,
 							"Failed to query eth_receipt_data at block {block_hash:?}: {err:?}"
 						);
-					})
-					.ok()
+						ReceiptData::Failed
+					},
+				}
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
@@ -386,7 +406,8 @@ impl ReceiptExtractor {
 
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
-		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
+		let fetch_receipt_data =
+			Arc::new(|_| Box::pin(std::future::ready(ReceiptData::Unsupported)) as Pin<Box<_>>);
 		// This method is useful when testing eth - substrate mapping.
 		let fetch_eth_block_hash =
 			Arc::new(|block_hash: H256, block_number: SubstrateBlockNumber| {
@@ -624,17 +645,29 @@ impl ReceiptExtractor {
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 
-		// Append the synthetic transaction receipt for the block's outside-of-frame logs.
+		// Append the synthetic transaction receipt for the block's outside-of-frame logs. Keyed on
+		// the gas entry alone — the same condition `extract_from_transaction` uses — because the
+		// entry is what the block header commits to. Deciding on the decoded logs instead would
+		// omit a transaction the block contains whenever the logs fail to decode.
 		if let Some(gas_info) = synthetic_gas_info {
-			if !outside_frame_logs.is_empty() {
-				receipts.push(self.build_synthetic_receipt(
-					eth_block_hash,
-					eth_block_number,
-					synthetic_tx_index,
-					gas_info,
-					outside_frame_logs,
-				)?);
+			// The receipt's bloom is derived from the logs decoded here, so an entry with none of
+			// them serves a zero bloom against a block that committed a non-zero one. Always a
+			// disagreement between the block and its events, and invisible without this.
+			if outside_frame_logs.is_empty() {
+				log::warn!(
+					target: LOG_TARGET,
+					"Block #{substrate_block_number} commits a synthetic transaction but none of \
+					its events decoded into an outside-of-frame log"
+				);
 			}
+
+			receipts.push(self.build_synthetic_receipt(
+				eth_block_hash,
+				eth_block_number,
+				synthetic_tx_index,
+				gas_info,
+				outside_frame_logs,
+			)?);
 		}
 
 		Ok(receipts)
@@ -659,12 +692,18 @@ impl ReceiptExtractor {
 
 		// Queried unconditionally: a block with no ethereum transactions can still carry a
 		// synthetic transaction for its outside-of-frame logs.
-		let receipt_data = (self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {
-			log::trace!(target: LOG_TARGET,
-				"Receipt data not found for block #{} ({:?})",
-				block.block_number(), block.block_hash());
-			ClientError::ReceiptDataNotFound
-		})?;
+		let receipt_data = match (self.fetch_receipt_data)(block.clone()).await {
+			ReceiptData::Available(data) => data,
+			// A block predating the runtime API has no ethereum transactions and no mirrored logs,
+			// so it reconstructs as an empty block instead of failing the request.
+			ReceiptData::Unsupported => Vec::new(),
+			ReceiptData::Failed => {
+				log::trace!(target: LOG_TARGET,
+					"Receipt data not found for block #{} ({:?})",
+					block.block_number(), block.block_hash());
+				return Err(ClientError::ReceiptDataNotFound);
+			},
+		};
 
 		let (receipt_data, synthetic_gas_info) =
 			split_receipt_data(receipt_data, extrinsics.len(), undecoded_extrinsic)?;
@@ -1028,9 +1067,10 @@ mod tests {
 
 	#[test]
 	fn extract_revive_events_buckets_non_eth_logs_as_outside_frame() {
-		// Events outside `ApplyExtrinsic` are dropped. A `ContractEmitted` on an extrinsic that is
-		// not an ethereum transaction becomes an outside-of-frame log (attributed to the synthetic
-		// transaction); a revert on such an extrinsic is ignored.
+		// A `ContractEmitted` that belongs to no ethereum transaction — because its extrinsic is
+		// not one, or because it has no extrinsic at all — becomes an outside-of-frame log
+		// attributed to the synthetic transaction. Reverts are meaningless in both cases and are
+		// ignored.
 		let empty_contract_emitted = pallet_revive::Event::ContractEmitted {
 			contract: H160::zero(),
 			data: vec![],
@@ -1061,9 +1101,57 @@ mod tests {
 
 		assert!(reverts.is_empty());
 		assert!(logs.is_empty());
-		assert_eq!(outside_frame.len(), 1);
-		assert_eq!(outside_frame[0].transaction_hash, synthetic_hash);
-		assert_eq!(outside_frame[0].transaction_index, U256::from(3));
+		assert_eq!(outside_frame.len(), 2, "the hook-phase log and the non-eth extrinsic's log");
+		for log in &outside_frame {
+			assert_eq!(log.transaction_hash, synthetic_hash);
+			assert_eq!(log.transaction_index, U256::from(3));
+		}
+	}
+
+	#[test]
+	fn extract_revive_events_buckets_hook_phase_logs_as_outside_frame() {
+		// A mirror firing in `on_initialize` — on Asset Hub, the message queue servicing an inbound
+		// XCM asset deposit — is committed into the synthetic transaction like any other
+		// outside-of-frame log, so it must be served rather than dropped for lacking an extrinsic.
+		let synthetic_hash = H256::from([0xEE; 32]);
+		let events = EventsBuilder::new()
+			.push_event(
+				frame_system::Phase::Initialization,
+				pallet_revive::Event::ContractEmitted {
+					contract: H160::from([0xaa; 20]),
+					data: vec![],
+					topics: vec![],
+				},
+			)
+			.push_event(
+				frame_system::Phase::Finalization,
+				pallet_revive::Event::ContractEmitted {
+					contract: H160::from([0xbb; 20]),
+					data: vec![],
+					topics: vec![],
+				},
+			)
+			.build();
+
+		let (reverts, logs, outside_frame) = extract_revive_events(
+			&events,
+			0,
+			U256::zero(),
+			H256::zero(),
+			// Every extrinsic index is an ethereum transaction, so only the phase can exclude
+			// these.
+			|_| Some(H256::from([0x77; 32])),
+			synthetic_hash,
+			4,
+		);
+
+		assert!(reverts.is_empty());
+		assert!(logs.is_empty(), "a hook-phase log belongs to no extrinsic");
+		assert_eq!(outside_frame.len(), 2, "both hook phases are bucketed");
+		for log in &outside_frame {
+			assert_eq!(log.transaction_hash, synthetic_hash);
+			assert_eq!(log.transaction_index, U256::from(4));
+		}
 	}
 
 	#[test]

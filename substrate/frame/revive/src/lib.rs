@@ -408,10 +408,11 @@ pub mod pallet {
 		///
 		/// These are logs mirrored from substrate-native activity (e.g. plain pallet-assets
 		/// transfers, XCM) that have no ethereum transaction to attach a receipt to; they are
-		/// drained in `on_finalize` into one synthetic transaction. This bound caps the worst-case
-		/// drain cost so it can be reserved up-front in `on_initialize`. Buffering beyond the cap
-		/// drops the log (see `capture_ethereum_log`); the per-emit weight charged on each firing
-		/// path is expected to exhaust block weight before the cap is reached.
+		/// drained in `on_finalize` into one synthetic transaction. Each log's drain is charged
+		/// where it is emitted, so this is a bound on the buffer's size rather than on its cost.
+		/// Zero disables the buffer, leaving such logs substrate-only; a log arriving past a
+		/// non-zero cap is likewise not buffered, so the block's bloom omits it while its
+		/// `ContractEmitted` still stands (see `capture_ethereum_log`).
 		#[pallet::constant]
 		type MaxOutsideFrameLogs: Get<u32>;
 	}
@@ -2687,8 +2688,8 @@ impl<T: Config> Pallet<T> {
 	/// via the outside-frame hook, captured into the current ethereum receipt — or the block's
 	/// synthetic receipt when outside an ethereum transaction — and deposited as
 	/// [`Event::ContractEmitted`]. For log-mirroring runtime components. Contract execution keeps
-	/// its own in-frame path (`Ext::deposit_event`), which differs only in the tracer hook it
-	/// calls.
+	/// its own in-frame path (`Ext::deposit_event`), which differs in the tracer hook it calls and
+	/// in having a gas meter to charge the drain against.
 	///
 	/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
 	/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
@@ -2702,7 +2703,12 @@ impl<T: Config> Pallet<T> {
 			tracer.log_event_outside_frame(contract, &topics, &data, log_index);
 		});
 
-		evm::block_storage::capture_ethereum_log::<T>(&contract, &data, &topics);
+		evm::block_storage::capture_ethereum_log::<T>(
+			&contract,
+			&data,
+			&topics,
+			evm::block_storage::DrainCharge::Block,
+		);
 
 		Self::deposit_event(Event::ContractEmitted {
 			contract,

@@ -419,6 +419,7 @@ parameter_types! {
 	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
 	pub static AutoMapFlag: bool = false;
+	pub static MaxOutsideFrameLogsFlag: u32 = 1024;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -452,6 +453,7 @@ impl Config for Test {
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;
+	type MaxOutsideFrameLogs = MaxOutsideFrameLogsFlag;
 }
 
 impl TryFrom<RuntimeCall> for Call<Test> {
@@ -770,6 +772,8 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 	use sp_crypto_hashing::keccak_256;
 
 	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(1024);
+
 		let contract = H160::from_low_u64_be(0x1234);
 		let topic = H256::repeat_byte(0x11);
 
@@ -814,6 +818,143 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		let reconstructed =
 			crate::evm::synthetic_log_transaction(U256::from(1), U256::from(chain_id));
 		assert_eq!(hashes[0], H256(keccak_256(&reconstructed)));
+	});
+}
+
+#[test]
+fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
+	use crate::{
+		EthBlockBuilderIR, EthereumBlock, OutsideFrameLogCount, OutsideFrameLogs, ReceiptGasInfo,
+		evm::{
+			HashesOrTransactionInfos,
+			block_hash::{AccumulateReceipt, EthereumBlockBuilder},
+			block_storage,
+		},
+	};
+	use sp_core::H256;
+
+	let contracts =
+		[H160::from_low_u64_be(0xA1), H160::from_low_u64_be(0xA2), H160::from_low_u64_be(0xA3)];
+	let topics = [H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+
+	let data = vec![1u8, 2, 3];
+
+	// The root a block carrying one synthetic transaction must have, with the logs accumulated in
+	// the given order. The bloom cannot stand in for this — it only ORs bits, so it is blind to
+	// order — but `receipts_root` covers the receipt's RLP log list, which is a sequence.
+	let expected_root = |order: [usize; 3]| {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut receipt = AccumulateReceipt::new();
+			for i in order {
+				receipt.add_log(&contracts[i], &data, &[topics[i]]);
+			}
+
+			let mut builder =
+				EthereumBlockBuilder::<Test>::from_ir(EthBlockBuilderIR::<Test>::get());
+			builder.process_transaction(
+				crate::evm::synthetic_log_transaction(
+					U256::from(1),
+					U256::from(<Test as crate::Config>::ChainId::get()),
+				),
+				true,
+				ReceiptGasInfo { gas_used: U256::zero(), effective_gas_price: U256::zero() },
+				receipt.encoding,
+				receipt.bloom,
+			);
+
+			builder.build_block(1).0.receipts_root
+		})
+	};
+
+	// Emit the three logs in the given order and return what the block commits to them.
+	let commit_in_order = |order: [usize; 3]| {
+		ExtBuilder::default().build().execute_with(|| {
+			MaxOutsideFrameLogsFlag::set(1024);
+
+			for i in order {
+				Pallet::<Test>::emit_contract_log_outside_frame(
+					contracts[i],
+					vec![topics[i]].try_into().unwrap(),
+					data.clone().try_into().unwrap(),
+				);
+			}
+
+			assert_eq!(OutsideFrameLogCount::<Test>::get(), 3);
+
+			// The buffer indexes the logs as they arrive, and the drain walks `0..count`.
+			for (index, i) in order.iter().enumerate() {
+				let (contract, _, _) = OutsideFrameLogs::<Test>::get(index as u32)
+					.expect("every emitted log is buffered; qed");
+				assert_eq!(contract, contracts[*i], "log {index} is the {i}th emitted");
+			}
+
+			block_storage::on_finalize_build_eth_block::<Test>(1);
+
+			assert_eq!(OutsideFrameLogCount::<Test>::get(), 0, "every log is drained");
+
+			let block = EthereumBlock::<Test>::get();
+			let hashes = match block.transactions {
+				HashesOrTransactionInfos::Hashes(hashes) => hashes,
+				_ => panic!("expected transaction hashes"),
+			};
+			assert_eq!(hashes.len(), 1, "all three logs share one synthetic transaction");
+
+			block.receipts_root
+		})
+	};
+
+	// The expectation discriminates order at all, so the equality below is not vacuous.
+	assert_ne!(expected_root([0, 1, 2]), expected_root([2, 1, 0]));
+
+	// Emission order is the order the block commits to, which is what a client recomputing the
+	// root from the served logs assumes.
+	assert_eq!(commit_in_order([0, 1, 2]), expected_root([0, 1, 2]));
+}
+
+#[test]
+fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
+	use crate::{OutsideFrameLogCount, OutsideFrameLogs};
+	use sp_core::H256;
+
+	let emit = |byte: u8| {
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			H160::from_low_u64_be(byte.into()),
+			vec![H256::repeat_byte(byte)].try_into().unwrap(),
+			vec![byte].try_into().unwrap(),
+		)
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(2);
+
+		emit(1);
+		emit(2);
+		assert_eq!(OutsideFrameLogCount::<Test>::get(), 2, "the buffer fills to the cap");
+
+		// Past the cap the log misses the block's bloom, but it is still an event: dropping it
+		// outright would lose a `LOG` whose frame reported success.
+		let events_before = System::events().len();
+		emit(3);
+
+		assert_eq!(OutsideFrameLogCount::<Test>::get(), 2, "the count does not grow past the cap");
+		assert!(OutsideFrameLogs::<Test>::get(2).is_none(), "the third log is not buffered");
+		assert_eq!(System::events().len(), events_before + 1, "but it is still deposited");
+
+		// The logs that did fit are untouched.
+		assert!(OutsideFrameLogs::<Test>::get(0).is_some());
+		assert!(OutsideFrameLogs::<Test>::get(1).is_some());
+	});
+
+	// A zero cap turns the buffer off, which is how a runtime opts out: logs emitted outside an
+	// ethereum transaction stay substrate-only, as they were before the buffer existed.
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(0);
+
+		let events_before = System::events().len();
+		emit(1);
+
+		assert_eq!(OutsideFrameLogCount::<Test>::get(), 0, "nothing is buffered");
+		assert_eq!(System::events().len(), events_before + 1, "the event still fires");
 	});
 }
 

@@ -39,12 +39,13 @@ doc:
     `eth_getLogs` and `eth_getTransactionReceipt`. Consumers therefore see one more transaction in
     such a block than it has real ethereum transactions. The `on_finalize` drain of each such log
     is charged against the block where the log is emitted, rather than reserved up front, since
-    the mirroring paths have no gas meter and the drain belongs to no extrinsic's benchmark. A new
-    `Config` item `MaxOutsideFrameLogs` bounds the buffer's
-    size as a backstop; a log arriving past the cap is dropped with a warning, leaving a balance
-    event with no matching `Transfer`. Setting it to zero disables the mechanism, so logs emitted
-    outside an ethereum transaction — including `LOG` opcodes from a contract invoked through
-    `Revive::call` — stay substrate-only, as they were before.
+    the mirroring paths have no gas meter and the drain belongs to no extrinsic's benchmark. A
+    contract's `LOG` reaches the same buffer whenever it runs off the ethereum path (`Revive::call`,
+    an XCM `Transact`), but pays the drain through the gas it is already charged per event. A new
+    `Config` item `MaxOutsideFrameLogs` bounds the buffer's size as a backstop; a log arriving past
+    the cap is not buffered, so the block's `logs_bloom` and `receipts_root` omit it while its
+    `ContractEmitted` still stands. Setting the cap to zero turns the buffer off, so logs emitted
+    outside an ethereum transaction stay substrate-only, as they were before.
 
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
@@ -59,6 +60,12 @@ doc:
         log per holder instead would emit an unbounded number of events for a single destruction.
         Log consumers must drop a token's balances once the asset is destroyed, or an inline id
         later reused by `force_create` will inherit them.
+      - Genesis-seeded balances have no mirror either: genesis asset creation fires `created`, but
+        the accounts it endows are credited without an `Issued` event or an `issued`/`deposited`
+        callback, and a log buffered at genesis would have nothing to drain it until block 1. On a
+        runtime whose presets endow accounts, log-derived balances for those holders stay at zero
+        while `balanceOf` reports the real amount. Log consumers must seed genesis balances from
+        storage and apply logs on top, rather than deriving the whole balance from the log stream.
 crates:
 - name: pallet-assets
   bump: major

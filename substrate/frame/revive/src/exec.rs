@@ -2452,7 +2452,12 @@ where
 			tracer.log_event(contract, &topics, &data, log_index);
 		});
 
-		block_storage::capture_ethereum_log::<T>(&contract, &data, &topics);
+		block_storage::capture_ethereum_log::<T>(
+			&contract,
+			&data,
+			&topics,
+			block_storage::DrainCharge::GasMeter,
+		);
 
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}

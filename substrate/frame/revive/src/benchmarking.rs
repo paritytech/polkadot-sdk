@@ -3623,7 +3623,12 @@ mod benchmarks {
 
 		// Create e events with minimal data to isolate event count overhead
 		for _ in 0..e {
-			block_storage::capture_ethereum_log::<T>(&instance.address, &vec![], &vec![]);
+			block_storage::capture_ethereum_log::<T>(
+				&instance.address,
+				&vec![],
+				&vec![],
+				block_storage::DrainCharge::GasMeter,
+			);
 		}
 
 		#[block]
@@ -3710,7 +3715,12 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log::<T>(&instance.address, &event_data, &topics);
+		block_storage::capture_ethereum_log::<T>(
+			&instance.address,
+			&event_data,
+			&topics,
+			block_storage::DrainCharge::GasMeter,
+		);
 
 		#[block]
 		{
@@ -3754,9 +3764,14 @@ mod benchmarks {
 		let data = vec![0x44u8; 32];
 
 		// No ethereum context is active, so each log is captured into `OutsideFrameLogs` rather
-		// than a transaction receipt.
+		// than a transaction receipt. `n` stays under `MaxOutsideFrameLogs`, so all are buffered.
 		for _ in 0..n {
-			block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
+			block_storage::capture_ethereum_log::<T>(
+				&instance.address,
+				&data,
+				&topics,
+				block_storage::DrainCharge::Block,
+			);
 		}
 
 		#[block]

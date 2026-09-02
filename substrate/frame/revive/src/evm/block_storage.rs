@@ -121,36 +121,61 @@ impl EthereumCallResult {
 	}
 }
 
+/// What pays for draining a log that had to be buffered.
+pub enum DrainCharge {
+	/// The emitting contract's gas meter. The `LOG` opcode is charged
+	/// [`OnFinalizeBlockParts::on_finalize_block_per_event`], whose marginal is that drain.
+	GasMeter,
+	/// Nothing else does, so the block is charged at the emit site. For the mirroring paths, which
+	/// run outside any contract frame and so have no gas meter.
+	Block,
+}
+
 /// Capture the Ethereum log for the current transaction.
 ///
 /// Inside an ethereum transaction the log is added to that transaction's receipt. Outside of one
 /// (e.g. a log mirrored from a plain extrinsic or XCM balance change) there is no receipt to
 /// attach it to, so it is accumulated into the block-level buffer, flushed in `on_finalize` as a
 /// synthetic transaction so the log still enters the block's bloom, receipts_root and tx trie.
-pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
+///
+/// A log the buffer cannot take reaches neither, and stays a substrate-only event — the behaviour
+/// on a runtime that leaves [`Config::MaxOutsideFrameLogs`] at zero. Callers deposit their
+/// `ContractEmitted` either way: an `Ext::deposit_event` that succeeded while losing the log
+/// outright would break the `LOG` opcode's guarantee that a log takes effect or its frame reverts.
+pub fn capture_ethereum_log<T: Config>(
+	contract: &H160,
+	data: &[u8],
+	topics: &[H256],
+	drain_charge: DrainCharge,
+) {
 	let captured = receipt::with(|receipt| {
 		receipt.add_log(contract, data, topics);
 	});
+	if captured.is_some() {
+		return;
+	}
 
-	if captured.is_none() {
-		let index = OutsideFrameLogCount::<T>::get();
-		// A backstop on the buffer's size, not on its cost: the per-log weight charged below fills
-		// the block first. A log dropped here has no `Transfer` entry despite its balance event, so
-		// reaching the cap is a degraded, warned condition.
-		if index >= <T as Config>::MaxOutsideFrameLogs::get() {
+	let index = OutsideFrameLogCount::<T>::get();
+	let cap = <T as Config>::MaxOutsideFrameLogs::get();
+	if index >= cap {
+		// Zero turns the buffer off, so only an exhausted non-zero cap is worth reporting: the
+		// block then commits a bloom that omits this log while its event still stands.
+		if !cap.is_zero() {
 			log::warn!(
 				target: LOG_TARGET,
-				"outside-of-frame log buffer full ({index} logs); dropping log for {contract:?}",
+				"outside-of-frame log buffer full ({index} logs); log for {contract:?} stays substrate-only",
 			);
-			return;
 		}
-		OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
-		OutsideFrameLogCount::<T>::put(index.saturating_add(1));
+		return;
+	}
 
-		// This log's share of the `on_finalize` drain, charged to the block that emitted it. The
-		// mirroring paths have no gas meter to charge against, and `on_initialize` reserves only
-		// the fixed part of `on_finalize`. The insert above is measured by the emitting pallet's
-		// own benchmark.
+	OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
+	OutsideFrameLogCount::<T>::put(index.saturating_add(1));
+
+	if let DrainCharge::Block = drain_charge {
+		// This log's share of the `on_finalize` drain, charged to the block that emitted it, since
+		// `on_initialize` reserves only the fixed part of `on_finalize`. The insert above is
+		// measured by the emitting pallet's own benchmark.
 		frame_system::Pallet::<T>::register_extra_weight_unchecked(
 			<T as Config>::WeightInfo::per_outside_frame_log(),
 			DispatchClass::Normal,

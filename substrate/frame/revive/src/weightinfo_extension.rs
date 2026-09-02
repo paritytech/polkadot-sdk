@@ -61,7 +61,9 @@ pub trait OnFinalizeBlockParts {
 	/// Each such log is a `Transfer` log mirrored from a substrate-native balance change. Charged
 	/// at the emit site via `frame_system::register_extra_weight_unchecked`, so blocks pay for the
 	/// mirror logs they produce instead of reserving the cap up-front. The mirroring paths run
-	/// outside any contract frame, so there is no gas meter to charge against.
+	/// outside any contract frame, so there is no gas meter to charge against. A contract's `LOG`
+	/// reaches the same buffer when it runs off the ethereum path, but pays the drain through
+	/// [`Self::on_finalize_block_per_event`], so it is not charged here as well.
 	///
 	/// Only the drain. The buffer insert runs inside the emitting extrinsic and is covered by that
 	/// pallet's own benchmark; the drain runs after every extrinsic is done and so belongs to no
@@ -77,7 +79,8 @@ pub trait OnFinalizeBlockParts {
 ///
 /// **Weight Formula:**
 /// ```text
-/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(data_len_j))
+/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(data_len_j)) +
+///                Σ(per_outside_frame_log_part_k)
 /// where:
 ///   per_tx_part(payload) = tx_marginal_cost + (payload × byte_marginal_cost)
 /// ```
