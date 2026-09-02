@@ -1863,6 +1863,8 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
+	// unreleased: conviction-voting lock -> freeze
+	pallet_conviction_voting::migrations::MigrateV0ToV1<Runtime, Balances>,
 );
 
 /// Executive: handles dispatch to the various modules.
