@@ -984,7 +984,8 @@ fn unix_timestamp_secs() -> u64 {
 
 /// Fetch the next chunk of statements admitted between `cursor` and `watermark`, filtering
 /// in the `admitted_statements` callback so non-matching statements are never cloned into
-/// the batch.
+/// the batch. A statement is sent when the peer's explicit filter matches it or
+/// `is_dht_target` marks the peer as a DHT routing target for it.
 ///
 /// Returns the batch and the accumulated encoded size. A size above `max_size` signals a
 /// lone oversized statement: it is taken and the cursor sits past it, so the caller must
@@ -995,6 +996,7 @@ fn fetch_admitted_chunk(
 	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
 	who: &PeerId,
 	peer_data: &Peer,
+	is_dht_target: &dyn Fn(&Statement) -> bool,
 	cursor: u64,
 	watermark: u64,
 	max_size: usize,
@@ -1009,7 +1011,9 @@ fn fetch_admitted_chunk(
 			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
-			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) &&
+				!is_dht_target(stmt)
+			{
 				return FilterDecision::Skip;
 			}
 			// The peer supplied this statement, do not send it back.
@@ -2535,12 +2539,14 @@ where
 		let peer_version = peer_data.protocol_version;
 		let envelope_overhead = peer_version.envelope_overhead();
 		let max_size = max_statement_payload_size(envelope_overhead);
+		let v2dht = &self.v2dht;
 		let (batch, accumulated_size) = match fetch_admitted_chunk(
 			&*self.statement_store,
 			&self.recently_received_statements,
 			&self.pending_statements_peers,
 			&peer_id,
 			peer_data,
+			&|stmt| v2dht.peer_is_dht_target(peer_id, stmt),
 			entry.get().cursor,
 			entry.get().watermark,
 			max_size,
@@ -2623,7 +2629,7 @@ where
 mod tests {
 
 	use super::*;
-	use crate::test_helpers::topology_config;
+	use crate::test_helpers::{filter_over, topic, topology_config};
 	use governor::clock::FakeRelativeClock;
 	use std::{
 		sync::{
@@ -7279,12 +7285,79 @@ mod tests {
 		assert_eq!(statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![live_hash],);
 
 		let watermark = store.admission_watermark().expect("watermark is readable");
-		let (batch, _size) =
-			fetch_admitted_chunk(&store, &received, &pending, &who, &peer, 0, watermark, max_size)
-				.expect("the test store never fails a walk");
+		let (batch, _size) = fetch_admitted_chunk(
+			&store,
+			&received,
+			&pending,
+			&who,
+			&peer,
+			&|_| false,
+			0,
+			watermark,
+			max_size,
+		)
+		.expect("the test store never fails a walk");
 		assert_eq!(
 			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
 			vec![live_hash],
+		);
+	}
+
+	#[test]
+	fn initial_sync_serves_dht_targeted_statements_outside_the_explicit_filter() {
+		let mut statement = new_live_statement();
+		statement.set_plain_data(vec![1u8; 16]);
+		statement.set_topic(0, topic(7));
+		let hash = statement.hash();
+
+		let store = TestStatementStore::new();
+		store.insert(statement);
+
+		let peer = Peer {
+			rate_limiter: PeerRateLimiter::new(
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+				NonZeroU32::new(
+					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.expect("burst capacity is nonzero"),
+			),
+			protocol_version: PeerProtocolVersion::V2,
+			topic_affinity: Some(filter_over(&[topic(9)])),
+			is_light: false,
+			pending_topic_affinity: None,
+			sync_watermark: 0,
+		};
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V2_ENVELOPE_OVERHEAD);
+		let watermark = store.admission_watermark().expect("watermark is readable");
+
+		let fetch = |is_dht_target: &dyn Fn(&Statement) -> bool| {
+			fetch_admitted_chunk(
+				&store,
+				&received,
+				&pending,
+				&who,
+				&peer,
+				is_dht_target,
+				0,
+				watermark,
+				max_size,
+			)
+			.expect("the test store never fails a walk")
+			.0
+		};
+
+		let batch = fetch(&|_| false);
+		assert!(batch.statements.is_empty(), "the explicit filter alone rejects the statement");
+
+		let batch = fetch(&|stmt| stmt.topics().contains(&topic(7)));
+		assert_eq!(
+			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![hash],
+			"a DHT routing target receives the statement despite its explicit filter"
 		);
 	}
 }
