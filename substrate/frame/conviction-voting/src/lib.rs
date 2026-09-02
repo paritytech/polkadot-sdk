@@ -43,6 +43,7 @@ use sp_runtime::{
 };
 
 mod conviction;
+pub mod migrations;
 mod traits;
 mod types;
 mod vote;
