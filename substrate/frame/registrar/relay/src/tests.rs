@@ -68,7 +68,7 @@ fn register_msg(
 /// Push a valid registration request through and return the code that will satisfy it.
 fn request(para_id: ParaId, head_len: usize, code_len: usize) -> Vec<u8> {
 	let (msg, blob) = register_msg(para_id, head_len, code_len);
-	assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+	assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 	blob
 }
 
@@ -125,7 +125,7 @@ fn authorize_and_dispatch(
 	(authorized, dispatched)
 }
 
-mod authorize_code {
+mod receive_register {
 	use super::*;
 
 	#[test]
@@ -159,7 +159,7 @@ mod authorize_code {
 		new_test_ext().execute_with(|| {
 			let (msg, _) = register_msg(PARA_A, 20, 300);
 			assert_noop!(
-				Registrar::authorize_code(RuntimeOrigin::signed(ALICE), msg),
+				Registrar::receive(RuntimeOrigin::signed(ALICE), msg),
 				DispatchError::BadOrigin
 			);
 		});
@@ -173,7 +173,7 @@ mod authorize_code {
 
 			// A business rejection is not an extrinsic failure: erroring would roll back the
 			// report and strand the parachain's deposit.
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -196,7 +196,7 @@ mod authorize_code {
 			let _ = take_sent();
 
 			let (msg, _) = register_msg(PARA_A, 20, 300);
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert_eq!(PendingRegistrations::<Test>::count(), 1);
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -210,7 +210,7 @@ mod authorize_code {
 				[(MAX_HEAD_SIZE as usize + 1, 300), (20, MAX_CODE_SIZE as usize + 1), (20, 1)]
 			{
 				let (msg, _) = register_msg(PARA_A, head_len, code_len);
-				assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 				assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 				assert_eq!(
@@ -233,7 +233,7 @@ mod authorize_code {
 
 			let overflow = PARA_A + MAX_PENDING;
 			let (msg, _) = register_msg(overflow, 20, 300);
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(overflow).is_none());
 			assert_eq!(PendingRegistrations::<Test>::count(), MAX_PENDING);
@@ -406,7 +406,7 @@ mod apply_authorized_code {
 	}
 }
 
-mod cancel_authorization {
+mod receive_cancel_registration {
 	use super::*;
 
 	#[test]
@@ -416,7 +416,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(PendingRegistrations::<Test>::count(), 0);
@@ -444,7 +444,7 @@ mod cancel_authorization {
 			}
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert!(PendingRegistrations::<Test>::get(PARA_B).is_some());
@@ -464,7 +464,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			// The para is registered, so the deposit is owed and the parachain is told so.
 			assert_eq!(
@@ -488,7 +488,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert_eq!(PendingRegistrations::<Test>::count(), 0);
 			assert_eq!(
@@ -507,7 +507,7 @@ mod cancel_authorization {
 		new_test_ext().execute_with(|| {
 			// The request may have been rejected here and the report lost; the parachain still has
 			// a deposit to release, so silence would strand it.
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert_eq!(take_sent(), vec![cancel_report(PARA_A, Ok(()))]);
 			assert_eq!(
@@ -523,26 +523,10 @@ mod cancel_authorization {
 			request(PARA_A, 20, 300);
 
 			assert_noop!(
-				Registrar::cancel_authorization(RuntimeOrigin::signed(ALICE), cancel_msg(PARA_A)),
+				Registrar::receive(RuntimeOrigin::signed(ALICE), cancel_msg(PARA_A)),
 				DispatchError::BadOrigin
 			);
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_some());
-		});
-	}
-
-	#[test]
-	fn each_call_serves_only_its_own_message() {
-		new_test_ext().execute_with(|| {
-			let (register, _) = register_msg(PARA_A, 20, 300);
-
-			assert_noop!(
-				Registrar::cancel_authorization(RuntimeOrigin::root(), register),
-				Error::<Test>::UnexpectedMessage
-			);
-			assert_noop!(
-				Registrar::authorize_code(RuntimeOrigin::root(), cancel_msg(PARA_A)),
-				Error::<Test>::UnexpectedMessage
-			);
 		});
 	}
 }

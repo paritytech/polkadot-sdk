@@ -11,6 +11,14 @@ doc:
       was silent. `ParaInfo` grows a `locked` flag, and a new `ParachainOrigin` config type lets a
       para act as itself.
 
+      `pallet-registrar-relay::authorize_code` and `cancel_authorization` are merged into a single
+      `receive` at call index 0, the way the parachain side already takes every report through one
+      call. The message enum decides what happens, so the transport no longer has to pick a call
+      index per variant, and the `UnexpectedMessage` error is gone. Weights split per variant:
+      `receive_register` and `receive_cancel_registration`.
+
 crates:
   - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
     bump: major

@@ -71,10 +71,10 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_registrar_relay`.
 pub trait WeightInfo {
-	fn authorize_code(h: u32, ) -> Weight;
+	fn receive_register(h: u32, ) -> Weight;
 	fn apply_authorized_code(c: u32, ) -> Weight;
 	fn authorize_apply_authorized_code(c: u32, ) -> Weight;
-	fn cancel_authorization() -> Weight;
+	fn receive_cancel_registration() -> Weight;
 }
 
 /// Weights for `pallet_registrar_relay` using the Substrate node and recommended hardware.
@@ -85,7 +85,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `RegistrarRelay::CounterForPendingRegistrations` (r:1 w:1)
 	/// Proof: `RegistrarRelay::CounterForPendingRegistrations` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// The range of component `h` is `[0, 1048576]`.
-	fn authorize_code(h: u32, ) -> Weight {
+	fn receive_register(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `1052141`
@@ -129,7 +129,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `RegistrarRelay::PendingRegistrations` (`max_values`: None, `max_size`: Some(1048676), added: 1051151, mode: `MaxEncodedLen`)
 	/// Storage: `RegistrarRelay::CounterForPendingRegistrations` (r:1 w:1)
 	/// Proof: `RegistrarRelay::CounterForPendingRegistrations` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn cancel_authorization() -> Weight {
+	fn receive_cancel_registration() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `84`
 		//  Estimated: `1052141`
@@ -147,7 +147,7 @@ impl WeightInfo for () {
 	/// Storage: `RegistrarRelay::CounterForPendingRegistrations` (r:1 w:1)
 	/// Proof: `RegistrarRelay::CounterForPendingRegistrations` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// The range of component `h` is `[0, 1048576]`.
-	fn authorize_code(h: u32, ) -> Weight {
+	fn receive_register(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `1052141`
@@ -191,7 +191,7 @@ impl WeightInfo for () {
 	/// Proof: `RegistrarRelay::PendingRegistrations` (`max_values`: None, `max_size`: Some(1048676), added: 1051151, mode: `MaxEncodedLen`)
 	/// Storage: `RegistrarRelay::CounterForPendingRegistrations` (r:1 w:1)
 	/// Proof: `RegistrarRelay::CounterForPendingRegistrations` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn cancel_authorization() -> Weight {
+	fn receive_cancel_registration() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `84`
 		//  Estimated: `1052141`
