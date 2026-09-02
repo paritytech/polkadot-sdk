@@ -249,11 +249,17 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.peer_has_explicit_affinity(peer, stmt)
 	}
 
-	/// Whether the peer is a DHT routing target for any of the statement's topics.
+	/// Whether the peer is a DHT routing target ([`PeersTopology::routing_targets`]) for any of
+	/// the statement's topics.
 	pub(crate) fn peer_is_dht_target(&self, peer: PeerId, stmt: &Statement) -> bool {
 		stmt.topics()
 			.iter()
-			.any(|topic| self.peers_topology.routing_targets(*topic).contains(&peer))
+			.any(|topic| self.peer_is_dht_target_for_topic(peer, *topic))
+	}
+
+	/// Whether the peer is a DHT routing target for the topic.
+	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
+		self.peers_topology.routing_targets(topic).contains(&peer)
 	}
 
 	// === Post-submit hook ===

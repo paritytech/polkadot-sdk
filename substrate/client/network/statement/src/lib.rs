@@ -96,8 +96,8 @@
 //! opt into an affinity.
 //!
 //! With the v2 DHT path enabled, every `statement/2` peer sends its affinity filter as the first
-//! message on connect, and the initial sync waits for the peer's filter, replaying only the
-//! statements it matches.
+//! message on connect, and the initial sync waits for the peer's filter, replaying the statements
+//! it matches and those the peer is a DHT routing target for.
 //!
 //! ## Usage
 //!
@@ -984,8 +984,10 @@ fn unix_timestamp_secs() -> u64 {
 
 /// Fetch the next chunk of statements admitted between `cursor` and `watermark`, filtering
 /// in the `admitted_statements` callback so non-matching statements are never cloned into
-/// the batch. A statement is sent when the peer's explicit filter matches it or
-/// `is_dht_target` marks the peer as a DHT routing target for it.
+/// the batch. A statement passes the affinity check when the peer advertises no filter, its
+/// filter matches, or `is_dht_target` marks the peer as a DHT routing target for it — light
+/// peers get filter matches only. Expired statements and those the peer itself supplied are
+/// skipped regardless.
 ///
 /// Returns the batch and the accumulated encoded size. A size above `max_size` signals a
 /// lone oversized statement: it is taken and the cursor sits past it, so the caller must
@@ -1012,7 +1014,7 @@ fn fetch_admitted_chunk(
 				return FilterDecision::Skip;
 			}
 			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) &&
-				!is_dht_target(stmt)
+				(peer_data.is_light || !is_dht_target(stmt))
 			{
 				return FilterDecision::Skip;
 			}
@@ -1681,9 +1683,9 @@ where
 									// Record the filter for propagation decisions, and route it
 									// through the pending-affinity path so
 									// `schedule_initial_sync_for_peer` replays the matching
-									// already-stored statements (filtered by `topic_affinity`).
-									// Without this a late subscriber sees only the statements
-									// that arrive after it subscribes.
+									// already-stored statements (filtered by `topic_affinity`
+									// and DHT routing targets). Without this a late subscriber
+									// sees only the statements that arrive after it subscribes.
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										log::debug!(
 											target: LOG_TARGET,
@@ -2539,14 +2541,25 @@ where
 		let peer_version = peer_data.protocol_version;
 		let envelope_overhead = peer_version.envelope_overhead();
 		let max_size = max_statement_payload_size(envelope_overhead);
+		// The topology cannot change during the synchronous chunk walk, so each topic's routing
+		// decision is resolved at most once per burst.
 		let v2dht = &self.v2dht;
+		let dht_target_topics = std::cell::RefCell::new(HashMap::new());
+		let is_dht_target = |stmt: &Statement| {
+			stmt.topics().iter().any(|topic| {
+				*dht_target_topics
+					.borrow_mut()
+					.entry(*topic)
+					.or_insert_with(|| v2dht.peer_is_dht_target_for_topic(peer_id, *topic))
+			})
+		};
 		let (batch, accumulated_size) = match fetch_admitted_chunk(
 			&*self.statement_store,
 			&self.recently_received_statements,
 			&self.pending_statements_peers,
 			&peer_id,
 			peer_data,
-			&|stmt| v2dht.peer_is_dht_target(peer_id, stmt),
+			&is_dht_target,
 			entry.get().cursor,
 			entry.get().watermark,
 			max_size,
@@ -7334,13 +7347,13 @@ mod tests {
 		let max_size = max_statement_payload_size(V2_ENVELOPE_OVERHEAD);
 		let watermark = store.admission_watermark().expect("watermark is readable");
 
-		let fetch = |is_dht_target: &dyn Fn(&Statement) -> bool| {
+		let fetch = |peer: &Peer, is_dht_target: &dyn Fn(&Statement) -> bool| {
 			fetch_admitted_chunk(
 				&store,
 				&received,
 				&pending,
 				&who,
-				&peer,
+				peer,
 				is_dht_target,
 				0,
 				watermark,
@@ -7350,14 +7363,19 @@ mod tests {
 			.0
 		};
 
-		let batch = fetch(&|_| false);
+		let batch = fetch(&peer, &|_| false);
 		assert!(batch.statements.is_empty(), "the explicit filter alone rejects the statement");
 
-		let batch = fetch(&|stmt| stmt.topics().contains(&topic(7)));
+		let batch = fetch(&peer, &|stmt| stmt.topics().contains(&topic(7)));
 		assert_eq!(
 			batch.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
 			vec![hash],
 			"a DHT routing target receives the statement despite its explicit filter"
 		);
+
+		let mut light_peer = peer;
+		light_peer.is_light = true;
+		let batch = fetch(&light_peer, &|_| true);
+		assert!(batch.statements.is_empty(), "a light peer gets filter matches only");
 	}
 }
