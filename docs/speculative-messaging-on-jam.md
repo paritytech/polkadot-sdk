@@ -134,6 +134,8 @@ const BOOTNODES_KEY: &[u8] = b"bootnodes/v1";
 /// Ephemeral record of a parachain's active bootnodes.
 struct AddressRecord {
     /// The timeslot after which this entire record is invalid and should be dropped.
+    ///
+    /// `expires_at` is the runtime's liveness statement for the whole record.
     expires_at: Timeslot,
     /// Up to 4 active bootnodes.
     bootnodes: BoundedVec<Bootnode, 4>,
@@ -155,6 +157,16 @@ struct Bootnode {
 
 PS does not verify the `AddressRecord` fields and admission into the record is parachain runtime
 logic. KV writes are charged and skipped on insufficient balance.
+
+The parachain runtime handles the rest of the bootnode lifecycle.
+The pallet maintains the active bootnode set in its own storage, indexing entries by `node_key`.
+Modifying this set requires administrative privileges, the `add_bootnode` and `remove_bootnode` extrinsics
+are restricted to `AdminOrigin` (which defaults to governance). The proof of posession ensures the
+node's consent to be listed.
+
+During admission, the runtime verifies the `sig` and requires the `seq` to exceed the stored `seq` for that `node_key`.
+When a change is accepted, the pallet reencodes the full record and emits a new one via `kv_set`.
+The record is refreshed before `expires_at` to ensure it remains valid.
 
 During the initial chain setup, the operator provides an explicit `--bootnodes` CLI flag.
 Once that record is published to the chain, any new collators and nodes can easily join by reading it.
@@ -204,9 +216,10 @@ lift assembly) carries over unchanged.
 **Umbrella 3 — Bootnode discovery**
 
 - [Task 06] Runtime publishing: Maintain the `AddressRecord` under KV tag `0x08`
-  (`bootnodes/v1`): admission logic, `seq` bumping, expiry.
-- [Task 07] Node side: Proof-of-possession signing and verification, record reading to
-  discover a source para's peers, `--bootnodes` CLI flag for initial setup, feeding the peer
+  (`bootnodes/v1`): admission logic, `seq` bumping, expiry. The whole record is republished on every change
+  and is refreshed before `expires_at`.
+- [Task 07] Node side: Proof-of-possession signing and verification, reader side checks (PoP, expiry, highest
+  `seq`), record reading to discover a source para's peers, `--bootnodes` CLI flag for initial setup, feeding the peer
   registry.
 
 **Umbrella 4 — Node adaptations**
