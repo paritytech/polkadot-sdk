@@ -18,6 +18,9 @@
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
+pub mod additional_data_reader;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
 pub mod polkadot_implementation;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]

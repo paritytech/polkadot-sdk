@@ -62,6 +62,8 @@ use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 
 use cumulus_test_runtime::{Hash, NodeBlock as Block, RuntimeApi};
 
+use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
+use cumulus_primitives_additional_data::{RelayStateExt, RELAY_PROOF_KEY};
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
@@ -83,11 +85,15 @@ use sc_service::{
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
 };
+use sp_additional_data::{
+	AdditionalData, AdditionalDataExt, AdditionalDataFinalizer, CreateAdditionalDataExtensions,
+};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
+use sp_externalities::Extension;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic, MultiAddress};
+use sp_runtime::{codec::Encode, generic, traits::BlakeTwo256, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
 use substrate_test_client::{
@@ -106,7 +112,7 @@ pub type AnnounceBlockFn = Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>;
 type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
 	cumulus_client_service::storage_proof_size::HostFunctions,
-	sp_additional_data::additional_data::HostFunctions,
+	cumulus_primitives_additional_data::relay_chain_state::HostFunctions,
 );
 /// The client type being used by the test service.
 pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecutor<HostFunctions>>;
@@ -200,6 +206,24 @@ pub fn new_partial(
 			executor,
 			enable_import_proof_record,
 			Default::default(),
+			Some(CreateAdditionalDataExtensions(Arc::new(|map: &AdditionalData| {
+				let provider = Arc::new(VerifyingAdditionalDataProvider::<BlakeTwo256>::from_map(
+					map.clone(),
+				)?);
+				// One `Arc`-shared provider is registered as both the reader (`RelayStateExt`) and
+				// the finalizer (`AdditionalDataExt`) — the same two extensions the collator
+				// registers, so re-execution serves reads and recomputes the digest identically.
+				Some(vec![
+					Box::new(RelayStateExt(Box::new(provider.clone()))) as Box<dyn Extension>,
+					Box::new(AdditionalDataExt(
+						[(
+							RELAY_PROOF_KEY.to_string(),
+							Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
+						)]
+						.into(),
+					)) as Box<dyn Extension>,
+				])
+			}))),
 		)?;
 	let client = Arc::new(client);
 

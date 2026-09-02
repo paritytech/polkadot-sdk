@@ -45,6 +45,9 @@ use std::cell::RefCell;
 
 use crate as parachain_system;
 use crate::consensus_hook::UnincludedSegmentCapacity;
+use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
+use cumulus_primitives_additional_data::{RelayStateExt, RelayStateReader};
+use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -223,13 +226,79 @@ impl XcmpMessageHandler for SaveIntoThreadLocal {
 	}
 }
 
+thread_local! {
+	/// Serves the relay-state reads made by `set_validation_data` during the mock block tests,
+	/// verified against the current block's sproof root. Updated per block by `run_without_ext`.
+	static MOCK_RELAY_READS: RefCell<
+		Option<VerifyingAdditionalDataProvider<BlakeTwo256>>,
+	> = const { RefCell::new(None) };
+}
+
+/// Configure the relay-state reads served for the block currently being processed.
+fn set_mock_relay_reads(root: relay_chain::Hash, proof: sp_trie::StorageProof) {
+	let mut map = AdditionalData::new();
+	map.insert(cumulus_primitives_additional_data::RELAY_PROOF_KEY.into(), (root, proof).encode());
+	let provider = VerifyingAdditionalDataProvider::<BlakeTwo256>::from_map_with_root(root, map)
+		.expect("valid relay-proof map");
+	MOCK_RELAY_READS.with(|c| *c.borrow_mut() = Some(provider));
+}
+
+/// Externalities extension provider that serves `read_relay_chain_state` from [`MOCK_RELAY_READS`]
+/// (the current block's sproof), mirroring how the reads are served in production.
+struct MockRelayReads;
+
+impl RelayStateReader for MockRelayReads {
+	fn read(&self, key: &[u8]) -> Option<Vec<u8>> {
+		MOCK_RELAY_READS.with(|c| {
+			c.borrow()
+				.as_ref()
+				.expect("relay reads configured for the current block")
+				.read(key)
+		})
+	}
+	fn proof_size(&self) -> usize {
+		MOCK_RELAY_READS.with(|c| {
+			c.borrow()
+				.as_ref()
+				.expect("relay reads configured for the current block")
+				.proof_size()
+		})
+	}
+}
+
+impl AdditionalDataFinalizer for MockRelayReads {
+	fn finalize(&self) -> Option<[u8; 32]> {
+		// Delegate to the real provider's commitment over what it recorded, so `frame_executive`
+		// actually deposits the `DigestItem::AdditionalData` when the block read relay state,
+		// exercising the load-bearing digest placement. `None` (no digest) when nothing was read,
+		// mirroring production.
+		MOCK_RELAY_READS.with(|c| {
+			c.borrow()
+				.as_ref()
+				.expect("relay reads configured for the current block")
+				.finalize()
+		})
+	}
+}
+
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	HANDLED_DMP_MESSAGES.with(|m| m.borrow_mut().clear());
 	HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
+	MOCK_RELAY_READS.with(|c| *c.borrow_mut() = None);
 
-	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+	let mut ext: sp_io::TestExternalities =
+		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
+	ext.register_extension(RelayStateExt(Box::new(MockRelayReads)));
+	ext.register_extension(AdditionalDataExt(
+		[(
+			cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
+			Box::new(MockRelayReads) as Box<dyn AdditionalDataFinalizer>,
+		)]
+		.into(),
+	));
+	ext
 }
 
 #[allow(dead_code)]
@@ -410,6 +479,9 @@ impl BlockTests {
 			}
 			let (relay_parent_storage_root, relay_chain_state) =
 				sproof_builder.into_state_root_and_proof();
+			// Serve the relay-state reads that `set_validation_data` makes (host config, messaging
+			// state, upgrade signals, ...) from this block's sproof.
+			set_mock_relay_reads(relay_parent_storage_root, relay_chain_state.clone());
 			let vfp = PersistedValidationData {
 				relay_parent_number,
 				relay_parent_storage_root,

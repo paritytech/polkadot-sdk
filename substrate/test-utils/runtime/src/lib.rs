@@ -43,16 +43,16 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
-		Weight,
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+		Weight,
 	},
 };
 use frame_system::{
-	CheckNonce, CheckWeight,
 	limits::{BlockLength, BlockWeights},
+	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_application_crypto::{RuntimeAppPublic, Ss58Codec, ecdsa, ed25519, sr25519};
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
 
 #[cfg(feature = "bls-experimental")]
@@ -60,8 +60,8 @@ use sp_application_crypto::{bls381, ecdsa_bls381};
 
 use sp_core::OpaqueMetadata;
 use sp_trie::{
-	PrefixedMemoryDB, StorageProof,
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
+	PrefixedMemoryDB, StorageProof,
 };
 use trie_db::{Trie, TrieMut};
 
@@ -71,11 +71,12 @@ pub use sp_core::hash::H256;
 use sp_genesis_builder::PresetId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill, impl_opaque_keys, impl_tx_ext_default,
+	impl_opaque_keys, impl_tx_ext_default,
 	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
 	transaction_validity::{
 		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 use sp_version::RuntimeVersion;
 
@@ -185,12 +186,8 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 pub type Balance = u64;
 
 /// Host functions for this test runtime's `WasmExecutor`.
-///
-/// Extends [`sp_io::SubstrateHostFunctions`] with `sp_additional_data` so the runtime's
-/// `push` / `finalize` host-function calls resolve when the WASM binary is executed.
 #[cfg(feature = "std")]
-pub type TestRuntimeHostFunctions =
-	(sp_additional_data::additional_data::HostFunctions, sp_io::SubstrateHostFunctions);
+pub type TestRuntimeHostFunctions = sp_io::SubstrateHostFunctions;
 
 #[cfg(feature = "bls-experimental")]
 mod bls {
@@ -832,8 +829,8 @@ impl_runtime_apis! {
 	}
 }
 
-fn test_ed25519_crypto()
--> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
+fn test_ed25519_crypto(
+) -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
 	let mut public0 = ed25519::AppPublic::generate_pair(None);
 	let public1 = ed25519::AppPublic::generate_pair(None);
 	let public2 = ed25519::AppPublic::generate_pair(None);
@@ -853,8 +850,8 @@ fn test_ed25519_crypto()
 	(signature, public0, proof_of_possession)
 }
 
-fn test_sr25519_crypto()
--> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
+fn test_sr25519_crypto(
+) -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
 	let mut public0 = sr25519::AppPublic::generate_pair(None);
 	let public1 = sr25519::AppPublic::generate_pair(None);
 	let public2 = sr25519::AppPublic::generate_pair(None);
@@ -1163,7 +1160,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
-		DefaultTestClientBuilderExt, TestClientBuilder, prelude::*, runtime::TestAPI,
+		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
 	};
 
 	#[test]
@@ -1358,7 +1355,7 @@ mod tests {
 		use super::*;
 		use crate::genesismap::GenesisStorageBuilder;
 		use pretty_assertions::assert_eq;
-		use sc_executor::{WasmExecutor, error::Result};
+		use sc_executor::{error::Result, WasmExecutor};
 		use sc_executor_common::runtime_blob::RuntimeBlob;
 		use serde_json::json;
 		use sp_application_crypto::Ss58Codec;
@@ -1648,70 +1645,5 @@ mod tests {
 			);
 			assert_eq!(H256::decode(&mut &value[..]).unwrap(), [69u8; 32].into());
 		}
-	}
-
-	#[test]
-	fn additional_data_digest_deposited_when_pushed() {
-		use sp_additional_data::{
-			AdditionalDataExt, RecordingAdditionalDataProvider, encode_items, hash_blob,
-		};
-
-		let provider = RecordingAdditionalDataProvider::new();
-		let mut ext = new_test_ext();
-		ext.register_extension(AdditionalDataExt(Box::new(provider)));
-
-		let header = ext.execute_with(|| {
-			use sp_runtime::traits::Header as _;
-			let parent_hash = System::parent_hash();
-			Executive::initialize_block(&Header::new(
-				1,
-				H256::default(),
-				H256::default(),
-				parent_hash,
-				Default::default(),
-			));
-			SubstrateTest::push_additional_data(RuntimeOrigin::none()).unwrap();
-			Executive::finalize_block()
-		});
-
-		let additional_data_hashes: alloc::vec::Vec<[u8; 32]> =
-			header
-				.digest
-				.logs
-				.iter()
-				.filter_map(|log| {
-					if let DigestItem::AdditionalData(hash) = log { Some(*hash) } else { None }
-				})
-				.collect();
-
-		assert_eq!(additional_data_hashes.len(), 1);
-		let expected = hash_blob(&encode_items(&[b"additional-data-test".to_vec()]));
-		assert_eq!(additional_data_hashes[0], expected);
-	}
-
-	#[test]
-	fn no_additional_data_digest_when_nothing_pushed() {
-		let mut ext = new_test_ext();
-
-		let header = ext.execute_with(|| {
-			use sp_runtime::traits::Header as _;
-			let parent_hash = System::parent_hash();
-			Executive::initialize_block(&Header::new(
-				1,
-				H256::default(),
-				H256::default(),
-				parent_hash,
-				Default::default(),
-			));
-			Executive::finalize_block()
-		});
-
-		let count = header
-			.digest
-			.logs
-			.iter()
-			.filter(|log| matches!(log, DigestItem::AdditionalData(_)))
-			.count();
-		assert_eq!(count, 0);
 	}
 }

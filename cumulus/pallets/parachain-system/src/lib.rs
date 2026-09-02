@@ -707,19 +707,27 @@ pub mod pallet {
 				LastRelayChainBlockNumber::<T>::get(),
 			);
 
-			let relay_state_proof = RelayChainStateProof::new(
-				T::SelfParaId::get(),
-				vfp.relay_parent_storage_root,
-				relay_chain_state.clone(),
-			)
-			.expect("Invalid relay chain state proof");
-
 			// Relay parent offset validation:
 			// When V3 scheduling is disabled: validate relay_parent_descendants (old mechanism)
 			// When V3 scheduling is enabled: skip this validation, V3 scheduling validation
 			// happens in validate_block with header chain from PVF params
 			let expected_rp_descendants_num = T::RelayParentOffset::get();
 			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED;
+
+			// V3: reads are served by the `read_relay_chain_state` host function (live relay state
+			// while building, recorded proof on validation/import). V2 (no additional-data
+			// channel): reads are served from the fixed proof carried in the inherent, verified
+			// against `relay_parent_storage_root`.
+			let relay_state_proof = if v3_enabled {
+				RelayChainStateProof::new(T::SelfParaId::get())
+			} else {
+				RelayChainStateProof::from_inherent_proof(
+					T::SelfParaId::get(),
+					vfp.relay_parent_storage_root,
+					relay_chain_state,
+				)
+				.expect("Invalid relay chain state proof")
+			};
 
 			if expected_rp_descendants_num > 0 && !v3_enabled {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
@@ -805,7 +813,6 @@ pub mod pallet {
 				.expect("Invalid messaging state in relay chain state proof");
 
 			<ValidationData<T>>::put(&vfp);
-			<RelayStateProof<T>>::put(relay_chain_state);
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
@@ -974,15 +981,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type UpgradeGoAhead<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeGoAhead>, ValueQuery>;
-
-	/// The state proof for the last relay parent block.
-	///
-	/// This field is meant to be updated each block with the validation data inherent. Therefore,
-	/// before processing of the inherent, e.g. in `on_initialize` this data may be stale.
-	///
-	/// This data is also absent from the genesis.
-	#[pallet::storage]
-	pub type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.

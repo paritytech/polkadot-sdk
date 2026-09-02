@@ -52,6 +52,7 @@ xcm-builder = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { workspace = true }
+cumulus-primitives-additional-data = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
@@ -78,6 +79,7 @@ sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-additional-data = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
@@ -87,6 +89,7 @@ std = [
 	"bytes/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
+	"cumulus-primitives-additional-data/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
 	"cumulus-primitives-proof-size-hostfunction/std",
@@ -101,6 +104,7 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
+	"sp-additional-data/std",
 	"sp-api/std",
 	"sp-consensus-babe/std",
 	"sp-core/std",

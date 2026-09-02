@@ -68,6 +68,7 @@ use sc_client_api::{
 	IoInfo, MemoryInfo, MemorySize, TrieCacheContext, UsageInfo,
 };
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
+use sp_additional_data::AdditionalData;
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
 	Backend as _, CachedHeaderMetadata, DisplacedLeavesAfterFinalization, Error as ClientError,
@@ -868,13 +869,19 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 		}
 	}
 
-	fn block_additional_data(&self, hash: Block::Hash) -> ClientResult<Option<Vec<u8>>> {
+	fn block_additional_data(&self, hash: Block::Hash) -> ClientResult<Option<AdditionalData>> {
 		read_db(
 			&*self.db,
 			columns::KEY_LOOKUP,
 			columns::ADDITIONAL_DATA,
 			BlockId::<Block>::Hash(hash),
-		)
+		)?
+		.map(|bytes| {
+			<AdditionalData as codec::Decode>::decode(&mut &bytes[..]).map_err(|e| {
+				sp_blockchain::Error::Backend(format!("Failed to decode additional data: {e}"))
+			})
+		})
+		.transpose()
 	}
 }
 
@@ -930,7 +937,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
 	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
-	additional_data: Option<Option<Vec<u8>>>,
+	additional_data: Option<Option<AdditionalData>>,
 }
 
 impl<Block: BlockT> BlockImportOperation<Block> {
@@ -1103,7 +1110,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		self.create_gap = create_gap;
 	}
 
-	fn set_additional_data(&mut self, data: Option<Vec<u8>>) -> sp_blockchain::Result<()> {
+	fn set_additional_data(&mut self, data: Option<AdditionalData>) -> sp_blockchain::Result<()> {
 		self.additional_data = Some(data);
 		Ok(())
 	}
@@ -1741,7 +1748,7 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			if let Some(Some(data)) = operation.additional_data {
-				transaction.set_from_vec(columns::ADDITIONAL_DATA, &lookup_key, data);
+				transaction.set_from_vec(columns::ADDITIONAL_DATA, &lookup_key, data.encode());
 			}
 
 			if number.is_zero() {
@@ -7660,7 +7667,7 @@ pub(crate) mod tests {
 		use sp_runtime::testing::Digest;
 
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 0);
-		let extra = vec![42u8, 43, 44];
+		let extra: AdditionalData = [("test".to_string(), vec![42u8, 43, 44])].into();
 
 		let hash0 = {
 			let digest = Digest::default();

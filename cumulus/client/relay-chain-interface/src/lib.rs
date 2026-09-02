@@ -30,9 +30,12 @@ use async_trait::async_trait;
 use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
+use sp_runtime::traits::HashingFor;
+use sp_state_machine::{backend::AsTrieBackend, Backend, TrieBackendBuilder};
 
 use cumulus_primitives_core::relay_chain::{
-	vstaging::RelayParentInfo, BlockId, CandidateEvent, Hash as RelayHash, NodeFeatures,
+	vstaging::RelayParentInfo, Block as RelayBlock, BlockId, CandidateEvent, Hash as RelayHash,
+	NodeFeatures,
 };
 pub use cumulus_primitives_core::{
 	relay_chain::{
@@ -47,6 +50,80 @@ pub use sp_state_machine::StorageValue;
 pub use sp_storage::ChildInfo;
 
 pub type RelayChainResult<T> = Result<T, RelayChainError>;
+
+/// Object-safe, synchronous reader over relay-chain state at a fixed relay parent that records the
+/// trie nodes it touches, so a minimal storage proof of exactly the reads can be reassembled.
+///
+/// Built by [`RelayChainInterface::relay_state_prover`] (only the in-process interface can serve
+/// synchronous reads during block execution). Consumed in cumulus to record the relay reads a
+/// parachain runtime makes via the `read_relay_chain_state` host function. Deliberately free of any
+/// additional-data types, so this crate does not depend on `sp-additional-data`.
+pub trait RelayStateProver: Send {
+	/// Read a relay-state `key`, recording the accessed nodes. Returns the proven value (or proven
+	/// absence).
+	fn read(&self, key: &[u8]) -> RelayChainResult<Option<Vec<u8>>>;
+
+	/// The relay state root the reads are proven against (the `relay_parent_storage_root`).
+	fn root(&self) -> PHash;
+
+	/// A `Send`, backend-free snapshot function returning the minimal [`StorageProof`] of
+	/// everything read so far. It shares only the recorder (not the state backend, which may be
+	/// `!Sync`), so it stays callable after this prover has been moved into an externalities
+	/// extension.
+	fn proof_snapshot(&self) -> Box<dyn Fn() -> StorageProof + Send>;
+
+	/// Estimated encoded size of the proof recorded so far — the additional-data contribution to
+	/// the PoV. Same per-node metric as the verify-side recorder, so build and validate agree
+	/// (this is summed into `storage_proof_size`, which feeds weight-reclaim → the state root).
+	fn proof_size(&self) -> usize;
+}
+
+/// A [`RelayStateProver`] over any trie-backed relay state (`S: AsTrieBackend`) — e.g. the
+/// in-process relay client's live state, or a proof-check backend in tests. Holds the backend plus
+/// a shared [`Recorder`](sp_trie::recorder::Recorder); each [`read`](RelayStateProver::read)
+/// records into it, and [`proof_snapshot`](RelayStateProver::proof_snapshot) hands out a
+/// backend-free view of the accumulated nodes.
+pub struct TrieBackendProver<S> {
+	state: S,
+	recorder: sp_trie::recorder::Recorder<HashingFor<RelayBlock>>,
+	root: PHash,
+}
+
+impl<S> TrieBackendProver<S>
+where
+	S: AsTrieBackend<HashingFor<RelayBlock>>,
+{
+	/// Create a fresh prover over the given relay state backend.
+	pub fn new(state: S) -> Self {
+		let root = *state.as_trie_backend().root();
+		Self { state, recorder: Default::default(), root }
+	}
+}
+
+impl<S> RelayStateProver for TrieBackendProver<S>
+where
+	S: AsTrieBackend<HashingFor<RelayBlock>> + Send,
+{
+	fn read(&self, key: &[u8]) -> RelayChainResult<Option<Vec<u8>>> {
+		let backend = self.state.as_trie_backend();
+		let recording =
+			TrieBackendBuilder::wrap(backend).with_recorder(self.recorder.clone()).build();
+		recording.storage(key).map_err(RelayChainError::GenericError)
+	}
+
+	fn root(&self) -> PHash {
+		self.root
+	}
+
+	fn proof_snapshot(&self) -> Box<dyn Fn() -> StorageProof + Send> {
+		let recorder = self.recorder.clone();
+		Box::new(move || recorder.to_storage_proof())
+	}
+
+	fn proof_size(&self) -> usize {
+		self.recorder.estimate_encoded_size()
+	}
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelayChainError {
@@ -224,6 +301,14 @@ pub trait RelayChainInterface: Send + Sync {
 		child_keys: &[Vec<u8>],
 	) -> RelayChainResult<StorageProof>;
 
+	/// Build a synchronous, proof-recording prover over the relay chain's state at `relay_parent`,
+	/// for the `read_relay_chain_state` host function. Cumulus wraps this into the additional-data
+	/// recorder.
+	async fn relay_state_prover(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>>;
+
 	/// Returns the validation code hash for the given `para_id` using the given
 	/// `occupied_core_assumption`.
 	async fn validation_code_hash(
@@ -383,6 +468,13 @@ where
 		child_keys: &[Vec<u8>],
 	) -> RelayChainResult<StorageProof> {
 		(**self).prove_child_read(relay_parent, child_info, child_keys).await
+	}
+
+	async fn relay_state_prover(
+		&self,
+		relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>> {
+		(**self).relay_state_prover(relay_parent).await
 	}
 
 	async fn wait_for_block(&self, hash: PHash) -> RelayChainResult<()> {

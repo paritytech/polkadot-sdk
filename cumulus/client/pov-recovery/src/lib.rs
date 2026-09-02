@@ -83,6 +83,7 @@ mod tests;
 
 mod active_candidate_recovery;
 use active_candidate_recovery::ActiveCandidateRecovery;
+use sp_additional_data::AdditionalData;
 
 const LOG_TARGET: &str = "cumulus-pov-recovery";
 
@@ -226,7 +227,7 @@ pub struct PoVRecovery<Block: BlockT, PC, RC> {
 	/// Blocks that wait that the parent is imported.
 	///
 	/// Uses parent -> blocks mapping.
-	waiting_for_parent: HashMap<Block::Hash, Vec<Block>>,
+	waiting_for_parent: HashMap<Block::Hash, Vec<(Block, Option<AdditionalData>)>>,
 	parachain_client: Arc<PC>,
 	parachain_import_queue: Box<dyn ImportQueueService<Block>>,
 	relay_chain_interface: RC,
@@ -345,7 +346,7 @@ where
 
 		while let Some(delete) = blocks_to_delete.pop() {
 			if let Some(children) = self.waiting_for_parent.remove(&delete) {
-				blocks_to_delete.extend(children.iter().map(BlockT::hash));
+				blocks_to_delete.extend(children.iter().map(|(b, _)| b.hash()));
 			}
 		}
 		self.clear_waiting_recovery(&hash);
@@ -425,9 +426,9 @@ where
 			return;
 		};
 
-		let blocks = block_data.into_blocks();
+		let blocks = block_data.into_blocks_and_additional_data();
 
-		let Some(parent) = blocks.first().map(|b| *b.header().parent_hash()) else {
+		let Some(parent) = blocks.first().map(|(b, _)| *b.header().parent_hash()) else {
 			tracing::debug!(
 				target: LOG_TARGET,
 				?block_hash,
@@ -454,11 +455,11 @@ where
 						"Waiting for recovery of parent.",
 					);
 
-					blocks.into_iter().for_each(|b| {
+					blocks.into_iter().for_each(|(b, additional_data)| {
 						self.waiting_for_parent
 							.entry(*b.header().parent_hash())
 							.or_default()
-							.push(b);
+							.push((b, additional_data));
 					});
 					return;
 				} else {
@@ -494,18 +495,18 @@ where
 	/// Import the given `blocks`.
 	///
 	/// This will also recursively drain `waiting_for_parent` and import them as well.
-	fn import_blocks(&mut self, blocks: impl Iterator<Item = Block>) {
+	fn import_blocks(&mut self, blocks: impl Iterator<Item = (Block, Option<AdditionalData>)>) {
 		let mut blocks = VecDeque::from_iter(blocks);
 
 		tracing::debug!(
 			target: LOG_TARGET,
-			blocks = ?blocks.iter().map(|b| b.hash()),
+			blocks = ?blocks.iter().map(|(b, _)| b.hash()),
 			"Importing blocks retrieved using pov_recovery",
 		);
 
 		let mut incoming_blocks = Vec::new();
 
-		while let Some(block) = blocks.pop_front() {
+		while let Some((block, additional_data)) = blocks.pop_front() {
 			let block_hash = block.hash();
 			let (header, body) = block.deconstruct();
 
@@ -520,7 +521,7 @@ where
 				skip_execution: false,
 				state: None,
 				indexed_body: None,
-				additional_data: None,
+				additional_data,
 			});
 
 			if let Some(waiting) = self.waiting_for_parent.remove(&block_hash) {
@@ -631,9 +632,9 @@ where
 						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
 						// in the import queue.
 						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {
-							for block in waiting_blocks {
+							for (block, additional_data) in waiting_blocks {
 								tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), resolved_parent = ?imported.hash, "Found new waiting child block during import, queuing.");
-								self.import_blocks(std::iter::once(block));
+								self.import_blocks(std::iter::once((block, additional_data)));
 							}
 						};
 

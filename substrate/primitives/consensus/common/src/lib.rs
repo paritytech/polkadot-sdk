@@ -109,8 +109,6 @@ pub struct Proposal<Block: BlockT> {
 	pub block: Block,
 	/// The storage changes while building this block.
 	pub storage_changes: sp_state_machine::StorageChanges<HashingFor<Block>>,
-	/// Opaque per-block additional data blob, or `None` when no additional data was collected.
-	pub additional_data: Option<Vec<u8>>,
 }
 
 /// Arguments for [`Proposer::propose`].

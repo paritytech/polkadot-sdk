@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+sp-additional-data = { workspace = true, default-features = false }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
@@ -35,6 +36,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
 	"scale-info/std",
+	"sp-additional-data/std",
 	"sp-api/std",
 	"sp-runtime/std",
 	"sp-trie/std",

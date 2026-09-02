@@ -17,6 +17,7 @@
 
 use sp_runtime_interface::{pass_by::PassPointerAndReadCopy, runtime_interface};
 
+#[allow(unused_imports)]
 use crate::*;
 
 /// Interface that provides transaction indexing API.

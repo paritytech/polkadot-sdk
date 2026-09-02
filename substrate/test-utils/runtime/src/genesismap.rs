@@ -18,18 +18,19 @@
 //! Tool for creating the genesis block.
 
 use super::{
-	AccountId, Balance, RuntimeGenesisConfig, currency, substrate_test_pallet, wasm_binary_unwrap,
+	currency, substrate_test_pallet, wasm_binary_unwrap, AccountId, Balance, RuntimeGenesisConfig,
 };
 use codec::Encode;
 use sc_service::construct_genesis_block;
 use sp_core::{
-	Pair, sr25519,
-	storage::{StateVersion, Storage, well_known_keys},
+	sr25519,
+	storage::{well_known_keys, StateVersion, Storage},
+	Pair,
 };
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
-	BuildStorage,
 	traits::{Block as BlockT, Hash as HashT, Header as HeaderT},
+	BuildStorage,
 };
 
 /// Builder for generating storage from substrate-test-runtime genesis config.

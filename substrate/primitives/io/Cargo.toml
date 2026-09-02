@@ -23,6 +23,7 @@ byte-slice-cast = { workspace = true }
 bytes = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
 secp256k1 = { features = ["global-context", "recovery"], optional = true, workspace = true, default-features = true }
+sp-additional-data = { workspace = true }
 sp-core = { workspace = true }
 sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
@@ -73,6 +74,7 @@ std = [
 	"log/std",
 	"secp256k1/global-context",
 	"secp256k1/std",
+	"sp-additional-data/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",

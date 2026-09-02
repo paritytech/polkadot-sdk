@@ -1,0 +1,23 @@
+[package]
+name = "cumulus-primitives-additional-data"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Relay/JAM chain-state read side of the additional-data channel: read host function, RelayStateReader, and RelayStateExt."
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+sp-externalities = { workspace = true }
+sp-runtime-interface = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"sp-externalities/std",
+	"sp-runtime-interface/std",
+]

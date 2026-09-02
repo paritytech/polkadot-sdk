@@ -133,6 +133,7 @@ pub mod generic {
 	use super::{BlockAttributes, BlockState, Direction};
 	use crate::message::RequestId;
 	use codec::{Decode, Encode, Input, Output};
+	use sp_additional_data::AdditionalData;
 	use sp_runtime::{EncodedJustification, Justifications};
 
 	/// Block data sent in the response.
@@ -155,7 +156,7 @@ pub mod generic {
 		/// Justifications if requested.
 		pub justifications: Option<Justifications>,
 		/// Additional data if requested (proto field 10).
-		pub additional_data: Option<Vec<u8>>,
+		pub additional_data: Option<AdditionalData>,
 	}
 
 	/// Request block data from a peer.

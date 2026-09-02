@@ -88,11 +88,12 @@ fn benchmark_block_validation(c: &mut Criterion) {
 			parent_head: parent_header.encode().into(),
 			..Default::default()
 		};
-		let BlockBuilderAndSupportData { block_builder, .. } = client
+		let BlockBuilderAndSupportData { block_builder, additional_data_recorder, .. } = client
 			.init_block_builder_builder()
 			.with_validation_data(validation_data)
 			.build();
-		let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
+		let parachain_block = block_builder
+			.build_parachain_block(*parent_header.state_root(), additional_data_recorder);
 
 		let proof_size_in_kb = parachain_block.proof().encoded_size() as f64 / 1024f64;
 		runtime.block_on(import_block(&client, parachain_block.blocks()[0].clone(), false));
@@ -200,7 +201,7 @@ fn set_glutton_parameters(
 	);
 	extrinsics.push(set_storage);
 
-	let BlockBuilderAndSupportData { mut block_builder, .. } = client
+	let BlockBuilderAndSupportData { mut block_builder, additional_data_recorder, .. } = client
 		.init_block_builder_builder()
 		.with_validation_data(validation_data)
 		.build();
@@ -209,7 +210,7 @@ fn set_glutton_parameters(
 		block_builder.push(extrinsic).unwrap();
 	}
 
-	block_builder.build_parachain_block(*parent_header.state_root())
+	block_builder.build_parachain_block(*parent_header.state_root(), additional_data_recorder)
 }
 
 criterion_group!(benches, benchmark_block_validation);

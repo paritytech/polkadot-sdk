@@ -811,6 +811,7 @@ pub type SubstrateHostFunctions = (
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
 	input::HostFunctions,
+	sp_additional_data::additional_data::HostFunctions,
 );
 
 #[cfg(test)]

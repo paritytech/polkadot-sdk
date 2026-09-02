@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+cumulus-primitives-additional-data = { workspace = true }
 sp-externalities = { workspace = true }
 sp-runtime-interface = { workspace = true }
 sp-trie = { workspace = true }
@@ -23,4 +24,9 @@ sp-state-machine = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["sp-externalities/std", "sp-runtime-interface/std", "sp-trie/std"]
+std = [
+	"cumulus-primitives-additional-data/std",
+	"sp-externalities/std",
+	"sp-runtime-interface/std",
+	"sp-trie/std",
+]

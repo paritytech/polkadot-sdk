@@ -319,6 +319,13 @@ impl TestRelayClient {
 
 #[async_trait]
 impl RelayChainInterface for TestRelayClient {
+	async fn relay_state_prover(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Box<dyn RelayStateProver>> {
+		unimplemented!()
+	}
+
 	async fn validators(&self, _: RelayHash) -> RelayChainResult<Vec<ValidatorId>> {
 		unimplemented!("Not needed for test")
 	}

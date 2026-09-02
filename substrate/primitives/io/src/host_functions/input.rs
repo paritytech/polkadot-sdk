@@ -17,6 +17,7 @@
 
 use sp_runtime_interface::{pass_by::PassFatPointerAndWrite, runtime_interface};
 
+#[allow(unused_imports)]
 use crate::*;
 
 /// Input data handling functions

@@ -25,12 +25,12 @@ use codec::DecodeAll;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	ConsensusEngineId,
 	codec::{Decode, DecodeWithMemTracking, Encode, Error, Input},
 	scale_info::{
-		Path, Type, TypeInfo,
 		build::{Fields, Variants},
+		Path, Type, TypeInfo,
 	},
+	ConsensusEngineId,
 };
 use Debug;
 

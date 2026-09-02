@@ -101,6 +101,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 			executor,
 			true,
 			Default::default(),
+			None,
 		)?;
 	let client = Arc::new(client);
 
