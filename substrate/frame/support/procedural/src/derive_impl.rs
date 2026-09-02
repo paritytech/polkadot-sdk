@@ -58,7 +58,7 @@ fn is_runtime_type(item: &syn::ImplItemType) -> bool {
 }
 
 /// Whether the attribute is `#[pallet::no_default]`.
-fn is_no_default_attr(attr: &syn::Attribute) -> bool {
+pub(crate) fn is_no_default_attr(attr: &syn::Attribute) -> bool {
 	let segments = &attr.path().segments;
 	segments.len() == 2 && segments[0].ident == "pallet" && segments[1].ident == "no_default"
 }
