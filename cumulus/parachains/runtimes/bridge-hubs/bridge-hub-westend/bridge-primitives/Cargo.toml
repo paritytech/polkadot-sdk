@@ -15,14 +15,18 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-bp-bridge-hub-cumulus.workspace = true
-bp-messages.workspace = true
-bp-runtime.workspace = true
-bp-xcm-bridge-hub.workspace = true
-frame-support.workspace = true
-sp-api.workspace = true
-sp-runtime.workspace = true
-sp-std.workspace = true
+
+# Bridge Dependencies
+bp-bridge-hub-cumulus = { workspace = true }
+bp-messages = { workspace = true }
+bp-runtime = { workspace = true }
+bp-xcm-bridge-hub = { workspace = true }
+
+# Substrate Based Dependencies
+frame-support = { workspace = true }
+sp-api = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 [features]
 default = ["std"]
