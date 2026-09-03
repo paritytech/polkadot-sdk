@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788389780615,
+  "lastUpdate": 1788430731923,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3e53570b1619e7de01e71929179ec9d03d727425",
-          "message": "Add StakingOperator proxy type to Westend AssetHub (#10980)\n\nIntroduces StakingOperator proxy type that allows validator operational\ntasks (validate, chill, kick) and session key management (set_keys,\npurge_keys) without access to fund management operations.\n\nThis enables pure proxy stashes to delegate validator operations: now\nthat pallet_staking_async_rc_client provides\nset_keys/purge_keys on AssetHub, pure proxies can fully utilize\nStakingOperator.\n\n*NOTE**: This is similar to\nhttps://github.com/polkadot-fellows/runtimes/pull/1033, which introduced\nStakingOperator on Polkadot and Kusama. That change predated the\nintroduction of session key handling on AssetHub. Now that session key\nhandling is available, a follow-up PR will be implemented in the\nruntimes repository to restrict StakingOperator solely to AssetHub and\nenable session key handling via StakingOperator on AssetHub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T12:35:18Z",
-          "tree_id": "6c68b5404e6b048cf099afe2dae55c8df93cf43f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e53570b1619e7de01e71929179ec9d03d727425"
-        },
-        "date": 1770213003140,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63619.25,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6610011283400015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005870040910000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.743031375140002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8420150450599857,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.7360863230730335,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000028376050000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000028803089999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7147603981499993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3923546419399986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.710372108409999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.069404737949986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000028803089999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000028376050000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.395860189962601,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c18c52159413f3dc3dafed0053e41b36e14f2b7b",
+          "message": "[Release] Changelog refactoring (#13037)\n\nCloses: https://github.com/paritytech/release-engineering/issues/299\n\nThis PR reworks the changelog that is published with each polkadot-sdk\nrelease on GitHub.\n\nThe main changes are:\n- A `💥 Breaking Changes` section at the top of the changelog a\ncompilation of all changes that carry a major crate bump, across all\nprdocs included in the release.\n- New grouping: changes are grouped by topic (`Bridges`, `XCM`, `Node`,\n…), derived automatically from the crates listed in each prdoc via the\ntaxonomy in prdoc/topics.yaml.\n- Inside each topic, entries are sub-grouped by audience (`🛠️ Runtime\nDev`, `🔧 Node Dev`, …), so the audience label is read once per group\ninstead of being repeated on every entry and readers who preferred the\nold audience-oriented changelog still get that view.\n- Extended Dockerhub section, listing the full set of images that we\npublish with each release\n\nThe release body shows a condensed changelog (kept under GitHub's\nrelease-body size cap); the complete changelog is attached to the\nrelease as CHANGELOG.md, together with a machine-readable changelog.json\n(schema: scripts/release/changelog/schema.json). A new CI regression\ncheck renders everything against real prdoc folders on any PR touching\nthe tooling.\n\nRendered example can be found here:\nhttps://github.com/EgorPopelyaev/polkadot-sdk/releases/tag/polkadot-stable3436-rc1\n\nFollow-up for the free text topics that can be added to the existing\nprdoc field: paritytech/release-engineering#300\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-03T08:47:34Z",
+          "tree_id": "70d4f2dfc3de2dcde11db20c5c93866ea3b596dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c18c52159413f3dc3dafed0053e41b36e14f2b7b"
+        },
+        "date": 1788430695064,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63567.479999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021426340000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021426340000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020517220000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.76950834856,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.775751360260001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.381089562240001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8470170376399953,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5029399365728215,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020517220000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8036356485399994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.76638777662,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005106811550000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.348496545409997,
             "unit": "seconds"
           }
         ]
