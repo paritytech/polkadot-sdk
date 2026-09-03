@@ -146,8 +146,7 @@ use sp_runtime::{
 	BoundedVec,
 };
 use sp_statement_store::{
-	AdmittedBatch, FilterDecision, Hash, RetentionReasonMask, Statement, StatementSource,
-	StatementStore, SubmitResult,
+	AdmittedBatch, FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -161,6 +160,7 @@ use tokio::time::timeout;
 use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
 pub use config::V2DhtConfig;
+pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;
 
