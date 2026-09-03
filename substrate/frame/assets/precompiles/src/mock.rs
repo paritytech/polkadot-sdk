@@ -131,7 +131,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			next_asset_id: None,
 			reserves: vec![],
 		},
-		..Default::default()
+		system: Default::default(),
+		balances: Default::default(),
+		revive: Default::default(),
 	}
 	.build_storage()
 	.unwrap();

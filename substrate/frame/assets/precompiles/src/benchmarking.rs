@@ -29,7 +29,8 @@ use crate::{
 };
 use frame_benchmarking::v2::*;
 use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
-use sp_core::{H160, U256};
+use pallet_revive::precompiles::H160;
+use sp_core::U256;
 use sp_runtime::traits::StaticLookup;
 
 /// Test owner address (Hardhat account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
