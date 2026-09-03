@@ -925,8 +925,10 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 itertools = { version = "0.11" }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
-jam-std-common = { git = "ssh://git@github.com/paritytech/polkajam.git", rev = "ec242fa9e" }
-jam-types = { git = "ssh://git@github.com/paritytech/polkajam.git", rev = "ec242fa9e", default-features = false }
+# The vendored copies rather than the polkajam git rev: the omni-node names these by path
+# already, and two instances of them would not unify at the jam-interface trait boundary.
+jam-std-common = { path = "../parachain-service/vendor/polkajam/crates/jam-std-common" }
+jam-types = { path = "../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
 jobserver = { version = "0.1.26" }
 jsonrpsee = { version = "0.24.11" }
 jsonrpsee-core = { version = "0.24.11" }

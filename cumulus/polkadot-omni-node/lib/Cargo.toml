@@ -29,9 +29,10 @@ serde_json = { workspace = true, default-features = true }
 url = { workspace = true }
 
 # JAM backend (PoC wiring: path deps to the sibling checkouts; the upstream shape
-# is git deps behind a feature or a publish = false shim crate).
-jam-interface = { path = "../../../../parachain-service/cumulus/jam-interface" }
-jam-rpc-interface = { path = "../../../../parachain-service/cumulus/jam-rpc-interface" }
+# is git deps behind a feature or a publish = false shim crate). The two interface
+# crates are this repo's own: parachain-service dropped its copies of them.
+jam-interface = { package = "cumulus-jam-interface", path = "../../jam/interface" }
+jam-rpc-interface = { package = "cumulus-jam-rpc-interface", path = "../../jam/rpc-interface" }
 jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-service/cumulus" }
 jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", features = ["std"] }
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = ["std"] }

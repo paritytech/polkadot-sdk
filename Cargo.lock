@@ -5237,8 +5237,8 @@ dependencies = [
  "async-trait",
  "futures",
  "jam-codec",
- "jam-std-common 0.1.28 (git+ssh://git@github.com/paritytech/polkajam.git?rev=ec242fa9e)",
- "jam-types 0.1.28 (git+ssh://git@github.com/paritytech/polkajam.git?rev=ec242fa9e)",
+ "jam-std-common 0.1.28",
+ "jam-types 0.1.28",
 ]
 
 [[package]]
@@ -5250,8 +5250,8 @@ dependencies = [
  "bytes",
  "cumulus-jam-interface",
  "futures",
- "jam-std-common 0.1.28 (git+ssh://git@github.com/paritytech/polkajam.git?rev=ec242fa9e)",
- "jam-types 0.1.28 (git+ssh://git@github.com/paritytech/polkajam.git?rev=ec242fa9e)",
+ "jam-std-common 0.1.28",
+ "jam-types 0.1.28",
  "jsonrpsee 0.26.0",
  "serde",
  "serde_json",
@@ -9678,17 +9678,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jam-interface"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "futures",
- "jam-codec",
- "jam-std-common 0.1.28",
- "jam-types 0.1.28",
-]
-
-[[package]]
 name = "jam-null-authorizer-bin"
 version = "0.1.28"
 
@@ -9701,25 +9690,6 @@ dependencies = [
  "jam-types 0.1.28",
  "picoalloc",
  "polkavm-derive 0.30.0",
-]
-
-[[package]]
-name = "jam-rpc-interface"
-version = "0.1.0"
-dependencies = [
- "async-stream",
- "async-trait",
- "bytes",
- "futures",
- "jam-interface",
- "jam-std-common 0.1.28",
- "jam-types 0.1.28",
- "jsonrpsee 0.26.0",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "url",
 ]
 
 [[package]]
@@ -9778,31 +9748,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jam-std-common"
-version = "0.1.28"
-source = "git+ssh://git@github.com/paritytech/polkajam.git?rev=ec242fa9e#ec242fa9ecd52813a2cb14e521e15fb6a7c9ecf8"
-dependencies = [
- "ark-vrf 0.2.2",
- "arrayvec 0.7.8",
- "async-trait",
- "blake2b_simd",
- "bounded-collections 0.3.2",
- "bytes",
- "ed25519-consensus",
- "futures",
- "jam-codec",
- "jam-types 0.1.28 (git+ssh://git@github.com/paritytech/polkajam.git?rev=ec242fa9e)",
- "jsonrpsee 0.26.0",
- "p256",
- "rand 0.9.0",
- "rand_chacha 0.3.1",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tiny-keccak",
-]
-
-[[package]]
 name = "jam-types"
 version = "0.1.28"
 dependencies = [
@@ -9820,20 +9765,6 @@ name = "jam-types"
 version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "658ebd3553ff9639a66d4d42b62b6a4c5a0d31923c36aa90a2dbf243545126ca"
-dependencies = [
- "atomic-traits",
- "base64 0.22.1",
- "bounded-collections 0.3.2",
- "bytes",
- "jam-codec",
- "macro_rules_attribute",
- "serde",
-]
-
-[[package]]
-name = "jam-types"
-version = "0.1.28"
-source = "git+ssh://git@github.com/paritytech/polkajam.git?rev=ec242fa9e#ec242fa9ecd52813a2cb14e521e15fb6a7c9ecf8"
 dependencies = [
  "atomic-traits",
  "base64 0.22.1",
@@ -17736,6 +17667,8 @@ dependencies = [
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
+ "cumulus-jam-interface",
+ "cumulus-jam-rpc-interface",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
@@ -17751,8 +17684,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "jam-codec",
- "jam-interface",
- "jam-rpc-interface",
  "jam-state-helpers",
  "jam-std-common 0.1.28",
  "jam-types 0.1.28",
