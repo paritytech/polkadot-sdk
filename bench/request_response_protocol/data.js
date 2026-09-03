@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788388973686,
+  "lastUpdate": 1788429760331,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -120635,6 +120635,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2789604069,
             "range": "± 21440530",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c18c52159413f3dc3dafed0053e41b36e14f2b7b",
+          "message": "[Release] Changelog refactoring (#13037)\n\nCloses: https://github.com/paritytech/release-engineering/issues/299\n\nThis PR reworks the changelog that is published with each polkadot-sdk\nrelease on GitHub.\n\nThe main changes are:\n- A `💥 Breaking Changes` section at the top of the changelog a\ncompilation of all changes that carry a major crate bump, across all\nprdocs included in the release.\n- New grouping: changes are grouped by topic (`Bridges`, `XCM`, `Node`,\n…), derived automatically from the crates listed in each prdoc via the\ntaxonomy in prdoc/topics.yaml.\n- Inside each topic, entries are sub-grouped by audience (`🛠️ Runtime\nDev`, `🔧 Node Dev`, …), so the audience label is read once per group\ninstead of being repeated on every entry and readers who preferred the\nold audience-oriented changelog still get that view.\n- Extended Dockerhub section, listing the full set of images that we\npublish with each release\n\nThe release body shows a condensed changelog (kept under GitHub's\nrelease-body size cap); the complete changelog is attached to the\nrelease as CHANGELOG.md, together with a machine-readable changelog.json\n(schema: scripts/release/changelog/schema.json). A new CI regression\ncheck renders everything against real prdoc folders on any PR touching\nthe tooling.\n\nRendered example can be found here:\nhttps://github.com/EgorPopelyaev/polkadot-sdk/releases/tag/polkadot-stable3436-rc1\n\nFollow-up for the free text topics that can be added to the existing\nprdoc field: paritytech/release-engineering#300\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-03T08:47:34Z",
+          "tree_id": "70d4f2dfc3de2dcde11db20c5c93866ea3b596dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c18c52159413f3dc3dafed0053e41b36e14f2b7b"
+        },
+        "date": 1788429719230,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19150520,
+            "range": "± 126911",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19276760,
+            "range": "± 130806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20655867,
+            "range": "± 94886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25716017,
+            "range": "± 223540",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56735386,
+            "range": "± 654110",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 332933118,
+            "range": "± 3766545",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2458009209,
+            "range": "± 83974385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16558254,
+            "range": "± 191009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16829090,
+            "range": "± 125161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17202272,
+            "range": "± 177403",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21484956,
+            "range": "± 66565",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58685163,
+            "range": "± 589380",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 336644374,
+            "range": "± 3457969",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2582135056,
+            "range": "± 22131841",
             "unit": "ns/iter"
           }
         ]
