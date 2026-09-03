@@ -11,8 +11,8 @@ description = "Runtime API for the oracle pallet."
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true }
-sp-api = { workspace = true }
-sp-std = { workspace = true }
+sp-api.workspace = true
+sp-std.workspace = true
 
 
 [features]
