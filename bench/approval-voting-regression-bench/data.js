@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788430731923,
+  "lastUpdate": 1788471886886,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "30b2aebc07f724c3ce85cb78c08d94ff40a0c3f0",
-          "message": "pallet-dap: mark funds as inactive  + expect buffer account to be pre-funded (#10957)\n\nIn pallet-dap, mark funds in the issuance buffer as inactive so they do\nnot participate in governance.\nIn production, the buffer account must be pre-funded (e.g., via genesis\nallocation or transfer) before the pallet receives any funds. These\npre-funded tokens are not deactivate. The expectation is that we\npre-fund with ED so this is negligible.\n\nDriven-by: \n- removed the `InitBufferAccount` migration since the buffer account is\nnow expected to be pre-funded externally.\n-  remove DAP dependency from main staking-async crate\n- For delegated staking, redirect slashes to DAP for Westend AssetHub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T13:29:05Z",
-          "tree_id": "6eefa4986f79a63d283698b86fe50864207bd521",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30b2aebc07f724c3ce85cb78c08d94ff40a0c3f0"
-        },
-        "date": 1770216774770,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.1,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6830146561399983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024887970000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.8790837228531245,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6775525877099993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002450633,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6345365111400003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6353534486600028,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3117060599600032,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024887970000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8245772651000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002450633,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.772412945660005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005672416950000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.348496545409997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd42d2f58404290bfff77492f4e48c531d209bf4",
+          "message": "[EPMB] bound the tx-fee refund of a signed submission (#12877)\n\nThe winner of the signed phase is paid `RewardBase` plus the transaction\nfees their submission cost them, tracked in `SubmissionMetadata::fee`.\nTwo changes:\n\n- A new `signed::Config::MaxFeeRefund` caps the refundable portion, both\nfor the winner and for an invulnerable clearing a discarded submission.\nThe payout is now bounded by config\n- Storing a page that is already stored no longer accrues a fee,\nmatching what the refund is meant to cover.\n\nRuntimes should set `MaxFeeRefund` to\n`signed::FullSubmissionFee<Runtime, TransactionPayment>`, which prices\none `register` plus `Pages` `submit_page` calls at the maximum encoded\npage size.\n\n`FullSubmissionFee` needs the fee of a call it cannot afford to build,\nso `frame_support` gains `EstimateFee`, a sibling of `EstimateCallFee`\nthat takes an encoded length and a `DispatchInfo` instead of a call,\nimplemented by `pallet-transaction-payment`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-09-03T20:15:32Z",
+          "tree_id": "4f29e232935bc2556b9ab962b13659ae8b2f592d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd42d2f58404290bfff77492f4e48c531d209bf4"
+        },
+        "date": 1788471846405,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63568.9,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8030179108499539,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.389552795822512,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3657008021499975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018899829999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7538195066499984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.72897653735,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018899829999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002048291,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.189189567489953,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0047847059,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7915125812,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7413775233900024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002048291,
             "unit": "seconds"
           }
         ]
