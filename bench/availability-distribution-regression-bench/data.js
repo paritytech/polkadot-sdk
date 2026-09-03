@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788389738791,
+  "lastUpdate": 1788430688976,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "30b2aebc07f724c3ce85cb78c08d94ff40a0c3f0",
-          "message": "pallet-dap: mark funds as inactive  + expect buffer account to be pre-funded (#10957)\n\nIn pallet-dap, mark funds in the issuance buffer as inactive so they do\nnot participate in governance.\nIn production, the buffer account must be pre-funded (e.g., via genesis\nallocation or transfer) before the pallet receives any funds. These\npre-funded tokens are not deactivate. The expectation is that we\npre-fund with ED so this is negligible.\n\nDriven-by: \n- removed the `InitBufferAccount` migration since the buffer account is\nnow expected to be pre-funded externally.\n-  remove DAP dependency from main staking-async crate\n- For delegated staking, redirect slashes to DAP for Westend AssetHub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T13:29:05Z",
-          "tree_id": "6eefa4986f79a63d283698b86fe50864207bd521",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30b2aebc07f724c3ce85cb78c08d94ff40a0c3f0"
-        },
-        "date": 1770216746012,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00982879494666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14407708518000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00679294775333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02303931457333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007578049673333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c18c52159413f3dc3dafed0053e41b36e14f2b7b",
+          "message": "[Release] Changelog refactoring (#13037)\n\nCloses: https://github.com/paritytech/release-engineering/issues/299\n\nThis PR reworks the changelog that is published with each polkadot-sdk\nrelease on GitHub.\n\nThe main changes are:\n- A `💥 Breaking Changes` section at the top of the changelog a\ncompilation of all changes that carry a major crate bump, across all\nprdocs included in the release.\n- New grouping: changes are grouped by topic (`Bridges`, `XCM`, `Node`,\n…), derived automatically from the crates listed in each prdoc via the\ntaxonomy in prdoc/topics.yaml.\n- Inside each topic, entries are sub-grouped by audience (`🛠️ Runtime\nDev`, `🔧 Node Dev`, …), so the audience label is read once per group\ninstead of being repeated on every entry and readers who preferred the\nold audience-oriented changelog still get that view.\n- Extended Dockerhub section, listing the full set of images that we\npublish with each release\n\nThe release body shows a condensed changelog (kept under GitHub's\nrelease-body size cap); the complete changelog is attached to the\nrelease as CHANGELOG.md, together with a machine-readable changelog.json\n(schema: scripts/release/changelog/schema.json). A new CI regression\ncheck renders everything against real prdoc folders on any PR touching\nthe tooling.\n\nRendered example can be found here:\nhttps://github.com/EgorPopelyaev/polkadot-sdk/releases/tag/polkadot-stable3436-rc1\n\nFollow-up for the free text topics that can be added to the existing\nprdoc field: paritytech/release-engineering#300\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-03T08:47:34Z",
+          "tree_id": "70d4f2dfc3de2dcde11db20c5c93866ea3b596dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c18c52159413f3dc3dafed0053e41b36e14f2b7b"
+        },
+        "date": 1788430650582,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14583968186666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007580755793333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02514299509333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010141295053333312,
             "unit": "seconds"
           }
         ]
