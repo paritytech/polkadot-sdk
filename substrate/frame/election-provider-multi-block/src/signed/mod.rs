@@ -39,8 +39,8 @@
 //!    deposit.
 //! 3. **Discarded**: Any solution after the first correct solution is eligible to be peacefully
 //!    discarded. But, to delete their data, they have to call
-//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back.
-//!    Accounts in [`signed::Invulnerables`] also get their tx-fee back, up to
+//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back. Accounts
+//!    in [`signed::Invulnerables`] also get their tx-fee back, up to
 //!    [`signed::Config::MaxFeeRefund`]. Other submitters' tx-fees are not refunded.
 //!
 //! ## Future Plans:
