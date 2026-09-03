@@ -23,10 +23,14 @@ use crate::{
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use fp_coretime::TaskId;
-use frame_support::traits::fungible::Inspect;
+use frame_support::traits::{fungible::Inspect, tokens::Balance};
 use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
-use sp_arithmetic::Perbill;
+use sp_arithmetic::{
+	traits::{ensure_pow, One, Saturating},
+	FixedPointNumber, FixedU128, Perbill,
+};
+use sp_runtime::DispatchError;
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
 
@@ -84,3 +88,23 @@ pub struct QueueTracker<RelayBlockNumber> {
 }
 
 pub type QueueTrackerOf<T> = QueueTracker<RelayBlockNumberOf<T>>;
+
+/// Type for determining the prices of on-demand orders
+pub trait PricingProvider<T: Balance> {
+	/// Returns the current spot price of an on-demand order.
+	fn spot_price(price_config: &PriceParameters<T>, queue_depth: u32) -> Result<T, DispatchError>;
+}
+
+/// A type implementing the default algorithm for determining the order price.
+pub struct DefaultPricingProvider;
+
+impl<T: Balance> PricingProvider<T> for DefaultPricingProvider {
+	fn spot_price(price_config: &PriceParameters<T>, queue_depth: u32) -> Result<T, DispatchError> {
+		// Every order already outstanding raises the price by `price_step`.
+		let price_adjustment = ensure_pow(
+			FixedU128::one().saturating_add(FixedU128::from_perbill(price_config.price_step)),
+			queue_depth as usize,
+		)?;
+		Ok(price_adjustment.saturating_mul_int(price_config.base_fee))
+	}
+}

@@ -17,7 +17,9 @@
 
 //! Test mock for the on-demand pallet.
 
-use crate::{self as pallet_on_demand, Config, QueueOnDemandOrders, DEFAULT_BASE_FEE};
+use crate::{
+	self as pallet_on_demand, Config, DefaultPricingProvider, QueueOnDemandOrders, DEFAULT_BASE_FEE,
+};
 use fp_coretime::TaskId;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
@@ -92,6 +94,7 @@ impl Config for Test {
 	type Currency = Balances;
 	type AdminOrigin = EnsureOneOrRoot;
 	type RelayBlockNumberProvider = MockRelayBlockNumberProvider;
+	type PricingProvider = DefaultPricingProvider;
 	type OrderQueue = RecordingOrderQueue;
 	type PalletId = OnDemandPalletId;
 }

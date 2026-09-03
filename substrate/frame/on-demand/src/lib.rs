@@ -100,10 +100,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::{
-		traits::{ensure_pow, One, SaturatedConversion, Saturating},
-		FixedPointNumber, FixedU128,
-	};
+	use sp_arithmetic::traits::{SaturatedConversion, Saturating};
 	use sp_runtime::traits::AccountIdConversion;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -125,6 +122,9 @@ pub mod pallet {
 
 		/// Provider of the current Relay-chain block number.
 		type RelayBlockNumberProvider: BlockNumberProvider;
+
+		/// Provider of the order pricing algorithm.
+		type PricingProvider: PricingProvider<BalanceOf<Self>>;
 
 		/// Used to instruct the Relay chain to enqueue the orders placed here.
 		type OrderQueue: QueueOnDemandOrders<RelayBlockNumberOf<Self>>;
@@ -251,12 +251,7 @@ pub mod pallet {
 
 			ensure!(outstanding_orders < pricing_config.order_cap, Error::<T>::QueueFull);
 
-			// Every order already outstanding raises the price by `price_step`.
-			let price_adjustment = ensure_pow(
-				FixedU128::one().saturating_add(FixedU128::from_perbill(pricing_config.price_step)),
-				outstanding_orders as usize,
-			)?;
-			let spot_price = price_adjustment.saturating_mul_int(pricing_config.base_fee);
+			let spot_price = T::PricingProvider::spot_price(&pricing_config, outstanding_orders)?;
 
 			ensure!(spot_price <= max_amount, Error::<T>::SpotPriceHigherThanMaxAmount);
 
