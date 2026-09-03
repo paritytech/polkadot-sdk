@@ -144,6 +144,16 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		/// The registration's [`Consideration`] ticket, kept while the para is registered.
 		ticket: Ticket,
 	},
+	/// The relay chain has been asked to drop this para and has not reported back.
+	///
+	/// Both deposits stay held: only the relay chain knows whether the para really went away, and
+	/// a refusal puts it straight back to [`RegistrationState::Registered`].
+	Deregistering {
+		/// The registration's [`Consideration`] ticket, released once the relay chain confirms.
+		ticket: Ticket,
+		/// The block from which the manager may ask again, if the answer never arrived.
+		cancellable_at: BlockNumber,
+	},
 }
 
 /// Everything this chain knows about one para id.
@@ -360,6 +370,30 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_deregister_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_code_upgrade_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeScheduled {
+					para_id,
+					message_id,
+				}) => Self::on_code_upgrade_scheduled(para_id, message_id),
+				MessageToPara::V1(MessageToParaV1::SetHeadResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_set_head_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
 			}
 		}
 
@@ -525,6 +559,57 @@ pub mod pallet {
 			Self::deposit_event(Event::ParaUnlocked { para_id });
 			Ok(())
 		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::zero())]
+		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let _ = (origin, para_id);
+			todo!()
+		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(Weight::zero())]
+		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let _ = (origin, para_id);
+			todo!()
+		}
+
+		#[pallet::call_index(8)]
+		#[pallet::weight(Weight::zero())]
+		pub fn schedule_code_upgrade(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			code_hash: H256,
+			code_len: u32,
+		) -> DispatchResult {
+			let _ = (origin, para_id, code_hash, code_len);
+			todo!()
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(Weight::zero())]
+		pub fn set_current_head(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			head: Vec<u8>,
+		) -> DispatchResult {
+			let _ = (origin, para_id, head);
+			todo!()
+		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(Weight::zero())]
+		pub fn force_register(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			manager: T::AccountId,
+			genesis_head: Vec<u8>,
+			code_len: u32,
+			code_hash: H256,
+		) -> DispatchResult {
+			let _ = (origin, para_id, manager, genesis_head, code_len, code_hash);
+			todo!()
+		}
 	}
 }
 
@@ -676,5 +761,42 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	fn on_deregister_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		todo!()
+	}
+
+	fn on_code_upgrade_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Result<u32, FailureReason>,
+	) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		todo!()
+	}
+
+	fn on_code_upgrade_scheduled(para_id: ParaId, message_id: u64) -> DispatchResult {
+		let _ = (para_id, message_id);
+		todo!()
+	}
+
+	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		todo!()
+	}
+
+	fn on_cancel_deregistration_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		todo!()
 	}
 }
