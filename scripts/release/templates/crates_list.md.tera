@@ -3,6 +3,13 @@ The following crates were updated to the corresponding versions:
 <details>
   <summary>Crates list</summary>
 
+  - frame-support@48.1.0
+  - pallet-assets@53.0.0
+  - pallet-assets-holder@0.13.0
+  - pallet-assets-freezer@0.18.0
+  - pallet-assets-precompiles@0.11.0
+  - pallet-nft-fractionalization@34.0.0
+  - pallet-contracts-mock-network@28.0.0
   - sp-runtime-interface-proc-macro@21.0.1
   - staging-xcm@24.1.0
   - pallet-psm@0.5.0
@@ -72,33 +79,33 @@ The following crates were updated to the corresponding versions:
   - subkey@35.0.0
   - testnet-parachains-constants@24.0.0
   - westend-runtime@36.0.0
-  - assets-common@0.35.0
-  - bp-bridge-hub-cumulus@0.34.0
-  - collectives-westend-runtime@32.0.0
-  - coretime-westend-runtime@0.28.0
-  - glutton-westend-runtime@30.0.0
-  - parachains-runtimes-test-utils@35.0.0
-  - people-westend-runtime@0.28.0
+  - assets-common@0.36.0
+  - bp-bridge-hub-cumulus@0.35.0
+  - collectives-westend-runtime@33.0.0
+  - coretime-westend-runtime@0.29.0
+  - glutton-westend-runtime@31.0.0
+  - parachains-runtimes-test-utils@36.0.0
+  - people-westend-runtime@0.29.0
   - polkadot-node-subsystem-types@33.0.0
   - polkadot-voter-bags@36.0.0
-  - xcm-emulator@0.33.0
-  - asset-test-utils@37.0.0
-  - bp-asset-hub-rococo@0.30.0
-  - bp-asset-hub-westend@0.29.0
-  - bp-bridge-hub-rococo@0.34.0
-  - bp-bridge-hub-westend@0.30.0
-  - penpal-runtime@0.43.0
+  - xcm-emulator@0.34.0
+  - asset-test-utils@38.0.0
+  - bp-asset-hub-rococo@0.31.0
+  - bp-asset-hub-westend@0.30.0
+  - bp-bridge-hub-rococo@0.35.0
+  - bp-bridge-hub-westend@0.31.0
+  - penpal-runtime@0.44.0
   - polkadot-overseer@33.0.0
-  - snowbridge-inbound-queue-primitives@0.16.0
-  - snowbridge-runtime-test-common@0.29.0
-  - asset-hub-rococo-runtime@0.39.0
-  - asset-hub-westend-runtime@0.52.0
-  - bridge-hub-test-utils@0.36.0
+  - snowbridge-inbound-queue-primitives@0.17.0
+  - snowbridge-runtime-test-common@0.30.0
+  - asset-hub-rococo-runtime@0.40.0
+  - asset-hub-westend-runtime@0.53.0
+  - bridge-hub-test-utils@0.37.0
   - cumulus-relay-chain-interface@0.33.0
-  - emulated-integration-tests-common@36.0.0
+  - emulated-integration-tests-common@37.0.0
   - polkadot-node-subsystem@33.0.0
-  - snowbridge-pallet-inbound-queue-fixtures@0.35.0
-  - snowbridge-pallet-inbound-queue-v2-fixtures@0.16.0
+  - snowbridge-pallet-inbound-queue-fixtures@0.36.0
+  - snowbridge-pallet-inbound-queue-v2-fixtures@0.17.0
   - cumulus-client-bootnodes@0.12.0
   - cumulus-client-network@0.33.0
   - cumulus-client-parachain-inherent@0.27.0
@@ -110,10 +117,10 @@ The following crates were updated to the corresponding versions:
   - polkadot-node-core-pvf@33.0.0
   - polkadot-node-core-runtime-api@33.0.0
   - polkadot-node-subsystem-util@33.0.0
-  - snowbridge-pallet-inbound-queue@0.27.0
-  - snowbridge-pallet-inbound-queue-v2@0.16.0
-  - bridge-hub-rococo-runtime@0.34.0
-  - bridge-hub-westend-runtime@0.31.0
+  - snowbridge-pallet-inbound-queue@0.28.0
+  - snowbridge-pallet-inbound-queue-v2@0.17.0
+  - bridge-hub-rococo-runtime@0.35.0
+  - bridge-hub-westend-runtime@0.32.0
   - cumulus-client-pov-recovery@0.33.0
   - frame-benchmarking-cli@59.0.0
   - polkadot-approval-distribution@33.0.0
@@ -150,7 +157,7 @@ The following crates were updated to the corresponding versions:
   - polkadot@36.0.0
   - polkadot-omni-node-lib@0.19.0
   - polkadot-omni-node@0.19.0
-  - polkadot-sdk@2606.2.0
+  - polkadot-sdk@2606.3.0
   - pallet-revive-eth-rpc@0.21.0
   - pallet-revive-uapi@0.15.1
   - pallet-revive-fixtures@0.15.1

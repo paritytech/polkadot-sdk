@@ -824,9 +824,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/support
 name = "frame-support"
-from = "47.0.0"
-to = "48.0.0"
-bump = "major"
+from = "48.0.0"
+to = "48.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
@@ -1426,8 +1426,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/assets
 name = "pallet-assets"
-from = "51.0.0"
-to = "52.0.0"
+from = "52.0.0"
+to = "53.0.0"
 bump = "major"
 reason = "changed"
 
@@ -1932,8 +1932,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/assets-holder
 name = "pallet-assets-holder"
-from = "0.11.0"
-to = "0.12.0"
+from = "0.12.0"
+to = "0.13.0"
 bump = "major"
 reason = "changed"
 
@@ -2212,16 +2212,16 @@ reason = "changed"
 [[crate]]
 # substrate/frame/assets-freezer
 name = "pallet-assets-freezer"
-from = "0.16.0"
-to = "0.17.0"
+from = "0.17.0"
+to = "0.18.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # substrate/frame/assets/precompiles
 name = "pallet-assets-precompiles"
-from = "0.9.0"
-to = "0.10.0"
+from = "0.10.0"
+to = "0.11.0"
 bump = "major"
 reason = "changed"
 
@@ -2352,8 +2352,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/nft-fractionalization
 name = "pallet-nft-fractionalization"
-from = "32.0.0"
-to = "33.0.0"
+from = "33.0.0"
+to = "34.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3046,8 +3046,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/contracts/mock-network
 name = "pallet-contracts-mock-network"
-from = "26.0.0"
-to = "27.0.0"
+from = "27.0.0"
+to = "28.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3300,8 +3300,8 @@ to = "7.0.0"
 [[crate]]
 # cumulus/parachains/common
 name = "parachains-common"
-from = "32.1.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "35.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3378,56 +3378,56 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/assets/common
 name = "assets-common"
-from = "0.33.0"
-to = "0.35.0"
+from = "0.35.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # bridges/chains/chain-cumulus
 name = "bp-bridge-hub-cumulus"
-from = "0.32.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.35.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/collectives/collectives-westend
 name = "collectives-westend-runtime"
-from = "30.0.1"
-to = "32.0.0"
+from = "32.0.0"
+to = "33.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/coretime/coretime-westend
 name = "coretime-westend-runtime"
-from = "0.26.1"
-to = "0.28.0"
+from = "0.28.0"
+to = "0.29.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/glutton/glutton-westend
 name = "glutton-westend-runtime"
-from = "28.0.0"
-to = "30.0.0"
+from = "30.0.0"
+to = "31.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/test-utils
 name = "parachains-runtimes-test-utils"
-from = "33.0.0"
-to = "35.0.0"
+from = "35.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/people/people-westend
 name = "people-westend-runtime"
-from = "0.26.1"
-to = "0.28.0"
+from = "0.28.0"
+to = "0.29.0"
 bump = "major"
 reason = "changed"
 
@@ -3486,56 +3486,56 @@ to = "2.0.0"
 [[crate]]
 # cumulus/xcm/xcm-emulator
 name = "xcm-emulator"
-from = "0.31.0"
-to = "0.33.0"
+from = "0.33.0"
+to = "0.34.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/assets/test-utils
 name = "asset-test-utils"
-from = "35.0.0"
-to = "37.0.0"
+from = "37.0.0"
+to = "38.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives
 name = "bp-asset-hub-rococo"
-from = "0.28.0"
-to = "0.30.0"
+from = "0.30.0"
+to = "0.31.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives
 name = "bp-asset-hub-westend"
-from = "0.27.0"
-to = "0.29.0"
+from = "0.29.0"
+to = "0.30.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo/bridge-primitives
 name = "bp-bridge-hub-rococo"
-from = "0.32.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.35.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend/bridge-primitives
 name = "bp-bridge-hub-westend"
-from = "0.28.0"
-to = "0.30.0"
+from = "0.30.0"
+to = "0.31.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/testing/penpal
 name = "penpal-runtime"
-from = "0.41.0"
-to = "0.43.0"
+from = "0.43.0"
+to = "0.44.0"
 bump = "major"
 reason = "changed"
 
@@ -3550,40 +3550,40 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/primitives/inbound-queue
 name = "snowbridge-inbound-queue-primitives"
-from = "0.14.0"
-to = "0.16.0"
+from = "0.16.0"
+to = "0.17.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # bridges/snowbridge/runtime/test-common
 name = "snowbridge-runtime-test-common"
-from = "0.27.0"
-to = "0.29.0"
+from = "0.29.0"
+to = "0.30.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-rococo
 name = "asset-hub-rococo-runtime"
-from = "0.37.1"
-to = "0.39.0"
+from = "0.39.0"
+to = "0.40.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/assets/asset-hub-westend
 name = "asset-hub-westend-runtime"
-from = "0.51.1"
-to = "0.52.0"
+from = "0.52.0"
+to = "0.53.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/test-utils
 name = "bridge-hub-test-utils"
-from = "0.34.0"
-to = "0.36.0"
+from = "0.36.0"
+to = "0.37.0"
 bump = "major"
 reason = "changed"
 
@@ -3598,8 +3598,8 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/integration-tests/emulated/common
 name = "emulated-integration-tests-common"
-from = "34.0.0"
-to = "36.0.0"
+from = "36.0.0"
+to = "37.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3620,16 +3620,16 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue/fixtures
 name = "snowbridge-pallet-inbound-queue-fixtures"
-from = "0.33.0"
-to = "0.35.0"
+from = "0.35.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue-v2/fixtures
 name = "snowbridge-pallet-inbound-queue-v2-fixtures"
-from = "0.14.0"
-to = "0.16.0"
+from = "0.16.0"
+to = "0.17.0"
 bump = "major"
 reason = "changed"
 
@@ -3766,16 +3766,16 @@ to = "0.1.0"
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue
 name = "snowbridge-pallet-inbound-queue"
-from = "0.25.0"
-to = "0.27.0"
+from = "0.27.0"
+to = "0.28.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue-v2
 name = "snowbridge-pallet-inbound-queue-v2"
-from = "0.14.0"
-to = "0.16.0"
+from = "0.16.0"
+to = "0.17.0"
 bump = "major"
 reason = "changed"
 
@@ -3800,16 +3800,16 @@ to = "0.1.0"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo
 name = "bridge-hub-rococo-runtime"
-from = "0.32.1"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.35.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
 name = "bridge-hub-westend-runtime"
-from = "0.29.1"
-to = "0.31.0"
+from = "0.31.0"
+to = "0.32.0"
 bump = "major"
 reason = "changed"
 
@@ -4236,8 +4236,8 @@ reason = "changed"
 [[crate]]
 # umbrella
 name = "polkadot-sdk"
-from = "2606.1.0"
-to = "2606.2.0"
+from = "2606.2.0"
+to = "2606.3.0"
 bump = "minor"
 reason = "changed"
 
