@@ -119,7 +119,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				d.sufficients = d.sufficients.saturating_sub(1);
 				frame_system::Pallet::<T>::dec_sufficients(who);
 			},
-			DepositRefunded => {},
+			// `Persistent` accounts hold neither a `system` reference nor a deposit, so removing
+			// them is always safe. They are protected from existential-deposit reaping at the
+			// balance-decrease sites (which treat their minimum balance as zero and therefore never
+			// reach this function), not here — so when this function *is* reached for a persistent
+			// account (explicit unset or asset destruction) it should always be removed.
+			DepositRefunded | Persistent => {},
+			// `DepositHeld`/`DepositFrom` keep the account alive until the deposit is refunded;
+			// only a forced removal (e.g. asset destruction) takes them down.
 			DepositHeld(_) | DepositFrom(..) if !force => return Keep,
 			DepositHeld(_) | DepositFrom(..) => {},
 		}
@@ -203,13 +210,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if account.status.is_frozen() {
 			return Frozen;
 		}
+		// Persistent accounts exist independent of the existential deposit, so the minimum balance
+		// is not enforced against them.
+		let min_balance =
+			if account.reason.is_persistent() { Zero::zero() } else { details.min_balance };
 		if let Some(rest) = account.balance.checked_sub(&amount) {
 			match (
 				T::Holder::balance_on_hold(id.clone(), who),
 				T::Freezer::frozen_balance(id.clone(), who),
 			) {
 				(None, None) => {
-					if rest < details.min_balance {
+					if rest < min_balance {
 						if keep_alive {
 							WouldDie
 						} else {
@@ -225,7 +236,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 					// The `untouchable` balance of the asset account of `who`. This is described
 					// here: https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/index.html#visualising-balance-components-together-
-					let untouchable = frozen.saturating_sub(held).max(details.min_balance);
+					let untouchable = frozen.saturating_sub(held).max(min_balance);
 					if rest < untouchable {
 						if !frozen.is_zero() {
 							Frozen
@@ -255,17 +266,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let account = Account::<T, I>::get(&id, who).ok_or(Error::<T, I>::NoAccount)?;
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
 
+		// Persistent accounts exist independent of the existential deposit, so the minimum balance
+		// does not count as untouchable for them.
+		let min_balance =
+			if account.reason.is_persistent() { Zero::zero() } else { details.min_balance };
 		let untouchable = match (
 			T::Holder::balance_on_hold(id.clone(), who),
 			T::Freezer::frozen_balance(id.clone(), who),
 			keep_alive,
 		) {
-			(None, None, true) => details.min_balance,
+			(None, None, true) => min_balance,
 			(None, None, false) => Zero::zero(),
 			(maybe_held, maybe_frozen, _) => {
 				let held = maybe_held.unwrap_or_default();
 				let frozen = maybe_frozen.unwrap_or_default();
-				frozen.saturating_sub(held).max(details.min_balance)
+				frozen.saturating_sub(held).max(min_balance)
 			},
 		};
 		let amount = account.balance.saturating_sub(untouchable);
@@ -449,6 +464,114 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		return Ok(());
 	}
 
+	/// Marks an asset-account as [`ExistenceReason::Persistent`], creating it if needed.
+	///
+	/// A persistent account exists independent of the existential deposit and is never reaped for
+	/// having a balance below the asset's minimum balance. Accounts backed by a deposit
+	/// (`DepositHeld`/`DepositFrom`) cannot be made persistent; the deposit must be refunded first.
+	pub(super) fn do_set_persistent(id: T::AssetId, who: &T::AccountId) -> DispatchResult {
+		use ExistenceReason::*;
+
+		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		match Account::<T, I>::get(&id, who) {
+			Some(mut account) => {
+				ensure!(
+					!matches!(account.reason, DepositHeld(..) | DepositFrom(..)),
+					Error::<T, I>::AccountHasDeposit
+				);
+				ensure!(!account.reason.is_persistent(), Error::<T, I>::AlreadyPersistent);
+				// Release whatever reference kept the account alive so far; the account will from
+				// now on exist on its own.
+				match account.reason {
+					Consumer => {
+						frame_system::Pallet::<T>::dec_consumers(who);
+					},
+					Sufficient => {
+						details.sufficients = details.sufficients.saturating_sub(1);
+						frame_system::Pallet::<T>::dec_sufficients(who);
+					},
+					DepositRefunded => {},
+					// Handled by the `ensure!`s above / not reachable.
+					DepositHeld(..) | DepositFrom(..) | Persistent => {},
+				}
+				account.reason = Persistent;
+				Account::<T, I>::insert(&id, who, account);
+			},
+			None => {
+				let accounts = details.accounts.checked_add(1).ok_or(ArithmeticError::Overflow)?;
+				details.accounts = accounts;
+				Account::<T, I>::insert(
+					&id,
+					who,
+					AssetAccountOf::<T, I> {
+						balance: Zero::zero(),
+						status: AccountStatus::Liquid,
+						reason: Persistent,
+						extra: T::Extra::default(),
+					},
+				);
+			},
+		}
+
+		Asset::<T, I>::insert(&id, details);
+		Self::deposit_event(Event::AccountPersistenceSet { asset_id: id, who: who.clone() });
+		Ok(())
+	}
+
+	/// Removes the [`ExistenceReason::Persistent`] mark from an asset-account.
+	///
+	/// If the account holds at least the minimum balance it keeps living under a regular existence
+	/// reason. If its balance is zero the account is reaped. A non-zero balance below the minimum
+	/// balance cannot be demoted (it would have to be burned), so it is rejected.
+	pub(super) fn do_unset_persistent(id: T::AssetId, who: &T::AccountId) -> DispatchResult {
+		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		let mut account = Account::<T, I>::get(&id, who).ok_or(Error::<T, I>::NoAccount)?;
+		ensure!(account.reason.is_persistent(), Error::<T, I>::NotPersistent);
+
+		if account.balance.is_zero() {
+			// Reap the account. `dead_account` always removes a persistent account (it holds no
+			// reference and no deposit).
+			Self::ensure_account_can_die(id.clone(), who)?;
+			if let Remove = Self::dead_account(who, &mut details, &account.reason, false) {
+				Account::<T, I>::remove(&id, who);
+				Asset::<T, I>::insert(&id, details);
+				// Executing hooks here is safe, since it is not in a `mutate`.
+				T::Freezer::died(id.clone(), who);
+				T::Holder::died(id.clone(), who);
+			} else {
+				debug_assert!(false, "persistent account is always removable; qed");
+			}
+		} else {
+			// Demote to a regular existence reason; this requires the account to be able to live
+			// on its own, i.e. hold at least the minimum balance.
+			ensure!(account.balance >= details.min_balance, Error::<T, I>::WouldBurn);
+			account.reason = if details.is_sufficient {
+				frame_system::Pallet::<T>::inc_sufficients(who);
+				details.sufficients = details.sufficients.saturating_add(1);
+				ExistenceReason::Sufficient
+			} else {
+				frame_system::Pallet::<T>::inc_consumers(who)
+					.map_err(|_| Error::<T, I>::UnavailableConsumer)?;
+				// Mirror `new_account`: ensure we can still increment consumers once more, so that
+				// re-acquiring the reference here cannot exhaust the account's consumer refs.
+				if !frame_system::Pallet::<T>::can_inc_consumer(who) {
+					frame_system::Pallet::<T>::dec_consumers(who);
+					return Err(Error::<T, I>::UnavailableConsumer.into());
+				}
+				ExistenceReason::Consumer
+			};
+			Account::<T, I>::insert(&id, who, account);
+			Asset::<T, I>::insert(&id, details);
+		}
+
+		Self::deposit_event(Event::AccountPersistenceRemoved { asset_id: id, who: who.clone() });
+		Ok(())
+	}
+
 	/// Increases the asset `id` balance of `beneficiary` by `amount`.
 	///
 	/// This alters the registered supply of the asset and emits an event.
@@ -597,7 +720,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				// Make the debit.
 				account.balance = account.balance.saturating_sub(actual);
-				if account.balance < details.min_balance {
+				// Persistent accounts exist independent of the existential deposit and are never
+				// reaped for a low balance.
+				let min_balance =
+					if account.reason.is_persistent() { Zero::zero() } else { details.min_balance };
+				if account.balance < min_balance {
 					debug_assert!(account.balance.is_zero(), "checked in prep; qed");
 					Self::ensure_account_can_die(id.clone(), target)?;
 					target_died = Some(Self::dead_account(target, details, &account.reason, false));
@@ -695,8 +822,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			debug_assert!(source_account.balance >= debit, "checked in prep; qed");
 			source_account.balance = source_account.balance.saturating_sub(debit);
 
+			// Persistent accounts exist independent of the existential deposit and are never reaped
+			// for a low balance.
+			let source_min_balance = if source_account.reason.is_persistent() {
+				Zero::zero()
+			} else {
+				details.min_balance
+			};
 			// Pre-check that an account can die if is below min balance
-			if source_account.balance < details.min_balance {
+			if source_account.balance < source_min_balance {
 				debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
 				Self::ensure_account_can_die(id.clone(), source)?;
 			}
@@ -725,7 +859,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})?;
 
 			// Remove source account if it's now dead.
-			if source_account.balance < details.min_balance {
+			if source_account.balance < source_min_balance {
 				debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
 				source_died =
 					Some(Self::dead_account(source, details, &source_account.reason, false));

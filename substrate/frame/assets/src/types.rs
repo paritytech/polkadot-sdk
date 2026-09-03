@@ -112,12 +112,23 @@ pub enum ExistenceReason<Balance, AccountId> {
 	/// An account with such a reason might not be referenced in `system`.
 	#[codec(index = 4)]
 	DepositFrom(AccountId, Balance),
+	/// A privileged origin has marked this account as persistent. The account exists independent
+	/// of the existential deposit and will not be reaped when its balance falls below the asset's
+	/// minimum balance. It holds no `system` reference and no deposit.
+	#[codec(index = 5)]
+	Persistent,
 }
 
 impl<Balance, AccountId> ExistenceReason<Balance, AccountId>
 where
 	AccountId: Clone,
 {
+	/// Returns `true` if the account is marked as persistent and therefore exists independent of
+	/// the existential deposit.
+	pub fn is_persistent(&self) -> bool {
+		matches!(self, ExistenceReason::Persistent)
+	}
+
 	pub fn take_deposit(&mut self) -> Option<Balance> {
 		if !matches!(self, ExistenceReason::DepositHeld(_)) {
 			return None;

@@ -591,6 +591,67 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::Blocked { asset_id: asset_id.into(), who: caller }.into());
 	}
 
+	force_set_persistent {
+		// Use a sufficient asset and an already-existing (`Sufficient`) account so the conversion
+		// hits the worst case: it writes to `System::Account` via `dec_sufficients`.
+		let (asset_id, asset_owner, _asset_owner_lookup) = create_default_asset::<T, I>(true);
+		let new_account: T::AccountId = account("newaccount", 1, SEED);
+		let new_account_lookup = T::Lookup::unlookup(new_account.clone());
+		assert!(Assets::<T, I>::mint(
+			SystemOrigin::Signed(asset_owner.clone()).into(),
+			asset_id.clone(),
+			new_account_lookup.clone(),
+			100u32.into(),
+		).is_ok());
+
+		let origin =
+			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let call = Call::<T, I>::force_set_persistent {
+			id: asset_id.clone(),
+			who: new_account_lookup,
+		};
+	}: { call.dispatch_bypass_filter(origin)? }
+	verify {
+		assert_last_event::<T, I>(
+			Event::AccountPersistenceSet { asset_id: asset_id.into(), who: new_account }.into()
+		);
+	}
+
+	force_unset_persistent {
+		// Use a funded account so unsetting takes the worst case (demote branch), which writes to
+		// `System::Account` via `inc_sufficients`, rather than the cheaper reap branch.
+		let (asset_id, asset_owner, _asset_owner_lookup) = create_default_asset::<T, I>(true);
+		let new_account: T::AccountId = account("newaccount", 1, SEED);
+		let new_account_lookup = T::Lookup::unlookup(new_account.clone());
+		assert!(Assets::<T, I>::mint(
+			SystemOrigin::Signed(asset_owner.clone()).into(),
+			asset_id.clone(),
+			new_account_lookup.clone(),
+			100u32.into(),
+		).is_ok());
+
+		let origin =
+			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Assets::<T, I>::force_set_persistent(
+			origin.clone(),
+			asset_id.clone(),
+			new_account_lookup.clone(),
+		)?;
+		assert!(Account::<T, I>::contains_key(asset_id.clone().into(), &new_account));
+
+		let call = Call::<T, I>::force_unset_persistent {
+			id: asset_id.clone(),
+			who: new_account_lookup,
+		};
+	}: { call.dispatch_bypass_filter(origin)? }
+	verify {
+		// The account is demoted back to a regular account, not reaped.
+		assert!(Account::<T, I>::contains_key(asset_id.clone().into(), &new_account));
+		assert_last_event::<T, I>(
+			Event::AccountPersistenceRemoved { asset_id: asset_id.into(), who: new_account }.into()
+		);
+	}
+
 	transfer_all {
 		let amount = T::Balance::from(2 * MIN_BALANCE);
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
