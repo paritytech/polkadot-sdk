@@ -6,19 +6,22 @@ title: 'Registrar: add lock and unlock'
 doc:
   - audience: Runtime Dev
     description: |-
-      `pallet-registrar-para::add_lock` shuts the manager out of a registered para; `remove_lock`
-      lifts it, for root or the para itself only. Both emit an event, where the relay chain's lock
-      was silent. `ParaInfo` grows a `locked` flag, and a new `ParachainOrigin` config type lets a
-      para act as itself.
+      `pallet-registrar-para` gains `add_lock`, which shuts the manager out of a registered para,
+      and `remove_lock`, for root or the para itself only. `pallet-broker` applies the same lock
+      through a new `ParaLock` config type whenever a region is assigned to a task, so a para is
+      locked as soon as it holds Coretime. `ParaLock` is `()` on a chain with no registrar.
 
       `pallet-registrar-relay::authorize_code` and `cancel_authorization` are merged into a single
-      `receive` at call index 0, the way the parachain side already takes every report through one
-      call. The message enum decides what happens, so the transport no longer has to pick a call
-      index per variant, and the `UnexpectedMessage` error is gone. Weights split per variant:
-      `receive_register` and `receive_cancel_registration`.
+      `receive` at call index 0, so the transport no longer picks a call index per message variant.
+      The `UnexpectedMessage` error is gone and weights split into `receive_register` and
+      `receive_cancel_registration`.
 
 crates:
   - name: pallet-registrar-para
     bump: major
   - name: pallet-registrar-relay
     bump: major
+  - name: pallet-broker
+    bump: major
+  - name: coretime-westend-runtime
+    bump: patch
