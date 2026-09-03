@@ -690,6 +690,27 @@ mod add_lock {
 	}
 }
 
+mod lock_para {
+	use super::*;
+
+	#[test]
+	fn locks_without_an_origin_and_refuses_what_add_lock_refuses() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(Registrar::lock_para(4242), Error::<Test>::NotReserved);
+
+			let reserved = reserve_for(ALICE);
+			assert_noop!(Registrar::lock_para(reserved), Error::<Test>::NotRegistered);
+
+			let para_id = registered_para(ALICE);
+			assert_ok!(Registrar::lock_para(para_id));
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
+
+			assert_noop!(Registrar::lock_para(para_id), Error::<Test>::AlreadyLocked);
+		});
+	}
+}
+
 mod remove_lock {
 	use super::*;
 

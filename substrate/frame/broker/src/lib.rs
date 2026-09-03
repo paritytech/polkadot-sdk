@@ -97,6 +97,13 @@ pub mod pallet {
 		/// system.
 		type Coretime: CoretimeInterface;
 
+		/// Locks the para behind a task once the task is given Coretime, so that its manager can
+		/// no longer act on it. `()` where this chain has no registrar to lock it in.
+		///
+		/// Whatever this costs is measured as part of `assign`, which is what calls it, so a
+		/// runtime that sets it to anything but `()` has to rerun this pallet's benchmarks.
+		type ParaLock: ParaLock;
+
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
 
