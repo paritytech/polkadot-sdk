@@ -18,14 +18,24 @@ cargo build --release --bin polkadot --bin polkadot-prepare-worker --bin polkado
 
 The `polkadot` binary is not used by the test itself — see "Why a relay chain" below.
 
-From the polkajam repository: the `polkajam` node binary. Its `gen-spec` has to understand the
-`services` / `auth_queues` / `assigners` keys this suite writes into the chain-spec config; an
-older one ignores them silently and the run then fails at its first readiness check, naming the
-generated spec.
+From the polkajam repository: the `polkajam` node binary. It has to do two things, and today they
+live on two branches:
+
+* its `gen-spec` has to understand the `services` / `auth_queues` / `assigners` keys this suite
+  writes into the chain-spec config. A build that does not ignores them without a word, and the
+  run then fails at its first readiness check, naming the generated spec;
+* its RPC has to serve `stateValue`, which is how the collator reads the parachain service, the
+  authorizer pools and queues, and the availability assignments. A build without it lets the
+  network come up and the collators start, and then every collator tick logs `MethodNotFound` and
+  the parachain never authors a block.
+
+Until one build does both, set `JAM_GENSPEC_BIN` to a build with the first and `JAM_NODE_BIN` to a
+build with the second: only `gen-spec` runs from `JAM_GENSPEC_BIN`, and the generated spec is
+portable between the two.
 
 From the parachain-service repository: the compiled `parasim-service.jam` and
-`parachain-authorizer-sr25519.jam` blobs, and the `parasim-tool` CLI, which now only reads para
-heads and moves cores mid-run.
+`parachain-authorizer-sr25519.jam` blobs, and the `parasim-tool` CLI, which the para-head reads
+and the dynamic-core tests use.
 
 There is one authorizer blob per signature scheme, and which one a para needs is decided by its
 runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite puts on the
@@ -36,6 +46,8 @@ shows up only as a core no collator ever authorizes on.
 
 ```sh
 export JAM_NODE_BIN=/path/to/polkajam/target/release/polkajam
+# Only while gen-spec and the stateValue RPC are on different polkajam branches:
+export JAM_GENSPEC_BIN=/path/to/a/polkajam/whose/gen-spec/reads/the/genesis/keys
 export PARASIM_BLOB=/path/to/parachain-service/.../parasim-service.jam
 export AUTHORIZER_BLOB=/path/to/parachain-service/.../parachain-authorizer-sr25519.jam
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
@@ -49,6 +61,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | variable | what it points at |
 | --- | --- |
 | `JAM_NODE_BIN` | the polkajam node binary zombienet spawns for every JAM node |
+| `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
 | `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, used to read para heads and to move cores mid-run |
 | `PARASIM_BLOB` | `parasim-service.jam`, the service genesis creates and the collators talk to |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |

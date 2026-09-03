@@ -14,7 +14,8 @@
 #        cargo build --release --bin polkadot \
 #            --bin polkadot-prepare-worker --bin polkadot-execute-worker
 #   2. A polkajam build whose `gen-spec` understands the `services` / `auth_queues` /
-#      `assigners` config keys.
+#      `assigners` config keys and whose RPC serves `stateValue`. While those are on two
+#      different branches, point JAM_GENSPEC_BIN at a build with the former.
 #   3. The parasim service and AURA authorizer blobs from the parachain-service repo.
 #
 # Required environment (see cumulus/zombienet/jam-tests/README.md):
@@ -22,6 +23,7 @@
 #   PARASIM_BLOB    path to parasim-service.jam
 #   AUTHORIZER_BLOB path to parachain-authorizer-sr25519.jam
 # Optional:
+#   JAM_GENSPEC_BIN the polkajam build that runs gen-spec, if not JAM_NODE_BIN
 #   NUM_COLLATORS   how many collators to run (default 1)
 #   OMNI_NODE_BIN, RUNTIME_WASM, RELAY_NODE_BIN   override the target/release defaults
 #

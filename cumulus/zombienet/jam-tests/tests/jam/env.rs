@@ -11,6 +11,12 @@ use std::path::{Path, PathBuf};
 pub struct Binaries {
 	/// The polkajam node binary that zombienet-sdk spawns for every JAM node.
 	pub jam_node: PathBuf,
+	/// The polkajam build that generates the chain spec, when it is not [`Binaries::jam_node`].
+	///
+	/// Transitional, and it should be `None`: polkajam's genesis-config support and the JIP-2
+	/// state RPCs the collator reads sit on two branches that have not been merged, so until they
+	/// are, one build writes the genesis and another serves it.
+	pub genspec_node: Option<PathBuf>,
 	/// The `parasim-tool` CLI, used by the dynamic-core tests to point cores at paras mid-run.
 	pub parasim_tool: PathBuf,
 	/// The compiled parasim service blob, which genesis creates the service from.
@@ -44,6 +50,7 @@ impl Binaries {
 		let root = workspace_root();
 		let binaries = Binaries {
 			jam_node: from_env_or("JAM_NODE_BIN", PathBuf::new),
+			genspec_node: std::env::var_os("JAM_GENSPEC_BIN").map(PathBuf::from),
 			parasim_tool: from_env_or("PARASIM_TOOL_BIN", PathBuf::new),
 			parasim_blob: from_env_or("PARASIM_BLOB", PathBuf::new),
 			authorizer_blob: from_env_or("AUTHORIZER_BLOB", PathBuf::new),
@@ -65,7 +72,7 @@ impl Binaries {
 		let prepare_worker = workers.join("polkadot-prepare-worker");
 		let execute_worker = workers.join("polkadot-execute-worker");
 
-		let missing: Vec<String> = [
+		let mut wanted: Vec<(&str, &PathBuf)> = vec![
 			("JAM_NODE_BIN (the polkajam node binary)", &binaries.jam_node),
 			("PARASIM_TOOL_BIN (the parasim-tool CLI)", &binaries.parasim_tool),
 			("PARASIM_BLOB (the parasim service .jam blob)", &binaries.parasim_blob),
@@ -82,11 +89,21 @@ impl Binaries {
 			("RELAY_NODE_BIN (cargo build --release --bin polkadot)", &binaries.relay_node),
 			("the relay node's PVF workers (--bin polkadot-prepare-worker)", &prepare_worker),
 			("the relay node's PVF workers (--bin polkadot-execute-worker)", &execute_worker),
-		]
-		.iter()
-		.filter(|(_, path)| !path.exists())
-		.map(|(what, path)| format!("  {what}: {}", path.display()))
-		.collect();
+		];
+		// Only when it was asked for: an unset `JAM_GENSPEC_BIN` means the node binary generates
+		// its own spec, which is the arrangement this should get back to.
+		if let Some(genspec) = &binaries.genspec_node {
+			wanted.push((
+				"JAM_GENSPEC_BIN (a polkajam whose gen-spec reads the genesis keys)",
+				genspec,
+			));
+		}
+
+		let missing: Vec<String> = wanted
+			.iter()
+			.filter(|(_, path)| !path.exists())
+			.map(|(what, path)| format!("  {what}: {}", path.display()))
+			.collect();
 
 		if missing.is_empty() {
 			Ok(binaries)
