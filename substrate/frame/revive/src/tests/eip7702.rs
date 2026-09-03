@@ -1659,6 +1659,81 @@ fn delegation_chain_does_not_execute() {
 	});
 }
 
+/// DELEGATECALL into a delegated EOA executes the delegation target's code, so `code_address`
+/// must resolve to the target: its immutable data lives there. Regression test — `new_frame`
+/// used to leave `code_address` at the delegated EOA itself, whose `ImmutableDataOf` entry
+/// does not exist, so a target reading immutables failed with `InvalidImmutableAccess` on the
+/// DELEGATECALL path while working on a plain CALL.
+#[test]
+fn delegate_call_into_delegated_eoa_reads_targets_immutables() {
+	let (delegator_code, _) = compile_module("delegate_call_simple").unwrap();
+	let (reader_code, _) = compile_module("immutable_reader").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+		// The delegation target reads its immutable data on every call; seed the entry.
+		let Contract { addr: reader_addr, .. } =
+			builder::bare_instantiate(Code::Upload(reader_code)).build_and_unwrap_contract();
+		crate::ImmutableDataOf::<Test>::insert(
+			reader_addr,
+			crate::ImmutableData::try_from(alloc::vec![0xAAu8; 8]).unwrap(),
+		);
+
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, reader_addr).unwrap();
+
+		let Contract { addr: delegator_addr, .. } =
+			builder::bare_instantiate(Code::Upload(delegator_code)).build_and_unwrap_contract();
+
+		// The delegator DELEGATECALLs into Alice; Alice's snapshot executes the reader's code,
+		// which succeeds only if `get_immutable_data` resolves to the reader's entry.
+		let result =
+			builder::bare_call(delegator_addr).data(ALICE_ADDR.as_bytes().to_vec()).build();
+		assert!(
+			result.result.is_ok(),
+			"delegatecall into delegated Alice must read the target's immutable data: {:?}",
+			result.result,
+		);
+	});
+}
+
+/// A plain call to a delegated EOA executes the target's code, so `get_immutable_data` reads
+/// the target's blob — but the frame's contract info is the authority's snapshot, whose
+/// `immutable_data_len` is zero. The charge must follow the target's data, not the snapshot:
+/// the syscall charges the `IMMUTABLE_BYTES` cap for foreign code and settles on the actual
+/// length, so a bigger target blob must consume more gas.
+#[test]
+fn call_into_delegated_eoa_charges_targets_immutable_len() {
+	let (reader_code, _) = compile_module("immutable_reader").unwrap();
+
+	let measure = |len: usize| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_code.clone()))
+					.build_and_unwrap_contract();
+			crate::ImmutableDataOf::<Test>::insert(
+				reader_addr,
+				crate::ImmutableData::try_from(alloc::vec![0xAAu8; len]).unwrap(),
+			);
+			AccountInfo::<Test>::set_delegation(&BOB_ADDR, reader_addr).unwrap();
+
+			let result = builder::bare_call(BOB_ADDR).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let small = measure(8);
+	let big = measure(4096);
+	assert!(
+		big > small,
+		"get_immutable_data charge on a call to a delegated EOA must follow the target's \
+		 blob, not the authority snapshot's zero length: big={big}, small={small}",
+	);
+}
+
 /// Delegation to a precompile address: the indicator is set and surfaces via
 /// `eth_getCode`, but calls into the authority currently no-op rather than
 /// dispatching the precompile.

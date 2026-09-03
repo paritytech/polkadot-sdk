@@ -284,10 +284,9 @@ pub trait Ext: PrecompileWithInfoExt {
 	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
 
-	/// Get the length of the immutable data.
-	///
 	/// This query is free as it does not need to load the immutable data from storage.
 	/// Useful when we need a constant time lookup of the length.
+	/// For foreign code (delegate call, EIP-7702 delegated EOA) returns the `IMMUTABLE_BYTES` cap.
 	fn immutable_data_len(&mut self) -> u32;
 
 	/// Returns the immutable data of the current contract.
@@ -1101,6 +1100,10 @@ where
 		// `Some` once the account entry has been read: the delegation target it carried, so
 		// `code_address` below does not decode the same entry a second time.
 		let mut read_delegation: Option<Option<H160>> = None;
+		// `Some` when this is a delegate call whose callee is an EIP-7702 delegated EOA: the
+		// callee's delegation target, which is where the executed code (and therefore its
+		// immutable data) lives.
+		let mut delegate_code_target: Option<H160> = None;
 
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
@@ -1133,7 +1136,12 @@ where
 							CachedContract::Cached(info)
 						}
 					},
-					(None, Some(_)) => CachedContract::None,
+					// A precompile address can never be delegated: skip the `code_address`
+					// delegation lookup below.
+					(None, Some(_)) => {
+						read_delegation = Some(None);
+						CachedContract::None
+					},
 				};
 
 				let delegated_call = delegated_call.or_else(|| {
@@ -1151,10 +1159,12 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let Some(info) = AccountInfo::<T>::load_contract(&delegated_call.callee)
-						else {
+						let (info, target) =
+							AccountInfo::<T>::load_contract_with_delegation(&delegated_call.callee);
+						let Some(info) = info else {
 							return Ok(None);
 						};
+						delegate_code_target = target;
 						let executable = E::from_storage(info.code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1212,12 +1222,13 @@ where
 		};
 
 		// Compute the code_address: the address where the code (and immutable data) comes from.
-		// For delegate_call this is the callee, for EIP-7702 delegated accounts it's the
-		// delegation target, otherwise it's the account's own address.
+		// For delegate_call this is the callee — or the callee's delegation target when the
+		// callee is itself a delegated EOA. For a call to an EIP-7702 delegated account it's
+		// the delegation target, otherwise it's the account's own address.
 		let address = T::AddressMapper::to_address(&account_id);
 		let code_address = delegate
 			.as_ref()
-			.map(|d| d.callee)
+			.map(|d| delegate_code_target.unwrap_or(d.callee))
 			.or_else(|| {
 				// Constructors can't be delegated, skip the storage read.
 				if entry_point == ExportedFunction::Constructor {
@@ -2044,8 +2055,8 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		// EIP-7702 chained delegation: see comment in `Stack::run_call`. Without this guard
-		// `load_contract` would return `None` (the chained snapshot's `code_hash` is zero) and
-		// the call would silently succeed as a no-op.
+		// the delegated arm in `new_frame` would find no contract info (the chained snapshot's
+		// `code_hash` is zero) and the call would silently succeed as a no-op.
 		if AccountInfo::<T>::is_chained_delegation(&address) {
 			*self.last_frame_output_mut() = ExecReturnValue {
 				flags: pallet_revive_uapi::ReturnFlags::REVERT,
@@ -2130,7 +2141,12 @@ where
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
-		self.top_frame_mut().contract_info().immutable_data_len()
+		let frame = self.top_frame_mut();
+		if frame.code_address == T::AddressMapper::to_address(&frame.account_id) {
+			frame.contract_info().immutable_data_len()
+		} else {
+			limits::IMMUTABLE_BYTES
+		}
 	}
 
 	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError> {
