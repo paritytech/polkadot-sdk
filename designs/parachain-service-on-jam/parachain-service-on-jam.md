@@ -29,9 +29,6 @@
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
 8. [Messaging](#8-messaging)
-   - 8.1 [Current Limitations](#81-current-limitations)
-   - 8.2 [Proposed Solution: Full XCMP](#82-proposed-solution-full-xcmp)
-   - 8.3 [Speculative Messaging (MVP)](#83-speculative-messaging-mvp)
 9. [References](#9-references)
 
 ---
@@ -1814,123 +1811,110 @@ decides the policy, constructs the authorizer config, and calls `assign_core`.
 
 ## 8. Messaging
 
-### 8.1 Current Limitations
+Parachains exchange messages off-chain. The message payloads exist entirely in the parachain
+runtimes and are never written into the JAM relay chain.
 
-Today, HRMP (Horizontal Relay-routed Message Passing) routes all inter-parachain messages
-through the relay chain, and every byte is written into the relay-chain block. On
-Polkadot mainnet the per-channel throughput is capped by the host configuration:
+The offchain communication mechanism relies on the [speculative messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md) design.
 
-- `hrmpChannelMaxMessageSize` = **100 KiB** (per-message size cap)
-- `hrmpChannelMaxTotalSize` = **100 KiB** (per-channel pending-bytes buffer)
-- `hrmpChannelMaxCapacity` = **25** pending messages per channel
-- `hrmpMaxMessageNumPerCandidate` = **10** HRMP messages per candidate
-  (summed across all channels, not per channel)
+A sender parachain block commits its outbound message streams under a single `StreamsRoot`, the
+root of a MMR (Merkle Mountain Range) over the streams. The 32 byte `StreamsRoot` is written into the
+parachain's storage.
 
-So a parachain can emit at most 10 HRMP messages per block across all its channels, each
-at most 100 KiB, and each channel can hold at most 100 KiB / 25 messages pending at a time.
-UMP (Upward Message Passing) is similarly bounded: `maxUpwardMessageSize` ≈ 64 KiB and
-`maxUpwardQueueSize` = 1 MiB on Polkadot mainnet.
+The receiver parachain fetches the messages off chain and commits the consumed sources under a `Requires` root,
+one per source parachain. The `Requires` root (32 bytes) must be matched against the sender's `StreamsRoot` to ensure the
+messages were indeed sent by the source parachain.
 
-On JAM, the buffer between Refine and Accumulate is even tighter: the work-report's
-combined successful result blobs plus authorizer trace are bounded by **48 KiB**. All
-upward messages the PVF emits through host functions have to fit inside that
-budget alongside the new head data. Carrying HRMP-style message payloads through the
-work-report is therefore not an option. They must go through a different channel, which
-is what §8.2 proposes.
+The [speculative messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md)
+design describes how a runtime computes the root of its messages, how messages are handled offstream, how the receiver
+runtime verifies messages against a source root, and are outside of this document.
 
-### 8.2 Proposed Solution: Full XCMP
+The parachain service handles only the on-chain settlement of these roots. A receiver parachain block is enacted if all its
+`Requires` roots are present in the source parachains settlement ring.
 
-The current HRMP model, routing full message payloads through the relay chain, cannot
-work on JAM because the work digest output is too small to carry message payloads on-chain.
-Off-chain messaging is required.
+In Refine, after PVF execution, the `validate_block` wrapper reads the outbound message root from the pallet storage
+of the sender parachain and reports it via a `set_offchain_streams_root` host call. When the sender block enacts,
+Accumulate records the root in the sender's settlement ring.
 
-The proposed model is **full XCMP**: only message *headers* and
-*hashes* are recorded on-chain; the actual message payloads could be distributed off-chain via
-JAM's data availability layer (D3L). This removes the per-message size bottleneck. The
-Refine function uses `export()` to write outbound message payloads into DA segments, and
-Accumulate only records the message hashes and channel metadata on-chain. See
-[paritytech/polkadot-sdk#10449](https://github.com/paritytech/polkadot-sdk/pull/10449)
-for a potential specification of XCMP.
+In Refine, the wrapper verifies the messages consumed by the receiver block. The verification relies on consumption records
+written in the pallet storage of the receiver parachain and PoV provided proofs. A `Requires` root is computed per source
+parachain. The wrapper reports the `Requires` roots via a `set_offchain_requires_roots` host call. When the receiver block enacts,
+Accumulate checks that all `Requires` roots are present in their source parachains settlement ring. At most 32 `Requires` roots
+are allowed per receiver block.
 
-The exact host functions for HRMP channel management (open, accept, close) and XCMP message
-handling are not yet specified. Additional host functions will likely be needed once the
-messaging model is finalized.
+The receiver parachain block is built and validated after the sender block enacts, so the `Requires` roots are always checked
+against the latest state of the source parachains settlement ring. A receiver block fails the settlement check if the sender
+block never enacted (i.e., parachain built on a `StreamsRoot` that was never part of the settlement ring) or if the sender block
+was enacted more than 64 blocks ago (i.e., the `StreamsRoot` was evicted).
 
-### 8.3 Speculative Messaging (MVP)
+The settlement ring is generously sized for normal operations, but it is possible for a parachain to enact candidates faster than the
+receiver can. In that case, the receiver parachain may fail the settlement check for a candidate that was valid when it was built.
+The receiver parachain must resubmit a new work package that targets the latest `StreamsRoot` present in the source parachain's settlement ring.
 
-[Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md)
-is our primary candidate for off-chain message communication. For MVP, chains
-speculate at the **Enacted** tier (HRMP parity): sender `A` commits its outbound
-message streams under a single `StreamsRoot`, which enactment pushes into `A`'s
-**settlement ring**; receiver `B` fetches the messages off-chain and targets its
-`Requires` entries against ring entries; Accumulate ensures every `Requires` is
-present in its source's ring before `B` enacts. The same on-chain settlement
-mechanism handles every speculation tier.
+### 8.1 Declaring Roots
 
-The design uses entirely the functionality from this document, without relying on
-JAM changes.
+The `set_offchain_streams_root` and `set_offchain_requires_roots` host calls are optional and must be called at most once per Refine.
 
-#### Service Difference
+A second call aborts Refine with `RefineLog::OffchainMsgCallRepeated`.
 
-- **Host calls (§4.3)** — two Refine calls: `set_provides_root(root)` declares the
-  candidate's outbound commitment; `set_requires_root(entries)` declares the
-  consumed sources in one call.
-- **Work digest (§3.3)** — `spec_msg_provides: Option<StreamsRoot>` (33 B when
-  present) and `spec_msg_requires: BoundedVec<(ParaId, StreamsRoot), MAX_REQUIRES_SOURCES>`
-  (36 B per entry, ~1.1 KiB at full fan-in).
-- **Refine failures (§3.1)** — `SpecMsgCallRepeated`, `SpecMsgInvalidRequires`.
-- **State (§3.1)** — the settlement ring: `spec_msg_cursor`, `spec_msg_member`,
-  `spec_msg_queue`, under tags `0x09`–`0x0b`.
-- **Accumulate (§5.1 step 6)** — the settlement check runs before the head write;
-  the enacted candidate's own `Provides` root is pushed into its ring after it.
-- **Management (§6)** — a `parachain_set_head` overwriting a live head clears the
-  ring; `parachain_clean_up` tears it down.
+A `set_offchain_requires_roots` call with more than `MAX_REQUIRES_SOURCES` (32) entries or duplicated source parachain ids
+aborts Refine with `RefineLog::OffchainMsgInvalidRequires`.
 
-Constants: `MAX_REQUIRES_SOURCES = 32`, `W_MAX = 64`.
+> Refine checks nothing about the roots themselves.
 
-#### The flow, in brief
+The declarations reach Accumulate as digest fields `offchain_streams_root` and `offchain_requires_roots`. Accumulate has to check
+the requires before it writes the head.
 
-The sender runtime commits its outbound message streams under a single root,
-written into pallet storage and its header digest. After PVF execution the
-`validate_block` wrapper reads it back and reports it via `set_provides_root`
-(§4.3) and PS never decodes the header. The receiver consumes a prefix of
-off-chain-fetched messages, and its wrapper stitches the runtime's consumption
-records with the PoV-carried lift proofs into one `(ParaId, StreamsRoot)` entry
-per source, declared via `set_requires_root` (§4.3). PS stays header-agnostic and
-strictly moves opaque 32-byte roots: lift verification is the runtime's job, and
-settlement only guarantees the named roots are live.
+For bundled PoVs, only the last produced root is reported, even when later inner blocks send nothing.
+Similarly, only the latest `Requires` roots per source parachain are reported.
 
-#### The settlement ring
+At `MAX_REQUIRES_SOURCES = 32` the requires need 1.1 KiB of the work report budget.
 
-The ring holds the last `W_MAX = 64` enacted roots per parachain:
+### 8.2 Settlement Ring
+
+The settlement ring is represented by three maps in the service state. This design minimizes the gas cost of the settlement check,
+at a slightly higher cost of service state.
 
 ```rust
-/// Tracks order and capacity. Never read by the settlement check.
-/// Key: `0x09 ++ para_id` (47 octets billed)
-spec_msg_cursor: Map<ParaId, Cursor { head: u32, tail: u32 }>
+/// Ring positions. Absent until the parachain's first push.
+/// Key: `0x09 ++ para_id`
+offchain_msg_cursor: Map<ParaId, SettlementCursor { head: u32, tail: u32 }>
 
-/// Membership index: present iff the root is one of the sender's last
-/// `W_MAX` enacted roots. The only entry the settlement check reads.
-/// Key: `0x0a ++ para_id ++ root` (75 octets billed)
-spec_msg_member: Map<(ParaId, StreamsRoot), MemberEntry { seq: u32 }>
+/// Membership index: `(para_id, root)` is present exactly while `root` is
+/// in `para_id`'s ring. The only ring entry the settlement check reads.
+/// Key: `0x0a ++ para_id ++ root`
+offchain_msg_member: Map<(ParaId, StreamsRoot), MemberEntry { seq: u32 }>
 
-/// Ring order: sequence number to root. Read only on eviction and teardown.
-/// Key: `0x0b ++ para_id ++ seq` (75 octets billed)
-spec_msg_queue: Map<(ParaId, u32), StreamsRoot>
+/// Ring position to root. Read on eviction and teardown.
+/// Key: `0x0b ++ para_id ++ position`
+offchain_msg_queue: Map<(ParaId, u32), StreamsRoot>
 ```
 
-Settlement is one `spec_msg_member` point read per `Requires` entry, run as the
-last gate before the head write, with a silent rejection like every other
-Accumulate rejection; enactment then pushes the candidate's own `Provides` root
-(§5.1 step 6). Eviction is strictly position-based — a root leaves only after
-`W_MAX` newer pushes — so at capacity the ring ratchets at `1 + 2 × W_MAX = 129`
-entries / 9,647 octets (10,937 balance units under §6.1) until a
-`parachain_set_head` on a live head or `parachain_clean_up` clears it (§6).
+Positions are allocated by `SettlementCursor.head` and freed by `SettlementCursor.tail`.
+The live positions are in range `[tail, head)`, with `head` wrapping around at `u32::MAX`.
+At most `MAX_SETTLEMENT_RING_CAPACITY` (64) entries are live at once.
 
-The main reasoning stays in the port document: the sender/receiver flows in
-detail, bundling rules for `Provides`/`Requires`, the push/eviction logic and its
-cost analysis, teardown with its gas sentinel, same-block ordering, buffering, and
-the speculation tiers.
+The settlement check reads only `offchain_msg_member` once per declared `offchain_requires_roots` entry.
+The check is `O(1)` per source parachain, and the total cost is linear in the number of source parachains.
+
+Pushing a `new_root` for a `para_id` is a multi step operation. Firstly, the `SettlementCursor` is loaded.
+If the wrapping distance between `head` and `tail` is `MAX_SETTLEMENT_RING_CAPACITY`, the oldest entry is evicted.
+The `oldest_root` is read from the `offchain_msg_queue` at `tail`, and the `(para_id, oldest_root)` entry is removed from
+`offchain_msg_member`. The `tail` is incremented, but not written yet.
+Next, the `new_root` is written to `offchain_msg_queue` at `head`, and the `(para_id, new_root)` entry is inserted into `offchain_msg_member`.
+Finally, `head` is incremented and together with the new `tail` are written back to `offchain_msg_cursor`.
+
+
+### 8.3 Teardown
+
+A `parachain_set_head` on an existing parachain and `parachain_clean_up` drop the parachain's settlement ring.
+
+The `SettlementCursor` together with every `offchain_msg_member` and `offchain_msg_queue` entry at positions
+in range `[tail, head)` are deleted. These operations are not common. Both require sufficient gas to perform
+`1 + 2 * MAX_SETTLEMENT_RING_CAPACITY = 129` deletions.
+
+Both calls are upward messages of the Coretime chain and take effect when the candidate carrying them replays.
+A receiver might have already enacted earlier in the same same block, before the entries were evicted from the ring.
+The recovery is a Coretime runbook procedure, not a offchain messaging design guarantee.
 
 ---
 
@@ -1945,5 +1929,4 @@ the speculation tiers.
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/): Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
-- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md): The stream/lift messaging design ported in §8.3
-- [Speculative Messaging on JAM](https://github.com/paritytech/polkadot-sdk/pull/12809): The full JAM port — transport, archives, discovery, buffering, speculation tiers
+- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md): The offchain messaging desing document
