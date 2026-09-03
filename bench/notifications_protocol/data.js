@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788388925359,
+  "lastUpdate": 1788429708210,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -215615,6 +215615,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2492843898,
             "range": "± 70555581",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c18c52159413f3dc3dafed0053e41b36e14f2b7b",
+          "message": "[Release] Changelog refactoring (#13037)\n\nCloses: https://github.com/paritytech/release-engineering/issues/299\n\nThis PR reworks the changelog that is published with each polkadot-sdk\nrelease on GitHub.\n\nThe main changes are:\n- A `💥 Breaking Changes` section at the top of the changelog a\ncompilation of all changes that carry a major crate bump, across all\nprdocs included in the release.\n- New grouping: changes are grouped by topic (`Bridges`, `XCM`, `Node`,\n…), derived automatically from the crates listed in each prdoc via the\ntaxonomy in prdoc/topics.yaml.\n- Inside each topic, entries are sub-grouped by audience (`🛠️ Runtime\nDev`, `🔧 Node Dev`, …), so the audience label is read once per group\ninstead of being repeated on every entry and readers who preferred the\nold audience-oriented changelog still get that view.\n- Extended Dockerhub section, listing the full set of images that we\npublish with each release\n\nThe release body shows a condensed changelog (kept under GitHub's\nrelease-body size cap); the complete changelog is attached to the\nrelease as CHANGELOG.md, together with a machine-readable changelog.json\n(schema: scripts/release/changelog/schema.json). A new CI regression\ncheck renders everything against real prdoc folders on any PR touching\nthe tooling.\n\nRendered example can be found here:\nhttps://github.com/EgorPopelyaev/polkadot-sdk/releases/tag/polkadot-stable3436-rc1\n\nFollow-up for the free text topics that can be added to the existing\nprdoc field: paritytech/release-engineering#300\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-03T08:47:34Z",
+          "tree_id": "70d4f2dfc3de2dcde11db20c5c93866ea3b596dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c18c52159413f3dc3dafed0053e41b36e14f2b7b"
+        },
+        "date": 1788429667393,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4862785,
+            "range": "± 89855",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 308941,
+            "range": "± 5967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 5018584,
+            "range": "± 93743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 378683,
+            "range": "± 9266",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5873605,
+            "range": "± 83584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 929285,
+            "range": "± 7854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11147610,
+            "range": "± 214594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5073634,
+            "range": "± 85872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46778795,
+            "range": "± 659341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40400888,
+            "range": "± 535072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 396958360,
+            "range": "± 3346721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 322555578,
+            "range": "± 3853157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2795046077,
+            "range": "± 27095924",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2527708604,
+            "range": "± 19693242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3727002,
+            "range": "± 63844",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1918646,
+            "range": "± 26412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3808513,
+            "range": "± 115568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1977517,
+            "range": "± 22384",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4236627,
+            "range": "± 120183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2301701,
+            "range": "± 12219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8338035,
+            "range": "± 37023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5423859,
+            "range": "± 36329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39681840,
+            "range": "± 570747",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38352016,
+            "range": "± 313130",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 337651678,
+            "range": "± 30482429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 289037776,
+            "range": "± 1540524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2685556160,
+            "range": "± 34756141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2371767810,
+            "range": "± 22528780",
             "unit": "ns/iter"
           }
         ]
