@@ -1,19 +1,26 @@
-{% if env.NO_RUNTIMES == "true" -%}
-ℹ️ **Please note:**
+<<<<<<< HEAD
+=======
+{% if env.NO_RUNTIMES == "false" and env.CRATES_ONLY == "false" -%}
+ℹ️ Once published, `{{ env.REF2 }}` will also be tagged as [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}); the node version for this release is **{{ env.NODE_VERSION }}**.
+{% endif -%}
 
+>>>>>>> c18c5215 ([Release] Changelog refactoring (#13037))
+{% if env.NO_RUNTIMES == "true" -%}
+ℹ️ **Please note:** this is a patch release for the latest stable version `{{ env.STABLE_VERSION }}`. If your nodes are already running on this stable release, you should upgrade to this patch version to get the latest fixes.
+
+<<<<<<< HEAD
 This is a patch release for the latest stable version: `{{ env.STABLE_VERSION }}`. If your nodes are already running on this stable release,
 you should upgrade to this patch version to get the latest fixes.
 
 The tag corresponding to the current patch release `{{ env.REF2 }}` and matching the old pattern will be
 available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
+=======
+Once published, `{{ env.REF2 }}` will also be tagged as [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}); the node version for this release is **{{ env.NODE_VERSION }}**.
+>>>>>>> c18c5215 ([Release] Changelog refactoring (#13037))
 {% endif -%}
 
 {% if env.CRATES_ONLY == "true" -%}
-ℹ️ **Please note:**
+ℹ️ **Please note:** ⚠️ this is a patch release for the stable version `{{ env.STABLE_VERSION }}` and contains only patches and fixes to the crates (list below). No binary or docker images will be provided for this release.
 
-⚠️ This is a patch release for the stable version: `{{ env.STABLE_VERSION }}` and contains only patches and fixes to the crates (list
-below). No binary or docker images will be provided for this release.
-
-The tag corresponding to the current patch release `{{ env.REF2 }}` and matching the old pattern will be
-available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
+Once published, `{{ env.REF2 }}` will also be tagged as [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
 {% endif -%}
