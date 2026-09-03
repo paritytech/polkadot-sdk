@@ -525,6 +525,9 @@ pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 /// Default gossip target for v2 DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
+/// Parameters of the v2 DHT statement path.
+pub use sc_network_statement::V2DhtConfig;
+
 /// Statement store and network handler configuration.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -540,14 +543,8 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
-	/// Topics this node advertises affinity for, so peers route matching statements to it.
-	pub affinity_topics: Vec<sp_statement_store::Topic>,
-	/// Replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
-	/// responsible for storing a given topic.
-	pub replication_factor: std::num::NonZeroUsize,
-	/// Gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward a
-	/// statement to for a given topic.
-	pub gossip_target: std::num::NonZeroUsize,
+	/// Parameters of the v2 DHT statement path, `None` when the legacy flood path is in use.
+	pub v2dht: Option<V2DhtConfig>,
 }
 
 impl Config {
@@ -576,9 +573,7 @@ impl Default for Config {
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
-			affinity_topics: Vec::new(),
-			replication_factor: DEFAULT_REPLICATION_FACTOR,
-			gossip_target: DEFAULT_GOSSIP_TARGET,
+			v2dht: None,
 		}
 	}
 }

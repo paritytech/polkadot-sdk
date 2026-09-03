@@ -453,12 +453,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 
 	let statement_network_workers = statement_store_config.network_workers;
 	let statement_rate_limit = statement_store_config.rate_limit;
-	let statement_v2dht_config =
-		sc_network_statement::v2dht_enabled().then(|| sc_network_statement::V2DhtConfig {
-			affinity_topics: statement_store_config.affinity_topics.clone(),
-			replication_factor: statement_store_config.replication_factor,
-			gossip_target: statement_store_config.gossip_target,
-		});
+	let statement_v2dht_config = statement_store_config.v2dht.clone();
 
 	let sc_service::PartialComponents {
 		client,
@@ -872,9 +867,11 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		purge_after_sec: cli.statement_store_purge_after_sec,
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
-		affinity_topics: cli.statement_affinity_topics.clone(),
-		replication_factor: cli.statement_replication_factor,
-		gossip_target: cli.statement_gossip_target,
+		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
+			affinity_topics: cli.statement_affinity_topics.clone(),
+			replication_factor: cli.statement_replication_factor,
+			gossip_target: cli.statement_gossip_target,
+		}),
 	};
 
 	let task_manager = match config.network.network_backend {
