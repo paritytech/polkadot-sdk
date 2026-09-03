@@ -195,8 +195,6 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = frame_support::traits::ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = frame_support::traits::ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = frame_support::traits::ConstU32<MAX_PENDING>;
-	type MaxPendingCodeUpgrades = frame_support::traits::ConstU32<MAX_PENDING>;
-	type CodeUpgradeValidPeriod = frame_support::traits::ConstU32<100>;
 	type UnsignedPriority = RegistrarUnsignedPriority;
 	type WeightInfo = ();
 }
