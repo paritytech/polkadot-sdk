@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788430820804,
+  "lastUpdate": 1788471986465,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alin@parity.io",
-            "name": "Alin Dima",
-            "username": "alindima"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a40ab3cd1348c871523a2bfccb71f484cd5591af",
-          "message": "collator-protocol-revamp: CollationManager and subsystem impl (#8541)\n\nImplements the `CollationManager` and the new collator protocol\n(validator side) subsystem.\n\nIssues https://github.com/paritytech/polkadot-sdk/issues/8182 and\nhttps://github.com/paritytech/polkadot-sdk/issues/7752.\n\nThese are the big remaining parts which would enable us to test the\nentire implementation.\n\nTODO:\n- [ ] add a couple more unit tests (see the suggestions at the bottom of\nthe tests file)\n- [x] polish the ClaimQueueState and verify if it's sufficiently covered\nby unit tests\n  - https://github.com/paritytech/polkadot-sdk/pull/10334\n  - https://github.com/paritytech/polkadot-sdk/pull/10368\n- [x] add metrics and polish logs -\nhttps://github.com/paritytech/polkadot-sdk/pull/10730\n- [x] add a CLI parameter for enabling the experimental subsystem (and\nremove the compile-time feature) ->\nhttps://github.com/paritytech/polkadot-sdk/pull/10285\n- [x] implement registered paras update, using\nhttps://github.com/paritytech/polkadot-sdk/pull/9055\n- [ ] do some manual zombienet tests with v1 protocol version and with\nrestarting validators (including syncing with warp sync)\n- [x] prdoc\n- [x] Rollback \n-\nhttps://github.com/paritytech/polkadot-sdk/pull/8541/commits/03e89150bd87e63a6a74e9ce1b9d1122b9239d14\n-\nhttps://github.com/paritytech/polkadot-sdk/pull/8541/commits/05e1497a3f785f41aac81e08f13676bdc96b9035\nThese commits were added just to run the CI tests for this PR with the\nnew experimental protocol\n\nAfter merging: \n- [ ] versi testing\n\n\n\nUses a slightly modified version of the ClaimQueueState written by\n@tdimitrov in https://github.com/paritytech/polkadot-sdk/pull/7114.\n\n---------\n\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T08:56:37Z",
-          "tree_id": "7ee158481ac5f452aa18dcac48dc2b98b1a1aa9b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a40ab3cd1348c871523a2bfccb71f484cd5591af"
-        },
-        "date": 1770201620459,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006483365669999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00272779345,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009286944479999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00249569923,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd42d2f58404290bfff77492f4e48c531d209bf4",
+          "message": "[EPMB] bound the tx-fee refund of a signed submission (#12877)\n\nThe winner of the signed phase is paid `RewardBase` plus the transaction\nfees their submission cost them, tracked in `SubmissionMetadata::fee`.\nTwo changes:\n\n- A new `signed::Config::MaxFeeRefund` caps the refundable portion, both\nfor the winner and for an invulnerable clearing a discarded submission.\nThe payout is now bounded by config\n- Storing a page that is already stored no longer accrues a fee,\nmatching what the refund is meant to cover.\n\nRuntimes should set `MaxFeeRefund` to\n`signed::FullSubmissionFee<Runtime, TransactionPayment>`, which prices\none `register` plus `Pages` `submit_page` calls at the maximum encoded\npage size.\n\n`FullSubmissionFee` needs the fee of a call it cannot afford to build,\nso `frame_support` gains `EstimateFee`, a sibling of `EstimateCallFee`\nthat takes an encoded length and a `DispatchInfo` instead of a call,\nimplemented by `pallet-transaction-payment`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-09-03T20:15:32Z",
+          "tree_id": "4f29e232935bc2556b9ab962b13659ae8b2f592d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd42d2f58404290bfff77492f4e48c531d209bf4"
+        },
+        "date": 1788471946193,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024947109400000013,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009194505919999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010254013199999992,
             "unit": "seconds"
           }
         ]
