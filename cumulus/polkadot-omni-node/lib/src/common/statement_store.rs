@@ -67,9 +67,12 @@ pub(crate) fn build_statement_store<
 ) -> sc_service::error::Result<Arc<Store>> {
 	let network_workers = config.network_workers;
 	let rate_limit = config.rate_limit;
-	let affinity_topics = config.affinity_topics.clone();
-	let replication_factor = config.replication_factor;
-	let gossip_target = config.gossip_target;
+	let v2dht_config =
+		sc_network_statement::v2dht_enabled().then(|| sc_network_statement::V2DhtConfig {
+			affinity_topics: config.affinity_topics.clone(),
+			replication_factor: config.replication_factor,
+			gossip_target: config.gossip_target,
+		});
 
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
@@ -94,9 +97,7 @@ pub(crate) fn build_statement_store<
 		statement_protocol_executor,
 		network_workers,
 		rate_limit,
-		&affinity_topics,
-		replication_factor,
-		gossip_target,
+		v2dht_config,
 	)?;
 	if sc_network_statement::v2dht_enabled() {
 		if let Some(resolver) = statement_handler.retention_resolver() {

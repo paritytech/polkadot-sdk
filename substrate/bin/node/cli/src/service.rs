@@ -453,9 +453,12 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 
 	let statement_network_workers = statement_store_config.network_workers;
 	let statement_rate_limit = statement_store_config.rate_limit;
-	let statement_affinity_topics = statement_store_config.affinity_topics.clone();
-	let statement_replication_factor = statement_store_config.replication_factor;
-	let statement_gossip_target = statement_store_config.gossip_target;
+	let statement_v2dht_config =
+		sc_network_statement::v2dht_enabled().then(|| sc_network_statement::V2DhtConfig {
+			affinity_topics: statement_store_config.affinity_topics.clone(),
+			replication_factor: statement_store_config.replication_factor,
+			gossip_target: statement_store_config.gossip_target,
+		});
 
 	let sc_service::PartialComponents {
 		client,
@@ -812,9 +815,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_protocol_executor,
 		statement_network_workers,
 		statement_rate_limit,
-		&statement_affinity_topics,
-		statement_replication_factor,
-		statement_gossip_target,
+		statement_v2dht_config,
 	)?;
 	if sc_network_statement::v2dht_enabled() {
 		if let Some(resolver) = statement_handler.retention_resolver() {
