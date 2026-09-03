@@ -39,8 +39,9 @@
 //!    deposit.
 //! 3. **Discarded**: Any solution after the first correct solution is eligible to be peacefully
 //!    discarded. But, to delete their data, they have to call
-//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back. Their
-//!    tx-fee is not refunded.
+//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back.
+//!    Accounts in [`signed::Invulnerables`] also get their tx-fee back, up to
+//!    [`signed::Config::MaxFeeRefund`]. Other submitters' tx-fees are not refunded.
 //!
 //! ## Future Plans:
 //!
@@ -333,7 +334,8 @@ pub mod pallet {
 	///   [`Config::InvulnerableDeposit`]. They pay no page deposit.
 	/// * If _ejected_ by better solution from [`SortedScores`], they will get their full deposit
 	///   back.
-	/// * They always get their tx-fee back even if they are _discarded_.
+	/// * They always get their tx-fee back even if they are _discarded_, up to
+	///   [`Config::MaxFeeRefund`].
 	#[pallet::storage]
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, ConstU32<16>>, ValueQuery>;
