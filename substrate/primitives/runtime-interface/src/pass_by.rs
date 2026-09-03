@@ -222,33 +222,33 @@ where
 	}
 }
 
-/// Pass an `Option` of a value into the host by a fat pointer.
+/// Pass an optional value into the host by a fat pointer.
 ///
-/// Behaves like [`PassFatPointerAndRead`] for the `Some` case, with `None` encoded as the
-/// sentinel fat pointer `(ptr = 0, len = 0)`. This is unambiguous: the runtime side calls
-/// `as_ptr()` on a slice, which is documented never to return null even for empty slices,
-/// so a real `Some(&[])` always carries a non-zero pointer.
+/// Behaves like [`PassFatPointerAndRead`] for the `Some` case. `None` is encoded as
+/// `u64::MAX`, which can never be a valid fat pointer because it would place the end of the
+/// slice past the 32-bit address space.
 ///
-/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
-pub struct PassFatPointerAndReadOption<T>(PhantomData<T>);
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer).
+/// `u64::MAX` is used to represent `None`.
+pub struct PassOptionalFatPointerAndRead<T>(PhantomData<T>);
 
-impl<T> RIType for PassFatPointerAndReadOption<T> {
+impl<T> RIType for PassOptionalFatPointerAndRead<T> {
 	type FFIType = u64;
-	type Inner = Option<T>;
+	type Inner = T;
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a> FromFFIValue<'a> for PassFatPointerAndReadOption<&'a [u8]> {
+impl<'a> FromFFIValue<'a> for PassOptionalFatPointerAndRead<Option<&'a [u8]>> {
 	type Owned = Option<Vec<u8>>;
 
 	fn from_ffi_value(
 		context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
-		let (ptr, len) = unpack_ptr_and_len(arg);
-		if ptr == 0 {
+		if arg == Self::FFIType::MAX {
 			Ok(None)
 		} else {
+			let (ptr, len) = unpack_ptr_and_len(arg);
 			context.read_memory(Pointer::new(ptr), len).map(Some)
 		}
 	}
@@ -259,7 +259,7 @@ impl<'a> FromFFIValue<'a> for PassFatPointerAndReadOption<&'a [u8]> {
 }
 
 #[cfg(substrate_runtime)]
-impl<T> IntoFFIValue for PassFatPointerAndReadOption<T>
+impl<T> IntoFFIValue for PassOptionalFatPointerAndRead<Option<T>>
 where
 	T: AsRef<[u8]>,
 {
@@ -267,11 +267,11 @@ where
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
 		match value {
+			None => (Self::FFIType::MAX, ()),
 			Some(value) => {
 				let value = value.as_ref();
 				(pack_ptr_and_len(value.as_ptr() as u32, value.len() as u32), ())
 			},
-			None => (pack_ptr_and_len(0, 0), ()),
 		}
 	}
 }

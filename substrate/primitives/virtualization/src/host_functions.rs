@@ -23,8 +23,8 @@ use core::mem;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use sp_runtime_interface::{
 	pass_by::{
-		ConvertAndReturnAs, PassAs, PassFatPointerAndRead, PassFatPointerAndReadOption,
-		PassFatPointerAndWrite, PassPointerAndWrite,
+		ConvertAndReturnAs, PassAs, PassFatPointerAndRead, PassFatPointerAndWrite,
+		PassOptionalFatPointerAndRead, PassPointerAndWrite,
 	},
 	runtime_interface,
 };
@@ -311,7 +311,7 @@ pub trait Virtualization {
 	fn compile(
 		&mut self,
 		program: PassFatPointerAndRead<&[u8]>,
-		identifier: PassFatPointerAndReadOption<&[u8]>,
+		identifier: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 	) -> ConvertAndReturnAs<Result<ModuleId, ModuleError>, RIIntResult<ModuleId, ModuleError>, i64>
 	{
 		use sp_externalities::ExternalitiesExt as _;
