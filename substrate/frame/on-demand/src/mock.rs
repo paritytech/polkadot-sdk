@@ -58,6 +58,8 @@ impl pallet_balances::Config for Test {
 thread_local! {
 	/// The current Relay-chain block number, as seen by the pallet.
 	pub static RELAY_BLOCK_NUMBER: RefCell<RelayBlockNumber> = const { RefCell::new(0) };
+	/// The current number of cores in the on-demand pool, as seen by the pallet.
+	pub static CORE_POOL_SIZE: RefCell<u32> = const { RefCell::new(1) };
 	/// Records every batch handed to [`RecordingOrderQueue`].
 	pub static QUEUED_BATCHES: RefCell<Vec<Vec<(TaskId, RelayBlockNumber)>>> =
 		const { RefCell::new(Vec::new()) };
@@ -90,10 +92,18 @@ ord_parameter_types! {
 
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
-pub struct SingleCorePool;
-impl PoolCapacityProvider for SingleCorePool {
+pub struct MockCorePool;
+impl PoolCapacityProvider for MockCorePool {
 	fn pool_cores() -> u32 {
-		1
+		CORE_POOL_SIZE.with(|n| *n.borrow())
+	}
+}
+
+impl MockCorePool {
+	pub fn set_pool_cores(n: u32) {
+		CORE_POOL_SIZE.with(|pool| {
+			*pool.borrow_mut() = n;
+		});
 	}
 }
 
@@ -102,7 +112,7 @@ impl Config for Test {
 	type Currency = Balances;
 	type AdminOrigin = EnsureOneOrRoot;
 	type RelayBlockNumberProvider = MockRelayBlockNumberProvider;
-	type PoolCapacityProvider = SingleCorePool;
+	type PoolCapacityProvider = MockCorePool;
 	type PricingProvider = DefaultPricingProvider;
 	type OrderQueue = RecordingOrderQueue;
 	type PalletId = OnDemandPalletId;
