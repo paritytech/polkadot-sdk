@@ -6,6 +6,7 @@
 
 use super::{collators::Para, env::Binaries, genesis, rpc::JamRpc};
 use anyhow::Context;
+use serde_json::json;
 use std::{
 	path::{Path, PathBuf},
 	process::Command,
@@ -76,6 +77,7 @@ impl JamNetwork {
 		let parasim_blob = path_str(&copy_aside(&binaries.parasim_blob, work_dir)?)?;
 		let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
 		let queues = auth_queues(paras, &authorizer_blob)?;
+		let overrides = genesis_overrides(&queues, &parasim_blob, &path_str(&authorizer_blob)?);
 		let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
 
 		let config = NetworkConfigBuilder::new()
@@ -96,20 +98,7 @@ impl JamNetwork {
 					Some(command) => jam.with_chain_spec_command(command.as_str()),
 					None => jam,
 				};
-				let jam = jam
-					.with_genesis_service(|service| {
-						service
-							.with_id(PARASIM_SERVICE_ID)
-							.with_code(parasim_blob.as_str())
-							.with_balance(PARASIM_ENDOWMENT)
-							.with_preimage(&authorizer_blob)
-					});
-				// Each para's core is queued for that para's authorizer and handed to parasim, so
-				// nothing has to be assigned once the network is up. Parasim holds the assigner
-				// privilege because the dynamic-core tests reassign these cores mid-run.
-				let jam = queues.iter().fold(jam, |jam, (core, hash)| {
-					jam.with_auth_queue(*core, hash).with_assigner(*core, PARASIM_SERVICE_ID)
-				});
+				let jam = jam.with_genesis_overrides(overrides);
 				let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
 				let jam = (1..VALIDATORS).fold(jam, |jam, index| {
 					jam.with_validator(|node| {
@@ -142,6 +131,7 @@ impl JamNetwork {
 			authorizer_blob,
 			spec_path: base_dir.join("jam_spec.json"),
 		};
+		jam_network.ensure_spec_holds_parasim()?;
 		let rpc = JamRpc::wait_ready(&jam_network.rpc_url, deadline).await.with_context(|| {
 			format!("JAM node log tail:\n{}", jam_network.ordinary_node_log_tail(60))
 		})?;
@@ -150,12 +140,36 @@ impl JamNetwork {
 		Ok(jam_network)
 	}
 
+	/// Fail unless the chain spec `gen-spec` wrote holds parasim's service record.
+	///
+	/// Checked on the file, before a single RPC: a `gen-spec` that does not know the genesis keys
+	/// drops them without a word, and the spec it writes is the first place that shows. Waiting
+	/// for the nodes first would report the same thing minutes later.
+	fn ensure_spec_holds_parasim(&self) -> anyhow::Result<()> {
+		let spec: serde_json::Value = serde_json::from_slice(
+			&std::fs::read(&self.spec_path)
+				.with_context(|| format!("reading {}", self.spec_path.display()))?,
+		)
+		.with_context(|| format!("parsing {}", self.spec_path.display()))?;
+		let key = service_record_key(self.service_id);
+		anyhow::ensure!(
+			spec["genesis_state"].get(&key).is_some(),
+			"{} holds no record of service {} (genesis_state key {key}): the polkajam that ran \
+			 gen-spec ignores the genesis keys; set JAM_GENSPEC_BIN to a build from the \
+			 mku-genspec branch",
+			self.spec_path.display(),
+			self.service_id,
+		);
+		log::info!("{} holds parasim as service {}", self.spec_path.display(), self.service_id);
+		Ok(())
+	}
+
 	/// Fail unless the chain the nodes actually started from is the one that was generated.
 	///
 	/// One read, not a poll: parasim is genesis state, so it is there in the first block or the
-	/// spec never reached the nodes — a config key the generator silently dropped, a node started
-	/// on a different spec. Both leave every collator submitting packages nothing will authorize,
-	/// so this has to be loud and name the files to look at.
+	/// nodes started on some other spec than the one just checked. That leaves every collator
+	/// submitting packages nothing will authorize, so this has to be loud and name the files to
+	/// look at.
 	async fn ensure_parasim_is_in_genesis(&self, rpc: &JamRpc) -> anyhow::Result<()> {
 		let services = rpc.services().await.context("listing the chain's services")?;
 		anyhow::ensure!(
@@ -334,6 +348,59 @@ fn auth_queues(paras: &[Para], authorizer_blob: &Path) -> anyhow::Result<Vec<(u1
 	Ok(queues)
 }
 
+/// The genesis beyond the validator set, spelled as `gen-spec` reads it. zombienet merges it into
+/// the `jam_config.json` it generates, knowing nothing about these keys.
+///
+/// Parasim is created as service [`PARASIM_SERVICE_ID`] from `parasim_blob` and hosts
+/// `authorizer_blob`, which is where a guarantor resolves the authorizer code a collator's package
+/// names. Every core in `queues` is filled with its para's authorizer hash, so nothing has to be
+/// assigned once the network is up, and parasim is made those cores' assigner because the
+/// dynamic-core tests move them mid-run.
+fn genesis_overrides(
+	queues: &[(u16, String)],
+	parasim_blob: &str,
+	authorizer_blob: &str,
+) -> serde_json::Value {
+	let auth_queues: serde_json::Map<String, serde_json::Value> =
+		queues.iter().map(|(core, hash)| (core.to_string(), json!(hash))).collect();
+	let assigners: serde_json::Map<String, serde_json::Value> = queues
+		.iter()
+		.map(|(core, _)| (core.to_string(), json!(PARASIM_SERVICE_ID)))
+		.collect();
+	json!({
+		"services": [{
+			"id": PARASIM_SERVICE_ID,
+			"code": parasim_blob,
+			"balance": json_balance(PARASIM_ENDOWMENT),
+			"preimages": [authorizer_blob],
+		}],
+		"auth_queues": auth_queues,
+		"assigners": assigners,
+	})
+}
+
+/// A balance as the config takes it: a bare number while JSON carries it exactly, a decimal
+/// string above 2^53 — `gen-spec` refuses a lossy number rather than rounding it.
+fn json_balance(balance: u64) -> serde_json::Value {
+	if balance <= 1 << 53 {
+		json!(balance)
+	} else {
+		json!(balance.to_string())
+	}
+}
+
+/// The `genesis_state` key of service `id`'s record, as `gen-spec` spells it: JAM's
+/// `ServiceKey::Info` — `ff`, then the id's four little-endian bytes each followed by a zero —
+/// padded to the 31-byte state key.
+fn service_record_key(id: u32) -> String {
+	let mut key = [0u8; 31];
+	key[0] = 0xff;
+	for (index, byte) in id.to_le_bytes().into_iter().enumerate() {
+		key[1 + 2 * index] = byte;
+	}
+	array_bytes::bytes2hex("", key)
+}
+
 fn path_str(path: &Path) -> anyhow::Result<String> {
 	path.to_str().map(str::to_string).with_context(|| format!("{} is not utf-8", path.display()))
 }
@@ -432,6 +499,51 @@ fn parse_para_head(output: &str) -> anyhow::Result<Option<ParaHead>> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	/// The whole of what this harness knows about `gen-spec`'s config is these keys and shapes.
+	/// Anything more belongs to polkajam's `jam-chainspec`, which owns the schema.
+	#[test]
+	fn the_override_spells_exactly_the_keys_gen_spec_reads() {
+		let queues = vec![(0u16, "aa".repeat(32)), (1, "bb".repeat(32))];
+
+		let overrides = genesis_overrides(
+			&queues,
+			"/run/parasim-service.jam",
+			"/run/parachain-authorizer-sr25519.jam",
+		);
+
+		assert_eq!(
+			overrides,
+			json!({
+				"services": [{
+					"id": 5,
+					"code": "/run/parasim-service.jam",
+					"balance": 1_000_000_000_000_000u64,
+					"preimages": ["/run/parachain-authorizer-sr25519.jam"],
+				}],
+				"auth_queues": { "0": "aa".repeat(32), "1": "bb".repeat(32) },
+				"assigners": { "0": 5, "1": 5 },
+			})
+		);
+	}
+
+	/// JSON numbers are exact only up to 2^53, and `gen-spec` refuses a lossy one rather than
+	/// rounding it, so anything bigger has to travel as a decimal string.
+	#[test]
+	fn a_balance_beyond_2_to_the_53_is_written_as_a_decimal_string() {
+		assert_eq!(json_balance(PARASIM_ENDOWMENT), json!(1_000_000_000_000_000u64));
+		assert_eq!(json_balance(1 << 53), json!(9_007_199_254_740_992u64));
+		assert_eq!(json_balance((1 << 53) + 1), json!("9007199254740993"));
+		assert_eq!(json_balance(u64::MAX), json!("18446744073709551615"));
+	}
+
+	/// Hand-written from JAM's `ServiceKey::Info` layout, so the early spec check looks for the
+	/// key `gen-spec` really writes and not merely for one this code computes.
+	#[test]
+	fn the_service_record_key_is_ff_and_the_id_interleaved_with_zeros() {
+		assert_eq!(service_record_key(5), format!("ff05000000000000{}", "00".repeat(23)));
+		assert_eq!(service_record_key(0x0403_0201), format!("ff01000200030004{}", "00".repeat(23)));
+	}
 
 	/// Verbatim output of `parasim-tool display-key parahead 0`, trimmed of the long hex.
 	const REPORT: &str = "\

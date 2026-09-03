@@ -15,7 +15,9 @@
 #            --bin polkadot-prepare-worker --bin polkadot-execute-worker
 #   2. A polkajam build whose `gen-spec` understands the `services` / `auth_queues` /
 #      `assigners` config keys and whose RPC serves `stateValue`. While those are on two
-#      different branches, point JAM_GENSPEC_BIN at a build with the former.
+#      different branches, point JAM_GENSPEC_BIN at a build with the former: the harness hands
+#      those keys to zombienet as one JSON override of the generated jam_config.json, and it
+#      stops right after spawning the network if the spec that came out lacks the service.
 #   3. The parasim service and AURA authorizer blobs from the parachain-service repo.
 #
 # Required environment (see cumulus/zombienet/jam-tests/README.md):

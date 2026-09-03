@@ -22,8 +22,9 @@ From the polkajam repository: the `polkajam` node binary. It has to do two thing
 live on two branches:
 
 * its `gen-spec` has to understand the `services` / `auth_queues` / `assigners` keys this suite
-  writes into the chain-spec config. A build that does not ignores them without a word, and the
-  run then fails at its first readiness check, naming the generated spec;
+  writes into the chain-spec config. A build that does not ignores them without a word, so the
+  run checks the spec it wrote as soon as the network is spawned and fails right there, naming
+  the file and `JAM_GENSPEC_BIN`;
 * its RPC has to serve `stateValue`, which is how the collator reads the parachain service, the
   authorizer pools and queues, and the availability assignments. A build without it lets the
   network come up and the collators start, and then every collator tick logs `MethodNotFound` and
@@ -124,7 +125,7 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 | file | what it does |
 | --- | --- |
 | `tests/jam/env.rs` | resolves the binaries, or explains what is missing |
-| `tests/jam/network.rs` | spawns the JAM network from a genesis carrying parasim, the authorizers and the cores |
+| `tests/jam/network.rs` | builds the genesis override — parasim, the authorizers, the cores — and spawns the JAM network from it |
 | `tests/jam/genesis.rs` | derives a para's authorizer hash, the way the collator derives it |
 | `tests/jam/chain_spec.rs` | builds and patches one para's chain spec |
 | `tests/jam/collators.rs` | starts, supervises and tears down one para's collator processes |
@@ -220,11 +221,38 @@ Nothing. The chain spec `polkajam gen-spec` generates for a run already holds:
 * **each of those cores' assigner privilege held by parasim**, which is what lets a later
   `free-core` or re-assignment travel the control lane inside an AURA package.
 
-So a run goes straight from "the network finalized a block" to starting collators. `JamNetwork`
-reads the service list back once as a check: parasim is genesis state, so a chain without it means
-the generated spec never reached the nodes, and the error names `zombienet/jam_spec.json` and the
-`jam_config.json` beside it. `Run::start` then waits for every collator's startup line and fails
-unless the authorizer it derived is the one genesis queued.
+All of that reaches `gen-spec` as one JSON object. zombienet-sdk knows nothing about these keys:
+`JamNetwork::spawn` hands it the object through `with_genesis_overrides`, and it is merged as is
+into the `jam_config.json` zombienet generates, next to the `id` and `genesis_validators` it
+writes itself. For a single para on core 0 the object is:
+
+```json
+{
+  "services": [{
+    "id": 5,
+    "code": "<work dir>/parasim-service.jam",
+    "balance": 1000000000000000,
+    "preimages": ["<work dir>/parachain-authorizer-sr25519.jam"]
+  }],
+  "auth_queues": { "0": "<the para's authorizer hash, bare hex>" },
+  "assigners": { "0": 5 }
+}
+```
+
+`network::genesis_overrides` is the one place the harness spells that schema, and its unit test
+pins the keys; the schema's owner is polkajam's `jam-chainspec` crate. A balance above 2^53 is
+written as a decimal string, because `gen-spec` refuses a JSON number it cannot read back exactly.
+
+So a run goes straight from "the network finalized a block" to starting collators, after two
+checks that the genesis is really the one described. First, before anything is asked of the
+nodes, `zombienet/jam_spec.json` has to hold service 5's record in its `genesis_state` — the key
+`ff05000000000000` followed by 23 zero bytes. A `gen-spec` that does not know the keys drops them
+without a word, so this fails at once and says to point `JAM_GENSPEC_BIN` at a build that does.
+Second, once the ordinary node answers, `listServices` has to include 5: parasim is genesis
+state, so a chain without it means the nodes started from some other spec than the one just
+checked; the error names `zombienet/jam_spec.json` and the `jam_config.json` beside it.
+`Run::start` then waits for every collator's startup line and fails unless the authorizer it
+derived is the one genesis queued.
 
 A tiny network has exactly two cores: polkajam ties `core_count` to the validator count (six
 validators, three per core) and the next step up is 78 validators. So two paras is the most this
