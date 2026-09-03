@@ -256,6 +256,11 @@ pub struct DispatchInfo {
 	pub call_weight: Weight,
 	/// Weight of this transaction's extension.
 	pub extension_weight: Weight,
+	/// Weight of this transaction's encoded length (its `proof_size` contribution).
+	///
+	/// Filled in by the FRAME executive before the extension pipeline; the static
+	/// `#[pallet::weight]` info leaves it at zero.
+	pub length_weight: Weight,
 	/// Class of this transaction.
 	pub class: DispatchClass,
 	/// Does this transaction pay fees.
@@ -263,9 +268,11 @@ pub struct DispatchInfo {
 }
 
 impl DispatchInfo {
-	/// Returns the weight used by this extrinsic's extension and call when applied.
+	/// Returns the total weight: call + extension + length weight.
 	pub fn total_weight(&self) -> Weight {
-		self.call_weight.saturating_add(self.extension_weight)
+		self.call_weight
+			.saturating_add(self.extension_weight)
+			.saturating_add(self.length_weight)
 	}
 }
 
@@ -623,10 +630,14 @@ impl RefundWeight for PostDispatchInfo {
 
 impl ExtensionPostDispatchWeightHandler<DispatchInfo> for PostDispatchInfo {
 	fn set_extension_weight(&mut self, info: &DispatchInfo) {
+		// Re-add the parts the call can't know about and that are never reclaimable: the extension
+		// and length weight. Keeps `actual_weight` comparable to `total_weight()` so reclaim only
+		// returns unused call weight.
 		let actual_weight = self
 			.actual_weight
 			.unwrap_or(info.call_weight)
-			.saturating_add(info.extension_weight);
+			.saturating_add(info.extension_weight)
+			.saturating_add(info.length_weight);
 		self.actual_weight = Some(actual_weight);
 	}
 }

@@ -879,7 +879,13 @@ where
 		// Verify that the signature is good.
 		let xt = check(uxt, &Context::default())?;
 
-		let dispatch_info = xt.get_dispatch_info();
+		let dispatch_info = {
+			let mut info = xt.get_dispatch_info();
+			// Record the extrinsic length as `proof_size` weight so extensions get the correct
+			// total via `info.total_weight()` and need not handle the length separately.
+			info.length_weight = Weight::from_parts(0, encoded_len as u64);
+			info
+		};
 
 		if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
@@ -979,8 +985,14 @@ where
 			uxt.check(&Default::default())
 		}?;
 
+		let encoded_len = encoded.len();
 		let dispatch_info = within_span! { sp_tracing::Level::TRACE, "dispatch_info";
-			xt.get_dispatch_info()
+			{
+				let mut info = xt.get_dispatch_info();
+				// Record the extrinsic length as `proof_size` weight (see `apply_extrinsic`).
+				info.length_weight = Weight::from_parts(0, encoded_len as u64);
+				info
+			}
 		};
 
 		if dispatch_info.class == DispatchClass::Mandatory {
@@ -989,7 +1001,7 @@ where
 
 		within_span! {
 			sp_tracing::Level::TRACE, "validate";
-			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded.len())
+			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded_len)
 		}
 	}
 

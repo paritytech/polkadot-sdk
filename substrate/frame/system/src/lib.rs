@@ -2472,6 +2472,8 @@ impl<T: Config> Pallet<T> {
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	{
 		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
+		// Both `total_weight()` and the post-dispatch `actual_weight` include the length weight, so
+		// `unspent` never contains the non-reclaimable length.
 		let unspent = post_info.calc_unspent(info);
 		let accurate_reclaim = already_reclaimed.max(unspent);
 		// Saturation never happens, we took the maximum above.

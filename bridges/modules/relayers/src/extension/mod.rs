@@ -1189,6 +1189,7 @@ mod tests {
 
 	fn dispatch_info() -> DispatchInfo {
 		DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(
 				frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 				0,
