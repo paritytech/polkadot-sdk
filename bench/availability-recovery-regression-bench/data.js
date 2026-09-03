@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788389696207,
+  "lastUpdate": 1788430644100,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a21dbd56b740a79515aa130d7ff7bace144a7adc",
-          "message": "fatxpool: Do not remove listener for finalized view (#10965)\n\nInstead of immediately removing the listener for finalized view, lets\nkeep them around while the view is still in the `active_views`. Once the\nnext block is finalized, we will remove it. This should fix manual-seal\nproblems where new blocks are immeditaly finalized.\n\n\nfixes #10332\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2026-02-04T14:29:07Z",
-          "tree_id": "27255ccbd963aa2584f652f0ab4fe25defe20291",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a21dbd56b740a79515aa130d7ff7bace144a7adc"
-        },
-        "date": 1770219537696,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.246496871466666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12440135743333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13405416176666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c18c52159413f3dc3dafed0053e41b36e14f2b7b",
+          "message": "[Release] Changelog refactoring (#13037)\n\nCloses: https://github.com/paritytech/release-engineering/issues/299\n\nThis PR reworks the changelog that is published with each polkadot-sdk\nrelease on GitHub.\n\nThe main changes are:\n- A `💥 Breaking Changes` section at the top of the changelog a\ncompilation of all changes that carry a major crate bump, across all\nprdocs included in the release.\n- New grouping: changes are grouped by topic (`Bridges`, `XCM`, `Node`,\n…), derived automatically from the crates listed in each prdoc via the\ntaxonomy in prdoc/topics.yaml.\n- Inside each topic, entries are sub-grouped by audience (`🛠️ Runtime\nDev`, `🔧 Node Dev`, …), so the audience label is read once per group\ninstead of being repeated on every entry and readers who preferred the\nold audience-oriented changelog still get that view.\n- Extended Dockerhub section, listing the full set of images that we\npublish with each release\n\nThe release body shows a condensed changelog (kept under GitHub's\nrelease-body size cap); the complete changelog is attached to the\nrelease as CHANGELOG.md, together with a machine-readable changelog.json\n(schema: scripts/release/changelog/schema.json). A new CI regression\ncheck renders everything against real prdoc folders on any PR touching\nthe tooling.\n\nRendered example can be found here:\nhttps://github.com/EgorPopelyaev/polkadot-sdk/releases/tag/polkadot-stable3436-rc1\n\nFollow-up for the free text topics that can be added to the existing\nprdoc field: paritytech/release-engineering#300\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-03T08:47:34Z",
+          "tree_id": "70d4f2dfc3de2dcde11db20c5c93866ea3b596dd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c18c52159413f3dc3dafed0053e41b36e14f2b7b"
+        },
+        "date": 1788430604825,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.331680804600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1385860848333333,
             "unit": "seconds"
           }
         ]
