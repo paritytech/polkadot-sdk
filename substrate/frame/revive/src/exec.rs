@@ -1501,11 +1501,22 @@ where
 			// The storage deposit is only charged at the end of every call stack.
 			// To make sure that no sub call uses more than it is allowed to,
 			// the limit is manually enforced here.
-			let contract = frame.contract_info.as_contract();
-			frame
-				.frame_meter
-				.finalize(contract)
-				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
+			{
+				let contract = frame.contract_info.as_contract();
+				frame
+					.frame_meter
+					.finalize(contract)
+					.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
+			}
+
+			// Deferred destruction must run inside this storage transaction so a
+			// late `do_terminate` failure rolls back the enclosing execution,
+			// including the immediate beneficiary transfer. Reverts return above,
+			// so we never destroy after a reverted callee.
+			if is_first_frame {
+				self.finalize_scheduled_destructions()
+					.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
+			}
 
 			Ok(output)
 		};
@@ -1708,23 +1719,42 @@ where
 					contract.clone(),
 				);
 			}
-			// End of the callstack: destroy scheduled contracts in line with EVM semantics.
-			let contracts_created = mem::take(&mut self.first_frame.contracts_created);
-			let contracts_to_destroy = mem::take(&mut self.first_frame.contracts_to_be_destroyed);
-			for (contract_account, args) in contracts_to_destroy {
-				if args.only_if_same_tx && !contracts_created.contains(&contract_account) {
-					continue;
-				}
-				Self::do_terminate(
-					&mut self.transaction_meter,
-					self.exec_config,
-					&contract_account,
-					&self.origin,
-					&args,
-				)
-				.ok();
-			}
 		}
+	}
+
+	/// Destroy every contract scheduled on the first frame.
+	///
+	/// Called from inside the first-frame storage transaction so a fallible
+	/// `do_terminate` (e.g. a polite ED burn blocked by a lock/freeze) aborts
+	/// the enclosing call and undoes the immediate beneficiary transfer.
+	/// Meter `terminate` is applied only after every destruction succeeds, so a
+	/// mid-loop failure cannot leave the deposit meter thinking a still-live
+	/// contract was reaped.
+	fn finalize_scheduled_destructions(&mut self) -> Result<(), DispatchError> {
+		let contracts_created = mem::take(&mut self.first_frame.contracts_created);
+		let contracts_to_destroy = mem::take(&mut self.first_frame.contracts_to_be_destroyed);
+		let first_account = self.first_frame.account_id.clone();
+		let mut refunds = Vec::new();
+		for (contract_account, args) in &contracts_to_destroy {
+			if args.only_if_same_tx && !contracts_created.contains(contract_account) {
+				continue;
+			}
+			let refund = Self::do_terminate(
+				&mut self.transaction_meter,
+				self.exec_config,
+				contract_account,
+				&self.origin,
+				args,
+			)?;
+			if *contract_account == first_account {
+				self.first_frame.contract_info.invalidate();
+			}
+			refunds.push((contract_account.clone(), refund));
+		}
+		for (account, refund) in refunds {
+			self.transaction_meter.terminate(account, refund);
+		}
+		Ok(())
 	}
 
 	/// Transfer some funds from `from` to `to`.
@@ -1809,13 +1839,18 @@ where
 	}
 
 	/// Performs the actual deletion of a contract at the end of a call stack.
+	///
+	/// Returns the storage-deposit refund that the caller must later record on
+	/// the transaction meter, and only after every scheduled destruction has
+	/// succeeded. Applying the meter update here would be un-rollbackable if a
+	/// later contract in the same batch failed.
 	fn do_terminate(
 		transaction_meter: &mut TransactionMeter<T>,
 		exec_config: &ExecConfig<T>,
 		contract_account: &T::AccountId,
 		origin: &Origin<T>,
 		args: &TerminateArgs<T>,
-	) -> Result<(), DispatchError> {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
 		// If root created this contract we need to use the pallet account_id because root has no
@@ -1860,21 +1895,17 @@ where
 			AccountInfoOf::<T>::remove(contract_address);
 			ImmutableDataOf::<T>::remove(contract_address);
 
-			// the meter needs to discard all deposits interacting with the terminated contract
-			// we do this last as we cannot roll this back
-			transaction_meter.terminate(contract_account.clone(), refund);
-
-			Ok(())
+			Ok(refund)
 		};
 
-		// we cannot fail here as the contract that called `SELFDESTRUCT`
-		// is no longer on the call stack. hence we simply roll back the
-		// termination so that nothing happened.
+		// Nested storage transaction: on failure only this deletion is undone here.
+		// The enclosing first-frame transaction (see `run`) then rolls back the
+		// whole call, including the immediate beneficiary transfer.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			match delete_contract(&args.trie_id, &args.code_hash) {
-				Ok(()) => {
+				Ok(refund) => {
 					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
-					TransactionOutcome::Commit(Ok(()))
+					TransactionOutcome::Commit(Ok(refund))
 				},
 				Err(e) => {
 					log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} failed to terminate: {e:?}");
@@ -2694,6 +2725,7 @@ pub fn bench_do_terminate<T: Config>(
 		origin,
 		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx },
 	)
+	.map(|_| ())
 }
 
 mod sealing {
