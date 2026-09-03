@@ -13,7 +13,9 @@ doc:
 
     Two changes affect a runtime that includes this pallet. The `Config` supertrait changed from
     `CreateBare<Call<Self>>` to `CreateAuthorizedTransaction<Call<Self>>`, and the runtime must put
-    `frame_system::AuthorizeCall` in its transaction extension pipeline.
+    `frame_system::AuthorizeCall` in its transaction extension pipeline. A runtime that forgets
+    `AuthorizeCall` still compiles, but its unsigned solutions never get an authorized origin.
+    Validation rejects them with `UnknownOrigin`, so the unsigned fallback is never included.
 
     The `WeightInfo` trait renamed `validate_unsigned` to `authorize_submit_unsigned`.
 
