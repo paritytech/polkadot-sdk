@@ -891,7 +891,11 @@ where
 		}
 
 		self.strategy.remove_peer(&peer_id);
-		self.pending_responses.remove_all(&peer_id);
+		// NOTE: we intentionally do NOT call `self.pending_responses.remove_all(&peer_id)`
+		// here. The response from the request-response protocol may still arrive after
+		// the sync peer disconnects from the notifications protocol, and we want to
+		// process it (e.g. to not lose justification responses). The response handlers
+		// in the syncing strategies already handle the case where the peer is unknown.
 		self.event_streams
 			.retain(|stream| stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok());
 	}
