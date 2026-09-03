@@ -17,6 +17,6 @@ crates:
 - name: sp-statement-store
   bump: minor
 - name: polkadot-omni-node-lib
-  bump: minor
+  bump: major
 - name: staging-node-cli
   bump: minor
