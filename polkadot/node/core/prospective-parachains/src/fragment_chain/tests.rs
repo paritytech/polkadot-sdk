@@ -839,7 +839,7 @@ fn test_populate_and_check_potential() {
 	assert_eq!(chain.unconnected_len(), 0);
 	assert_matches!(
 		chain.can_add_candidate_as_potential(&relay_chain_scope, &unconnected_candidate_c_entry),
-		Err(Error::RelayParentPrecedesCandidatePendingAvailability(_, _))
+		Err(Error::RelayParentMovedBackwards)
 	);
 
 	// Not allowed to fork from a candidate pending availability
@@ -1810,6 +1810,6 @@ fn test_relay_parent_below_min_relay_parent_number_rejected() {
 	let chain = FragmentChain::init(&scheduling_scope, scope, CandidateStorage::default());
 	assert_matches!(
 		chain.can_add_candidate_as_potential(&scheduling_scope, &candidate_entry),
-		Err(Error::RelayParentNotInScope(hash)) if hash == old_relay_parent
+		Err(Error::RelayParentMovedBackwards)
 	);
 }
