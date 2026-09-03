@@ -1667,6 +1667,9 @@ where
 								"Failed to decode v1 statement list from {peer}"
 							);
 							self.network.report_peer(peer, rep::BAD_MESSAGE);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(peer);
+							}
 						}
 					},
 					PeerProtocolVersion::V2 => {
@@ -1683,6 +1686,9 @@ where
 											"Rate-limiting ExplicitTopicAffinity from {peer}"
 										);
 										self.network.report_peer(peer, rep::BAD_MESSAGE);
+										if v2dht_enabled() {
+											self.v2dht.on_peer_misbehaved(peer);
+										}
 										return;
 									}
 									if v2dht_enabled() {
@@ -1712,6 +1718,9 @@ where
 								"Failed to decode v2 statement message from {peer}"
 							);
 							self.network.report_peer(peer, rep::BAD_MESSAGE);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(peer);
+							}
 						}
 					},
 				}
@@ -1803,6 +1812,9 @@ where
 								"Already received the statement from the same peer {who}.",
 							);
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(who);
+							}
 						}
 					}
 					continue;
@@ -1842,6 +1854,9 @@ where
 						if !entry.get_mut().insert(who) {
 							// Already received this from the same peer.
 							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+							if v2dht_enabled() {
+								self.v2dht.on_peer_misbehaved(who);
+							}
 						}
 					},
 				}
