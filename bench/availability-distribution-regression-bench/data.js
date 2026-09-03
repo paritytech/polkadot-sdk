@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788430688976,
+  "lastUpdate": 1788471837109,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a21dbd56b740a79515aa130d7ff7bace144a7adc",
-          "message": "fatxpool: Do not remove listener for finalized view (#10965)\n\nInstead of immediately removing the listener for finalized view, lets\nkeep them around while the view is still in the `active_views`. Once the\nnext block is finalized, we will remove it. This should fix manual-seal\nproblems where new blocks are immeditaly finalized.\n\n\nfixes #10332\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2026-02-04T14:29:07Z",
-          "tree_id": "27255ccbd963aa2584f652f0ab4fe25defe20291",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a21dbd56b740a79515aa130d7ff7bace144a7adc"
-        },
-        "date": 1770219570470,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009979810959999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14419528964666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0069442463733333315,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023117819693333343,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010141295053333312,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd42d2f58404290bfff77492f4e48c531d209bf4",
+          "message": "[EPMB] bound the tx-fee refund of a signed submission (#12877)\n\nThe winner of the signed phase is paid `RewardBase` plus the transaction\nfees their submission cost them, tracked in `SubmissionMetadata::fee`.\nTwo changes:\n\n- A new `signed::Config::MaxFeeRefund` caps the refundable portion, both\nfor the winner and for an invulnerable clearing a discarded submission.\nThe payout is now bounded by config\n- Storing a page that is already stored no longer accrues a fee,\nmatching what the refund is meant to cover.\n\nRuntimes should set `MaxFeeRefund` to\n`signed::FullSubmissionFee<Runtime, TransactionPayment>`, which prices\none `register` plus `Pages` `submit_page` calls at the maximum encoded\npage size.\n\n`FullSubmissionFee` needs the fee of a call it cannot afford to build,\nso `frame_support` gains `EstimateFee`, a sibling of `EstimateCallFee`\nthat takes an encoded length and a `DispatchInfo` instead of a call,\nimplemented by `pallet-transaction-payment`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-09-03T20:15:32Z",
+          "tree_id": "4f29e232935bc2556b9ab962b13659ae8b2f592d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd42d2f58404290bfff77492f4e48c531d209bf4"
+        },
+        "date": 1788471796535,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007450383273333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010294985786666641,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14639296520000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02548090333333334,
             "unit": "seconds"
           }
         ]
