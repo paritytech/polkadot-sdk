@@ -640,9 +640,19 @@ impl<B: Backend> State<B> {
 		if paras.is_empty() {
 			return None;
 		}
+		// Only the scheduling parents we hold live segments under can produce a launch, so
+		// those are the only ones worth asking prospective-parachains about.
+		let scheduling_parents = self.collation_manager.scheduling_parents_with_live_segments();
+		if scheduling_parents.is_empty() {
+			return None;
+		}
 		let (tx, rx) = oneshot::channel();
 		sender
-			.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads(paras, tx))
+			.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads {
+				scheduling_parents,
+				para_ids: paras,
+				tx,
+			})
 			.await;
 		let pp_known = match rx.await {
 			Ok(known) => known,
@@ -660,7 +670,7 @@ impl<B: Backend> State<B> {
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		pp_known: &HashMap<ParaId, HashSet<Hash>>,
+		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 	) -> Option<Duration> {
 		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
 

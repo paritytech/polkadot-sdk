@@ -208,7 +208,7 @@ struct TestState {
 	keystore: KeystorePtr,
 	node_features: NodeFeatures,
 	slot_overrides: HashMap<Hash, sp_consensus_slots::Slot>,
-	pp_known_output_heads: HashMap<ParaId, HashSet<Hash>>,
+	pp_known_output_heads: HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 	// Shared by the subsystem state and the mock header responder: a single, frozen time
 	// source so V3 scheduling-parent slot validation can't race a wall-clock slot boundary.
 	clock: Arc<MockClock>,
@@ -5401,6 +5401,8 @@ async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
 		let mut test_state = TestState::default();
 		test_state
 			.pp_known_output_heads
+			.entry(get_hash(10))
+			.or_default()
 			.insert(100.into(), [fp_a.output_head_data_hash].into());
 		let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
 		let mut sender = test_state.sender.clone();
@@ -5437,6 +5439,8 @@ async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
 		let mut test_state = TestState::default();
 		test_state
 			.pp_known_output_heads
+			.entry(get_hash(10))
+			.or_default()
 			.insert(100.into(), [fp_a.output_head_data_hash, fp_b.output_head_data_hash].into());
 		let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
 		let mut sender = test_state.sender.clone();
@@ -5486,6 +5490,8 @@ async fn v4_pp_knowledge_arriving_between_passes_is_seen() {
 	// A becomes PP-known only now — after activation, before the pass.
 	test_state
 		.pp_known_output_heads
+		.entry(get_hash(10))
+		.or_default()
 		.insert(100.into(), [fp_a.output_head_data_hash].into());
 
 	test_state
@@ -5577,10 +5583,13 @@ async fn v4_seconded_head_blocked_after_fetched_entry_expires(#[case] pp_reports
 		.await;
 
 	if pp_reports_a {
-		// As production PP would: A was introduced at seconding, so every
-		// subsequent refresh reports it.
+		// As production PP would: A was introduced at seconding under SP1, and SP1 is an
+		// ancestor of SP3 (`get_hash(12)`, the scheduling parent of the second advertisement), so
+		// PP's per-scheduling-parent answer for SP3 reports A.
 		test_state
 			.pp_known_output_heads
+			.entry(get_hash(12))
+			.or_default()
 			.insert(100.into(), [fp_a.output_head_data_hash].into());
 	}
 
@@ -5637,6 +5646,8 @@ async fn v4_mixed_version_double_fetch_converges() {
 	// A is already PP-known so the V4 segment resolves B on its first pick.
 	test_state
 		.pp_known_output_heads
+		.entry(get_hash(10))
+		.or_default()
 		.insert(100.into(), [fp_a.output_head_data_hash].into());
 	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
 	let mut sender = test_state.sender.clone();
@@ -6067,4 +6078,54 @@ async fn registered_paras_pruned_on_new_session() {
 	});
 	test_state.assert_no_messages().await;
 	assert!(db.witnessed_prunes().is_empty());
+}
+
+#[tokio::test]
+// PP knowledge is indexed by the advertisement's scheduling parent: a head PP reports as known
+// only under an UNRELATED scheduling parent (a sibling relay fork, or a fork leaf that outlived
+// its branch) does not block the walk for a segment advertised under ours.
+async fn v4_pp_knowledge_under_other_scheduling_parent_does_not_block() {
+	let fp_a = v4_fingerprint(0xa1);
+	let fp_b = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xa2),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		claim_queue_offset: 0,
+	};
+
+	let mut test_state = TestState::default();
+	// PP knows A, but only under a scheduling parent that is not ours.
+	test_state
+		.pp_known_output_heads
+		.entry(Hash::repeat_byte(0xee))
+		.or_default()
+		.insert(100.into(), [fp_a.output_head_data_hash].into());
+	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	test_state
+		.send_v4_segment(
+			&mut state,
+			peer_id,
+			scheduling_parent,
+			vec![fp_a.clone(), fp_b.clone()],
+			100.into(),
+		)
+		.await;
+	state
+		.try_launch_new_fetch_requests(&mut sender, &test_state.pp_known_output_heads)
+		.await;
+	// A is fetched, not skipped: knowledge under the other scheduling parent is irrelevant here.
+	test_state
+		.assert_collation_request(Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(v4_entry(&fp_a)),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		})
+		.await;
 }

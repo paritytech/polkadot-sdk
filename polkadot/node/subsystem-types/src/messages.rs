@@ -1597,6 +1597,18 @@ pub enum ProspectiveParachainsMessage {
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
-	/// Get each para's known output heads, plus its best-chain parent heads.
-	GetKnownOutputHeads(Vec<ParaId>, oneshot::Sender<HashMap<ParaId, HashSet<Hash>>>),
+	/// Known output heads plus best-chain parent heads, for each requested scheduling parent and
+	/// para. A head is known at scheduling parent X iff a candidate producing it was introduced
+	/// with SP X or an in-scope ancestor of X. Candidates introduced under a sibling fork or a
+	/// descendant of X do not count: they are only usable on futures an advertisement made at X
+	/// does not necessarily share. A missing key means prospective-parachains has no view at
+	/// that scheduling parent.
+	GetKnownOutputHeads {
+		/// Scheduling parents to report on.
+		scheduling_parents: Vec<Hash>,
+		/// Paras to report on.
+		para_ids: Vec<ParaId>,
+		/// Response channel.
+		tx: oneshot::Sender<HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>>,
+	},
 }

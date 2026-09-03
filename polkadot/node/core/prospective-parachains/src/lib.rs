@@ -211,9 +211,11 @@ async fn run_iteration<Context>(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) => {
 					answer_prospective_validation_data_request(ctx, view, request, tx).await
 				},
-				ProspectiveParachainsMessage::GetKnownOutputHeads(para_ids, tx) => {
-					answer_get_known_output_heads(view, para_ids, tx).await
-				},
+				ProspectiveParachainsMessage::GetKnownOutputHeads {
+					scheduling_parents,
+					para_ids,
+					tx,
+				} => answer_get_known_output_heads(view, scheduling_parents, para_ids, tx).await,
 			},
 		}
 	}
@@ -606,8 +608,8 @@ where
 	.await?
 	{
 		Some(info)
-			if info.number == relay_parent_number
-				&& info.state_root == relay_parent_storage_root =>
+			if info.number == relay_parent_number &&
+				info.state_root == relay_parent_storage_root =>
 		{
 			Ok(())
 		},
@@ -1097,39 +1099,28 @@ async fn answer_prospective_validation_data_request<Context>(
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn answer_get_known_output_heads(
 	view: &View,
+	scheduling_parents: Vec<Hash>,
 	para_ids: Vec<ParaId>,
-	tx: oneshot::Sender<HashMap<ParaId, HashSet<Hash>>>,
+	tx: oneshot::Sender<HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>>,
 ) {
-	let mut known: HashMap<ParaId, HashSet<Hash>> =
-		para_ids.iter().map(|p| (*p, HashSet::new())).collect();
-
-	// Only report heads under leaves at the current (highest) session. Right after a session
-	// change a leaf from the superseded session can still linger in `active_leaves` before its
-	// deactivation is processed; its scheduling parents are no longer valid, so a consumer that
-	// treats a reported head as "already known" would wrongly hard-block a legitimate fetch at
-	// the session boundary. In steady state every active leaf shares one session, so this is a
-	// no-op.
-	let current_session = view
-		.active_leaves
-		.iter()
-		.filter_map(|leaf| view.per_scheduling_parent.get(leaf).map(|d| d.session_index))
-		.max();
-	let Some(current_session) = current_session else {
-		let _ = tx.send(known);
-		return;
-	};
-
-	for leaf in view.active_leaves.iter() {
-		if let Some(per_sp) = view.per_scheduling_parent.get(leaf) {
-			if per_sp.session_index != current_session {
-				continue;
-			}
-			for para_id in &para_ids {
-				if let Some(per_para) = per_sp.fragment_chains.get(para_id) {
-					let entry = known.entry(*para_id).or_default();
-					entry.extend(per_para.known_output_heads());
-					entry.extend(per_para.chain_parent_heads());
-				}
+	// Knowledge is reported per scheduling parent, never as a union over the view. The entry
+	// for `sp` holds exactly the candidates whose scheduling parent is `sp` or one of its
+	// in-scope ancestors: `handle_introduce_seconded_candidate` only adds a candidate to the
+	// entries whose `scheduling_scope` covers its scheduling parent, and a scope never crosses a
+	// session boundary. A candidate seconded under a sibling fork, or under a descendant of
+	// `sp`, is therefore not reported for `sp`. It can only be backed on futures that an
+	// advertisement made at `sp` does not necessarily share, so treating it as "known" would
+	// block a legitimate fetch on the other branch for as long as the dead fork leaf stays in
+	// view. Scheduling parents without an entry are left out of the answer.
+	let mut known: HashMap<Hash, HashMap<ParaId, HashSet<Hash>>> = HashMap::new();
+	for sp in scheduling_parents {
+		let Some(per_sp) = view.per_scheduling_parent.get(&sp) else { continue };
+		let per_para_known = known.entry(sp).or_default();
+		for para_id in &para_ids {
+			let entry = per_para_known.entry(*para_id).or_default();
+			if let Some(per_para) = per_sp.fragment_chains.get(para_id) {
+				entry.extend(per_para.known_output_heads());
+				entry.extend(per_para.chain_parent_heads());
 			}
 		}
 	}

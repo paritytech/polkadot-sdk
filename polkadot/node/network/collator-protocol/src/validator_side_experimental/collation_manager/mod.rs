@@ -41,8 +41,11 @@
 //! `live_segments`.
 //!
 //! Prospective-parachains knowledge is queried live before each planner pass
-//! (`GetKnownOutputHeads`) and passed in; staleness is bounded by PP's own
-//! statement-ingestion latency.
+//! (`GetKnownOutputHeads`, one answer per scheduling parent we hold live segments under) and
+//! passed in; staleness is bounded by PP's own statement-ingestion latency. Knowledge is
+//! branch-scoped: an entry is skipped only if its head is PP-known, fetched or in flight under
+//! the advertisement's own scheduling parent or one of its ancestors. The same head under a
+//! sibling relay fork does not count, since that attempt cannot serve this advertisement.
 
 use crate::{
 	extract_leaf_scheduling_info, is_scheduling_parent_valid,
@@ -352,6 +355,22 @@ impl CollationManager {
 			.collect()
 	}
 
+	/// Scheduling parents in view that hold at least one live (unconsumed) segment. These are
+	/// the only scheduling parents a planner pass can launch from, so they are the only ones
+	/// worth asking prospective-parachains about.
+	pub fn scheduling_parents_with_live_segments(&self) -> Vec<Hash> {
+		self.per_scheduling_parent
+			.iter()
+			.filter(|(_, per_sp)| {
+				per_sp
+					.peer_advertisements
+					.values()
+					.any(|peer_ads| peer_ads.live_segments().next().is_some())
+			})
+			.map(|(sp, _)| *sp)
+			.collect()
+	}
+
 	/// Number of CQ positions assigned to `para_id` in the SP's visible window of our core.
 	///
 	/// Returns `0` if the SP isn't in view.
@@ -512,7 +531,7 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
-		pp_known: &HashMap<ParaId, HashSet<Hash>>,
+		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
 		let now = self.clock.now();
@@ -520,9 +539,10 @@ impl CollationManager {
 		let mut maybe_min_delay = None;
 
 		// Soft-blocker cache for this pass: output heads of fetched and in-flight
-		// candidates, built lazily once per para and kept current within the pass
-		// by inserting every launched head below. Dropped at pass end.
-		let mut pending: HashMap<ParaId, HashSet<Hash>> = HashMap::new();
+		// candidates, each with the scheduling parents the attempts were made under. Built
+		// lazily once per para and kept current within the pass by inserting every launched
+		// head below. Dropped at pass end.
+		let mut pending: HashMap<ParaId, HashMap<Hash, HashSet<Hash>>> = HashMap::new();
 
 		// Build per-(leaf, core) capacity views once, with all current consumers already
 		// allocated. Each `LeafCoreCq` is a self-contained answer to "what's still free on
@@ -546,7 +566,7 @@ impl CollationManager {
 					para_id,
 					candidate_sps,
 					pending_heads,
-					pp_known.get(&para_id),
+					pp_known,
 					highest_rep_of_para,
 					&connected_rep_query_fn,
 				);
@@ -581,7 +601,12 @@ impl CollationManager {
 				if let Some(oh) =
 					advertisement.prospective_candidate.and_then(|pc| pc.output_head_data_hash())
 				{
-					pending.get_mut(&para_id).expect("entry created before pick; qed").insert(oh);
+					pending
+						.get_mut(&para_id)
+						.expect("entry created before pick; qed")
+						.entry(oh)
+						.or_default()
+						.insert(advertisement.scheduling_parent);
 				}
 
 				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
@@ -905,34 +930,55 @@ impl CollationManager {
 		MAX_FETCH_DELAY
 	}
 
-	/// The known-set for `para_id`: output head already fetched
-	/// or in flight.
-	fn known_output_heads(&self, para_id: ParaId) -> HashSet<Hash> {
-		let fetched = self.per_scheduling_parent.values().flat_map(|per_scheduling_parent| {
-			per_scheduling_parent
-				.fetched_collations
-				.values()
-				.filter(|info| info.para_id == para_id)
-				.map(|info| info.output_head_hash)
-		});
-		let in_flight = self
-			.fetching
-			.iter()
-			.filter(|advertisement| advertisement.para_id == para_id)
-			.filter_map(|advertisement| {
+	/// The known-set for `para_id`: output heads already fetched or in flight, each with the
+	/// scheduling parents the attempts were made under. Tagged per scheduling parent because a
+	/// collation fetched under one relay fork is of no use to an advertisement made under a
+	/// sibling fork; `resolve_segment` only honours attempts on the advertisement's own branch.
+	fn known_output_heads(&self, para_id: ParaId) -> HashMap<Hash, HashSet<Hash>> {
+		let mut known: HashMap<Hash, HashSet<Hash>> = HashMap::new();
+		for (scheduling_parent, per_scheduling_parent) in &self.per_scheduling_parent {
+			for info in per_scheduling_parent.fetched_collations.values() {
+				if info.para_id == para_id {
+					known.entry(info.output_head_hash).or_default().insert(*scheduling_parent);
+				}
+			}
+		}
+		for advertisement in self.fetching.iter().filter(|adv| adv.para_id == para_id) {
+			if let Some(output_head) =
 				advertisement.prospective_candidate.and_then(|pc| pc.output_head_data_hash())
-			});
-		fetched.chain(in_flight).collect()
+			{
+				known.entry(output_head).or_default().insert(advertisement.scheduling_parent);
+			}
+		}
+		known
+	}
+
+	/// The scheduling parent `scheduling_parent` together with its allowed ancestors, as known
+	/// to the implicit view. Always contains `scheduling_parent` itself, even when the implicit
+	/// view has no entry for it.
+	fn branch_of(&self, scheduling_parent: &Hash) -> Vec<Hash> {
+		let mut branch: Vec<Hash> = self
+			.implicit_view
+			.known_allowed_relay_parents_under(scheduling_parent)
+			.map(|ancestors| ancestors.to_vec())
+			.unwrap_or_default();
+		if !branch.contains(scheduling_parent) {
+			branch.push(*scheduling_parent);
+		}
+		branch
 	}
 
 	/// Walk a picked segment containing ByOutputHead entries. Mint the fetch
 	/// target from the first entry that is not in fetch, fetched or already
-	/// known by prospective parachains.
+	/// known by prospective parachains on the segment's own branch: `pp_known` is the
+	/// PP answer for the segment's scheduling parent, and a pending attempt only counts if
+	/// it was made under a scheduling parent in `branch`.
 	fn resolve_segment(
 		&self,
 		item: &RankedSegment,
 		para_id: ParaId,
-		pending_heads: &HashSet<Hash>,
+		pending_heads: &HashMap<Hash, HashSet<Hash>>,
+		branch: &[Hash],
 		pp_known: Option<&HashSet<Hash>>,
 	) -> Resolution {
 		let Some(segment) = self
@@ -962,8 +1008,13 @@ impl CollationManager {
 							// Hard: prospective parachains already has this head —
 							// PP-first, even if it is also in flight or fetched.
 							false
-						} else if pending_heads.contains(&output_head_hash) {
-							// Soft: blocked by an attempt that may still fail.
+						} else if pending_heads
+							.get(&output_head_hash)
+							.is_some_and(|sps| sps.iter().any(|sp| branch.contains(sp)))
+						{
+							// Soft: blocked by an attempt on this branch that may still fail.
+							// An attempt under a sibling fork cannot serve this advertisement
+							// and is not a blocker.
 							saw_soft_blocker = true;
 							false
 						} else {
@@ -1102,8 +1153,8 @@ impl CollationManager {
 		now: Instant,
 		para_id: ParaId,
 		candidate_sps: impl Iterator<Item = Hash>,
-		pending_heads: &HashSet<Hash>,
-		pp_known: Option<&HashSet<Hash>>,
+		pending_heads: &HashMap<Hash, HashSet<Hash>>,
+		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
 	) -> PickOutcome {
@@ -1136,7 +1187,14 @@ impl CollationManager {
 				?delay,
 				"Delay elapsed; picking fetch target from the winning segment."
 			);
-			match self.resolve_segment(&item, para_id, pending_heads, pp_known) {
+			// Knowledge is branch-scoped: PP's answer for this segment's scheduling parent, and
+			// pending attempts made under that scheduling parent or one of its ancestors. A
+			// missing PP key means PP has no view at that scheduling parent, so nothing is known.
+			let branch = self.branch_of(&item.scheduling_parent);
+			let pp_known_at_sp = pp_known
+				.get(&item.scheduling_parent)
+				.and_then(|per_para| per_para.get(&para_id));
+			match self.resolve_segment(&item, para_id, pending_heads, &branch, pp_known_at_sp) {
 				Resolution::Launch(fetch_target) => {
 					self.consume_segment(&item.scheduling_parent, &item.peer_id, item.segment_id);
 					return PickOutcome::Fetch(fetch_target);
@@ -2074,8 +2132,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					score(100),
 					&get_rep,
 				),
@@ -2099,8 +2157,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					score(100), // highest_rep == peer's score, so delay = 0
 					&get_rep,
 				),
@@ -2125,8 +2183,8 @@ mod tests {
 				now,
 				para_id,
 				std::iter::once(scheduling_parent),
-				&HashSet::new(),
-				None,
+				&HashMap::new(),
+				&HashMap::new(),
 				score(100),
 				&get_rep,
 			);
@@ -2164,8 +2222,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					score(100),
 					&get_rep,
 				),
@@ -2192,8 +2250,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					score(100),
 					&get_rep,
 				),
@@ -2217,8 +2275,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					score(100),
 					&get_rep,
 				),
@@ -2237,8 +2295,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(unknown_scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					score(100),
 					&get_rep,
 				),
@@ -2270,8 +2328,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					score(100),
 					&get_rep,
 				),
@@ -2297,8 +2355,8 @@ mod tests {
 				now,
 				para_id,
 				std::iter::once(scheduling_parent),
-				&HashSet::new(),
-				None,
+				&HashMap::new(),
+				&HashMap::new(),
 				score(100),
 				&get_rep,
 			);
@@ -2334,6 +2392,25 @@ mod tests {
 			output_head_data_hash: Hash::repeat_byte(byte),
 			parent_head_data_hash: Hash::repeat_byte(byte.wrapping_sub(1)),
 		}
+	}
+
+	/// PP knowledge for `para_id` at `scheduling_parent`: the given heads, as the per-SP answer
+	/// the planner receives.
+	fn pp_known_at(
+		scheduling_parent: Hash,
+		para_id: ParaId,
+		heads: &[u8],
+	) -> HashMap<Hash, HashMap<ParaId, HashSet<Hash>>> {
+		let heads: HashSet<Hash> = heads.iter().map(|b| Hash::repeat_byte(*b)).collect();
+		[(scheduling_parent, [(para_id, heads)].into())].into()
+	}
+
+	/// Pending (fetched or in-flight) heads, all attempted under `scheduling_parent`.
+	fn pending_at(scheduling_parent: Hash, heads: &[u8]) -> HashMap<Hash, HashSet<Hash>> {
+		heads
+			.iter()
+			.map(|b| (Hash::repeat_byte(*b), [scheduling_parent].into()))
+			.collect()
 	}
 
 	fn push_segment(
@@ -2396,8 +2473,8 @@ mod tests {
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					None,
+					&HashMap::new(),
+					&HashMap::new(),
 					Score::new(100),
 					&get_rep,
 				),
@@ -2411,7 +2488,7 @@ mod tests {
 		{
 			let mut manager = test_collation_manager(scheduling_parent);
 			push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
-			let known: HashSet<Hash> = [Hash::repeat_byte(0xa1)].into();
+			let known = pending_at(scheduling_parent, &[0xa1]);
 
 			assert_eq!(
 				manager.pick_best_advertisement(
@@ -2419,7 +2496,7 @@ mod tests {
 					para_id,
 					std::iter::once(scheduling_parent),
 					&known,
-					None,
+					&HashMap::new(),
 					Score::new(100),
 					&get_rep,
 				),
@@ -2453,7 +2530,7 @@ mod tests {
 		let mut manager = test_collation_manager(scheduling_parent);
 		push_segment(&mut manager, scheduling_parent, peer_hi, para_id, vec![blocked_entry]);
 		push_segment(&mut manager, scheduling_parent, peer_lo, para_id, vec![free_entry]);
-		let known: HashSet<Hash> = [Hash::repeat_byte(0xb1)].into();
+		let known = pending_at(scheduling_parent, &[0xb1]);
 
 		// peer_hi ranks first but resolves all-soft-blocked → held → peer_lo launches.
 		assert_eq!(
@@ -2462,7 +2539,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&known,
-				None,
+				&HashMap::new(),
 				Score::new(100),
 				&get_rep,
 			),
@@ -2496,7 +2573,7 @@ mod tests {
 		let mut manager = test_collation_manager(scheduling_parent);
 		push_segment(&mut manager, scheduling_parent, peer_hi, para_id, vec![blocked_entry]);
 		push_segment(&mut manager, scheduling_parent, peer_lo, para_id, vec![free_entry]);
-		let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xb1)].into();
+		let pp_known = pp_known_at(scheduling_parent, para_id, &[0xb1]);
 
 		// peer_hi ranks first but resolves all-hard-blocked → consumed → peer_lo launches.
 		assert_eq!(
@@ -2504,8 +2581,8 @@ mod tests {
 				now,
 				para_id,
 				std::iter::once(scheduling_parent),
-				&HashSet::new(),
-				Some(&pp_known),
+				&HashMap::new(),
+				&pp_known,
 				Score::new(100),
 				&get_rep,
 			),
@@ -2528,8 +2605,8 @@ mod tests {
 
 		let mut manager = test_collation_manager(scheduling_parent);
 		push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
-		let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xc1)].into();
-		let known: HashSet<Hash> = [Hash::repeat_byte(0xc2)].into();
+		let pp_known = pp_known_at(scheduling_parent, para_id, &[0xc1]);
+		let known = pending_at(scheduling_parent, &[0xc2]);
 
 		assert_eq!(
 			manager.pick_best_advertisement(
@@ -2537,7 +2614,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&known,
-				Some(&pp_known),
+				&pp_known,
 				Score::new(100),
 				&get_rep,
 			),
@@ -2560,8 +2637,8 @@ mod tests {
 
 		let mut manager = test_collation_manager(scheduling_parent);
 		push_segment(&mut manager, scheduling_parent, peer_id, para_id, vec![entry]);
-		let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xd1)].into();
-		let known: HashSet<Hash> = [Hash::repeat_byte(0xd1)].into();
+		let pp_known = pp_known_at(scheduling_parent, para_id, &[0xd1]);
+		let known = pending_at(scheduling_parent, &[0xd1]);
 
 		assert_eq!(
 			manager.pick_best_advertisement(
@@ -2569,7 +2646,7 @@ mod tests {
 				para_id,
 				std::iter::once(scheduling_parent),
 				&known,
-				Some(&pp_known),
+				&pp_known,
 				Score::new(100),
 				&get_rep,
 			),
@@ -2593,15 +2670,15 @@ mod tests {
 		{
 			let mut manager = test_collation_manager(scheduling_parent);
 			push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
-			let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xc1)].into();
+			let pp_known = pp_known_at(scheduling_parent, para_id, &[0xc1]);
 
 			assert_eq!(
 				manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					Some(&pp_known),
+					&HashMap::new(),
+					&pp_known,
 					Score::new(100),
 					&get_rep,
 				),
@@ -2613,15 +2690,15 @@ mod tests {
 		{
 			let mut manager = test_collation_manager(scheduling_parent);
 			push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
-			let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xc1), Hash::repeat_byte(0xc2)].into();
+			let pp_known = pp_known_at(scheduling_parent, para_id, &[0xc1, 0xc2]);
 
 			assert_eq!(
 				manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
-					&HashSet::new(),
-					Some(&pp_known),
+					&HashMap::new(),
+					&pp_known,
 					Score::new(100),
 					&get_rep,
 				),
@@ -2631,11 +2708,11 @@ mod tests {
 		}
 	}
 
-	// The known-set projection is para-scoped and deliberately spans ALL in-view scheduling
-	// parents — launch eligibility is position-scoped, knowledge is not (a resubmission's
-	// earlier fetch lives at an older SP than any launch-eligible one). Fetched heads from
-	// any SP and in-flight ByOutputHead tickets both land; ByHash tickets contribute
-	// nothing (their output head is unknowable pre-fetch).
+	// The known-set projection is para-scoped and spans ALL in-view scheduling parents, each
+	// head tagged with the SPs it was attempted under (a resubmission's earlier fetch lives at
+	// an older SP than any launch-eligible one; `resolve_segment` decides per branch whether
+	// that attempt counts). Fetched heads from any SP and in-flight ByOutputHead tickets both
+	// land; ByHash tickets contribute nothing (their output head is unknowable pre-fetch).
 	#[test]
 	fn known_output_heads_projects_fetched_and_in_flight_across_sps() {
 		let sp_1 = Hash::repeat_byte(0x01);
@@ -2684,8 +2761,130 @@ mod tests {
 
 		assert_eq!(
 			manager.known_output_heads(para_id),
-			[Hash::repeat_byte(0xd1), Hash::repeat_byte(0xd3)].into()
+			[(Hash::repeat_byte(0xd1), [sp_1].into()), (Hash::repeat_byte(0xd3), [sp_2].into())]
+				.into()
 		);
+	}
+
+	// Knowledge is branch-scoped: a head fetched, in flight or PP-known under a SIBLING
+	// scheduling parent does not block the walk for a segment advertised under the other
+	// sibling. That attempt is bound to a relay fork this advertisement is not on, so it cannot
+	// serve it, and a dead fork leaf can linger in view for a full finality lag.
+	#[test]
+	fn knowledge_under_a_sibling_scheduling_parent_does_not_block() {
+		let sp_live = Hash::repeat_byte(0x01);
+		let sp_dead = Hash::repeat_byte(0x02);
+		let para_id = ParaId::new(1);
+		let peer_id = PeerId::random();
+		let now = Instant::now();
+		let get_rep = |_: &PeerId, _: &ParaId| Some(Score::new(100));
+		let entries = vec![v4_entry(0xe1), v4_entry(0xe2)];
+
+		let mut manager = test_collation_manager(sp_live);
+		manager.per_scheduling_parent.insert(
+			sp_dead,
+			PerSchedulingParent::new(0, CoreIndex(0), &*polkadot_node_clock::system_clock()),
+		);
+		push_segment(&mut manager, sp_live, peer_id, para_id, entries.clone());
+		// The first entry is PP-known AND pending, but only under the sibling.
+		let pp_known = pp_known_at(sp_dead, para_id, &[0xe1]);
+		let pending = pending_at(sp_dead, &[0xe1]);
+
+		assert_eq!(
+			manager.pick_best_advertisement(
+				now,
+				para_id,
+				std::iter::once(sp_live),
+				&pending,
+				&pp_known,
+				Score::new(100),
+				&get_rep,
+			),
+			PickOutcome::Fetch(v4_ticket(sp_live, para_id, peer_id, entries[0]))
+		);
+	}
+
+	// The same knowledge under the segment's OWN scheduling parent does block: PP-known is a
+	// hard blocker, fetched/in-flight a soft one; either way the walk advances past the entry.
+	#[test]
+	fn knowledge_under_the_own_scheduling_parent_blocks() {
+		let sp = Hash::repeat_byte(0x01);
+		let para_id = ParaId::new(1);
+		let peer_id = PeerId::random();
+		let now = Instant::now();
+		let get_rep = |_: &PeerId, _: &ParaId| Some(Score::new(100));
+		let entries = vec![v4_entry(0xe1), v4_entry(0xe2)];
+
+		// PP-known under own SP.
+		{
+			let mut manager = test_collation_manager(sp);
+			push_segment(&mut manager, sp, peer_id, para_id, entries.clone());
+			let pp_known = pp_known_at(sp, para_id, &[0xe1]);
+			assert_eq!(
+				manager.pick_best_advertisement(
+					now,
+					para_id,
+					std::iter::once(sp),
+					&HashMap::new(),
+					&pp_known,
+					Score::new(100),
+					&get_rep,
+				),
+				PickOutcome::Fetch(v4_ticket(sp, para_id, peer_id, entries[1]))
+			);
+		}
+
+		// Fetched or in flight under own SP.
+		{
+			let mut manager = test_collation_manager(sp);
+			push_segment(&mut manager, sp, peer_id, para_id, entries.clone());
+			let pending = pending_at(sp, &[0xe1]);
+			assert_eq!(
+				manager.pick_best_advertisement(
+					now,
+					para_id,
+					std::iter::once(sp),
+					&pending,
+					&HashMap::new(),
+					Score::new(100),
+					&get_rep,
+				),
+				PickOutcome::Fetch(v4_ticket(sp, para_id, peer_id, entries[1]))
+			);
+		}
+	}
+
+	// `scheduling_parents_with_live_segments` lists exactly the SPs holding an unconsumed
+	// segment; a launch consumes the segment and drops the SP from the list.
+	#[test]
+	fn scheduling_parents_with_live_segments_lists_only_live_ones() {
+		let sp_with = Hash::repeat_byte(0x01);
+		let sp_without = Hash::repeat_byte(0x02);
+		let para_id = ParaId::new(1);
+		let peer_id = PeerId::random();
+		let now = Instant::now();
+		let get_rep = |_: &PeerId, _: &ParaId| Some(Score::new(100));
+
+		let mut manager = test_collation_manager(sp_with);
+		manager.per_scheduling_parent.insert(
+			sp_without,
+			PerSchedulingParent::new(0, CoreIndex(0), &*polkadot_node_clock::system_clock()),
+		);
+		assert!(manager.scheduling_parents_with_live_segments().is_empty());
+
+		push_segment(&mut manager, sp_with, peer_id, para_id, vec![v4_entry(0xe1)]);
+		assert_eq!(manager.scheduling_parents_with_live_segments(), vec![sp_with]);
+
+		let _ = manager.pick_best_advertisement(
+			now,
+			para_id,
+			std::iter::once(sp_with),
+			&HashMap::new(),
+			&HashMap::new(),
+			Score::new(100),
+			&get_rep,
+		);
+		assert!(manager.scheduling_parents_with_live_segments().is_empty());
 	}
 
 	#[test]
