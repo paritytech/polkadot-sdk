@@ -16,7 +16,7 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 ## Choose your path
 
-Polkadot SDK is the starting point for runtime, chain, and protocol development. If you're building at a different layer of the Polkadot stack, these routes may be more useful:
+Polkadot SDK is the starting point for runtime, chain, and protocol development. If you're building at a different layer of the Polkadot stack, these routes are better starting points:
 
 | I want to… | Start here |
 |---|---|
