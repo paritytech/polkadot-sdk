@@ -69,9 +69,11 @@ use std::{
 /// Host functions that should be used in parachain nodes.
 ///
 /// Contains the standard substrate host functions, as well as a
-/// host function to enable PoV-reclaim on parachain nodes.
+/// host function to enable PoV-reclaim on parachain nodes and the
+/// relay-chain-state reads `cumulus-pallet-parachain-system` makes.
 pub type ParachainHostFunctions = (
 	cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	cumulus_primitives_additional_data::relay_chain_state::HostFunctions,
 	sp_io::SubstrateHostFunctions,
 	sp_crypto_ec_utils::HostFunctionsRfc163,
 );
