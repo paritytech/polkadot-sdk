@@ -348,6 +348,8 @@ members = [
 	"substrate/frame/beefy-mmr",
 	"substrate/frame/benchmarking",
 	"substrate/frame/benchmarking/pov",
+	"substrate/frame/bootnodes",
+	"substrate/frame/bootnodes/cli",
 	"substrate/frame/bounties",
 	"substrate/frame/broker",
 	"substrate/frame/child-bounties",
@@ -996,6 +998,8 @@ pallet-bags-list-remote-tests = { path = "substrate/frame/bags-list/remote-tests
 pallet-balances = { path = "substrate/frame/balances", default-features = false }
 pallet-beefy = { path = "substrate/frame/beefy", default-features = false }
 pallet-beefy-mmr = { path = "substrate/frame/beefy-mmr", default-features = false }
+pallet-bootnodes = { path = "substrate/frame/bootnodes", default-features = false }
+pallet-bootnodes-cli = { path = "substrate/frame/bootnodes/cli" }
 pallet-bounties = { path = "substrate/frame/bounties", default-features = false }
 pallet-bridge-grandpa = { path = "bridges/modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "bridges/modules/messages", default-features = false }
