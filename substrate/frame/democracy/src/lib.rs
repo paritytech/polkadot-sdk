@@ -1607,7 +1607,9 @@ impl<T: Config> Pallet<T> {
 
 			// Earliest it can be scheduled for is next block.
 			let when = now.saturating_add(status.delay.max(One::one()));
-			if T::Scheduler::schedule_named(
+			// Version-check the enactment: the scheduler drops it on a `transaction_version`
+			// change.
+			if T::Scheduler::schedule_named_versioned(
 				(DEMOCRACY_ID, index).encode_into::<_, T::Hashing>(),
 				DispatchTime::At(when),
 				None,

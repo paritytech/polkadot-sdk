@@ -914,7 +914,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Earliest allowed block is always at minimum the next block.
 		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
-		let ok = T::Scheduler::schedule_named(
+		// Version-check the enactment: the scheduler drops it on a `transaction_version` change.
+		// (Internal alarms in `set_alarm` stay unversioned so they survive upgrades.)
+		let ok = T::Scheduler::schedule_named_versioned(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
 			None,

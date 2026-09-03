@@ -159,3 +159,43 @@ fn lowest_unbaked_should_be_sensible() {
 		assert_eq!(Balances::free_balance(42), 1);
 	});
 }
+
+#[test]
+fn enactment_executes_when_transaction_version_matches() {
+	new_test_ext().execute_with(|| {
+		let r = Democracy::inject_referendum(
+			2,
+			set_balance_proposal(2),
+			VoteThreshold::SuperMajorityApprove,
+			5,
+		);
+		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
+		// Referendum bakes and schedules enactment (recording the current `transaction_version`).
+		fast_forward_to(3);
+		assert_eq!(Balances::free_balance(42), 0);
+		// `transaction_version` is unchanged, so the enactment runs.
+		fast_forward_to(20);
+		assert_eq!(Balances::free_balance(42), 2);
+	});
+}
+
+#[test]
+fn enactment_dropped_on_transaction_version_mismatch() {
+	new_test_ext().execute_with(|| {
+		let r = Democracy::inject_referendum(
+			2,
+			set_balance_proposal(2),
+			VoteThreshold::SuperMajorityApprove,
+			5,
+		);
+		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
+		// Referendum bakes and schedules enactment recording `transaction_version` 0.
+		fast_forward_to(3);
+		assert_eq!(Balances::free_balance(42), 0);
+		// Simulate a runtime upgrade bumping the `transaction_version` before enactment.
+		CurrentTransactionVersion::set(&1);
+		fast_forward_to(20);
+		// The enactment is dropped by the scheduler, so the balance never changes.
+		assert_eq!(Balances::free_balance(42), 0);
+	});
+}

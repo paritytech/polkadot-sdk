@@ -65,6 +65,108 @@ fn basic_scheduling_works() {
 }
 
 #[test]
+fn versioned_call_executes_when_transaction_version_matches() {
+	new_test_ext().execute_with(|| {
+		CurrentTransactionVersion::set(&7);
+		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		}));
+		// Scheduling via the extrinsic records the current `transaction_version` (7).
+		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 4, None, 127, call));
+
+		// `transaction_version` is unchanged, so the call executes as normal.
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+	});
+}
+
+#[test]
+fn versioned_call_dropped_on_transaction_version_mismatch() {
+	new_test_ext().execute_with(|| {
+		CurrentTransactionVersion::set(&7);
+		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		}));
+		// Scheduling via the extrinsic records the current `transaction_version` (7).
+		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 4, None, 127, call));
+
+		System::run_to_block::<AllPalletsWithSystem>(3);
+		assert!(logger::log().is_empty());
+
+		// Simulate a runtime upgrade that bumps the `transaction_version` before the task is due.
+		CurrentTransactionVersion::set(&8);
+		System::run_to_block::<AllPalletsWithSystem>(4);
+
+		// The call must NOT have executed, and a mismatch event must be emitted.
+		assert!(logger::log().is_empty());
+		assert!(System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Scheduler(crate::Event::CallVersionMismatch {
+				stored_version: 7,
+				current_version: 8,
+				..
+			})
+		)));
+		// The task is dropped from the agenda and never runs, even later.
+		System::run_to_block::<AllPalletsWithSystem>(100);
+		assert!(logger::log().is_empty());
+	});
+}
+
+#[test]
+fn internally_scheduled_calls_are_not_version_checked() {
+	new_test_ext().execute_with(|| {
+		CurrentTransactionVersion::set(&7);
+		// `do_schedule` (used by the `schedule` traits for internal/bookkeeping tasks) records no
+		// version, so a later `transaction_version` bump must not affect it.
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		));
+
+		System::run_to_block::<AllPalletsWithSystem>(3);
+		CurrentTransactionVersion::set(&8);
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		// Executes despite the version bump.
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+	});
+}
+
+#[test]
+fn periodic_calls_are_not_version_checked() {
+	new_test_ext().execute_with(|| {
+		CurrentTransactionVersion::set(&7);
+		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		}));
+		// A periodic task scheduled via the extrinsic records no version, so it keeps running
+		// across a `transaction_version` change (it is meant to survive upgrades).
+		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 4, Some((3, 3)), 127, call));
+		assert!(Agenda::<Test>::get(4)[0].as_ref().unwrap().maybe_transaction_version.is_none());
+
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+
+		// Bump the `transaction_version`; the periodic task must keep firing, not be dropped.
+		CurrentTransactionVersion::set(&8);
+		System::run_to_block::<AllPalletsWithSystem>(7);
+		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Scheduler(crate::Event::CallVersionMismatch { .. })
+		)));
+	});
+}
+
+#[test]
 #[docify::export]
 fn scheduling_with_preimages_works() {
 	new_test_ext().execute_with(|| {
@@ -2128,6 +2230,7 @@ fn migration_to_v4_works() {
 						.unwrap(),
 						maybe_periodic: None,
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 					None,
@@ -2141,6 +2244,7 @@ fn migration_to_v4_works() {
 						.unwrap(),
 						maybe_periodic: Some((456u64, 10)),
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 				],
@@ -2158,6 +2262,7 @@ fn migration_to_v4_works() {
 						.unwrap(),
 						maybe_periodic: None,
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 					None,
@@ -2171,6 +2276,7 @@ fn migration_to_v4_works() {
 						.unwrap(),
 						maybe_periodic: Some((456u64, 10)),
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 				],
@@ -2188,6 +2294,7 @@ fn migration_to_v4_works() {
 						.unwrap(),
 						maybe_periodic: None,
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 					None,
@@ -2201,6 +2308,7 @@ fn migration_to_v4_works() {
 						.unwrap(),
 						maybe_periodic: Some((456u64, 10)),
 						origin: root(),
+						maybe_transaction_version: None,
 						_phantom: PhantomData::<u64>::default(),
 					}),
 				],
@@ -2246,6 +2354,7 @@ fn test_migrate_origin() {
 					.unwrap(),
 					origin: 3u32,
 					maybe_periodic: None,
+					maybe_transaction_version: None,
 					_phantom: Default::default(),
 				}),
 				None,
@@ -2259,6 +2368,7 @@ fn test_migrate_origin() {
 					}))
 					.unwrap(),
 					maybe_periodic: Some((456u64, 10)),
+					maybe_transaction_version: None,
 					_phantom: Default::default(),
 				}),
 			];
@@ -2283,6 +2393,7 @@ fn test_migrate_origin() {
 							.unwrap(),
 							maybe_periodic: None,
 							origin: system::RawOrigin::Root.into(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2296,6 +2407,7 @@ fn test_migrate_origin() {
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
 							origin: system::RawOrigin::None.into(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2313,6 +2425,7 @@ fn test_migrate_origin() {
 							.unwrap(),
 							maybe_periodic: None,
 							origin: system::RawOrigin::Root.into(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2326,6 +2439,7 @@ fn test_migrate_origin() {
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
 							origin: system::RawOrigin::None.into(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2343,6 +2457,7 @@ fn test_migrate_origin() {
 							.unwrap(),
 							maybe_periodic: None,
 							origin: system::RawOrigin::Root.into(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 						None,
@@ -2356,6 +2471,7 @@ fn test_migrate_origin() {
 							.unwrap(),
 							maybe_periodic: Some((456u64, 10)),
 							origin: system::RawOrigin::None.into(),
+							maybe_transaction_version: None,
 							_phantom: PhantomData::<u64>::default(),
 						}),
 					]
@@ -2416,6 +2532,7 @@ fn postponed_named_task_cannot_be_rescheduled() {
 				call: hashed,
 				maybe_periodic: None,
 				origin: root().into(),
+				maybe_transaction_version: None,
 				_phantom: Default::default(),
 			})]
 		);

@@ -215,6 +215,23 @@ pub mod v3 {
 			call: Bounded<Call, Self::Hasher>,
 		) -> Result<Self::Address, DispatchError>;
 
+		/// Like [`Self::schedule_named`], but records the current `transaction_version` so the task
+		/// is dropped rather than executed if a later runtime upgrade changes it. Intended for
+		/// deferred caller-supplied calls (e.g. governance enactment), not internal bookkeeping.
+		///
+		/// The default ignores versioning and delegates to [`Self::schedule_named`]; schedulers
+		/// that support version checking should override it.
+		fn schedule_named_versioned(
+			id: TaskName,
+			when: DispatchTime<BlockNumber>,
+			maybe_periodic: Option<Period<BlockNumber>>,
+			priority: Priority,
+			origin: Origin,
+			call: Bounded<Call, Self::Hasher>,
+		) -> Result<Self::Address, DispatchError> {
+			Self::schedule_named(id, when, maybe_periodic, priority, origin, call)
+		}
+
 		/// Cancel a scheduled, named task. If periodic, then it will cancel all further instances
 		/// of that, also.
 		///

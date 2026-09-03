@@ -17,3 +17,6 @@
 
 /// Version 4.
 pub mod v4;
+
+/// Version 5: record each stored proposal's `transaction_version` in `ProposalVersionOf`.
+pub mod v5;

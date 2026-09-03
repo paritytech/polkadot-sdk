@@ -96,10 +96,28 @@ parameter_types! {
 	pub static MaxProposalWeight: Weight = default_max_proposal_weight();
 }
 
+parameter_types! {
+	/// The runtime `transaction_version` reported to the pallet, settable from tests via
+	/// `CurrentTransactionVersion::set(&v)` to simulate a runtime upgrade.
+	pub storage CurrentTransactionVersion: u32 = 0;
+}
+
+/// A [`Get<RuntimeVersion>`] whose `transaction_version` can be changed at runtime in tests.
+pub struct TestVersion;
+impl frame_support::traits::Get<sp_version::RuntimeVersion> for TestVersion {
+	fn get() -> sp_version::RuntimeVersion {
+		sp_version::RuntimeVersion {
+			transaction_version: CurrentTransactionVersion::get(),
+			..Default::default()
+		}
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type Version = TestVersion;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
@@ -848,6 +866,8 @@ fn propose_works() {
 		));
 		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![hash]);
 		assert_eq!(ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
+		// The proposal's `transaction_version` (0 in the mock) is recorded separately.
+		assert_eq!(ProposalVersionOf::<Test, Instance1>::get(&hash), Some(0));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
 			Some(Votes { index: 0, threshold: 3, ayes: vec![], nays: vec![], end })
@@ -1448,6 +1468,120 @@ fn motions_approval_works() {
 				})),
 			]
 		);
+	});
+}
+
+#[test]
+fn proposal_dropped_on_transaction_version_mismatch() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
+		let hash: H256 = proposal.blake2_256().into();
+		// Proposed at `transaction_version` 0.
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			2,
+			Box::new(proposal.clone()),
+			proposal_len
+		));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
+
+		// Simulate a runtime upgrade that bumps the `transaction_version` before closing.
+		CurrentTransactionVersion::set(&1);
+		assert_ok!(Collective::close(
+			RuntimeOrigin::signed(2),
+			hash,
+			0,
+			proposal_weight,
+			proposal_len
+		));
+
+		// The proposal is dropped with a mismatch event and is NOT executed.
+		assert!(System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::ProposalVersionMismatch {
+				stored_version: 0,
+				current_version: 1,
+				..
+			})
+		)));
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::Executed { .. })
+		)));
+		// And it is cleaned up from storage, including its recorded version.
+		assert!(ProposalOf::<Test, Instance1>::get(&hash).is_none());
+		assert!(ProposalVersionOf::<Test, Instance1>::get(&hash).is_none());
+		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![]);
+	});
+}
+
+#[test]
+fn proposal_executes_when_transaction_version_matches() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
+		let hash: H256 = proposal.blake2_256().into();
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			2,
+			Box::new(proposal.clone()),
+			proposal_len
+		));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
+		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
+		// `transaction_version` unchanged, so the proposal is executed (here, with a `BadOrigin`
+		// result, as in `motions_approval_works`).
+		assert_ok!(Collective::close(
+			RuntimeOrigin::signed(2),
+			hash,
+			0,
+			proposal_weight,
+			proposal_len
+		));
+		assert!(System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::Executed { .. })
+		)));
+		assert!(!System::events().iter().any(|r| matches!(
+			r.event,
+			RuntimeEvent::Collective(CollectiveEvent::ProposalVersionMismatch { .. })
+		)));
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migration_v4_to_v5_works() {
+	use crate::migrations::v5;
+	use frame_support::traits::OnRuntimeUpgrade;
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+		let hash: H256 = proposal.blake2_256().into();
+		// Build a V4-like state: a proposal stored in `ProposalOf` with no recorded version, and
+		// roll the storage version back to 4.
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			2,
+			Box::new(proposal.clone()),
+			proposal_len
+		));
+		ProposalVersionOf::<Test, Instance1>::remove(&hash);
+		StorageVersion::new(4).put::<Collective>();
+
+		let state = v5::MigrateToV5::<Test, Instance1>::pre_upgrade().unwrap();
+		let _w = v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		v5::MigrateToV5::<Test, Instance1>::post_upgrade(state).unwrap();
+
+		assert_eq!(StorageVersion::get::<Collective>(), 5);
+		// `ProposalOf` is untouched, and every existing proposal now has its `transaction_version`
+		// recorded (0 in the mock).
+		assert_eq!(ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
+		assert_eq!(ProposalVersionOf::<Test, Instance1>::get(&hash), Some(0));
 	});
 }
 

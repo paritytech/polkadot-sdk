@@ -103,7 +103,7 @@ use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
-	BoundedVec, Debug, DispatchError,
+	BoundedVec, Debug, DispatchError, VersionedCall,
 };
 
 pub use pallet::*;
@@ -169,6 +169,9 @@ pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	pub maybe_periodic: Option<schedule::Period<BlockNumber>>,
 	/// The origin with which to dispatch the call.
 	pub origin: PalletsOrigin,
+	/// If `Some`, the task is dropped (with a [`Event::CallVersionMismatch`]) unless this matches
+	/// the runtime's current `transaction_version` at dispatch. `None` for internal tasks.
+	pub maybe_transaction_version: Option<u32>,
 	#[doc(hidden)]
 	pub _phantom: PhantomData<AccountId>,
 }
@@ -188,6 +191,7 @@ where
 			call: self.call.clone(),
 			maybe_periodic: None,
 			origin: self.origin.clone(),
+			maybe_transaction_version: self.maybe_transaction_version,
 			_phantom: Default::default(),
 		}
 	}
@@ -244,7 +248,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -401,6 +405,13 @@ pub mod pallet {
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// Agenda is incomplete from `when`.
 		AgendaIncomplete { when: BlockNumberFor<T> },
+		/// The task was dropped because its `transaction_version` changed since it was scheduled.
+		CallVersionMismatch {
+			task: TaskAddress<BlockNumberFor<T>>,
+			id: Option<TaskName>,
+			stored_version: u32,
+			current_version: u32,
+		},
 	}
 
 	#[pallet::error]
@@ -464,12 +475,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			Self::do_schedule(
+			// Version-check one-shot tasks only; periodic tasks stay unversioned.
+			let maybe_version = Self::schedule_version(&maybe_periodic);
+			Self::do_schedule_versioned(
 				DispatchTime::At(when),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
 				T::Preimages::bound(*call)?,
+				maybe_version,
 			)?;
 			Ok(())
 		}
@@ -500,13 +514,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			Self::do_schedule_named(
+			// Version-check one-shot tasks only; periodic tasks stay unversioned.
+			let maybe_version = Self::schedule_version(&maybe_periodic);
+			Self::do_schedule_named_versioned(
 				id,
 				DispatchTime::At(when),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
 				T::Preimages::bound(*call)?,
+				maybe_version,
 			)?;
 			Ok(())
 		}
@@ -533,12 +550,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			Self::do_schedule(
+			// Version-check one-shot tasks only; periodic tasks stay unversioned.
+			let maybe_version = Self::schedule_version(&maybe_periodic);
+			Self::do_schedule_versioned(
 				DispatchTime::After(after),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
 				T::Preimages::bound(*call)?,
+				maybe_version,
 			)?;
 			Ok(())
 		}
@@ -556,13 +576,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			Self::do_schedule_named(
+			// Version-check one-shot tasks only; periodic tasks stay unversioned.
+			let maybe_version = Self::schedule_version(&maybe_periodic);
+			Self::do_schedule_named_versioned(
 				id,
 				DispatchTime::After(after),
 				maybe_periodic,
 				priority,
 				origin.caller().clone(),
 				T::Preimages::bound(*call)?,
+				maybe_version,
 			)?;
 			Ok(())
 		}
@@ -729,6 +752,7 @@ impl<T: Config> Pallet<T> {
 								call,
 								maybe_periodic: schedule.maybe_periodic,
 								origin: system::RawOrigin::Root.into(),
+								maybe_transaction_version: None,
 								_phantom: Default::default(),
 							})
 						})
@@ -795,6 +819,7 @@ impl<T: Config> Pallet<T> {
 								call,
 								maybe_periodic: schedule.maybe_periodic,
 								origin: schedule.origin,
+								maybe_transaction_version: None,
 								_phantom: Default::default(),
 							})
 						})
@@ -902,6 +927,7 @@ impl<T: Config> Pallet<T> {
 									call,
 									maybe_periodic: schedule.maybe_periodic,
 									origin: schedule.origin,
+									maybe_transaction_version: None,
 									_phantom: Default::default(),
 								})
 							})
@@ -955,6 +981,7 @@ impl<T: Config> Pallet<T> {
 							call: schedule.call,
 							maybe_periodic: schedule.maybe_periodic,
 							origin: schedule.origin.into(),
+							maybe_transaction_version: None,
 							_phantom: Default::default(),
 						})
 					})
@@ -1037,12 +1064,37 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	fn current_transaction_version() -> u32 {
+		<frame_system::Pallet<T>>::runtime_version().transaction_version
+	}
+
+	/// The `transaction_version` to record for a user-scheduled task: the current version for
+	/// one-shot tasks (dropped on a version change), `None` for periodic tasks (survive upgrades).
+	fn schedule_version(
+		maybe_periodic: &Option<schedule::Period<BlockNumberFor<T>>>,
+	) -> Option<u32> {
+		maybe_periodic.is_none().then(|| Self::current_transaction_version())
+	}
+
+	/// Schedule a task without version checking (internal tasks).
 	fn do_schedule(
 		when: DispatchTime<BlockNumberFor<T>>,
 		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
+	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
+		Self::do_schedule_versioned(when, maybe_periodic, priority, origin, call, None)
+	}
+
+	/// As [`Self::do_schedule`], optionally recording a `transaction_version` to check at dispatch.
+	fn do_schedule_versioned(
+		when: DispatchTime<BlockNumberFor<T>>,
+		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+		maybe_transaction_version: Option<u32>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		let when = Self::resolve_time(when)?;
 
@@ -1059,6 +1111,7 @@ impl<T: Config> Pallet<T> {
 			call,
 			maybe_periodic,
 			origin,
+			maybe_transaction_version,
 			_phantom: PhantomData,
 		};
 		let res = Self::place_task(when, task).map_err(|x| x.0)?;
@@ -1121,6 +1174,7 @@ impl<T: Config> Pallet<T> {
 		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
 
+	/// Schedule a named task without version checking (internal tasks).
 	fn do_schedule_named(
 		id: TaskName,
 		when: DispatchTime<BlockNumberFor<T>>,
@@ -1128,6 +1182,19 @@ impl<T: Config> Pallet<T> {
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
+	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
+		Self::do_schedule_named_versioned(id, when, maybe_periodic, priority, origin, call, None)
+	}
+
+	/// As [`Self::do_schedule_named`], optionally recording a `transaction_version` to check.
+	fn do_schedule_named_versioned(
+		id: TaskName,
+		when: DispatchTime<BlockNumberFor<T>>,
+		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+		maybe_transaction_version: Option<u32>,
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		// ensure id it is unique
 		if Lookup::<T>::contains_key(&id) {
@@ -1150,6 +1217,7 @@ impl<T: Config> Pallet<T> {
 			call,
 			maybe_periodic,
 			origin,
+			maybe_transaction_version,
 			_phantom: Default::default(),
 		};
 		let res = Self::place_task(when, task).map_err(|x| x.0)?;
@@ -1378,6 +1446,27 @@ impl<T: Config> Pallet<T> {
 			task.maybe_periodic.is_some(),
 		));
 
+		// If the task opted into version checking, drop it on a `transaction_version` mismatch.
+		let call = if let Some(stored_version) = task.maybe_transaction_version {
+			match VersionedCall::new(call, stored_version)
+				.into_inner(Self::current_transaction_version())
+			{
+				Ok(call) => call,
+				Err(version_error) => {
+					Self::deposit_event(Event::CallVersionMismatch {
+						task: (when, agenda_index),
+						id: task.maybe_id,
+						stored_version: version_error.stored,
+						current_version: version_error.current,
+					});
+					T::Preimages::drop(&task.call);
+					return Err((Unavailable, Some(task)));
+				},
+			}
+		} else {
+			call
+		};
+
 		match Self::execute_dispatch(weight, task.origin.clone(), call) {
 			Err(()) if is_first => {
 				T::Preimages::drop(&task.call);
@@ -1592,6 +1681,25 @@ impl<T: Config> schedule::v3::Named<BlockNumberFor<T>, <T as Config>::RuntimeCal
 		call: BoundedCallOf<T>,
 	) -> Result<Self::Address, DispatchError> {
 		Self::do_schedule_named(id, when, maybe_periodic, priority, origin, call)
+	}
+
+	fn schedule_named_versioned(
+		id: TaskName,
+		when: DispatchTime<BlockNumberFor<T>>,
+		maybe_periodic: Option<schedule::Period<BlockNumberFor<T>>>,
+		priority: schedule::Priority,
+		origin: T::PalletsOrigin,
+		call: BoundedCallOf<T>,
+	) -> Result<Self::Address, DispatchError> {
+		Self::do_schedule_named_versioned(
+			id,
+			when,
+			maybe_periodic,
+			priority,
+			origin,
+			call,
+			Some(Self::current_transaction_version()),
+		)
 	}
 
 	fn cancel_named(id: TaskName) -> Result<(), DispatchError> {

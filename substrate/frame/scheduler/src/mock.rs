@@ -137,6 +137,20 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND * 2, u64::MAX),
 		);
+	/// The runtime `transaction_version` reported to the pallet, settable from tests via
+	/// `CurrentTransactionVersion::set(&v)` to simulate a runtime upgrade.
+	pub storage CurrentTransactionVersion: u32 = 0;
+}
+
+/// A [`Get<RuntimeVersion>`] whose `transaction_version` can be changed at runtime in tests.
+pub struct TestVersion;
+impl frame_support::traits::Get<sp_version::RuntimeVersion> for TestVersion {
+	fn get() -> sp_version::RuntimeVersion {
+		sp_version::RuntimeVersion {
+			transaction_version: CurrentTransactionVersion::get(),
+			..Default::default()
+		}
+	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -144,6 +158,7 @@ impl system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
 	type BlockWeights = BlockWeights;
+	type Version = TestVersion;
 }
 impl logger::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

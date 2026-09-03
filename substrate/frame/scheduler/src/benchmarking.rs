@@ -83,7 +83,15 @@ fn make_task<T: Config>(
 		false => None,
 	};
 	let origin = make_origin::<T>(signed);
-	Scheduled { maybe_id, priority, call, maybe_periodic, origin, _phantom: PhantomData }
+	Scheduled {
+		maybe_id,
+		priority,
+		call,
+		maybe_periodic,
+		origin,
+		maybe_transaction_version: None,
+		_phantom: PhantomData,
+	}
 }
 
 fn bounded<T: Config>(len: u32) -> Option<BoundedCallOf<T>> {
