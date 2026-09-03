@@ -76,6 +76,7 @@ async fn v4_resubmit_rpo0(
 					"--".into(),
 					"--state-pruning=archive".into(),
 					"--blocks-pruning=archive".into(),
+					"--network-backend=libp2p".into(),
 				]);
 			let p = if glutton {
 				p.with_genesis_overrides(json!({
@@ -94,6 +95,10 @@ async fn v4_resubmit_rpo0(
 			collator_names.iter().skip(1).fold(p, |acc, name| {
 				acc.with_collator(|n| n.with_name(name.as_str()))
 			})
+		})
+		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+			Ok(val) => global_settings.with_base_dir(val),
+			_ => global_settings,
 		})
 		.build()
 		.map_err(|e| {
