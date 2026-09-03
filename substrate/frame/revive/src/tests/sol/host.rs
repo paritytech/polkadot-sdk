@@ -244,7 +244,8 @@ fn extcodehash_works(fixture_type: FixtureType) {
 
 		let delegated_eoa = create_delegated_eoa(&target_addr);
 		let chained_delegated_eoa = create_delegated_eoa(&target_addr);
-		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, chained_delegated_eoa).unwrap();
+		AccountInfo::<Test>::set_delegation(&DJANGO_ADDR, Some(chained_delegated_eoa), &ALICE)
+			.unwrap();
 
 		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target)
 		let delegation_indicator_hash = |target: &H160| -> H256 {

@@ -113,8 +113,10 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 /// Returns the account id the `seal_call` family expects in guest memory: `address` is never
 /// mapped, so it resolves to its fallback account whose first 20 encoded bytes are `address`.
 fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId, BenchmarkError> {
-	AccountInfo::<T>::set_delegation(&address, target).map_err(|_| "set_delegation failed")?;
-	Ok(T::AddressMapper::to_fallback_account_id(&address))
+	let account_id = T::AddressMapper::to_fallback_account_id(&address);
+	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
+		.map_err(|_| "set_delegation failed")?;
+	Ok(account_id)
 }
 
 #[benchmarks(

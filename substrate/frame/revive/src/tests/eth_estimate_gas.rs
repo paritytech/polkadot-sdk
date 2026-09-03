@@ -26,7 +26,7 @@ use crate::{
 	},
 	state_overrides::apply_state_overrides,
 	storage::AccountInfo,
-	test_utils::{ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
+	test_utils::{ALICE, ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
 	tests::{Config, ExtBuilder, Test, test_utils::place_contract},
 };
 use frame_support::traits::fungible::Mutate;
@@ -155,13 +155,13 @@ fn is_simple_transfer_rejects_delegated_eoa_destination() {
 		let tx = simple_transfer_tx();
 		assert!(Pallet::<Test>::is_simple_transfer(&tx));
 
-		AccountInfo::<Test>::set_delegation(&CHARLIE_ADDR, BOB_ADDR).unwrap();
+		AccountInfo::<Test>::set_delegation(&CHARLIE_ADDR, Some(BOB_ADDR), &ALICE).unwrap();
 		assert!(
 			!Pallet::<Test>::is_simple_transfer(&tx),
 			"transfer to a delegated EOA executes code and must be estimated by binary search"
 		);
 
-		AccountInfo::<Test>::clear_delegation(&CHARLIE_ADDR).unwrap();
+		AccountInfo::<Test>::set_delegation(&CHARLIE_ADDR, None, &ALICE).unwrap();
 		assert!(Pallet::<Test>::is_simple_transfer(&tx));
 	});
 }

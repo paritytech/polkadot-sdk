@@ -134,17 +134,17 @@ fn delegation_storage_basics() {
 		let target2 = H160::from([0x33; 20]);
 
 		// Set delegation
-		AccountInfo::<Test>::set_delegation(&authority, target1).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(target1), &ALICE).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target1));
 
 		// Update to different target
-		AccountInfo::<Test>::set_delegation(&authority, target2).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(target2), &ALICE).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target2));
 
 		// Clear delegation
-		AccountInfo::<Test>::clear_delegation(&authority).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, None, &ALICE).unwrap();
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), None);
 	});
@@ -174,7 +174,8 @@ fn eip3607_checks() {
 		let authority = H160::from([0x11; 20]);
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
-		AccountInfo::<Test>::set_delegation(&authority, H160::from([0x22; 20])).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(H160::from([0x22; 20])), &ALICE)
+			.unwrap();
 		assert_ok!(Contracts::ensure_non_contract_if_signed(&RuntimeOrigin::signed(authority_id)));
 
 		// Regular contracts are rejected
@@ -964,9 +965,23 @@ fn clear_delegation_on_non_existent_account_bumps_nonce() {
 		// Step 9 ran: nonce was bumped from 0 → 1, and that materialized the account.
 		assert!(frame_system::Account::<Test>::contains_key(&authority_id));
 		assert_eq!(frame_system::Pallet::<Test>::account_nonce(&authority_id), 1);
-		// Step 8's zero-address branch: no delegation indicator written.
+		// Step 8's zero-address branch: no delegation indicator written — and no
+		// `DelegatedEOA` entry fabricated just to record an empty delegation, which would
+		// bloat state and charge an entry deposit for a no-op.
 		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), None);
+		assert!(
+			!matches!(
+				crate::AccountInfoOf::<Test>::get(&setup.signer.address),
+				Some(AccountInfo { account_type: AccountType::DelegatedEOA { .. }, .. })
+			),
+			"clearing a never-delegated authority must not create a DelegatedEOA entry",
+		);
+		assert_eq!(
+			result.deposit,
+			crate::StorageDeposit::Charge(Pallet::<Test>::min_balance()),
+			"only the ED for the new account may be charged, no entry deposit",
+		);
 		// Counter accounting: a new account was created (the authority itself).
 		assert_eq!(result.new_accounts, 1);
 		assert_eq!(result.existing_accounts, 0);
@@ -1226,7 +1241,7 @@ fn redelegation_preserves_storage() {
 			.build_and_unwrap_contract();
 
 		// Alice delegates to Counter A and writes storage
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter_a.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(counter_a.addr), &ALICE).unwrap();
 
 		let result = builder::bare_call(ALICE_ADDR)
 			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
@@ -1240,7 +1255,7 @@ fn redelegation_preserves_storage() {
 		assert_eq!(Counter::numberCall::abi_decode_returns(&result.data).unwrap(), 42u64);
 
 		// Re-delegate to Counter B (same ABI, same storage layout)
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter_b.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(counter_b.addr), &ALICE).unwrap();
 
 		// Storage from Counter A should still be accessible since the trie_id is
 		// derived from the delegated address, not the target
@@ -1285,7 +1300,7 @@ fn cleared_delegation_does_not_execute_code() {
 			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
 
 		// Delegate ALICE → Counter and write storage
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(counter.addr), &ALICE).unwrap();
 
 		let result = builder::bare_call(ALICE_ADDR)
 			.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
@@ -1298,7 +1313,7 @@ fn cleared_delegation_does_not_execute_code() {
 		assert_eq!(Counter::numberCall::abi_decode_returns(&result.data).unwrap(), 42u64);
 
 		// Clear delegation
-		AccountInfo::<Test>::clear_delegation(&ALICE_ADDR).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, None, &ALICE).unwrap();
 		assert!(!AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 
 		// Calling number() should no longer execute Counter code
@@ -1511,7 +1526,7 @@ fn delegation_chain_does_not_execute() {
 			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
 
 		// Alice delegates to the Counter contract
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, counter.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(counter.addr), &ALICE).unwrap();
 
 		// Helper to read Alice's number storage slot
 		let read_number = || {
@@ -1570,7 +1585,7 @@ fn delegation_chain_does_not_execute() {
 		// spec, the call resolves one hop to Alice, retrieves Alice's "code"
 		// (the indicator `0xef0100||counter`), and executes it as raw bytecode.
 		// `0xef` is a designated invalid opcode, so the call traps.
-		AccountInfo::<Test>::set_delegation(&BOB_ADDR, ALICE_ADDR).unwrap();
+		AccountInfo::<Test>::set_delegation(&BOB_ADDR, Some(ALICE_ADDR), &ALICE).unwrap();
 
 		let result = builder::bare_call(BOB_ADDR)
 			.data(Counter::setNumberCall { newNumber: CHAINED_ATTEMPT }.abi_encode())
@@ -1672,7 +1687,7 @@ fn delegate_call_into_delegated_eoa_reads_targets_immutables() {
 			crate::ImmutableData::try_from(alloc::vec![0xAAu8; 8]).unwrap(),
 		);
 
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, reader_addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(reader_addr), &ALICE).unwrap();
 
 		let Contract { addr: delegator_addr, .. } =
 			builder::bare_instantiate(Code::Upload(delegator_code)).build_and_unwrap_contract();
@@ -1709,7 +1724,7 @@ fn call_into_delegated_eoa_charges_targets_immutable_len() {
 				reader_addr,
 				crate::ImmutableData::try_from(alloc::vec![0xAAu8; len]).unwrap(),
 			);
-			AccountInfo::<Test>::set_delegation(&BOB_ADDR, reader_addr).unwrap();
+			AccountInfo::<Test>::set_delegation(&BOB_ADDR, Some(reader_addr), &ALICE).unwrap();
 
 			let result = builder::bare_call(BOB_ADDR).build();
 			result.result.unwrap();
@@ -1747,7 +1762,8 @@ fn delegation_to_precompile_is_noop() {
 		// 0x0000...0004 is the identity precompile (ECHOes input bytes).
 		let identity_precompile = H160::from_low_u64_be(0x04);
 
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, identity_precompile).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(identity_precompile), &ALICE)
+			.unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 		assert_eq!(
 			AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR),
@@ -1782,7 +1798,7 @@ fn delegation_to_nonexistent_address_is_noop() {
 
 		// Delegate Alice to an address that has no deployed contract
 		let nonexistent = H160::from([0xDE; 20]);
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, nonexistent).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(nonexistent), &ALICE).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR), Some(nonexistent));
 
@@ -1839,7 +1855,7 @@ fn selfdestruct_on_delegated_account() {
 		let alice_balance = 5_000_000u128;
 		let alice_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&alice_id, alice_balance);
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, contract.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(contract.addr), &ALICE).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 
 		// Beneficiary must exist (has at least ED) so the selfdestruct balance
@@ -1945,7 +1961,7 @@ fn assert_system_terminate_on_delegated_reverts(method: u8, ctx: &str) {
 		let alice_balance = 5_000_000u128;
 		let alice_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&alice_id, alice_balance);
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, contract.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(contract.addr), &ALICE).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 
 		let beneficiary = DJANGO_ADDR;
@@ -2168,15 +2184,15 @@ fn delegation_manages_code_refcount() {
 		let authority = H160::from([0x11; 20]);
 
 		// Set delegation → refcount++
-		AccountInfo::<Test>::set_delegation(&authority, target.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(target.addr), &ALICE).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before + 1);
 
 		// Re-delegate to same target → refcount unchanged
-		AccountInfo::<Test>::set_delegation(&authority, target.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(target.addr), &ALICE).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before + 1);
 
 		// Clear delegation → refcount--
-		AccountInfo::<Test>::clear_delegation(&authority).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, None, &ALICE).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount_before);
 	});
 }
@@ -2205,11 +2221,11 @@ fn redelegation_updates_refcounts() {
 		let authority = H160::from([0x11; 20]);
 
 		// Delegate to A
-		AccountInfo::<Test>::set_delegation(&authority, target_a.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(target_a.addr), &ALICE).unwrap();
 		assert_eq!(CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(), refcount_a_before + 1);
 
 		// Re-delegate to B
-		AccountInfo::<Test>::set_delegation(&authority, target_b.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(target_b.addr), &ALICE).unwrap();
 		assert_eq!(
 			CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(),
 			refcount_a_before,
@@ -2268,7 +2284,8 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 		};
 
 		// Step 1: delegate to contract A — charges deposit, increments refcount
-		let deposit_a = AccountInfo::<Test>::set_delegation(&authority, target_a.addr).unwrap();
+		let deposit_a =
+			AccountInfo::<Test>::set_delegation(&authority, Some(target_a.addr), &ALICE).unwrap();
 		assert_eq!(deposit_a.previous, 0, "fresh delegation should have no previous deposit");
 		let charge_a = deposit_a.current;
 		assert!(charge_a > 0, "delegation to contract should charge a deposit");
@@ -2277,7 +2294,8 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 
 		// Step 2: re-delegate to a plain EOA — releases the code lockup, decrements refcount
 		let plain_eoa = H160::from([0x77; 20]);
-		let deposit_eoa = AccountInfo::<Test>::set_delegation(&authority, plain_eoa).unwrap();
+		let deposit_eoa =
+			AccountInfo::<Test>::set_delegation(&authority, Some(plain_eoa), &ALICE).unwrap();
 		assert_eq!(deposit_eoa.previous, charge_a, "previous deposit should match step 1's charge");
 		assert_eq!(
 			deposit_eoa.current,
@@ -2292,7 +2310,8 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 		assert_no_balance_movement("after step 2");
 
 		// Step 3: re-delegate to contract C — charges a fresh deposit, must NOT touch A
-		let deposit_c = AccountInfo::<Test>::set_delegation(&authority, target_c.addr).unwrap();
+		let deposit_c =
+			AccountInfo::<Test>::set_delegation(&authority, Some(target_c.addr), &ALICE).unwrap();
 		assert_eq!(
 			deposit_c.previous,
 			delegation_entry_deposit(),
@@ -2323,10 +2342,19 @@ fn delegation_to_eoa_charges_only_entry_deposit() {
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
-		let deposit = AccountInfo::<Test>::set_delegation(&authority, plain_eoa).unwrap();
+		let deposit =
+			AccountInfo::<Test>::set_delegation(&authority, Some(plain_eoa), &ALICE).unwrap();
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(deposit.previous, 0, "delegation to EOA should not surface a previous deposit");
+		assert_eq!(deposit.previous_payer, None, "fresh delegation has no previous payer");
+		assert_eq!(
+			AccountInfo::<Test>::set_delegation(&authority, None, &BOB)
+				.unwrap()
+				.previous_payer,
+			Some(ALICE),
+			"set_delegation must record the payer alongside the non-zero deposit",
+		);
 		assert_eq!(
 			deposit.current,
 			delegation_entry_deposit(),
@@ -2365,7 +2393,8 @@ fn set_delegation_to_zero_hash_contract_succeeds() {
 		);
 
 		// Delegation must succeed (no `CodeNotFound` propagating out of refcount bump).
-		let deposit = AccountInfo::<Test>::set_delegation(&authority, precompile_like).unwrap();
+		let deposit =
+			AccountInfo::<Test>::set_delegation(&authority, Some(precompile_like), &ALICE).unwrap();
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(precompile_like));
@@ -2402,7 +2431,8 @@ fn set_delegation_preserves_dust_on_eoa_transition() {
 		);
 		assert_eq!(crate::AccountInfoOf::<Test>::get(&authority).unwrap().dust, 7);
 
-		AccountInfo::<Test>::set_delegation(&authority, H160::from([0x66; 20])).unwrap();
+		AccountInfo::<Test>::set_delegation(&authority, Some(H160::from([0x66; 20])), &ALICE)
+			.unwrap();
 
 		// Dust must survive the transition.
 		let after = crate::AccountInfoOf::<Test>::get(&authority).unwrap();
@@ -2433,8 +2463,10 @@ fn multiple_delegations_each_have_own_deposit() {
 		let bal_b_before = <<Test as Config>::Currency as Inspect<_>>::balance(&id_b);
 
 		// Delegate both to the same target
-		let deposit_a = AccountInfo::<Test>::set_delegation(&authority_a, target.addr).unwrap();
-		let deposit_b = AccountInfo::<Test>::set_delegation(&authority_b, target.addr).unwrap();
+		let deposit_a =
+			AccountInfo::<Test>::set_delegation(&authority_a, Some(target.addr), &ALICE).unwrap();
+		let deposit_b =
+			AccountInfo::<Test>::set_delegation(&authority_b, Some(target.addr), &ALICE).unwrap();
 
 		// Both should get the same charge since they delegate to the same code
 		assert_eq!(deposit_a, deposit_b);
@@ -2697,7 +2729,7 @@ fn delegated_eoa_opcodes_return_correct_data_solc() {
 			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, system.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(system.addr), &ALICE).unwrap();
 
 		// ---- EXT* family ----
 
@@ -2764,7 +2796,7 @@ fn delegated_eoa_codesize_inside_execution_resolc() {
 			.constructor_data(SystemFixture::constructorCall { panic: false }.abi_encode())
 			.build_and_unwrap_contract();
 
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, system.addr).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(system.addr), &ALICE).unwrap();
 
 		let alice_codesize = {
 			let r = builder::bare_call(ALICE_ADDR)
@@ -2792,7 +2824,7 @@ fn self_delegation_traps_on_call() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 
-		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, ALICE_ADDR).unwrap();
+		AccountInfo::<Test>::set_delegation(&ALICE_ADDR, Some(ALICE_ADDR), &ALICE).unwrap();
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR), Some(ALICE_ADDR));
 

@@ -100,16 +100,16 @@ pub enum AccountType<T: Config> {
 	},
 }
 
-/// `storage_base_deposit` before and after [`AccountInfo::set_delegation`] or
-/// [`AccountInfo::clear_delegation`].
+/// `storage_base_deposit` before and after [`AccountInfo::set_delegation`].
 ///
 /// `current` covers the account entry itself, which outlives the delegation, plus the code
-/// lockup while one is held. The caller refunds `previous` to
-/// [`AccountInfo::get_delegation_payer`] and charges `current` to the new payer.
+/// lockup while one is held. The caller refunds `previous` to `previous_payer` and charges
+/// `current` to the new payer, which `set_delegation` has already recorded on the entry.
 #[derive(Debug, PartialEq, Eq)]
 pub struct DelegationDepositChange<T: Config> {
 	pub previous: BalanceOf<T>,
 	pub current: BalanceOf<T>,
+	pub previous_payer: Option<T::AccountId>,
 }
 
 /// Information for managing an account and its sub trie abstraction.
@@ -284,27 +284,6 @@ impl<T: Config> AccountInfo<T> {
 		}
 	}
 
-	/// EIP-7702: Read the account that paid the currently held delegation deposit, if any.
-	pub(crate) fn get_delegation_payer(address: &H160) -> Option<T::AccountId> {
-		let info = <AccountInfoOf<T>>::get(address)?;
-		match info.account_type {
-			AccountType::DelegatedEOA { payer, .. } => payer,
-			_ => None,
-		}
-	}
-
-	/// EIP-7702: Update the delegation payer in place. No-op if the account is not delegated.
-	pub(crate) fn set_delegation_payer(address: &H160, new_payer: Option<T::AccountId>) {
-		<AccountInfoOf<T>>::mutate(address, |slot| {
-			if let Some(AccountInfo {
-				account_type: AccountType::DelegatedEOA { payer, .. }, ..
-			}) = slot
-			{
-				*payer = new_payer;
-			}
-		});
-	}
-
 	/// EIP-7702: Build the 23-byte delegation indicator `0xef0100 || target`.
 	pub fn delegation_indicator(target: &H160) -> [u8; 23] {
 		let mut buf = [0u8; 23];
@@ -315,16 +294,20 @@ impl<T: Config> AccountInfo<T> {
 		buf
 	}
 
-	/// EIP-7702: Set a delegation indicator for an EOA
+	/// EIP-7702: Set or clear the delegation indicator for an EOA.
 	///
-	/// Marks the account as delegated to the target address.
+	/// `Some(target)` marks the account as delegated to that address; `None` clears an
+	/// existing delegation — the account stays `DelegatedEOA` with `delegate_target = None`,
+	/// preserving the child trie and deposit accounting, while clearing an account that was
+	/// never delegated is a no-op (no entry is created).
 	/// The `DelegatedEOA` variant always carries a `ContractInfo`, but per EIP-7702 it only
 	/// snapshots the target's `code_hash`/deposit when the target is a contract. If the target is
 	/// itself delegated or a plain EOA, those fields are zeroed (no chain following). Existing
 	/// deposit accounting is preserved across re-delegations.
 	///
-	/// Returns the previous and new delegation deposits (see [`DelegationDepositChange`]) so the
-	/// caller can refund the old deposit and charge the new one.
+	/// `payer` is recorded on the entry whenever the resulting deposit is non-zero. Returns the
+	/// deposit movement and the previously recorded payer (see [`DelegationDepositChange`]) so
+	/// the caller can refund the old deposit and charge the new one.
 	///
 	/// # Spec deviation: code is resolved at delegation time, not at call time
 	///
@@ -343,7 +326,8 @@ impl<T: Config> AccountInfo<T> {
 	/// to it — on revive the delegation never activates.
 	pub(crate) fn set_delegation(
 		address: &H160,
-		target: H160,
+		target: Option<H160>,
+		payer: &T::AccountId,
 	) -> Result<DelegationDepositChange<T>, DispatchError> {
 		// Atomic: a failed refcount update below must roll back the account mutation.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
@@ -356,7 +340,8 @@ impl<T: Config> AccountInfo<T> {
 				// up separately so a contract with a non-zero hash but missing
 				// `CodeInfo` (malformed state) still snapshots and surfaces via the
 				// refcount bump below.
-				let target_code_hash: Option<sp_core::H256> = <AccountInfoOf<T>>::get(&target)
+				let target_code_hash: Option<sp_core::H256> = target
+					.and_then(|target| <AccountInfoOf<T>>::get(&target))
 					.and_then(|info| match info.account_type {
 						AccountType::Contract(c) if !c.code_hash.is_zero() => Some(c.code_hash),
 						_ => None,
@@ -365,71 +350,95 @@ impl<T: Config> AccountInfo<T> {
 					target_code_hash.and_then(|h| CodeInfoOf::<T>::get(h).map(|ci| ci.deposit()));
 
 				// Ensure the account is `DelegatedEOA` (creating one if necessary), then
-				// update its fields in a single pass. Returns the previous non-zero
-				// code_hash and the deposit delta for refcount/deposit accounting below.
-				let (old_code_hash, old_deposit, new_deposit) =
-					AccountInfoOf::<T>::mutate(address, |slot| {
-						let fresh_delegated = || AccountType::DelegatedEOA {
-							delegate_target: None,
-							contract_info: ContractInfo::<T>::new_for_delegation(
-								address,
-								Default::default(),
-							),
-							payer: None,
-						};
-						match slot.as_mut() {
-							None => {
-								*slot =
-									Some(AccountInfo { account_type: fresh_delegated(), dust: 0 })
-							},
+				// update its fields in a single pass. `None` when clearing an account that
+				// was never delegated: per spec that authorization is still valid, but no
+				// entry must be created just to record an empty delegation.
+				let mutation = AccountInfoOf::<T>::mutate(address, |slot| {
+					let fresh_delegated = || AccountType::DelegatedEOA {
+						delegate_target: None,
+						contract_info: ContractInfo::<T>::new_for_delegation(
+							address,
+							Default::default(),
+						),
+						payer: None,
+					};
+					if target.is_none() &&
+						!matches!(
+							slot,
 							Some(AccountInfo {
 								account_type: AccountType::DelegatedEOA { .. },
 								..
-							}) => {},
-							Some(account) => {
-								debug_assert!(
-									!matches!(account.account_type, AccountType::Contract(_)),
-									"set_delegation must not be called on contract accounts"
-								);
-								// Preserve `dust`; only swap `account_type`.
-								account.account_type = fresh_delegated();
-							},
-						}
-
-						let Some(AccountInfo {
-							account_type:
-								AccountType::DelegatedEOA { delegate_target, contract_info, .. },
+							})
+						) {
+						return None;
+					}
+					match slot.as_mut() {
+						None => {
+							*slot = Some(AccountInfo { account_type: fresh_delegated(), dust: 0 })
+						},
+						Some(AccountInfo {
+							account_type: AccountType::DelegatedEOA { .. },
 							..
-						}) = slot
-						else {
-							unreachable!("initialized to DelegatedEOA above; qed")
-						};
+						}) => {},
+						Some(account) => {
+							debug_assert!(
+								!matches!(account.account_type, AccountType::Contract(_)),
+								"set_delegation must not be called on contract accounts"
+							);
+							// Preserve `dust`; only swap `account_type`.
+							account.account_type = fresh_delegated();
+						},
+					}
 
-						let old_code_hash = Some(contract_info.code_hash).filter(|h| !h.is_zero());
-						let old_deposit = contract_info.storage_base_deposit;
-
-						*delegate_target = Some(target);
-						let new_deposit = match target_code_hash {
-							Some(code_hash) => {
-								contract_info.code_hash = code_hash;
-								// Deposit is only updated if we found the `CodeInfo`; if not,
-								// `new_deposit` stays at zero and the failing `increment_refcount`
-								// below propagates the malformed-state error.
-								target_code_deposit
-									.map(|d| contract_info.update_base_deposit(d))
-									.unwrap_or(Zero::zero())
+					let Some(AccountInfo {
+						account_type:
+							AccountType::DelegatedEOA {
+								delegate_target,
+								contract_info,
+								payer: stored_payer,
 							},
-							None => {
-								// Clear any stale snapshot so a later re-delegation doesn't
-								// double-account refcount/deposit. Still non-zero: only the
-								// code lockup drops out, the account entry stays charged.
-								contract_info.code_hash = Default::default();
-								contract_info.update_base_deposit(Zero::zero())
-							},
-						};
+						..
+					}) = slot
+					else {
+						unreachable!("initialized to DelegatedEOA above; qed")
+					};
 
-						(old_code_hash, old_deposit, new_deposit)
+					let old_code_hash = Some(contract_info.code_hash).filter(|h| !h.is_zero());
+					let old_deposit = contract_info.storage_base_deposit;
+					let previous_payer = stored_payer.clone();
+
+					*delegate_target = target;
+					let new_deposit = match target_code_hash {
+						Some(code_hash) => {
+							contract_info.code_hash = code_hash;
+							// Deposit is only updated if we found the `CodeInfo`; if not,
+							// `new_deposit` stays at zero and the failing `increment_refcount`
+							// below propagates the malformed-state error.
+							target_code_deposit
+								.map(|d| contract_info.update_base_deposit(d))
+								.unwrap_or(Zero::zero())
+						},
+						None => {
+							// Clearing, or delegating to a non-contract: drop any stale
+							// snapshot so a later re-delegation doesn't double-account
+							// refcount/deposit. Still non-zero: only the code lockup drops
+							// out, the account entry stays charged.
+							contract_info.code_hash = Default::default();
+							contract_info.update_base_deposit(Zero::zero())
+						},
+					};
+					*stored_payer = if new_deposit.is_zero() { None } else { Some(payer.clone()) };
+
+					Some((old_code_hash, old_deposit, new_deposit, previous_payer))
+				});
+				let Some((old_code_hash, old_deposit, new_deposit, previous_payer)) = mutation
+				else {
+					return Ok(DelegationDepositChange {
+						previous: Zero::zero(),
+						current: Zero::zero(),
+						previous_payer: None,
 					});
+				};
 
 				// Manage code refcounts, skipping when the hash is unchanged.
 				if let Some(new_hash) = target_code_hash &&
@@ -447,53 +456,12 @@ impl<T: Config> AccountInfo<T> {
 					})?;
 				}
 
-				Ok(DelegationDepositChange { previous: old_deposit, current: new_deposit })
+				Ok(DelegationDepositChange {
+					previous: old_deposit,
+					current: new_deposit,
+					previous_payer,
+				})
 			})();
-
-			match result {
-				Ok(deposit) => TransactionOutcome::Commit(Ok(deposit)),
-				Err(err) => TransactionOutcome::Rollback(Err(err)),
-			}
-		})
-	}
-
-	/// EIP-7702: Clear delegation indicator.
-	///
-	/// The account stays `DelegatedEOA` with `delegate_target = None` so that
-	/// the child trie and deposit accounting are preserved for future re-delegation.
-	///
-	/// Releases the code lockup only; see [`DelegationDepositChange`] for settling the rest.
-	pub(crate) fn clear_delegation(
-		address: &H160,
-	) -> Result<DelegationDepositChange<T>, DispatchError> {
-		// Atomic: a failed `decrement_refcount` must roll back `delegate_target = None`.
-		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-			let result = AccountInfoOf::<T>::mutate(
-				address,
-				|account| -> Result<DelegationDepositChange<T>, DispatchError> {
-					let mut change = DelegationDepositChange::<T> {
-						previous: Zero::zero(),
-						current: Zero::zero(),
-					};
-					if let Some(AccountInfo {
-						account_type:
-							AccountType::DelegatedEOA { delegate_target, contract_info, .. },
-						..
-					}) = account
-					{
-						*delegate_target = None;
-						change.previous = contract_info.storage_base_deposit;
-						if !contract_info.code_hash.is_zero() {
-							let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash).inspect_err(|e| {
-								log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
-							})?;
-							contract_info.code_hash = Default::default();
-						}
-						change.current = contract_info.update_base_deposit(Zero::zero());
-					}
-					Ok(change)
-				},
-			);
 
 			match result {
 				Ok(change) => TransactionOutcome::Commit(Ok(change)),

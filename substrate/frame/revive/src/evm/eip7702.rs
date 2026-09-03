@@ -173,14 +173,15 @@ pub fn process_authorizations<T: Config>(
 					// last so the refund flows back to them rather than to the current
 					// submitter (under `PGasDeposit` mis-routing also strands the
 					// `NativeDepositOf[(authority, original_payer)]` entry, because the
-					// refund-side lookup keys on the destination).
-					let old_payer = AccountInfo::<T>::get_delegation_payer(&authority);
-					let change = if auth.address.is_zero() {
-						AccountInfo::<T>::clear_delegation(&authority)?
-					} else {
-						AccountInfo::<T>::set_delegation(&authority, auth.address)?
-					};
+					// refund-side lookup keys on the destination). `set_delegation` records
+					// `origin` as the new payer and hands back the old one.
+					let change = AccountInfo::<T>::set_delegation(
+						&authority,
+						(!auth.address.is_zero()).then_some(auth.address),
+						origin,
+					)?;
 					let (previous, current) = (change.previous, change.current);
+					let old_payer = change.previous_payer;
 
 					// Same-payer path applies a net diff (avoids round-tripping through
 					// `T::Deposit` twice, which under `PGasDeposit` would burn
@@ -239,11 +240,6 @@ pub fn process_authorizations<T: Config>(
 							)?;
 						}
 					}
-
-					AccountInfo::<T>::set_delegation_payer(
-						&authority,
-						if current.is_zero() { None } else { Some(origin.clone()) },
-					);
 
 					frame_system::Pallet::<T>::inc_account_nonce(&account_id);
 					// The deposit reported upward feeds `origin`'s metering budget, so it must
