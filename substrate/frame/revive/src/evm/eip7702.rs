@@ -73,6 +73,9 @@ pub struct AuthorizationResult<Balance: sp_runtime::traits::Zero> {
 /// than `process_new_account_authorization` (the populated trie node carries more witness data),
 /// so neither dimension uniformly dominates.
 pub fn worst_case_authorization_weight<T: Config>(n: u32) -> Weight {
+	if n == 0 {
+		return Weight::zero();
+	}
 	let all_new = <RuntimeCosts as metering::Token<T>>::weight(&RuntimeCosts::Delegations {
 		new_accounts: n,
 		existing_accounts: 0,
@@ -105,6 +108,10 @@ pub fn process_authorizations<T: Config>(
 	origin: &T::AccountId,
 	exec_config: &ExecConfig<T>,
 ) -> AuthorizationResult<BalanceOf<T>> {
+	if authorization_list.is_empty() {
+		return Default::default();
+	}
+
 	let chain_id = U256::from(T::ChainId::get());
 	let ed = <T::Currency as Inspect<T::AccountId>>::minimum_balance();
 	let mut result: AuthorizationResult<BalanceOf<T>> = Default::default();

@@ -2306,11 +2306,8 @@ impl<T: Config> Pallet<T> {
 
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
-		let auth_result = if !authorization_list.is_empty() {
-			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config)
-		} else {
-			Default::default()
-		};
+		let auth_result =
+			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config);
 		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
 		let actual_auth_deposit = auth_result.deposit;
 		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()

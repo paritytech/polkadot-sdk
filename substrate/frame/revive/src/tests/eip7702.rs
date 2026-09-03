@@ -2467,6 +2467,49 @@ fn refcount_overflow_skips_auth_without_aborting() {
 	});
 }
 
+/// Every `eth_call` — plain transfers included — evaluates the authorization weight
+/// reservation, and `Delegations` sums the three benchmark intercepts even at zero counts.
+/// A plain eth transaction must therefore carry none of the authorization weight, and an
+/// empty list must bill nothing. The dispatch weight is asserted against its components so
+/// that an unconditional authorization term reintroduced anywhere in the annotation fails
+/// here, not just a regression in `worst_case_authorization_weight` itself.
+#[test]
+fn empty_authorization_list_reserves_and_bills_nothing() {
+	use crate::{
+		evm::eip7702::worst_case_authorization_weight, weightinfo_extension::OnFinalizeBlockParts,
+	};
+	use frame_support::dispatch::GetDispatchInfo;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let transaction_encoded = alloc::vec![0u8; 128];
+		let weight_limit = Weight::from_parts(1_000, 2_000);
+		let call = crate::Call::<Test>::eth_call {
+			dest: H160::from([0x42; 20]),
+			value: U256::zero(),
+			weight_limit,
+			eth_gas_limit: U256::from(1_000_000u64),
+			data: Default::default(),
+			transaction_encoded: transaction_encoded.clone(),
+			effective_gas_price: U256::one(),
+			encoded_len: 0,
+			authorization_list: Default::default(),
+		};
+		assert_eq!(
+			call.get_dispatch_info().call_weight,
+			<Test as Config>::WeightInfo::eth_call(0)
+				.saturating_add(weight_limit)
+				.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(
+					transaction_encoded.len() as u32
+				))
+		);
+		assert_eq!(worst_case_authorization_weight::<Test>(0), Weight::zero());
+		assert!(worst_case_authorization_weight::<Test>(1).all_gt(Weight::zero()));
+
+		let setup = DelegationTestSetup::new([0xDD; 32]);
+		assert_eq!(setup.process(&[]), Default::default());
+	});
+}
+
 /// EIP-7702 spec step 3 second-half: `s` must be `<= secp256k1n/2`. The shared
 /// `recover_eth_address_from_message` rejects high-s signatures (EIP-2), so the high-s
 /// twin of a valid authorization fails recovery and the tuple is skipped per spec —

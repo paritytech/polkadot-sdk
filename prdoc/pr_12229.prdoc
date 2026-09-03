@@ -50,7 +50,7 @@ doc:
 
     ## Benchmarks
 
-    Adds `process_new_account_authorization(n)`, `process_existing_account_authorization(n)`, and `process_invalid_authorization(n)`. The new- and existing-account weights are combined component-wise (via `worst_case_authorization_weight`) for the pre-dispatch reservation, since neither dominates on every axis — `existing` is heavier on proof_size on at least one runtime, `new` is heavier on ref_time.
+    Adds `process_new_account_authorization(n)`, `process_existing_account_authorization(n)`, and `process_invalid_authorization(n)`. The new- and existing-account weights are combined component-wise (via `worst_case_authorization_weight`) for the pre-dispatch reservation, since neither dominates on every axis — `existing` is heavier on proof_size on at least one runtime, `new` is heavier on ref_time. The reservation is zero for an empty authorization list, so every transaction that isn't type-4 reserves none of it.
 crates:
 - name: pallet-revive-eth-rpc
   bump: major
