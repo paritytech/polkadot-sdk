@@ -18,7 +18,8 @@
 //! Test mock for the on-demand pallet.
 
 use crate::{
-	self as pallet_on_demand, Config, DefaultPricingProvider, QueueOnDemandOrders, DEFAULT_BASE_FEE,
+	self as pallet_on_demand, Config, DefaultPricingProvider, PoolCapacityProvider,
+	QueueOnDemandOrders, DEFAULT_BASE_FEE,
 };
 use fp_coretime::TaskId;
 use frame_support::{
@@ -89,11 +90,19 @@ ord_parameter_types! {
 
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 
+pub struct SingleCorePool;
+impl PoolCapacityProvider for SingleCorePool {
+	fn pool_cores() -> u32 {
+		1
+	}
+}
+
 impl Config for Test {
 	type WeightInfo = ();
 	type Currency = Balances;
 	type AdminOrigin = EnsureOneOrRoot;
 	type RelayBlockNumberProvider = MockRelayBlockNumberProvider;
+	type PoolCapacityProvider = SingleCorePool;
 	type PricingProvider = DefaultPricingProvider;
 	type OrderQueue = RecordingOrderQueue;
 	type PalletId = OnDemandPalletId;

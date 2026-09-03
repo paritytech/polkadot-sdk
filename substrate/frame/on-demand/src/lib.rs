@@ -123,6 +123,9 @@ pub mod pallet {
 		/// Provider of the current Relay-chain block number.
 		type RelayBlockNumberProvider: BlockNumberProvider;
 
+		/// Provider of the on-demand pool capacity.
+		type PoolCapacityProvider: PoolCapacityProvider;
+
 		/// Provider of the order pricing algorithm.
 		type PricingProvider: PricingProvider<BalanceOf<Self>>;
 
@@ -172,6 +175,8 @@ pub mod pallet {
 		BatchFull,
 		/// The spot price was higher than the maximum amount declared in `place_order`.
 		SpotPriceHigherThanMaxAmount,
+		/// The on-demand pool has no cores assigned.
+		EmptyPool,
 	}
 
 	#[pallet::hooks]
@@ -246,7 +251,15 @@ pub mod pallet {
 
 			// Assume the Relay chain has drained part of the queue since we last looked at it.
 			let elapsed = now.saturating_sub(queue_state.last_updated).saturated_into();
-			let drained_orders = pricing_config.drain_rate_per_block.saturating_mul(elapsed);
+			let pool_cores = T::PoolCapacityProvider::pool_cores();
+			if pool_cores == 0 {
+				return Err(Error::<T>::EmptyPool.into());
+			}
+
+			let drained_orders = pricing_config
+				.drain_rate_per_block
+				.saturating_mul(elapsed)
+				.saturating_mul(pool_cores);
 			let outstanding_orders = queue_state.outstanding_orders.saturating_sub(drained_orders);
 
 			ensure!(outstanding_orders < pricing_config.order_cap, Error::<T>::QueueFull);

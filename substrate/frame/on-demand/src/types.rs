@@ -89,6 +89,12 @@ pub struct QueueTracker<RelayBlockNumber> {
 
 pub type QueueTrackerOf<T> = QueueTracker<RelayBlockNumberOf<T>>;
 
+/// Type for getting information about the on-demand pool capacity.
+pub trait PoolCapacityProvider {
+	/// Returns how many cores are dedicated to the on-demand pool.
+	fn pool_cores() -> u32;
+}
+
 /// Type for determining the prices of on-demand orders
 pub trait PricingProvider<T: Balance> {
 	/// Returns the current spot price of an on-demand order.
