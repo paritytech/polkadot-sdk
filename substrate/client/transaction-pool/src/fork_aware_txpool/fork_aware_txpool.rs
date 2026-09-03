@@ -21,7 +21,7 @@
 use super::{
 	dropped_watcher::{MultiViewDroppedWatcherController, StreamOfDropped},
 	import_notification_sink::MultiViewImportNotificationSink,
-	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics},
+	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics, RemovalReason},
 	multi_view_listener::MultiViewListener,
 	tx_mem_pool::{InsertionInfo, TxMemPool},
 	view::{ImportedStatus, View},
@@ -285,6 +285,7 @@ where
 			mempool.clone(),
 			view_store.clone(),
 			import_notification_sink.clone(),
+			Default::default(),
 		);
 
 		let combined_tasks = async move {
@@ -342,6 +343,7 @@ where
 			Block::Hash,
 			ExtrinsicHash<ChainApi>,
 		>,
+		metrics: PrometheusMetrics,
 	) {
 		let dropped_stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
 		loop {
@@ -357,7 +359,7 @@ where
 				reason = ?dropped.reason,
 				"fatp::dropped notification, removing"
 			);
-			match dropped.reason {
+			let removal_reason = match dropped.reason {
 				DroppedReason::Usurped(new_tx_hash) => {
 					if let Some(new_tx) = mempool.get_by_hash(new_tx_hash).await {
 						view_store.replace_transaction(new_tx.source(), new_tx.tx(), tx_hash).await;
@@ -368,9 +370,15 @@ where
 							"error: dropped_monitor_task: no entry in mempool for new transaction"
 						);
 					};
+					RemovalReason::DroppedUsurped
 				},
-				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
+				DroppedReason::LimitsEnforced => {
 					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+					RemovalReason::DroppedLimits
+				},
+				DroppedReason::Invalid => {
+					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+					RemovalReason::DroppedInvalid
 				},
 				DroppedReason::Viewless => {
 					if let Some(tx) = mempool.get_by_hash(tx_hash).await {
@@ -385,7 +393,11 @@ where
 				},
 			};
 
-			mempool.remove_transactions(&[tx_hash]).await;
+			let removed = mempool.remove_transactions(&[tx_hash]).await;
+			let removed_at = Instant::now();
+			metrics.report(|m| {
+				m.tx_age_at_removal.observe_batch(removal_reason, removed_at, &removed)
+			});
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
 			insert_and_log_throttled!(
@@ -449,6 +461,7 @@ where
 			mempool.clone(),
 			view_store.clone(),
 			import_notification_sink.clone(),
+			metrics.clone(),
 		);
 
 		let combined_tasks = async move {
@@ -862,8 +875,7 @@ where
 		//
 		// Finally, it collects the hashes of updated transactions or submission errors (either
 		// from the mempool or view_store) into a returned vector (final_results).
-		const RESULTS_ASSUMPTION : &str =
-			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
+		const RESULTS_ASSUMPTION: &str = "The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
 		let merged_results = mempool_results.into_iter().map(|result| {
 			result.map_err(Into::into).and_then(|insertion| {
 				Ok((insertion.hash, submission_results.next().expect(RESULTS_ASSUMPTION)))
@@ -1059,13 +1071,20 @@ where
 			.report(|metrics| metrics.reported_invalid_txs.inc_by(invalid_tx_errors.len() as _));
 
 		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
+		let removed_at = Instant::now();
 
 		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
 		self.mempool.remove_transactions(&removed_hashes).await;
 		self.import_notification_sink.clean_notified_items(&removed_hashes);
 
-		self.metrics
-			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _));
+		self.metrics.report(|metrics| {
+			metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _);
+			metrics.tx_age_at_removal.observe_batch(
+				RemovalReason::InvalidReported,
+				removed_at,
+				&removed,
+			);
+		});
 
 		removed
 	}
@@ -1327,7 +1346,15 @@ where
 		for (block_hash, tx_hashes) in finality_timedout_blocks {
 			self.view_store.listener.transactions_finality_timeout(&tx_hashes, block_hash);
 
-			self.mempool.remove_transactions(&tx_hashes).await;
+			let removed = self.mempool.remove_transactions(&tx_hashes).await;
+			let removed_at = Instant::now();
+			self.metrics.report(|m| {
+				m.tx_age_at_removal.observe_batch(
+					RemovalReason::FinalityTimeout,
+					removed_at,
+					&removed,
+				)
+			});
 			self.import_notification_sink.clean_notified_items(&tx_hashes);
 			self.view_store.dropped_stream_controller.remove_transactions(tx_hashes.clone());
 		}
@@ -2024,7 +2051,7 @@ where
 				Err(e) => {
 					return Err(format!(
 						"Error occurred while computing tree_route from {from:?} to {to:?}: {e}"
-					))
+					));
 				},
 			}
 		};
