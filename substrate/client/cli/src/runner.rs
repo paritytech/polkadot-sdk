@@ -255,6 +255,7 @@ mod tests {
 				warm_up_trie_cache: None,
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
+				header_pruning: false,
 				chain_spec: Box::new(
 					GenericChainSpec::<NoExtension, ()>::builder(
 						Default::default(),

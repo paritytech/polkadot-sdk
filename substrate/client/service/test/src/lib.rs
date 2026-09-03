@@ -238,6 +238,7 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		warm_up_trie_cache: None,
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
+		header_pruning: false,
 		chain_spec: Box::new((*spec).clone()),
 		executor: ExecutorConfiguration::default(),
 		wasm_runtime_overrides: Default::default(),

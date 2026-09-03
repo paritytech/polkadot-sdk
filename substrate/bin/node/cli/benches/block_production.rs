@@ -75,6 +75,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
+		header_pruning: false,
 		chain_spec: spec,
 		executor: ExecutorConfiguration {
 			wasm_method: WasmExecutionMethod::Compiled {
