@@ -108,6 +108,12 @@ pub mod pallet {
 		/// the task itself.
 		type SovereignAccountOf: MaybeConvert<TaskId, Self::AccountId>;
 
+		/// Told when a task is given coretime.
+		///
+		/// `()` for any runtime that has nothing to tell, which is every runtime that does not
+		/// also own the registrations of the tasks it sells coretime to.
+		type OnTaskAssigned: OnTaskAssigned;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;

@@ -33,6 +33,25 @@ pub type CoreIndex = u16;
 /// A Task Id. In general this is called a ParachainId.
 pub type TaskId = u32;
 
+/// Runtime hook for when a task is given coretime.
+///
+/// Called whenever a core assignment naming a task becomes live, and again on every renewal or
+/// reschedule — it reports a state, not an edge, so an implementation that only cares about the
+/// first time must say so itself.
+///
+/// Exists so that a chain which registers parachains as well as selling their coretime can learn
+/// that one of them has started using a core. That is the coretime host's equivalent of the relay
+/// chain's "this para produced its first block", which is the signal the relay chain locks a
+/// registration on.
+pub trait OnTaskAssigned {
+	/// `task` now has coretime.
+	fn on_task_assigned(task: TaskId);
+}
+
+impl OnTaskAssigned for () {
+	fn on_task_assigned(_task: TaskId) {}
+}
+
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 pub type PartsOf57600 = u16;
 

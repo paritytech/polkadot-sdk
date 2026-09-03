@@ -325,6 +325,16 @@ impl<T: Config> Pallet<T> {
 		let workplan = Schedule::truncate_from(workplan);
 		Workload::<T>::insert(core, &workplan);
 
+		// Every way a task can end up on a core — a lease, a bulk purchase, a reservation —
+		// arrives here, so this is the one place that sees them all. Fires on every reschedule,
+		// not just the first: the hook reports that the task has coretime, and whoever cares
+		// about "the first time" keeps that state themselves.
+		for item in workplan.iter() {
+			if let CoreAssignment::Task(task) = item.assignment {
+				T::OnTaskAssigned::on_task_assigned(task);
+			}
+		}
+
 		let mut total_used = 0;
 		let mut intermediate = workplan
 			.into_iter()

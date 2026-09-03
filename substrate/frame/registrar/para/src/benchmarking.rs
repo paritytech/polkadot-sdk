@@ -215,7 +215,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(who), para_id);
 
-		assert!(Paras::<T>::get(para_id).is_some_and(|i| i.locked));
+		assert!(Paras::<T>::get(para_id).is_some_and(|i| i.locked == Some(true)));
 		Ok(())
 	}
 
@@ -230,7 +230,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id);
 
-		assert!(Paras::<T>::get(para_id).is_some_and(|i| !i.locked));
+		assert!(Paras::<T>::get(para_id).is_some_and(|i| i.locked == Some(false)));
 		Ok(())
 	}
 

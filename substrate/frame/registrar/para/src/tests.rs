@@ -39,6 +39,23 @@ fn hash_of(code: &[u8]) -> sp_core::H256 {
 	BlakeTwo256::hash(code)
 }
 
+/// The stored lock of `para_id`, three-valued: `None` never locked, `Some(false)` deliberately
+/// unlocked, `Some(true)` locked. Assert against this rather than a boolean — the difference
+/// between `None` and `Some(false)` is what decides whether the automatic lock can still fire.
+fn lock_of(para_id: u32) -> Option<bool> {
+	Paras::<Test>::get(para_id).unwrap().locked
+}
+
+/// Give `para_id` a coretime assignment in the mock.
+fn assign(para_id: u32) {
+	AssignedParas::mutate(|assigned| assigned.push(para_id));
+}
+
+/// Take `para_id`'s coretime assignment away again.
+fn unassign(para_id: u32) {
+	AssignedParas::mutate(|assigned| assigned.retain(|id| *id != para_id));
+}
+
 /// Total on hold for `who` across both of this pallet's reasons.
 fn held(who: AccountId) -> Balance {
 	Balances::balance_on_hold(&HoldReason::ParaIdReservation.into(), &who) +
@@ -1295,9 +1312,9 @@ mod locking {
 			assert_ok!(Registrar::add_lock(RuntimeOrigin::root(), root_para));
 
 			// THEN all three are locked, and nothing was sent anywhere: the lock is local state.
-			assert!(Paras::<Test>::get(alice_para).unwrap().locked);
-			assert!(Paras::<Test>::get(bob_para).unwrap().locked);
-			assert!(Paras::<Test>::get(root_para).unwrap().locked);
+			assert_eq!(lock_of(alice_para), Some(true));
+			assert_eq!(lock_of(bob_para), Some(true));
+			assert_eq!(lock_of(root_para), Some(true));
 			assert_eq!(take_sent(), vec![]);
 			assert_eq!(
 				registrar_events(),
@@ -1321,7 +1338,7 @@ mod locking {
 			// leaves behind, not about who is allowed to reach it.
 			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
 
-			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(lock_of(para_id), Some(true));
 			assert_eq!(registrar_events(), vec![]);
 		});
 	}
@@ -1339,16 +1356,17 @@ mod locking {
 				Registrar::remove_lock(RuntimeOrigin::signed(ALICE), para_id),
 				DispatchError::BadOrigin
 			);
-			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(lock_of(para_id), Some(true));
 
-			// WHEN the para itself asks. THEN it is unlocked.
+			// WHEN the para itself asks. THEN it is unlocked, and recorded as a deliberate
+			// unlock rather than cleared back to "never locked".
 			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
-			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(lock_of(para_id), Some(false));
 
 			// And root may do the same.
 			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
 			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
-			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(lock_of(para_id), Some(false));
 		});
 	}
 
@@ -1400,17 +1418,24 @@ mod locking {
 	}
 
 	#[test]
-	fn holding_a_core_locks_the_para_against_its_manager() {
+	fn a_first_assignment_locks_the_para_against_its_manager() {
 		build_and_execute(|| {
 			// GIVEN a registered para that has since been assigned coretime. This chain hosts
-			// coretime, so it can ask directly rather than waiting for a hook.
+			// coretime, so it locks on the first assignment the way the relay chain locks on a
+			// para's first head.
 			let para_id = registered_para(ALICE); // manager
-			AssignedParas::mutate(|v| v.push(para_id));
+			assign(para_id);
 			let _ = take_sent();
+			assert_eq!(lock_of(para_id), None);
 
-			// THEN the manager is shut out of everything a lock gates, even though nobody set the
-			// stored flag. This is what replaces the relay chain's lock-at-first-head.
-			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+			// WHEN the assignment is noted. THEN the flag is set once, and reported once.
+			Registrar::note_assignment(para_id);
+			assert_eq!(lock_of(para_id), Some(true));
+			assert_eq!(registrar_events(), vec![Event::Locked { para_id }]);
+			Registrar::note_assignment(para_id);
+			assert_eq!(registrar_events(), vec![], "already decided, nothing to report");
+
+			// THEN the manager is shut out of everything a lock gates.
 			assert_noop!(
 				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
 				Error::<Test>::ParaLocked
@@ -1429,25 +1454,134 @@ mod locking {
 				Error::<Test>::ParaLocked
 			);
 			assert_eq!(take_sent(), vec![]);
+			assert_eq!(registrar_events(), vec![]);
 
 			// The para itself and root are unaffected: a lock protects the para from its manager.
 			assert_ok!(Registrar::set_current_head(para_origin(para_id), para_id, head(4)));
+		});
+	}
 
-			// WHEN the core lapses. THEN the manager has control again, because nothing made the
-			// lock stick. Where that is not wanted, add_lock is what makes it permanent.
-			AssignedParas::set(Vec::new());
+	#[test]
+	fn an_undecided_para_holding_a_core_is_refused_before_the_lock_is_recorded() {
+		build_and_execute(|| {
+			// GIVEN a para that has taken an assignment but whose lock has not been recorded yet
+			// — the window between the assignment and whatever calls `note_assignment`.
+			let para_id = registered_para(ALICE); // manager
+			assign(para_id);
+			assert_eq!(lock_of(para_id), None);
+
+			// THEN the manager is already refused. The stored flag makes the lock permanent; it
+			// is not what makes it start.
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
+				Error::<Test>::ParaLocked
+			);
+			// And the refusal itself records nothing — a failed dispatch unwinds its own writes,
+			// which is why the recording has to happen where the assignment is made.
+			assert_eq!(lock_of(para_id), None);
+		});
+	}
+
+	#[test]
+	fn losing_the_assignment_does_not_unlock() {
+		build_and_execute(|| {
+			// GIVEN a para whose first assignment was recorded.
+			let para_id = registered_para(ALICE); // manager
+			assign(para_id);
+			Registrar::note_assignment(para_id);
+			assert_eq!(lock_of(para_id), Some(true));
+			let _ = take_sent();
+
+			// WHEN the assignment lapses — an on-demand para between orders, or a lease that ran
+			// out. THEN the manager stays shut out. A live "does it hold a core right now"
+			// question would hand them a window here; a one-shot lock does not.
+			unassign(para_id);
+			assert_eq!(lock_of(para_id), Some(true));
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
+				Error::<Test>::ParaLocked
+			);
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+
+			// Only an explicit unlock by the para or root lets the manager back in.
+			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
 			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
 		});
 	}
 
 	#[test]
-	fn a_fresh_registration_starts_unlocked() {
+	fn a_deliberate_unlock_is_not_undone_by_a_later_assignment() {
 		build_and_execute(|| {
-			// A manager who has just made a mistake can undo it. What protects a para that is
-			// actually in use is the assignment check, not this flag.
+			// GIVEN a para the para itself deliberately unlocked.
+			let para_id = registered_para(ALICE); // manager
+			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
+			assert_eq!(lock_of(para_id), Some(false));
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			// WHEN it later takes an assignment. THEN nothing re-locks it: the para's own
+			// decision outranks the automatic lock, which is why `Some(false)` is stored rather
+			// than the entry being cleared.
+			assign(para_id);
+			Registrar::note_assignment(para_id);
+			assert_eq!(lock_of(para_id), Some(false));
+			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRequested { para_id, message_id: 1 }],
+				"the head update happened and nothing re-locked the para"
+			);
+		});
+	}
+
+	#[test]
+	fn an_explicit_lock_before_any_assignment_is_left_alone() {
+		build_and_execute(|| {
+			// GIVEN a para its manager locked before it ever held a core.
+			let para_id = registered_para(ALICE); // manager
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+			assert_eq!(lock_of(para_id), Some(true));
+			let _ = registrar_events();
+
+			// WHEN an assignment arrives. THEN the automatic lock is a no-op — already decided,
+			// so no second `Locked` event.
+			assign(para_id);
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
+				Error::<Test>::ParaLocked
+			);
+			assert_eq!(lock_of(para_id), Some(true));
+			assert_eq!(registrar_events(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_reserved_id_is_never_locked_by_an_assignment() {
+		build_and_execute(|| {
+			// GIVEN a merely reserved id with a stray assignment entry against it. It cannot
+			// hold a core — nothing is registered for it to schedule — so locking it would only
+			// strand the reservation deposit behind a governance call.
+			let para_id = reserve_for(ALICE); // manager
+			assign(para_id);
+
+			// THEN it stays unlocked and its manager can still drop it for the deposit back.
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+			assert_eq!(held(ALICE), 0);
+		});
+	}
+
+	#[test]
+	fn a_fresh_registration_starts_never_locked() {
+		build_and_execute(|| {
+			// `None`, not `Some(false)`: a manager who has just made a mistake can undo it, and
+			// the para is still eligible for the automatic lock once it takes a core.
 			let para_id = registered_para(ALICE);
 
-			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(lock_of(para_id), None);
+			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
 		});
 	}
 }
@@ -2034,7 +2168,11 @@ mod receiving_a_migration {
 	use super::*;
 	use registrar_primitives::{MigratedPara, MigratedParaState, ReceiveMigratedParas};
 
-	fn migrated(para_id: u32, state: MigratedParaState, locked: bool) -> MigratedPara<AccountId> {
+	fn migrated(
+		para_id: u32,
+		state: MigratedParaState,
+		locked: Option<bool>,
+	) -> MigratedPara<AccountId> {
 		MigratedPara { para_id, manager: ALICE, state, locked }
 	}
 
@@ -2090,7 +2228,7 @@ mod receiving_a_migration {
 			assert_ok!(Registrar::receive_para(migrated(
 				FIRST_PARA_ID + 500,
 				MigratedParaState::Registered { head_len: 20 },
-				false,
+				None,
 			)));
 
 			// THEN it holds exactly the same deposits and sits in the same state. Nothing about
@@ -2106,15 +2244,15 @@ mod receiving_a_migration {
 	#[test]
 	fn a_live_para_arrives_locked_and_its_manager_stays_out() {
 		build_and_execute(|| {
-			// Every live Polkadot para is locked today, so this is the normal case, not an edge.
+			// Most live paras are locked already, so this is the normal case, not an edge.
 			let para_id = FIRST_PARA_ID + 501;
 			assert_ok!(Registrar::receive_para(migrated(
 				para_id,
 				MigratedParaState::Registered { head_len: 20 },
-				true,
+				Some(true),
 			)));
 
-			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(lock_of(para_id), Some(true));
 			assert_noop!(
 				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
 				Error::<Test>::ParaLocked
@@ -2130,13 +2268,54 @@ mod receiving_a_migration {
 	}
 
 	#[test]
+	fn all_three_lock_states_survive_the_migration_distinctly() {
+		build_and_execute(|| {
+			// GIVEN three paras arriving in each of the states the sending chain can record.
+			// Collapsing `None` into `Some(false)` on the wire would opt every never-locked para
+			// out of ever locking again, which is why the wire type carries the option.
+			let never = FIRST_PARA_ID + 510; // never locked on the old chain
+			let locked = FIRST_PARA_ID + 511; // locked at its first head
+			let unlocked = FIRST_PARA_ID + 512; // deliberately unlocked before the move
+			for (para_id, state) in
+				[(never, None), (locked, Some(true)), (unlocked, Some(false))]
+			{
+				assert_ok!(Registrar::receive_para(migrated(
+					para_id,
+					MigratedParaState::Registered { head_len: 20 },
+					state,
+				)));
+			}
+
+			// THEN each arrives as it left.
+			assert_eq!(lock_of(never), None);
+			assert_eq!(lock_of(locked), Some(true));
+			assert_eq!(lock_of(unlocked), Some(false));
+
+			// AND the difference is live: an assignment locks the never-locked one and leaves
+			// the deliberately unlocked one alone.
+			assign(never);
+			assign(unlocked);
+			Registrar::note_assignment(never);
+			Registrar::note_assignment(unlocked);
+			assert_eq!(lock_of(never), Some(true));
+			assert_eq!(lock_of(unlocked), Some(false));
+
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), never, head(4)),
+				Error::<Test>::ParaLocked
+			);
+			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), unlocked, head(4)));
+		});
+	}
+
+	#[test]
 	fn a_reserved_id_arrives_with_only_the_reservation_deposit() {
 		build_and_execute(|| {
 			let para_id = FIRST_PARA_ID + 502;
 			assert_ok!(Registrar::receive_para(migrated(
 				para_id,
 				MigratedParaState::Reserved,
-				false,
+				None,
 			)));
 
 			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
@@ -2158,7 +2337,7 @@ mod receiving_a_migration {
 				Registrar::receive_para(migrated(
 					para_id,
 					MigratedParaState::Registered { head_len: 20 },
-					true,
+					Some(true),
 				)),
 				Error::<Test>::AlreadyRegistered
 			);
@@ -2184,7 +2363,7 @@ mod receiving_a_migration {
 				para_id,
 				manager: BOB,
 				state: MigratedParaState::Registered { head_len: 20 },
-				locked: true,
+				locked: Some(true),
 			}));
 
 			// THEN the para lands regardless, with the half that could be paid taken and the
@@ -2192,7 +2371,7 @@ mod receiving_a_migration {
 			let info = Paras::<Test>::get(para_id).expect("the para is preserved");
 			assert!(info.reservation.is_some(), "the affordable half was taken");
 			assert_eq!(info.state, RegistrationState::Registered { ticket: None });
-			assert!(info.locked);
+			assert_eq!(info.locked, Some(true));
 			assert_eq!(held(BOB), PARA_DEPOSIT);
 
 			assert_eq!(
@@ -2215,7 +2394,7 @@ mod receiving_a_migration {
 				para_id,
 				manager: broke,
 				state: MigratedParaState::Registered { head_len: 20 },
-				locked: true,
+				locked: Some(true),
 			}));
 
 			// THEN the record exists with neither deposit taken, and says so.
@@ -2251,7 +2430,7 @@ mod receiving_a_migration {
 				para_id: system_para,
 				manager: ALICE,
 				state: MigratedParaState::Registered { head_len: 20 },
-				locked: true,
+				locked: Some(true),
 			}));
 
 			assert!(Paras::<Test>::get(system_para).is_none());

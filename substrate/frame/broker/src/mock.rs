@@ -201,6 +201,24 @@ impl MaybeConvert<TaskId, u64> for SovereignAccountOf {
 	}
 }
 
+parameter_types! {
+	/// Every task the broker has reported as having coretime, in the order reported.
+	pub static AssignedTasks: Vec<TaskId> = vec![];
+}
+
+/// Records what [`OnTaskAssigned`] is told, so tests can assert the hook actually fires.
+pub struct RecordAssignments;
+impl OnTaskAssigned for RecordAssignments {
+	fn on_task_assigned(task: TaskId) {
+		AssignedTasks::mutate(|tasks| tasks.push(task));
+	}
+}
+
+/// Take and clear the recorded assignments.
+pub fn take_assigned_tasks() -> Vec<TaskId> {
+	AssignedTasks::mutate(core::mem::take)
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
@@ -214,6 +232,7 @@ impl crate::Config for Test {
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
 	type SovereignAccountOf = SovereignAccountOf;
+	type OnTaskAssigned = RecordAssignments;
 	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;

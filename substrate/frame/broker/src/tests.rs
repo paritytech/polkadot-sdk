@@ -1140,6 +1140,50 @@ fn purchase_works() {
 }
 
 #[test]
+fn a_task_taking_coretime_is_reported() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// GIVEN a lease granted directly. THEN it is reported at the moment of the grant, before
+		// it has reached a core.
+		assert_ok!(Broker::do_set_lease(1000, 8));
+		assert_eq!(take_assigned_tasks(), vec![1000]);
+
+		// WHEN a different task buys a core in the ordinary way.
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 2000, Final));
+		// Assigning writes a workplan; nothing is live yet.
+		assert_eq!(take_assigned_tasks(), Vec::<TaskId>::new());
+
+		// THEN both are reported once the schedule goes live — the leased task too, because a
+		// lease reaches a core by the same path as anything else.
+		advance_to(6);
+		let reported = take_assigned_tasks();
+		assert!(reported.contains(&1000), "leased task reported, got {reported:?}");
+		assert!(reported.contains(&2000), "purchased task reported, got {reported:?}");
+
+		// The hook fires whenever a schedule is committed for a core, so a task is reported again
+		// each time its coretime is renewed or rescheduled. It says "this task has coretime", not
+		// "this is the first time" — the one-shot decision belongs to whoever is listening, which
+		// is why nothing here tries to deduplicate.
+	});
+}
+
+#[test]
+fn a_pool_or_idle_core_reports_nothing() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Only `CoreAssignment::Task` names a registration; Pool and Idle name nobody.
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region, None, 1, Final));
+		advance_to(8);
+
+		assert_eq!(take_assigned_tasks(), Vec::<TaskId>::new());
+	});
+}
+
+#[test]
 fn purchase_credit_works() {
 	TestExt::new().endow(1, 50).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));

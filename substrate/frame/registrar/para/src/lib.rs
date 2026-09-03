@@ -224,11 +224,29 @@ pub struct ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumbe
 	/// [`Pallet::set_current_head`]. Asymmetric on purpose, as on the relay chain: a manager may
 	/// lock themselves out but may not let themselves back in.
 	///
-	/// A fresh registration starts unlocked, so a manager who has just made a mistake can undo
-	/// it. What protects a para that is actually running is
-	/// [`Config::AssignmentChecker`] — holding a core is a better test of "in use" than having
-	/// once produced a block, which is what the relay chain's own lock keys off.
-	pub locked: bool,
+	/// Three-valued, and the third value is the point:
+	///
+	/// - `None` — never locked. A fresh reservation starts here, so a manager who has just made a
+	///   mistake can undo it, and the para is still eligible for the automatic lock below.
+	/// - `Some(true)` — locked.
+	/// - `Some(false)` — unlocked *deliberately*, by the para or root. The automatic lock never
+	///   fires again.
+	///
+	/// The automatic lock is one-shot: the first coretime assignment moves `None` to `Some(true)`
+	/// and nothing moves it back except an explicit [`Pallet::remove_lock`]. It has to be one-shot
+	/// rather than a live "does it hold a core right now" question, because a para between
+	/// assignments — an on-demand one especially — would otherwise read unlocked and hand its
+	/// manager a window to deregister it or rewrite its code.
+	pub locked: Option<bool>,
+}
+
+impl<AccountId, ReservationTicket, RegistrationTicket, BlockNumber>
+	ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumber>
+{
+	/// Whether the manager is currently shut out. `None` reads as unlocked.
+	pub fn is_locked(&self) -> bool {
+		self.locked.unwrap_or(false)
+	}
 }
 
 /// The [`ParaInfo`] type as configured.
@@ -553,7 +571,7 @@ pub mod pallet {
 					manager: who.clone(),
 					reservation,
 					state: RegistrationState::Reserved,
-					locked: false,
+					locked: None,
 				},
 			);
 			NextFreeParaId::<T>::put(next);
@@ -685,17 +703,14 @@ pub mod pallet {
 		)]
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			// One assignment lookup answers both questions below: it locks the manager out, and
-			// it blocks the deregistration outright. A reserved id cannot hold a core, so the
-			// checker is not consulted for one — see `is_locked` for why.
+			// A para that holds a core right now is refused outright, root included — the lock is
+			// about who may ask, this is about the answer never being yes while the para can still
+			// be scheduled. A reserved id cannot hold a core, so the checker is not consulted for
+			// one; see `note_assignment`.
 			let assigned = !matches!(info.state, RegistrationState::Reserved) &&
 				T::AssignmentChecker::has_assignment(para_id);
-			Self::ensure_root_para_or_manager(
-				origin,
-				para_id,
-				&info.manager,
-				info.locked || assigned,
-			)?;
+			let locked = Self::locked_now(para_id, &info);
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
 			let ParaInfo { manager, reservation, state, locked } = info;
 
 			match state {
@@ -756,7 +771,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_deregistration())]
 		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
+			let locked = Self::locked_now(para_id, &info);
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
 			let manager = info.manager.clone();
 			let RegistrationState::Deregistering { ticket, cancellable_at, message_id: original } =
 				info.state
@@ -809,8 +825,8 @@ pub mod pallet {
 			// A manager may always lock, including one that is already locked out.
 			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, false)?;
 
-			if !info.locked {
-				info.locked = true;
+			if info.locked != Some(true) {
+				info.locked = Some(true);
 				Paras::<T>::insert(para_id, info);
 				Self::deposit_event(Event::Locked { para_id });
 			}
@@ -822,16 +838,25 @@ pub mod pallet {
 		/// Callable by the para itself or root, and deliberately **not** by the manager: a lock
 		/// exists to protect the para from whoever manages it, so letting the manager lift it
 		/// would make it decorative.
+		///
+		/// Records the decision as `Some(false)` rather than clearing it back to `None`. That is
+		/// what makes the unlock stick: a cleared flag would be re-locked by the para's next
+		/// coretime assignment, undoing what the para just asked for.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::remove_lock())]
 		pub fn remove_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			Self::ensure_root_or_para(origin, para_id)?;
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 
-			if info.locked {
-				info.locked = false;
+			if info.locked != Some(false) {
+				let was_locked = info.is_locked();
+				info.locked = Some(false);
 				Paras::<T>::insert(para_id, info);
-				Self::deposit_event(Event::Unlocked { para_id });
+				// A para that was never locked has still opted out, but nothing was lifted, so
+				// there is no unlock to report.
+				if was_locked {
+					Self::deposit_event(Event::Unlocked { para_id });
+				}
 			}
 			Ok(())
 		}
@@ -857,7 +882,8 @@ pub mod pallet {
 			code_hash: H256,
 		) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
+			let locked = Self::locked_now(para_id, &info);
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
 			ensure!(
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
@@ -891,7 +917,8 @@ pub mod pallet {
 			head: Vec<u8>,
 		) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, Self::is_locked(para_id, &info))?;
+			let locked = Self::locked_now(para_id, &info);
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
 			ensure!(
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
@@ -1093,32 +1120,59 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Whether the manager is shut out of the calls a lock gates.
+	/// Lock the para if its first coretime assignment has arrived, and do nothing otherwise.
 	///
-	/// Two things lock a para. The stored flag is deliberate — set by the manager, the para, root,
-	/// or carried over by the migration, since every live para arrives locked. The assignment
-	/// check is automatic: **a para holding a core is locked for as long as it holds one**, so its
-	/// registrar manager cannot deregister it, change its code, or rewrite its head while it is in
-	/// use.
+	/// This is the Coretime counterpart of the relay chain's `OnNewHead` lock, and it is
+	/// deliberately the same shape: **one-shot**. The relay chain locks at a para's first block
+	/// because that is the only "in use" signal it has; this chain hosts coretime, so it locks at
+	/// the first assignment instead. Both then stay locked until somebody unlocks explicitly.
 	///
-	/// That second half is what replaces the relay chain's `OnNewHead` lock. The relay chain locks
-	/// at a para's first block because that is the only "in use" signal it has; this chain hosts
-	/// coretime, so it can ask the better question directly through
-	/// [`Config::AssignmentChecker`] — and it is a question, not an event, so there is no hook to
-	/// miss and no ordering to get wrong.
+	/// One-shot rather than a live "does it hold a core right now" question. A live question reads
+	/// false in every gap between assignments — for an on-demand para, most of the time — and each
+	/// of those gaps is a window in which the manager could deregister the para, change its code,
+	/// or rewrite its head out from under it.
 	///
-	/// A para that *loses* its core becomes manager-controllable again, unlike on the relay chain
-	/// where the lock is permanent once set. Where that is not wanted, the coretime side can make
-	/// it stick with [`Pallet::add_lock`], which is exactly what the stored flag is for.
-	/// A merely reserved id is never locked by an assignment. It cannot hold a core — nothing is
+	/// Only `None` is eligible. `Some(false)` means the para or root unlocked on purpose, and that
+	/// decision outranks any later assignment.
+	///
+	/// A merely reserved id is never locked this way. It cannot hold a core — nothing is
 	/// registered for it to schedule — so treating a stray assignment entry as a lock would strand
 	/// the reservation deposit behind a governance call for no reason.
-	fn is_locked(para_id: ParaId, info: &ParaInfoOf<T>) -> bool {
-		if info.locked {
-			return true;
+	///
+	/// Idempotent and cheap once decided: a `Some(_)` entry costs one read and returns.
+	///
+	/// **Must be called from a context that commits.** A dispatch that refuses the caller unwinds
+	/// its whole storage transaction, this write included — so calling it at the top of a call
+	/// that is about to return `ParaLocked` persists nothing. It belongs on the coretime side, at
+	/// the moment an assignment is made, which is the only place guaranteed to commit.
+	pub fn note_assignment(para_id: ParaId) {
+		let Some(mut info) = Paras::<T>::get(para_id) else { return };
+		if !Self::assignment_locks(para_id, &info) {
+			return;
 		}
-		!matches!(info.state, RegistrationState::Reserved) &&
+		info.locked = Some(true);
+		Paras::<T>::insert(para_id, info);
+		Self::deposit_event(Event::Locked { para_id });
+	}
+
+	/// Whether the automatic lock is due but not yet recorded.
+	fn assignment_locks(para_id: ParaId, info: &ParaInfoOf<T>) -> bool {
+		info.locked.is_none() &&
+			!matches!(info.state, RegistrationState::Reserved) &&
 			T::AssignmentChecker::has_assignment(para_id)
+	}
+
+	/// Whether the manager is shut out of the calls a lock gates, right now.
+	///
+	/// The recorded decision wins whenever there is one — that is what makes the lock survive a
+	/// para losing its core. Only an undecided para falls back to asking the checker, so that a
+	/// para which took an assignment is refused from the first moment rather than from whenever
+	/// [`Pallet::note_assignment`] first managed to commit.
+	fn locked_now(para_id: ParaId, info: &ParaInfoOf<T>) -> bool {
+		match info.locked {
+			Some(locked) => locked,
+			None => Self::assignment_locks(para_id, info),
+		}
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its `manager`, or root.

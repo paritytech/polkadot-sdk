@@ -379,8 +379,13 @@ pub struct MigratedPara<AccountId> {
 	pub manager: AccountId,
 	/// Reserved, or registered and how big its head is.
 	pub state: MigratedParaState,
-	/// Whether the manager is locked out. Every live para arrives locked.
-	pub locked: bool,
+	/// Whether the manager is locked out, as the sending chain recorded it.
+	///
+	/// Three-valued for the same reason it is on the receiving side: `None` means never locked
+	/// and still eligible for the automatic lock, `Some(false)` means deliberately unlocked and
+	/// must not be re-locked. Collapsing the two on the wire would silently opt every
+	/// never-locked para out of ever locking again.
+	pub locked: Option<bool>,
 }
 
 /// Takes migrated registrations into the pallet that will own them.

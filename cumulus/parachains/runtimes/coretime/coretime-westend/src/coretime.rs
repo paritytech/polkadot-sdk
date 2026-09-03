@@ -254,6 +254,7 @@ impl pallet_broker::Config for Runtime {
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
+	type OnTaskAssigned = ();
 	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;

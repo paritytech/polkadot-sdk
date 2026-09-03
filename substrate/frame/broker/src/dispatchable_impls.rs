@@ -91,6 +91,10 @@ impl<T: Config> Pallet<T> {
 		r.try_push(LeaseRecordItem { until, task })
 			.map_err(|_| Error::<T>::TooManyLeases)?;
 		Leases::<T>::put(r);
+		// Told here as well as when the lease reaches a core: a lease granted now may not be
+		// scheduled until the next sale rotation, and the task has committed coretime from the
+		// moment it is granted.
+		T::OnTaskAssigned::on_task_assigned(task);
 		Self::deposit_event(Event::<T>::Leased { until, task });
 		Ok(())
 	}
