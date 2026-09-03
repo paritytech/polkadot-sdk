@@ -86,11 +86,6 @@ pub(crate) fn build_statement_store<
 			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
 		})
 	};
-	let retention =
-		sc_network_statement::RetentionHandle::new(network.local_peer_id(), replication_factor);
-	if sc_network_statement::v2dht_enabled() {
-		statement_store.set_retention_resolver(retention.resolver());
-	}
 	let statement_handler = statement_handler_proto.build(
 		network,
 		sync_service,
@@ -102,8 +97,12 @@ pub(crate) fn build_statement_store<
 		&affinity_topics,
 		replication_factor,
 		gossip_target,
-		retention,
 	)?;
+	if sc_network_statement::v2dht_enabled() {
+		if let Some(resolver) = statement_handler.retention_resolver() {
+			statement_store.set_retention_resolver(resolver);
+		}
+	}
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
 		Some("networking"),

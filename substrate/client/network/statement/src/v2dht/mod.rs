@@ -42,7 +42,7 @@ use std::{
 
 /// Shared affinity view to derive a statement's retention mask.
 #[derive(Clone)]
-pub struct RetentionHandle {
+pub(crate) struct RetentionHandle {
 	dht_affinity: Arc<RwLock<DhtAffinity>>,
 	/// Topics the node has explicit affinity for.
 	topic_affinity: Arc<RwLock<TopicAffinity>>,
@@ -51,7 +51,7 @@ pub struct RetentionHandle {
 impl RetentionHandle {
 	/// A handle seeded with an empty topology, so its resolver persists every statement carrying a
 	/// topic until the orchestrator publishes the learned affinity.
-	pub fn new(local_peer: PeerId, replication_factor: NonZeroUsize) -> Self {
+	pub(crate) fn new(local_peer: PeerId, replication_factor: NonZeroUsize) -> Self {
 		Self {
 			dht_affinity: Arc::new(RwLock::new(DhtAffinity::empty(local_peer, replication_factor))),
 			topic_affinity: Arc::new(RwLock::new(TopicAffinity::default())),
@@ -59,7 +59,7 @@ impl RetentionHandle {
 	}
 
 	/// The resolver the store calls to derive a statement's retention mask.
-	pub fn resolver(&self) -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
+	pub(crate) fn resolver(&self) -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
 		let dht_affinity = self.dht_affinity.clone();
 		let topic_affinity = self.topic_affinity.clone();
 		Box::new(move |stmt| {
@@ -136,6 +136,13 @@ impl V2DhtOrchestrator {
 		// drive retention before the first peer or subscription event publishes them.
 		self.publish_dht_affinity();
 		self.publish_topic_affinity();
+	}
+
+	/// The resolver the store calls to derive a statement's retention mask, if retention is wired.
+	pub(crate) fn retention_resolver(
+		&self,
+	) -> Option<Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>> {
+		self.retention.as_ref().map(RetentionHandle::resolver)
 	}
 
 	/// Refresh the store's DHT-affinity oracle
