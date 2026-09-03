@@ -588,6 +588,31 @@ struct QueryIndex {
 	/// Statements held only until the next propagation.
 	// TODO: temporary PoC solution for the DHT-affinity work (#11932).
 	transient: HashMap<Hash, Statement>,
+	/// Statements persisted only for explicit affinity, dropped once no affinity covers them.
+	explicit_only: HashSet<Hash>,
+}
+
+enum RetentionTrack {
+	ExplicitOnly,
+	Persistent,
+}
+
+impl From<RetentionReasonMask> for RetentionTrack {
+	fn from(mask: RetentionReasonMask) -> Self {
+		if mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
+			!mask.contains(RetentionReasonMask::DHT_AFFINITY)
+		{
+			RetentionTrack::ExplicitOnly
+		} else {
+			RetentionTrack::Persistent
+		}
+	}
+}
+
+impl RetentionTrack {
+	fn is_explicit_only(&self) -> bool {
+		matches!(self, RetentionTrack::ExplicitOnly)
+	}
 }
 
 impl QueryIndex {
@@ -597,12 +622,13 @@ impl QueryIndex {
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
 			transient: HashMap::new(),
+			explicit_only: HashSet::new(),
 		}
 	}
 
 	/// Records a newly inserted statement: bumps cardinalities and marks the hash as recent
 	/// under its admission sequence number.
-	fn note_insert(&mut self, hash: Hash, statement: &Statement, seq: u64) {
+	fn note_insert(&mut self, hash: Hash, statement: &Statement, seq: u64, track: RetentionTrack) {
 		let mut nt = 0;
 		while let Some(topic) = statement.topic(nt) {
 			*self.topic_counts.entry(topic).or_insert(0) += 1;
@@ -611,6 +637,9 @@ impl QueryIndex {
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
 		self.recent.insert(hash, seq);
+		if track.is_explicit_only() {
+			self.explicit_only.insert(hash);
+		}
 	}
 
 	/// Records a removed statement: decrements cardinalities and drops the hash from `recent`.
@@ -633,11 +662,18 @@ impl QueryIndex {
 			}
 		}
 		self.recent.remove(hash);
+		self.explicit_only.remove(hash);
 	}
 
 	/// Takes and clears the set of recently added hashes with their admission sequence numbers.
 	fn take_recent(&mut self) -> HashMap<Hash, u64> {
 		std::mem::take(&mut self.recent)
+	}
+
+	fn forget_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
+		for key in keys {
+			self.explicit_only.remove(&key.hash);
+		}
 	}
 }
 
@@ -773,6 +809,17 @@ struct InsertPlan {
 	/// The subset of `evicted` that is banned from re-acceptance, with its purge deadline. These
 	/// must be recorded in the on-disk evicted journal.
 	banned: Vec<(Hash, u64)>,
+}
+
+enum Resubmission {
+	Banned,
+	Allowed,
+}
+
+impl Resubmission {
+	fn is_banned(&self) -> bool {
+		matches!(self, Resubmission::Banned)
+	}
 }
 
 /// A single on-disk index set referenced during a query: either the set of hashes carrying a
@@ -1992,7 +2039,7 @@ impl Store {
 			log::warn!(target: LOG_TARGET, "Error scanning the expiry index: {:?}", e);
 		}
 		for (expiry, hash) in due {
-			match self.remove_statement(&hash) {
+			match self.remove_statement(&hash, Resubmission::Banned) {
 				Ok(true) => {
 					expired += 1;
 					log::trace!(
@@ -2103,8 +2150,53 @@ impl Store {
 		Ok(drained)
 	}
 
-	/// Perform periodic store maintenance: permanently delete statements whose purge period has
-	/// elapsed and refresh store metrics.
+	/// Drop statements persisted only for explicit topic affinity once no affinity covers them,
+	/// skipping the re-acceptance ban so peers may redeliver them should affinity return.
+	fn sweep_explicit_affinity(&self) {
+		let Some(resolver) = self.retention_fn.get() else { return };
+		let tracked: Vec<Hash> = {
+			let query_index = self.query_index.read();
+			query_index
+				.explicit_only
+				.iter()
+				.filter(|hash| !query_index.recent.contains_key(*hash))
+				.copied()
+				.collect()
+		};
+		for hash in tracked {
+			let encoded = match self.db.get(col::STATEMENTS, &hash) {
+				Ok(Some(encoded)) => encoded,
+				Ok(None) => continue,
+				Err(e) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Error reading statement {:?}: {:?}",
+						HexDisplay::from(&hash),
+						e
+					);
+					continue;
+				},
+			};
+			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(&hash));
+				continue;
+			};
+			if resolver(&statement).is_persistent() {
+				continue;
+			}
+			if let Err(e) = self.remove_statement(&hash, Resubmission::Allowed) {
+				log::warn!(
+					target: LOG_TARGET,
+					"Error removing statement {:?}: {:?}",
+					HexDisplay::from(&hash),
+					e
+				);
+			}
+		}
+	}
+
+	/// Perform periodic store maintenance: drop explicit-affine statements no affinity covers,
+	/// permanently delete statements whose purge period has elapsed, and refresh store metrics.
 	///
 	/// Expired and evicted statements are not removed from the database immediately; they are kept
 	/// in the `EXPIRED` column for [`DEFAULT_PURGE_AFTER_SEC`] (default 48h) to prevent
@@ -2117,6 +2209,7 @@ impl Store {
 	/// holding the index lock for too long during maintenance.
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
+		self.sweep_explicit_affinity();
 		let current_time = self.timestamp();
 		let deleted_count = match self.drain_due_evicted(current_time) {
 			Ok(count) => count as u64,
@@ -2919,7 +3012,8 @@ impl StatementStore for Store {
 				for evicted_statement in &evicted_statements {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
-				query_index.note_insert(hash, &statement, plan.seq);
+				query_index.forget_tracking(plan.evicted.iter().map(|(key, _)| key));
+				query_index.note_insert(hash, &statement, plan.seq, RetentionTrack::from(mask));
 			}
 			seq
 		}; // Release submit index lock
@@ -2933,7 +3027,7 @@ impl StatementStore for Store {
 	/// it in the `EXPIRED` column so it cannot be re-accepted until its purge period elapses (see
 	/// [`maintain`](Self::maintain)). No-op if the statement is unknown.
 	fn remove(&self, hash: &Hash) -> Result<()> {
-		self.remove_statement(hash).map(|_| ())
+		self.remove_statement(hash, Resubmission::Banned).map(|_| ())
 	}
 
 	/// Remove every statement authored by `who`, applying the same soft-delete as
@@ -3033,6 +3127,7 @@ impl StatementStore for Store {
 			for (hash, statement) in &removed_statements {
 				query_index.note_remove(hash, statement);
 			}
+			query_index.forget_tracking(entries.iter().map(|(key, _)| key));
 		}
 		Ok(())
 	}
@@ -3109,12 +3204,14 @@ impl StatementStoreSubscriptionApi for Store {
 }
 
 impl Store {
-	/// Body of [`StatementStore::remove`], reporting whether a statement was actually removed.
+	/// Removes a statement, reporting whether one was actually removed. With
+	/// [`Readmission::Banned`], an unexpired statement cannot be re-accepted until its purge
+	/// period elapses.
 	///
 	/// `Ok(false)` means no (decodable) statement is stored under `hash` — it was already gone,
 	/// or its body is corrupt. A corrupt body cannot be tied back to its index rows, so nothing
 	/// is removed at all.
-	fn remove_statement(&self, hash: &Hash) -> Result<bool> {
+	fn remove_statement(&self, hash: &Hash, resubmission: Resubmission) -> Result<bool> {
 		let current_time = self.timestamp();
 		{
 			let mut submit_index = self.submit_index.write();
@@ -3158,7 +3255,8 @@ impl Store {
 					HexDisplay::from(hash)
 				),
 			}
-			let banned = current_time < expiry.get_expiration_timestamp_secs();
+			let banned =
+				resubmission.is_banned() && current_time < expiry.get_expiration_timestamp_secs();
 			if banned {
 				let purge_at = expiry
 					.get_expiration_timestamp_secs()
@@ -3363,7 +3461,9 @@ impl Store {
 		self.db.commit(commit).expect("failed to commit the statement");
 		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new() };
 		submit_index.apply_insert(&account, None, hash, statement, &plan);
-		self.query_index.write().note_insert(hash, statement, seq);
+		self.query_index
+			.write()
+			.note_insert(hash, statement, seq, RetentionTrack::Persistent);
 	}
 }
 
@@ -3377,6 +3477,7 @@ mod tests {
 		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
 		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
+	use std::sync::atomic::{AtomicBool, Ordering};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
 	type Hash = sp_core::H256;
@@ -4529,6 +4630,167 @@ mod tests {
 
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
 		assert!(!store.has_statement(&hash), "the first, transient resolver still applies");
+	}
+
+	/// A resolver that reports `affine` while the returned flag holds `true`, and `lapsed`
+	/// otherwise — modeling affinity that lapses or shifts.
+	fn switchable_resolver(
+		affine: RetentionReasonMask,
+		lapsed: RetentionReasonMask,
+	) -> (Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>, std::sync::Arc<AtomicBool>)
+	{
+		let flag = std::sync::Arc::new(AtomicBool::new(true));
+		let view = flag.clone();
+		let resolver = Box::new(
+			move |_: &Statement| if view.load(Ordering::Relaxed) { affine } else { lapsed },
+		);
+		(resolver, flag)
+	}
+
+	#[test]
+	fn sweep_drops_statement_once_explicit_affinity_lapses() {
+		let (store, _temp) = test_store();
+		let (resolver, affine) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::TRANSIENT,
+		);
+		store.set_retention_resolver(resolver);
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
+		assert!(store.has_statement(&hash));
+		store.take_recent_statements().unwrap();
+
+		// Affinity still holds: the sweep keeps the statement.
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		// Affinity lapsed: the sweep drops the statement.
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(!store.has_statement(&hash));
+
+		// The removal skips the re-acceptance ban, so the statement returns once affinity does.
+		affine.store(true, Ordering::Relaxed);
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		assert!(store.has_statement(&hash));
+
+		// The redelivered statement is tracked again: a second lapse sweeps it once more.
+		affine.store(false, Ordering::Relaxed);
+		store.take_recent_statements().unwrap();
+		store.maintain();
+		assert!(!store.has_statement(&hash));
+	}
+
+	#[test]
+	fn sweep_spares_statements_not_yet_handed_to_propagation() {
+		let (store, _temp) = test_store();
+		let (resolver, affine) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::TRANSIENT,
+		);
+		store.set_retention_resolver(resolver);
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
+
+		// Affinity lapsed before the outbox took the statement: the sweep leaves it alone,
+		// so a locally submitted statement is handed to propagation at least once.
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		// Once propagation has taken it, the next sweep drops it.
+		store.take_recent_statements().unwrap();
+		store.maintain();
+		assert!(!store.has_statement(&hash));
+	}
+
+	#[test]
+	fn sweep_keeps_statements_another_affinity_still_covers() {
+		let (store, _temp) = test_store();
+		let (resolver, affine) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::DHT_AFFINITY,
+		);
+		store.set_retention_resolver(resolver);
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// Explicit affinity lapsed but the DHT covers the statement at sweep time: the sweep
+		// checks for any persistent reason, not the explicit bit, and keeps it.
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+	}
+
+	#[test]
+	fn sweep_skips_statements_admitted_with_both_affinities() {
+		let (store, _temp) = test_store();
+		let mut mask = RetentionReasonMask::EXPLICIT_AFFINITY;
+		mask.insert(RetentionReasonMask::DHT_AFFINITY);
+		let (resolver, affine) = switchable_resolver(mask, RetentionReasonMask::TRANSIENT);
+		store.set_retention_resolver(resolver);
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// The DHT bit in the admission mask exempts the statement from the sweep.
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+	}
+
+	#[test]
+	fn sweep_skips_statements_admitted_before_a_restart() {
+		let (store, temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+
+		// Affinity tracking is in-memory: a statement admitted before a restart escapes the
+		// sweep and is kept until natural expiry.
+		store.maintain();
+		assert!(store.has_statement(&hash));
+	}
+
+	#[test]
+	fn removing_statements_clears_their_affinity_tracking() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::EXPLICIT_AFFINITY));
+		let statement0 = signed_statement(0);
+		let statement1 = signed_statement(1);
+		let hash0 = statement0.hash();
+		let account = statement0.account_id().unwrap();
+		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.query_index.read().explicit_only.len(), 2);
+
+		store.remove(&hash0).unwrap();
+		assert_eq!(store.query_index.read().explicit_only.len(), 1);
+
+		store.remove_by(account).unwrap();
+		assert!(store.query_index.read().explicit_only.is_empty());
 	}
 
 	#[test]
