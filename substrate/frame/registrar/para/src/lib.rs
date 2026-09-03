@@ -389,6 +389,11 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_set_head_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
 			}
 		}
 
@@ -564,6 +569,13 @@ pub mod pallet {
 
 		#[pallet::call_index(7)]
 		#[pallet::weight(Weight::zero())]
+		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let _ = (origin, para_id);
+			todo!()
+		}
+
+		#[pallet::call_index(8)]
+		#[pallet::weight(Weight::zero())]
 		pub fn schedule_code_upgrade(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -574,7 +586,7 @@ pub mod pallet {
 			todo!()
 		}
 
-		#[pallet::call_index(8)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(Weight::zero())]
 		pub fn set_current_head(
 			origin: OriginFor<T>,
@@ -585,7 +597,7 @@ pub mod pallet {
 			todo!()
 		}
 
-		#[pallet::call_index(9)]
+		#[pallet::call_index(10)]
 		#[pallet::weight(Weight::zero())]
 		pub fn force_register(
 			origin: OriginFor<T>,
@@ -775,6 +787,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		todo!()
+	}
+
+	fn on_cancel_deregistration_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
 		todo!()
 	}

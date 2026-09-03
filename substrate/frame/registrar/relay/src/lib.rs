@@ -228,6 +228,7 @@ pub mod pallet {
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
 				T::WeightInfo::receive_cancel_registration(),
 			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
+			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::zero(),
 		})]
@@ -277,6 +278,10 @@ pub mod pallet {
 					manager,
 					head,
 				}) => Self::on_set_current_head_request(para_id, message_id, manager, head),
+				MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
+					para_id,
+					message_id,
+				}) => Self::on_cancel_deregistration_request(para_id, message_id),
 			}
 
 			Ok(())
@@ -493,12 +498,26 @@ pub mod pallet {
 			todo!()
 		}
 
+		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
+			let _ = (para_id, message_id);
+			todo!()
+		}
+
 		#[allow(dead_code)]
 		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
 			Self::report(
 				para_id,
 				message_id,
 				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome },
+			);
+		}
+
+		#[allow(dead_code)]
+		fn report_cancel_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
+			Self::report(
+				para_id,
+				message_id,
+				MessageToParaV1::CancelDeregistrationResponse { para_id, message_id, outcome },
 			);
 		}
 
