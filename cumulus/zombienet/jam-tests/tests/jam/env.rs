@@ -11,15 +11,13 @@ use std::path::{Path, PathBuf};
 pub struct Binaries {
 	/// The polkajam node binary that zombienet-sdk spawns for every JAM node.
 	pub jam_node: PathBuf,
-	/// The `jamt` JAM CLI, used to register the parasim service.
-	pub jamt: PathBuf,
-	/// The `parasim-tool` CLI, used to host the AURA authorizer and to point cores at paras.
+	/// The `parasim-tool` CLI, used by the dynamic-core tests to point cores at paras mid-run.
 	pub parasim_tool: PathBuf,
-	/// The compiled parasim service blob to register.
+	/// The compiled parasim service blob, which genesis creates the service from.
 	pub parasim_blob: PathBuf,
 	/// The compiled AURA authorizer blob. Only its hash ever reaches the chain, but the collators
-	/// and whoever assigns their core have to hash the same bytes, so this one file is handed to
-	/// both.
+	/// and the genesis that queues their core have to hash the same bytes, so this one file is
+	/// handed to both.
 	pub authorizer_blob: PathBuf,
 	/// The collator binary.
 	pub omni_node: PathBuf,
@@ -46,7 +44,6 @@ impl Binaries {
 		let root = workspace_root();
 		let binaries = Binaries {
 			jam_node: from_env_or("JAM_NODE_BIN", PathBuf::new),
-			jamt: from_env_or("JAMT_BIN", PathBuf::new),
 			parasim_tool: from_env_or("PARASIM_TOOL_BIN", PathBuf::new),
 			parasim_blob: from_env_or("PARASIM_BLOB", PathBuf::new),
 			authorizer_blob: from_env_or("AUTHORIZER_BLOB", PathBuf::new),
@@ -70,7 +67,6 @@ impl Binaries {
 
 		let missing: Vec<String> = [
 			("JAM_NODE_BIN (the polkajam node binary)", &binaries.jam_node),
-			("JAMT_BIN (the jamt CLI)", &binaries.jamt),
 			("PARASIM_TOOL_BIN (the parasim-tool CLI)", &binaries.parasim_tool),
 			("PARASIM_BLOB (the parasim service .jam blob)", &binaries.parasim_blob),
 			(

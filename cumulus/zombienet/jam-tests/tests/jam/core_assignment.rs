@@ -31,9 +31,9 @@ use std::time::Duration;
 const PARA: u32 = 0;
 const CORE: u32 = 0;
 
-/// The other core of a tiny network. In a single-para run nothing is assigned to it, so it keeps
-/// the genesis authorizer and service 0 as its assigner — which is what leaves the bootstrap lane
-/// open to it, and is how the reassignment test moves a para onto it.
+/// The other core of a tiny network. In a single-para run genesis names only the para's own core,
+/// so this one keeps the null authorizer and service 0 as its assigner — which is what leaves the
+/// bootstrap lane open to it, and is how the reassignment test moves a para onto it.
 const SPARE_CORE: u32 = 1;
 
 /// The accumulated height a para has to reach before a test starts interfering with its cores.
@@ -172,6 +172,7 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 	let healthy = run.wait_for_jam_head(0, &rpc, HEALTHY_HEAD, WARM_UP).await?;
 	log::info!("para {PARA} is healthy on core {CORE}: {healthy}");
 
+	run.network.host_authorizer_for_control_packages(&run.binaries)?;
 	run.network.free_core(&run.binaries, &para, CORE)?;
 	let freed = run.sample(0, &rpc).await?;
 	// Counted from here, not from the start of the run: a slow patch early on can stall the head
@@ -206,8 +207,8 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 
 	// The heal goes back to the *same* core, which is the point. Parking left core 0 running the
 	// same authorizer code under a config naming no para, so it still takes a control package
-	// even though it carries no parachain work — and parasim, granted its assigner privilege in
-	// setup, can act on one. No spare core is involved, so what this asserts is that losing a
+	// even though it carries no parachain work — and parasim, holding its assigner privilege from
+	// genesis, can act on one. No spare core is involved, so what this asserts is that losing a
 	// core is recoverable on a network with nothing else to fall back on.
 	run.network.assign_core(&run.binaries, &para, CORE, None)?;
 	let frozen_at = frozen.jam_head.context("the head froze before anything accumulated")?;
@@ -253,7 +254,11 @@ async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
 	let before = run.wait_for_jam_head(0, &rpc, HEALTHY_HEAD, WARM_UP).await?;
 	log::info!("para {PARA} is healthy on core {CORE}: {before}");
 
-	// Core 1 was never assigned in a single-para run, so it still holds the genesis authorizer and
+	// Before core 1 is assigned, not after: a bootstrap instruction only rides a core still under
+	// the null authorizer, and once this run has assigned core 1 there is no such core left.
+	run.network.host_authorizer_for_control_packages(&run.binaries)?;
+
+	// Genesis named only core 0 in a single-para run, so core 1 still holds the null authorizer and
 	// service 0 as its assigner: this rides the bootstrap lane on core 1 itself, and needs no
 	// carrier.
 	run.network.assign_core(&run.binaries, &para, SPARE_CORE, None)?;

@@ -36,9 +36,8 @@ pub struct JamRpc {
 impl JamRpc {
 	/// Connect, then wait until the node reports a synced chain that has moved past genesis.
 	///
-	/// That is exactly `jamt`'s own precondition (`NodeExt::wait_for_sync`), so getting here first
-	/// means the later `jamt create-service` cannot silently block forever on a chain that never
-	/// started.
+	/// A finalized block past genesis is what says the validators found each other and the chain
+	/// is running; everything the collators need is already in its state by then.
 	pub async fn wait_ready(url: &str, deadline: Instant) -> anyhow::Result<Self> {
 		let rpc = JamRpc { client: connect(url, deadline).await? };
 

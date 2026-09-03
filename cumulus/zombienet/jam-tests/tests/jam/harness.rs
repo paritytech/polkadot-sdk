@@ -1,11 +1,13 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! One run of the whole thing: a JAM network, parasim on it, and one collator set per para.
+//! One run of the whole thing: a JAM network carrying parasim from genesis, and one collator
+//! set per para.
 
 use super::{
 	collators::{Collators, JamTarget, Para, POLL_INTERVAL},
 	env::Binaries,
+	genesis,
 	network::{JamNetwork, ParaHead},
 	rpc::{CollatorRpc, Height},
 };
@@ -16,8 +18,7 @@ use std::{
 };
 use tokio::time::{sleep, Instant};
 
-/// The whole run — network spin-up, parasim registration and block production — has to fit in
-/// this.
+/// The whole run — network spin-up and block production — has to fit in this.
 ///
 /// A healthy JAM network produces one parachain block per 6s slot, which would make 30 blocks
 /// three minutes. A zombienet-spawned one is slower and lumpier: it records the wrong port for
@@ -107,18 +108,17 @@ pub struct Run {
 }
 
 impl Run {
-	/// Spin everything up and return once every para's collators are launched.
+	/// Spin everything up and return once every para's collators are launched and agree with
+	/// genesis about their authorizer.
 	///
-	/// Cores are assigned before any collator starts. A collator whose authorizer is in no core's
-	/// pool keeps authoring locally and submits nothing, so starting first would only mean a run
-	/// that begins with a stretch of packages nobody can guarantee.
+	/// The cores are already pointed at the paras when the network comes up, so a collator has
+	/// somewhere to submit to from its first block.
 	pub async fn start(test: &str, binaries: &Binaries, paras: Vec<Para>) -> anyhow::Result<Self> {
 		let deadline = Instant::now() + DEADLINE;
 		let work_dir = WorkDir::create(test)?;
 		log::info!("work dir: {}", work_dir.path().display());
 
-		let network = JamNetwork::spawn(binaries, work_dir.path(), deadline).await?;
-		network.assign_cores(binaries, &paras)?;
+		let network = JamNetwork::spawn(binaries, work_dir.path(), deadline, &paras).await?;
 
 		let target = JamTarget {
 			rpc_url: network.rpc_url.clone(),
@@ -132,7 +132,63 @@ impl Run {
 			started.push(ParaRun { para, collators });
 		}
 
-		Ok(Run { network, paras: started, binaries: binaries.clone(), work_dir, deadline })
+		let mut run =
+			Run { network, paras: started, binaries: binaries.clone(), work_dir, deadline };
+		run.check_authorizers_agree().await?;
+		Ok(run)
+	}
+
+	/// Fail unless every collator derived the authorizer hash genesis put in its core's queue.
+	///
+	/// The two are built from the same inputs by different code in different repos, and if they
+	/// disagree the run is pointless: a collator whose hash is in no core's pool authors happily
+	/// and is never authorized, so the only symptom, twenty minutes later, is a head that never
+	/// moved. `tracing` abbreviates the hash the collator logs, so this is a prefix comparison —
+	/// still more than enough to catch a set in the wrong order, a different para id or a stale
+	/// blob.
+	async fn check_authorizers_agree(&mut self) -> anyhow::Result<()> {
+		/// A collator derives its authorizer before it does anything else, so this only has to
+		/// cover process start-up.
+		const BUDGET: Duration = Duration::from_secs(60);
+
+		let blob = self.network.authorizer_blob.clone();
+		for index in 0..self.paras.len() {
+			let para = self.paras[index].para.clone();
+			let expected = genesis::hex(&genesis::authorizer_hash(&para, &blob)?);
+			let until = (Instant::now() + BUDGET).min(self.deadline);
+
+			loop {
+				self.check_all_running()?;
+				let derived = self.paras[index].collators.derived_authorizer_hashes();
+				if derived.len() == self.paras[index].collators.count() {
+					for (collator, hash) in &derived {
+						anyhow::ensure!(
+							expected.starts_with(hash),
+							"para {}'s collator {collator} derived authorizer 0x{hash}…, but \
+							 genesis queued its core 0x{expected}; nothing it submits will ever \
+							 be authorized",
+							para.id,
+						);
+					}
+					log::info!(
+						"para {}'s {} collator(s) agree with genesis on authorizer 0x{expected}",
+						para.id,
+						derived.len(),
+					);
+					break;
+				}
+				anyhow::ensure!(
+					Instant::now() < until,
+					"in {BUDGET:?} only {} of para {}'s {} collators said which authorizer they \
+					 derived",
+					derived.len(),
+					para.id,
+					self.paras[index].collators.count(),
+				);
+				sleep(POLL_INTERVAL).await;
+			}
+		}
+		Ok(())
 	}
 
 	/// Give a run more wall clock than [`DEADLINE`], for a test that waits out several phases.

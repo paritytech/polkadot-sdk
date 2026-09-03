@@ -160,6 +160,25 @@ impl Collators {
 		Ok(Collators { collators })
 	}
 
+	/// How many collators are running.
+	pub fn count(&self) -> usize {
+		self.collators.len()
+	}
+
+	/// The authorizer hash each collator derived at startup, for the collators that have got that
+	/// far. Abbreviated as `tracing` printed it — see [`super::genesis::logged_authorizer_hash`].
+	pub fn derived_authorizer_hashes(&self) -> Vec<(String, String)> {
+		self.collators
+			.iter()
+			.filter_map(|collator| {
+				let log = std::fs::read_to_string(&collator.log_path).unwrap_or_default();
+				log.lines()
+					.find_map(super::genesis::logged_authorizer_hash)
+					.map(|hash| (collator.name.clone(), hash.to_string()))
+			})
+			.collect()
+	}
+
 	/// An RPC client for the first collator, which is the one the assertions read.
 	pub async fn rpc(&self, deadline: Instant) -> anyhow::Result<CollatorRpc> {
 		let collator = self.collators.first().context("no collators were started")?;

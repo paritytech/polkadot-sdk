@@ -9,7 +9,9 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
+array-bytes = { workspace = true }
 chrono = { workspace = true }
+codec = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true, default-features = true }
@@ -18,6 +20,11 @@ jsonrpsee = { workspace = true, features = ["ws-client"] }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 tempfile = { workspace = true }
+# The authorizer hash written into genesis has to be the one the collator derives, so it is built
+# out of the very crates the collator and the guest use — the same path deps polkadot-omni-node-lib
+# names.
+jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-service/cumulus" }
+jam-std-common = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-std-common" }
 # TEMPORARY: points at a local zombienet-sdk checkout carrying the jam genesis net_addr
 # fix. Restore the git rev below once that fix is merged into PR #573.
 #   zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk", rev = "74a1d56abdd1b4b451afca26b77d34e88bc58918" }

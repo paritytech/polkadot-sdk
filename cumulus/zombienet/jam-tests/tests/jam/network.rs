@@ -1,39 +1,30 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! The JAM network the collators collate for: spawned by zombienet-sdk, then given the parasim
-//! service the collators talk to.
+//! The JAM network the collators collate for: spawned by zombienet-sdk from a genesis that
+//! already carries the parasim service, the paras' AURA authorizers and their cores.
 
-use super::{collators::Para, env::Binaries, rpc::JamRpc};
+use super::{collators::Para, env::Binaries, genesis, rpc::JamRpc};
 use anyhow::Context;
 use std::{
 	path::{Path, PathBuf},
 	process::Command,
 	sync::atomic::{AtomicU16, Ordering},
-	time::Duration,
 };
-use tokio::time::{sleep, Instant};
+use tokio::time::Instant;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, NetworkConfigExt};
 
 /// The tiny JAM protocol shape: six validators, and one ordinary node to serve RPC.
 const VALIDATORS: usize = 6;
 const ORDINARY_NODE: &str = "jam-or";
 
-/// The service id parasim is registered under. The network is freshly spawned and private to one
-/// test, so a fixed id is always free — and choosing it means never parsing `jamt --raw`, which
-/// prints ids in hex where `--jam-service-id` wants decimal.
+/// The service id parasim is created under at genesis. The network is freshly spawned and private
+/// to one test, so a fixed id is always free — and it is the id the collators are started with
+/// (`--jam-service-id`) and the one the authorizer config commits to.
 pub const PARASIM_SERVICE_ID: u32 = 5;
 
-/// The endowment parasim is registered with.
-const PARASIM_ENDOWMENT: &str = "1000000000000000";
-
-/// How many cores a network of [`VALIDATORS`] validators has.
-///
-/// Not a knob: polkajam's `tiny` parameter set ties `core_count` to the validator count (six
-/// validators, three per core), and the next step up is 78 validators. It matters here because
-/// the bootstrap lane needs a core that still holds the genesis authorizer, so how many cores the
-/// chain has decides how many can be handed to parasim.
-const CORE_COUNT: usize = VALIDATORS / 3;
+/// The balance parasim is created with.
+const PARASIM_ENDOWMENT: u64 = 1_000_000_000_000_000;
 
 /// JAM RPC ports sit above the collator range and well away from the 19800 default, so a testnet
 /// the user is running themselves is never disturbed.
@@ -45,23 +36,32 @@ fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 	vec![("POLKAVM_BACKEND", "interpreter"), ("POLKAVM_ALLOW_INSECURE", "1")]
 }
 
-/// A running JAM network with parasim registered on it and the AURA authorizer hosted on it.
+/// A running JAM network whose genesis already holds parasim, the paras' authorizers and the
+/// cores that carry them.
 pub struct JamNetwork {
 	network: Network<LocalFileSystem>,
 	pub rpc_url: String,
 	pub service_id: u32,
-	/// The copy of the authorizer blob whose hash went on chain. Everything that has to agree on
-	/// the authorizer hash — the assigned cores, the collators — is pointed at this file.
+	/// The copy of the authorizer blob whose hash went into genesis. Everything that has to agree
+	/// on the authorizer hash — the assigned cores, the collators — is pointed at this file.
 	pub authorizer_blob: PathBuf,
+	/// Where zombienet wrote the generated chain spec, named by whatever complains that genesis
+	/// does not hold what it should.
+	spec_path: PathBuf,
 }
 
 impl JamNetwork {
-	/// Spawn the network, wait for it to finalize a block, register parasim on it, and host the
-	/// AURA authorizer blob so an assigned core's code hash resolves to something.
+	/// Spawn the network and wait for it to finalize a block.
+	///
+	/// Everything the collators need is in the chain spec: parasim as service
+	/// [`PARASIM_SERVICE_ID`] hosting the AURA authorizer blob, and every para's core queued for
+	/// that para's authorizer hash with parasim as its assigner. So there is no bootstrap phase —
+	/// once a block is finalized the network is ready to be collated for.
 	pub async fn spawn(
 		binaries: &Binaries,
 		work_dir: &Path,
 		deadline: Instant,
+		paras: &[Para],
 	) -> anyhow::Result<Self> {
 		let rpc_port = NEXT_JAM_RPC_PORT.fetch_add(1, Ordering::Relaxed);
 		let base_dir = work_dir.join("zombienet");
@@ -69,6 +69,13 @@ impl JamNetwork {
 
 		let jam_node = path_str(&binaries.jam_node)?;
 		let relay_node = path_str(&binaries.relay_node)?;
+
+		// The blobs go on chain by path, so the copies are what genesis names: a rebuild in the
+		// source tree mid-run would otherwise leave the chain holding a hash of bytes that no
+		// longer exist anywhere (see `copy_aside`).
+		let parasim_blob = path_str(&copy_aside(&binaries.parasim_blob, work_dir)?)?;
+		let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
+		let queues = auth_queues(paras, &authorizer_blob)?;
 
 		let config = NetworkConfigBuilder::new()
 			// zombienet-sdk cannot yet express a network without a relay chain: NetworkSpec
@@ -84,7 +91,20 @@ impl JamNetwork {
 				let jam = jam
 					.with_id("dev")
 					.with_default_command(jam_node.as_str())
-					.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
+					.with_genesis_service(|service| {
+						service
+							.with_id(PARASIM_SERVICE_ID)
+							.with_code(parasim_blob.as_str())
+							.with_balance(PARASIM_ENDOWMENT)
+							.with_preimage(&authorizer_blob)
+					});
+				// Each para's core is queued for that para's authorizer and handed to parasim, so
+				// nothing has to be assigned once the network is up. Parasim holds the assigner
+				// privilege because the dynamic-core tests reassign these cores mid-run.
+				let jam = queues.iter().fold(jam, |jam, (core, hash)| {
+					jam.with_auth_queue(*core, hash).with_assigner(*core, PARASIM_SERVICE_ID)
+				});
+				let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
 				let jam = (1..VALIDATORS).fold(jam, |jam, index| {
 					jam.with_validator(|node| {
 						node.with_name(&format!("jam{index}")).with_env(polkavm_env())
@@ -109,131 +129,61 @@ impl JamNetwork {
 		let rpc_url = format!("ws://127.0.0.1:{rpc_port}");
 		log::info!("JAM network up, ordinary node RPC at {rpc_url}");
 
-		let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
-		let jam_network =
-			JamNetwork { network, rpc_url, service_id: PARASIM_SERVICE_ID, authorizer_blob };
+		let jam_network = JamNetwork {
+			network,
+			rpc_url,
+			service_id: PARASIM_SERVICE_ID,
+			authorizer_blob,
+			spec_path: base_dir.join("jam_spec.json"),
+		};
 		let rpc = JamRpc::wait_ready(&jam_network.rpc_url, deadline).await.with_context(|| {
 			format!("JAM node log tail:\n{}", jam_network.ordinary_node_log_tail(60))
 		})?;
-		jam_network.register_parasim(binaries, work_dir)?;
-		jam_network.wait_for_parasim(&rpc, deadline).await?;
-		jam_network.deploy_authorizer(binaries)?;
+		jam_network.ensure_parasim_is_in_genesis(&rpc).await?;
 
 		Ok(jam_network)
 	}
 
-	/// Register parasim, and hand `jamt` the core to submit on rather than let it pick.
+	/// Fail unless the chain the nodes actually started from is the one that was generated.
 	///
-	/// This is the run's only `jamt` call, and it deliberately happens before any core leaves the
-	/// genesis authorizer: `jamt` builds its packages under that authorizer, so a core already
-	/// pointed at a para would refuse them. Anything added here later has to keep that order, and
-	/// name a core that still holds the genesis authorizer.
-	fn register_parasim(&self, binaries: &Binaries, work_dir: &Path) -> anyhow::Result<()> {
-		let blob = copy_aside(&binaries.parasim_blob, work_dir)?;
-
-		run_step(
-			&format!("jamt create-service: parasim as service {}", self.service_id),
-			Command::new(&binaries.jamt)
-				.args(["--rpc", &self.rpc_url, "--force-core", "0", "create-service"])
-				.arg(&blob)
-				.args([
-					PARASIM_ENDOWMENT,
-					"--register=parasim",
-					"--raw",
-					"--id",
-					&self.service_id.to_string(),
-				])
-				.envs(polkavm_env()),
-		)
+	/// One read, not a poll: parasim is genesis state, so it is there in the first block or the
+	/// spec never reached the nodes — a config key the generator silently dropped, a node started
+	/// on a different spec. Both leave every collator submitting packages nothing will authorize,
+	/// so this has to be loud and name the files to look at.
+	async fn ensure_parasim_is_in_genesis(&self, rpc: &JamRpc) -> anyhow::Result<()> {
+		let services = rpc.services().await.context("listing the chain's services")?;
+		anyhow::ensure!(
+			services.contains(&(self.service_id as u64)),
+			"the chain has services {services:?}, which does not include parasim as service {}; \
+			 the generated genesis is not what the nodes are running — see {} and the \
+			 jam_config.json beside it",
+			self.service_id,
+			self.spec_path.display(),
+		);
+		log::info!("genesis holds parasim as service {}", self.service_id);
+		Ok(())
 	}
 
-	/// Wait until the service id `create-service` was told to use is actually on the chain.
-	async fn wait_for_parasim(&self, rpc: &JamRpc, deadline: Instant) -> anyhow::Result<()> {
-		let started = std::time::Instant::now();
-		while Instant::now() < deadline {
-			if rpc.services().await.unwrap_or_default().contains(&(self.service_id as u64)) {
-				log::info!(
-					"parasim registered as service {} after {:?}",
-					self.service_id,
-					started.elapsed()
-				);
-				return Ok(());
-			}
-			sleep(Duration::from_secs(2)).await;
-		}
-		Err(anyhow::anyhow!("service {} never appeared on the JAM chain", self.service_id))
-	}
-
-	/// Host the AURA authorizer blob in the bootstrap service: solicit it, then provide it.
+	/// Host the AURA authorizer blob in the bootstrap service too, for `parasim-tool`'s sake.
 	///
-	/// Must finish before the first `assign-core`. Validators fetch an authorizer's code by
-	/// preimage lookup, so a core pointed at a code hash nobody hosts authorizes nothing — and
-	/// says nothing about why. `parasim-tool` waits for the solicit to accumulate and then for the
-	/// preimage to be readable at a finalized block, so there is nothing left to poll here.
-	fn deploy_authorizer(&self, binaries: &Binaries) -> anyhow::Result<()> {
+	/// Only the two dynamic-core tests need this. Their `assign-core` / `free-core` commands are
+	/// work packages `parasim-tool` builds with `auth_code_host: 0`, so a guarantor resolves the
+	/// authorizer code out of service 0 — which genesis cannot be asked to host a preimage for.
+	/// The collators name the parachain service instead and need none of it. Idempotent, and off
+	/// everything's critical path: it can go as soon as `parasim-tool` names `--service` there.
+	pub fn host_authorizer_for_control_packages(&self, binaries: &Binaries) -> anyhow::Result<()> {
 		run_step(
 			&format!("deploy-authorizer: {}", self.authorizer_blob.display()),
 			self.parasim_tool(binaries).arg("deploy-authorizer"),
 		)
 	}
 
-	/// Point every para's core at its AURA authorizer, and hand parasim every one of those cores'
-	/// assigner privilege.
-	///
-	/// Both steps are bootstrap instructions to start with, and a bootstrap instruction only rides
-	/// a core that still holds the genesis authorizer — a supply that only ever shrinks, because
-	/// assignment to parasim is one-way and `free-core` parks a core rather than returning it.
-	/// That is what fixes the order here, and it is not the obvious one:
-	///
-	/// 1. The *first* para's `assign-core`, riding the very core it assigns. Something has to run
-	///    on the genesis lane before an AURA core exists at all, and this is it.
-	/// 2. `grant-assigner` for **every** core, while cores still holding the genesis authorizer
-	///    are left to carry them. A grant takes no carrier of its own choosing, so this is the
-	///    step that must not be left until last. Granting a core does not assign it: the queue is
-	///    untouched, so a core granted here still holds the genesis authorizer and can still carry
-	///    the grants after it.
-	/// 3. The remaining paras' `assign-core`, each riding the core step 1 assigned. Their own
-	///    cores now answer to parasim, so these travel the control lane and need a carrier that
-	///    runs an AURA authorizer — which the first para's core is.
-	///
-	/// The earlier shape (assign, grant, assign, grant) ran out of genesis-authorizer cores on the
-	/// last core of a full network and left it stuck with service 0 as its assigner, unfreeable
-	/// for the rest of the run. Nothing is skipped now.
-	pub fn assign_cores(&self, binaries: &Binaries, paras: &[Para]) -> anyhow::Result<()> {
-		// A core each, and a real one. Two paras sharing a core would silently leave the first
-		// one's authorizer overwritten, and the carrier reasoning above counts paras as if each
-		// took its own.
-		let mut cores: Vec<u32> = paras.iter().map(|para| para.core).collect();
-		cores.sort_unstable();
-		cores.dedup();
-		anyhow::ensure!(
-			cores.len() == paras.len() && cores.iter().all(|core| (*core as usize) < CORE_COUNT),
-			"this network has {CORE_COUNT} cores, one each, which does not fit {:?}",
-			paras.iter().map(|para| (para.id, para.core)).collect::<Vec<_>>()
-		);
-		let (first, rest) = paras.split_first().context("a run assigns at least one para")?;
-
-		self.assign_core(binaries, first, first.core, None)?;
-		for para in paras {
-			run_step(
-				&format!("grant-assigner: core {} to service {}", para.core, self.service_id),
-				self.parasim_tool(binaries)
-					.args(["--collators", &para.collator_names()])
-					.args(["grant-assigner", &para.core.to_string()]),
-			)?;
-		}
-		for para in rest {
-			self.assign_core(binaries, para, para.core, Some(first))?;
-		}
-		Ok(())
-	}
-
 	/// Point `core`'s authorizer queue at `para`'s AURA authorizer, carried by `via`.
 	///
 	/// `via` names another para whose core carries the command. It is `None` whenever `core` can
-	/// carry the command itself, which covers both of the cases the tests use: a core still
-	/// holding the genesis authorizer (the bootstrap lane rides the core it assigns), and a core
-	/// parked by [`Self::free_core`], which still runs this para's own authorizer code.
+	/// carry the command itself, which covers both of the cases the tests use: a core parked by
+	/// [`Self::free_core`], which still runs this para's own authorizer code, and a core that was
+	/// never assigned to a para and so still holds the null authorizer genesis left on it.
 	///
 	/// Which lane the command travels is `parasim-tool`'s business, not this caller's: it reads
 	/// who holds the core's assigner privilege, and — for the control lane — whether the carrier
@@ -354,6 +304,28 @@ impl JamNetwork {
 			log::warn!("tearing down the JAM network failed: {error}");
 		}
 	}
+}
+
+/// Every para's core, paired with the authorizer hash its queue is filled with at genesis.
+///
+/// One core each, and a real one: two paras sharing a core would leave the first one's authorizer
+/// overwritten, with a para that authors and never accumulates as the only sign of it.
+fn auth_queues(paras: &[Para], authorizer_blob: &Path) -> anyhow::Result<Vec<(u16, String)>> {
+	let mut queues = Vec::with_capacity(paras.len());
+	for para in paras {
+		let hash = genesis::authorizer_hash(para, authorizer_blob)
+			.with_context(|| format!("deriving para {}'s authorizer hash", para.id))?;
+		let core = u16::try_from(para.core)
+			.with_context(|| format!("para {} names core {}", para.id, para.core))?;
+		anyhow::ensure!(
+			queues.iter().all(|(taken, _)| *taken != core),
+			"two paras want core {core}: {:?}",
+			paras.iter().map(|para| (para.id, para.core)).collect::<Vec<_>>(),
+		);
+		log::info!("para {} on core {core}, authorizer {}", para.id, genesis::hex(&hash));
+		queues.push((core, genesis::hex(&hash)));
+	}
+	Ok(queues)
 }
 
 fn path_str(path: &Path) -> anyhow::Result<String> {

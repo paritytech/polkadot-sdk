@@ -139,6 +139,13 @@ echo "JAM_SERVICE_ID=$JAM_SERVICE_ID"
 #      deploy-authorizer  hosts the blob in the bootstrap service (solicit, then provide).
 #                         Validators fetch authorizer code by preimage lookup, so a core
 #                         pointed at a hash nobody hosts authorizes nothing, silently.
+#
+#                         KNOWN GAP: a collator names the PARASIM service as its work
+#                         package's auth_code_host, so the blob has to be hosted there, and
+#                         this command hosts it in service 0 only. Until parasim-tool
+#                         solicits into --service, a run of this script gets collators that
+#                         author locally and are never authorized. The zombienet suite is
+#                         unaffected: its genesis hosts the blob in the parasim service.
 #      assign-core        points the core's queue at para 0's AURA authorizer. Service 0 is
 #                         the assigner of every core at genesis and a bootstrap instruction
 #                         only rides a core still holding the genesis authorizer, so this

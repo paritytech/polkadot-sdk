@@ -2,10 +2,10 @@
 
 End-to-end tests for `polkadot-omni-node` collating a parachain on a JAM network.
 
-Each test is self-contained. It spawns its own six-validator JAM network with zombienet-sdk,
-registers the parasim service on it, starts N collators against it, and asserts the parachain
-keeps producing and finalizing blocks. Nothing has to be running beforehand, and nothing outside
-the test's own temporary work directory is touched.
+Each test is self-contained. It spawns its own six-validator JAM network with zombienet-sdk from
+a genesis that already carries everything the collators need, starts N collators against it, and
+asserts the parachain keeps producing and finalizing blocks. Nothing has to be running beforehand,
+and nothing outside the test's own temporary work directory is touched.
 
 ## Prerequisites
 
@@ -18,20 +18,24 @@ cargo build --release --bin polkadot --bin polkadot-prepare-worker --bin polkado
 
 The `polkadot` binary is not used by the test itself — see "Why a relay chain" below.
 
-From the polkajam repository: the `polkajam` node binary and the `jamt` CLI.
+From the polkajam repository: the `polkajam` node binary. Its `gen-spec` has to understand the
+`services` / `auth_queues` / `assigners` keys this suite writes into the chain-spec config; an
+older one ignores them silently and the run then fails at its first readiness check, naming the
+generated spec.
+
 From the parachain-service repository: the compiled `parasim-service.jam` and
-`parachain-authorizer-sr25519.jam` blobs, and the `parasim-tool` CLI.
+`parachain-authorizer-sr25519.jam` blobs, and the `parasim-tool` CLI, which now only reads para
+heads and moves cores mid-run.
 
 There is one authorizer blob per signature scheme, and which one a para needs is decided by its
-runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite runs and the
-scheme it passes `parasim-tool`. Nothing can check the pairing — a blob's scheme is not visible in
-its bytes — so a mismatch shows up only as a core no collator ever authorizes on.
+runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite puts on the
+chain. Nothing can check the pairing — a blob's scheme is not visible in its bytes — so a mismatch
+shows up only as a core no collator ever authorizes on.
 
 ## Running
 
 ```sh
 export JAM_NODE_BIN=/path/to/polkajam/target/release/polkajam
-export JAMT_BIN=/path/to/polkajam/target/release/jamt
 export PARASIM_BLOB=/path/to/parachain-service/.../parasim-service.jam
 export AUTHORIZER_BLOB=/path/to/parachain-service/.../parachain-authorizer-sr25519.jam
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
@@ -45,18 +49,17 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | variable | what it points at |
 | --- | --- |
 | `JAM_NODE_BIN` | the polkajam node binary zombienet spawns for every JAM node |
-| `JAMT_BIN` | the `jamt` CLI, used once to register parasim |
-| `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, used to host the authorizer and assign cores |
-| `PARASIM_BLOB` | `parasim-service.jam`, the service the collators talk to |
+| `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, used to read para heads and to move cores mid-run |
+| `PARASIM_BLOB` | `parasim-service.jam`, the service genesis creates and the collators talk to |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
 | `OMNI_NODE_BIN`, `RUNTIME_WASM`, `RELAY_NODE_BIN` | override the `target/release` defaults |
 | `JAM_TEST_BASE_DIR` | keep every run's work dir under this directory |
 | `NUM_COLLATORS` | how many collators the demo runs (default 1) |
 
-Both blobs are copied into the run's work dir before their hash goes on chain: PVM builds are not
-byte-deterministic, so a rebuild during a run would strand the registered hash without a
-resolvable preimage. The collators are pointed at the authorizer *copy*, because an authorizer
-hash is a hash of exactly those bytes.
+Both blobs are copied into the run's work dir before genesis names them: PVM builds are not
+byte-deterministic, so a rebuild during a run would strand a hash on the chain with no resolvable
+preimage. The collators are pointed at the authorizer *copy*, because an authorizer hash is a hash
+of exactly those bytes — and the copy is what genesis hosts.
 
 `--test-threads 1` is required: each test spawns seven JAM nodes plus its collators, and running
 them concurrently would fight over CPU and make the six-second slot budget unrealistic.
@@ -79,11 +82,13 @@ survives whether the test passed or failed. Everything one run produces is insid
 ```
 jam-collator-test-two_jam_collators_build_blocks-20260831-141233/
 	jam-parachain-0-spec.json  the patched chain spec of para 0, one file per para
-	parasim-service.jam        the copy of the blob that was registered
-	parachain-authorizer.jam   the copy of the blob whose hash the cores were assigned from
+	parasim-service.jam        the copy of the blob genesis created the service from
+	parachain-authorizer.jam   the copy of the blob whose hash genesis queued on the cores
 	alice.log, bob.log, ...    one log per collator
 	alice/, bob/, ...          one base path per collator
 	zombienet/                 the network zombienet spawned: jam0..jam5, jam-or, relay-filler
+	zombienet/jam_config.json  what the chain spec was generated from, genesis section included
+	zombienet/jam_spec.json    the generated chain spec every JAM node started on
 ```
 
 The zombienet network is given `zombienet/` as its base directory, so its nodes' logs are part of
@@ -106,11 +111,12 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 | file | what it does |
 | --- | --- |
 | `tests/jam/env.rs` | resolves the binaries, or explains what is missing |
-| `tests/jam/network.rs` | spawns the JAM network, registers parasim, hosts the authorizer, assigns the cores |
+| `tests/jam/network.rs` | spawns the JAM network from a genesis carrying parasim, the authorizers and the cores |
+| `tests/jam/genesis.rs` | derives a para's authorizer hash, the way the collator derives it |
 | `tests/jam/chain_spec.rs` | builds and patches one para's chain spec |
 | `tests/jam/collators.rs` | starts, supervises and tears down one para's collator processes |
 | `tests/jam/rpc.rs` | the JAM node and collator RPC clients |
-| `tests/jam/harness.rs` | one run: network, parasim, cores, collators, assertions |
+| `tests/jam/harness.rs` | one run: network, collators, the authorizer-agreement check, assertions |
 | `tests/jam/collator_progress.rs` | the 1, 2, 3 and 6 collator tests |
 | `tests/jam/core_assignment.rs` | two paras at once, and cores taken away or moved mid-run |
 | `tests/jam/demo.rs` | the same run with no assertion and no end |
@@ -123,27 +129,26 @@ pallet-aura, so the authority set comes from `session.keys` and `collatorSelecti
 The harness rewrites both to exactly the collators it is about to start: an authority with no
 running collator costs a full six-second slot of block production every time its turn comes round.
 
-The para id is the harness's, not the preset's. It is the id `parasim-tool assign-core <para>
-<core>` writes into the authorizer config the core commits to, and the collator reads its own id
-straight out of this spec, so the two have to agree — otherwise the collator computes an
-authorizer hash no core holds and never finds a core to submit to. The existing tests all run
-para 0.
+The para id is the harness's, not the preset's. It is the id that goes into the authorizer config
+genesis commits the core to, and the collator reads its own id straight out of this spec, so the
+two have to agree — otherwise the collator computes an authorizer hash no core holds and never
+finds a core to submit to. The existing tests all run para 0.
 
 A collator needs no key of its own for JAM. It signs work packages with the aura session key it
 already claims slots with — `--alice` puts that in the keystore in memory — and it learns the
 collator set from `AuraApi::authorities()` at startup, which is the same set the harness wrote
-into `session.keys` above. So the only thing that has to be kept in step is `parasim-tool
---collators` and `--scheme`: they build the collator-set trie the authorizer hash commits to, and
-naming a different set, a different order or a different curve installs a hash no collator will
-ever match.
+into `session.keys` above. So the only thing that has to be kept in step is the set `genesis.rs`
+hashes: it builds the collator-set trie the authorizer hash commits to, and a different set, a
+different order or a different curve is a hash no collator will ever match. `Run::start` checks
+that the two agree against what every collator logs at startup, so a mismatch fails in the first
+minute rather than as a head that never moves.
 
 **The runtime does not return that set in the order genesis names it.** Collator-selection keeps
 its invulnerables sorted by account id and pallet-session builds the aura authorities from that,
 so `alice,bob` comes back as `bob,alice`. A leaf's position in the collator trie *is* the collator
-index, so the order is part of the hash: `chain_spec::in_authority_order` is what every
-`--collators` string goes through, and it is why the harness lists its collators by name but names
-them to the tool by key. A single-collator run cannot see any of this, which is how it stayed
-broken while one test kept passing.
+index, so the order is part of the hash: `chain_spec::in_authority_order` is what both
+`genesis.rs` and every `parasim-tool --collators` string go through. A single-collator run cannot
+see any of this, which is how it stayed broken while one test kept passing.
 
 ## Running a runtime other than the template
 
@@ -171,7 +176,7 @@ What `chain_spec.rs` needs from that runtime's `development` preset, and checks 
   `parachains_common::AuraId`. Nothing can check the pairing — see the note above.
 
 **The para id stays the harness's, and 0 is fine for a real runtime.** Asset Hub Rococo's preset
-pins 1000; the harness overwrites it with the id whose core `assign-core` names, exactly as it does
+pins 1000; the harness overwrites it with the id whose core genesis names, exactly as it does
 for the template. Nothing on the collator's path carries a para id of its own: it reads the id from
 the runtime (`GetParachainInfo`) and threads that same value into the mocked relay state proof, so
 the proof's para-keyed entries and the runtime's `SelfParaId` cannot disagree whatever the id is.
@@ -188,39 +193,43 @@ with no runtime warning of its own in any collator log. The three-collator run i
 exercises the endowment top-up, Charlie being the first collator Asset Hub's preset does not fund.
 The demo ran two collators to best 42 / finalized 39 and stopped cleanly on Ctrl-C.
 
-## What the JAM side is set up with, and in what order
+## What genesis carries, and what is left to do afterwards
 
-`network.rs` does four things to the freshly spawned chain, and the order is not free. What fixes
-it is one scarce resource: a **bootstrap instruction only rides a core that still holds the
-genesis authorizer**, and that supply only ever shrinks. Assignment to parasim is one-way, and
-`free-core` parks a core under the AURA authorizer rather than handing it back.
+Nothing. The chain spec `polkajam gen-spec` generates for a run already holds:
 
-1. **`jamt create-service`** registers parasim under a fixed id. `jamt` builds its packages under
-   the genesis authorizer, so this — and any `jamt` call added later — has to happen before any
-   core is pointed at a para. It passes `--force-core 0` rather than letting `jamt` pick a core at
-   random, which on a two-core chain is a coin flip.
-2. **`parasim-tool deploy-authorizer`** solicits the AURA authorizer blob into the bootstrap
-   service and provides it. Validators fetch authorizer code by preimage lookup, so a core pointed
-   at a code hash nobody hosts authorizes nothing and says nothing about why. The tool waits until
-   the preimage is readable at a finalized block, so the deploy is complete before step 3 starts.
-3. **`parasim-tool assign-core`, for the first para only**, riding the very core it assigns.
-   Something has to travel the bootstrap lane before any AURA core exists, and this is it.
-4. **`parasim-tool grant-assigner <core>`, for every para's core**, handing each core's assigner
-   privilege to parasim — which is what lets a later `free-core` or re-assignment travel the
-   control lane inside an AURA package. A grant is a bootstrap instruction that picks its own
-   carrier (it has no `--via-*` flags), so it must run while cores still holding the genesis
-   authorizer are left to carry it. Granting does not assign: the queue is written back unchanged,
-   so a core granted here still holds the genesis authorizer and can still carry the grants after
-   it.
-5. **`parasim-tool assign-core --via-core …`, for the remaining paras.** Their cores answer to
-   parasim now, so these take the control lane and need a carrier running an AURA authorizer —
-   the first para's core, named with `--via-core`/`--via-para`/`--via-collators`.
+* **parasim as service 5** (`network::PARASIM_SERVICE_ID`), created from the copied-aside
+  `parasim-service.jam` with a balance of 10^15, and **hosting the AURA authorizer blob's
+  preimage**. That is where a guarantor resolves the authorizer code from, because a collator's
+  work package names the parachain service as its `auth_code_host`.
+* **each para's core queued for that para's authorizer hash**, derived by `tests/jam/genesis.rs`
+  exactly as the collator derives it — the blob's code hash, and a config naming the para id, the
+  service, the collator-set root, the set size and the slot duration.
+* **each of those cores' assigner privilege held by parasim**, which is what lets a later
+  `free-core` or re-assignment travel the control lane inside an AURA package.
+
+So a run goes straight from "the network finalized a block" to starting collators. `JamNetwork`
+reads the service list back once as a check: parasim is genesis state, so a chain without it means
+the generated spec never reached the nodes, and the error names `zombienet/jam_spec.json` and the
+`jam_config.json` beside it. `Run::start` then waits for every collator's startup line and fails
+unless the authorizer it derived is the one genesis queued.
 
 A tiny network has exactly two cores: polkajam ties `core_count` to the validator count (six
 validators, three per core) and the next step up is 78 validators. So two paras is the most this
-harness can run. Granting every core before the last one is assigned is what lets it do so with
-no core left stranded under service 0 — the earlier assign/grant/assign/grant order ran the
-genesis lane dry and left the last core unfreeable for the rest of the run.
+harness can run, and a single-para run leaves core 1 untouched — still under the null authorizer,
+still with service 0 as its assigner, which is the bootstrap lane the reassignment test rides.
+
+### The one step that is left, and only for two tests
+
+`parasim-tool deploy-authorizer` hosts the AURA blob in the **bootstrap service** as well.
+Nothing the collators do needs that any more, but `parasim-tool` builds its own control packages
+with `auth_code_host: 0`, so a guarantor asked to authorize an `assign-core` or `free-core`
+command looks the code up in service 0. Genesis cannot be asked to host a preimage in service 0 —
+the config has no way to add one to the bootstrap service — so the two dynamic-core tests call
+`JamNetwork::host_authorizer_for_control_packages` before their first core change, and nothing
+else does. It is idempotent ("already available; nothing to do") and it rides an unassigned core,
+which is why the reassignment test has to run it *before* it assigns core 1.
+
+That call disappears the day `parasim-tool` names `--service` in `auth_code_host` instead of 0.
 
 ## Taking cores away and moving them, mid-run
 
@@ -242,10 +251,10 @@ that has lost its only core can be given it straight back. That is what the stal
 it is why these tests need no spare core to recover.
 
 **A carrier is only needed to reach a core that can not carry the command itself.** That is what
-`--via-core`/`--via-para`/`--via-collators` are for: the setup's step 5 above, and nothing in the
-tests. The tool checks the carrier it builds against the hash the carrier core actually holds and
-refuses to submit on a mismatch, naming both hashes — so a wrong carrier is a loud failure, not a
-core that quietly authorizes nothing.
+`--via-core`/`--via-para`/`--via-collators` are for, and no test here needs them: every core these
+tests touch can carry its own command. The tool checks the carrier it builds against the hash the
+carrier core actually holds and refuses to submit on a mismatch, naming both hashes — so a wrong
+carrier is a loud failure, not a core that quietly authorizes nothing.
 
 ## The zombienet-sdk dependency
 
