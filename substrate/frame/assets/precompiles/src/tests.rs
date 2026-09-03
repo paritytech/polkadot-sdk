@@ -19,7 +19,10 @@ use super::*;
 use crate::{
 	alloy::hex,
 	foreign_assets::pallet::Pallet as ForeignAssetsPallet,
-	mock::{new_test_ext, Assets, Balances, RuntimeOrigin, Test},
+	mock::{
+		new_test_ext, Assets, AssetsHolder, Balances, RuntimeEvent, RuntimeHoldReason,
+		RuntimeOrigin, System, Test,
+	},
 	permit,
 	test_helpers::{
 		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix, token_address,
@@ -1195,5 +1198,85 @@ fn balanced_paths_emit_erc20_transfer_logs() {
 				value: U256::from(40),
 			}),
 		);
+	});
+}
+
+fn erc20_call<C: SolCall>(token: H160, caller: u64, call: C) -> C::Return {
+	let data = pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(caller),
+		token,
+		0u32.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
+		call.abi_encode(),
+		&ExecConfig::new_substrate_tx(),
+	)
+	.result
+	.unwrap()
+	.data;
+	C::abi_decode_returns(&data).unwrap()
+}
+
+fn contract_log_count(token: H160) -> usize {
+	System::events()
+		.iter()
+		.filter(|record| {
+			matches!(
+				&record.event,
+				RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted { contract, .. })
+					if *contract == token
+			)
+		})
+		.count()
+}
+
+// A `fungibles::MutateHold` hold, which a revive storage deposit paid in PGAS drives, moves
+// balance between the free and held portions of one account. `balanceOf` reports free plus held,
+// so such a hold does not move it and needs no log, keeping `balanceOf` and `totalSupply`
+// reconstructible from the `Transfer` stream alone.
+#[test]
+fn same_account_holds_do_not_move_balance_of() {
+	use frame_support::traits::{fungibles::MutateHold, tokens::Precision};
+	new_test_ext().execute_with(|| {
+		// `TestAccountMapper` round-trips an address through a `u64`, which keeps only its low
+		// bytes, so only the zero-index token address survives a `bare_call` in this mock.
+		let asset_id = 0u32;
+		let owner = 1u64;
+		let reason = RuntimeHoldReason::Revive(pallet_revive::HoldReason::StorageDepositReserve);
+		let token = token_address(PRECOMPILE_ADDRESS_PREFIX, asset_id);
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let account_of = |who: &sp_core::H160| -> alloy::primitives::Address { who.0.into() };
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+
+		// Mint: Transfer(0x0 -> owner).
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: alloy::primitives::Address::ZERO,
+				to: account_of(&owner_addr),
+				value: U256::from(100),
+			}),
+		);
+
+		// A hold and a partial release only move balance between the free and held portions of
+		// `owner`, so they emit no log beyond the mint's ...
+		assert_ok!(<AssetsHolder as MutateHold<u64>>::hold(asset_id, &reason, &owner, 30));
+		assert_ok!(<AssetsHolder as MutateHold<u64>>::release(
+			asset_id,
+			&reason,
+			&owner,
+			10,
+			Precision::Exact,
+		));
+		assert_eq!(contract_log_count(token), 1);
+
+		// ... and leave both `balanceOf` and `totalSupply` where the log stream puts them, even
+		// though 20 of the owner's 100 is on hold.
+		assert_eq!(
+			erc20_call(token, owner, IERC20::balanceOfCall { account: account_of(&owner_addr) }),
+			U256::from(100),
+		);
+		assert_eq!(erc20_call(token, owner, IERC20::totalSupplyCall {}), U256::from(100));
 	});
 }

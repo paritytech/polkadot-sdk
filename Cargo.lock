@@ -12477,6 +12477,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-assets",
+ "pallet-assets-holder",
  "pallet-balances",
  "pallet-revive",
  "pallet-revive-fixtures",

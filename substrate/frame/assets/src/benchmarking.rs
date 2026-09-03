@@ -612,10 +612,11 @@ benchmarks_instance_pallet! {
 	}
 
 	balance {
+		use frame_support::traits::fungibles::Inspect;
 		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
 		let amount;
 	}: {
-		amount = Pallet::<T, I>::balance(asset_id.into(), caller);
+		amount = <Pallet<T, I> as Inspect<_>>::total_balance(asset_id.into(), &caller);
 	} verify {
 		assert_eq!(amount, 100u32.into());
 	}

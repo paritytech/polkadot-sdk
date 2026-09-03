@@ -167,6 +167,17 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 		<T as Config>::WeightInfo::per_outside_frame_log(),
 		DispatchClass::Normal,
 	);
+
+	// The first buffered log is also what makes `on_finalize` build the synthetic transaction at
+	// all. That step is one extra transaction's worth of work — keccak over the payload, receipt
+	// encoding, the trie builders — and no per-transaction charge covers it, since the synthetic
+	// transaction goes through no extrinsic.
+	if index.is_zero() {
+		frame_system::Pallet::<T>::register_extra_weight_unchecked(
+			<T as Config>::WeightInfo::on_finalize_block_per_tx(SYNTHETIC_LOG_TX_MAX_LEN),
+			DispatchClass::Normal,
+		);
+	}
 }
 
 /// Get the receipt details of the current transaction.
@@ -245,6 +256,10 @@ pub fn on_initialize<T: Config>() {
 	SyntheticReceiptInfo::<T>::kill();
 	EthereumBlock::<T>::kill();
 }
+
+/// Conservative upper bound on the encoded length of [`synthetic_transaction`], used to charge its
+/// per-transaction weight before the payload exists.
+const SYNTHETIC_LOG_TX_MAX_LEN: u32 = 128;
 
 /// The synthetic transaction that carries the block's outside-of-frame logs.
 ///

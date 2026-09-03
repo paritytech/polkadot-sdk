@@ -1020,7 +1020,8 @@ pub mod pallet {
 			System::<T>::account_exists(&Pallet::<T>::account_id());
 			// Only the fixed part of `on_finalize`. Everything that scales with what the block
 			// actually did is charged as it happens: per transaction and per event through the gas
-			// meter, per outside-of-frame log at the emit site.
+			// meter, per outside-of-frame log — plus the one synthetic transaction those logs are
+			// flushed as — at the emit site.
 			<T as Config>::WeightInfo::on_finalize_block_fixed()
 		}
 

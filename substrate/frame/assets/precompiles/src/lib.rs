@@ -153,10 +153,11 @@ where
 ///
 /// This precompile does not emit the `Transfer` log for a balance-changing call. The log is
 /// produced by [`Erc20TransferLogsCallback`], which must be wired as the instance's
-/// `pallet_assets::Config::CallbackHandle` for the token to be EIP-20 compliant — mirroring every
-/// balance change, whether it came through this precompile or through pallet-assets directly. A
-/// runtime that registers the precompile without it compiles and answers calls, but emits no
-/// `Transfer` log for any non-zero transfer.
+/// `pallet_assets::Config::CallbackHandle` for the token to be EIP-20 compliant — mirroring the
+/// balance changes pallet-assets reports through that handle, whether they came through this
+/// precompile or through pallet-assets directly. A runtime that registers the precompile without
+/// it compiles and answers calls, but emits no `Transfer` log for any non-zero transfer. See
+/// [`Erc20TransferLogsCallback`] for the balance changes that have no mirror.
 pub struct ERC20<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -226,8 +227,16 @@ where
 	}
 }
 
-/// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change, at
-/// the asset's [`ERC20`] precompile address.
+/// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change it is
+/// notified of, at the asset's [`ERC20`] precompile address.
+///
+/// Holds are not a balance change from the projection's point of view: [`ERC20::balance_of`]
+/// reports `fungibles::Inspect::total_balance`, so a `MutateHold` hold or release moves balance
+/// between the free and held portions of one account without moving `balanceOf`, and emits no
+/// log. The hold paths that do move value between accounts — `transfer_on_hold`,
+/// `transfer_and_hold` and `burn_held` — have no mirror yet: they run through pallet-assets'
+/// `Unbalanced` impl, which fires no balance-change callback, so they move `balanceOf` without
+/// emitting a `Transfer` log. No runtime drives them on a `fungibles` holder today.
 ///
 /// Asset destruction has no mirror: pallet-assets can destroy an asset, but ERC-20 has no
 /// equivalent concept, so there is nothing to project `destroy_accounts` onto, and it fires no
@@ -485,16 +494,23 @@ where
 	}
 
 	/// Execute the balance_of call.
+	///
+	/// Reports the free *and* held balance, so that moving funds between those two portions of the
+	/// same account — a `fungibles::MutateHold` hold or release, which emits no `Transfer` log —
+	/// does not move `balanceOf`.
 	fn balance_of(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::balanceOfCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		use frame_support::traits::fungibles::Inspect;
+
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::balance())?;
 		let account = call.account.into_array().into();
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
-		let value =
-			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
+		let value = Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::total_balance(
+			asset_id, &account,
+		))?;
 		Ok(IERC20::balanceOfCall::abi_encode_returns(&value))
 	}
 

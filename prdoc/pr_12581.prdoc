@@ -44,11 +44,14 @@ doc:
     version 2, which reports the synthetic transaction separately from the ethereum transactions:
     its gas entry, plus the number of logs the block committed to it. Version 1 keeps its contract
     of one entry per ethereum transaction and omits it, so an eth-rpc that predates this change
-    keeps serving the block's real transactions and simply does not see the mirrored logs. A
-    consumer that rebuilds those logs from block events must reconcile against the reported count,
-    because the events are a superset in emission order of what the header commits to. The
-    `on_finalize` drain of each such log
-    is charged against the block where the log is emitted, rather than reserved up front, since
+    stores no receipt for the synthetic transaction — while still receiving its hash in the block's
+    `transactions`, since `eth_block` stays at version 1 and the header commits to that
+    transaction. Such a block therefore lists a hash that `eth_getTransactionByHash` and
+    `eth_getTransactionReceipt` resolve to null, and `eth_getBlockTransactionCountBy*`, served from
+    the stored receipts, is one lower than the length of that array. A consumer that rebuilds those
+    logs from block events must reconcile against the reported count, because the events are a
+    superset in emission order of what the header commits to. The `on_finalize` drain of each such
+    log is charged against the block where the log is emitted, rather than reserved up front, since
     the mirroring paths have no gas meter and the drain belongs to no extrinsic's benchmark. A
     contract's `LOG` reaches the same buffer whenever it runs off the ethereum path (`Revive::call`,
     an XCM `Transact`), and pays that same drain charge: it is registered at the emit site for every
@@ -63,6 +66,9 @@ doc:
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
         same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
+      - eth-rpc must be upgraded before or together with the runtime: an older one lists the
+        synthetic transaction's hash in a block's `transactions` without being able to resolve it,
+        so an indexer that walks that array and fetches each receipt breaks on it.
       - Weights: the extrinsic-path mirror log must be benchmarked (`/cmd bench`) before production;
         the placeholder weight leaves it effectively unmetered.
       - Foreign asset-index mappings must exist before a mirror can resolve a token address. They
@@ -79,6 +85,15 @@ doc:
         runtime whose presets endow accounts, log-derived balances for those holders stay at zero
         while `balanceOf` reports the real amount. Log consumers must seed genesis balances from
         storage and apply logs on top, rather than deriving the whole balance from the log stream.
+      - Same-account holds are kept out of the projection: `ERC20::balanceOf` now reports
+        `fungibles::Inspect::total_balance` (free plus held) instead of the free balance, so a
+        `MutateHold` hold or release moves balance within one account without moving `balanceOf`
+        and needs no log. The hold paths that move value between accounts — `transfer_on_hold`,
+        `transfer_and_hold` and `burn_held` — are a known gap: they run through pallet-assets'
+        `Unbalanced` impl, which fires no balance-change callback, so they move `balanceOf`
+        without emitting a `Transfer` log. Nothing drives them on a `fungibles` holder today, so
+        the gap is latent; wiring `pallet-assets-holder` to report them needs to land before any
+        consumer holds assets on an instance that also wires the mirror.
 crates:
 - name: pallet-assets
   bump: major
