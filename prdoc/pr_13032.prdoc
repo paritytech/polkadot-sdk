@@ -13,9 +13,7 @@ doc:
 
     Two changes affect a runtime that includes this pallet. The `Config` supertrait changed from
     `CreateBare<Call<Self>>` to `CreateAuthorizedTransaction<Call<Self>>`, and the runtime must put
-    `frame_system::AuthorizeCall` in its transaction extension pipeline. A runtime that forgets
-    `AuthorizeCall` still compiles, but the unsigned solution never gets an authorized origin, so the
-    validator backup election stops working.
+    `frame_system::AuthorizeCall` in its transaction extension pipeline.
 
     The `WeightInfo` trait renamed `validate_unsigned` to `authorize_submit_unsigned`.
 

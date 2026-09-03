@@ -761,19 +761,24 @@ pub fn roll_to_unsigned_open_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>
 
 /// proceed block number to `n`, while running all offchain workers as well.
 pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>>>) {
-	use sp_runtime::traits::Dispatchable;
+	use frame_support::dispatch::GetDispatchInfo;
+	use sp_runtime::{generic::Preamble, traits::Pipeline};
 	let now = System::block_number();
 	for i in now + 1..=n {
 		// check the offchain transaction pool, and if anything's there, submit it.
 		if let Some(ref pool) = maybe_pool {
-			pool.read()
-				.transactions
-				.clone()
-				.into_iter()
-				.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
-				.for_each(|xt| {
-					xt.function.dispatch(frame_system::RawOrigin::Authorized.into()).unwrap();
-				});
+			pool.read().transactions.clone().into_iter().for_each(|uxt| {
+				let len = uxt.len();
+				let xt = <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap();
+				let Preamble::General(ext) = xt.preamble else {
+					panic!("the miner must submit a general transaction");
+				};
+				let info = xt.function.get_dispatch_info();
+				// Start from no origin: only the extension pipeline may authorize the call.
+				ext.dispatch_transaction(RuntimeOrigin::none(), xt.function, &info, len)
+					.expect("the transaction must be valid")
+					.expect("the dispatch must succeed");
+			});
 			pool.try_write().unwrap().transactions.clear();
 		}
 

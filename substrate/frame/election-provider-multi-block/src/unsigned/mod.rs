@@ -355,7 +355,6 @@ mod pallet {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod authorize {
 	use frame_election_provider_support::Support;
 	use frame_support::{
