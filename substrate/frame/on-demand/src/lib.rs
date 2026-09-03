@@ -244,6 +244,11 @@ pub mod pallet {
 			para_id: TaskId,
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
+			// Fail early if the batch is already full.
+			if PendingBatch::<T>::get().len() >= MAX_BATCH_SIZE {
+				return Err(Error::<T>::BatchFull.into());
+			}
+
 			let now = T::RelayBlockNumberProvider::current_block_number();
 			let mut queue_state = QueueState::<T>::get()
 				.unwrap_or(QueueTracker { outstanding_orders: 0, last_updated: now });
@@ -275,6 +280,8 @@ pub mod pallet {
 			PendingBatch::<T>::try_mutate(|batch| {
 				batch
 					.try_push(EnqueuedOrder { para_id, ordered_at: now })
+					// should not happen (we check if it's full at the start), but won't hurt to
+					// handle the error
 					.map_err(|_| Error::<T>::BatchFull)
 			})?;
 
