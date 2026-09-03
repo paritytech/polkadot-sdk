@@ -23,7 +23,6 @@ std = [
 	"bridge-hub-test-utils?/std",
 	"bridge-runtime-common?/std",
 	"cumulus-pallet-aura-ext?/std",
-	"cumulus-pallet-dmp-queue?/std",
 	"cumulus-pallet-parachain-system-proc-macro?/std",
 	"cumulus-pallet-parachain-system?/std",
 	"cumulus-pallet-session-benchmarking?/std",
@@ -250,7 +249,6 @@ runtime-benchmarks = [
 	"assets-common?/runtime-benchmarks",
 	"bridge-hub-common?/runtime-benchmarks",
 	"bridge-runtime-common?/runtime-benchmarks",
-	"cumulus-pallet-dmp-queue?/runtime-benchmarks",
 	"cumulus-pallet-parachain-system?/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking?/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim?/runtime-benchmarks",
@@ -398,7 +396,6 @@ try-runtime = [
 	"assets-common?/try-runtime",
 	"bridge-hub-test-utils?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
-	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
 	"cumulus-pallet-solo-to-para?/try-runtime",
 	"cumulus-pallet-weight-reclaim?/try-runtime",
@@ -599,7 +596,6 @@ runtime-full = [
 	"bridge-hub-common",
 	"bridge-runtime-common",
 	"cumulus-pallet-aura-ext",
-	"cumulus-pallet-dmp-queue",
 	"cumulus-pallet-parachain-system",
 	"cumulus-pallet-parachain-system-proc-macro",
 	"cumulus-pallet-session-benchmarking",
@@ -1138,11 +1134,6 @@ path = "../bridges/bin/runtime-common"
 default-features = false
 optional = true
 path = "../cumulus/pallets/aura-ext"
-
-[dependencies.cumulus-pallet-dmp-queue]
-default-features = false
-optional = true
-path = "../cumulus/pallets/dmp-queue"
 
 [dependencies.cumulus-pallet-parachain-system]
 default-features = false
