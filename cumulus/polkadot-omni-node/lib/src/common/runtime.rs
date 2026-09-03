@@ -342,6 +342,20 @@ mod tests {
 		assert_eq!(inspector.aura_consensus_id().unwrap(), AuraConsensusId::Sr25519);
 	}
 
+	// Every executor above passes `with_allow_missing_host_functions(true)`, so none of them can
+	// catch a host-function set that has fallen behind the runtime. The node's own client executor
+	// resolves imports strictly, and a parachain runtime statically imports the additional-data
+	// host functions (`cumulus-pallet-parachain-system` reads relay state through them). A set that
+	// omits one instantiates no runtime at all, so the node dies before it logs anything useful.
+	#[test]
+	fn parachain_host_functions_serve_every_import_a_parachain_runtime_makes() {
+		fetch_latest_metadata_from_code_blob(
+			&WasmExecutor::<crate::common::types::ParachainHostFunctions>::builder().build(),
+			sp_runtime::Cow::Borrowed(cumulus_test_runtime::WASM_BINARY.unwrap()),
+		)
+		.expect("the parachain node's host functions must cover the runtime's imports");
+	}
+
 	#[test]
 	fn test_aura_id_from_chain_spec_id() {
 		use crate::runtime::{aura_id_from_chain_spec_id, AuraConsensusId};

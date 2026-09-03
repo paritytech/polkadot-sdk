@@ -78,6 +78,13 @@ impl JamRpc {
 	}
 }
 
+/// The height a substrate header carries, which the RPC spells as a hex string.
+fn number_of(header: &Value) -> anyhow::Result<u64> {
+	let number = header["number"].as_str().context("header has no number")?;
+	u64::from_str_radix(number.trim_start_matches("0x"), 16)
+		.with_context(|| format!("header number {number} is not hex"))
+}
+
 /// How far a collator's chain has got.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Height {
@@ -102,9 +109,23 @@ impl CollatorRpc {
 		};
 		let header: Value =
 			self.client.request("chain_getHeader", params).await.context("chain_getHeader")?;
-		let number = header["number"].as_str().context("header has no number")?;
-		u64::from_str_radix(number.trim_start_matches("0x"), 16)
-			.with_context(|| format!("header number {number} is not hex"))
+		number_of(&header)
+	}
+
+	/// The height of the block `hash`, or `None` if this node has never seen it.
+	///
+	/// Two parachains have disjoint block hashes, so "the collator of this para knows the head JAM
+	/// accumulated for it" is what says an accumulated head belongs to this chain and to no other.
+	pub async fn height_of(&self, hash: &str) -> anyhow::Result<Option<u64>> {
+		let header: Value = self
+			.client
+			.request("chain_getHeader", rpc_params![hash])
+			.await
+			.context("chain_getHeader")?;
+		if header.is_null() {
+			return Ok(None);
+		}
+		number_of(&header).map(Some)
 	}
 
 	pub async fn height(&self) -> anyhow::Result<Height> {

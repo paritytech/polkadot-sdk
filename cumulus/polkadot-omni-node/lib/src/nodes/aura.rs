@@ -72,7 +72,9 @@ use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
+use sp_consensus_aura::AuraApi;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -574,11 +576,79 @@ where
 		);
 
 		log::info!(
-			"🍇 Starting in JAM mode: para id {para_id}, service id {}, core {}, \
-			 collator: {is_authority}",
+			"🍇 Starting in JAM mode: para id {para_id}, service id {}, collator: {is_authority}",
 			jam_params.service_id,
-			jam_params.core,
 		);
+
+		// Before anything reads a key: `spawn_tasks` is what puts this node's session keys in the
+		// keystore (`generate_initial_session_keys`, which is where `--alice` and friends land), so
+		// the authorizer below would find an empty keystore if it ran first. The relay-chain path
+		// orders itself the same way, starting consensus only once this has run.
+		let spawn_handle = Arc::new(task_manager.spawn_handle());
+		let rpc_extensions_builder = {
+			let client = client.clone();
+			let transaction_pool = transaction_pool.clone();
+			let backend_for_rpc = backend.clone();
+
+			Box::new(move |_| {
+				let module = Self::BuildRpcExtensions::build_rpc_extensions(
+					client.clone(),
+					backend_for_rpc.clone(),
+					transaction_pool.clone(),
+					None,
+					None,
+					spawn_handle.clone(),
+				)?;
+				Ok(module)
+			})
+		};
+
+		let database_path = config.database.path().map(|p| p.to_path_buf());
+
+		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			network,
+			client: client.clone(),
+			keystore: keystore_container.keystore(),
+			task_manager: &mut task_manager,
+			transaction_pool: transaction_pool.clone(),
+			rpc_builder: rpc_extensions_builder,
+			backend: backend.clone(),
+			system_rpc_tx,
+			tx_handler_controller,
+			sync_service,
+			config,
+			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
+		})?;
+
+		// Up front, and fatal: a collator that cannot reproduce its core's authorizer config, or
+		// that holds no aura key of the set that config commits to, would author blocks whose
+		// packages no guarantor can ever authorize — and the only symptom would be silence. A full
+		// node signs nothing, so it is not asked for a key it has no reason to hold.
+		//
+		// The set is read once, here: the authorizer hash commits to a snapshot of it, so
+		// re-reading it every block could only produce a hash no core holds. The builder warns
+		// when the runtime's set drifts away from this one.
+		let jam_authorizer = if is_authority {
+			let best_hash = client.info().best_hash;
+			let authorities = client.runtime_api().authorities(best_hash).map_err(|error| {
+				sc_service::Error::Other(format!(
+					"cannot read the runtime's aura authorities at {best_hash:?}: {error}",
+				))
+			})?;
+			let authorizer = jam::authorizer::AuraAuthorizer::new::<AuraId>(
+				&authorities,
+				&jam_params.authorizer_blob,
+				para_id.into(),
+				jam_params.service_id,
+				jam_params.slot_duration,
+				keystore_container.keystore(),
+			)
+			.map_err(sc_service::Error::Other)?;
+			Some(Arc::new(authorizer))
+		} else {
+			None
+		};
 
 		let jam_init = {
 			let client = client.clone();
@@ -645,10 +715,10 @@ where
 					)),
 				);
 
-				if !is_authority {
+				let Some(jam_authorizer) = jam_authorizer else {
 					// Essential task: park forever, returning would shut the node down.
 					return futures::future::pending::<()>().await;
-				}
+				};
 
 				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
 				let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
@@ -670,6 +740,7 @@ where
 						keystore,
 						para_id,
 						service_id: jam_params.service_id,
+						authorizer: jam_authorizer.clone(),
 						jam: jam.clone(),
 						message_sender,
 					})),
@@ -683,7 +754,7 @@ where
 							jam,
 							para_id,
 							service_id: jam_params.service_id,
-							core: jam_params.core,
+							authorizer: jam_authorizer,
 							message_receiver,
 							announce_block,
 							max_resubmits: 3,
@@ -698,43 +769,6 @@ where
 		task_manager
 			.spawn_essential_handle()
 			.spawn("jam-init", Some("jam"), Box::pin(jam_init));
-
-		let spawn_handle = Arc::new(task_manager.spawn_handle());
-		let rpc_extensions_builder = {
-			let client = client.clone();
-			let transaction_pool = transaction_pool.clone();
-			let backend_for_rpc = backend.clone();
-
-			Box::new(move |_| {
-				let module = Self::BuildRpcExtensions::build_rpc_extensions(
-					client.clone(),
-					backend_for_rpc.clone(),
-					transaction_pool.clone(),
-					None,
-					None,
-					spawn_handle.clone(),
-				)?;
-				Ok(module)
-			})
-		};
-
-		let database_path = config.database.path().map(|p| p.to_path_buf());
-
-		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-			network,
-			client,
-			keystore: keystore_container.keystore(),
-			task_manager: &mut task_manager,
-			transaction_pool,
-			rpc_builder: rpc_extensions_builder,
-			backend,
-			system_rpc_tx,
-			tx_handler_controller,
-			sync_service,
-			config,
-			telemetry: telemetry.as_mut(),
-			tracing_execute_block: None,
-		})?;
 
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(

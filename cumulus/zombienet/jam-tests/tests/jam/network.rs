@@ -4,7 +4,7 @@
 //! The JAM network the collators collate for: spawned by zombienet-sdk, then given the parasim
 //! service the collators talk to.
 
-use super::{env::Binaries, rpc::JamRpc};
+use super::{collators::Para, env::Binaries, rpc::JamRpc};
 use anyhow::Context;
 use std::{
 	path::{Path, PathBuf},
@@ -27,6 +27,14 @@ pub const PARASIM_SERVICE_ID: u32 = 5;
 /// The endowment parasim is registered with.
 const PARASIM_ENDOWMENT: &str = "1000000000000000";
 
+/// How many cores a network of [`VALIDATORS`] validators has.
+///
+/// Not a knob: polkajam's `tiny` parameter set ties `core_count` to the validator count (six
+/// validators, three per core), and the next step up is 78 validators. It matters here because
+/// the bootstrap lane needs a core that still holds the genesis authorizer, so how many cores the
+/// chain has decides how many can be handed to parasim.
+const CORE_COUNT: usize = VALIDATORS / 3;
+
 /// JAM RPC ports sit above the collator range and well away from the 19800 default, so a testnet
 /// the user is running themselves is never disturbed.
 static NEXT_JAM_RPC_PORT: AtomicU16 = AtomicU16::new(42000);
@@ -37,15 +45,19 @@ fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 	vec![("POLKAVM_BACKEND", "interpreter"), ("POLKAVM_ALLOW_INSECURE", "1")]
 }
 
-/// A running JAM network with parasim registered on it.
+/// A running JAM network with parasim registered on it and the AURA authorizer hosted on it.
 pub struct JamNetwork {
 	network: Network<LocalFileSystem>,
 	pub rpc_url: String,
 	pub service_id: u32,
+	/// The copy of the authorizer blob whose hash went on chain. Everything that has to agree on
+	/// the authorizer hash — the assigned cores, the collators — is pointed at this file.
+	pub authorizer_blob: PathBuf,
 }
 
 impl JamNetwork {
-	/// Spawn the network, wait for it to finalize a block, and register parasim on it.
+	/// Spawn the network, wait for it to finalize a block, register parasim on it, and host the
+	/// AURA authorizer blob so an assigned core's code hash resolves to something.
 	pub async fn spawn(
 		binaries: &Binaries,
 		work_dir: &Path,
@@ -97,51 +109,225 @@ impl JamNetwork {
 		let rpc_url = format!("ws://127.0.0.1:{rpc_port}");
 		log::info!("JAM network up, ordinary node RPC at {rpc_url}");
 
-		let jam_network = JamNetwork { network, rpc_url, service_id: PARASIM_SERVICE_ID };
+		let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
+		let jam_network =
+			JamNetwork { network, rpc_url, service_id: PARASIM_SERVICE_ID, authorizer_blob };
 		let rpc = JamRpc::wait_ready(&jam_network.rpc_url, deadline).await.with_context(|| {
 			format!("JAM node log tail:\n{}", jam_network.ordinary_node_log_tail(60))
 		})?;
 		jam_network.register_parasim(binaries, work_dir)?;
+		jam_network.wait_for_parasim(&rpc, deadline).await?;
+		jam_network.deploy_authorizer(binaries)?;
 
+		Ok(jam_network)
+	}
+
+	/// Register parasim, and hand `jamt` the core to submit on rather than let it pick.
+	///
+	/// This is the run's only `jamt` call, and it deliberately happens before any core leaves the
+	/// genesis authorizer: `jamt` builds its packages under that authorizer, so a core already
+	/// pointed at a para would refuse them. Anything added here later has to keep that order, and
+	/// name a core that still holds the genesis authorizer.
+	fn register_parasim(&self, binaries: &Binaries, work_dir: &Path) -> anyhow::Result<()> {
+		let blob = copy_aside(&binaries.parasim_blob, work_dir)?;
+
+		run_step(
+			&format!("jamt create-service: parasim as service {}", self.service_id),
+			Command::new(&binaries.jamt)
+				.args(["--rpc", &self.rpc_url, "--force-core", "0", "create-service"])
+				.arg(&blob)
+				.args([
+					PARASIM_ENDOWMENT,
+					"--register=parasim",
+					"--raw",
+					"--id",
+					&self.service_id.to_string(),
+				])
+				.envs(polkavm_env()),
+		)
+	}
+
+	/// Wait until the service id `create-service` was told to use is actually on the chain.
+	async fn wait_for_parasim(&self, rpc: &JamRpc, deadline: Instant) -> anyhow::Result<()> {
+		let started = std::time::Instant::now();
 		while Instant::now() < deadline {
-			if rpc.services().await.unwrap_or_default().contains(&(PARASIM_SERVICE_ID as u64)) {
-				log::info!("parasim registered as service {PARASIM_SERVICE_ID}");
-				return Ok(jam_network);
+			if rpc.services().await.unwrap_or_default().contains(&(self.service_id as u64)) {
+				log::info!(
+					"parasim registered as service {} after {:?}",
+					self.service_id,
+					started.elapsed()
+				);
+				return Ok(());
 			}
 			sleep(Duration::from_secs(2)).await;
 		}
-		Err(anyhow::anyhow!("service {PARASIM_SERVICE_ID} never appeared on the JAM chain"))
+		Err(anyhow::anyhow!("service {} never appeared on the JAM chain", self.service_id))
 	}
 
-	/// Register parasim from a COPY of the blob: PVM builds are not byte-deterministic, and a
-	/// rebuild in the source tree would leave the on-chain code hash without a resolvable preimage.
-	fn register_parasim(&self, binaries: &Binaries, work_dir: &Path) -> anyhow::Result<()> {
-		let blob = work_dir.join("parasim-service.jam");
-		std::fs::copy(&binaries.parasim_blob, &blob).with_context(|| {
-			format!("copying {} to {}", binaries.parasim_blob.display(), blob.display())
-		})?;
+	/// Host the AURA authorizer blob in the bootstrap service: solicit it, then provide it.
+	///
+	/// Must finish before the first `assign-core`. Validators fetch an authorizer's code by
+	/// preimage lookup, so a core pointed at a code hash nobody hosts authorizes nothing — and
+	/// says nothing about why. `parasim-tool` waits for the solicit to accumulate and then for the
+	/// preimage to be readable at a finalized block, so there is nothing left to poll here.
+	fn deploy_authorizer(&self, binaries: &Binaries) -> anyhow::Result<()> {
+		run_step(
+			&format!("deploy-authorizer: {}", self.authorizer_blob.display()),
+			self.parasim_tool(binaries).arg("deploy-authorizer"),
+		)
+	}
 
-		let output = Command::new(&binaries.jamt)
-			.args(["--rpc", &self.rpc_url, "create-service"])
-			.arg(&blob)
-			.args([
-				PARASIM_ENDOWMENT,
-				"--register=parasim",
-				"--raw",
-				"--id",
-				&self.service_id.to_string(),
-			])
-			.envs(polkavm_env())
-			.output()
-			.with_context(|| format!("running {}", binaries.jamt.display()))?;
-
+	/// Point every para's core at its AURA authorizer, and hand parasim every one of those cores'
+	/// assigner privilege.
+	///
+	/// Both steps are bootstrap instructions to start with, and a bootstrap instruction only rides
+	/// a core that still holds the genesis authorizer — a supply that only ever shrinks, because
+	/// assignment to parasim is one-way and `free-core` parks a core rather than returning it.
+	/// That is what fixes the order here, and it is not the obvious one:
+	///
+	/// 1. The *first* para's `assign-core`, riding the very core it assigns. Something has to run
+	///    on the genesis lane before an AURA core exists at all, and this is it.
+	/// 2. `grant-assigner` for **every** core, while cores still holding the genesis authorizer
+	///    are left to carry them. A grant takes no carrier of its own choosing, so this is the
+	///    step that must not be left until last. Granting a core does not assign it: the queue is
+	///    untouched, so a core granted here still holds the genesis authorizer and can still carry
+	///    the grants after it.
+	/// 3. The remaining paras' `assign-core`, each riding the core step 1 assigned. Their own
+	///    cores now answer to parasim, so these travel the control lane and need a carrier that
+	///    runs an AURA authorizer — which the first para's core is.
+	///
+	/// The earlier shape (assign, grant, assign, grant) ran out of genesis-authorizer cores on the
+	/// last core of a full network and left it stuck with service 0 as its assigner, unfreeable
+	/// for the rest of the run. Nothing is skipped now.
+	pub fn assign_cores(&self, binaries: &Binaries, paras: &[Para]) -> anyhow::Result<()> {
+		// A core each, and a real one. Two paras sharing a core would silently leave the first
+		// one's authorizer overwritten, and the carrier reasoning above counts paras as if each
+		// took its own.
+		let mut cores: Vec<u32> = paras.iter().map(|para| para.core).collect();
+		cores.sort_unstable();
+		cores.dedup();
 		anyhow::ensure!(
-			output.status.success(),
-			"jamt create-service failed ({}):\n{}",
-			output.status,
-			String::from_utf8_lossy(&output.stderr)
+			cores.len() == paras.len() && cores.iter().all(|core| (*core as usize) < CORE_COUNT),
+			"this network has {CORE_COUNT} cores, one each, which does not fit {:?}",
+			paras.iter().map(|para| (para.id, para.core)).collect::<Vec<_>>()
 		);
+		let (first, rest) = paras.split_first().context("a run assigns at least one para")?;
+
+		self.assign_core(binaries, first, first.core, None)?;
+		for para in paras {
+			run_step(
+				&format!("grant-assigner: core {} to service {}", para.core, self.service_id),
+				self.parasim_tool(binaries)
+					.args(["--collators", &para.collator_names()])
+					.args(["grant-assigner", &para.core.to_string()]),
+			)?;
+		}
+		for para in rest {
+			self.assign_core(binaries, para, para.core, Some(first))?;
+		}
 		Ok(())
+	}
+
+	/// Point `core`'s authorizer queue at `para`'s AURA authorizer, carried by `via`.
+	///
+	/// `via` names another para whose core carries the command. It is `None` whenever `core` can
+	/// carry the command itself, which covers both of the cases the tests use: a core still
+	/// holding the genesis authorizer (the bootstrap lane rides the core it assigns), and a core
+	/// parked by [`Self::free_core`], which still runs this para's own authorizer code.
+	///
+	/// Which lane the command travels is `parasim-tool`'s business, not this caller's: it reads
+	/// who holds the core's assigner privilege, and — for the control lane — whether the carrier
+	/// is parked or running the named para, checking either way that what it builds matches the
+	/// hash the carrier core actually holds. It returns only once the core's *pool* holds the new
+	/// authorizer, so afterwards the core really can carry the para's packages.
+	pub fn assign_core(
+		&self,
+		binaries: &Binaries,
+		para: &Para,
+		core: u32,
+		via: Option<&Para>,
+	) -> anyhow::Result<()> {
+		let names = para.collator_names();
+		// With no carrier, `--via-core` is left off rather than filled in: the tool defaults it to
+		// the core being assigned, which is exactly what is wanted, and that is not this para's
+		// own core — the reassignment test assigns core 1 to a para sitting on core 0.
+		let carrier = via.unwrap_or(para);
+		let mut command = self.parasim_tool(binaries);
+		command
+			.args(["--collators", &names])
+			.args(["assign-core", &para.id.to_string(), &core.to_string()])
+			.args(["--via-para", &carrier.id.to_string()])
+			.args(["--via-collators", &carrier.collator_names()]);
+		if let Some(via) = via {
+			command.args(["--via-core", &via.core.to_string()]);
+		}
+		run_step(
+			&format!(
+				"assign-core: para {} onto core {core} for {names}, carried on core {}",
+				para.id,
+				via.map_or(core, |via| via.core)
+			),
+			&mut command,
+		)
+	}
+
+	/// Park `core`: keep the AURA authorizer on it under a config naming no para, so its pool
+	/// drains over the next few blocks and it stops carrying `para`'s work.
+	///
+	/// Only a core parasim was granted can be parked this way, and the command rides the core
+	/// itself: it is a control package under the AURA authorizer that is about to go away, signed
+	/// by `para`'s own collator set. Returns once the pool holds the parked authorizer, which is
+	/// the moment the drain of the old one starts being visible.
+	///
+	/// Parked is not unassigned. The core keeps the same authorizer code, so it keeps taking
+	/// control packages — which is what leaves [`Self::assign_core`] able to put a para back on it
+	/// without a second core to carry the command.
+	pub fn free_core(&self, binaries: &Binaries, para: &Para, core: u32) -> anyhow::Result<()> {
+		let names = para.collator_names();
+		run_step(
+			&format!("free-core: core {core}, carried under para {}'s authorizer", para.id),
+			self.parasim_tool(binaries)
+				.args(["--collators", &names])
+				.args(["free-core", &core.to_string()])
+				.args(["--via-para", &para.id.to_string()]),
+		)
+	}
+
+	/// The parachain head parasim has accumulated for `para`, or `None` while it has none.
+	///
+	/// This is the completion signal of the whole pipeline: JAM emits no "accumulated" event, so a
+	/// para head that moves is the only proof that a work package was guaranteed, reported and
+	/// accumulated. Reading it out of service storage rather than out of a collator's log is what
+	/// makes an assertion about it an assertion about the chain.
+	pub fn para_head(&self, binaries: &Binaries, para: u32) -> anyhow::Result<Option<ParaHead>> {
+		let what = format!("display-key parahead: para {para}");
+		let output = capture_step(
+			&what,
+			self.parasim_tool(binaries).args(["display-key", "parahead", &para.to_string()]),
+		)?;
+		parse_para_head(&output).with_context(|| format!("{what}: reading\n{output}"))
+	}
+
+	/// A `parasim-tool` invocation carrying the arguments every phase-6 command needs.
+	///
+	/// `--authorizer-blob`, `--collators` and `--scheme` are what an AURA authorizer hash is built
+	/// from, so they have to be exactly what the para's collators are started with. A mismatch
+	/// installs a hash nobody will ever satisfy, and the only symptom is a core that authorizes
+	/// nothing.
+	///
+	/// `--scheme` is spelled out even though sr25519 is the tool's default: it is the parachain
+	/// template runtime's `AuraId`, and a default that moves in the other repo would silently
+	/// point every core here at the wrong verifier blob.
+	fn parasim_tool(&self, binaries: &Binaries) -> Command {
+		let mut command = Command::new(&binaries.parasim_tool);
+		command
+			.args(["--rpc", &self.rpc_url])
+			.args(["--service", &self.service_id.to_string()])
+			.args(["--scheme", "sr25519"])
+			.arg("--authorizer-blob")
+			.arg(&self.authorizer_blob)
+			.envs(polkavm_env());
+		command
 	}
 
 	/// Where the ordinary node writes its log, for failure diagnostics.
@@ -172,4 +358,145 @@ impl JamNetwork {
 
 fn path_str(path: &Path) -> anyhow::Result<String> {
 	path.to_str().map(str::to_string).with_context(|| format!("{} is not utf-8", path.display()))
+}
+
+/// Copy a blob into the run's work dir and return the copy, which is what everything else names.
+///
+/// PVM builds are not byte-deterministic, so a rebuild in the source tree while a run is going
+/// would leave an on-chain hash — a service's code, an authorizer's code — without a resolvable
+/// preimage. The copy is also the run's record of what was actually put on the chain.
+fn copy_aside(blob: &Path, work_dir: &Path) -> anyhow::Result<PathBuf> {
+	let name = blob.file_name().with_context(|| format!("{} is not a file", blob.display()))?;
+	let copy = work_dir.join(name);
+	std::fs::copy(blob, &copy)
+		.with_context(|| format!("copying {} to {}", blob.display(), copy.display()))?;
+	Ok(copy)
+}
+
+/// Run one setup step, saying what it is about to submit and what came back.
+///
+/// Every step here changes JAM state through a work package, and a package JAM refuses leaves no
+/// trace on the chain — so the command line, the exit status, the output and the wall clock are
+/// all part of the record. Both tools read the state back themselves and exit non-zero when the
+/// change did not land, which is why a bad status is fatal rather than a warning.
+fn run_step(what: &str, command: &mut Command) -> anyhow::Result<()> {
+	log::info!("{what}: running {command:?}");
+	let started = std::time::Instant::now();
+	let stdout = capture_step(what, command)?;
+	log::info!("{what}: ok in {:?}\n{stdout}", started.elapsed());
+	Ok(())
+}
+
+/// Run one step and hand back its stdout, for the reads whose value the caller parses.
+///
+/// Quieter than [`run_step`] because a state read happens on a poll loop: the caller logs the
+/// value it extracted instead, and the full transcript stays at `debug`. A non-zero exit is still
+/// fatal, and still carries the whole transcript.
+fn capture_step(what: &str, command: &mut Command) -> anyhow::Result<String> {
+	let started = std::time::Instant::now();
+	let output = command.output().with_context(|| format!("{what}: running {command:?}"))?;
+	let elapsed = started.elapsed();
+	let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+	let stderr = String::from_utf8_lossy(&output.stderr);
+
+	anyhow::ensure!(
+		output.status.success(),
+		"{what} failed ({}) after {elapsed:?}:\n{stdout}{stderr}",
+		output.status,
+	);
+	if !stderr.trim().is_empty() {
+		log::info!("{what}: stderr\n{stderr}");
+	}
+	log::debug!("{what}: ok in {elapsed:?}\n{stdout}");
+	Ok(stdout)
+}
+
+/// A parachain head as JAM has accumulated it: the tip parasim believes the chain has reached.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParaHead {
+	pub number: u64,
+	/// The block hash, `0x`-prefixed, in the same spelling a collator's RPC uses.
+	pub hash: String,
+}
+
+impl std::fmt::Display for ParaHead {
+	fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(formatter, "#{} {}", self.number, self.hash)
+	}
+}
+
+/// Pull the accumulated head out of `parasim-tool display-key parahead`'s report.
+///
+/// The head is a substrate header the tool decodes for us, so only its hash and number are read
+/// back. An unrecognised report is an error rather than "no head": the two mean opposite things to
+/// a stall assertion, and a tool whose output has moved on should say so loudly.
+fn parse_para_head(output: &str) -> anyhow::Result<Option<ParaHead>> {
+	if output.contains("no entry:") {
+		return Ok(None);
+	}
+	let (_, header) = output
+		.split_once("head (substrate header)")
+		.context("no decoded header in the report")?;
+	let field = |name: &str| {
+		header
+			.lines()
+			.find_map(|line| line.trim().strip_prefix(name))
+			.map(str::trim)
+			.with_context(|| format!("the decoded header has no {name}"))
+	};
+
+	Ok(Some(ParaHead {
+		number: field("number")?.parse().context("the header's number is not a number")?,
+		hash: field("hash")?.to_string(),
+	}))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Verbatim output of `parasim-tool display-key parahead 0`, trimmed of the long hex.
+	const REPORT: &str = "\
+block       0xaaaa
+service     5
+para        0
+service key 0xbbbb
+state key   0xcccc
+
+ParaInfo    123 bytes
+  head_data           99 bytes
+  validation_code     None
+  pending_upgrade     None
+  total_state_balance 0
+  used_state_balance  0
+  is_deregistering    false
+
+head (substrate header)
+  hash        0xdddd
+  parent_hash 0xeeee
+  number      17
+  state_root  0xffff
+  encoded     0x0102
+";
+
+	#[test]
+	fn the_accumulated_head_is_read_out_of_the_report() {
+		let head = parse_para_head(REPORT).expect("the report parses").expect("there is a head");
+		// `parent_hash` and `state_root` sit either side of the two fields wanted, so a parser
+		// matching on a prefix could pick up the wrong line without ever failing.
+		assert_eq!(head, ParaHead { number: 17, hash: "0xdddd".to_string() });
+	}
+
+	#[test]
+	fn a_para_with_no_head_yet_is_not_a_head_of_zero() {
+		// Height zero is a real head — the genesis one — so "nothing accumulated yet" has to stay
+		// distinguishable from it, or a stall would read as progress.
+		let empty = "block       0xaaaa\n\nno entry: para 0 has no head at this block\n";
+		assert_eq!(parse_para_head(empty).expect("the report parses"), None);
+	}
+
+	#[test]
+	fn an_unrecognised_report_is_an_error() {
+		assert!(parse_para_head("ParaInfo    123 bytes\n  (undecodable)\n").is_err());
+	}
 }

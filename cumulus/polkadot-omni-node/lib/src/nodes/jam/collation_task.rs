@@ -41,13 +41,17 @@
 //! itself stays in the local database, and the next parachain slot authors on whatever is
 //! deepest there.
 //!
-//! Phase-1 simplifications that still stand: null authorizer (empty token, nothing to sign),
-//! fixed core, PoV is NOT zstd-compressed (parasim rejects compressed PoVs; JIP-2 is silent on
-//! compression).
+//! Every package runs under the para's own [AURA authorizer](super::authorizer) and carries a
+//! token this collator signs with its aura key, so assembling a package and signing it are one
+//! step here, and re-anchoring re-signs.
+//!
+//! Phase-1 simplification that still stands: the PoV is NOT zstd-compressed (parasim rejects
+//! compressed PoVs; JIP-2 is silent on compression).
 
 use super::{
 	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET,
-	fetch_anchor_state_proof, jam_slot_at, para_head_stream, resubmission::*,
+	authorizer::AuraAuthorizer, choose_lookup_anchor, fetch_anchor_state_proof, jam_read,
+	jam_slot_at, para_head_stream, resubmission::*, scan_pools_at,
 };
 use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
@@ -58,7 +62,7 @@ use futures::{
 	future::AbortHandle,
 	stream::{SelectAll, abortable},
 };
-use jam_cumulus_facade::{ParachainCandidate, authorizer::fixed_authorizer};
+use jam_cumulus_facade::{ParachainCandidate, authorizer::Authorizer};
 use jam_interface::{
 	BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
 	JamWorkPackageSubmission, ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage,
@@ -88,7 +92,7 @@ pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub jam: Arc<Jam>,
 	pub para_id: ParaId,
 	pub service_id: ServiceId,
-	pub core: CoreIndex,
+	pub authorizer: Arc<AuraAuthorizer>,
 	pub message_receiver: mpsc::Receiver<JamCollatorMessage<Block>>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	pub max_resubmits: u32,
@@ -106,7 +110,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		jam,
 		para_id,
 		service_id,
-		core,
+		authorizer,
 		mut message_receiver,
 		announce_block,
 		max_resubmits,
@@ -176,11 +180,13 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		target: LOG_TARGET,
 		?para_id,
 		service_id,
-		core,
 		refine_gas_limit,
 		accumulate_gas_limit,
 		max_resubmits,
 		resubmit_after_slots = RESUBMIT_AFTER_SLOTS,
+		authorizer_hash = ?authorizer.hash(),
+		collator_set_size = authorizer.collator_set_size(),
+		own_index = authorizer.own_index(),
 		"JAM collation task started.",
 	);
 
@@ -192,7 +198,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		jam,
 		para_id: para_id.into(),
 		service_id,
-		core,
+		authorizer,
 		service_code_hash,
 		refine_gas_limit,
 		accumulate_gas_limit,
@@ -366,7 +372,8 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	jam: Arc<Jam>,
 	para_id: u32,
 	service_id: ServiceId,
-	core: CoreIndex,
+	/// The para's AURA authorizer: what every package here runs under, and what signs it.
+	authorizer: Arc<AuraAuthorizer>,
 	service_code_hash: CodeHash,
 	refine_gas_limit: UnsignedGas,
 	accumulate_gas_limit: UnsignedGas,
@@ -403,6 +410,7 @@ where
 			anchor_state_root,
 			anchor_state_proof,
 			anchor_slot,
+			submit_target,
 			triggered_by,
 		} = message;
 		let block_hash = block.hash();
@@ -444,14 +452,30 @@ where
 			service_code_hash: self.service_code_hash,
 			refine_gas_limit: self.refine_gas_limit,
 			accumulate_gas_limit: self.accumulate_gas_limit,
+			authorizer: self.authorizer.authorizer(),
 		};
 		let anchored = Anchored {
 			context,
 			state_root: anchor_state_root,
 			head_proof: anchor_state_proof,
 			anchor_slot,
+			submit_target,
 		};
-		let package = source.package(&anchored);
+		let package = match self.authorized_package(&source, &anchored) {
+			Ok(package) => package,
+			Err(error) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?block_hash,
+					%block_number,
+					lookup_anchor_slot = anchored.context.lookup_anchor_slot,
+					error,
+					"Failed to authorize the work package; dropping the block. The block stays in \
+					 the local database, but nothing will make it accumulate.",
+				);
+				return;
+			},
+		};
 		let wp_hash = work_package_hash(&package);
 
 		tracing::info!(
@@ -460,14 +484,20 @@ where
 			%block_number,
 			?parent_hash,
 			?wp_hash,
-			core = self.core,
+			core = ?anchored.submit_target,
 			anchor = ?anchored.context.anchor,
 			anchor_slot,
+			lookup_anchor = ?anchored.context.lookup_anchor,
+			lookup_anchor_slot = anchored.context.lookup_anchor_slot,
+			expected_collator = self.authorizer.collator_for(anchored.context.lookup_anchor_slot),
+			own_index = self.authorizer.own_index(),
+			authorizer_hash = ?self.authorizer.hash(),
+			token_len = package.authorization.len(),
 			pov_len = package.items[0].payload.0.len(),
 			anchor_proof_nodes = anchored.head_proof.nodes.len(),
 			in_flight = self.packages.len(),
 			?triggered_by,
-			"Assembled the work package for the block.",
+			"Assembled and signed the work package for the block.",
 		);
 
 		(self.announce_block)(block_hash, None);
@@ -475,7 +505,7 @@ where
 		let submitted_at = jam_slot_at(Timestamp::current());
 		// The entry is recorded even if the submission itself failed: the soft-resubmit timer is
 		// what retries it, and it can only retry a package this task still holds.
-		self.submit(wp_hash, &package, anchored.context.anchor, block_hash).await;
+		self.submit(wp_hash, &package, &anchored, block_hash).await;
 		self.packages.entries.push_back(InFlight {
 			block_hash,
 			block_number,
@@ -491,25 +521,60 @@ where
 		self.log_state("a package was submitted");
 	}
 
-	/// Submit a package and subscribe to its status; `false` means the submission itself failed.
+	/// Assemble the package for `anchored` and sign it as this collator.
+	///
+	/// One step, always taken together: an unsigned package is one no guarantor will look at, and
+	/// the signature is over the finished package, so the two cannot be reordered.
+	fn authorized_package(
+		&self,
+		source: &PackageSource<Block>,
+		anchored: &Anchored,
+	) -> Result<WorkPackage, String> {
+		let mut package = source.package(anchored);
+		self.authorizer.authorize(&mut package)?;
+		Ok(package)
+	}
+
+	/// Submit a package to the core its anchor's pool scan named, and subscribe to its status;
+	/// `false` means it was not submitted.
 	///
 	/// A plain `submitWorkPackage` with no extrinsics: nothing has to be assembled into a bundle
 	/// by hand any more, because the package imports nothing that would have to travel inline.
+	/// With no core holding the para's authorizer there is nowhere to send it — a guarantor on any
+	/// other core would refuse it — so it is kept, and the soft-resubmit timer re-anchors it,
+	/// which re-scans and heals once a core is assigned again.
 	async fn submit(
 		&mut self,
 		wp_hash: WorkPackageHash,
 		package: &WorkPackage,
-		anchor: HeaderHash,
+		anchored: &Anchored,
 		block_hash: Block::Hash,
 	) -> bool {
+		let anchor = anchored.context.anchor;
+		let Some(core) = anchored.submit_target else {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?block_hash,
+				?wp_hash,
+				?anchor,
+				anchor_slot = anchored.anchor_slot,
+				authorizer_hash = ?self.authorizer.hash(),
+				in_flight = self.packages.len(),
+				"No core held this para's authorizer at the package's anchor, so it was not \
+				 submitted. It stays in flight and will be re-anchored, which re-scans the pools.",
+			);
+			return false;
+		};
+
 		let started = Instant::now();
-		let result = self.jam.submit_work_package(self.core, package, Vec::new()).await;
+		let result = self.jam.submit_work_package(core, package, Vec::new()).await;
 		let elapsed_ms = started.elapsed().as_millis();
 		if let Err(error) = result {
 			tracing::warn!(
 				target: LOG_TARGET,
 				?block_hash,
 				?wp_hash,
+				core,
 				elapsed_ms,
 				?error,
 				"Work-package submission failed.",
@@ -520,8 +585,11 @@ where
 			target: LOG_TARGET,
 			?block_hash,
 			?wp_hash,
-			core = self.core,
+			core,
 			?anchor,
+			anchor_slot = anchored.anchor_slot,
+			lookup_anchor_slot = anchored.context.lookup_anchor_slot,
+			package_len = jam_codec::Encode::encode(package).len(),
 			elapsed_ms,
 			"Submitted the work package; following its status.",
 		);
@@ -615,23 +683,20 @@ where
 		let entry = &mut self.packages.entries[index];
 		entry.resubmits += 1;
 		entry.submitted_at = now;
-		let (wp_hash, package, anchor, block_hash, resubmits) = (
-			entry.wp_hash,
-			entry.package.clone(),
-			entry.anchored.context.anchor,
-			entry.block_hash,
-			entry.resubmits,
-		);
+		let (wp_hash, package, block_hash, resubmits) =
+			(entry.wp_hash, entry.package.clone(), entry.block_hash, entry.resubmits);
+		let anchored = entry.anchored.clone();
 		tracing::info!(
 			target: LOG_TARGET,
 			?block_hash,
 			?wp_hash,
 			index,
 			resubmits,
+			core = ?anchored.submit_target,
 			in_flight = self.packages.len(),
 			"No report yet; resubmitting the identical package.",
 		);
-		self.submit(wp_hash, &package, anchor, block_hash).await;
+		self.submit(wp_hash, &package, &anchored, block_hash).await;
 	}
 
 	/// Rebuild a package around a fresh anchor and a fresh para-head proof, and submit it as the
@@ -646,16 +711,38 @@ where
 		let block_hash = entry.block_hash;
 		self.log_deadline(index, jam_slot_at(Timestamp::current()), reason);
 
-		let Ok(anchored) =
-			recontext(&*self.jam, self.service_id, self.para_id, &entry.anchored, block_hash).await
+		let Ok(anchored) = recontext(
+			&*self.jam,
+			self.service_id,
+			self.para_id,
+			&self.authorizer,
+			&entry.anchored,
+			block_hash,
+		)
+		.await
 		else {
 			self.forget(index, "the package failed and could not be re-anchored");
 			return;
 		};
 
-		let entry = &self.packages.entries[index];
-		let old_wp_hash = entry.wp_hash;
-		let package = entry.source.package(&anchored);
+		let old_wp_hash = self.packages.entries[index].wp_hash;
+		// A fresh anchor is a fresh lookup anchor, so the old token signs nothing here.
+		let package = match self.authorized_package(&self.packages.entries[index].source, &anchored)
+		{
+			Ok(package) => package,
+			Err(error) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?block_hash,
+					?old_wp_hash,
+					lookup_anchor_slot = anchored.context.lookup_anchor_slot,
+					error,
+					"Failed to authorize the re-anchored work package.",
+				);
+				self.forget(index, "the re-anchored package could not be authorized");
+				return;
+			},
+		};
 		let wp_hash = work_package_hash(&package);
 		let anchor = anchored.context.anchor;
 		tracing::info!(
@@ -665,11 +752,17 @@ where
 			new_wp_hash = ?wp_hash,
 			?anchor,
 			anchor_slot = anchored.anchor_slot,
+			lookup_anchor = ?anchored.context.lookup_anchor,
+			lookup_anchor_slot = anchored.context.lookup_anchor_slot,
+			expected_collator = self.authorizer.collator_for(anchored.context.lookup_anchor_slot),
+			own_index = self.authorizer.own_index(),
+			token_len = package.authorization.len(),
 			reason,
-			"Re-anchored the package; nothing names a package's hash, so this breaks no links.",
+			"Re-anchored and re-signed the package; nothing names a package's hash, so this breaks \
+			 no links.",
 		);
 
-		if !self.submit(wp_hash, &package, anchor, block_hash).await {
+		if !self.submit(wp_hash, &package, &anchored, block_hash).await {
 			self.forget(index, "the re-anchored package could not be submitted");
 			return;
 		}
@@ -824,22 +917,33 @@ struct PackageSource<Block> {
 	service_code_hash: CodeHash,
 	refine_gas_limit: UnsignedGas,
 	accumulate_gas_limit: UnsignedGas,
+	/// The para's AURA authorizer. Every core this para runs on holds
+	/// `blake2b(code_hash ‖ config)` of exactly this in its pool, so it is as much a part of the
+	/// package's identity as the block inside it.
+	authorizer: Authorizer,
 }
 
 /// A refine context together with the anchor state proof that has to travel with it.
 ///
 /// The two are inseparable: the service verifies the proof in-core against the context's state
 /// root, so a package cannot keep its payload when it changes anchor.
+#[derive(Clone)]
 struct Anchored {
 	context: RefineContext,
 	state_root: [u8; 32],
 	head_proof: StateProof,
 	/// The anchor's timeslot — the start of the window the package has to be reported in.
 	anchor_slot: JamSlot,
+	/// The core the pool scan at this anchor named, if any. Anchor-derived like everything else
+	/// here: re-anchoring re-scans, which is what heals a package after its core was reassigned.
+	submit_target: Option<CoreIndex>,
 }
 
 impl<Block: BlockT> PackageSource<Block> {
-	/// Assemble the work package for `anchored`.
+	/// Assemble the work package for `anchored`, still unauthorized.
+	///
+	/// The token cannot be built here: it signs a hash of the finished package, so authorizing is
+	/// the step after this one ([`AuraAuthorizer::authorize`]).
 	fn package(&self, anchored: &Anchored) -> WorkPackage {
 		let payload = ParachainCandidate {
 			validation_code_hash: jam_cumulus_facade::ValidationCodeHash(
@@ -869,10 +973,12 @@ impl<Block: BlockT> PackageSource<Block> {
 			export_count: 0,
 		};
 
+		// `auth_code_host` stays 0: the authorizer code is hosted by the genesis bootstrap
+		// service, which is where guarantors look the blob up by preimage.
 		WorkPackage {
 			authorization: Authorization::default(),
 			auth_code_host: 0,
-			authorizer: fixed_authorizer(),
+			authorizer: self.authorizer.clone(),
 			context: anchored.context.clone(),
 			items: vec![work_item].try_into().expect("a single work item always fits; qed"),
 		}
@@ -914,6 +1020,7 @@ async fn recontext<Jam, BlockHash>(
 	jam: &Jam,
 	service_id: ServiceId,
 	para_id: u32,
+	authorizer: &AuraAuthorizer,
 	previous: &Anchored,
 	block_hash: BlockHash,
 ) -> Result<Anchored, ()>
@@ -921,7 +1028,7 @@ where
 	Jam: JamChainSource + JamStateSource + ?Sized,
 	BlockHash: std::fmt::Debug,
 {
-	let (context, anchor_slot) = match fresh_context(jam).await {
+	let (context, anchor_slot) = match fresh_context(jam, authorizer).await {
 		Ok(context) => context,
 		Err(error) => {
 			tracing::error!(
@@ -956,31 +1063,72 @@ where
 		},
 	};
 
+	// Re-scanned rather than carried over: a core reassigned since the package was first built is
+	// exactly the reason it stopped being reported, so this is where a stalled package heals.
+	let submit_target = match scan_pools_at(jam, context.anchor, authorizer).await {
+		Ok(scan) => scan.target,
+		Err(error) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?block_hash,
+				new_anchor = ?context.anchor,
+				error,
+				"Unable to scan the authorizer pools at the fresh anchor; abandoning the work \
+				 package.",
+			);
+			return Err(());
+		},
+	};
+
 	tracing::info!(
 		target: LOG_TARGET,
 		?block_hash,
 		old_anchor = ?previous.context.anchor,
 		new_anchor = ?context.anchor,
 		anchor_slot,
+		lookup_anchor_slot = context.lookup_anchor_slot,
 		anchor_proof_nodes = head_proof.nodes.len(),
 		head_present = proved_head.is_some(),
-		"Re-anchored the work package around a fresh anchor and re-proved the para head.",
+		old_core = ?previous.submit_target,
+		new_core = ?submit_target,
+		"Re-anchored the work package around a fresh anchor, re-proved the para head and \
+		 re-scanned the authorizer pools.",
 	);
-	Ok(Anchored { state_root: *context.state_root, head_proof, context, anchor_slot })
+	Ok(Anchored {
+		state_root: *context.state_root,
+		head_proof,
+		context,
+		anchor_slot,
+		submit_target,
+	})
 }
 
-/// The refine context around the current best JAM block (anchor = parent of best, lookup anchor
-/// = parent of finalized), as in polkajam's `create_refine_context`, plus the anchor's slot.
-async fn fresh_context<Jam>(jam: &Jam) -> jam_interface::Result<(RefineContext, JamSlot)>
+/// The refine context around the current best JAM block (anchor = parent of best), as in
+/// polkajam's `create_refine_context`, plus the anchor's slot.
+///
+/// The lookup anchor is *not* simply the parent of the finalized block: it is the newest finalized
+/// block the AURA round-robin names this collator for, because that slot is what the guest reads
+/// to decide whose signature the token has to carry. A re-anchored package is re-signed against
+/// this one, so the policy has to be the same as the builder's.
+async fn fresh_context<Jam>(
+	jam: &Jam,
+	authorizer: &AuraAuthorizer,
+) -> Result<(RefineContext, JamSlot), String>
 where
 	Jam: JamChainSource + ?Sized,
 {
-	let best = jam.best_block().await?;
-	let anchor = jam.parent(best.header_hash).await?;
-	let state_root = jam.state_root(anchor.header_hash).await?;
-	let beefy_root = jam.beefy_root(anchor.header_hash).await?;
-	let finalized = jam.finalized_block().await?;
-	let lookup_anchor = jam.parent(finalized.header_hash).await?;
+	let best = jam_read("bestBlock", HeaderHash::default(), jam.best_block()).await?;
+	let anchor = jam_read("parent", best.header_hash, jam.parent(best.header_hash)).await?;
+	let state_root =
+		jam_read("stateRoot", anchor.header_hash, jam.state_root(anchor.header_hash)).await?;
+	let beefy_root =
+		jam_read("beefyRoot", anchor.header_hash, jam.beefy_root(anchor.header_hash)).await?;
+	let finalized = jam_read("finalizedBlock", anchor.header_hash, jam.finalized_block()).await?;
+	let newest_lookup_anchor =
+		jam_read("parent", finalized.header_hash, jam.parent(finalized.header_hash)).await?;
+	let lookup_anchor = choose_lookup_anchor(jam, &anchor, newest_lookup_anchor, authorizer)
+		.await
+		.ok_or_else(|| "no finalized block in reach names this collator".to_string())?;
 	Ok((
 		RefineContext {
 			anchor: anchor.header_hash,
@@ -996,10 +1144,22 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use super::{super::authorizer::tests::authorizer_of, *};
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
 	use jam_std_common::build_encoded_bundle;
 	use sp_core::H256;
+
+	/// The one-collator set this node is in, so every package a test builds can be signed.
+	fn aura() -> AuraAuthorizer {
+		authorizer_of("alice", "Alice", 1)
+	}
+
+	/// A package as the manager builds one: assembled, then signed.
+	fn signed(source: &PackageSource<TestBlock>, anchored: &Anchored) -> WorkPackage {
+		let mut package = source.package(anchored);
+		aura().authorize(&mut package).expect("the keystore holds Alice's aura key; qed");
+		package
+	}
 
 	fn test_proof() -> StateProof {
 		StateProof { nodes: vec![[7u8; 64], [8u8; 64]], values: vec![([3u8; 31], vec![9, 9, 9])] }
@@ -1026,6 +1186,7 @@ mod tests {
 			state_root: [4u8; 32],
 			head_proof: test_proof(),
 			anchor_slot,
+			submit_target: Some(0),
 		}
 	}
 
@@ -1038,6 +1199,7 @@ mod tests {
 			service_code_hash: CodeHash::from([9u8; 32]),
 			refine_gas_limit: 1_000,
 			accumulate_gas_limit: 1_000,
+			authorizer: aura().authorizer(),
 		}
 	}
 
@@ -1055,7 +1217,7 @@ mod tests {
 				block_number: *block_header.number(),
 				parent_hash,
 				wp_hash: wp_hash(index),
-				package: package_source().package(&anchored(JamSlot::from(index))),
+				package: signed(&package_source(), &anchored(JamSlot::from(index))),
 				source: package_source(),
 				anchored: anchored(JamSlot::from(index)),
 				submitted_at: JamSlot::from(index),
@@ -1084,9 +1246,25 @@ mod tests {
 	/// lookup — so it has to be the hash the node derives. polkajam's bundle builder is the
 	/// reference; with no imports and no extrinsics a bundle is just the encoded package, so the
 	/// two must agree exactly.
+	/// A package is submitted under the para's own authorizer and carries a token, so a guarantor
+	/// looks the AURA blob up by the hash the core's pool holds instead of waving the package
+	/// through. `auth_code_host` stays 0 because that is the service hosting the blob's preimage.
+	#[test]
+	fn a_package_runs_under_the_paras_own_authorizer() {
+		let package = signed(&package_source(), &anchored(11));
+
+		assert_eq!(package.auth_code_host, 0);
+		assert_eq!(
+			jam_cumulus_facade::authorizer::authorizer_hash(&package.authorizer),
+			aura().hash(),
+			"the package names the authorizer whose hash a core's pool must hold",
+		);
+		assert!(!package.authorization.is_empty(), "and it carries a token, not an empty one");
+	}
+
 	#[test]
 	fn the_package_hash_is_the_one_polkajam_derives() {
-		let package = package_source().package(&anchored(11));
+		let package = signed(&package_source(), &anchored(11));
 
 		let (reference, bundle) =
 			build_encoded_bundle(&package, Vec::<Vec<u8>>::new(), &[Vec::new()]);
@@ -1100,8 +1278,8 @@ mod tests {
 	#[test]
 	fn re_anchoring_changes_the_package_hash_and_nothing_else() {
 		let source = package_source();
-		let first = source.package(&anchored(11));
-		let second = source.package(&anchored(12));
+		let first = signed(&source, &anchored(11));
+		let second = signed(&source, &anchored(12));
 
 		assert_ne!(work_package_hash(&first), work_package_hash(&second));
 		assert_eq!(first.items[0].payload.0, second.items[0].payload.0, "the PoV is untouched");
@@ -1110,18 +1288,19 @@ mod tests {
 	/// A soft resubmission has to be the *same bytes*: a package rebuilt instead of replayed
 	/// would hash differently, and JAM would see a second package where the collator meant to
 	/// repeat one — a second refine, a second report, and a status subscription following a hash
-	/// nothing else knows about.
+	/// nothing else knows about. Rebuilding is not even close to equivalent: everything the
+	/// source determines comes back identical, but the token does not, because an sr25519
+	/// signature carries a random nonce. Storing the signed package is the only way to repeat it.
 	#[test]
 	fn a_resubmission_replays_the_stored_package() {
 		let packages = in_flight(1);
 		let entry = &packages.entries[0];
+		let rebuilt = signed(&entry.source, &entry.anchored);
 
-		assert_eq!(work_package_hash(&entry.package), work_package_hash(&entry.package.clone()));
-		assert_eq!(
-			jam_codec::Encode::encode(&entry.package),
-			jam_codec::Encode::encode(&entry.source.package(&entry.anchored)),
-			"the stored package is exactly what the source would build again",
-		);
+		assert_eq!(entry.package.items[0].payload.0, rebuilt.items[0].payload.0, "same block");
+		assert_eq!(entry.package.context, rebuilt.context, "same anchor");
+		assert_ne!(entry.package.authorization, rebuilt.authorization, "another signature");
+		assert_ne!(work_package_hash(&entry.package), work_package_hash(&rebuilt));
 	}
 
 	/// The para head advancing settles everything at or below its height: the block that became

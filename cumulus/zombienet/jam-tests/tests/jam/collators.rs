@@ -41,26 +41,69 @@ pub struct Collators {
 pub struct JamTarget {
 	pub rpc_url: String,
 	pub service_id: u32,
+	/// The copy of the authorizer blob whose hash the paras' cores were assigned from. The
+	/// collators must hash the very same bytes — PVM builds are not byte-deterministic, so the
+	/// build output is not a safe substitute.
+	pub authorizer_blob: PathBuf,
+}
+
+/// One parachain of a run: the id it collates under, the core its work packages are authorized
+/// on, and the dev accounts that collate for it.
+#[derive(Clone, Debug)]
+pub struct Para {
+	pub id: u32,
 	pub core: u32,
+	/// Indices into [`chain_spec::DEV_ACCOUNTS`], in the order the AURA round-robin walks them.
+	pub collators: Vec<usize>,
+}
+
+impl Para {
+	/// The single para the collator-progress tests run: para 0 on core 0, collated by the first
+	/// `count` dev accounts.
+	pub fn single(count: usize) -> Self {
+		Para { id: 0, core: 0, collators: (0..count).collect() }
+	}
+
+	/// The collator set as `parasim-tool --collators` spells it: the names in the order the
+	/// runtime's `AuraApi::authorities()` returns them.
+	///
+	/// The core is assigned with this exact string, and a name's position in it is the collator
+	/// index the authorizer hash commits to — so it has to be the runtime's order, not the order
+	/// this harness happens to list its collators in. See [`chain_spec::in_authority_order`]:
+	/// those two differ as soon as a para has more than one collator.
+	pub fn collator_names(&self) -> String {
+		let names: Vec<String> = chain_spec::in_authority_order(&self.collators)
+			.into_iter()
+			.map(chain_spec::dev_name)
+			.collect();
+		names.join(",")
+	}
 }
 
 impl Collators {
-	/// Build the chain spec and start `count` collators in `work_dir`.
+	/// Build `para`'s chain spec and start one collator per dev account in its set.
 	pub fn spawn(
 		binaries: &Binaries,
 		work_dir: &Path,
-		count: usize,
+		para: &Para,
 		jam: &JamTarget,
 	) -> anyhow::Result<Self> {
-		let spec = work_dir.join("jam-parachain-spec.json");
-		chain_spec::build(&binaries.omni_node, &binaries.runtime_wasm, &spec, count)?;
+		let spec = work_dir.join(format!("jam-parachain-{}-spec.json", para.id));
+		chain_spec::build(
+			&binaries.omni_node,
+			&binaries.runtime_wasm,
+			&spec,
+			para.id,
+			&para.collators,
+		)?;
 
+		let count = para.collators.len();
 		let first_port = NEXT_PORT.fetch_add(count as u16 * PORTS_PER_COLLATOR, Ordering::Relaxed);
 		let mut collators = Vec::with_capacity(count);
 		let mut bootnode: Option<String> = None;
 
-		for index in 0..count {
-			let name = chain_spec::DEV_ACCOUNTS[index].to_string().to_lowercase();
+		for (index, account) in para.collators.iter().copied().enumerate() {
+			let name = chain_spec::dev_name(account);
 			let base_path = work_dir.join(&name);
 			let p2p_port = first_port + index as u16 * PORTS_PER_COLLATOR;
 			let rpc_port = p2p_port + 1;
@@ -76,7 +119,7 @@ impl Collators {
 				.arg(&spec)
 				.arg("--base-path")
 				.arg(&base_path)
-				.args(["--collator", &chain_spec::dev_account_flag(index), "--force-authoring"])
+				.args(["--collator", &chain_spec::dev_account_flag(account), "--force-authoring"])
 				.args(["--port", &p2p_port.to_string()])
 				.args(["--rpc-port", &rpc_port.to_string()])
 				// Every collator needs its own metrics port; they would otherwise all try to bind
@@ -84,11 +127,15 @@ impl Collators {
 				.args(["--prometheus-port", &prometheus_port.to_string()])
 				.args(["--jam-rpc-urls", &jam.rpc_url])
 				.args(["--jam-service-id", &jam.service_id.to_string()])
-				.args(["--jam-core", &jam.core.to_string()])
+				// Neither the core nor the set is named: the collator reads its set from the
+				// runtime and finds the core by scanning the authorizer pools for the resulting
+				// hash.
+				.arg("--jam-authorizer-blob")
+				.arg(&jam.authorizer_blob)
 				// Discovery is explicit: without this the collators would find, and try to sync
 				// with, any other parachain node running on this machine.
 				.arg("--no-mdns")
-				.args(["-l", "jam-collator=info,jam-rpc-interface=info"])
+				.args(["-l", "jam-collator=debug,jam-rpc-interface=debug"])
 				.stdout(Stdio::from(log.try_clone()?))
 				.stderr(Stdio::from(log));
 
@@ -127,6 +174,24 @@ impl Collators {
 			}
 		}
 		Ok(())
+	}
+
+	/// Every line of every collator's log that contains all of `needles`.
+	///
+	/// For the few things no state read can show — which core a submission went to, that the
+	/// builder re-rooted onto a stuck head — the collator's own log is the only witness.
+	pub fn log_lines_with(&self, needles: &[&str]) -> Vec<String> {
+		self.collators
+			.iter()
+			.flat_map(|collator| {
+				let contents = std::fs::read_to_string(&collator.log_path).unwrap_or_default();
+				contents
+					.lines()
+					.filter(|line| needles.iter().all(|needle| line.contains(needle)))
+					.map(|line| format!("{}: {line}", collator.name))
+					.collect::<Vec<_>>()
+			})
+			.collect()
 	}
 
 	/// The tail of every collator log, for a failure message.

@@ -10,6 +10,7 @@
 mod chain_spec;
 mod collator_progress;
 mod collators;
+mod core_assignment;
 mod demo;
 mod env;
 mod harness;

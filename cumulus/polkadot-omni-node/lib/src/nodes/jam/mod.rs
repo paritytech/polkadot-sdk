@@ -32,20 +32,24 @@
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
 
+pub(crate) mod authorizer;
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod resubmission;
 
+use authorizer::AuraAuthorizer;
 use codec::Decode;
 use futures::{Stream, StreamExt};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
-	BlockDesc, HeaderHash, JamStateSource, ServiceId, Slot as JamSlot, StateRootHash, StorageKey,
+	AuthPool, AuthorizerHash, BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
+	ServiceId, Slot as JamSlot, StateRootHash, StorageKey,
 };
 use jam_state_helpers::{StateKey, StateProof};
 use jam_types::RefineContext;
 use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
+use std::{future::Future, time::Instant};
 
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
@@ -82,6 +86,9 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// reported within. The collation task needs it to tell an expired anchor apart from any
 	/// other reason a package failed.
 	pub anchor_slot: JamSlot,
+	/// The core whose authorizer pool held this para's authorizer at the anchor, if any. `None`
+	/// means the package must not be submitted anywhere — no guarantor would authorize it.
+	pub submit_target: Option<CoreIndex>,
 	/// The JAM best block that triggered this build (for logging).
 	pub triggered_by: BlockDesc,
 }
@@ -156,6 +163,268 @@ pub(crate) fn jam_slot_as_relay_slot(slot: JamSlot) -> u64 {
 	jam_slot_timestamp(slot).as_millis() / JAM_SLOT_DURATION_MS
 }
 
+/// How old a lookup anchor may be when a guarantor sees it.
+///
+/// polkajam refuses to guarantee a package whose lookup anchor is older than this
+/// (`max_lookup_anchor_age`, 24 slots on tiny networks), on top of requiring it to be finalized
+/// and its `lookup_anchor_slot` to be exactly that block's slot.
+const MAX_LOOKUP_ANCHOR_AGE: JamSlot = 24;
+/// How much of that age is reserved for the package still being in flight.
+///
+/// A package is submitted at its anchor and has [`REPORT_DEADLINE_SLOTS`](super::collation_task)
+/// slots to be reported, so a lookup anchor picked this close to the limit would expire in flight
+/// — and a package that dies for that reason looks exactly like one that was never submitted.
+const LOOKUP_ANCHOR_SAFETY_MARGIN: JamSlot = 8;
+
+/// What a walk back through the finalized chain found to use as a lookup anchor.
+#[derive(Debug, PartialEq, Eq)]
+struct LookupAnchorWalk {
+	/// The newest block within one turn of the round-robin whose slot names this collator.
+	chosen: Option<BlockDesc>,
+	/// How many blocks the walk looked at, the block it started from included.
+	walked: u32,
+	/// Why the walk ended before exhausting its window — a JAM read that failed, or the chain
+	/// running out under it near genesis. Not an error in itself: a shorter walk simply has fewer
+	/// candidates.
+	stopped_early: Option<String>,
+}
+
+/// The lookup anchor a package must carry for this collator's token to be accepted.
+///
+/// The AURA authorizer derives the expected collator from `refine_context().lookup_anchor_slot` —
+/// the anchor's own slot is not visible in-core — so it is the *lookup* anchor, not the anchor,
+/// that has to name us. Walking back through finalized blocks is safe: they are all finalized by
+/// construction, which is polkajam's other requirement, and one full turn of the round-robin is
+/// as far as the arithmetic can go before repeating itself.
+///
+/// Walks newest-first from `newest` and stops at the first block that names this collator, so on
+/// the common case (our own slot) it costs no JAM read at all.
+async fn walk_back_to_our_slot<Parent, Fut>(
+	newest: BlockDesc,
+	authorizer: &AuraAuthorizer,
+	parent: Parent,
+) -> LookupAnchorWalk
+where
+	Parent: Fn(HeaderHash) -> Fut,
+	Fut: Future<Output = Result<BlockDesc, String>>,
+{
+	let window = authorizer.round_robin_window();
+	let mut block = newest;
+	for walked in 1..=window {
+		let ours = authorizer.names_us(block.slot);
+		tracing::debug!(
+			target: LOG_TARGET,
+			candidate = ?block.header_hash,
+			slot = block.slot,
+			expected_collator = authorizer.collator_for(block.slot),
+			own_index = authorizer.own_index(),
+			walked,
+			window,
+			accepted = ours,
+			"Considered a block as the package's lookup anchor.",
+		);
+		if ours {
+			return LookupAnchorWalk { chosen: Some(block), walked, stopped_early: None };
+		}
+		if walked < window {
+			match parent(block.header_hash).await {
+				Ok(parent) => block = parent,
+				Err(error) =>
+					return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) },
+			}
+		}
+	}
+	LookupAnchorWalk { chosen: None, walked: window, stopped_early: None }
+}
+
+/// Whether a lookup anchor this old would still be inside polkajam's window when the package
+/// carrying it is reported, rather than expiring in flight.
+fn lookup_anchor_survives_reporting(anchor_slot: JamSlot, lookup_anchor_slot: JamSlot) -> bool {
+	anchor_slot.saturating_sub(lookup_anchor_slot) <=
+		MAX_LOOKUP_ANCHOR_AGE.saturating_sub(LOOKUP_ANCHOR_SAFETY_MARGIN)
+}
+
+/// Which cores currently hold this para's authorizer, and therefore where its packages may go.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PoolScan {
+	/// The core to submit to. `None` means no core holds the para's authorizer at all — the
+	/// builder keeps authoring, but nothing may be submitted.
+	pub target: Option<CoreIndex>,
+	/// The other cores holding it. Spreading packages over several is elastic scaling, not this
+	/// phase, so they are logged rather than used — but a reassignment in progress is exactly the
+	/// state that shows up here, and it has to be visible.
+	pub also_on: Vec<CoreIndex>,
+}
+
+/// Find the cores whose authorizer pool holds `wanted`, lowest index first.
+///
+/// The pool rather than the queue: our cores are dedicated and a queue holds 80 copies of one
+/// hash, so the pool converges to 8 copies of it and a scan sees an assignment in the very block
+/// it lands. It also drains for 8 blocks after a core is freed, which is the handover overlap
+/// that keeps packages already in flight valid.
+fn scan_pools<'a>(
+	pools: impl IntoIterator<Item = &'a AuthPool>,
+	wanted: AuthorizerHash,
+) -> PoolScan {
+	let mut holders = pools
+		.into_iter()
+		.enumerate()
+		.filter(|(_, pool)| pool.contains(&wanted))
+		.map(|(core, _)| core as CoreIndex);
+	PoolScan { target: holders.next(), also_on: holders.collect() }
+}
+
+/// Read the authorizer pools at `anchor` and work out where this para's packages belong.
+pub(crate) async fn scan_pools_at<Jam: JamStateSource + ?Sized>(
+	jam: &Jam,
+	anchor: HeaderHash,
+	authorizer: &AuraAuthorizer,
+) -> Result<PoolScan, String> {
+	let wanted = authorizer.hash();
+	let started = Instant::now();
+	let pools = jam
+		.auth_pools(anchor)
+		.await
+		.map_err(|error| format!("authorizer pools at {anchor:?}: {error}"))?;
+	let elapsed_ms = started.elapsed().as_millis();
+
+	for (core, pool) in pools.iter().enumerate() {
+		tracing::debug!(
+			target: LOG_TARGET,
+			method = "stateValue",
+			key = "C(1) AuthPools",
+			at = ?anchor,
+			core,
+			pool_len = pool.len(),
+			holds_ours = pool.contains(&wanted),
+			copies_of_ours = pool.iter().filter(|hash| **hash == wanted).count(),
+			?pool,
+			elapsed_ms,
+			"JAM read: one core's authorizer pool.",
+		);
+	}
+
+	let scan = scan_pools(pools.iter(), wanted);
+	tracing::debug!(
+		target: LOG_TARGET,
+		at = ?anchor,
+		authorizer_hash = ?wanted,
+		cores = pools.len(),
+		target = ?scan.target,
+		also_on = ?scan.also_on,
+		elapsed_ms,
+		"Scanned the authorizer pools for this para's authorizer.",
+	);
+	Ok(scan)
+}
+
+/// Run one JAM read, logging the method, the block it was read at, what came back and the
+/// round-trip: latency is a first-class debugging signal on this path.
+pub(crate) async fn jam_read<T, F>(
+	method: &'static str,
+	at: HeaderHash,
+	read: F,
+) -> Result<T, String>
+where
+	F: Future<Output = jam_interface::Result<T>>,
+	T: std::fmt::Debug,
+{
+	let started = Instant::now();
+	let result = read.await;
+	let elapsed_ms = started.elapsed().as_millis();
+	match &result {
+		Ok(value) => tracing::debug!(
+			target: LOG_TARGET,
+			method,
+			?at,
+			?value,
+			elapsed_ms,
+			"JAM read.",
+		),
+		Err(error) => tracing::warn!(
+			target: LOG_TARGET,
+			method,
+			?at,
+			?error,
+			elapsed_ms,
+			"JAM read failed.",
+		),
+	}
+	result.map_err(|error| format!("{method}: {error}"))
+}
+
+/// Run the lookup-anchor walk against the live chain and apply the two rules a guarantor will
+/// apply to the answer: it has to name this collator, and it has to survive the package's time in
+/// flight.
+///
+/// `None` means the tick has to be skipped — there is no lookup anchor this collator could sign
+/// against, so any package built now would be refused in-core with nothing but silence to show
+/// for it. That is a loud log, not a quiet one.
+pub(crate) async fn choose_lookup_anchor<Jam: JamChainSource + ?Sized>(
+	jam: &Jam,
+	anchor: &BlockDesc,
+	newest: BlockDesc,
+	authorizer: &AuraAuthorizer,
+) -> Option<BlockDesc> {
+	let started = Instant::now();
+	let walk = walk_back_to_our_slot(newest, authorizer, |hash| {
+		jam_read("parent", hash, jam.parent(hash))
+	})
+	.await;
+
+	let Some(chosen) = walk.chosen else {
+		tracing::warn!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			anchor_slot = anchor.slot,
+			walk_started_at = ?newest.header_hash,
+			walk_started_at_slot = newest.slot,
+			blocks_walked = walk.walked,
+			window = authorizer.round_robin_window(),
+			collator_set_size = authorizer.collator_set_size(),
+			own_index = authorizer.own_index(),
+			stopped_early = ?walk.stopped_early,
+			elapsed_ms = started.elapsed().as_millis(),
+			"No finalized block within one turn of the round-robin names this collator, so there \
+			 is no lookup anchor a package of ours could be signed against; skipping this tick.",
+		);
+		return None;
+	};
+
+	let age = anchor.slot.saturating_sub(chosen.slot);
+	if !lookup_anchor_survives_reporting(anchor.slot, chosen.slot) {
+		tracing::warn!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			anchor_slot = anchor.slot,
+			lookup_anchor = ?chosen.header_hash,
+			lookup_anchor_slot = chosen.slot,
+			age,
+			max_age = MAX_LOOKUP_ANCHOR_AGE,
+			safety_margin = LOOKUP_ANCHOR_SAFETY_MARGIN,
+			blocks_walked = walk.walked,
+			elapsed_ms = started.elapsed().as_millis(),
+			"The newest lookup anchor naming this collator would expire before the package \
+			 carrying it could be reported; skipping this tick.",
+		);
+		return None;
+	}
+
+	tracing::info!(
+		target: LOG_TARGET,
+		anchor = ?anchor.header_hash,
+		anchor_slot = anchor.slot,
+		lookup_anchor = ?chosen.header_hash,
+		lookup_anchor_slot = chosen.slot,
+		age,
+		blocks_walked = walk.walked,
+		own_index = authorizer.own_index(),
+		elapsed_ms = started.elapsed().as_millis(),
+		"Chose the lookup anchor whose slot names this collator.",
+	);
+	Some(chosen)
+}
+
 /// Stream of raw para-head bytes for heads following: every change of the para's `ParaInfo`
 /// entry in the parachain service's state yields the new `head_data` bytes.
 ///
@@ -210,7 +479,165 @@ pub(crate) async fn para_head_stream(
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use super::{authorizer::tests::authorizer_of, *};
+	/// A finalized JAM chain, newest first, one block per slot ending at `newest_slot`. Block
+	/// `slot` is named by its own slot number so the walk is legible from the assertions.
+	fn finalized_chain(newest_slot: JamSlot, length: u32) -> Vec<BlockDesc> {
+		(0..length)
+			.map(|back| {
+				let slot = newest_slot - back;
+				BlockDesc { header_hash: HeaderHash::from([slot as u8; 32]), slot }
+			})
+			.collect()
+	}
+
+	/// Walk `chain` (newest first) as the builder walks the finalized chain, and say what it
+	/// picked. Every step past the first is one `parent` round-trip on the real thing.
+	fn walk(chain: &[BlockDesc], authorizer: &AuraAuthorizer) -> LookupAnchorWalk {
+		futures::executor::block_on(walk_back_to_our_slot(chain[0], authorizer, |hash| async move {
+			chain
+				.iter()
+				.position(|block| block.header_hash == hash)
+				.and_then(|index| chain.get(index + 1))
+				.copied()
+				.ok_or_else(|| "the chain ends here".to_string())
+		}))
+	}
+
+	/// The authorizer reads the *lookup* anchor's slot, so a package is only ever signable by the
+	/// collator that slot names. Anchoring at the freshest finalized block, as phase 5a did, names
+	/// whoever happens to own that slot — so the builder walks back to the newest one that names
+	/// it, and takes the newest such block rather than any of them, because every slot of extra
+	/// age is a slot off the package's reporting window.
+	#[test]
+	fn the_lookup_anchor_is_the_newest_finalized_block_naming_us() {
+		let charlie = authorizer_of("alice,bob,charlie", "Charlie", 1);
+		// Slots 20..=12; charlie is collator 2, so slots 20 and 17 name him.
+		let chain = finalized_chain(20, 9);
+
+		let from_20 = walk(&chain, &charlie);
+
+		assert_eq!(from_20.chosen.expect("slot 20 names charlie").slot, 20);
+		assert_eq!(from_20.walked, 1, "our own slot costs no `parent` read at all");
+
+		let from_19 = walk(&chain[1..], &charlie);
+		assert_eq!(from_19.chosen.expect("slot 17 names charlie").slot, 17);
+		assert_eq!(from_19.walked, 3, "slots 19 and 18 are somebody else's");
+	}
+
+	/// A para slot several JAM timeslots long makes the round-robin coarser, and the walk has to
+	/// use the same divisor the guest will: `--jam-slot-duration` is part of the config the
+	/// authorizer hash commits to.
+	#[test]
+	fn the_walk_uses_the_paras_slot_duration() {
+		let bob = authorizer_of("alice,bob", "Bob", 3);
+		// Para slot = 3 timeslots; bob is collator 1, so timeslots 3..=5 and 9..=11 are his.
+		assert_eq!(walk(&finalized_chain(11, 12), &bob).chosen.expect("slot 11").slot, 11);
+		assert_eq!(walk(&finalized_chain(8, 12), &bob).chosen.expect("slot 5").slot, 5);
+	}
+
+	/// The walk is bounded by one turn of the round-robin: past that the arithmetic only repeats,
+	/// so a longer walk would be JAM reads spent on an answer already known to be no. A collator
+	/// alone in its set is named by every slot and never walks.
+	#[test]
+	fn the_walk_stops_after_one_turn_of_the_round_robin() {
+		let alice = authorizer_of("alice,bob,charlie", "Alice", 1);
+		assert_eq!(alice.round_robin_window(), 3);
+
+		// Slot 20 names collator 2, 19 names 1, 18 names 0 — the last block in the window.
+		let found = walk(&finalized_chain(20, 9), &alice);
+		assert_eq!(found.chosen.expect("slot 18 names alice").slot, 18);
+		assert_eq!(found.walked, 3);
+
+		let alone = authorizer_of("alice", "Alice", 1);
+		assert_eq!(walk(&finalized_chain(20, 9), &alone).walked, 1);
+	}
+
+	/// A chain that ends under the walk — near genesis, or a JAM read that failed mid-walk — is
+	/// not a silent no: the tick is skipped either way, but the reason has to reach the log.
+	#[test]
+	fn a_walk_that_runs_out_of_chain_says_so() {
+		let charlie = authorizer_of("alice,bob,charlie", "Charlie", 1);
+		// Slots 19 and 18 name bob and alice; the chain stops before charlie's turn comes round.
+		let short = walk(&finalized_chain(19, 2), &charlie);
+
+		assert_eq!(short.chosen, None);
+		assert_eq!(short.walked, 2);
+		assert!(short.stopped_early.is_some(), "the reason is carried, not swallowed");
+	}
+
+	/// One core's authorizer pool, holding `hashes` as the eight-deep window it is.
+	fn pool(hashes: &[AuthorizerHash]) -> AuthPool {
+		AuthPool::truncate_from(hashes.to_vec())
+	}
+
+	fn other_hash() -> AuthorizerHash {
+		AuthorizerHash([0xee; 32])
+	}
+
+	/// Nothing waits on JAM to author, but a package can only be submitted to a core whose pool
+	/// holds this para's authorizer — anywhere else a guarantor would refuse it. So the scan is
+	/// what turns "which core?" from a flag into a fact read off the chain.
+	#[test]
+	fn a_core_holding_the_paras_authorizer_is_where_its_packages_go() {
+		let ours = authorizer_of("alice", "Alice", 1).hash();
+		let pools = vec![pool(&[other_hash()]), pool(&[other_hash(), ours])];
+
+		let scan = scan_pools(&pools, ours);
+
+		assert_eq!(scan.target, Some(1));
+		assert!(scan.also_on.is_empty());
+	}
+
+	/// A core that holds no copy of our hash is not ours, however full its pool is; with none of
+	/// them holding it the para has no core at all, which is a state the collator has to survive
+	/// rather than crash on — it keeps authoring and submits nothing.
+	#[test]
+	fn no_core_holding_it_is_no_target_at_all() {
+		let ours = authorizer_of("alice", "Alice", 1).hash();
+
+		assert_eq!(scan_pools(&[pool(&[other_hash()]), pool(&[])], ours), PoolScan::default());
+		assert_eq!(scan_pools(&[], ours).target, None, "a chain with no cores names none");
+	}
+
+	/// Mid-reassignment both the old and the new core hold our hash while the old one's pool
+	/// drains. Taking the lowest index keeps consecutive packages on one core (bursting across
+	/// cores is elastic scaling, not this phase) and the rest are reported, because a core that
+	/// silently held our packages would be invisible in the log.
+	#[test]
+	fn several_cores_holding_it_go_to_the_lowest_index() {
+		let ours = authorizer_of("alice", "Alice", 1).hash();
+		let pools = vec![pool(&[ours]), pool(&[other_hash()]), pool(&[ours]), pool(&[ours])];
+
+		let scan = scan_pools(&pools, ours);
+
+		assert_eq!(scan.target, Some(0));
+		assert_eq!(scan.also_on, vec![2, 3]);
+	}
+
+	/// Two paras on one collator set differ only in their config, so their hashes differ and one
+	/// para's core must never look like the other's.
+	#[test]
+	fn another_paras_core_is_not_ours() {
+		let ours = authorizer_of("alice,bob", "Alice", 1).hash();
+		let theirs = authorizer_of("alice,bob", "Alice", 2).hash();
+		assert_ne!(ours, theirs);
+
+		assert_eq!(scan_pools(&[pool(&[theirs])], ours).target, None);
+	}
+
+	/// polkajam refuses a lookup anchor older than `max_lookup_anchor_age`, and it applies that
+	/// when the package is *reported*, not when it is built. A package has the report deadline to
+	/// get there, so the builder has to keep that much of the window in hand — otherwise the
+	/// package dies in flight and looks exactly like one that was never submitted.
+	#[test]
+	fn a_lookup_anchor_must_outlive_the_packages_time_in_flight() {
+		let budget = MAX_LOOKUP_ANCHOR_AGE - LOOKUP_ANCHOR_SAFETY_MARGIN;
+		assert!(lookup_anchor_survives_reporting(100, 100 - budget));
+		assert!(!lookup_anchor_survives_reporting(100, 100 - budget - 1));
+		assert!(lookup_anchor_survives_reporting(0, 0), "a chain younger than the window is fine");
+	}
+
 
 	#[test]
 	fn jam_slot_timestamp_is_common_era_based() {

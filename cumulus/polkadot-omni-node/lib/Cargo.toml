@@ -141,6 +141,10 @@ cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 # The consumer of the JAM PoV, so the wire contract is tested against the real reader.
 parasim-service = { path = "../../../../parachain-service/testing/parasim-service" }
+# Both verifier blobs reach the tests through the facade. schnorrkel stays direct because no
+# verifier reveals the transcript context it checks under, and `b"substrate"` — which
+# `Keystore::sr25519_sign` gives a signer no say over — is the thing that has to be pinned.
+schnorrkel = { workspace = true, default-features = true }
 nix = { features = ["signal"], workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }

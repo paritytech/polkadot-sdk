@@ -5,7 +5,7 @@
 //!
 //! `cumulus/zombienet/jam-tests/demo.sh` is a thin wrapper around this.
 
-use super::{env, harness::Run, rpc::Height};
+use super::{collators::Para, env, harness::Run, rpc::Height};
 use std::time::Duration;
 use tokio::time::{timeout, Instant};
 
@@ -26,7 +26,7 @@ async fn demo() -> Result<(), anyhow::Error> {
 	let Some(binaries) = env::binaries_or_skip("demo") else { return Ok(()) };
 
 	let collators = collator_count();
-	let mut run = Run::start("demo", &binaries, collators).await?;
+	let mut run = Run::start("demo", &binaries, vec![Para::single(collators)]).await?;
 	// The demo has no deadline; the one the harness set only covered the start-up it just did.
 	run.deadline = Instant::now() + Duration::from_secs(365 * 24 * 60 * 60);
 
@@ -36,14 +36,16 @@ async fn demo() -> Result<(), anyhow::Error> {
 		run.work_dir().display(),
 	);
 
-	let rpc = run.collators.rpc(run.deadline).await?;
-	let mut height = Height::default();
+	let rpcs = run.rpcs().await?;
+	let mut heights = vec![Height::default(); rpcs.len()];
 	let result = loop {
-		if let Err(error) = run.collators.check_all_running() {
+		if let Err(error) = run.check_all_running() {
 			break Err(error);
 		}
-		height = rpc.height().await.unwrap_or(height);
-		println!("parachain best {} finalized {}", height.best, height.finalized);
+		for (index, rpc) in rpcs.iter().enumerate() {
+			heights[index] = rpc.height().await.unwrap_or(heights[index]);
+		}
+		println!("{}", run.describe(&heights));
 
 		// Ctrl-C has to be handled explicitly: the test harness does not unwind on a signal, so
 		// without this the collators and the JAM nodes would outlive the demo.

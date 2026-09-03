@@ -191,12 +191,19 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub jam_service_id: Option<u32>,
 
-	/// EXPERIMENTAL (JAM): The core to submit work packages to.
+	/// EXPERIMENTAL (JAM): Path to the AURA authorizer blob deployed on the JAM chain.
 	///
-	/// Only meaningful together with `--jam-rpc-urls`. Replaced by authorizer-queue core
-	/// discovery later.
-	#[arg(long, default_value_t = 0)]
-	pub jam_core: u16,
+	/// Only its hash is used, and it has to be the hash whoever installed the core's authorizer
+	/// queue computed from the same file. Required in JAM mode.
+	#[arg(long, value_name = "PATH")]
+	pub jam_authorizer_blob: Option<PathBuf>,
+
+	/// EXPERIMENTAL (JAM): Length of a parachain slot in JAM timeslots.
+	///
+	/// The divisor of the AURA round-robin, and part of the authorizer config, so it has to match
+	/// the value the core's authorizer was installed with.
+	#[arg(long, default_value_t = 1)]
+	pub jam_slot_duration: u32,
 
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
@@ -295,8 +302,10 @@ pub struct JamNodeParams {
 	pub rpc_urls: Vec<url::Url>,
 	/// Id of the parachain service on the JAM chain.
 	pub service_id: u32,
-	/// The core to submit work packages to.
-	pub core: u16,
+	/// The AURA authorizer blob whose hash the para's cores run.
+	pub authorizer_blob: PathBuf,
+	/// Length of a parachain slot in JAM timeslots.
+	pub slot_duration: u32,
 }
 
 /// Development sealing mode.
@@ -365,10 +374,14 @@ impl<Config: CliConfig> Cli<Config> {
 		let Some(service_id) = self.jam_service_id else {
 			return Err("JAM mode requires `--jam-service-id`".into());
 		};
+		let Some(authorizer_blob) = self.jam_authorizer_blob.clone() else {
+			return Err("JAM mode requires `--jam-authorizer-blob`".into());
+		};
 		Ok(Some(JamNodeParams {
 			rpc_urls: self.run.jam_rpc_urls.clone(),
 			service_id,
-			core: self.jam_core,
+			authorizer_blob,
+			slot_duration: self.jam_slot_duration,
 		}))
 	}
 

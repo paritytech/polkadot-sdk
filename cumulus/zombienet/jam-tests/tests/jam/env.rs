@@ -13,8 +13,14 @@ pub struct Binaries {
 	pub jam_node: PathBuf,
 	/// The `jamt` JAM CLI, used to register the parasim service.
 	pub jamt: PathBuf,
+	/// The `parasim-tool` CLI, used to host the AURA authorizer and to point cores at paras.
+	pub parasim_tool: PathBuf,
 	/// The compiled parasim service blob to register.
 	pub parasim_blob: PathBuf,
+	/// The compiled AURA authorizer blob. Only its hash ever reaches the chain, but the collators
+	/// and whoever assigns their core have to hash the same bytes, so this one file is handed to
+	/// both.
+	pub authorizer_blob: PathBuf,
 	/// The collator binary.
 	pub omni_node: PathBuf,
 	/// The parachain runtime the collators run.
@@ -41,7 +47,9 @@ impl Binaries {
 		let binaries = Binaries {
 			jam_node: from_env_or("JAM_NODE_BIN", PathBuf::new),
 			jamt: from_env_or("JAMT_BIN", PathBuf::new),
+			parasim_tool: from_env_or("PARASIM_TOOL_BIN", PathBuf::new),
 			parasim_blob: from_env_or("PARASIM_BLOB", PathBuf::new),
+			authorizer_blob: from_env_or("AUTHORIZER_BLOB", PathBuf::new),
 			omni_node: from_env_or("OMNI_NODE_BIN", || {
 				root.join("target/release/polkadot-omni-node")
 			}),
@@ -63,7 +71,13 @@ impl Binaries {
 		let missing: Vec<String> = [
 			("JAM_NODE_BIN (the polkajam node binary)", &binaries.jam_node),
 			("JAMT_BIN (the jamt CLI)", &binaries.jamt),
+			("PARASIM_TOOL_BIN (the parasim-tool CLI)", &binaries.parasim_tool),
 			("PARASIM_BLOB (the parasim service .jam blob)", &binaries.parasim_blob),
+			(
+				"AUTHORIZER_BLOB (parachain-authorizer-sr25519.jam, the scheme the template \
+				 runtime's AuraId asks for)",
+				&binaries.authorizer_blob,
+			),
 			("OMNI_NODE_BIN (cargo build --release -p polkadot-omni-node)", &binaries.omni_node),
 			(
 				"RUNTIME_WASM (cargo build --release -p parachain-template-runtime)",
