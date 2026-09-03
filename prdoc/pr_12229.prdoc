@@ -41,7 +41,7 @@ doc:
 
     ## Execution changes
 
-    On a call to a delegated EOA the runtime loads the target contract's code but uses the EOA's own storage and balance. Constructors skip delegation resolution (cannot deploy via a delegated EOA). Delegation is resolved **at most once** — no chain following (if A → B → C, calling A executes B's code; B's own delegation is ignored, and if B is itself delegated the call traps on the `0xef` indicator and reverts).
+    On a call to a delegated EOA the runtime loads the target contract's code but uses the EOA's own storage and balance. Constructors skip delegation resolution (cannot deploy via a delegated EOA). Delegation is resolved **at most once** — no chain following (if A → B → C, calling A executes B's code; B's own delegation is ignored, and if B is itself delegated the call traps on the `0xef` indicator: nested callers observe a failed subcall (`CalleeTrapped`), a top-level call fails with `ContractTrapped`).
 
     ## RPC
 

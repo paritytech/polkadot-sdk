@@ -18,7 +18,7 @@
 //! Tests for EIP-7702: Set EOA Account Code
 
 use crate::{
-	Code, CodeInfoOf, Config, ExecConfig, HoldReason,
+	Code, CodeInfoOf, Config, Error, ExecConfig, HoldReason,
 	evm::{
 		AuthorizationListEntry, Bytes, StateOverride, StateOverrideSet, StorageOverride,
 		eip7702::AuthorizationResult, fees::InfoT,
@@ -31,7 +31,7 @@ use crate::{
 use alloc::collections::BTreeMap;
 use alloy_core::sol_types::{SolCall, SolConstructor};
 use frame_support::{
-	assert_ok,
+	assert_err, assert_ok,
 	traits::fungible::{Balanced, Inspect, Mutate},
 	weights::Weight,
 };
@@ -1495,8 +1495,8 @@ fn state_override_delegation_indicator_routes_to_target() {
 /// This test verifies:
 /// 1. Calling Alice (delegated to Counter) executes the Counter code.
 /// 2. A contract can delegatecall to Alice and execute the Counter code.
-/// 3. Calling Bob (delegated to Alice, who is herself delegated) reverts — Alice's "code" is the
-///    indicator bytes and `0xef` traps as invalid opcode.
+/// 3. Calling Bob (delegated to Alice, who is herself delegated) traps — Alice's "code" is the
+///    indicator bytes and `0xef` is an invalid opcode.
 #[test]
 fn delegation_chain_does_not_execute() {
 	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
@@ -1569,16 +1569,13 @@ fn delegation_chain_does_not_execute() {
 		// Case 3: Bob delegates to Alice (chain: Bob -> Alice -> Counter). Per
 		// spec, the call resolves one hop to Alice, retrieves Alice's "code"
 		// (the indicator `0xef0100||counter`), and executes it as raw bytecode.
-		// `0xef` is a designated invalid opcode, so the call reverts.
+		// `0xef` is a designated invalid opcode, so the call traps.
 		AccountInfo::<Test>::set_delegation(&BOB_ADDR, ALICE_ADDR).unwrap();
 
 		let result = builder::bare_call(BOB_ADDR)
 			.data(Counter::setNumberCall { newNumber: CHAINED_ATTEMPT }.abi_encode())
-			.build_and_unwrap_result();
-		assert!(
-			result.did_revert(),
-			"call to chained delegation should revert (0xef invalid opcode)"
-		);
+			.build();
+		assert_err!(result.result, <Error<Test>>::ContractTrapped);
 		assert_eq!(
 			read_number(),
 			ALICE_INITIAL,
@@ -1586,10 +1583,9 @@ fn delegation_chain_does_not_execute() {
 		);
 
 		// Case 4: nested-call variant. A contract calling Bob (chain-delegated) must see the
-		// same revert semantics. Without the chain guard mirrored on the nested
-		// `PrecompileExt::call` path, the call would fall through to the value-transfer path
-		// and silently succeed as a plain EOA transfer — a different observable outcome from
-		// the top-level call in Case 3.
+		// call fail (`CalleeTrapped`). Without the chained check in `new_frame`, the call
+		// would fall through to the value-transfer path and silently succeed as a plain EOA
+		// transfer.
 		let value_before_caller =
 			<<Test as Config>::Currency as Inspect<_>>::balance(&caller_contract.account_id);
 		let value_before_bob = <<Test as Config>::Currency as Inspect<_>>::balance(&BOB);
@@ -1626,13 +1622,9 @@ fn delegation_chain_does_not_execute() {
 		assert_eq!(read_number(), ALICE_INITIAL, "Alice's storage must still be untouched");
 
 		// Case 5: DELEGATECALL variant of the chain. A contract DELEGATECALLing Bob
-		// (chain-delegated to Alice, who's herself delegated) must see the same revert
-		// semantics as CALL. Per spec the resolved code is Bob's indicator bytes
-		// `0xef0100||alice` and execution traps on the `0xef` invalid opcode.
-		//
-		// The chain-revert guard is mirrored in `Stack::delegate_call` (the third call entry
-		// point), so the delegatecall reverts here just like CALL rather than silently
-		// succeeding as a no-op.
+		// (chain-delegated to Alice, who's herself delegated) must see the same failure
+		// as CALL. Per spec the resolved code is Bob's indicator bytes `0xef0100||alice`
+		// and execution traps on the `0xef` invalid opcode.
 		let result = builder::bare_call(caller_contract.addr)
 			.data(
 				Caller::delegateCall {
@@ -2777,10 +2769,10 @@ fn delegated_eoa_codesize_inside_execution_resolc() {
 
 /// An EOA that delegates to itself forms a one-element cycle. The same chain-detection
 /// logic that catches `bob -> alice -> alice` catches this: the authority's delegation
-/// target is itself a delegated EOA, so the call reverts on the indicator `0xef` byte
+/// target is itself a delegated EOA, so the call traps on the indicator `0xef` byte
 /// rather than executing endlessly or no-op'ing.
 #[test]
-fn self_delegation_reverts_on_call() {
+fn self_delegation_traps_on_call() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 
@@ -2788,9 +2780,7 @@ fn self_delegation_reverts_on_call() {
 		assert!(AccountInfo::<Test>::is_delegated(&ALICE_ADDR));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&ALICE_ADDR), Some(ALICE_ADDR));
 
-		let result = builder::bare_call(ALICE_ADDR)
-			.data(vec![0xDE, 0xAD, 0xBE, 0xEF])
-			.build_and_unwrap_result();
-		assert!(result.did_revert(), "self-delegation should revert (chain cycle, 0xef trap)");
+		let result = builder::bare_call(ALICE_ADDR).data(vec![0xDE, 0xAD, 0xBE, 0xEF]).build();
+		assert_err!(result.result, <Error<Test>>::ContractTrapped);
 	});
 }

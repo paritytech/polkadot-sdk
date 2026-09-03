@@ -2576,10 +2576,11 @@ mod benchmarks {
 		d: Linear<0, 1>,
 		i: Linear<0, { limits::code::BLOB_BYTES }>,
 	) -> Result<(), BenchmarkError> {
-		// A delegated callee is the worst case for the EIP-7702 chained-delegation guard in
-		// `PrecompileExt::call`: it costs two `AccountInfoOf` reads (the callee's, then its
-		// target's) and still runs the target's code. A callee delegating to another *delegated*
-		// account does the same two reads but reverts before frame setup, so it is cheaper.
+		// An EIP-7702 delegated callee is the worst case for the account resolution in
+		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
+		// the call still runs the target's code. (A callee whose delegation snapshot is empty
+		// costs a second read of the target but skips code load and execution entirely, so it
+		// is cheaper overall.)
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let callee_addr = H160([0x42; 20]);
 		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
@@ -2703,8 +2704,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		// Delegated code source: worst case for the chained-delegation guard in
-		// `Ext::delegate_call`. See `seal_call`.
+		// Delegated code source: worst case for the callee resolution in `new_frame`.
+		// See `seal_call`.
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 

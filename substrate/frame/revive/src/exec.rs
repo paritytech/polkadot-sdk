@@ -881,16 +881,6 @@ where
 		input_data: Vec<u8>,
 		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
-		// EIP-7702 chained delegation: per spec, calling A→B (where B is itself delegated)
-		// retrieves B's indicator bytes `0xef0100||...` and traps on `0xef`. We surface that
-		// as an empty revert. Mirrored at `PrecompileExt::call` and `delegate_call`.
-		if AccountInfo::<T>::is_chained_delegation(&dest) {
-			return Ok(ExecReturnValue {
-				flags: pallet_revive_uapi::ReturnFlags::REVERT,
-				data: Vec::new(),
-			});
-		}
-
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
@@ -1083,6 +1073,27 @@ where
 		Ok(Some((stack, executable)))
 	}
 
+	/// EIP-7702 chained delegation check for an account with no loadable code.
+	///
+	/// A chained delegation always surfaces with an empty snapshot: `set_delegation` only
+	/// snapshots a `code_hash` when the target is a deployed contract, and a contract can
+	/// never become delegated. So when `load_contract_with_delegation` returns no contract
+	/// info but a delegation target, one read of the target decides: if the target is itself
+	/// delegated, the spec resolves one hop, retrieves the target's indicator bytes
+	/// `0xef0100 || ..`, and traps on the leading `0xef` invalid opcode. Otherwise the
+	/// resolved code is genuinely empty and the call falls through to the transfer path.
+	fn fail_if_chained_delegation(target: Option<H160>) -> Result<(), ExecError> {
+		if let Some(target) = target &&
+			AccountInfo::<T>::is_delegated(&target)
+		{
+			return Err(ExecError {
+				error: <Error<T>>::ContractTrapped.into(),
+				origin: ErrorOrigin::Callee,
+			});
+		}
+		Ok(())
+	}
+
 	/// Construct a new frame.
 	///
 	/// This does not take `self` because when constructing the first frame `self` is
@@ -1121,6 +1132,7 @@ where
 						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
+							Self::fail_if_chained_delegation(target)?;
 							return Ok(None);
 						}
 					},
@@ -1162,6 +1174,7 @@ where
 						let (info, target) =
 							AccountInfo::<T>::load_contract_with_delegation(&delegated_call.callee);
 						let Some(info) = info else {
+							Self::fail_if_chained_delegation(target)?;
 							return Ok(None);
 						};
 						delegate_code_target = target;
@@ -2054,17 +2067,6 @@ where
 		// This is for example the case for unknown code hashes or creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		// EIP-7702 chained delegation: see comment in `Stack::run_call`. Without this guard
-		// the delegated arm in `new_frame` would find no contract info (the chained snapshot's
-		// `code_hash` is zero) and the call would silently succeed as a no-op.
-		if AccountInfo::<T>::is_chained_delegation(&address) {
-			*self.last_frame_output_mut() = ExecReturnValue {
-				flags: pallet_revive_uapi::ReturnFlags::REVERT,
-				data: Vec::new(),
-			};
-			return Ok(());
-		}
-
 		let top_frame = self.top_frame_mut();
 		// Clone the contract info and apply pending storage changes so that
 		// the child frame can correctly calculate storage deposit refunds.
@@ -2250,17 +2252,6 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
-
-		// EIP-7702 chained delegation: see `Stack::run_call`. Must precede the `allows_reentry`
-		// flip (early return would leak `false` into the caller's frame) and the value-transfer
-		// fallthrough (would silently succeed as an EOA transfer).
-		if AccountInfo::<T>::is_chained_delegation(dest_addr) {
-			*self.last_frame_output_mut() = ExecReturnValue {
-				flags: pallet_revive_uapi::ReturnFlags::REVERT,
-				data: Vec::new(),
-			};
-			return Ok(());
-		}
 
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion

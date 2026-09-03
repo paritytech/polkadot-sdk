@@ -1769,9 +1769,9 @@ fn call_deny_reentry() {
 
 #[test]
 fn chain_delegated_call_does_not_leak_strict_reentry() {
-	// Regression: a `Strict` call into a chain-delegated address takes the chain-revert
-	// guard's early return; if the guard runs after the `allows_reentry = false` flip the
-	// trailing reset is skipped and the caller's frame stays at `false`, denying later
+	// A `Strict` call flips the caller's `allows_reentry` to `false` before pushing the new
+	// frame. When frame creation fails (here: chained delegation traps in `new_frame`), the
+	// trailing reset must still run or the caller's frame stays at `false`, denying later
 	// cross-contract callbacks.
 	use crate::{
 		AccountInfoOf,
@@ -1783,17 +1783,20 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		match ctx.input_data[0] {
 			0 => {
-				// Strict call into chain-delegated DJANGO → guard fires, returns Ok(REVERT).
-				ctx.ext
-					.call(
-						&Default::default(),
-						&DJANGO_ADDR,
-						U256::zero(),
-						vec![],
-						ReentrancyProtection::Strict,
-						false,
-					)
-					.expect("chain guard surfaces as Ok(REVERT), never Err");
+				// Strict call into chain-delegated DJANGO → traps in `new_frame`.
+				assert_err!(
+					ctx.ext
+						.call(
+							&Default::default(),
+							&DJANGO_ADDR,
+							U256::zero(),
+							vec![],
+							ReentrancyProtection::Strict,
+							false,
+						)
+						.map_err(|e| e.error),
+					<Error<Test>>::ContractTrapped
+				);
 
 				// CHARLIE will call BOB back; succeeds iff BOB's `allows_reentry` is still true.
 				ctx.ext
@@ -1828,7 +1831,7 @@ fn chain_delegated_call_does_not_leak_strict_reentry() {
 		place_contract(&BOB, code_bob);
 		place_contract(&CHARLIE, code_charlie);
 
-		// DJANGO -> EVE -> any addr: makes the guard fire on a call to DJANGO.
+		// DJANGO -> EVE -> any addr: a call to DJANGO is a chained delegation.
 		let eve_target = H160::from([0x99; 20]);
 		AccountInfoOf::<Test>::insert(
 			EVE_ADDR,
