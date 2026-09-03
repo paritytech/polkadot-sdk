@@ -35,6 +35,7 @@ std = [
 	"cumulus-primitives-core?/std",
 	"cumulus-primitives-parachain-inherent?/std",
 	"cumulus-primitives-proof-size-hostfunction?/std",
+	"cumulus-primitives-spec-messaging?/std",
 	"cumulus-primitives-storage-weight-reclaim?/std",
 	"cumulus-primitives-timestamp?/std",
 	"cumulus-primitives-utility?/std",
@@ -607,6 +608,7 @@ runtime-full = [
 	"cumulus-primitives-core",
 	"cumulus-primitives-parachain-inherent",
 	"cumulus-primitives-proof-size-hostfunction",
+	"cumulus-primitives-spec-messaging",
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
@@ -1193,6 +1195,11 @@ path = "../cumulus/primitives/parachain-inherent"
 default-features = false
 optional = true
 path = "../cumulus/primitives/proof-size-hostfunction"
+
+[dependencies.cumulus-primitives-spec-messaging]
+default-features = false
+optional = true
+path = "../cumulus/primitives/spec-messaging"
 
 [dependencies.cumulus-primitives-storage-weight-reclaim]
 default-features = false
