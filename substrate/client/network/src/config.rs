@@ -867,8 +867,8 @@ impl NetworkConfiguration {
 		config
 	}
 
-	/// Validate this node's listen addresses against its node key, and append its WebRTC
-	/// `/certhash` to the public `webrtc-direct` ones.
+	/// Validate this node's listen and public addresses against its node key, and append its
+	/// WebRTC `/certhash` to the public `webrtc-direct` ones.
 	///
 	/// A listen or public address may carry `/p2p/<peer id>`, and a `webrtc-direct` one
 	/// `/certhash/<hash>`. Both are checked against the node key and removed.

@@ -493,6 +493,27 @@ fn webrtc_public_address_with_matching_certhash_and_peer_id_accepted() {
 }
 
 #[test]
+fn webrtc_public_address_with_matching_certhash_and_wrong_peer_id_rejected() {
+	// The hash is this node's own, so the peer id alone gives the address away: the check has to
+	// get past the component it agrees with to the one it doesn't.
+	let public_address = "/ip4/203.0.113.9/udp/31234/webrtc-direct";
+	let mut config = webrtc_config(public_address);
+	config.public_addresses = vec![public_address
+		.parse::<Multiaddr>()
+		.unwrap()
+		.with(node_certhash())
+		.with(Protocol::P2p(PeerId::random().into()))];
+
+	let Err(Error::MismatchedAddressIdentity { configured, .. }) =
+		config.validate_and_complete_addresses()
+	else {
+		panic!("a peer id that is not this node's must be reported as such");
+	};
+
+	assert!(configured.starts_with("/p2p/"), "{configured}");
+}
+
+#[test]
 fn certhash_parsed_from_text_accepted() {
 	// The operator path: the hash arrives as the base64 the node printed, not as a `Multihash`
 	// this test derived, so the comparison has to survive the round trip through text.

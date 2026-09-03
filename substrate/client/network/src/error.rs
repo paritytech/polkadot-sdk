@@ -86,8 +86,8 @@ pub enum Error {
 	},
 	/// An invalid `webrtc-direct` address.
 	#[error(
-		"Invalid WebRTC address `{address}`: expected `/<host>/udp/<port>/webrtc-direct` and \
-		 nothing after it."
+		"Invalid WebRTC address `{address}`: expected `/<host>/udp/<port>/webrtc-direct`, followed \
+		 at most by this node's own `/certhash/<hash>` and `/p2p/<peer id>`."
 	)]
 	InvalidWebRtcAddress {
 		/// The invalid address.
