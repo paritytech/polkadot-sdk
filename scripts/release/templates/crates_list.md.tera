@@ -71,7 +71,7 @@ The following crates were updated to the corresponding versions:
   - sc-cli@0.62.0
   - westend-runtime-constants@31.0.0
   - cumulus-client-cli@0.33.0
-  - parachains-common@34.0.0
+  - parachains-common@35.0.0
   - polkadot-node-metrics@33.0.0
   - polkadot-node-network-protocol@33.0.0
   - rococo-runtime@35.0.0
