@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["SubmissionMetadata"],"trait":["CalculateBaseDeposit","CalculatePageDeposit"]};
+window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["FullSubmissionFee","SubmissionMetadata"],"trait":["CalculateBaseDeposit","CalculatePageDeposit"]};

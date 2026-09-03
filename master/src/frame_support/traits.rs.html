@@ -208,88 +208,89 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#58 id=58 data-nosnippet>58</a>	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
 <a href=#59 id=59 data-nosnippet>59</a>	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, DefensiveMax, DefensiveMin,
 <a href=#60 id=60 data-nosnippet>60</a>	DefensiveSaturating, DefensiveTruncateFrom, DefensiveTruncateInto, EqualPrivilegeOnly,
-<a href=#61 id=61 data-nosnippet>61</a>	EstimateCallFee, ExecuteBlock, Get, GetBacking, GetDefault, HandleLifetime, InherentBuilder,
-<a href=#62 id=62 data-nosnippet>62</a>	IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount, OnNewAccount,
-<a href=#63 id=63 data-nosnippet>63</a>	PrivilegeCmp, RewardsReporter, SameOrOther, SignedTransactionBuilder, Time, TryCollect,
-<a href=#64 id=64 data-nosnippet>64</a>	TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
-<a href=#65 id=65 data-nosnippet>65</a>};
-<a href=#66 id=66 data-nosnippet>66</a><span class="attr">#[allow(deprecated)]
-<a href=#67 id=67 data-nosnippet>67</a></span><span class="kw">pub use </span>misc::{PreimageProvider, PreimageRecipient};
-<a href=#68 id=68 data-nosnippet>68</a><span class="attr">#[doc(hidden)]
-<a href=#69 id=69 data-nosnippet>69</a></span><span class="kw">pub use </span>misc::{DEFENSIVE_OP_INTERNAL_ERROR, DEFENSIVE_OP_PUBLIC_ERROR};
-<a href=#70 id=70 data-nosnippet>70</a>
-<a href=#71 id=71 data-nosnippet>71</a><span class="kw">mod </span>stored_map;
-<a href=#72 id=72 data-nosnippet>72</a><span class="kw">pub use </span>stored_map::{StorageMapShim, StoredMap};
-<a href=#73 id=73 data-nosnippet>73</a><span class="kw">mod </span>randomness;
-<a href=#74 id=74 data-nosnippet>74</a><span class="kw">pub use </span>randomness::Randomness;
-<a href=#75 id=75 data-nosnippet>75</a><span class="kw">pub mod </span>reality;
-<a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a><span class="kw">mod </span>metadata;
-<a href=#78 id=78 data-nosnippet>78</a><span class="kw">pub use </span>metadata::{
-<a href=#79 id=79 data-nosnippet>79</a>	CallMetadata, CrateVersion, GetCallIndex, GetCallMetadata, GetCallName, GetStorageVersion,
-<a href=#80 id=80 data-nosnippet>80</a>	NoStorageVersionSet, PalletInfo, PalletInfoAccess, PalletInfoData, PalletsInfoAccess,
-<a href=#81 id=81 data-nosnippet>81</a>	StorageVersion, STORAGE_VERSION_STORAGE_KEY_POSTFIX,
-<a href=#82 id=82 data-nosnippet>82</a>};
-<a href=#83 id=83 data-nosnippet>83</a>
-<a href=#84 id=84 data-nosnippet>84</a><span class="kw">mod </span>hooks;
-<a href=#85 id=85 data-nosnippet>85</a><span class="kw">pub use </span>hooks::{
-<a href=#86 id=86 data-nosnippet>86</a>	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
-<a href=#87 id=87 data-nosnippet>87</a>	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
-<a href=#88 id=88 data-nosnippet>88</a>	PostTransactions, PreInherents, UncheckedOnRuntimeUpgrade,
-<a href=#89 id=89 data-nosnippet>89</a>};
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a><span class="kw">pub mod </span>schedule;
-<a href=#92 id=92 data-nosnippet>92</a><span class="kw">mod </span>storage;
-<a href=#93 id=93 data-nosnippet>93</a><span class="kw">pub use </span>storage::{
-<a href=#94 id=94 data-nosnippet>94</a>	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
-<a href=#95 id=95 data-nosnippet>95</a>	LinearStoragePrice, MaybeConsideration, NoDrop, PartialStorageInfoTrait, StorageInfo,
-<a href=#96 id=96 data-nosnippet>96</a>	StorageInfoTrait, StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
-<a href=#97 id=97 data-nosnippet>97</a>};
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a><span class="kw">mod </span>dispatch;
-<a href=#100 id=100 data-nosnippet>100</a><span class="kw">pub use </span>dispatch::{
-<a href=#101 id=101 data-nosnippet>101</a>	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
-<a href=#102 id=102 data-nosnippet>102</a>	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
-<a href=#103 id=103 data-nosnippet>103</a>	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
-<a href=#104 id=104 data-nosnippet>104</a>};
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a><span class="kw">mod </span>voting;
-<a href=#107 id=107 data-nosnippet>107</a><span class="kw">pub use </span>voting::{ClassCountOf, NoOpPoll, PollStatus, Polling, VoteTally};
-<a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a><span class="kw">mod </span>preimages;
-<a href=#110 id=110 data-nosnippet>110</a><span class="kw">pub use </span>preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePreimage};
-<a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a><span class="kw">mod </span>messages;
-<a href=#113 id=113 data-nosnippet>113</a><span class="kw">pub use </span>messages::{
-<a href=#114 id=114 data-nosnippet>114</a>	BatchFootprint, BatchesFootprints, EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError,
-<a href=#115 id=115 data-nosnippet>115</a>	HandleMessage, NoopServiceQueues, ProcessMessage, ProcessMessageError, QueueFootprint,
-<a href=#116 id=116 data-nosnippet>116</a>	QueueFootprintQuery, QueuePausedQuery, ServiceQueues, TransformOrigin,
-<a href=#117 id=117 data-nosnippet>117</a>};
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a><span class="kw">mod </span>safe_mode;
-<a href=#120 id=120 data-nosnippet>120</a><span class="kw">pub use </span>safe_mode::{SafeMode, SafeModeError, SafeModeNotify};
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a><span class="kw">mod </span>tx_pause;
-<a href=#123 id=123 data-nosnippet>123</a><span class="kw">pub use </span>tx_pause::{TransactionPause, TransactionPauseError};
-<a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a><span class="kw">pub mod </span>dynamic_params;
-<a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a><span class="kw">pub mod </span>tasks;
-<a href=#128 id=128 data-nosnippet>128</a><span class="kw">pub use </span>tasks::Task;
-<a href=#129 id=129 data-nosnippet>129</a>
-<a href=#130 id=130 data-nosnippet>130</a><span class="kw">mod </span>proving;
-<a href=#131 id=131 data-nosnippet>131</a><span class="kw">pub use </span>proving::<span class="kw-2">*</span>;
-<a href=#132 id=132 data-nosnippet>132</a>
-<a href=#133 id=133 data-nosnippet>133</a><span class="kw">mod </span>rewards;
-<a href=#134 id=134 data-nosnippet>134</a><span class="kw">pub use </span>rewards::RewardsPool;
-<a href=#135 id=135 data-nosnippet>135</a>
-<a href=#136 id=136 data-nosnippet>136</a><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-<a href=#137 id=137 data-nosnippet>137</a></span><span class="kw">mod </span>try_runtime;
-<a href=#138 id=138 data-nosnippet>138</a><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
-<a href=#139 id=139 data-nosnippet>139</a></span><span class="kw">pub use </span>try_runtime::{
-<a href=#140 id=140 data-nosnippet>140</a>	Select <span class="kw">as </span>TryStateSelect, TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState,
-<a href=#141 id=141 data-nosnippet>141</a>	UpgradeCheckSelect,
-<a href=#142 id=142 data-nosnippet>142</a>};
+<a href=#61 id=61 data-nosnippet>61</a>	EstimateCallFee, EstimateFee, ExecuteBlock, Get, GetBacking, GetDefault, HandleLifetime,
+<a href=#62 id=62 data-nosnippet>62</a>	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
+<a href=#63 id=63 data-nosnippet>63</a>	OnNewAccount, PrivilegeCmp, RewardsReporter, SameOrOther, SignedTransactionBuilder, Time,
+<a href=#64 id=64 data-nosnippet>64</a>	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
+<a href=#65 id=65 data-nosnippet>65</a>	WrapperOpaque,
+<a href=#66 id=66 data-nosnippet>66</a>};
+<a href=#67 id=67 data-nosnippet>67</a><span class="attr">#[allow(deprecated)]
+<a href=#68 id=68 data-nosnippet>68</a></span><span class="kw">pub use </span>misc::{PreimageProvider, PreimageRecipient};
+<a href=#69 id=69 data-nosnippet>69</a><span class="attr">#[doc(hidden)]
+<a href=#70 id=70 data-nosnippet>70</a></span><span class="kw">pub use </span>misc::{DEFENSIVE_OP_INTERNAL_ERROR, DEFENSIVE_OP_PUBLIC_ERROR};
+<a href=#71 id=71 data-nosnippet>71</a>
+<a href=#72 id=72 data-nosnippet>72</a><span class="kw">mod </span>stored_map;
+<a href=#73 id=73 data-nosnippet>73</a><span class="kw">pub use </span>stored_map::{StorageMapShim, StoredMap};
+<a href=#74 id=74 data-nosnippet>74</a><span class="kw">mod </span>randomness;
+<a href=#75 id=75 data-nosnippet>75</a><span class="kw">pub use </span>randomness::Randomness;
+<a href=#76 id=76 data-nosnippet>76</a><span class="kw">pub mod </span>reality;
+<a href=#77 id=77 data-nosnippet>77</a>
+<a href=#78 id=78 data-nosnippet>78</a><span class="kw">mod </span>metadata;
+<a href=#79 id=79 data-nosnippet>79</a><span class="kw">pub use </span>metadata::{
+<a href=#80 id=80 data-nosnippet>80</a>	CallMetadata, CrateVersion, GetCallIndex, GetCallMetadata, GetCallName, GetStorageVersion,
+<a href=#81 id=81 data-nosnippet>81</a>	NoStorageVersionSet, PalletInfo, PalletInfoAccess, PalletInfoData, PalletsInfoAccess,
+<a href=#82 id=82 data-nosnippet>82</a>	StorageVersion, STORAGE_VERSION_STORAGE_KEY_POSTFIX,
+<a href=#83 id=83 data-nosnippet>83</a>};
+<a href=#84 id=84 data-nosnippet>84</a>
+<a href=#85 id=85 data-nosnippet>85</a><span class="kw">mod </span>hooks;
+<a href=#86 id=86 data-nosnippet>86</a><span class="kw">pub use </span>hooks::{
+<a href=#87 id=87 data-nosnippet>87</a>	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
+<a href=#88 id=88 data-nosnippet>88</a>	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
+<a href=#89 id=89 data-nosnippet>89</a>	PostTransactions, PreInherents, UncheckedOnRuntimeUpgrade,
+<a href=#90 id=90 data-nosnippet>90</a>};
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a><span class="kw">pub mod </span>schedule;
+<a href=#93 id=93 data-nosnippet>93</a><span class="kw">mod </span>storage;
+<a href=#94 id=94 data-nosnippet>94</a><span class="kw">pub use </span>storage::{
+<a href=#95 id=95 data-nosnippet>95</a>	Consideration, ConstantStoragePrice, Disabled, Footprint, Incrementable, Instance,
+<a href=#96 id=96 data-nosnippet>96</a>	LinearStoragePrice, MaybeConsideration, NoDrop, PartialStorageInfoTrait, StorageInfo,
+<a href=#97 id=97 data-nosnippet>97</a>	StorageInfoTrait, StorageInstance, SuppressedDrop, TrackedStorageKey, WhitelistedStorageKeys,
+<a href=#98 id=98 data-nosnippet>98</a>};
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a><span class="kw">mod </span>dispatch;
+<a href=#101 id=101 data-nosnippet>101</a><span class="kw">pub use </span>dispatch::{
+<a href=#102 id=102 data-nosnippet>102</a>	AsEnsureOriginWithArg, Authorize, CallerTrait, EitherOf, EitherOfDiverse, EnsureOrigin,
+<a href=#103 id=103 data-nosnippet>103</a>	EnsureOriginEqualOrHigherPrivilege, EnsureOriginWithArg, MapSuccess, NeverEnsureOrigin,
+<a href=#104 id=104 data-nosnippet>104</a>	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
+<a href=#105 id=105 data-nosnippet>105</a>};
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a><span class="kw">mod </span>voting;
+<a href=#108 id=108 data-nosnippet>108</a><span class="kw">pub use </span>voting::{ClassCountOf, NoOpPoll, PollStatus, Polling, VoteTally};
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a><span class="kw">mod </span>preimages;
+<a href=#111 id=111 data-nosnippet>111</a><span class="kw">pub use </span>preimages::{Bounded, BoundedInline, FetchResult, QueryPreimage, StorePreimage};
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a><span class="kw">mod </span>messages;
+<a href=#114 id=114 data-nosnippet>114</a><span class="kw">pub use </span>messages::{
+<a href=#115 id=115 data-nosnippet>115</a>	BatchFootprint, BatchesFootprints, EnqueueMessage, EnqueueWithOrigin, ExecuteOverweightError,
+<a href=#116 id=116 data-nosnippet>116</a>	HandleMessage, NoopServiceQueues, ProcessMessage, ProcessMessageError, QueueFootprint,
+<a href=#117 id=117 data-nosnippet>117</a>	QueueFootprintQuery, QueuePausedQuery, ServiceQueues, TransformOrigin,
+<a href=#118 id=118 data-nosnippet>118</a>};
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a><span class="kw">mod </span>safe_mode;
+<a href=#121 id=121 data-nosnippet>121</a><span class="kw">pub use </span>safe_mode::{SafeMode, SafeModeError, SafeModeNotify};
+<a href=#122 id=122 data-nosnippet>122</a>
+<a href=#123 id=123 data-nosnippet>123</a><span class="kw">mod </span>tx_pause;
+<a href=#124 id=124 data-nosnippet>124</a><span class="kw">pub use </span>tx_pause::{TransactionPause, TransactionPauseError};
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a><span class="kw">pub mod </span>dynamic_params;
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a><span class="kw">pub mod </span>tasks;
+<a href=#129 id=129 data-nosnippet>129</a><span class="kw">pub use </span>tasks::Task;
+<a href=#130 id=130 data-nosnippet>130</a>
+<a href=#131 id=131 data-nosnippet>131</a><span class="kw">mod </span>proving;
+<a href=#132 id=132 data-nosnippet>132</a><span class="kw">pub use </span>proving::<span class="kw-2">*</span>;
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a><span class="kw">mod </span>rewards;
+<a href=#135 id=135 data-nosnippet>135</a><span class="kw">pub use </span>rewards::RewardsPool;
+<a href=#136 id=136 data-nosnippet>136</a>
+<a href=#137 id=137 data-nosnippet>137</a><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+<a href=#138 id=138 data-nosnippet>138</a></span><span class="kw">mod </span>try_runtime;
+<a href=#139 id=139 data-nosnippet>139</a><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+<a href=#140 id=140 data-nosnippet>140</a></span><span class="kw">pub use </span>try_runtime::{
+<a href=#141 id=141 data-nosnippet>141</a>	Select <span class="kw">as </span>TryStateSelect, TryDecodeEntireStorage, TryDecodeEntireStorageError, TryState,
+<a href=#142 id=142 data-nosnippet>142</a>	UpgradeCheckSelect,
+<a href=#143 id=143 data-nosnippet>143</a>};
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

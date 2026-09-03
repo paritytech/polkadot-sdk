@@ -166,7 +166,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
 <a href=#17 id=17 data-nosnippet>17</a>
 <a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">use crate</span>::{
-<a href=#19 id=19 data-nosnippet>19</a>	signed::{Config, Pallet, Submissions},
+<a href=#19 id=19 data-nosnippet>19</a>	signed::{Config, Invulnerables, Pallet, Submissions},
 <a href=#20 id=20 data-nosnippet>20</a>	types::PagedRawSolution,
 <a href=#21 id=21 data-nosnippet>21</a>	unsigned::miner::OffchainWorkerMiner,
 <a href=#22 id=22 data-nosnippet>22</a>	CurrentPhase, Phase, Round,
@@ -326,34 +326,37 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#176 id=176 data-nosnippet>176</a>		</span>CurrentPhase::&lt;T&gt;::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 <a href=#177 id=177 data-nosnippet>177</a>		<span class="kw">let </span>alice = <span class="kw">crate</span>::Pallet::&lt;T&gt;::funded_account(<span class="string">"alice"</span>, <span class="number">0</span>);
 <a href=#178 id=178 data-nosnippet>178</a>
-<a href=#179 id=179 data-nosnippet>179</a>		<span class="comment">// register alice
-<a href=#180 id=180 data-nosnippet>180</a>		</span><span class="kw">let </span>score = ElectionScore::default();
-<a href=#181 id=181 data-nosnippet>181</a>		Pallet::&lt;T&gt;::register(RawOrigin::Signed(alice.clone()).into(), score)<span class="question-mark">?</span>;
-<a href=#182 id=182 data-nosnippet>182</a>
-<a href=#183 id=183 data-nosnippet>183</a>		<span class="comment">// submit a solution with p pages.
-<a href=#184 id=184 data-nosnippet>184</a>		</span><span class="kw">for </span>pp <span class="kw">in </span><span class="number">0</span>..p {
-<a href=#185 id=185 data-nosnippet>185</a>			<span class="kw">let </span>page = <span class="prelude-val">Some</span>(Default::default());
-<a href=#186 id=186 data-nosnippet>186</a>			Pallet::&lt;T&gt;::submit_page(RawOrigin::Signed(alice.clone()).into(), pp, page)<span class="question-mark">?</span>;
-<a href=#187 id=187 data-nosnippet>187</a>		}
-<a href=#188 id=188 data-nosnippet>188</a>
-<a href=#189 id=189 data-nosnippet>189</a>		<span class="comment">// force rotate to the next round.
-<a href=#190 id=190 data-nosnippet>190</a>		</span><span class="kw">let </span>prev_round = Round::&lt;T&gt;::get();
-<a href=#191 id=191 data-nosnippet>191</a>		<span class="kw">crate</span>::Pallet::&lt;T&gt;::rotate_round();
-<a href=#192 id=192 data-nosnippet>192</a>
-<a href=#193 id=193 data-nosnippet>193</a>		<span class="attr">#[block]
-<a href=#194 id=194 data-nosnippet>194</a>		</span>{
-<a href=#195 id=195 data-nosnippet>195</a>			Pallet::&lt;T&gt;::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)<span class="question-mark">?</span>;
-<a href=#196 id=196 data-nosnippet>196</a>		}
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>		<span class="prelude-val">Ok</span>(())
-<a href=#199 id=199 data-nosnippet>199</a>	}
+<a href=#179 id=179 data-nosnippet>179</a>		<span class="comment">// worst case: an invulnerable is also refunded their tx-fee upon clearing.
+<a href=#180 id=180 data-nosnippet>180</a>		</span>Invulnerables::&lt;T&gt;::put(BoundedVec::truncate_from(<span class="macro">sp_std::vec!</span>[alice.clone()]));
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a>		<span class="comment">// register alice
+<a href=#183 id=183 data-nosnippet>183</a>		</span><span class="kw">let </span>score = ElectionScore::default();
+<a href=#184 id=184 data-nosnippet>184</a>		Pallet::&lt;T&gt;::register(RawOrigin::Signed(alice.clone()).into(), score)<span class="question-mark">?</span>;
+<a href=#185 id=185 data-nosnippet>185</a>
+<a href=#186 id=186 data-nosnippet>186</a>		<span class="comment">// submit a solution with p pages.
+<a href=#187 id=187 data-nosnippet>187</a>		</span><span class="kw">for </span>pp <span class="kw">in </span><span class="number">0</span>..p {
+<a href=#188 id=188 data-nosnippet>188</a>			<span class="kw">let </span>page = <span class="prelude-val">Some</span>(Default::default());
+<a href=#189 id=189 data-nosnippet>189</a>			Pallet::&lt;T&gt;::submit_page(RawOrigin::Signed(alice.clone()).into(), pp, page)<span class="question-mark">?</span>;
+<a href=#190 id=190 data-nosnippet>190</a>		}
+<a href=#191 id=191 data-nosnippet>191</a>
+<a href=#192 id=192 data-nosnippet>192</a>		<span class="comment">// force rotate to the next round.
+<a href=#193 id=193 data-nosnippet>193</a>		</span><span class="kw">let </span>prev_round = Round::&lt;T&gt;::get();
+<a href=#194 id=194 data-nosnippet>194</a>		<span class="kw">crate</span>::Pallet::&lt;T&gt;::rotate_round();
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>		<span class="attr">#[block]
+<a href=#197 id=197 data-nosnippet>197</a>		</span>{
+<a href=#198 id=198 data-nosnippet>198</a>			Pallet::&lt;T&gt;::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)<span class="question-mark">?</span>;
+<a href=#199 id=199 data-nosnippet>199</a>		}
 <a href=#200 id=200 data-nosnippet>200</a>
-<a href=#201 id=201 data-nosnippet>201</a>	<span class="macro">impl_benchmark_test_suite!</span>(
-<a href=#202 id=202 data-nosnippet>202</a>		Pallet,
-<a href=#203 id=203 data-nosnippet>203</a>		<span class="kw">crate</span>::mock::ExtBuilder::signed().build_unchecked(),
-<a href=#204 id=204 data-nosnippet>204</a>		<span class="kw">crate</span>::mock::Runtime
-<a href=#205 id=205 data-nosnippet>205</a>	);
-<a href=#206 id=206 data-nosnippet>206</a>}
+<a href=#201 id=201 data-nosnippet>201</a>		<span class="prelude-val">Ok</span>(())
+<a href=#202 id=202 data-nosnippet>202</a>	}
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a>	<span class="macro">impl_benchmark_test_suite!</span>(
+<a href=#205 id=205 data-nosnippet>205</a>		Pallet,
+<a href=#206 id=206 data-nosnippet>206</a>		<span class="kw">crate</span>::mock::ExtBuilder::signed().build_unchecked(),
+<a href=#207 id=207 data-nosnippet>207</a>		<span class="kw">crate</span>::mock::Runtime
+<a href=#208 id=208 data-nosnippet>208</a>	);
+<a href=#209 id=209 data-nosnippet>209</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

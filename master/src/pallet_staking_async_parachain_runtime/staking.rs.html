@@ -465,658 +465,659 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#315 id=315 data-nosnippet>315</a>	<span class="kw">type </span>DepositPerPage = DepositPerPage;
 <a href=#316 id=316 data-nosnippet>316</a>	<span class="kw">type </span>InvulnerableDeposit = InvulnerableDeposit;
 <a href=#317 id=317 data-nosnippet>317</a>	<span class="kw">type </span>RewardBase = RewardBase;
-<a href=#318 id=318 data-nosnippet>318</a>	<span class="kw">type </span>MaxSubmissions = MaxSubmissions;
-<a href=#319 id=319 data-nosnippet>319</a>	<span class="kw">type </span>EstimateCallFee = TransactionPayment;
-<a href=#320 id=320 data-nosnippet>320</a>	<span class="kw">type </span>WeightInfo = multi_block::weights::polkadot::MultiBlockSignedWeightInfo&lt;<span class="self">Self</span>&gt;;
-<a href=#321 id=321 data-nosnippet>321</a>}
-<a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a><span class="macro">parameter_types!</span> {
-<a href=#324 id=324 data-nosnippet>324</a>	<span class="doccomment">/// Priority of the offchain miner transactions.
-<a href=#325 id=325 data-nosnippet>325</a>	</span><span class="kw">pub </span>MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / <span class="number">2</span>;
-<a href=#326 id=326 data-nosnippet>326</a>}
-<a href=#327 id=327 data-nosnippet>327</a>
-<a href=#328 id=328 data-nosnippet>328</a><span class="kw">pub struct </span>Balancing;
-<a href=#329 id=329 data-nosnippet>329</a><span class="kw">impl </span>Get&lt;<span class="prelude-ty">Option</span>&lt;BalancingConfig&gt;&gt; <span class="kw">for </span>Balancing {
-<a href=#330 id=330 data-nosnippet>330</a>	<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Option</span>&lt;BalancingConfig&gt; {
-<a href=#331 id=331 data-nosnippet>331</a>		<span class="prelude-val">Some</span>(BalancingConfig { iterations: <span class="number">10</span>, tolerance: <span class="number">0 </span>})
-<a href=#332 id=332 data-nosnippet>332</a>	}
-<a href=#333 id=333 data-nosnippet>333</a>}
-<a href=#334 id=334 data-nosnippet>334</a>
-<a href=#335 id=335 data-nosnippet>335</a><span class="kw">impl </span>multi_block::unsigned::Config <span class="kw">for </span>Runtime {
-<a href=#336 id=336 data-nosnippet>336</a>	<span class="kw">type </span>MinerPages = MinerPages;
-<a href=#337 id=337 data-nosnippet>337</a>	<span class="kw">type </span>OffchainSolver = SequentialPhragmen&lt;AccountId, SolutionAccuracyOf&lt;Runtime&gt;, Balancing&gt;;
-<a href=#338 id=338 data-nosnippet>338</a>	<span class="kw">type </span>MinerTxPriority = MinerTxPriority;
-<a href=#339 id=339 data-nosnippet>339</a>	<span class="kw">type </span>OffchainRepeat = OffchainRepeat;
-<a href=#340 id=340 data-nosnippet>340</a>	<span class="kw">type </span>OffchainStorage = ConstBool&lt;<span class="bool-val">true</span>&gt;;
-<a href=#341 id=341 data-nosnippet>341</a>	<span class="kw">type </span>WeightInfo = multi_block::weights::polkadot::MultiBlockUnsignedWeightInfo&lt;<span class="self">Self</span>&gt;;
-<a href=#342 id=342 data-nosnippet>342</a>}
-<a href=#343 id=343 data-nosnippet>343</a>
-<a href=#344 id=344 data-nosnippet>344</a><span class="macro">parameter_types!</span> {
-<a href=#345 id=345 data-nosnippet>345</a>	<span class="doccomment">/// Miner transaction can fill up to 75% of the block size.
-<a href=#346 id=346 data-nosnippet>346</a>	</span><span class="kw">pub </span>MinerMaxLength: u32 = Perbill::from_rational(<span class="number">75u32</span>, <span class="number">100</span>) *
-<a href=#347 id=347 data-nosnippet>347</a>		<span class="kw-2">*</span>RuntimeBlockLength::get()
-<a href=#348 id=348 data-nosnippet>348</a>		.max
-<a href=#349 id=349 data-nosnippet>349</a>		.get(DispatchClass::Normal);
-<a href=#350 id=350 data-nosnippet>350</a>}
-<a href=#351 id=351 data-nosnippet>351</a>
-<a href=#352 id=352 data-nosnippet>352</a><span class="kw">impl </span>multi_block::unsigned::miner::MinerConfig <span class="kw">for </span>Runtime {
-<a href=#353 id=353 data-nosnippet>353</a>	<span class="kw">type </span>AccountId = AccountId;
-<a href=#354 id=354 data-nosnippet>354</a>	<span class="kw">type </span>Hash = Hash;
-<a href=#355 id=355 data-nosnippet>355</a>	<span class="kw">type </span>MaxBackersPerWinner = &lt;<span class="self">Self </span><span class="kw">as </span>multi_block::verifier::Config&gt;::MaxBackersPerWinner;
-<a href=#356 id=356 data-nosnippet>356</a>	<span class="kw">type </span>MaxBackersPerWinnerFinal =
-<a href=#357 id=357 data-nosnippet>357</a>		&lt;<span class="self">Self </span><span class="kw">as </span>multi_block::verifier::Config&gt;::MaxBackersPerWinnerFinal;
-<a href=#358 id=358 data-nosnippet>358</a>	<span class="kw">type </span>MaxWinnersPerPage = &lt;<span class="self">Self </span><span class="kw">as </span>multi_block::verifier::Config&gt;::MaxWinnersPerPage;
-<a href=#359 id=359 data-nosnippet>359</a>	<span class="kw">type </span>MaxVotesPerVoter =
-<a href=#360 id=360 data-nosnippet>360</a>		&lt;&lt;<span class="self">Self </span><span class="kw">as </span>multi_block::Config&gt;::DataProvider <span class="kw">as </span>ElectionDataProvider&gt;::MaxVotesPerVoter;
-<a href=#361 id=361 data-nosnippet>361</a>	<span class="kw">type </span>MaxLength = MinerMaxLength;
-<a href=#362 id=362 data-nosnippet>362</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#363 id=363 data-nosnippet>363</a>	</span><span class="kw">type </span>Solver = frame_election_provider_support::QuickDirtySolver&lt;AccountId, Perbill&gt;;
-<a href=#364 id=364 data-nosnippet>364</a>	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
-<a href=#365 id=365 data-nosnippet>365</a>	</span><span class="kw">type </span>Solver = &lt;Runtime <span class="kw">as </span>multi_block::unsigned::Config&gt;::OffchainSolver;
-<a href=#366 id=366 data-nosnippet>366</a>	<span class="kw">type </span>Pages = Pages;
-<a href=#367 id=367 data-nosnippet>367</a>	<span class="kw">type </span>Solution = NposCompactSolution16;
-<a href=#368 id=368 data-nosnippet>368</a>	<span class="kw">type </span>VoterSnapshotPerBlock = &lt;Runtime <span class="kw">as </span>multi_block::Config&gt;::VoterSnapshotPerBlock;
-<a href=#369 id=369 data-nosnippet>369</a>	<span class="kw">type </span>TargetSnapshotPerBlock = &lt;Runtime <span class="kw">as </span>multi_block::Config&gt;::TargetSnapshotPerBlock;
-<a href=#370 id=370 data-nosnippet>370</a>}
-<a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a><span class="macro">parameter_types!</span> {
-<a href=#373 id=373 data-nosnippet>373</a>	<span class="kw">pub const </span>BagThresholds: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u64] = <span class="kw-2">&amp;</span>bag_thresholds::THRESHOLDS;
-<a href=#374 id=374 data-nosnippet>374</a>}
-<a href=#375 id=375 data-nosnippet>375</a>
-<a href=#376 id=376 data-nosnippet>376</a><span class="kw">type </span>VoterBagsListInstance = pallet_bags_list::Instance1;
-<a href=#377 id=377 data-nosnippet>377</a><span class="kw">impl </span>pallet_bags_list::Config&lt;VoterBagsListInstance&gt; <span class="kw">for </span>Runtime {
-<a href=#378 id=378 data-nosnippet>378</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#379 id=379 data-nosnippet>379</a>	<span class="kw">type </span>ScoreProvider = Staking;
-<a href=#380 id=380 data-nosnippet>380</a>	<span class="kw">type </span>WeightInfo = weights::pallet_bags_list::WeightInfo&lt;Runtime&gt;;
-<a href=#381 id=381 data-nosnippet>381</a>	<span class="kw">type </span>BagThresholds = BagThresholds;
-<a href=#382 id=382 data-nosnippet>382</a>	<span class="kw">type </span>Score = sp_npos_elections::VoteWeight;
-<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">type </span>MaxAutoRebagPerBlock = ();
-<a href=#384 id=384 data-nosnippet>384</a>}
-<a href=#385 id=385 data-nosnippet>385</a>
-<a href=#386 id=386 data-nosnippet>386</a><span class="macro">parameter_types!</span> {
-<a href=#387 id=387 data-nosnippet>387</a>	<span class="kw">pub const </span>StakingPotsPalletId: frame_support::PalletId = frame_support::PalletId(<span class="kw-2">*</span><span class="string">b"py/stkng"</span>);
-<a href=#388 id=388 data-nosnippet>388</a>}
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a><span class="doccomment">/// Polkadot inflation curve for DAP.
-<a href=#391 id=391 data-nosnippet>391</a>///
-<a href=#392 id=392 data-nosnippet>392</a>/// Same computation as the previous `EraPayout` but returns total emission
-<a href=#393 id=393 data-nosnippet>393</a>/// (the staker/treasury split is now handled by DAP budget allocation).
-<a href=#394 id=394 data-nosnippet>394</a></span><span class="kw">pub struct </span>PolkadotIssuanceCurve;
-<a href=#395 id=395 data-nosnippet>395</a><span class="kw">impl </span>sp_staking::budget::IssuanceCurve&lt;Balance&gt; <span class="kw">for </span>PolkadotIssuanceCurve {
-<a href=#396 id=396 data-nosnippet>396</a>	<span class="kw">fn </span>issue(_total_issuance: Balance, elapsed_millis: u64) -&gt; Balance {
-<a href=#397 id=397 data-nosnippet>397</a>		<span class="kw">const </span>MILLISECONDS_PER_YEAR: u64 = (<span class="number">1000 </span>* <span class="number">3600 </span>* <span class="number">24 </span>* <span class="number">36525</span>) / <span class="number">100</span>;
-<a href=#398 id=398 data-nosnippet>398</a>		<span class="kw">let </span>relative_period =
-<a href=#399 id=399 data-nosnippet>399</a>			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
-<a href=#400 id=400 data-nosnippet>400</a>
-<a href=#401 id=401 data-nosnippet>401</a>		<span class="kw">let </span>fixed_total_issuance: i128 = <span class="number">5_216_342_402_773_185_773</span>;
-<a href=#402 id=402 data-nosnippet>402</a>		<span class="kw">let </span>fixed_inflation_rate = FixedU128::from_rational(<span class="number">8</span>, <span class="number">100</span>);
-<a href=#403 id=403 data-nosnippet>403</a>		<span class="kw">let </span>yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>		<span class="kw">let </span>emission = relative_period.saturating_mul_int(yearly_emission);
-<a href=#406 id=406 data-nosnippet>406</a>		emission.saturated_into()
-<a href=#407 id=407 data-nosnippet>407</a>	}
-<a href=#408 id=408 data-nosnippet>408</a>}
-<a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a><span class="macro">parameter_types!</span> {
-<a href=#411 id=411 data-nosnippet>411</a>	<span class="comment">// Six sessions in an era (6 hours).
-<a href=#412 id=412 data-nosnippet>412</a>	</span><span class="kw">pub const </span>SessionsPerEra: SessionIndex = <span class="macro">prod_or_fast!</span>(<span class="number">6</span>, <span class="number">1</span>);
-<a href=#413 id=413 data-nosnippet>413</a>	<span class="doccomment">/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
-<a href=#414 id=414 data-nosnippet>414</a>	</span><span class="kw">pub const </span>RelaySessionDuration: BlockNumber = <span class="number">10</span>;
-<a href=#415 id=415 data-nosnippet>415</a>	<span class="comment">// 2 eras for unbonding (12 hours).
-<a href=#416 id=416 data-nosnippet>416</a>	</span><span class="kw">pub const </span>BondingDuration: sp_staking::EraIndex = <span class="number">2</span>;
-<a href=#417 id=417 data-nosnippet>417</a>	<span class="comment">// 1 era in which slashes can be cancelled (6 hours).
-<a href=#418 id=418 data-nosnippet>418</a>	</span><span class="kw">pub const </span>SlashDeferDuration: sp_staking::EraIndex = <span class="number">1</span>;
-<a href=#419 id=419 data-nosnippet>419</a>	<span class="comment">// Nominators can unbond faster (2 eras) when not slashable.
-<a href=#420 id=420 data-nosnippet>420</a>	</span><span class="kw">pub const </span>NominatorFastUnbondDuration: sp_staking::EraIndex = <span class="number">2</span>;
-<a href=#421 id=421 data-nosnippet>421</a>	<span class="comment">// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
-<a href=#422 id=422 data-nosnippet>422</a>	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
-<a href=#423 id=423 data-nosnippet>423</a>	// of nominators.
-<a href=#424 id=424 data-nosnippet>424</a>	</span><span class="kw">pub const </span>MaxControllersInDeprecationBatch: u32 = <span class="number">751</span>;
-<a href=#425 id=425 data-nosnippet>425</a>	<span class="kw">pub const </span>MaxNominations: u32 = &lt;NposCompactSolution16 <span class="kw">as </span>frame_election_provider_support::NposSolution&gt;::LIMIT <span class="kw">as </span>u32;
-<a href=#426 id=426 data-nosnippet>426</a>	<span class="kw">pub const </span>MaxEraDuration: u64 = RelaySessionDuration::get() <span class="kw">as </span>u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS <span class="kw">as </span>u64 * SessionsPerEra::get() <span class="kw">as </span>u64;
-<a href=#427 id=427 data-nosnippet>427</a>	<span class="kw">pub </span>MaxPruningItems: u32 = <span class="number">100</span>;
-<a href=#428 id=428 data-nosnippet>428</a>}
-<a href=#429 id=429 data-nosnippet>429</a>
-<a href=#430 id=430 data-nosnippet>430</a><span class="kw">impl </span>pallet_staking_async::Config <span class="kw">for </span>Runtime {
-<a href=#431 id=431 data-nosnippet>431</a>	<span class="kw">type </span>Filter = ();
-<a href=#432 id=432 data-nosnippet>432</a>	<span class="kw">type </span>OldCurrency = Balances;
-<a href=#433 id=433 data-nosnippet>433</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#434 id=434 data-nosnippet>434</a>	<span class="kw">type </span>CurrencyBalance = Balance;
-<a href=#435 id=435 data-nosnippet>435</a>	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-<a href=#436 id=436 data-nosnippet>436</a>	<span class="kw">type </span>CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
-<a href=#437 id=437 data-nosnippet>437</a>	<span class="kw">type </span>RewardRemainder = ();
-<a href=#438 id=438 data-nosnippet>438</a>	<span class="kw">type </span>Slash = Dap;
-<a href=#439 id=439 data-nosnippet>439</a>	<span class="kw">type </span>Reward = ();
-<a href=#440 id=440 data-nosnippet>440</a>	<span class="kw">type </span>SessionsPerEra = SessionsPerEra;
-<a href=#441 id=441 data-nosnippet>441</a>	<span class="kw">type </span>BondingDuration = BondingDuration;
-<a href=#442 id=442 data-nosnippet>442</a>	<span class="kw">type </span>SlashDeferDuration = SlashDeferDuration;
-<a href=#443 id=443 data-nosnippet>443</a>	<span class="kw">type </span>NominatorFastUnbondDuration = NominatorFastUnbondDuration;
-<a href=#444 id=444 data-nosnippet>444</a>	<span class="kw">type </span>AdminOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, StakingAdmin&gt;;
-<a href=#445 id=445 data-nosnippet>445</a>	<span class="kw">type </span>EraPayout = ();
-<a href=#446 id=446 data-nosnippet>446</a>	<span class="kw">type </span>MaxExposurePageSize = MaxExposurePageSize;
-<a href=#447 id=447 data-nosnippet>447</a>	<span class="kw">type </span>ElectionProvider = MultiBlockElection;
-<a href=#448 id=448 data-nosnippet>448</a>	<span class="kw">type </span>VoterList = VoterList;
-<a href=#449 id=449 data-nosnippet>449</a>	<span class="kw">type </span>TargetList = UseValidatorsMap&lt;<span class="self">Self</span>&gt;;
-<a href=#450 id=450 data-nosnippet>450</a>	<span class="kw">type </span>MaxValidatorSet = MaxValidatorSet;
-<a href=#451 id=451 data-nosnippet>451</a>	<span class="kw">type </span>NominationsQuota = pallet_staking_async::FixedNominationsQuota&lt;{ MaxNominations::get() }&gt;;
-<a href=#452 id=452 data-nosnippet>452</a>	<span class="kw">type </span>MaxUnlockingChunks = frame_support::traits::ConstU32&lt;<span class="number">32</span>&gt;;
-<a href=#453 id=453 data-nosnippet>453</a>	<span class="kw">type </span>HistoryDepth = ConstU32&lt;<span class="number">1</span>&gt;;
-<a href=#454 id=454 data-nosnippet>454</a>	<span class="kw">type </span>MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-<a href=#455 id=455 data-nosnippet>455</a>	<span class="kw">type </span>EventListeners = (NominationPools, DelegatedStaking);
-<a href=#456 id=456 data-nosnippet>456</a>	<span class="kw">type </span>WeightInfo = pallet_staking_async::weights::SubstrateWeight&lt;Runtime&gt;;
-<a href=#457 id=457 data-nosnippet>457</a>	<span class="kw">type </span>MaxEraDuration = MaxEraDuration;
-<a href=#458 id=458 data-nosnippet>458</a>	<span class="kw">type </span>DisableMinting = ConstBool&lt;<span class="bool-val">true</span>&gt;;
-<a href=#459 id=459 data-nosnippet>459</a>	<span class="kw">type </span>UnclaimedRewardHandler = Dap;
-<a href=#460 id=460 data-nosnippet>460</a>	<span class="kw">type </span>RewardPots = pallet_staking_async::Seed&lt;StakingPotsPalletId&gt;;
-<a href=#461 id=461 data-nosnippet>461</a>	<span class="kw">type </span>StakerRewardCalculator =
-<a href=#462 id=462 data-nosnippet>462</a>		pallet_staking_async::reward::DefaultStakerRewardCalculator&lt;Runtime&gt;;
-<a href=#463 id=463 data-nosnippet>463</a>	<span class="kw">type </span>MaxPruningItems = MaxPruningItems;
-<a href=#464 id=464 data-nosnippet>464</a>	<span class="kw">type </span>PlanningEraOffset =
-<a href=#465 id=465 data-nosnippet>465</a>		pallet_staking_async::PlanningEraOffsetOf&lt;<span class="self">Self</span>, RelaySessionDuration, ConstU32&lt;<span class="number">10</span>&gt;&gt;;
-<a href=#466 id=466 data-nosnippet>466</a>	<span class="kw">type </span>RcClientInterface = StakingRcClient;
-<a href=#467 id=467 data-nosnippet>467</a>	<span class="kw">type </span>IsValidatorInactive = ();
-<a href=#468 id=468 data-nosnippet>468</a>}
-<a href=#469 id=469 data-nosnippet>469</a>
-<a href=#470 id=470 data-nosnippet>470</a><span class="comment">// Relay chain session keys matching Westend configuration.
-<a href=#471 id=471 data-nosnippet>471</a></span><span class="macro">sp_runtime::impl_opaque_keys!</span> {
-<a href=#472 id=472 data-nosnippet>472</a>	<span class="kw">pub struct </span>RelayChainSessionKeys {
-<a href=#473 id=473 data-nosnippet>473</a>		<span class="kw">pub </span>grandpa: sp_consensus_grandpa::AuthorityId,
-<a href=#474 id=474 data-nosnippet>474</a>		<span class="kw">pub </span>babe: sp_consensus_babe::AuthorityId,
-<a href=#475 id=475 data-nosnippet>475</a>		<span class="kw">pub </span>para_validator: polkadot_primitives::ValidatorId,
-<a href=#476 id=476 data-nosnippet>476</a>		<span class="kw">pub </span>para_assignment: polkadot_primitives::AssignmentId,
-<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw">pub </span>authority_discovery: sp_authority_discovery::AuthorityId,
-<a href=#478 id=478 data-nosnippet>478</a>		<span class="kw">pub </span>beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
-<a href=#479 id=479 data-nosnippet>479</a>	}
-<a href=#480 id=480 data-nosnippet>480</a>}
-<a href=#481 id=481 data-nosnippet>481</a>
-<a href=#482 id=482 data-nosnippet>482</a><span class="comment">// Relay chain session keys type for rc-client.
-<a href=#483 id=483 data-nosnippet>483</a></span><span class="kw">impl </span>pallet_staking_async_rc_client::Config <span class="kw">for </span>Runtime {
-<a href=#484 id=484 data-nosnippet>484</a>	<span class="kw">type </span>RelayChainOrigin = EnsureRoot&lt;AccountId&gt;;
-<a href=#485 id=485 data-nosnippet>485</a>	<span class="kw">type </span>AHStakingInterface = Staking;
-<a href=#486 id=486 data-nosnippet>486</a>	<span class="kw">type </span>SendToRelayChain = StakingXcmToRelayChain;
-<a href=#487 id=487 data-nosnippet>487</a>	<span class="kw">type </span>MaxValidatorSetRetries = ConstU32&lt;<span class="number">5</span>&gt;;
-<a href=#488 id=488 data-nosnippet>488</a>	<span class="comment">// export validator session at end of session 4 within an era.
-<a href=#489 id=489 data-nosnippet>489</a>	</span><span class="kw">type </span>ValidatorSetExportSession = ConstU32&lt;<span class="number">4</span>&gt;;
-<a href=#490 id=490 data-nosnippet>490</a>	<span class="kw">type </span>RelayChainSessionKeys = RelayChainSessionKeys;
-<a href=#491 id=491 data-nosnippet>491</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#492 id=492 data-nosnippet>492</a>	<span class="kw">type </span>KeyDeposit = ConstU128&lt;{ <span class="number">10_000 </span>* UNITS }&gt;;
-<a href=#493 id=493 data-nosnippet>493</a>	<span class="kw">type </span>WeightInfo = ();
-<a href=#494 id=494 data-nosnippet>494</a>}
-<a href=#495 id=495 data-nosnippet>495</a>
-<a href=#496 id=496 data-nosnippet>496</a><span class="macro">parameter_types!</span> {
-<a href=#497 id=497 data-nosnippet>497</a>	<span class="kw">pub const </span>DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
-<a href=#498 id=498 data-nosnippet>498</a>	<span class="kw">pub const </span>DapIssuanceCadence: u64 = <span class="number">60_000</span>;
-<a href=#499 id=499 data-nosnippet>499</a>	<span class="kw">pub const </span>DapMaxElapsedPerDrip: u64 = <span class="number">600_000</span>;
-<a href=#500 id=500 data-nosnippet>500</a>}
-<a href=#501 id=501 data-nosnippet>501</a>
-<a href=#502 id=502 data-nosnippet>502</a><span class="kw">impl </span>pallet_dap::Config <span class="kw">for </span>Runtime {
-<a href=#503 id=503 data-nosnippet>503</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#504 id=504 data-nosnippet>504</a>	<span class="kw">type </span>PalletId = DapPalletId;
-<a href=#505 id=505 data-nosnippet>505</a>	<span class="kw">type </span>IssuanceCurve = PolkadotIssuanceCurve;
-<a href=#506 id=506 data-nosnippet>506</a>	<span class="kw">type </span>BudgetRecipients = (
-<a href=#507 id=507 data-nosnippet>507</a>		pallet_dap::Pallet&lt;Runtime&gt;,
-<a href=#508 id=508 data-nosnippet>508</a>		pallet_staking_async::StakerRewardRecipient&lt;
-<a href=#509 id=509 data-nosnippet>509</a>			pallet_staking_async::Seed&lt;StakingPotsPalletId&gt;,
-<a href=#510 id=510 data-nosnippet>510</a>		&gt;,
-<a href=#511 id=511 data-nosnippet>511</a>		pallet_staking_async::ValidatorIncentiveRecipient&lt;
-<a href=#512 id=512 data-nosnippet>512</a>			pallet_staking_async::Seed&lt;StakingPotsPalletId&gt;,
-<a href=#513 id=513 data-nosnippet>513</a>		&gt;,
-<a href=#514 id=514 data-nosnippet>514</a>	);
-<a href=#515 id=515 data-nosnippet>515</a>	<span class="kw">type </span>Time = pallet_timestamp::Pallet&lt;Runtime&gt;;
-<a href=#516 id=516 data-nosnippet>516</a>	<span class="kw">type </span>IssuanceCadence = DapIssuanceCadence;
-<a href=#517 id=517 data-nosnippet>517</a>	<span class="kw">type </span>MaxElapsedPerDrip = DapMaxElapsedPerDrip;
-<a href=#518 id=518 data-nosnippet>518</a>	<span class="kw">type </span>BudgetOrigin = frame_system::EnsureRoot&lt;AccountId&gt;;
-<a href=#519 id=519 data-nosnippet>519</a>	<span class="kw">type </span>WeightInfo = ();
-<a href=#520 id=520 data-nosnippet>520</a>}
-<a href=#521 id=521 data-nosnippet>521</a>
-<a href=#522 id=522 data-nosnippet>522</a><span class="macro">parameter_types!</span> {
-<a href=#523 id=523 data-nosnippet>523</a>	<span class="kw">pub </span>StakingXcmDestination: Location = Location::parent();
-<a href=#524 id=524 data-nosnippet>524</a>}
-<a href=#525 id=525 data-nosnippet>525</a>
-<a href=#526 id=526 data-nosnippet>526</a><span class="attr">#[derive(Encode, Decode)]
-<a href=#527 id=527 data-nosnippet>527</a></span><span class="comment">// Call indices taken from westend-next runtime.
-<a href=#528 id=528 data-nosnippet>528</a></span><span class="kw">pub enum </span>RelayChainRuntimePallets {
-<a href=#529 id=529 data-nosnippet>529</a>	<span class="attr">#[codec(index = <span class="number">67</span>)]
-<a href=#530 id=530 data-nosnippet>530</a>	</span>AhClient(AhClientCalls),
-<a href=#531 id=531 data-nosnippet>531</a>}
-<a href=#532 id=532 data-nosnippet>532</a>
-<a href=#533 id=533 data-nosnippet>533</a><span class="attr">#[derive(Encode, Decode)]
-<a href=#534 id=534 data-nosnippet>534</a></span><span class="kw">pub enum </span>AhClientCalls {
-<a href=#535 id=535 data-nosnippet>535</a>	<span class="attr">#[codec(index = <span class="number">0</span>)]
-<a href=#536 id=536 data-nosnippet>536</a>	</span>ValidatorSet(rc_client::ValidatorSetReport&lt;AccountId&gt;),
-<a href=#537 id=537 data-nosnippet>537</a>	<span class="attr">#[codec(index = <span class="number">3</span>)]
-<a href=#538 id=538 data-nosnippet>538</a>	</span>SetKeysFromAh { stash: AccountId, keys: Vec&lt;u8&gt; },
-<a href=#539 id=539 data-nosnippet>539</a>	<span class="attr">#[codec(index = <span class="number">4</span>)]
-<a href=#540 id=540 data-nosnippet>540</a>	</span>PurgeKeysFromAh { stash: AccountId },
-<a href=#541 id=541 data-nosnippet>541</a>}
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a><span class="kw">pub struct </span>ValidatorSetToXcm;
-<a href=#544 id=544 data-nosnippet>544</a><span class="kw">impl </span>Convert&lt;rc_client::ValidatorSetReport&lt;AccountId&gt;, Xcm&lt;()&gt;&gt; <span class="kw">for </span>ValidatorSetToXcm {
-<a href=#545 id=545 data-nosnippet>545</a>	<span class="kw">fn </span>convert(report: rc_client::ValidatorSetReport&lt;AccountId&gt;) -&gt; Xcm&lt;()&gt; {
-<a href=#546 id=546 data-nosnippet>546</a>		rc_client::build_transact_xcm(
-<a href=#547 id=547 data-nosnippet>547</a>			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
-<a href=#548 id=548 data-nosnippet>548</a>		)
-<a href=#549 id=549 data-nosnippet>549</a>	}
-<a href=#550 id=550 data-nosnippet>550</a>}
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a><span class="kw">pub struct </span>KeysMessageToXcm;
-<a href=#553 id=553 data-nosnippet>553</a><span class="kw">impl </span>Convert&lt;rc_client::KeysMessage&lt;AccountId&gt;, Xcm&lt;()&gt;&gt; <span class="kw">for </span>KeysMessageToXcm {
-<a href=#554 id=554 data-nosnippet>554</a>	<span class="kw">fn </span>convert(msg: rc_client::KeysMessage&lt;AccountId&gt;) -&gt; Xcm&lt;()&gt; {
-<a href=#555 id=555 data-nosnippet>555</a>		<span class="kw">let </span>encoded_call = <span class="kw">match </span>msg {
-<a href=#556 id=556 data-nosnippet>556</a>			rc_client::KeysMessage::SetKeys { stash, keys } =&gt; {
-<a href=#557 id=557 data-nosnippet>557</a>				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
-<a href=#558 id=558 data-nosnippet>558</a>					.encode()
-<a href=#559 id=559 data-nosnippet>559</a>			},
-<a href=#560 id=560 data-nosnippet>560</a>			rc_client::KeysMessage::PurgeKeys { stash } =&gt; {
-<a href=#561 id=561 data-nosnippet>561</a>				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
-<a href=#562 id=562 data-nosnippet>562</a>					.encode()
-<a href=#563 id=563 data-nosnippet>563</a>			},
-<a href=#564 id=564 data-nosnippet>564</a>		};
-<a href=#565 id=565 data-nosnippet>565</a>		rc_client::build_transact_xcm(encoded_call)
-<a href=#566 id=566 data-nosnippet>566</a>	}
-<a href=#567 id=567 data-nosnippet>567</a>}
-<a href=#568 id=568 data-nosnippet>568</a>
-<a href=#569 id=569 data-nosnippet>569</a><span class="kw">pub struct </span>StakingXcmToRelayChain;
-<a href=#570 id=570 data-nosnippet>570</a>
-<a href=#571 id=571 data-nosnippet>571</a><span class="kw">impl </span>rc_client::SendToRelayChain <span class="kw">for </span>StakingXcmToRelayChain {
-<a href=#572 id=572 data-nosnippet>572</a>	<span class="kw">type </span>AccountId = AccountId;
-<a href=#573 id=573 data-nosnippet>573</a>	<span class="kw">type </span>Balance = Balance;
-<a href=#574 id=574 data-nosnippet>574</a>
-<a href=#575 id=575 data-nosnippet>575</a>	<span class="kw">fn </span>validator_set(report: rc_client::ValidatorSetReport&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-<a href=#576 id=576 data-nosnippet>576</a>		rc_client::XCMSender::&lt;
-<a href=#577 id=577 data-nosnippet>577</a>			xcm_config::XcmRouter,
-<a href=#578 id=578 data-nosnippet>578</a>			StakingXcmDestination,
-<a href=#579 id=579 data-nosnippet>579</a>			rc_client::ValidatorSetReport&lt;<span class="self">Self</span>::AccountId&gt;,
-<a href=#580 id=580 data-nosnippet>580</a>			ValidatorSetToXcm,
-<a href=#581 id=581 data-nosnippet>581</a>		&gt;::send(report)
-<a href=#582 id=582 data-nosnippet>582</a>	}
-<a href=#583 id=583 data-nosnippet>583</a>
-<a href=#584 id=584 data-nosnippet>584</a>	<span class="kw">fn </span>set_keys(
-<a href=#585 id=585 data-nosnippet>585</a>		stash: <span class="self">Self</span>::AccountId,
-<a href=#586 id=586 data-nosnippet>586</a>		keys: Vec&lt;u8&gt;,
-<a href=#587 id=587 data-nosnippet>587</a>		max_fee: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
-<a href=#588 id=588 data-nosnippet>588</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, rc_client::SendKeysError&lt;<span class="self">Self</span>::Balance&gt;&gt; {
-<a href=#589 id=589 data-nosnippet>589</a>		rc_client::XCMSender::&lt;
-<a href=#590 id=590 data-nosnippet>590</a>			xcm_config::XcmRouter,
-<a href=#591 id=591 data-nosnippet>591</a>			StakingXcmDestination,
-<a href=#592 id=592 data-nosnippet>592</a>			rc_client::KeysMessage&lt;<span class="self">Self</span>::AccountId&gt;,
-<a href=#593 id=593 data-nosnippet>593</a>			KeysMessageToXcm,
-<a href=#594 id=594 data-nosnippet>594</a>		&gt;::send_with_fees::&lt;
-<a href=#595 id=595 data-nosnippet>595</a>			XcmExec&lt;xcm_config::XcmConfig&gt;,
-<a href=#596 id=596 data-nosnippet>596</a>			RuntimeCall,
-<a href=#597 id=597 data-nosnippet>597</a>			AccountId,
-<a href=#598 id=598 data-nosnippet>598</a>			rc_client::AccountId32ToLocation,
-<a href=#599 id=599 data-nosnippet>599</a>			<span class="self">Self</span>::Balance,
-<a href=#600 id=600 data-nosnippet>600</a>		&gt;(rc_client::KeysMessage::set_keys(stash.clone(), keys), stash, max_fee, <span class="number">0</span>)
-<a href=#601 id=601 data-nosnippet>601</a>	}
-<a href=#602 id=602 data-nosnippet>602</a>
-<a href=#603 id=603 data-nosnippet>603</a>	<span class="kw">fn </span>purge_keys(
-<a href=#604 id=604 data-nosnippet>604</a>		stash: <span class="self">Self</span>::AccountId,
-<a href=#605 id=605 data-nosnippet>605</a>		max_fee: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
-<a href=#606 id=606 data-nosnippet>606</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, rc_client::SendKeysError&lt;<span class="self">Self</span>::Balance&gt;&gt; {
-<a href=#607 id=607 data-nosnippet>607</a>		rc_client::XCMSender::&lt;
-<a href=#608 id=608 data-nosnippet>608</a>			xcm_config::XcmRouter,
-<a href=#609 id=609 data-nosnippet>609</a>			StakingXcmDestination,
-<a href=#610 id=610 data-nosnippet>610</a>			rc_client::KeysMessage&lt;<span class="self">Self</span>::AccountId&gt;,
-<a href=#611 id=611 data-nosnippet>611</a>			KeysMessageToXcm,
-<a href=#612 id=612 data-nosnippet>612</a>		&gt;::send_with_fees::&lt;
-<a href=#613 id=613 data-nosnippet>613</a>			XcmExec&lt;xcm_config::XcmConfig&gt;,
-<a href=#614 id=614 data-nosnippet>614</a>			RuntimeCall,
-<a href=#615 id=615 data-nosnippet>615</a>			AccountId,
-<a href=#616 id=616 data-nosnippet>616</a>			rc_client::AccountId32ToLocation,
-<a href=#617 id=617 data-nosnippet>617</a>			<span class="self">Self</span>::Balance,
-<a href=#618 id=618 data-nosnippet>618</a>		&gt;(rc_client::KeysMessage::purge_keys(stash.clone()), stash, max_fee, <span class="number">0</span>)
-<a href=#619 id=619 data-nosnippet>619</a>	}
-<a href=#620 id=620 data-nosnippet>620</a>}
-<a href=#621 id=621 data-nosnippet>621</a>
-<a href=#622 id=622 data-nosnippet>622</a><span class="kw">impl </span>pallet_fast_unstake::Config <span class="kw">for </span>Runtime {
-<a href=#623 id=623 data-nosnippet>623</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#624 id=624 data-nosnippet>624</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#625 id=625 data-nosnippet>625</a>	<span class="kw">type </span>BatchSize = ConstU32&lt;<span class="number">64</span>&gt;;
-<a href=#626 id=626 data-nosnippet>626</a>	<span class="kw">type </span>Deposit = ConstU128&lt;{ UNITS }&gt;;
-<a href=#627 id=627 data-nosnippet>627</a>	<span class="kw">type </span>ControlOrigin = EnsureRoot&lt;AccountId&gt;;
-<a href=#628 id=628 data-nosnippet>628</a>	<span class="kw">type </span>Staking = Staking;
-<a href=#629 id=629 data-nosnippet>629</a>	<span class="kw">type </span>MaxErasToCheckPerBlock = ConstU32&lt;<span class="number">1</span>&gt;;
-<a href=#630 id=630 data-nosnippet>630</a>	<span class="kw">type </span>WeightInfo = weights::pallet_fast_unstake::WeightInfo&lt;Runtime&gt;;
-<a href=#631 id=631 data-nosnippet>631</a>}
-<a href=#632 id=632 data-nosnippet>632</a>
-<a href=#633 id=633 data-nosnippet>633</a><span class="macro">parameter_types!</span> {
-<a href=#634 id=634 data-nosnippet>634</a>	<span class="kw">pub const </span>PoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/nopls"</span>);
-<a href=#635 id=635 data-nosnippet>635</a>	<span class="kw">pub const </span>MaxPointsToBalance: u8 = <span class="number">10</span>;
-<a href=#636 id=636 data-nosnippet>636</a>}
-<a href=#637 id=637 data-nosnippet>637</a>
-<a href=#638 id=638 data-nosnippet>638</a><span class="kw">impl </span>pallet_nomination_pools::Config <span class="kw">for </span>Runtime {
-<a href=#639 id=639 data-nosnippet>639</a>	<span class="kw">type </span>Filter = ();
-<a href=#640 id=640 data-nosnippet>640</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#641 id=641 data-nosnippet>641</a>	<span class="kw">type </span>WeightInfo = weights::pallet_nomination_pools::WeightInfo&lt;<span class="self">Self</span>&gt;;
-<a href=#642 id=642 data-nosnippet>642</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#643 id=643 data-nosnippet>643</a>	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
-<a href=#644 id=644 data-nosnippet>644</a>	<span class="kw">type </span>RewardCounter = FixedU128;
-<a href=#645 id=645 data-nosnippet>645</a>	<span class="kw">type </span>BalanceToU256 = BalanceToU256;
-<a href=#646 id=646 data-nosnippet>646</a>	<span class="kw">type </span>U256ToBalance = U256ToBalance;
-<a href=#647 id=647 data-nosnippet>647</a>	<span class="kw">type </span>StakeAdapter =
-<a href=#648 id=648 data-nosnippet>648</a>		pallet_nomination_pools::adapter::DelegateStake&lt;<span class="self">Self</span>, Staking, DelegatedStaking&gt;;
-<a href=#649 id=649 data-nosnippet>649</a>	<span class="comment">// Buffer (30) + bonding duration (2).
-<a href=#650 id=650 data-nosnippet>650</a>	</span><span class="kw">type </span>MaxUnbondingPools = ConstU32&lt;<span class="number">32</span>&gt;;
-<a href=#651 id=651 data-nosnippet>651</a>	<span class="kw">type </span>MaxMetadataLen = ConstU32&lt;<span class="number">256</span>&gt;;
-<a href=#652 id=652 data-nosnippet>652</a>	<span class="comment">// we use the same number of allowed unlocking chunks as with staking.
-<a href=#653 id=653 data-nosnippet>653</a>	</span><span class="kw">type </span>MaxUnbonding = &lt;<span class="self">Self </span><span class="kw">as </span>pallet_staking_async::Config&gt;::MaxUnlockingChunks;
-<a href=#654 id=654 data-nosnippet>654</a>	<span class="kw">type </span>PalletId = PoolsPalletId;
-<a href=#655 id=655 data-nosnippet>655</a>	<span class="kw">type </span>MaxPointsToBalance = MaxPointsToBalance;
-<a href=#656 id=656 data-nosnippet>656</a>	<span class="kw">type </span>AdminOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, StakingAdmin&gt;;
-<a href=#657 id=657 data-nosnippet>657</a>	<span class="kw">type </span>BlockNumberProvider = RelaychainDataProvider&lt;Runtime&gt;;
-<a href=#658 id=658 data-nosnippet>658</a>}
-<a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a><span class="macro">parameter_types!</span> {
-<a href=#661 id=661 data-nosnippet>661</a>	<span class="kw">pub const </span>DelegatedStakingPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/dlstk"</span>);
-<a href=#662 id=662 data-nosnippet>662</a>	<span class="kw">pub const </span>SlashRewardFraction: Perbill = Perbill::from_percent(<span class="number">1</span>);
-<a href=#663 id=663 data-nosnippet>663</a>}
-<a href=#664 id=664 data-nosnippet>664</a>
-<a href=#665 id=665 data-nosnippet>665</a><span class="kw">impl </span>pallet_delegated_staking::Config <span class="kw">for </span>Runtime {
-<a href=#666 id=666 data-nosnippet>666</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#667 id=667 data-nosnippet>667</a>	<span class="kw">type </span>PalletId = DelegatedStakingPalletId;
-<a href=#668 id=668 data-nosnippet>668</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#669 id=669 data-nosnippet>669</a>	<span class="kw">type </span>OnSlash = ();
-<a href=#670 id=670 data-nosnippet>670</a>	<span class="kw">type </span>SlashRewardFraction = SlashRewardFraction;
-<a href=#671 id=671 data-nosnippet>671</a>	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-<a href=#672 id=672 data-nosnippet>672</a>	<span class="kw">type </span>CoreStaking = Staking;
-<a href=#673 id=673 data-nosnippet>673</a>}
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a><span class="doccomment">/// The payload being signed in transactions.
-<a href=#676 id=676 data-nosnippet>676</a></span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, TxExtension&gt;;
-<a href=#677 id=677 data-nosnippet>677</a><span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
-<a href=#678 id=678 data-nosnippet>678</a></span><span class="kw">pub type </span>UncheckedExtrinsic =
-<a href=#679 id=679 data-nosnippet>679</a>	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
-<a href=#680 id=680 data-nosnippet>680</a>
-<a href=#681 id=681 data-nosnippet>681</a><span class="kw">impl </span>frame_system::offchain::SigningTypes <span class="kw">for </span>Runtime {
-<a href=#682 id=682 data-nosnippet>682</a>	<span class="kw">type </span>Public = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
-<a href=#683 id=683 data-nosnippet>683</a>	<span class="kw">type </span>Signature = Signature;
-<a href=#684 id=684 data-nosnippet>684</a>}
-<a href=#685 id=685 data-nosnippet>685</a>
-<a href=#686 id=686 data-nosnippet>686</a><span class="kw">impl</span>&lt;C&gt; frame_system::offchain::CreateTransactionBase&lt;C&gt; <span class="kw">for </span>Runtime
-<a href=#687 id=687 data-nosnippet>687</a><span class="kw">where
-<a href=#688 id=688 data-nosnippet>688</a>	</span>RuntimeCall: From&lt;C&gt;,
-<a href=#689 id=689 data-nosnippet>689</a>{
-<a href=#690 id=690 data-nosnippet>690</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-<a href=#691 id=691 data-nosnippet>691</a>	<span class="kw">type </span>Extrinsic = UncheckedExtrinsic;
-<a href=#692 id=692 data-nosnippet>692</a>}
-<a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a><span class="kw">impl</span>&lt;LocalCall&gt; frame_system::offchain::CreateTransaction&lt;LocalCall&gt; <span class="kw">for </span>Runtime
-<a href=#695 id=695 data-nosnippet>695</a><span class="kw">where
-<a href=#696 id=696 data-nosnippet>696</a>	</span>RuntimeCall: From&lt;LocalCall&gt;,
-<a href=#697 id=697 data-nosnippet>697</a>{
-<a href=#698 id=698 data-nosnippet>698</a>	<span class="kw">type </span>Extension = TxExtension;
-<a href=#699 id=699 data-nosnippet>699</a>
-<a href=#700 id=700 data-nosnippet>700</a>	<span class="kw">fn </span>create_transaction(call: RuntimeCall, extension: TxExtension) -&gt; UncheckedExtrinsic {
-<a href=#701 id=701 data-nosnippet>701</a>		UncheckedExtrinsic::new_transaction(call, extension)
-<a href=#702 id=702 data-nosnippet>702</a>	}
-<a href=#703 id=703 data-nosnippet>703</a>}
-<a href=#704 id=704 data-nosnippet>704</a>
-<a href=#705 id=705 data-nosnippet>705</a><span class="doccomment">/// Submits a transaction with the node's public and signature type. Adheres to the signed extension
-<a href=#706 id=706 data-nosnippet>706</a>/// format of the chain.
-<a href=#707 id=707 data-nosnippet>707</a></span><span class="kw">impl</span>&lt;LocalCall&gt; frame_system::offchain::CreateSignedTransaction&lt;LocalCall&gt; <span class="kw">for </span>Runtime
-<a href=#708 id=708 data-nosnippet>708</a><span class="kw">where
-<a href=#709 id=709 data-nosnippet>709</a>	</span>RuntimeCall: From&lt;LocalCall&gt;,
-<a href=#710 id=710 data-nosnippet>710</a>{
-<a href=#711 id=711 data-nosnippet>711</a>	<span class="kw">fn </span>create_signed_transaction&lt;
-<a href=#712 id=712 data-nosnippet>712</a>		C: frame_system::offchain::AppCrypto&lt;<span class="self">Self</span>::Public, <span class="self">Self</span>::Signature&gt;,
-<a href=#713 id=713 data-nosnippet>713</a>	&gt;(
-<a href=#714 id=714 data-nosnippet>714</a>		call: RuntimeCall,
-<a href=#715 id=715 data-nosnippet>715</a>		public: &lt;Signature <span class="kw">as </span>Verify&gt;::Signer,
-<a href=#716 id=716 data-nosnippet>716</a>		account: AccountId,
-<a href=#717 id=717 data-nosnippet>717</a>		nonce: &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Nonce,
-<a href=#718 id=718 data-nosnippet>718</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;UncheckedExtrinsic&gt; {
-<a href=#719 id=719 data-nosnippet>719</a>		<span class="kw">use </span>sp_runtime::traits::StaticLookup;
-<a href=#720 id=720 data-nosnippet>720</a>		<span class="comment">// take the biggest period possible.
-<a href=#721 id=721 data-nosnippet>721</a>		</span><span class="kw">let </span>period =
-<a href=#722 id=722 data-nosnippet>722</a>			BlockHashCount::get().checked_next_power_of_two().map(|c| c / <span class="number">2</span>).unwrap_or(<span class="number">2</span>) <span class="kw">as </span>u64;
-<a href=#723 id=723 data-nosnippet>723</a>
-<a href=#724 id=724 data-nosnippet>724</a>		<span class="kw">let </span>current_block = System::block_number()
-<a href=#725 id=725 data-nosnippet>725</a>			.saturated_into::&lt;u64&gt;()
-<a href=#726 id=726 data-nosnippet>726</a>			<span class="comment">// The `System::block_number` is initialized with `n+1`,
-<a href=#727 id=727 data-nosnippet>727</a>			// so the actual block number is `n`.
-<a href=#728 id=728 data-nosnippet>728</a>			</span>.saturating_sub(<span class="number">1</span>);
-<a href=#729 id=729 data-nosnippet>729</a>		<span class="kw">let </span>tip = <span class="number">0</span>;
-<a href=#730 id=730 data-nosnippet>730</a>		<span class="kw">let </span>tx_ext = TxExtension::from((
-<a href=#731 id=731 data-nosnippet>731</a>			frame_system::CheckNonZeroSender::&lt;Runtime&gt;::new(),
-<a href=#732 id=732 data-nosnippet>732</a>			frame_system::CheckSpecVersion::&lt;Runtime&gt;::new(),
-<a href=#733 id=733 data-nosnippet>733</a>			frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
-<a href=#734 id=734 data-nosnippet>734</a>			frame_system::CheckGenesis::&lt;Runtime&gt;::new(),
-<a href=#735 id=735 data-nosnippet>735</a>			frame_system::CheckEra::&lt;Runtime&gt;::from(generic::Era::mortal(period, current_block)),
-<a href=#736 id=736 data-nosnippet>736</a>			frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
-<a href=#737 id=737 data-nosnippet>737</a>			frame_system::CheckWeight::&lt;Runtime&gt;::new(),
-<a href=#738 id=738 data-nosnippet>738</a>			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::&lt;Runtime&gt;::from(tip, <span class="prelude-val">None</span>),
-<a href=#739 id=739 data-nosnippet>739</a>			frame_metadata_hash_extension::CheckMetadataHash::&lt;Runtime&gt;::new(<span class="bool-val">true</span>),
-<a href=#740 id=740 data-nosnippet>740</a>		));
-<a href=#741 id=741 data-nosnippet>741</a>		<span class="kw">let </span>raw_payload = SignedPayload::new(call, tx_ext)
-<a href=#742 id=742 data-nosnippet>742</a>			.map_err(|e| {
-<a href=#743 id=743 data-nosnippet>743</a>				<span class="macro">log::warn!</span>(<span class="string">"Unable to create signed payload: {:?}"</span>, e);
-<a href=#744 id=744 data-nosnippet>744</a>			})
-<a href=#745 id=745 data-nosnippet>745</a>			.ok()<span class="question-mark">?</span>;
-<a href=#746 id=746 data-nosnippet>746</a>		<span class="kw">let </span>signature = raw_payload.using_encoded(|payload| C::sign(payload, public))<span class="question-mark">?</span>;
-<a href=#747 id=747 data-nosnippet>747</a>		<span class="kw">let </span>(call, tx_ext, <span class="kw">_</span>) = raw_payload.deconstruct();
-<a href=#748 id=748 data-nosnippet>748</a>		<span class="kw">let </span>address = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup::unlookup(account);
-<a href=#749 id=749 data-nosnippet>749</a>		<span class="kw">let </span>transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
-<a href=#750 id=750 data-nosnippet>750</a>		<span class="prelude-val">Some</span>(transaction)
-<a href=#751 id=751 data-nosnippet>751</a>	}
-<a href=#752 id=752 data-nosnippet>752</a>}
-<a href=#753 id=753 data-nosnippet>753</a>
-<a href=#754 id=754 data-nosnippet>754</a><span class="kw">impl</span>&lt;LocalCall&gt; frame_system::offchain::CreateInherent&lt;LocalCall&gt; <span class="kw">for </span>Runtime
-<a href=#755 id=755 data-nosnippet>755</a><span class="kw">where
-<a href=#756 id=756 data-nosnippet>756</a>	</span>RuntimeCall: From&lt;LocalCall&gt;,
-<a href=#757 id=757 data-nosnippet>757</a>{
-<a href=#758 id=758 data-nosnippet>758</a>	<span class="kw">fn </span>create_bare(call: RuntimeCall) -&gt; UncheckedExtrinsic {
-<a href=#759 id=759 data-nosnippet>759</a>		UncheckedExtrinsic::new_bare(call)
-<a href=#760 id=760 data-nosnippet>760</a>	}
-<a href=#761 id=761 data-nosnippet>761</a>}
-<a href=#762 id=762 data-nosnippet>762</a>
-<a href=#763 id=763 data-nosnippet>763</a><span class="attr">#[cfg(test)]
-<a href=#764 id=764 data-nosnippet>764</a></span><span class="kw">mod </span>tests {
-<a href=#765 id=765 data-nosnippet>765</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#766 id=766 data-nosnippet>766</a>	<span class="kw">use </span>frame_election_provider_support::ElectionProvider;
-<a href=#767 id=767 data-nosnippet>767</a>	<span class="kw">use </span>frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
-<a href=#768 id=768 data-nosnippet>768</a>	<span class="kw">use </span>pallet_election_provider_multi_block::{
-<a href=#769 id=769 data-nosnippet>769</a>		<span class="self">self </span><span class="kw">as </span>mb, signed::WeightInfo <span class="kw">as _</span>, unsigned::WeightInfo <span class="kw">as _</span>,
-<a href=#770 id=770 data-nosnippet>770</a>	};
-<a href=#771 id=771 data-nosnippet>771</a>	<span class="kw">use </span>remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
-<a href=#772 id=772 data-nosnippet>772</a>	<span class="kw">use </span>std::env::var;
-<a href=#773 id=773 data-nosnippet>773</a>
-<a href=#774 id=774 data-nosnippet>774</a>	<span class="kw">fn </span>weight_diff(block: Weight, op: Weight) {
-<a href=#775 id=775 data-nosnippet>775</a>		<span class="macro">log::info!</span>(
-<a href=#776 id=776 data-nosnippet>776</a>			target: <span class="string">"runtime"</span>,
-<a href=#777 id=777 data-nosnippet>777</a>			<span class="string">"ref_time: {:?}ms {:.4} of total"</span>,
-<a href=#778 id=778 data-nosnippet>778</a>			op.ref_time() / WEIGHT_REF_TIME_PER_MILLIS,
-<a href=#779 id=779 data-nosnippet>779</a>			op.ref_time() <span class="kw">as </span>f64 / block.ref_time() <span class="kw">as </span>f64
-<a href=#780 id=780 data-nosnippet>780</a>		);
-<a href=#781 id=781 data-nosnippet>781</a>		<span class="macro">log::info!</span>(
-<a href=#782 id=782 data-nosnippet>782</a>			target: <span class="string">"runtime"</span>,
-<a href=#783 id=783 data-nosnippet>783</a>			<span class="string">"proof_size: {:?}kb {:.4} of total"</span>,
-<a href=#784 id=784 data-nosnippet>784</a>			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
-<a href=#785 id=785 data-nosnippet>785</a>			op.proof_size() <span class="kw">as </span>f64 / block.proof_size() <span class="kw">as </span>f64
-<a href=#786 id=786 data-nosnippet>786</a>		);
-<a href=#787 id=787 data-nosnippet>787</a>	}
-<a href=#788 id=788 data-nosnippet>788</a>
-<a href=#789 id=789 data-nosnippet>789</a>	<span class="attr">#[test]
-<a href=#790 id=790 data-nosnippet>790</a>	</span><span class="kw">fn </span>fake_dot_preset_snapshot_capacity_covers_max_electing_voters() {
-<a href=#791 id=791 data-nosnippet>791</a>		sp_io::TestExternalities::default().execute_with(|| {
-<a href=#792 id=792 data-nosnippet>792</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">false</span>);
-<a href=#793 id=793 data-nosnippet>793</a>			<span class="macro">assert!</span>(
-<a href=#794 id=794 data-nosnippet>794</a>				VoterSnapshotPerBlock::get() * Pages::get() &gt;= MaxElectingVoters::get(),
-<a href=#795 id=795 data-nosnippet>795</a>				<span class="string">"paged snapshot capacity {} &lt; MaxElectingVoters {}"</span>,
-<a href=#796 id=796 data-nosnippet>796</a>				VoterSnapshotPerBlock::get() * Pages::get(),
-<a href=#797 id=797 data-nosnippet>797</a>				MaxElectingVoters::get(),
-<a href=#798 id=798 data-nosnippet>798</a>			);
-<a href=#799 id=799 data-nosnippet>799</a>		});
-<a href=#800 id=800 data-nosnippet>800</a>	}
-<a href=#801 id=801 data-nosnippet>801</a>
-<a href=#802 id=802 data-nosnippet>802</a>	<span class="attr">#[test]
-<a href=#803 id=803 data-nosnippet>803</a>	</span><span class="kw">fn </span>fake_ksm_preset_snapshot_capacity_covers_max_electing_voters() {
-<a href=#804 id=804 data-nosnippet>804</a>		sp_io::TestExternalities::default().execute_with(|| {
-<a href=#805 id=805 data-nosnippet>805</a>			<span class="kw">super</span>::enable_ksm_preset(<span class="bool-val">false</span>);
-<a href=#806 id=806 data-nosnippet>806</a>			<span class="macro">assert!</span>(
-<a href=#807 id=807 data-nosnippet>807</a>				VoterSnapshotPerBlock::get() * Pages::get() &gt;= MaxElectingVoters::get(),
-<a href=#808 id=808 data-nosnippet>808</a>				<span class="string">"paged snapshot capacity {} &lt; MaxElectingVoters {}"</span>,
-<a href=#809 id=809 data-nosnippet>809</a>				VoterSnapshotPerBlock::get() * Pages::get(),
-<a href=#810 id=810 data-nosnippet>810</a>				MaxElectingVoters::get(),
-<a href=#811 id=811 data-nosnippet>811</a>			);
-<a href=#812 id=812 data-nosnippet>812</a>		});
-<a href=#813 id=813 data-nosnippet>813</a>	}
-<a href=#814 id=814 data-nosnippet>814</a>
-<a href=#815 id=815 data-nosnippet>815</a>	<span class="attr">#[test]
-<a href=#816 id=816 data-nosnippet>816</a>	</span><span class="kw">fn </span>ensure_epmb_weights_sane_polkadot() {
-<a href=#817 id=817 data-nosnippet>817</a>		<span class="kw">use </span>sp_io::TestExternalities;
-<a href=#818 id=818 data-nosnippet>818</a>		<span class="kw">use </span>sp_runtime::Percent;
-<a href=#819 id=819 data-nosnippet>819</a>		sp_tracing::try_init_simple();
-<a href=#820 id=820 data-nosnippet>820</a>		TestExternalities::default().execute_with(|| {
-<a href=#821 id=821 data-nosnippet>821</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">false</span>);
-<a href=#822 id=822 data-nosnippet>822</a>			pallet_election_provider_multi_block::Pallet::&lt;Runtime&gt;::check_all_weights(
-<a href=#823 id=823 data-nosnippet>823</a>				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block,
-<a href=#824 id=824 data-nosnippet>824</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">75</span>)),
-<a href=#825 id=825 data-nosnippet>825</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">50</span>)),
-<a href=#826 id=826 data-nosnippet>826</a>			)
-<a href=#827 id=827 data-nosnippet>827</a>		});
-<a href=#828 id=828 data-nosnippet>828</a>	}
-<a href=#829 id=829 data-nosnippet>829</a>
-<a href=#830 id=830 data-nosnippet>830</a>	<span class="attr">#[test]
-<a href=#831 id=831 data-nosnippet>831</a>	</span><span class="kw">fn </span>ensure_epmb_weights_sane_kusama() {
-<a href=#832 id=832 data-nosnippet>832</a>		<span class="kw">use </span>sp_io::TestExternalities;
-<a href=#833 id=833 data-nosnippet>833</a>		<span class="kw">use </span>sp_runtime::Percent;
-<a href=#834 id=834 data-nosnippet>834</a>		sp_tracing::try_init_simple();
-<a href=#835 id=835 data-nosnippet>835</a>		TestExternalities::default().execute_with(|| {
-<a href=#836 id=836 data-nosnippet>836</a>			<span class="kw">super</span>::enable_ksm_preset(<span class="bool-val">false</span>);
-<a href=#837 id=837 data-nosnippet>837</a>			pallet_election_provider_multi_block::Pallet::&lt;Runtime&gt;::check_all_weights(
-<a href=#838 id=838 data-nosnippet>838</a>				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block,
-<a href=#839 id=839 data-nosnippet>839</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">75</span>)),
-<a href=#840 id=840 data-nosnippet>840</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">50</span>)),
-<a href=#841 id=841 data-nosnippet>841</a>			)
-<a href=#842 id=842 data-nosnippet>842</a>		});
-<a href=#843 id=843 data-nosnippet>843</a>	}
-<a href=#844 id=844 data-nosnippet>844</a>
-<a href=#845 id=845 data-nosnippet>845</a>	<span class="attr">#[test]
-<a href=#846 id=846 data-nosnippet>846</a>	</span><span class="kw">fn </span>signed_weight_ratios() {
-<a href=#847 id=847 data-nosnippet>847</a>		sp_tracing::try_init_simple();
-<a href=#848 id=848 data-nosnippet>848</a>		<span class="kw">let </span>block_weight = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block;
-<a href=#849 id=849 data-nosnippet>849</a>		<span class="kw">let </span>polkadot_signed_submission =
-<a href=#850 id=850 data-nosnippet>850</a>			mb::weights::polkadot::MultiBlockSignedWeightInfo::&lt;Runtime&gt;::submit_page();
-<a href=#851 id=851 data-nosnippet>851</a>		<span class="kw">let </span>kusama_signed_submission =
-<a href=#852 id=852 data-nosnippet>852</a>			mb::weights::kusama::MultiBlockSignedWeightInfo::&lt;Runtime&gt;::submit_page();
-<a href=#853 id=853 data-nosnippet>853</a>
-<a href=#854 id=854 data-nosnippet>854</a>		<span class="macro">log::info!</span>(target: <span class="string">"runtime"</span>, <span class="string">"Polkadot:"</span>);
-<a href=#855 id=855 data-nosnippet>855</a>		weight_diff(block_weight, polkadot_signed_submission);
-<a href=#856 id=856 data-nosnippet>856</a>		<span class="macro">log::info!</span>(target: <span class="string">"runtime"</span>, <span class="string">"Kusama:"</span>);
-<a href=#857 id=857 data-nosnippet>857</a>		weight_diff(block_weight, kusama_signed_submission);
-<a href=#858 id=858 data-nosnippet>858</a>	}
-<a href=#859 id=859 data-nosnippet>859</a>
-<a href=#860 id=860 data-nosnippet>860</a>	<span class="attr">#[test]
-<a href=#861 id=861 data-nosnippet>861</a>	</span><span class="kw">fn </span>election_duration() {
-<a href=#862 id=862 data-nosnippet>862</a>		sp_tracing::try_init_simple();
-<a href=#863 id=863 data-nosnippet>863</a>		sp_io::TestExternalities::default().execute_with(|| {
-<a href=#864 id=864 data-nosnippet>864</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">false</span>);
-<a href=#865 id=865 data-nosnippet>865</a>			<span class="kw">let </span>duration = mb::Pallet::&lt;Runtime&gt;::average_election_duration();
-<a href=#866 id=866 data-nosnippet>866</a>			<span class="kw">let </span>polkadot_session = <span class="number">6 </span>* HOURS;
-<a href=#867 id=867 data-nosnippet>867</a>			<span class="macro">log::info!</span>(
-<a href=#868 id=868 data-nosnippet>868</a>				target: <span class="string">"runtime"</span>,
-<a href=#869 id=869 data-nosnippet>869</a>				<span class="string">"Polkadot election duration: {:?}, session: {:?} ({} sessions)"</span>,
-<a href=#870 id=870 data-nosnippet>870</a>				duration,
-<a href=#871 id=871 data-nosnippet>871</a>				polkadot_session,
-<a href=#872 id=872 data-nosnippet>872</a>				duration / polkadot_session
-<a href=#873 id=873 data-nosnippet>873</a>			);
-<a href=#874 id=874 data-nosnippet>874</a>		});
-<a href=#875 id=875 data-nosnippet>875</a>
-<a href=#876 id=876 data-nosnippet>876</a>		sp_io::TestExternalities::default().execute_with(|| {
-<a href=#877 id=877 data-nosnippet>877</a>			<span class="kw">super</span>::enable_ksm_preset(<span class="bool-val">false</span>);
-<a href=#878 id=878 data-nosnippet>878</a>			<span class="kw">let </span>duration = mb::Pallet::&lt;Runtime&gt;::average_election_duration();
-<a href=#879 id=879 data-nosnippet>879</a>			<span class="kw">let </span>kusama_session = <span class="number">1 </span>* HOURS;
-<a href=#880 id=880 data-nosnippet>880</a>			<span class="macro">log::info!</span>(
-<a href=#881 id=881 data-nosnippet>881</a>				target: <span class="string">"runtime"</span>,
-<a href=#882 id=882 data-nosnippet>882</a>				<span class="string">"Kusama election duration: {:?}, session: {:?} ({} sessions)"</span>,
-<a href=#883 id=883 data-nosnippet>883</a>				duration,
-<a href=#884 id=884 data-nosnippet>884</a>				kusama_session,
-<a href=#885 id=885 data-nosnippet>885</a>				duration / kusama_session
-<a href=#886 id=886 data-nosnippet>886</a>			);
-<a href=#887 id=887 data-nosnippet>887</a>		});
-<a href=#888 id=888 data-nosnippet>888</a>	}
-<a href=#889 id=889 data-nosnippet>889</a>
-<a href=#890 id=890 data-nosnippet>890</a>	<span class="attr">#[test]
-<a href=#891 id=891 data-nosnippet>891</a>	</span><span class="kw">fn </span>max_ocw_miner_pages_as_per_weights() {
-<a href=#892 id=892 data-nosnippet>892</a>		sp_tracing::try_init_simple();
-<a href=#893 id=893 data-nosnippet>893</a>		<span class="kw">for </span>p <span class="kw">in </span><span class="number">1</span>..=<span class="number">32 </span>{
-<a href=#894 id=894 data-nosnippet>894</a>			<span class="macro">log::info!</span>(
-<a href=#895 id=895 data-nosnippet>895</a>				target: <span class="string">"runtime"</span>,
-<a href=#896 id=896 data-nosnippet>896</a>				<span class="string">"exec_time of polkadot miner in WASM with {} pages is {:?}ms"</span>,
-<a href=#897 id=897 data-nosnippet>897</a>				p,
-<a href=#898 id=898 data-nosnippet>898</a>				mb::weights::polkadot::MultiBlockUnsignedWeightInfo::&lt;Runtime&gt;::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
-<a href=#899 id=899 data-nosnippet>899</a>			);
-<a href=#900 id=900 data-nosnippet>900</a>		}
-<a href=#901 id=901 data-nosnippet>901</a>		<span class="kw">for </span>p <span class="kw">in </span><span class="number">1</span>..=<span class="number">16 </span>{
-<a href=#902 id=902 data-nosnippet>902</a>			<span class="macro">log::info!</span>(
-<a href=#903 id=903 data-nosnippet>903</a>				target: <span class="string">"runtime"</span>,
-<a href=#904 id=904 data-nosnippet>904</a>				<span class="string">"exec_time of kusama miner in WASM with {} pages is {:?}ms"</span>,
-<a href=#905 id=905 data-nosnippet>905</a>				p,
-<a href=#906 id=906 data-nosnippet>906</a>				mb::weights::kusama::MultiBlockUnsignedWeightInfo::&lt;Runtime&gt;::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
-<a href=#907 id=907 data-nosnippet>907</a>			);
-<a href=#908 id=908 data-nosnippet>908</a>		}
-<a href=#909 id=909 data-nosnippet>909</a>	}
-<a href=#910 id=910 data-nosnippet>910</a>
-<a href=#911 id=911 data-nosnippet>911</a>	<span class="doccomment">/// Run it like:
-<a href=#912 id=912 data-nosnippet>912</a>	///
-<a href=#913 id=913 data-nosnippet>913</a>	/// ```text
-<a href=#914 id=914 data-nosnippet>914</a>	/// RUST_BACKTRACE=full \
-<a href=#915 id=915 data-nosnippet>915</a>	/// 	RUST_LOG=remote-ext=info,runtime::staking-async=debug \
-<a href=#916 id=916 data-nosnippet>916</a>	/// 	REMOTE_TESTS=1 \
-<a href=#917 id=917 data-nosnippet>917</a>	/// 	WS=ws://127.0.0.1:9999 \
-<a href=#918 id=918 data-nosnippet>918</a>	/// 	cargo test --release -p pallet-staking-async-parachain-runtime \
-<a href=#919 id=919 data-nosnippet>919</a>	/// 	--features try-runtime run_try
-<a href=#920 id=920 data-nosnippet>920</a>	/// ```
-<a href=#921 id=921 data-nosnippet>921</a>	///
-<a href=#922 id=922 data-nosnippet>922</a>	/// Just replace the node with your local node.
-<a href=#923 id=923 data-nosnippet>923</a>	///
-<a href=#924 id=924 data-nosnippet>924</a>	/// Pass `SNAP=polkadot` or similar to store and reuse a snapshot.
-<a href=#925 id=925 data-nosnippet>925</a>	</span><span class="attr">#[tokio::test]
-<a href=#926 id=926 data-nosnippet>926</a>	</span><span class="kw">async fn </span>run_election_with_pages() {
-<a href=#927 id=927 data-nosnippet>927</a>		<span class="kw">if </span>var(<span class="string">"REMOTE_TESTS"</span>).is_err() {
-<a href=#928 id=928 data-nosnippet>928</a>			<span class="kw">return</span>;
-<a href=#929 id=929 data-nosnippet>929</a>		}
-<a href=#930 id=930 data-nosnippet>930</a>		sp_tracing::try_init_simple();
-<a href=#931 id=931 data-nosnippet>931</a>
-<a href=#932 id=932 data-nosnippet>932</a>		<span class="kw">let </span>transport_uri = var(<span class="string">"WS"</span>).unwrap_or(<span class="string">"wss://westend-rpc.polkadot.io:443"</span>.to_string());
-<a href=#933 id=933 data-nosnippet>933</a>		<span class="kw">let </span>maybe_state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt; = var(<span class="string">"SNAP"</span>).map(|s| s.into()).ok();
-<a href=#934 id=934 data-nosnippet>934</a>
-<a href=#935 id=935 data-nosnippet>935</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::default()
-<a href=#936 id=936 data-nosnippet>936</a>			.mode(<span class="kw">if let </span><span class="prelude-val">Some</span>(state_snapshot) = maybe_state_snapshot {
-<a href=#937 id=937 data-nosnippet>937</a>				Mode::OfflineOrElseOnline(
-<a href=#938 id=938 data-nosnippet>938</a>					OfflineConfig { state_snapshot: state_snapshot.clone() },
-<a href=#939 id=939 data-nosnippet>939</a>					OnlineConfig {
-<a href=#940 id=940 data-nosnippet>940</a>						transport_uris: <span class="macro">vec!</span>[transport_uri.clone()],
-<a href=#941 id=941 data-nosnippet>941</a>						hashed_prefixes: <span class="macro">vec!</span>[<span class="macro">vec!</span>[]],
-<a href=#942 id=942 data-nosnippet>942</a>						state_snapshot: <span class="prelude-val">Some</span>(state_snapshot),
-<a href=#943 id=943 data-nosnippet>943</a>						..Default::default()
-<a href=#944 id=944 data-nosnippet>944</a>					},
-<a href=#945 id=945 data-nosnippet>945</a>				)
-<a href=#946 id=946 data-nosnippet>946</a>			} <span class="kw">else </span>{
-<a href=#947 id=947 data-nosnippet>947</a>				Mode::Online(OnlineConfig {
-<a href=#948 id=948 data-nosnippet>948</a>					hashed_prefixes: <span class="macro">vec!</span>[<span class="macro">vec!</span>[]],
-<a href=#949 id=949 data-nosnippet>949</a>					transport_uris: <span class="macro">vec!</span>[transport_uri],
-<a href=#950 id=950 data-nosnippet>950</a>					..Default::default()
-<a href=#951 id=951 data-nosnippet>951</a>				})
-<a href=#952 id=952 data-nosnippet>952</a>			})
-<a href=#953 id=953 data-nosnippet>953</a>			.build()
-<a href=#954 id=954 data-nosnippet>954</a>			.<span class="kw">await
-<a href=#955 id=955 data-nosnippet>955</a>			</span>.unwrap();
-<a href=#956 id=956 data-nosnippet>956</a>		ext.execute_with(|| {
-<a href=#957 id=957 data-nosnippet>957</a>			sp_core::crypto::set_default_ss58_version(<span class="number">1u8</span>.into());
-<a href=#958 id=958 data-nosnippet>958</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">true</span>);
-<a href=#959 id=959 data-nosnippet>959</a>
-<a href=#960 id=960 data-nosnippet>960</a>			<span class="comment">// prepare all snapshot in EPMB pallet.
-<a href=#961 id=961 data-nosnippet>961</a>			</span>mb::Pallet::&lt;Runtime&gt;::asap();
-<a href=#962 id=962 data-nosnippet>962</a>			<span class="kw">for </span>page <span class="kw">in </span><span class="number">1</span>..=<span class="number">32 </span>{
-<a href=#963 id=963 data-nosnippet>963</a>				mb::unsigned::miner::OffchainWorkerMiner::&lt;Runtime&gt;::mine_solution(page, <span class="bool-val">true</span>)
-<a href=#964 id=964 data-nosnippet>964</a>					.inspect(|p| <span class="macro">log::info!</span>(target: <span class="string">"runtime"</span>, <span class="string">"{:?}"</span>, p.score.pretty(<span class="string">"DOT"</span>, <span class="number">10</span>)))
-<a href=#965 id=965 data-nosnippet>965</a>					.unwrap();
-<a href=#966 id=966 data-nosnippet>966</a>			}
-<a href=#967 id=967 data-nosnippet>967</a>		});
-<a href=#968 id=968 data-nosnippet>968</a>	}
-<a href=#969 id=969 data-nosnippet>969</a>}
+<a href=#318 id=318 data-nosnippet>318</a>	<span class="kw">type </span>MaxFeeRefund = multi_block::signed::FullSubmissionFee&lt;Runtime, TransactionPayment&gt;;
+<a href=#319 id=319 data-nosnippet>319</a>	<span class="kw">type </span>MaxSubmissions = MaxSubmissions;
+<a href=#320 id=320 data-nosnippet>320</a>	<span class="kw">type </span>EstimateCallFee = TransactionPayment;
+<a href=#321 id=321 data-nosnippet>321</a>	<span class="kw">type </span>WeightInfo = multi_block::weights::polkadot::MultiBlockSignedWeightInfo&lt;<span class="self">Self</span>&gt;;
+<a href=#322 id=322 data-nosnippet>322</a>}
+<a href=#323 id=323 data-nosnippet>323</a>
+<a href=#324 id=324 data-nosnippet>324</a><span class="macro">parameter_types!</span> {
+<a href=#325 id=325 data-nosnippet>325</a>	<span class="doccomment">/// Priority of the offchain miner transactions.
+<a href=#326 id=326 data-nosnippet>326</a>	</span><span class="kw">pub </span>MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / <span class="number">2</span>;
+<a href=#327 id=327 data-nosnippet>327</a>}
+<a href=#328 id=328 data-nosnippet>328</a>
+<a href=#329 id=329 data-nosnippet>329</a><span class="kw">pub struct </span>Balancing;
+<a href=#330 id=330 data-nosnippet>330</a><span class="kw">impl </span>Get&lt;<span class="prelude-ty">Option</span>&lt;BalancingConfig&gt;&gt; <span class="kw">for </span>Balancing {
+<a href=#331 id=331 data-nosnippet>331</a>	<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Option</span>&lt;BalancingConfig&gt; {
+<a href=#332 id=332 data-nosnippet>332</a>		<span class="prelude-val">Some</span>(BalancingConfig { iterations: <span class="number">10</span>, tolerance: <span class="number">0 </span>})
+<a href=#333 id=333 data-nosnippet>333</a>	}
+<a href=#334 id=334 data-nosnippet>334</a>}
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a><span class="kw">impl </span>multi_block::unsigned::Config <span class="kw">for </span>Runtime {
+<a href=#337 id=337 data-nosnippet>337</a>	<span class="kw">type </span>MinerPages = MinerPages;
+<a href=#338 id=338 data-nosnippet>338</a>	<span class="kw">type </span>OffchainSolver = SequentialPhragmen&lt;AccountId, SolutionAccuracyOf&lt;Runtime&gt;, Balancing&gt;;
+<a href=#339 id=339 data-nosnippet>339</a>	<span class="kw">type </span>MinerTxPriority = MinerTxPriority;
+<a href=#340 id=340 data-nosnippet>340</a>	<span class="kw">type </span>OffchainRepeat = OffchainRepeat;
+<a href=#341 id=341 data-nosnippet>341</a>	<span class="kw">type </span>OffchainStorage = ConstBool&lt;<span class="bool-val">true</span>&gt;;
+<a href=#342 id=342 data-nosnippet>342</a>	<span class="kw">type </span>WeightInfo = multi_block::weights::polkadot::MultiBlockUnsignedWeightInfo&lt;<span class="self">Self</span>&gt;;
+<a href=#343 id=343 data-nosnippet>343</a>}
+<a href=#344 id=344 data-nosnippet>344</a>
+<a href=#345 id=345 data-nosnippet>345</a><span class="macro">parameter_types!</span> {
+<a href=#346 id=346 data-nosnippet>346</a>	<span class="doccomment">/// Miner transaction can fill up to 75% of the block size.
+<a href=#347 id=347 data-nosnippet>347</a>	</span><span class="kw">pub </span>MinerMaxLength: u32 = Perbill::from_rational(<span class="number">75u32</span>, <span class="number">100</span>) *
+<a href=#348 id=348 data-nosnippet>348</a>		<span class="kw-2">*</span>RuntimeBlockLength::get()
+<a href=#349 id=349 data-nosnippet>349</a>		.max
+<a href=#350 id=350 data-nosnippet>350</a>		.get(DispatchClass::Normal);
+<a href=#351 id=351 data-nosnippet>351</a>}
+<a href=#352 id=352 data-nosnippet>352</a>
+<a href=#353 id=353 data-nosnippet>353</a><span class="kw">impl </span>multi_block::unsigned::miner::MinerConfig <span class="kw">for </span>Runtime {
+<a href=#354 id=354 data-nosnippet>354</a>	<span class="kw">type </span>AccountId = AccountId;
+<a href=#355 id=355 data-nosnippet>355</a>	<span class="kw">type </span>Hash = Hash;
+<a href=#356 id=356 data-nosnippet>356</a>	<span class="kw">type </span>MaxBackersPerWinner = &lt;<span class="self">Self </span><span class="kw">as </span>multi_block::verifier::Config&gt;::MaxBackersPerWinner;
+<a href=#357 id=357 data-nosnippet>357</a>	<span class="kw">type </span>MaxBackersPerWinnerFinal =
+<a href=#358 id=358 data-nosnippet>358</a>		&lt;<span class="self">Self </span><span class="kw">as </span>multi_block::verifier::Config&gt;::MaxBackersPerWinnerFinal;
+<a href=#359 id=359 data-nosnippet>359</a>	<span class="kw">type </span>MaxWinnersPerPage = &lt;<span class="self">Self </span><span class="kw">as </span>multi_block::verifier::Config&gt;::MaxWinnersPerPage;
+<a href=#360 id=360 data-nosnippet>360</a>	<span class="kw">type </span>MaxVotesPerVoter =
+<a href=#361 id=361 data-nosnippet>361</a>		&lt;&lt;<span class="self">Self </span><span class="kw">as </span>multi_block::Config&gt;::DataProvider <span class="kw">as </span>ElectionDataProvider&gt;::MaxVotesPerVoter;
+<a href=#362 id=362 data-nosnippet>362</a>	<span class="kw">type </span>MaxLength = MinerMaxLength;
+<a href=#363 id=363 data-nosnippet>363</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#364 id=364 data-nosnippet>364</a>	</span><span class="kw">type </span>Solver = frame_election_provider_support::QuickDirtySolver&lt;AccountId, Perbill&gt;;
+<a href=#365 id=365 data-nosnippet>365</a>	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
+<a href=#366 id=366 data-nosnippet>366</a>	</span><span class="kw">type </span>Solver = &lt;Runtime <span class="kw">as </span>multi_block::unsigned::Config&gt;::OffchainSolver;
+<a href=#367 id=367 data-nosnippet>367</a>	<span class="kw">type </span>Pages = Pages;
+<a href=#368 id=368 data-nosnippet>368</a>	<span class="kw">type </span>Solution = NposCompactSolution16;
+<a href=#369 id=369 data-nosnippet>369</a>	<span class="kw">type </span>VoterSnapshotPerBlock = &lt;Runtime <span class="kw">as </span>multi_block::Config&gt;::VoterSnapshotPerBlock;
+<a href=#370 id=370 data-nosnippet>370</a>	<span class="kw">type </span>TargetSnapshotPerBlock = &lt;Runtime <span class="kw">as </span>multi_block::Config&gt;::TargetSnapshotPerBlock;
+<a href=#371 id=371 data-nosnippet>371</a>}
+<a href=#372 id=372 data-nosnippet>372</a>
+<a href=#373 id=373 data-nosnippet>373</a><span class="macro">parameter_types!</span> {
+<a href=#374 id=374 data-nosnippet>374</a>	<span class="kw">pub const </span>BagThresholds: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u64] = <span class="kw-2">&amp;</span>bag_thresholds::THRESHOLDS;
+<a href=#375 id=375 data-nosnippet>375</a>}
+<a href=#376 id=376 data-nosnippet>376</a>
+<a href=#377 id=377 data-nosnippet>377</a><span class="kw">type </span>VoterBagsListInstance = pallet_bags_list::Instance1;
+<a href=#378 id=378 data-nosnippet>378</a><span class="kw">impl </span>pallet_bags_list::Config&lt;VoterBagsListInstance&gt; <span class="kw">for </span>Runtime {
+<a href=#379 id=379 data-nosnippet>379</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#380 id=380 data-nosnippet>380</a>	<span class="kw">type </span>ScoreProvider = Staking;
+<a href=#381 id=381 data-nosnippet>381</a>	<span class="kw">type </span>WeightInfo = weights::pallet_bags_list::WeightInfo&lt;Runtime&gt;;
+<a href=#382 id=382 data-nosnippet>382</a>	<span class="kw">type </span>BagThresholds = BagThresholds;
+<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">type </span>Score = sp_npos_elections::VoteWeight;
+<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">type </span>MaxAutoRebagPerBlock = ();
+<a href=#385 id=385 data-nosnippet>385</a>}
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a><span class="macro">parameter_types!</span> {
+<a href=#388 id=388 data-nosnippet>388</a>	<span class="kw">pub const </span>StakingPotsPalletId: frame_support::PalletId = frame_support::PalletId(<span class="kw-2">*</span><span class="string">b"py/stkng"</span>);
+<a href=#389 id=389 data-nosnippet>389</a>}
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a><span class="doccomment">/// Polkadot inflation curve for DAP.
+<a href=#392 id=392 data-nosnippet>392</a>///
+<a href=#393 id=393 data-nosnippet>393</a>/// Same computation as the previous `EraPayout` but returns total emission
+<a href=#394 id=394 data-nosnippet>394</a>/// (the staker/treasury split is now handled by DAP budget allocation).
+<a href=#395 id=395 data-nosnippet>395</a></span><span class="kw">pub struct </span>PolkadotIssuanceCurve;
+<a href=#396 id=396 data-nosnippet>396</a><span class="kw">impl </span>sp_staking::budget::IssuanceCurve&lt;Balance&gt; <span class="kw">for </span>PolkadotIssuanceCurve {
+<a href=#397 id=397 data-nosnippet>397</a>	<span class="kw">fn </span>issue(_total_issuance: Balance, elapsed_millis: u64) -&gt; Balance {
+<a href=#398 id=398 data-nosnippet>398</a>		<span class="kw">const </span>MILLISECONDS_PER_YEAR: u64 = (<span class="number">1000 </span>* <span class="number">3600 </span>* <span class="number">24 </span>* <span class="number">36525</span>) / <span class="number">100</span>;
+<a href=#399 id=399 data-nosnippet>399</a>		<span class="kw">let </span>relative_period =
+<a href=#400 id=400 data-nosnippet>400</a>			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
+<a href=#401 id=401 data-nosnippet>401</a>
+<a href=#402 id=402 data-nosnippet>402</a>		<span class="kw">let </span>fixed_total_issuance: i128 = <span class="number">5_216_342_402_773_185_773</span>;
+<a href=#403 id=403 data-nosnippet>403</a>		<span class="kw">let </span>fixed_inflation_rate = FixedU128::from_rational(<span class="number">8</span>, <span class="number">100</span>);
+<a href=#404 id=404 data-nosnippet>404</a>		<span class="kw">let </span>yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>		<span class="kw">let </span>emission = relative_period.saturating_mul_int(yearly_emission);
+<a href=#407 id=407 data-nosnippet>407</a>		emission.saturated_into()
+<a href=#408 id=408 data-nosnippet>408</a>	}
+<a href=#409 id=409 data-nosnippet>409</a>}
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a><span class="macro">parameter_types!</span> {
+<a href=#412 id=412 data-nosnippet>412</a>	<span class="comment">// Six sessions in an era (6 hours).
+<a href=#413 id=413 data-nosnippet>413</a>	</span><span class="kw">pub const </span>SessionsPerEra: SessionIndex = <span class="macro">prod_or_fast!</span>(<span class="number">6</span>, <span class="number">1</span>);
+<a href=#414 id=414 data-nosnippet>414</a>	<span class="doccomment">/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
+<a href=#415 id=415 data-nosnippet>415</a>	</span><span class="kw">pub const </span>RelaySessionDuration: BlockNumber = <span class="number">10</span>;
+<a href=#416 id=416 data-nosnippet>416</a>	<span class="comment">// 2 eras for unbonding (12 hours).
+<a href=#417 id=417 data-nosnippet>417</a>	</span><span class="kw">pub const </span>BondingDuration: sp_staking::EraIndex = <span class="number">2</span>;
+<a href=#418 id=418 data-nosnippet>418</a>	<span class="comment">// 1 era in which slashes can be cancelled (6 hours).
+<a href=#419 id=419 data-nosnippet>419</a>	</span><span class="kw">pub const </span>SlashDeferDuration: sp_staking::EraIndex = <span class="number">1</span>;
+<a href=#420 id=420 data-nosnippet>420</a>	<span class="comment">// Nominators can unbond faster (2 eras) when not slashable.
+<a href=#421 id=421 data-nosnippet>421</a>	</span><span class="kw">pub const </span>NominatorFastUnbondDuration: sp_staking::EraIndex = <span class="number">2</span>;
+<a href=#422 id=422 data-nosnippet>422</a>	<span class="comment">// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
+<a href=#423 id=423 data-nosnippet>423</a>	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
+<a href=#424 id=424 data-nosnippet>424</a>	// of nominators.
+<a href=#425 id=425 data-nosnippet>425</a>	</span><span class="kw">pub const </span>MaxControllersInDeprecationBatch: u32 = <span class="number">751</span>;
+<a href=#426 id=426 data-nosnippet>426</a>	<span class="kw">pub const </span>MaxNominations: u32 = &lt;NposCompactSolution16 <span class="kw">as </span>frame_election_provider_support::NposSolution&gt;::LIMIT <span class="kw">as </span>u32;
+<a href=#427 id=427 data-nosnippet>427</a>	<span class="kw">pub const </span>MaxEraDuration: u64 = RelaySessionDuration::get() <span class="kw">as </span>u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS <span class="kw">as </span>u64 * SessionsPerEra::get() <span class="kw">as </span>u64;
+<a href=#428 id=428 data-nosnippet>428</a>	<span class="kw">pub </span>MaxPruningItems: u32 = <span class="number">100</span>;
+<a href=#429 id=429 data-nosnippet>429</a>}
+<a href=#430 id=430 data-nosnippet>430</a>
+<a href=#431 id=431 data-nosnippet>431</a><span class="kw">impl </span>pallet_staking_async::Config <span class="kw">for </span>Runtime {
+<a href=#432 id=432 data-nosnippet>432</a>	<span class="kw">type </span>Filter = ();
+<a href=#433 id=433 data-nosnippet>433</a>	<span class="kw">type </span>OldCurrency = Balances;
+<a href=#434 id=434 data-nosnippet>434</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#435 id=435 data-nosnippet>435</a>	<span class="kw">type </span>CurrencyBalance = Balance;
+<a href=#436 id=436 data-nosnippet>436</a>	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+<a href=#437 id=437 data-nosnippet>437</a>	<span class="kw">type </span>CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
+<a href=#438 id=438 data-nosnippet>438</a>	<span class="kw">type </span>RewardRemainder = ();
+<a href=#439 id=439 data-nosnippet>439</a>	<span class="kw">type </span>Slash = Dap;
+<a href=#440 id=440 data-nosnippet>440</a>	<span class="kw">type </span>Reward = ();
+<a href=#441 id=441 data-nosnippet>441</a>	<span class="kw">type </span>SessionsPerEra = SessionsPerEra;
+<a href=#442 id=442 data-nosnippet>442</a>	<span class="kw">type </span>BondingDuration = BondingDuration;
+<a href=#443 id=443 data-nosnippet>443</a>	<span class="kw">type </span>SlashDeferDuration = SlashDeferDuration;
+<a href=#444 id=444 data-nosnippet>444</a>	<span class="kw">type </span>NominatorFastUnbondDuration = NominatorFastUnbondDuration;
+<a href=#445 id=445 data-nosnippet>445</a>	<span class="kw">type </span>AdminOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, StakingAdmin&gt;;
+<a href=#446 id=446 data-nosnippet>446</a>	<span class="kw">type </span>EraPayout = ();
+<a href=#447 id=447 data-nosnippet>447</a>	<span class="kw">type </span>MaxExposurePageSize = MaxExposurePageSize;
+<a href=#448 id=448 data-nosnippet>448</a>	<span class="kw">type </span>ElectionProvider = MultiBlockElection;
+<a href=#449 id=449 data-nosnippet>449</a>	<span class="kw">type </span>VoterList = VoterList;
+<a href=#450 id=450 data-nosnippet>450</a>	<span class="kw">type </span>TargetList = UseValidatorsMap&lt;<span class="self">Self</span>&gt;;
+<a href=#451 id=451 data-nosnippet>451</a>	<span class="kw">type </span>MaxValidatorSet = MaxValidatorSet;
+<a href=#452 id=452 data-nosnippet>452</a>	<span class="kw">type </span>NominationsQuota = pallet_staking_async::FixedNominationsQuota&lt;{ MaxNominations::get() }&gt;;
+<a href=#453 id=453 data-nosnippet>453</a>	<span class="kw">type </span>MaxUnlockingChunks = frame_support::traits::ConstU32&lt;<span class="number">32</span>&gt;;
+<a href=#454 id=454 data-nosnippet>454</a>	<span class="kw">type </span>HistoryDepth = ConstU32&lt;<span class="number">1</span>&gt;;
+<a href=#455 id=455 data-nosnippet>455</a>	<span class="kw">type </span>MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+<a href=#456 id=456 data-nosnippet>456</a>	<span class="kw">type </span>EventListeners = (NominationPools, DelegatedStaking);
+<a href=#457 id=457 data-nosnippet>457</a>	<span class="kw">type </span>WeightInfo = pallet_staking_async::weights::SubstrateWeight&lt;Runtime&gt;;
+<a href=#458 id=458 data-nosnippet>458</a>	<span class="kw">type </span>MaxEraDuration = MaxEraDuration;
+<a href=#459 id=459 data-nosnippet>459</a>	<span class="kw">type </span>DisableMinting = ConstBool&lt;<span class="bool-val">true</span>&gt;;
+<a href=#460 id=460 data-nosnippet>460</a>	<span class="kw">type </span>UnclaimedRewardHandler = Dap;
+<a href=#461 id=461 data-nosnippet>461</a>	<span class="kw">type </span>RewardPots = pallet_staking_async::Seed&lt;StakingPotsPalletId&gt;;
+<a href=#462 id=462 data-nosnippet>462</a>	<span class="kw">type </span>StakerRewardCalculator =
+<a href=#463 id=463 data-nosnippet>463</a>		pallet_staking_async::reward::DefaultStakerRewardCalculator&lt;Runtime&gt;;
+<a href=#464 id=464 data-nosnippet>464</a>	<span class="kw">type </span>MaxPruningItems = MaxPruningItems;
+<a href=#465 id=465 data-nosnippet>465</a>	<span class="kw">type </span>PlanningEraOffset =
+<a href=#466 id=466 data-nosnippet>466</a>		pallet_staking_async::PlanningEraOffsetOf&lt;<span class="self">Self</span>, RelaySessionDuration, ConstU32&lt;<span class="number">10</span>&gt;&gt;;
+<a href=#467 id=467 data-nosnippet>467</a>	<span class="kw">type </span>RcClientInterface = StakingRcClient;
+<a href=#468 id=468 data-nosnippet>468</a>	<span class="kw">type </span>IsValidatorInactive = ();
+<a href=#469 id=469 data-nosnippet>469</a>}
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a><span class="comment">// Relay chain session keys matching Westend configuration.
+<a href=#472 id=472 data-nosnippet>472</a></span><span class="macro">sp_runtime::impl_opaque_keys!</span> {
+<a href=#473 id=473 data-nosnippet>473</a>	<span class="kw">pub struct </span>RelayChainSessionKeys {
+<a href=#474 id=474 data-nosnippet>474</a>		<span class="kw">pub </span>grandpa: sp_consensus_grandpa::AuthorityId,
+<a href=#475 id=475 data-nosnippet>475</a>		<span class="kw">pub </span>babe: sp_consensus_babe::AuthorityId,
+<a href=#476 id=476 data-nosnippet>476</a>		<span class="kw">pub </span>para_validator: polkadot_primitives::ValidatorId,
+<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw">pub </span>para_assignment: polkadot_primitives::AssignmentId,
+<a href=#478 id=478 data-nosnippet>478</a>		<span class="kw">pub </span>authority_discovery: sp_authority_discovery::AuthorityId,
+<a href=#479 id=479 data-nosnippet>479</a>		<span class="kw">pub </span>beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+<a href=#480 id=480 data-nosnippet>480</a>	}
+<a href=#481 id=481 data-nosnippet>481</a>}
+<a href=#482 id=482 data-nosnippet>482</a>
+<a href=#483 id=483 data-nosnippet>483</a><span class="comment">// Relay chain session keys type for rc-client.
+<a href=#484 id=484 data-nosnippet>484</a></span><span class="kw">impl </span>pallet_staking_async_rc_client::Config <span class="kw">for </span>Runtime {
+<a href=#485 id=485 data-nosnippet>485</a>	<span class="kw">type </span>RelayChainOrigin = EnsureRoot&lt;AccountId&gt;;
+<a href=#486 id=486 data-nosnippet>486</a>	<span class="kw">type </span>AHStakingInterface = Staking;
+<a href=#487 id=487 data-nosnippet>487</a>	<span class="kw">type </span>SendToRelayChain = StakingXcmToRelayChain;
+<a href=#488 id=488 data-nosnippet>488</a>	<span class="kw">type </span>MaxValidatorSetRetries = ConstU32&lt;<span class="number">5</span>&gt;;
+<a href=#489 id=489 data-nosnippet>489</a>	<span class="comment">// export validator session at end of session 4 within an era.
+<a href=#490 id=490 data-nosnippet>490</a>	</span><span class="kw">type </span>ValidatorSetExportSession = ConstU32&lt;<span class="number">4</span>&gt;;
+<a href=#491 id=491 data-nosnippet>491</a>	<span class="kw">type </span>RelayChainSessionKeys = RelayChainSessionKeys;
+<a href=#492 id=492 data-nosnippet>492</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#493 id=493 data-nosnippet>493</a>	<span class="kw">type </span>KeyDeposit = ConstU128&lt;{ <span class="number">10_000 </span>* UNITS }&gt;;
+<a href=#494 id=494 data-nosnippet>494</a>	<span class="kw">type </span>WeightInfo = ();
+<a href=#495 id=495 data-nosnippet>495</a>}
+<a href=#496 id=496 data-nosnippet>496</a>
+<a href=#497 id=497 data-nosnippet>497</a><span class="macro">parameter_types!</span> {
+<a href=#498 id=498 data-nosnippet>498</a>	<span class="kw">pub const </span>DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
+<a href=#499 id=499 data-nosnippet>499</a>	<span class="kw">pub const </span>DapIssuanceCadence: u64 = <span class="number">60_000</span>;
+<a href=#500 id=500 data-nosnippet>500</a>	<span class="kw">pub const </span>DapMaxElapsedPerDrip: u64 = <span class="number">600_000</span>;
+<a href=#501 id=501 data-nosnippet>501</a>}
+<a href=#502 id=502 data-nosnippet>502</a>
+<a href=#503 id=503 data-nosnippet>503</a><span class="kw">impl </span>pallet_dap::Config <span class="kw">for </span>Runtime {
+<a href=#504 id=504 data-nosnippet>504</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#505 id=505 data-nosnippet>505</a>	<span class="kw">type </span>PalletId = DapPalletId;
+<a href=#506 id=506 data-nosnippet>506</a>	<span class="kw">type </span>IssuanceCurve = PolkadotIssuanceCurve;
+<a href=#507 id=507 data-nosnippet>507</a>	<span class="kw">type </span>BudgetRecipients = (
+<a href=#508 id=508 data-nosnippet>508</a>		pallet_dap::Pallet&lt;Runtime&gt;,
+<a href=#509 id=509 data-nosnippet>509</a>		pallet_staking_async::StakerRewardRecipient&lt;
+<a href=#510 id=510 data-nosnippet>510</a>			pallet_staking_async::Seed&lt;StakingPotsPalletId&gt;,
+<a href=#511 id=511 data-nosnippet>511</a>		&gt;,
+<a href=#512 id=512 data-nosnippet>512</a>		pallet_staking_async::ValidatorIncentiveRecipient&lt;
+<a href=#513 id=513 data-nosnippet>513</a>			pallet_staking_async::Seed&lt;StakingPotsPalletId&gt;,
+<a href=#514 id=514 data-nosnippet>514</a>		&gt;,
+<a href=#515 id=515 data-nosnippet>515</a>	);
+<a href=#516 id=516 data-nosnippet>516</a>	<span class="kw">type </span>Time = pallet_timestamp::Pallet&lt;Runtime&gt;;
+<a href=#517 id=517 data-nosnippet>517</a>	<span class="kw">type </span>IssuanceCadence = DapIssuanceCadence;
+<a href=#518 id=518 data-nosnippet>518</a>	<span class="kw">type </span>MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+<a href=#519 id=519 data-nosnippet>519</a>	<span class="kw">type </span>BudgetOrigin = frame_system::EnsureRoot&lt;AccountId&gt;;
+<a href=#520 id=520 data-nosnippet>520</a>	<span class="kw">type </span>WeightInfo = ();
+<a href=#521 id=521 data-nosnippet>521</a>}
+<a href=#522 id=522 data-nosnippet>522</a>
+<a href=#523 id=523 data-nosnippet>523</a><span class="macro">parameter_types!</span> {
+<a href=#524 id=524 data-nosnippet>524</a>	<span class="kw">pub </span>StakingXcmDestination: Location = Location::parent();
+<a href=#525 id=525 data-nosnippet>525</a>}
+<a href=#526 id=526 data-nosnippet>526</a>
+<a href=#527 id=527 data-nosnippet>527</a><span class="attr">#[derive(Encode, Decode)]
+<a href=#528 id=528 data-nosnippet>528</a></span><span class="comment">// Call indices taken from westend-next runtime.
+<a href=#529 id=529 data-nosnippet>529</a></span><span class="kw">pub enum </span>RelayChainRuntimePallets {
+<a href=#530 id=530 data-nosnippet>530</a>	<span class="attr">#[codec(index = <span class="number">67</span>)]
+<a href=#531 id=531 data-nosnippet>531</a>	</span>AhClient(AhClientCalls),
+<a href=#532 id=532 data-nosnippet>532</a>}
+<a href=#533 id=533 data-nosnippet>533</a>
+<a href=#534 id=534 data-nosnippet>534</a><span class="attr">#[derive(Encode, Decode)]
+<a href=#535 id=535 data-nosnippet>535</a></span><span class="kw">pub enum </span>AhClientCalls {
+<a href=#536 id=536 data-nosnippet>536</a>	<span class="attr">#[codec(index = <span class="number">0</span>)]
+<a href=#537 id=537 data-nosnippet>537</a>	</span>ValidatorSet(rc_client::ValidatorSetReport&lt;AccountId&gt;),
+<a href=#538 id=538 data-nosnippet>538</a>	<span class="attr">#[codec(index = <span class="number">3</span>)]
+<a href=#539 id=539 data-nosnippet>539</a>	</span>SetKeysFromAh { stash: AccountId, keys: Vec&lt;u8&gt; },
+<a href=#540 id=540 data-nosnippet>540</a>	<span class="attr">#[codec(index = <span class="number">4</span>)]
+<a href=#541 id=541 data-nosnippet>541</a>	</span>PurgeKeysFromAh { stash: AccountId },
+<a href=#542 id=542 data-nosnippet>542</a>}
+<a href=#543 id=543 data-nosnippet>543</a>
+<a href=#544 id=544 data-nosnippet>544</a><span class="kw">pub struct </span>ValidatorSetToXcm;
+<a href=#545 id=545 data-nosnippet>545</a><span class="kw">impl </span>Convert&lt;rc_client::ValidatorSetReport&lt;AccountId&gt;, Xcm&lt;()&gt;&gt; <span class="kw">for </span>ValidatorSetToXcm {
+<a href=#546 id=546 data-nosnippet>546</a>	<span class="kw">fn </span>convert(report: rc_client::ValidatorSetReport&lt;AccountId&gt;) -&gt; Xcm&lt;()&gt; {
+<a href=#547 id=547 data-nosnippet>547</a>		rc_client::build_transact_xcm(
+<a href=#548 id=548 data-nosnippet>548</a>			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+<a href=#549 id=549 data-nosnippet>549</a>		)
+<a href=#550 id=550 data-nosnippet>550</a>	}
+<a href=#551 id=551 data-nosnippet>551</a>}
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a><span class="kw">pub struct </span>KeysMessageToXcm;
+<a href=#554 id=554 data-nosnippet>554</a><span class="kw">impl </span>Convert&lt;rc_client::KeysMessage&lt;AccountId&gt;, Xcm&lt;()&gt;&gt; <span class="kw">for </span>KeysMessageToXcm {
+<a href=#555 id=555 data-nosnippet>555</a>	<span class="kw">fn </span>convert(msg: rc_client::KeysMessage&lt;AccountId&gt;) -&gt; Xcm&lt;()&gt; {
+<a href=#556 id=556 data-nosnippet>556</a>		<span class="kw">let </span>encoded_call = <span class="kw">match </span>msg {
+<a href=#557 id=557 data-nosnippet>557</a>			rc_client::KeysMessage::SetKeys { stash, keys } =&gt; {
+<a href=#558 id=558 data-nosnippet>558</a>				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
+<a href=#559 id=559 data-nosnippet>559</a>					.encode()
+<a href=#560 id=560 data-nosnippet>560</a>			},
+<a href=#561 id=561 data-nosnippet>561</a>			rc_client::KeysMessage::PurgeKeys { stash } =&gt; {
+<a href=#562 id=562 data-nosnippet>562</a>				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
+<a href=#563 id=563 data-nosnippet>563</a>					.encode()
+<a href=#564 id=564 data-nosnippet>564</a>			},
+<a href=#565 id=565 data-nosnippet>565</a>		};
+<a href=#566 id=566 data-nosnippet>566</a>		rc_client::build_transact_xcm(encoded_call)
+<a href=#567 id=567 data-nosnippet>567</a>	}
+<a href=#568 id=568 data-nosnippet>568</a>}
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a><span class="kw">pub struct </span>StakingXcmToRelayChain;
+<a href=#571 id=571 data-nosnippet>571</a>
+<a href=#572 id=572 data-nosnippet>572</a><span class="kw">impl </span>rc_client::SendToRelayChain <span class="kw">for </span>StakingXcmToRelayChain {
+<a href=#573 id=573 data-nosnippet>573</a>	<span class="kw">type </span>AccountId = AccountId;
+<a href=#574 id=574 data-nosnippet>574</a>	<span class="kw">type </span>Balance = Balance;
+<a href=#575 id=575 data-nosnippet>575</a>
+<a href=#576 id=576 data-nosnippet>576</a>	<span class="kw">fn </span>validator_set(report: rc_client::ValidatorSetReport&lt;<span class="self">Self</span>::AccountId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+<a href=#577 id=577 data-nosnippet>577</a>		rc_client::XCMSender::&lt;
+<a href=#578 id=578 data-nosnippet>578</a>			xcm_config::XcmRouter,
+<a href=#579 id=579 data-nosnippet>579</a>			StakingXcmDestination,
+<a href=#580 id=580 data-nosnippet>580</a>			rc_client::ValidatorSetReport&lt;<span class="self">Self</span>::AccountId&gt;,
+<a href=#581 id=581 data-nosnippet>581</a>			ValidatorSetToXcm,
+<a href=#582 id=582 data-nosnippet>582</a>		&gt;::send(report)
+<a href=#583 id=583 data-nosnippet>583</a>	}
+<a href=#584 id=584 data-nosnippet>584</a>
+<a href=#585 id=585 data-nosnippet>585</a>	<span class="kw">fn </span>set_keys(
+<a href=#586 id=586 data-nosnippet>586</a>		stash: <span class="self">Self</span>::AccountId,
+<a href=#587 id=587 data-nosnippet>587</a>		keys: Vec&lt;u8&gt;,
+<a href=#588 id=588 data-nosnippet>588</a>		max_fee: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
+<a href=#589 id=589 data-nosnippet>589</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, rc_client::SendKeysError&lt;<span class="self">Self</span>::Balance&gt;&gt; {
+<a href=#590 id=590 data-nosnippet>590</a>		rc_client::XCMSender::&lt;
+<a href=#591 id=591 data-nosnippet>591</a>			xcm_config::XcmRouter,
+<a href=#592 id=592 data-nosnippet>592</a>			StakingXcmDestination,
+<a href=#593 id=593 data-nosnippet>593</a>			rc_client::KeysMessage&lt;<span class="self">Self</span>::AccountId&gt;,
+<a href=#594 id=594 data-nosnippet>594</a>			KeysMessageToXcm,
+<a href=#595 id=595 data-nosnippet>595</a>		&gt;::send_with_fees::&lt;
+<a href=#596 id=596 data-nosnippet>596</a>			XcmExec&lt;xcm_config::XcmConfig&gt;,
+<a href=#597 id=597 data-nosnippet>597</a>			RuntimeCall,
+<a href=#598 id=598 data-nosnippet>598</a>			AccountId,
+<a href=#599 id=599 data-nosnippet>599</a>			rc_client::AccountId32ToLocation,
+<a href=#600 id=600 data-nosnippet>600</a>			<span class="self">Self</span>::Balance,
+<a href=#601 id=601 data-nosnippet>601</a>		&gt;(rc_client::KeysMessage::set_keys(stash.clone(), keys), stash, max_fee, <span class="number">0</span>)
+<a href=#602 id=602 data-nosnippet>602</a>	}
+<a href=#603 id=603 data-nosnippet>603</a>
+<a href=#604 id=604 data-nosnippet>604</a>	<span class="kw">fn </span>purge_keys(
+<a href=#605 id=605 data-nosnippet>605</a>		stash: <span class="self">Self</span>::AccountId,
+<a href=#606 id=606 data-nosnippet>606</a>		max_fee: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
+<a href=#607 id=607 data-nosnippet>607</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, rc_client::SendKeysError&lt;<span class="self">Self</span>::Balance&gt;&gt; {
+<a href=#608 id=608 data-nosnippet>608</a>		rc_client::XCMSender::&lt;
+<a href=#609 id=609 data-nosnippet>609</a>			xcm_config::XcmRouter,
+<a href=#610 id=610 data-nosnippet>610</a>			StakingXcmDestination,
+<a href=#611 id=611 data-nosnippet>611</a>			rc_client::KeysMessage&lt;<span class="self">Self</span>::AccountId&gt;,
+<a href=#612 id=612 data-nosnippet>612</a>			KeysMessageToXcm,
+<a href=#613 id=613 data-nosnippet>613</a>		&gt;::send_with_fees::&lt;
+<a href=#614 id=614 data-nosnippet>614</a>			XcmExec&lt;xcm_config::XcmConfig&gt;,
+<a href=#615 id=615 data-nosnippet>615</a>			RuntimeCall,
+<a href=#616 id=616 data-nosnippet>616</a>			AccountId,
+<a href=#617 id=617 data-nosnippet>617</a>			rc_client::AccountId32ToLocation,
+<a href=#618 id=618 data-nosnippet>618</a>			<span class="self">Self</span>::Balance,
+<a href=#619 id=619 data-nosnippet>619</a>		&gt;(rc_client::KeysMessage::purge_keys(stash.clone()), stash, max_fee, <span class="number">0</span>)
+<a href=#620 id=620 data-nosnippet>620</a>	}
+<a href=#621 id=621 data-nosnippet>621</a>}
+<a href=#622 id=622 data-nosnippet>622</a>
+<a href=#623 id=623 data-nosnippet>623</a><span class="kw">impl </span>pallet_fast_unstake::Config <span class="kw">for </span>Runtime {
+<a href=#624 id=624 data-nosnippet>624</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#625 id=625 data-nosnippet>625</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#626 id=626 data-nosnippet>626</a>	<span class="kw">type </span>BatchSize = ConstU32&lt;<span class="number">64</span>&gt;;
+<a href=#627 id=627 data-nosnippet>627</a>	<span class="kw">type </span>Deposit = ConstU128&lt;{ UNITS }&gt;;
+<a href=#628 id=628 data-nosnippet>628</a>	<span class="kw">type </span>ControlOrigin = EnsureRoot&lt;AccountId&gt;;
+<a href=#629 id=629 data-nosnippet>629</a>	<span class="kw">type </span>Staking = Staking;
+<a href=#630 id=630 data-nosnippet>630</a>	<span class="kw">type </span>MaxErasToCheckPerBlock = ConstU32&lt;<span class="number">1</span>&gt;;
+<a href=#631 id=631 data-nosnippet>631</a>	<span class="kw">type </span>WeightInfo = weights::pallet_fast_unstake::WeightInfo&lt;Runtime&gt;;
+<a href=#632 id=632 data-nosnippet>632</a>}
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a><span class="macro">parameter_types!</span> {
+<a href=#635 id=635 data-nosnippet>635</a>	<span class="kw">pub const </span>PoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/nopls"</span>);
+<a href=#636 id=636 data-nosnippet>636</a>	<span class="kw">pub const </span>MaxPointsToBalance: u8 = <span class="number">10</span>;
+<a href=#637 id=637 data-nosnippet>637</a>}
+<a href=#638 id=638 data-nosnippet>638</a>
+<a href=#639 id=639 data-nosnippet>639</a><span class="kw">impl </span>pallet_nomination_pools::Config <span class="kw">for </span>Runtime {
+<a href=#640 id=640 data-nosnippet>640</a>	<span class="kw">type </span>Filter = ();
+<a href=#641 id=641 data-nosnippet>641</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#642 id=642 data-nosnippet>642</a>	<span class="kw">type </span>WeightInfo = weights::pallet_nomination_pools::WeightInfo&lt;<span class="self">Self</span>&gt;;
+<a href=#643 id=643 data-nosnippet>643</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#644 id=644 data-nosnippet>644</a>	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
+<a href=#645 id=645 data-nosnippet>645</a>	<span class="kw">type </span>RewardCounter = FixedU128;
+<a href=#646 id=646 data-nosnippet>646</a>	<span class="kw">type </span>BalanceToU256 = BalanceToU256;
+<a href=#647 id=647 data-nosnippet>647</a>	<span class="kw">type </span>U256ToBalance = U256ToBalance;
+<a href=#648 id=648 data-nosnippet>648</a>	<span class="kw">type </span>StakeAdapter =
+<a href=#649 id=649 data-nosnippet>649</a>		pallet_nomination_pools::adapter::DelegateStake&lt;<span class="self">Self</span>, Staking, DelegatedStaking&gt;;
+<a href=#650 id=650 data-nosnippet>650</a>	<span class="comment">// Buffer (30) + bonding duration (2).
+<a href=#651 id=651 data-nosnippet>651</a>	</span><span class="kw">type </span>MaxUnbondingPools = ConstU32&lt;<span class="number">32</span>&gt;;
+<a href=#652 id=652 data-nosnippet>652</a>	<span class="kw">type </span>MaxMetadataLen = ConstU32&lt;<span class="number">256</span>&gt;;
+<a href=#653 id=653 data-nosnippet>653</a>	<span class="comment">// we use the same number of allowed unlocking chunks as with staking.
+<a href=#654 id=654 data-nosnippet>654</a>	</span><span class="kw">type </span>MaxUnbonding = &lt;<span class="self">Self </span><span class="kw">as </span>pallet_staking_async::Config&gt;::MaxUnlockingChunks;
+<a href=#655 id=655 data-nosnippet>655</a>	<span class="kw">type </span>PalletId = PoolsPalletId;
+<a href=#656 id=656 data-nosnippet>656</a>	<span class="kw">type </span>MaxPointsToBalance = MaxPointsToBalance;
+<a href=#657 id=657 data-nosnippet>657</a>	<span class="kw">type </span>AdminOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, StakingAdmin&gt;;
+<a href=#658 id=658 data-nosnippet>658</a>	<span class="kw">type </span>BlockNumberProvider = RelaychainDataProvider&lt;Runtime&gt;;
+<a href=#659 id=659 data-nosnippet>659</a>}
+<a href=#660 id=660 data-nosnippet>660</a>
+<a href=#661 id=661 data-nosnippet>661</a><span class="macro">parameter_types!</span> {
+<a href=#662 id=662 data-nosnippet>662</a>	<span class="kw">pub const </span>DelegatedStakingPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/dlstk"</span>);
+<a href=#663 id=663 data-nosnippet>663</a>	<span class="kw">pub const </span>SlashRewardFraction: Perbill = Perbill::from_percent(<span class="number">1</span>);
+<a href=#664 id=664 data-nosnippet>664</a>}
+<a href=#665 id=665 data-nosnippet>665</a>
+<a href=#666 id=666 data-nosnippet>666</a><span class="kw">impl </span>pallet_delegated_staking::Config <span class="kw">for </span>Runtime {
+<a href=#667 id=667 data-nosnippet>667</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#668 id=668 data-nosnippet>668</a>	<span class="kw">type </span>PalletId = DelegatedStakingPalletId;
+<a href=#669 id=669 data-nosnippet>669</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#670 id=670 data-nosnippet>670</a>	<span class="kw">type </span>OnSlash = ();
+<a href=#671 id=671 data-nosnippet>671</a>	<span class="kw">type </span>SlashRewardFraction = SlashRewardFraction;
+<a href=#672 id=672 data-nosnippet>672</a>	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+<a href=#673 id=673 data-nosnippet>673</a>	<span class="kw">type </span>CoreStaking = Staking;
+<a href=#674 id=674 data-nosnippet>674</a>}
+<a href=#675 id=675 data-nosnippet>675</a>
+<a href=#676 id=676 data-nosnippet>676</a><span class="doccomment">/// The payload being signed in transactions.
+<a href=#677 id=677 data-nosnippet>677</a></span><span class="kw">pub type </span>SignedPayload = generic::SignedPayload&lt;RuntimeCall, TxExtension&gt;;
+<a href=#678 id=678 data-nosnippet>678</a><span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
+<a href=#679 id=679 data-nosnippet>679</a></span><span class="kw">pub type </span>UncheckedExtrinsic =
+<a href=#680 id=680 data-nosnippet>680</a>	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, TxExtension&gt;;
+<a href=#681 id=681 data-nosnippet>681</a>
+<a href=#682 id=682 data-nosnippet>682</a><span class="kw">impl </span>frame_system::offchain::SigningTypes <span class="kw">for </span>Runtime {
+<a href=#683 id=683 data-nosnippet>683</a>	<span class="kw">type </span>Public = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
+<a href=#684 id=684 data-nosnippet>684</a>	<span class="kw">type </span>Signature = Signature;
+<a href=#685 id=685 data-nosnippet>685</a>}
+<a href=#686 id=686 data-nosnippet>686</a>
+<a href=#687 id=687 data-nosnippet>687</a><span class="kw">impl</span>&lt;C&gt; frame_system::offchain::CreateTransactionBase&lt;C&gt; <span class="kw">for </span>Runtime
+<a href=#688 id=688 data-nosnippet>688</a><span class="kw">where
+<a href=#689 id=689 data-nosnippet>689</a>	</span>RuntimeCall: From&lt;C&gt;,
+<a href=#690 id=690 data-nosnippet>690</a>{
+<a href=#691 id=691 data-nosnippet>691</a>	<span class="kw">type </span>RuntimeCall = RuntimeCall;
+<a href=#692 id=692 data-nosnippet>692</a>	<span class="kw">type </span>Extrinsic = UncheckedExtrinsic;
+<a href=#693 id=693 data-nosnippet>693</a>}
+<a href=#694 id=694 data-nosnippet>694</a>
+<a href=#695 id=695 data-nosnippet>695</a><span class="kw">impl</span>&lt;LocalCall&gt; frame_system::offchain::CreateTransaction&lt;LocalCall&gt; <span class="kw">for </span>Runtime
+<a href=#696 id=696 data-nosnippet>696</a><span class="kw">where
+<a href=#697 id=697 data-nosnippet>697</a>	</span>RuntimeCall: From&lt;LocalCall&gt;,
+<a href=#698 id=698 data-nosnippet>698</a>{
+<a href=#699 id=699 data-nosnippet>699</a>	<span class="kw">type </span>Extension = TxExtension;
+<a href=#700 id=700 data-nosnippet>700</a>
+<a href=#701 id=701 data-nosnippet>701</a>	<span class="kw">fn </span>create_transaction(call: RuntimeCall, extension: TxExtension) -&gt; UncheckedExtrinsic {
+<a href=#702 id=702 data-nosnippet>702</a>		UncheckedExtrinsic::new_transaction(call, extension)
+<a href=#703 id=703 data-nosnippet>703</a>	}
+<a href=#704 id=704 data-nosnippet>704</a>}
+<a href=#705 id=705 data-nosnippet>705</a>
+<a href=#706 id=706 data-nosnippet>706</a><span class="doccomment">/// Submits a transaction with the node's public and signature type. Adheres to the signed extension
+<a href=#707 id=707 data-nosnippet>707</a>/// format of the chain.
+<a href=#708 id=708 data-nosnippet>708</a></span><span class="kw">impl</span>&lt;LocalCall&gt; frame_system::offchain::CreateSignedTransaction&lt;LocalCall&gt; <span class="kw">for </span>Runtime
+<a href=#709 id=709 data-nosnippet>709</a><span class="kw">where
+<a href=#710 id=710 data-nosnippet>710</a>	</span>RuntimeCall: From&lt;LocalCall&gt;,
+<a href=#711 id=711 data-nosnippet>711</a>{
+<a href=#712 id=712 data-nosnippet>712</a>	<span class="kw">fn </span>create_signed_transaction&lt;
+<a href=#713 id=713 data-nosnippet>713</a>		C: frame_system::offchain::AppCrypto&lt;<span class="self">Self</span>::Public, <span class="self">Self</span>::Signature&gt;,
+<a href=#714 id=714 data-nosnippet>714</a>	&gt;(
+<a href=#715 id=715 data-nosnippet>715</a>		call: RuntimeCall,
+<a href=#716 id=716 data-nosnippet>716</a>		public: &lt;Signature <span class="kw">as </span>Verify&gt;::Signer,
+<a href=#717 id=717 data-nosnippet>717</a>		account: AccountId,
+<a href=#718 id=718 data-nosnippet>718</a>		nonce: &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Nonce,
+<a href=#719 id=719 data-nosnippet>719</a>	) -&gt; <span class="prelude-ty">Option</span>&lt;UncheckedExtrinsic&gt; {
+<a href=#720 id=720 data-nosnippet>720</a>		<span class="kw">use </span>sp_runtime::traits::StaticLookup;
+<a href=#721 id=721 data-nosnippet>721</a>		<span class="comment">// take the biggest period possible.
+<a href=#722 id=722 data-nosnippet>722</a>		</span><span class="kw">let </span>period =
+<a href=#723 id=723 data-nosnippet>723</a>			BlockHashCount::get().checked_next_power_of_two().map(|c| c / <span class="number">2</span>).unwrap_or(<span class="number">2</span>) <span class="kw">as </span>u64;
+<a href=#724 id=724 data-nosnippet>724</a>
+<a href=#725 id=725 data-nosnippet>725</a>		<span class="kw">let </span>current_block = System::block_number()
+<a href=#726 id=726 data-nosnippet>726</a>			.saturated_into::&lt;u64&gt;()
+<a href=#727 id=727 data-nosnippet>727</a>			<span class="comment">// The `System::block_number` is initialized with `n+1`,
+<a href=#728 id=728 data-nosnippet>728</a>			// so the actual block number is `n`.
+<a href=#729 id=729 data-nosnippet>729</a>			</span>.saturating_sub(<span class="number">1</span>);
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="kw">let </span>tip = <span class="number">0</span>;
+<a href=#731 id=731 data-nosnippet>731</a>		<span class="kw">let </span>tx_ext = TxExtension::from((
+<a href=#732 id=732 data-nosnippet>732</a>			frame_system::CheckNonZeroSender::&lt;Runtime&gt;::new(),
+<a href=#733 id=733 data-nosnippet>733</a>			frame_system::CheckSpecVersion::&lt;Runtime&gt;::new(),
+<a href=#734 id=734 data-nosnippet>734</a>			frame_system::CheckTxVersion::&lt;Runtime&gt;::new(),
+<a href=#735 id=735 data-nosnippet>735</a>			frame_system::CheckGenesis::&lt;Runtime&gt;::new(),
+<a href=#736 id=736 data-nosnippet>736</a>			frame_system::CheckEra::&lt;Runtime&gt;::from(generic::Era::mortal(period, current_block)),
+<a href=#737 id=737 data-nosnippet>737</a>			frame_system::CheckNonce::&lt;Runtime&gt;::from(nonce),
+<a href=#738 id=738 data-nosnippet>738</a>			frame_system::CheckWeight::&lt;Runtime&gt;::new(),
+<a href=#739 id=739 data-nosnippet>739</a>			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::&lt;Runtime&gt;::from(tip, <span class="prelude-val">None</span>),
+<a href=#740 id=740 data-nosnippet>740</a>			frame_metadata_hash_extension::CheckMetadataHash::&lt;Runtime&gt;::new(<span class="bool-val">true</span>),
+<a href=#741 id=741 data-nosnippet>741</a>		));
+<a href=#742 id=742 data-nosnippet>742</a>		<span class="kw">let </span>raw_payload = SignedPayload::new(call, tx_ext)
+<a href=#743 id=743 data-nosnippet>743</a>			.map_err(|e| {
+<a href=#744 id=744 data-nosnippet>744</a>				<span class="macro">log::warn!</span>(<span class="string">"Unable to create signed payload: {:?}"</span>, e);
+<a href=#745 id=745 data-nosnippet>745</a>			})
+<a href=#746 id=746 data-nosnippet>746</a>			.ok()<span class="question-mark">?</span>;
+<a href=#747 id=747 data-nosnippet>747</a>		<span class="kw">let </span>signature = raw_payload.using_encoded(|payload| C::sign(payload, public))<span class="question-mark">?</span>;
+<a href=#748 id=748 data-nosnippet>748</a>		<span class="kw">let </span>(call, tx_ext, <span class="kw">_</span>) = raw_payload.deconstruct();
+<a href=#749 id=749 data-nosnippet>749</a>		<span class="kw">let </span>address = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup::unlookup(account);
+<a href=#750 id=750 data-nosnippet>750</a>		<span class="kw">let </span>transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
+<a href=#751 id=751 data-nosnippet>751</a>		<span class="prelude-val">Some</span>(transaction)
+<a href=#752 id=752 data-nosnippet>752</a>	}
+<a href=#753 id=753 data-nosnippet>753</a>}
+<a href=#754 id=754 data-nosnippet>754</a>
+<a href=#755 id=755 data-nosnippet>755</a><span class="kw">impl</span>&lt;LocalCall&gt; frame_system::offchain::CreateInherent&lt;LocalCall&gt; <span class="kw">for </span>Runtime
+<a href=#756 id=756 data-nosnippet>756</a><span class="kw">where
+<a href=#757 id=757 data-nosnippet>757</a>	</span>RuntimeCall: From&lt;LocalCall&gt;,
+<a href=#758 id=758 data-nosnippet>758</a>{
+<a href=#759 id=759 data-nosnippet>759</a>	<span class="kw">fn </span>create_bare(call: RuntimeCall) -&gt; UncheckedExtrinsic {
+<a href=#760 id=760 data-nosnippet>760</a>		UncheckedExtrinsic::new_bare(call)
+<a href=#761 id=761 data-nosnippet>761</a>	}
+<a href=#762 id=762 data-nosnippet>762</a>}
+<a href=#763 id=763 data-nosnippet>763</a>
+<a href=#764 id=764 data-nosnippet>764</a><span class="attr">#[cfg(test)]
+<a href=#765 id=765 data-nosnippet>765</a></span><span class="kw">mod </span>tests {
+<a href=#766 id=766 data-nosnippet>766</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#767 id=767 data-nosnippet>767</a>	<span class="kw">use </span>frame_election_provider_support::ElectionProvider;
+<a href=#768 id=768 data-nosnippet>768</a>	<span class="kw">use </span>frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
+<a href=#769 id=769 data-nosnippet>769</a>	<span class="kw">use </span>pallet_election_provider_multi_block::{
+<a href=#770 id=770 data-nosnippet>770</a>		<span class="self">self </span><span class="kw">as </span>mb, signed::WeightInfo <span class="kw">as _</span>, unsigned::WeightInfo <span class="kw">as _</span>,
+<a href=#771 id=771 data-nosnippet>771</a>	};
+<a href=#772 id=772 data-nosnippet>772</a>	<span class="kw">use </span>remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
+<a href=#773 id=773 data-nosnippet>773</a>	<span class="kw">use </span>std::env::var;
+<a href=#774 id=774 data-nosnippet>774</a>
+<a href=#775 id=775 data-nosnippet>775</a>	<span class="kw">fn </span>weight_diff(block: Weight, op: Weight) {
+<a href=#776 id=776 data-nosnippet>776</a>		<span class="macro">log::info!</span>(
+<a href=#777 id=777 data-nosnippet>777</a>			target: <span class="string">"runtime"</span>,
+<a href=#778 id=778 data-nosnippet>778</a>			<span class="string">"ref_time: {:?}ms {:.4} of total"</span>,
+<a href=#779 id=779 data-nosnippet>779</a>			op.ref_time() / WEIGHT_REF_TIME_PER_MILLIS,
+<a href=#780 id=780 data-nosnippet>780</a>			op.ref_time() <span class="kw">as </span>f64 / block.ref_time() <span class="kw">as </span>f64
+<a href=#781 id=781 data-nosnippet>781</a>		);
+<a href=#782 id=782 data-nosnippet>782</a>		<span class="macro">log::info!</span>(
+<a href=#783 id=783 data-nosnippet>783</a>			target: <span class="string">"runtime"</span>,
+<a href=#784 id=784 data-nosnippet>784</a>			<span class="string">"proof_size: {:?}kb {:.4} of total"</span>,
+<a href=#785 id=785 data-nosnippet>785</a>			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
+<a href=#786 id=786 data-nosnippet>786</a>			op.proof_size() <span class="kw">as </span>f64 / block.proof_size() <span class="kw">as </span>f64
+<a href=#787 id=787 data-nosnippet>787</a>		);
+<a href=#788 id=788 data-nosnippet>788</a>	}
+<a href=#789 id=789 data-nosnippet>789</a>
+<a href=#790 id=790 data-nosnippet>790</a>	<span class="attr">#[test]
+<a href=#791 id=791 data-nosnippet>791</a>	</span><span class="kw">fn </span>fake_dot_preset_snapshot_capacity_covers_max_electing_voters() {
+<a href=#792 id=792 data-nosnippet>792</a>		sp_io::TestExternalities::default().execute_with(|| {
+<a href=#793 id=793 data-nosnippet>793</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">false</span>);
+<a href=#794 id=794 data-nosnippet>794</a>			<span class="macro">assert!</span>(
+<a href=#795 id=795 data-nosnippet>795</a>				VoterSnapshotPerBlock::get() * Pages::get() &gt;= MaxElectingVoters::get(),
+<a href=#796 id=796 data-nosnippet>796</a>				<span class="string">"paged snapshot capacity {} &lt; MaxElectingVoters {}"</span>,
+<a href=#797 id=797 data-nosnippet>797</a>				VoterSnapshotPerBlock::get() * Pages::get(),
+<a href=#798 id=798 data-nosnippet>798</a>				MaxElectingVoters::get(),
+<a href=#799 id=799 data-nosnippet>799</a>			);
+<a href=#800 id=800 data-nosnippet>800</a>		});
+<a href=#801 id=801 data-nosnippet>801</a>	}
+<a href=#802 id=802 data-nosnippet>802</a>
+<a href=#803 id=803 data-nosnippet>803</a>	<span class="attr">#[test]
+<a href=#804 id=804 data-nosnippet>804</a>	</span><span class="kw">fn </span>fake_ksm_preset_snapshot_capacity_covers_max_electing_voters() {
+<a href=#805 id=805 data-nosnippet>805</a>		sp_io::TestExternalities::default().execute_with(|| {
+<a href=#806 id=806 data-nosnippet>806</a>			<span class="kw">super</span>::enable_ksm_preset(<span class="bool-val">false</span>);
+<a href=#807 id=807 data-nosnippet>807</a>			<span class="macro">assert!</span>(
+<a href=#808 id=808 data-nosnippet>808</a>				VoterSnapshotPerBlock::get() * Pages::get() &gt;= MaxElectingVoters::get(),
+<a href=#809 id=809 data-nosnippet>809</a>				<span class="string">"paged snapshot capacity {} &lt; MaxElectingVoters {}"</span>,
+<a href=#810 id=810 data-nosnippet>810</a>				VoterSnapshotPerBlock::get() * Pages::get(),
+<a href=#811 id=811 data-nosnippet>811</a>				MaxElectingVoters::get(),
+<a href=#812 id=812 data-nosnippet>812</a>			);
+<a href=#813 id=813 data-nosnippet>813</a>		});
+<a href=#814 id=814 data-nosnippet>814</a>	}
+<a href=#815 id=815 data-nosnippet>815</a>
+<a href=#816 id=816 data-nosnippet>816</a>	<span class="attr">#[test]
+<a href=#817 id=817 data-nosnippet>817</a>	</span><span class="kw">fn </span>ensure_epmb_weights_sane_polkadot() {
+<a href=#818 id=818 data-nosnippet>818</a>		<span class="kw">use </span>sp_io::TestExternalities;
+<a href=#819 id=819 data-nosnippet>819</a>		<span class="kw">use </span>sp_runtime::Percent;
+<a href=#820 id=820 data-nosnippet>820</a>		sp_tracing::try_init_simple();
+<a href=#821 id=821 data-nosnippet>821</a>		TestExternalities::default().execute_with(|| {
+<a href=#822 id=822 data-nosnippet>822</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">false</span>);
+<a href=#823 id=823 data-nosnippet>823</a>			pallet_election_provider_multi_block::Pallet::&lt;Runtime&gt;::check_all_weights(
+<a href=#824 id=824 data-nosnippet>824</a>				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block,
+<a href=#825 id=825 data-nosnippet>825</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">75</span>)),
+<a href=#826 id=826 data-nosnippet>826</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">50</span>)),
+<a href=#827 id=827 data-nosnippet>827</a>			)
+<a href=#828 id=828 data-nosnippet>828</a>		});
+<a href=#829 id=829 data-nosnippet>829</a>	}
+<a href=#830 id=830 data-nosnippet>830</a>
+<a href=#831 id=831 data-nosnippet>831</a>	<span class="attr">#[test]
+<a href=#832 id=832 data-nosnippet>832</a>	</span><span class="kw">fn </span>ensure_epmb_weights_sane_kusama() {
+<a href=#833 id=833 data-nosnippet>833</a>		<span class="kw">use </span>sp_io::TestExternalities;
+<a href=#834 id=834 data-nosnippet>834</a>		<span class="kw">use </span>sp_runtime::Percent;
+<a href=#835 id=835 data-nosnippet>835</a>		sp_tracing::try_init_simple();
+<a href=#836 id=836 data-nosnippet>836</a>		TestExternalities::default().execute_with(|| {
+<a href=#837 id=837 data-nosnippet>837</a>			<span class="kw">super</span>::enable_ksm_preset(<span class="bool-val">false</span>);
+<a href=#838 id=838 data-nosnippet>838</a>			pallet_election_provider_multi_block::Pallet::&lt;Runtime&gt;::check_all_weights(
+<a href=#839 id=839 data-nosnippet>839</a>				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block,
+<a href=#840 id=840 data-nosnippet>840</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">75</span>)),
+<a href=#841 id=841 data-nosnippet>841</a>				<span class="prelude-val">Some</span>(Percent::from_percent(<span class="number">50</span>)),
+<a href=#842 id=842 data-nosnippet>842</a>			)
+<a href=#843 id=843 data-nosnippet>843</a>		});
+<a href=#844 id=844 data-nosnippet>844</a>	}
+<a href=#845 id=845 data-nosnippet>845</a>
+<a href=#846 id=846 data-nosnippet>846</a>	<span class="attr">#[test]
+<a href=#847 id=847 data-nosnippet>847</a>	</span><span class="kw">fn </span>signed_weight_ratios() {
+<a href=#848 id=848 data-nosnippet>848</a>		sp_tracing::try_init_simple();
+<a href=#849 id=849 data-nosnippet>849</a>		<span class="kw">let </span>block_weight = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block;
+<a href=#850 id=850 data-nosnippet>850</a>		<span class="kw">let </span>polkadot_signed_submission =
+<a href=#851 id=851 data-nosnippet>851</a>			mb::weights::polkadot::MultiBlockSignedWeightInfo::&lt;Runtime&gt;::submit_page();
+<a href=#852 id=852 data-nosnippet>852</a>		<span class="kw">let </span>kusama_signed_submission =
+<a href=#853 id=853 data-nosnippet>853</a>			mb::weights::kusama::MultiBlockSignedWeightInfo::&lt;Runtime&gt;::submit_page();
+<a href=#854 id=854 data-nosnippet>854</a>
+<a href=#855 id=855 data-nosnippet>855</a>		<span class="macro">log::info!</span>(target: <span class="string">"runtime"</span>, <span class="string">"Polkadot:"</span>);
+<a href=#856 id=856 data-nosnippet>856</a>		weight_diff(block_weight, polkadot_signed_submission);
+<a href=#857 id=857 data-nosnippet>857</a>		<span class="macro">log::info!</span>(target: <span class="string">"runtime"</span>, <span class="string">"Kusama:"</span>);
+<a href=#858 id=858 data-nosnippet>858</a>		weight_diff(block_weight, kusama_signed_submission);
+<a href=#859 id=859 data-nosnippet>859</a>	}
+<a href=#860 id=860 data-nosnippet>860</a>
+<a href=#861 id=861 data-nosnippet>861</a>	<span class="attr">#[test]
+<a href=#862 id=862 data-nosnippet>862</a>	</span><span class="kw">fn </span>election_duration() {
+<a href=#863 id=863 data-nosnippet>863</a>		sp_tracing::try_init_simple();
+<a href=#864 id=864 data-nosnippet>864</a>		sp_io::TestExternalities::default().execute_with(|| {
+<a href=#865 id=865 data-nosnippet>865</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">false</span>);
+<a href=#866 id=866 data-nosnippet>866</a>			<span class="kw">let </span>duration = mb::Pallet::&lt;Runtime&gt;::average_election_duration();
+<a href=#867 id=867 data-nosnippet>867</a>			<span class="kw">let </span>polkadot_session = <span class="number">6 </span>* HOURS;
+<a href=#868 id=868 data-nosnippet>868</a>			<span class="macro">log::info!</span>(
+<a href=#869 id=869 data-nosnippet>869</a>				target: <span class="string">"runtime"</span>,
+<a href=#870 id=870 data-nosnippet>870</a>				<span class="string">"Polkadot election duration: {:?}, session: {:?} ({} sessions)"</span>,
+<a href=#871 id=871 data-nosnippet>871</a>				duration,
+<a href=#872 id=872 data-nosnippet>872</a>				polkadot_session,
+<a href=#873 id=873 data-nosnippet>873</a>				duration / polkadot_session
+<a href=#874 id=874 data-nosnippet>874</a>			);
+<a href=#875 id=875 data-nosnippet>875</a>		});
+<a href=#876 id=876 data-nosnippet>876</a>
+<a href=#877 id=877 data-nosnippet>877</a>		sp_io::TestExternalities::default().execute_with(|| {
+<a href=#878 id=878 data-nosnippet>878</a>			<span class="kw">super</span>::enable_ksm_preset(<span class="bool-val">false</span>);
+<a href=#879 id=879 data-nosnippet>879</a>			<span class="kw">let </span>duration = mb::Pallet::&lt;Runtime&gt;::average_election_duration();
+<a href=#880 id=880 data-nosnippet>880</a>			<span class="kw">let </span>kusama_session = <span class="number">1 </span>* HOURS;
+<a href=#881 id=881 data-nosnippet>881</a>			<span class="macro">log::info!</span>(
+<a href=#882 id=882 data-nosnippet>882</a>				target: <span class="string">"runtime"</span>,
+<a href=#883 id=883 data-nosnippet>883</a>				<span class="string">"Kusama election duration: {:?}, session: {:?} ({} sessions)"</span>,
+<a href=#884 id=884 data-nosnippet>884</a>				duration,
+<a href=#885 id=885 data-nosnippet>885</a>				kusama_session,
+<a href=#886 id=886 data-nosnippet>886</a>				duration / kusama_session
+<a href=#887 id=887 data-nosnippet>887</a>			);
+<a href=#888 id=888 data-nosnippet>888</a>		});
+<a href=#889 id=889 data-nosnippet>889</a>	}
+<a href=#890 id=890 data-nosnippet>890</a>
+<a href=#891 id=891 data-nosnippet>891</a>	<span class="attr">#[test]
+<a href=#892 id=892 data-nosnippet>892</a>	</span><span class="kw">fn </span>max_ocw_miner_pages_as_per_weights() {
+<a href=#893 id=893 data-nosnippet>893</a>		sp_tracing::try_init_simple();
+<a href=#894 id=894 data-nosnippet>894</a>		<span class="kw">for </span>p <span class="kw">in </span><span class="number">1</span>..=<span class="number">32 </span>{
+<a href=#895 id=895 data-nosnippet>895</a>			<span class="macro">log::info!</span>(
+<a href=#896 id=896 data-nosnippet>896</a>				target: <span class="string">"runtime"</span>,
+<a href=#897 id=897 data-nosnippet>897</a>				<span class="string">"exec_time of polkadot miner in WASM with {} pages is {:?}ms"</span>,
+<a href=#898 id=898 data-nosnippet>898</a>				p,
+<a href=#899 id=899 data-nosnippet>899</a>				mb::weights::polkadot::MultiBlockUnsignedWeightInfo::&lt;Runtime&gt;::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
+<a href=#900 id=900 data-nosnippet>900</a>			);
+<a href=#901 id=901 data-nosnippet>901</a>		}
+<a href=#902 id=902 data-nosnippet>902</a>		<span class="kw">for </span>p <span class="kw">in </span><span class="number">1</span>..=<span class="number">16 </span>{
+<a href=#903 id=903 data-nosnippet>903</a>			<span class="macro">log::info!</span>(
+<a href=#904 id=904 data-nosnippet>904</a>				target: <span class="string">"runtime"</span>,
+<a href=#905 id=905 data-nosnippet>905</a>				<span class="string">"exec_time of kusama miner in WASM with {} pages is {:?}ms"</span>,
+<a href=#906 id=906 data-nosnippet>906</a>				p,
+<a href=#907 id=907 data-nosnippet>907</a>				mb::weights::kusama::MultiBlockUnsignedWeightInfo::&lt;Runtime&gt;::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
+<a href=#908 id=908 data-nosnippet>908</a>			);
+<a href=#909 id=909 data-nosnippet>909</a>		}
+<a href=#910 id=910 data-nosnippet>910</a>	}
+<a href=#911 id=911 data-nosnippet>911</a>
+<a href=#912 id=912 data-nosnippet>912</a>	<span class="doccomment">/// Run it like:
+<a href=#913 id=913 data-nosnippet>913</a>	///
+<a href=#914 id=914 data-nosnippet>914</a>	/// ```text
+<a href=#915 id=915 data-nosnippet>915</a>	/// RUST_BACKTRACE=full \
+<a href=#916 id=916 data-nosnippet>916</a>	/// 	RUST_LOG=remote-ext=info,runtime::staking-async=debug \
+<a href=#917 id=917 data-nosnippet>917</a>	/// 	REMOTE_TESTS=1 \
+<a href=#918 id=918 data-nosnippet>918</a>	/// 	WS=ws://127.0.0.1:9999 \
+<a href=#919 id=919 data-nosnippet>919</a>	/// 	cargo test --release -p pallet-staking-async-parachain-runtime \
+<a href=#920 id=920 data-nosnippet>920</a>	/// 	--features try-runtime run_try
+<a href=#921 id=921 data-nosnippet>921</a>	/// ```
+<a href=#922 id=922 data-nosnippet>922</a>	///
+<a href=#923 id=923 data-nosnippet>923</a>	/// Just replace the node with your local node.
+<a href=#924 id=924 data-nosnippet>924</a>	///
+<a href=#925 id=925 data-nosnippet>925</a>	/// Pass `SNAP=polkadot` or similar to store and reuse a snapshot.
+<a href=#926 id=926 data-nosnippet>926</a>	</span><span class="attr">#[tokio::test]
+<a href=#927 id=927 data-nosnippet>927</a>	</span><span class="kw">async fn </span>run_election_with_pages() {
+<a href=#928 id=928 data-nosnippet>928</a>		<span class="kw">if </span>var(<span class="string">"REMOTE_TESTS"</span>).is_err() {
+<a href=#929 id=929 data-nosnippet>929</a>			<span class="kw">return</span>;
+<a href=#930 id=930 data-nosnippet>930</a>		}
+<a href=#931 id=931 data-nosnippet>931</a>		sp_tracing::try_init_simple();
+<a href=#932 id=932 data-nosnippet>932</a>
+<a href=#933 id=933 data-nosnippet>933</a>		<span class="kw">let </span>transport_uri = var(<span class="string">"WS"</span>).unwrap_or(<span class="string">"wss://westend-rpc.polkadot.io:443"</span>.to_string());
+<a href=#934 id=934 data-nosnippet>934</a>		<span class="kw">let </span>maybe_state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt; = var(<span class="string">"SNAP"</span>).map(|s| s.into()).ok();
+<a href=#935 id=935 data-nosnippet>935</a>
+<a href=#936 id=936 data-nosnippet>936</a>		<span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::default()
+<a href=#937 id=937 data-nosnippet>937</a>			.mode(<span class="kw">if let </span><span class="prelude-val">Some</span>(state_snapshot) = maybe_state_snapshot {
+<a href=#938 id=938 data-nosnippet>938</a>				Mode::OfflineOrElseOnline(
+<a href=#939 id=939 data-nosnippet>939</a>					OfflineConfig { state_snapshot: state_snapshot.clone() },
+<a href=#940 id=940 data-nosnippet>940</a>					OnlineConfig {
+<a href=#941 id=941 data-nosnippet>941</a>						transport_uris: <span class="macro">vec!</span>[transport_uri.clone()],
+<a href=#942 id=942 data-nosnippet>942</a>						hashed_prefixes: <span class="macro">vec!</span>[<span class="macro">vec!</span>[]],
+<a href=#943 id=943 data-nosnippet>943</a>						state_snapshot: <span class="prelude-val">Some</span>(state_snapshot),
+<a href=#944 id=944 data-nosnippet>944</a>						..Default::default()
+<a href=#945 id=945 data-nosnippet>945</a>					},
+<a href=#946 id=946 data-nosnippet>946</a>				)
+<a href=#947 id=947 data-nosnippet>947</a>			} <span class="kw">else </span>{
+<a href=#948 id=948 data-nosnippet>948</a>				Mode::Online(OnlineConfig {
+<a href=#949 id=949 data-nosnippet>949</a>					hashed_prefixes: <span class="macro">vec!</span>[<span class="macro">vec!</span>[]],
+<a href=#950 id=950 data-nosnippet>950</a>					transport_uris: <span class="macro">vec!</span>[transport_uri],
+<a href=#951 id=951 data-nosnippet>951</a>					..Default::default()
+<a href=#952 id=952 data-nosnippet>952</a>				})
+<a href=#953 id=953 data-nosnippet>953</a>			})
+<a href=#954 id=954 data-nosnippet>954</a>			.build()
+<a href=#955 id=955 data-nosnippet>955</a>			.<span class="kw">await
+<a href=#956 id=956 data-nosnippet>956</a>			</span>.unwrap();
+<a href=#957 id=957 data-nosnippet>957</a>		ext.execute_with(|| {
+<a href=#958 id=958 data-nosnippet>958</a>			sp_core::crypto::set_default_ss58_version(<span class="number">1u8</span>.into());
+<a href=#959 id=959 data-nosnippet>959</a>			<span class="kw">super</span>::enable_dot_preset(<span class="bool-val">true</span>);
+<a href=#960 id=960 data-nosnippet>960</a>
+<a href=#961 id=961 data-nosnippet>961</a>			<span class="comment">// prepare all snapshot in EPMB pallet.
+<a href=#962 id=962 data-nosnippet>962</a>			</span>mb::Pallet::&lt;Runtime&gt;::asap();
+<a href=#963 id=963 data-nosnippet>963</a>			<span class="kw">for </span>page <span class="kw">in </span><span class="number">1</span>..=<span class="number">32 </span>{
+<a href=#964 id=964 data-nosnippet>964</a>				mb::unsigned::miner::OffchainWorkerMiner::&lt;Runtime&gt;::mine_solution(page, <span class="bool-val">true</span>)
+<a href=#965 id=965 data-nosnippet>965</a>					.inspect(|p| <span class="macro">log::info!</span>(target: <span class="string">"runtime"</span>, <span class="string">"{:?}"</span>, p.score.pretty(<span class="string">"DOT"</span>, <span class="number">10</span>)))
+<a href=#966 id=966 data-nosnippet>966</a>					.unwrap();
+<a href=#967 id=967 data-nosnippet>967</a>			}
+<a href=#968 id=968 data-nosnippet>968</a>		});
+<a href=#969 id=969 data-nosnippet>969</a>	}
+<a href=#970 id=970 data-nosnippet>970</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
