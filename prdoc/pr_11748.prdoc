@@ -32,12 +32,14 @@ crates:
   bump: major
   validate: false
 - name: sp-api-proc-macro
-  bump: minor
+  bump: patch
 - name: sp-block-builder
   bump: major
   validate: false
 # Crates that only dropped a now unnecessary conversion at their call sites.
 - name: sc-service
+  bump: none
+- name: sc-storage-chain-sync
   bump: none
 - name: sc-rpc
   bump: none

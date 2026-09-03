@@ -858,8 +858,8 @@ decl_runtime_apis! {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
-		///
-		/// `#[encode_like]` so that callers holding a `Block` do not have to convert it first.
+		// `#[encode_like]` so that callers holding a `Block` do not have to convert it first.
+		// Kept out of the doc comment, as that ends up in the runtime metadata.
 		fn execute_block(#[encode_like] block: Block::LazyBlock);
 		/// Initialize a block with the given header.
 		#[changed_in(5)]
