@@ -121,6 +121,7 @@ jobs:
           URL=https://github.com/chevdor/tera-cli/releases/download/v0.4.0/tera-cli_linux_amd64.deb
           wget $URL -O tera.deb
           sudo dpkg -i tera.deb
+          python3 -m pip install --user pyyaml
 
       - name: Prepare draft
         id: draft
@@ -143,22 +144,47 @@ jobs:
 
           export RUSTC_STABLE=$(grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' .github/env)
 
-          export REF1=$(get_latest_release_tag)
           if [[ -z "$RELEASE_TAG" ]]; then
             export REF2="${GH_REF_NAME}"
-            echo "REF2: ${REF2}"
           else
             export REF2="$RELEASE_TAG"
-            echo "REF2: ${REF2}"
           fi
+          echo "REF2: ${REF2}"
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
+
+          # Previous tag on the release timeline of the tag being drafted — NOT the
+          # repo-wide "latest release", which belongs to a newer line when patching
+          # an older stable release and would bake a wrong baseline into the
+          # CHANGELOG.md/changelog.json assets.
+          release_key() { # polkadot-stableYYMM[-N] -> sortable number
+            local t="${1#polkadot-}"; t="${t#stable}"; local n=0
+            if [[ "$t" == *-* ]]; then n="${t#*-}"; t="${t%%-*}"; fi
+            echo $(( 10#$t * 1000 + 10#$n ))
+          }
+          target_key=$(release_key "${REF2%-rc*}")
+          export REF1=$(gh api --paginate repos/paritytech/polkadot-sdk/releases --jq '.[].tag_name' \
+            | { grep -E '^polkadot-stable[0-9]{4}(-[0-9]+)?$' || true; } \
+            | while read -r tag; do
+                key=$(release_key "$tag")
+                if (( key < target_key )); then echo "$key $tag"; fi
+              done | sort -n | tail -1 | cut -d' ' -f2)
+          if [[ -z "$REF1" ]]; then
+            export REF1=$(get_latest_release_tag)
+          fi
+          echo "REF1: ${REF1}"
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
           echo "Version: $VERSION"
 
+<<<<<<< HEAD
           if [[ ${NO_RUNTIMES} == "true"  || ${CRATES_ONLY} == "true" ]]; then
             export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
             export NODE_VERSION=v$(get_polkadot_node_version_from_code)
           fi
+=======
+          export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
+          export NODE_VERSION=v$(get_polkadot_node_version_from_code)
+          export GENERATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+>>>>>>> c18c5215 ([Release] Changelog refactoring (#13037))
 
           ./scripts/release/build-changelogs.sh
 
@@ -168,6 +194,12 @@ jobs:
           name: release-notes-context
           path: |
             scripts/release/context.json
+<<<<<<< HEAD
+=======
+            scripts/release/RELEASE_DRAFT.md
+            scripts/release/CHANGELOG.md
+            scripts/release/changelog.json
+>>>>>>> c18c5215 ([Release] Changelog refactoring (#13037))
             **/*-srtool-digest.json
 
       - name: Create draft release
@@ -180,6 +212,13 @@ jobs:
             --draft \
             --title "Polkadot ${{ env.REL_TAG }}" \
             --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
+
+          # Attach the complete changelog and its machine-readable form as
+          # release assets; the release body only carries a condensed version.
+          gh release upload ${{ env.REL_TAG }} \
+            --repo paritytech/polkadot-sdk \
+            "${{ github.workspace }}/scripts/release/CHANGELOG.md" \
+            "${{ github.workspace }}/scripts/release/changelog.json"
 
   publish-runtimes:
     if: ${{ inputs.crates_only == false && inputs.no_runtimes == false }}
