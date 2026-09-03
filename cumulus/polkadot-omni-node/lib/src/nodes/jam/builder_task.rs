@@ -1505,7 +1505,7 @@ mod tests {
 	/// The included para head read back the way `parachain-system` reads it before pruning its
 	/// unincluded segment against it.
 	fn included_head_of(data: &ParachainInherentData) -> HeadData {
-		RelayChainStateProof::new(
+		RelayChainStateProof::from_inherent_proof(
 			ParaId::from(TEST_PARA_ID),
 			data.validation_data.relay_parent_storage_root,
 			data.relay_chain_state.clone(),
