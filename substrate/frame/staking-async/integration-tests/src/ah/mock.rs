@@ -430,6 +430,7 @@ impl multi_block::signed::Config for Runtime {
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
 	type EstimateCallFee = ConstU32<1>;
+	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, ConstU32<1>>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
