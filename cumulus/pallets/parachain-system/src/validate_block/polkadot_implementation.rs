@@ -238,7 +238,7 @@ where
 	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
 
 	// Create the db
-	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
+	let mut db = match proof.to_memory_db(parent_header.state_root()) {
 		Ok((db, _)) => db,
 		Err(_) => panic!("Compact proof decoding failure."),
 	};

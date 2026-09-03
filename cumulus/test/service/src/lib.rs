@@ -52,8 +52,7 @@ use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImpo
 use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
-	CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
-	StartRelayChainTasksParams,
+	DARecoveryProfile, ParachainTracingExecuteBlock, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
@@ -388,7 +387,7 @@ where
 		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 	tracing::info!("Parachain id: {:?}", para_id);
 
-	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -402,7 +401,6 @@ where
 			metrics: Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
-			sybil_resistance_level: CollatorSybilResistance::Resistant,
 		})
 		.await?;
 
@@ -499,12 +497,7 @@ where
 			None,
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 

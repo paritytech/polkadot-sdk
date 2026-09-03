@@ -18,7 +18,6 @@
 //! The Cumulus [`CollatorService`] is a utility struct for performing common
 //! operations used in parachain consensus/authoring.
 
-use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{
 	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
 };
@@ -27,17 +26,12 @@ use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
-use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
 
 use cumulus_client_consensus_common::ParachainCandidate;
-use polkadot_node_primitives::{
-	BlockData, Collation, CollationSecondedSignal, MaybeCompressedPoV, PoV,
-};
+use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV};
 
 use codec::Encode;
-use futures::channel::oneshot;
-use parking_lot::Mutex;
 use sp_additional_data::AdditionalData;
 use std::sync::Arc;
 /// The logging target.
@@ -93,16 +87,6 @@ pub trait ServiceInterface<Block: BlockT> {
 		additional_data: Vec<Option<AdditionalData>>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
-	/// Inform networking systems that the block should be announced after a signal has
-	/// been received to indicate the block has been seconded by a relay-chain validator.
-	///
-	/// This sets up the barrier and returns the sending side of a channel, for the signal
-	/// to be passed through.
-	fn announce_with_barrier(
-		&self,
-		block_hash: Block::Hash,
-	) -> oneshot::Sender<CollationSecondedSignal>;
-
 	/// Directly announce a block on the network.
 	fn announce_block(&self, block_hash: Block::Hash, data: Option<Vec<u8>>);
 }
@@ -114,7 +98,6 @@ pub trait ServiceInterface<Block: BlockT> {
 /// and distributing new parachain blocks along the network.
 pub struct CollatorService<Block: BlockT, BS, RA> {
 	block_status: Arc<BS>,
-	wait_to_announce: Arc<Mutex<WaitToAnnounce<Block>>>,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	runtime_api: Arc<RA>,
 }
@@ -123,7 +106,6 @@ impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
 	fn clone(&self) -> Self {
 		Self {
 			block_status: self.block_status.clone(),
-			wait_to_announce: self.wait_to_announce.clone(),
 			announce_block: self.announce_block.clone(),
 			runtime_api: self.runtime_api.clone(),
 		}
@@ -145,14 +127,10 @@ where
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
-		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 		runtime_api: Arc<RA>,
 	) -> Self {
-		let wait_to_announce =
-			Arc::new(Mutex::new(WaitToAnnounce::new(spawner, announce_block.clone())));
-
-		Self { block_status, wait_to_announce, announce_block, runtime_api }
+		Self { block_status, announce_block, runtime_api }
 	}
 
 	/// Checks the status of the given block hash in the Parachain.
@@ -396,17 +374,6 @@ where
 
 		Some((collation, block_data))
 	}
-
-	/// Inform the networking systems that the block should be announced after an appropriate
-	/// signal has been received. This returns the sending half of the signal.
-	pub fn announce_with_barrier(
-		&self,
-		block_hash: Block::Hash,
-	) -> oneshot::Sender<CollationSecondedSignal> {
-		let (result_sender, signed_stmt_recv) = oneshot::channel();
-		self.wait_to_announce.lock().wait_to_announce(block_hash, signed_stmt_recv);
-		result_sender
-	}
 }
 
 impl<Block, BS, RA> ServiceInterface<Block> for CollatorService<Block, BS, RA>
@@ -436,13 +403,6 @@ where
 			scheduling_proof,
 			additional_data,
 		)
-	}
-
-	fn announce_with_barrier(
-		&self,
-		block_hash: Block::Hash,
-	) -> oneshot::Sender<CollationSecondedSignal> {
-		CollatorService::announce_with_barrier(self, block_hash)
 	}
 
 	fn announce_block(&self, block_hash: Block::Hash, data: Option<Vec<u8>>) {

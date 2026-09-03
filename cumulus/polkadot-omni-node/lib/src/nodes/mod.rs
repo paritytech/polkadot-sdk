@@ -15,6 +15,7 @@
 // limitations under the License.
 
 pub mod aura;
+pub(crate) mod jam;
 
 /// The current node version for cumulus official binaries, which takes the basic
 /// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest

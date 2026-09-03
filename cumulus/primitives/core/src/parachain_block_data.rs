@@ -485,6 +485,58 @@ mod tests {
 	}
 
 	#[test]
+	fn decoding_encoding_v3_works() {
+		let mut additional = AdditionalData::new();
+		additional.insert("jam/anchor_state_proof".into(), vec![1u8, 2, 3, 4]);
+
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![TestBlock::new(
+				Header::new_from_number(10),
+				vec![TestExtrinsic::new_bare(MockCallU64(10))],
+			)],
+			proof: CompactProof { encoded_nodes: vec![vec![10u8; 200]] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![Some(additional.clone())],
+		};
+
+		let encoded = v3.encode();
+		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &encoded[..]).unwrap();
+
+		assert_eq!(v3.blocks(), decoded.blocks());
+		assert_eq!(v3.proof(), decoded.proof());
+		assert_eq!(v3.scheduling_proof(), decoded.scheduling_proof());
+		assert_eq!(decoded.additional_data(), &[Some(additional)]);
+	}
+
+	/// The consumers of this carrier (a PVF, or parasim's PoV walker) dispatch on these leading
+	/// bytes before any SCALE decoding happens, so they are part of the wire contract.
+	#[test]
+	fn v3_is_tagged_with_the_versioned_prefix_and_version_three() {
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![None],
+		};
+
+		let encoded = v3.encode();
+		let (prefix, rest) = encoded.split_at(VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.len());
+		assert_eq!(prefix, b"VERSIONEDPBD");
+		assert_eq!(rest[0], 3u8);
+	}
+
+	/// An empty scheduling proof is what a JAM collator sends: nothing to prove, and a `None`
+	/// signed scheduling info, which is what the consumer requires.
+	#[test]
+	fn empty_scheduling_proof_claims_nothing() {
+		let empty = SchedulingProof::empty();
+		assert!(empty.header_chain.is_empty());
+		assert!(empty.signed_scheduling_info.is_none());
+		assert_eq!(empty.internal_scheduling_parent_header.number, 0);
+		assert_eq!(empty.encode(), vec![0u8; 1 + 32 + 1 + 32 + 32 + 1 + 1]);
+	}
+
+	#[test]
 	fn v2_as_v0_works_with_single_block() {
 		let scheduling_proof = crate::SchedulingProof {
 			header_chain: vec![make_relay_header(5)],

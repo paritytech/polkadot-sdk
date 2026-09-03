@@ -16,8 +16,9 @@
 
 use crate::{
 	chain_spec::Extensions,
-	cli::DevSealMode,
+	cli::{DevSealMode, JamNodeParams},
 	common::{
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
@@ -25,16 +26,15 @@ use crate::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 			ParachainService,
 		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
 use codec::Encode;
-use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
+use cumulus_client_bootnodes::{StartBootnodeTasksParams, start_bootnode_tasks};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
-	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
-	StartRelayChainTasksParams,
+	BuildNetworkParams, DARecoveryProfile, ParachainTracingExecuteBlock,
+	StartRelayChainTasksParams, build_network, build_relay_chain_interface, prepare_node_config,
+	start_relay_chain_tasks,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
@@ -45,14 +45,14 @@ use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
-use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
+use sc_executor::{DEFAULT_HEAP_ALLOC_STRATEGY, HeapAllocStrategy};
 use sc_network::{
-	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
+	NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId, config::FullNetworkConfiguration,
 };
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_storage_chain_sync::{
-	IndexedTransactionFetcher, NetworkHandle, StorageChainBlockImport, SyncingHandle,
+	BitswapHandleSlot, IndexedTransactionFetcher, StorageChainBlockImport,
 };
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
@@ -179,16 +179,13 @@ where
 pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
-	type RuntimeApi: ConstructNodeRuntimeApi<
-		Self::Block,
-		ParachainClient<Self::Block, Self::RuntimeApi>,
-	>;
+	type RuntimeApi: ConstructNodeRuntimeApi<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>;
 
 	type BuildImportQueue: BuildImportQueue<
-		Self::Block,
-		Self::RuntimeApi,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-	>;
+			Self::Block,
+			Self::RuntimeApi,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		>;
 
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
 
@@ -299,13 +296,9 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let network_handle: NetworkHandle = Arc::new(OnceLock::new());
-		let syncing_handle: SyncingHandle = Arc::new(OnceLock::new());
+		let bitswap_slot: BitswapHandleSlot = Arc::new(OnceLock::new());
 
-		let fetcher = IndexedTransactionFetcher::new(
-			Arc::clone(&network_handle),
-			Arc::clone(&syncing_handle),
-		);
+		let fetcher = IndexedTransactionFetcher::new(Arc::clone(&bitswap_slot));
 
 		let storage_chain_block_import =
 			StorageChainBlockImport::new(client.clone(), client.clone(), fetcher);
@@ -336,8 +329,7 @@ pub(crate) trait BaseNodeSpec {
 				telemetry,
 				telemetry_worker_handle,
 				block_import_auxiliary_data,
-				network_handle,
-				syncing_handle,
+				bitswap_slot,
 			),
 		})
 	}
@@ -345,11 +337,11 @@ pub(crate) trait BaseNodeSpec {
 
 pub(crate) trait NodeSpec: BaseNodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
-		ParachainClient<Self::Block, Self::RuntimeApi>,
-		ParachainBackend<Self::Block>,
-		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
-		Store,
-	>;
+			ParachainClient<Self::Block, Self::RuntimeApi>,
+			ParachainBackend<Self::Block>,
+			TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+			Store,
+		>;
 
 	type StartConsensus: StartConsensus<
 		Self::Block,
@@ -358,14 +350,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
 	>;
 
-	const SYBIL_RESISTANCE: CollatorSybilResistance;
-
 	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
 		_node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
+	}
+
+	fn start_jam_node(
+		_config: Configuration,
+		_jam_params: JamNodeParams,
+		_node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		Err(sc_service::Error::Other("JAM not supported for this node type".into()))
 	}
 
 	/// Start a node with the given parachain spec.
@@ -405,8 +403,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				mut telemetry,
 				telemetry_worker_handle,
 				block_import_auxiliary_data,
-				network_handle,
-				syncing_handle,
+				bitswap_slot,
 			) = params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
@@ -451,7 +448,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				(proto, config)
 			});
 
-			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
 					net_config,
@@ -462,15 +459,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					spawn_essential_handle: task_manager.spawn_essential_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
-					sybil_resistance_level: Self::SYBIL_RESISTANCE,
 					metrics,
 				})
 				.await?;
 
-			let _ = network_handle
-				.set(network.clone() as Arc<dyn sc_network::NetworkRequest + Send + Sync>);
-			let _ = syncing_handle.set(sync_service.clone()
-				as Arc<dyn sc_storage_chain_sync::BitswapPeerSource + Send + Sync>);
+			if let Some(handle) = bitswap_handle {
+				let _ = bitswap_slot.set(Arc::new(handle));
+			}
 
 			let peer_id = relay_chain_network.local_peer_id();
 
@@ -725,6 +720,14 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager>;
 
+	/// Start node against a JAM chain.
+	fn start_jam_node(
+		self: Box<Self>,
+		config: Configuration,
+		jam_params: JamNodeParams,
+		node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager>;
+
 	/// Start the node.
 	fn start_node(
 		self: Box<Self>,
@@ -747,6 +750,15 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args)
+	}
+
+	fn start_jam_node(
+		self: Box<Self>,
+		config: Configuration,
+		jam_params: JamNodeParams,
+		node_extra_args: NodeExtraArgs,
+	) -> sc_service::error::Result<TaskManager> {
+		<Self as NodeSpec>::start_jam_node(config, jam_params, node_extra_args)
 	}
 
 	fn start_node(

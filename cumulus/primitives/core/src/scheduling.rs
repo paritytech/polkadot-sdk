@@ -109,6 +109,25 @@ pub struct SchedulingProof {
 }
 
 impl SchedulingProof {
+	/// A scheduling proof that claims nothing: no ancestry, a zeroed internal scheduling parent
+	/// header, no signed scheduling info.
+	///
+	/// For backing chains that have no relay-chain scheduling at all (JAM), where the field
+	/// exists only because the V3 carrier requires one.
+	pub fn empty() -> Self {
+		Self {
+			header_chain: Vec::new(),
+			internal_scheduling_parent_header: RelayChainHeader {
+				parent_hash: Default::default(),
+				number: 0,
+				state_root: Default::default(),
+				extrinsics_root: Default::default(),
+				digest: Default::default(),
+			},
+			signed_scheduling_info: None,
+		}
+	}
+
 	/// Derive the scheduling parent hash.
 	///
 	/// Returns the hash of the first/newest header in `header_chain` if non-empty, otherwise

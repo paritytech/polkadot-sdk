@@ -17,6 +17,7 @@
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
+		NodeBlock, NodeExtraArgs,
 		chain_spec::LoadSpec,
 		runtime::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
@@ -24,7 +25,6 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
-		NodeBlock, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
@@ -309,6 +309,27 @@ where
 					return node_spec
 						.start_dev_node(config, dev_mode, node_extra_args)
 						.map_err(Into::into);
+				}
+
+				let jam_marker =
+					crate::common::chain_spec::Extensions::try_get(&*config.chain_spec)
+						.map(|extensions| extensions.relay_chain().starts_with("jam"))
+						.unwrap_or(false);
+				if let Some(jam_params) = cli.jam_mode()? {
+					if !jam_marker {
+						return Err(
+							"JAM mode requires a JAM chain spec: set `relay_chain: \"jam\"` \
+							in the chain spec extensions"
+								.into(),
+						);
+					}
+					return node_spec
+						.start_jam_node(config, jam_params, node_extra_args)
+						.map_err(Into::into);
+				} else if jam_marker {
+					return Err("The chain spec is marked as a JAM parachain \
+						(`relay_chain: \"jam\"`), but no `--jam-rpc-urls` was given"
+						.into());
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the

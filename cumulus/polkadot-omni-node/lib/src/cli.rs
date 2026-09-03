@@ -22,8 +22,8 @@ const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
-		chain_spec::{Extensions, LoadSpec},
 		NodeExtraArgs,
+		chain_spec::{Extensions, LoadSpec},
 	},
 };
 use chain_spec_builder::ChainSpecBuilder;
@@ -33,7 +33,7 @@ use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	RpcEndpoint, SharedParams, SubstrateCli,
 };
-use sc_service::{config::PrometheusConfig, BasePath};
+use sc_service::{BasePath, config::PrometheusConfig};
 use sc_storage_monitor::StorageMonitorParams;
 use std::{
 	fmt::{Display, Formatter},
@@ -184,6 +184,20 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, conflicts_with = "dev_block_time")]
 	pub instant_seal: bool,
 
+	/// EXPERIMENTAL (JAM): Id of the parachain service on the JAM chain.
+	///
+	/// Only meaningful together with `--jam-rpc-urls`. The id is assigned when the service is
+	/// registered on the JAM chain, so it cannot live in a committed chain spec.
+	#[arg(long)]
+	pub jam_service_id: Option<u32>,
+
+	/// EXPERIMENTAL (JAM): The core to submit work packages to.
+	///
+	/// Only meaningful together with `--jam-rpc-urls`. Replaced by authorizer-queue core
+	/// discovery later.
+	#[arg(long, default_value_t = 0)]
+	pub jam_core: u16,
+
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
 	/// Use slot-based collator which can handle elastic scaling.
@@ -274,6 +288,17 @@ pub struct Cli<Config: CliConfig> {
 	pub(crate) _phantom: PhantomData<Config>,
 }
 
+/// Everything the JAM node-start path needs from the command line.
+#[derive(Debug, Clone)]
+pub struct JamNodeParams {
+	/// The JAM node JSON-RPC endpoints.
+	pub rpc_urls: Vec<url::Url>,
+	/// Id of the parachain service on the JAM chain.
+	pub service_id: u32,
+	/// The core to submit work packages to.
+	pub core: u16,
+}
+
 /// Development sealing mode.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DevSealMode {
@@ -327,6 +352,24 @@ impl<Config: CliConfig> Cli<Config> {
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
 		}
+	}
+
+	/// Returns the JAM mode parameters if `--jam-rpc-urls` was given.
+	pub(crate) fn jam_mode(&self) -> sc_cli::Result<Option<JamNodeParams>> {
+		if self.run.jam_rpc_urls.is_empty() {
+			return Ok(None);
+		}
+		if !self.relay_chain_args.is_empty() {
+			return Err("JAM mode does not take relay chain arguments".into());
+		}
+		let Some(service_id) = self.jam_service_id else {
+			return Err("JAM mode requires `--jam-service-id`".into());
+		};
+		Ok(Some(JamNodeParams {
+			rpc_urls: self.run.jam_rpc_urls.clone(),
+			service_id,
+			core: self.jam_core,
+		}))
 	}
 
 	/// Returns the dev seal mode if the node is in dev mode.
