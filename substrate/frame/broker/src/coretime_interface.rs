@@ -132,3 +132,20 @@ impl CoretimeInterface for () {
 	) {
 	}
 }
+
+/// Locks the para behind a task that has been given Coretime.
+///
+/// A para that holds a core should answer to its own governance rather than to whoever registered
+/// it, so the registrar is told to shut the manager out. `()` where there is no registrar to talk
+/// to.
+pub trait ParaLock {
+	/// Lock the para behind `task`.
+	///
+	/// Having nothing to lock is not an error: `task` may be a para the local registrar never
+	/// handed out, or one that is locked already. Implementations swallow that.
+	fn lock(task: TaskId);
+}
+
+impl ParaLock for () {
+	fn lock(_task: TaskId) {}
+}

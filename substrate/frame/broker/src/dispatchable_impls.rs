@@ -376,6 +376,10 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			}
+
+			// The task now holds Coretime, so it is no longer the manager's to play with.
+			T::ParaLock::lock(target);
+
 			Self::deposit_event(Event::Assigned { region_id, task: target, duration });
 		}
 		Ok(())
