@@ -460,7 +460,7 @@ fn free_timedout() {
 		(chain_d, ParaKind::Parachain),
 		(chain_e, ParaKind::Parachain),
 		(chain_f, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
@@ -591,7 +591,7 @@ fn free_disputed() {
 		(chain_d, ParaKind::Parachain),
 		(chain_e, ParaKind::Parachain),
 		(chain_f, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let mut config = genesis_config(paras);
 	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
@@ -727,7 +727,7 @@ fn bitfield_checks() {
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -913,7 +913,7 @@ fn supermajority_bitfields_trigger_availability() {
 		(chain_b, ParaKind::Parachain),
 		(chain_c, ParaKind::Parachain),
 		(chain_d, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -1244,7 +1244,7 @@ fn candidate_checks() {
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -1810,7 +1810,7 @@ fn backing_works() {
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -2093,7 +2093,7 @@ fn backing_works_with_elastic_scaling() {
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -2470,7 +2470,7 @@ fn check_allowed_scheduling_parents() {
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let validators = vec![
 		Sr25519Keyring::Alice,
@@ -2668,7 +2668,7 @@ fn session_change_wipes() {
 	let paras = vec![
 		(chain_a, ParaKind::Parachain),
 		(chain_b, ParaKind::Parachain),
-		(thread_a, ParaKind::Parathread),
+		(thread_a, ParaKind::Parachain),
 	];
 	let validators = vec![
 		Sr25519Keyring::Alice,

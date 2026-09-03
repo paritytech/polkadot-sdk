@@ -456,10 +456,10 @@ fn basic_end_to_end_works() {
 				lease_period_index_start
 			));
 
-			// 2 sessions later they are parathreads (on-demand parachains)
+			// 2 sessions later they are parachains
 			run_to_session(START_SESSION_INDEX + 2);
-			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parathread));
-			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parathread));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
 			// Para 1 will bid directly for slot 1, 2
 			// Open a crowdloan for Para 2 for slot 3, 4
@@ -542,56 +542,44 @@ fn basic_end_to_end_works() {
 			let lease_start_block = start_block + 400 + offset;
 			run_to_block(lease_start_block);
 
-			// First slot, Para 1 should be transitioning to lease holding Parachain
-			assert_eq!(
-				Paras::lifecycle(ParaId::from(para_1)),
-				Some(ParaLifecycle::UpgradingParathread)
-			);
-			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parathread));
+			// First slot, Para 1 already has a lease — it stays Parachain
+			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
-			// Two sessions later, it has upgraded
+			// Two sessions later, still parachains
 			run_to_block(lease_start_block + 20);
 			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
-			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parathread));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
 			// Second slot nothing happens :)
 			run_to_block(lease_start_block + 100);
 			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
-			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parathread));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
-			// Third slot, Para 2 should be upgrading, and Para 1 is downgrading
+			// Third slot, Para 2's lease starts; Para 1's lease ends. Both remain Parachain.
 			run_to_block(lease_start_block + 200);
-			assert_eq!(
-				Paras::lifecycle(ParaId::from(para_1)),
-				Some(ParaLifecycle::DowngradingParachain)
-			);
-			assert_eq!(
-				Paras::lifecycle(ParaId::from(para_2)),
-				Some(ParaLifecycle::UpgradingParathread)
-			);
+			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
-			// Two sessions later, they have transitioned
+			// Two sessions later, both still Parachain
 			run_to_block(lease_start_block + 220);
-			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parathread));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
 			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
 			// Fourth slot nothing happens :)
 			run_to_block(lease_start_block + 300);
-			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parathread));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
 			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
-			// Fifth slot, Para 2 is downgrading
+			// Fifth slot, Para 2's lease ends. Both remain Parachain.
 			run_to_block(lease_start_block + 400);
-			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parathread));
-			assert_eq!(
-				Paras::lifecycle(ParaId::from(para_2)),
-				Some(ParaLifecycle::DowngradingParachain)
-			);
+			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 
-			// Two sessions later, Para 2 is downgraded
+			// Two sessions later, both still Parachain
 			run_to_block(lease_start_block + 420);
-			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parathread));
-			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parathread));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_1)), Some(ParaLifecycle::Parachain));
+			assert_eq!(Paras::lifecycle(ParaId::from(para_2)), Some(ParaLifecycle::Parachain));
 		});
 	}
 }
@@ -905,10 +893,10 @@ fn basic_swap_works() {
 			lease_period_index_start
 		));
 
-		// 2 sessions later they are on-demand parachains
+		// 2 sessions later they are parachains
 		run_to_session(START_SESSION_INDEX + 2);
-		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parathread));
-		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parathread));
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
+		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parachain));
 
 		// Open a crowdloan for Para 1 for slots 0-3
 		assert_ok!(Crowdloan::create(
@@ -966,7 +954,7 @@ fn basic_swap_works() {
 		// 2 sessions later it is a parachain
 		run_to_block(lease_start_block + 20);
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
-		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parathread));
+		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parachain));
 
 		// Initiate a swap
 		assert_ok!(Registrar::swap(
@@ -980,12 +968,13 @@ fn basic_swap_works() {
 			ParaId::from(2000)
 		));
 
-		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::DowngradingParachain));
-		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::UpgradingParathread));
+		// Swap is immediate — both paras remain Parachain (metadata/slots are exchanged).
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
+		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parachain));
 
-		// 2 session later they have swapped
+		// 2 sessions later, still parachains
 		run_to_block(lease_start_block + 40);
-		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parathread));
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
 		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parachain));
 
 		// Deregister on-demand parachain
@@ -1086,9 +1075,9 @@ fn parachain_swap_works() {
 				lease_period_index_start
 			));
 
-			// 2 sessions later they are on-demand parachains
+			// 2 sessions later they are parachains
 			run_to_block(starting_block + 20);
-			assert_eq!(Paras::lifecycle(ParaId::from(winner)), Some(ParaLifecycle::Parathread));
+			assert_eq!(Paras::lifecycle(ParaId::from(winner)), Some(ParaLifecycle::Parachain));
 
 			// Open a crowdloan for Para 1 for slots 0-3
 			assert_ok!(Crowdloan::create(
@@ -1129,10 +1118,10 @@ fn parachain_swap_works() {
 		assert!(!slots::Leases::<Test>::get(ParaId::from(2000)).is_empty());
 		assert!(slots::Leases::<Test>::get(ParaId::from(2001)).is_empty());
 
-		// 2 sessions later it is a parachain
+		// 2 sessions later it is a parachain (was already a parachain)
 		run_to_block(4 * 100 + 20);
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
-		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parathread));
+		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parachain));
 
 		// Let's repeat the process now for another parachain.
 		start_auction(6u32, 2001, 500);
@@ -1258,10 +1247,10 @@ fn crowdloan_ending_period_bid() {
 			lease_period_index_start
 		));
 
-		// 2 sessions later they are on-demand parachains
+		// 2 sessions later they are parachains
 		run_to_session(START_SESSION_INDEX + 2);
-		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parathread));
-		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parathread));
+		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Parachain));
+		assert_eq!(Paras::lifecycle(ParaId::from(2001)), Some(ParaLifecycle::Parachain));
 
 		// Open a crowdloan for Para 1 for slots 0-3
 		assert_ok!(Crowdloan::create(

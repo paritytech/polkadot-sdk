@@ -216,14 +216,9 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The specified parachain is not registered.
 		ParaDoesntExist,
-		/// Not a parathread (on-demand parachain).
-		NotParathread,
 		/// Cannot upgrade on-demand parachain to lease holding
 		/// parachain.
 		CannotUpgrade,
-		/// Cannot downgrade lease holding parachain to
-		/// on-demand.
-		CannotDowngrade,
 		/// Permanent or Temporary slot already assigned.
 		SlotAlreadyAssigned,
 		/// Permanent or Temporary slot has not been assigned.
@@ -261,7 +256,7 @@ pub mod pallet {
 
 			let manager = T::Registrar::manager_of(id).ok_or(Error::<T>::ParaDoesntExist)?;
 
-			ensure!(T::Registrar::is_parathread(id), Error::<T>::NotParathread);
+			ensure!(T::Registrar::is_parachain(id), Error::<T>::ParaDoesntExist);
 
 			ensure!(
 				!Self::has_permanent_slot(id) && !Self::has_temporary_slot(id),
@@ -323,7 +318,7 @@ pub mod pallet {
 
 			let manager = T::Registrar::manager_of(id).ok_or(Error::<T>::ParaDoesntExist)?;
 
-			ensure!(T::Registrar::is_parathread(id), Error::<T>::NotParathread);
+			ensure!(T::Registrar::is_parachain(id), Error::<T>::ParaDoesntExist);
 
 			ensure!(
 				!Self::has_permanent_slot(id) && !Self::has_temporary_slot(id),
@@ -409,8 +404,14 @@ pub mod pallet {
 				Error::<T>::SlotNotAssigned
 			);
 
-			// Check & cache para status before we clear the lease
-			let is_parachain = Self::is_parachain(id);
+			// `is_parachain` is always true now, so check the slot's lease window directly
+			// to avoid decrementing `ActiveTemporarySlotCount` for queued slots never counted.
+			let has_active_temp_lease = TemporarySlots::<T>::get(id).map_or(false, |slot| {
+				slot.last_lease.map_or(false, |last_lease| {
+					let current = Self::current_lease_period_index();
+					last_lease <= current && current < last_lease.saturating_add(slot.period_count)
+				})
+			});
 
 			// Remove perm or temp slot
 			Self::clear_slot_leases(origin.clone(), id)?;
@@ -421,27 +422,10 @@ pub mod pallet {
 			} else if TemporarySlots::<T>::contains_key(id) {
 				TemporarySlots::<T>::remove(id);
 				TemporarySlotCount::<T>::mutate(|count| *count = count.saturating_sub(One::one()));
-				if is_parachain {
+				if has_active_temp_lease {
 					ActiveTemporarySlotCount::<T>::mutate(|active_count| {
 						*active_count = active_count.saturating_sub(One::one())
 					});
-				}
-			}
-
-			// Force downgrade to on-demand parachain (if needed) before end of lease period
-			if is_parachain {
-				if let Err(err) = polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
-				{
-					// Treat failed downgrade as warning .. slot lease has been cleared,
-					// so the parachain will be downgraded anyway by the slots pallet
-					// at the end of the lease period .
-					log::warn!(
-						target: LOG_TARGET,
-						"Failed to downgrade parachain {:?} at period {:?}: {:?}",
-						id,
-						Self::current_lease_period_index(),
-						err
-					);
 				}
 			}
 
@@ -591,11 +575,6 @@ impl<T: Config> Pallet<T> {
 	/// Returns whether a para has been assigned temporary slot.
 	fn has_temporary_slot(id: ParaId) -> bool {
 		TemporarySlots::<T>::contains_key(id)
-	}
-
-	/// Returns whether a para is currently a lease holding parachain.
-	fn is_parachain(id: ParaId) -> bool {
-		T::Registrar::is_parachain(id)
 	}
 
 	/// Returns current lease period index.
@@ -836,29 +815,6 @@ mod tests {
 	}
 
 	#[test]
-	fn assign_perm_slot_fails_when_not_parathread() {
-		new_test_ext().execute_with(|| {
-			System::run_to_block::<AllPalletsWithSystem>(1);
-
-			assert_ok!(TestRegistrar::<Test>::register(
-				1,
-				ParaId::from(1_u32),
-				dummy_head_data(),
-				dummy_validation_code(),
-			));
-			assert_ok!(TestRegistrar::<Test>::make_parachain(ParaId::from(1_u32)));
-
-			assert_noop!(
-				AssignedSlots::assign_perm_parachain_slot(
-					RuntimeOrigin::root(),
-					ParaId::from(1_u32),
-				),
-				Error::<Test>::NotParathread
-			);
-		});
-	}
-
-	#[test]
 	fn assign_perm_slot_fails_when_existing_lease() {
 		new_test_ext().execute_with(|| {
 			System::run_to_block::<AllPalletsWithSystem>(1);
@@ -983,8 +939,8 @@ mod tests {
 				System::run_to_block::<AllPalletsWithSystem>(block);
 			}
 
-			// Para lease ended, downgraded back to parathread (on-demand parachain)
-			assert_eq!(TestRegistrar::<Test>::is_parathread(ParaId::from(1_u32)), true);
+			// Para lease ended, still a parachain
+			assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 5), false);
 		});
 	}
@@ -1017,30 +973,6 @@ mod tests {
 					SlotLeasePeriodStart::Current
 				),
 				BadOrigin
-			);
-		});
-	}
-
-	#[test]
-	fn assign_temp_slot_fails_when_not_parathread() {
-		new_test_ext().execute_with(|| {
-			System::run_to_block::<AllPalletsWithSystem>(1);
-
-			assert_ok!(TestRegistrar::<Test>::register(
-				1,
-				ParaId::from(1_u32),
-				dummy_head_data(),
-				dummy_validation_code(),
-			));
-			assert_ok!(TestRegistrar::<Test>::make_parachain(ParaId::from(1_u32)));
-
-			assert_noop!(
-				AssignedSlots::assign_temp_parachain_slot(
-					RuntimeOrigin::root(),
-					ParaId::from(1_u32),
-					SlotLeasePeriodStart::Current
-				),
-				Error::<Test>::NotParathread
 			);
 		});
 	}
@@ -1183,8 +1115,8 @@ mod tests {
 			println!("lease period #{}", AssignedSlots::current_lease_period_index());
 			println!("lease {:?}", slots::Leases::<Test>::get(ParaId::from(1_u32)));
 
-			// Para lease ended, downgraded back to on-demand parachain
-			assert_eq!(TestRegistrar::<Test>::is_parathread(ParaId::from(1_u32)), true);
+			// Para lease ended, still a parachain
+			assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 3), false);
 			assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 0);
 
@@ -1233,72 +1165,60 @@ mod tests {
 				if n > 1 {
 					System::run_to_block::<AllPalletsWithSystem>(n);
 				}
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(0)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(2_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
+				// All registered paras are parachains regardless of temp-slot state.
+				for p in 0..=5u32 {
+					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
+				}
 				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 6-11, Period 2-3
 			for n in 6..=11 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(0)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(2_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
+				// All registered paras are parachains regardless of temp-slot state.
+				for p in 0..=5u32 {
+					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
+				}
 				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 12-17, Period 4-5
 			for n in 12..=17 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(0)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(2_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), true);
+				// All registered paras are parachains regardless of temp-slot state.
+				for p in 0..=5u32 {
+					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
+				}
 				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 18-23, Period 6-7
 			for n in 18..=23 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(0)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(2_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
+				// All registered paras are parachains regardless of temp-slot state.
+				for p in 0..=5u32 {
+					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
+				}
 				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 24-29, Period 8-9
 			for n in 24..=29 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(0)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(2_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), false);
+				// All registered paras are parachains regardless of temp-slot state.
+				for p in 0..=5u32 {
+					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
+				}
 				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 
 			// Block 30-35, Period 10-11
 			for n in 30..=35 {
 				System::run_to_block::<AllPalletsWithSystem>(n);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(0)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(2_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(3_u32)), false);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(4_u32)), true);
-				assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(5_u32)), true);
+				// All registered paras are parachains regardless of temp-slot state.
+				for p in 0..=5u32 {
+					assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(p)), true);
+				}
 				assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 2);
 			}
 		});

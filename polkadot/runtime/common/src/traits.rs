@@ -40,12 +40,9 @@ pub trait Registrar {
 		Self::parachains().binary_search(&id).is_ok()
 	}
 
-	/// Return if a `ParaId` is a Parathread (on-demand parachain).
-	fn is_parathread(id: ParaId) -> bool;
-
 	/// Return if a `ParaId` is registered in the system.
 	fn is_registered(id: ParaId) -> bool {
-		Self::is_parathread(id) || Self::is_parachain(id)
+		Self::is_parachain(id)
 	}
 
 	/// Apply a lock to the para registration so that it cannot be modified by
@@ -68,10 +65,10 @@ pub trait Registrar {
 	/// Deregister a Para ID, free any data, and return any deposits.
 	fn deregister(id: ParaId) -> DispatchResult;
 
-	/// Elevate a para to parachain status.
+	/// Elevate a para to parachain status (no-op: all registered paras are parachains).
 	fn make_parachain(id: ParaId) -> DispatchResult;
 
-	/// Downgrade lease holding parachain into parathread (on-demand parachain)
+	/// Downgrade lease holding parachain to on-demand parachain — no longer supported.
 	fn make_parathread(id: ParaId) -> DispatchResult;
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]

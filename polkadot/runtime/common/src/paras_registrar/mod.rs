@@ -188,12 +188,8 @@ pub mod pallet {
 		HeadDataTooLarge,
 		/// Para is not a Parachain.
 		NotParachain,
-		/// Para is not a Parathread (on-demand parachain).
-		NotParathread,
 		/// Cannot deregister para
 		CannotDeregister,
-		/// Cannot schedule downgrade of lease holding parachain to on-demand parachain
-		CannotDowngrade,
 		/// Cannot schedule upgrade of on-demand parachain to lease holding parachain
 		CannotUpgrade,
 		/// Para is locked from manipulation by the manager. Must use parachain or relay chain
@@ -304,8 +300,13 @@ pub mod pallet {
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
 		///
-		/// The caller must be Root, the `para` owner, or the `para` itself. The para must be an
-		/// on-demand parachain.
+		/// The caller must be Root, the `para` owner, or the `para` itself. The para must be
+		/// settled, meaning neither onboarding nor offboarding.
+		///
+		/// This no longer refuses a leased para, having previously accepted only the `Parathread`
+		/// lifecycle that leased paras never had. Deregistering one leaves its `slots` `Leases`
+		/// behind, deposits reserved until those periods elapse. The lock a para gets on its first
+		/// head stops its manager, but not Root or the para itself.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
@@ -344,22 +345,10 @@ pub mod pallet {
 			if PendingSwap::<T>::get(other) == Some(id) {
 				let other_lifecycle =
 					paras::Pallet::<T>::lifecycle(other).ok_or(Error::<T>::NotRegistered)?;
-				// identify which is a lease holding parachain and which is a parathread (on-demand
-				// parachain)
+				// Both paras must be stable parachains to swap.
 				if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parathread
-				{
-					Self::do_thread_and_chain_swap(id, other);
-				} else if id_lifecycle == ParaLifecycle::Parathread &&
 					other_lifecycle == ParaLifecycle::Parachain
 				{
-					Self::do_thread_and_chain_swap(other, id);
-				} else if id_lifecycle == ParaLifecycle::Parachain &&
-					other_lifecycle == ParaLifecycle::Parachain
-				{
-					// If both chains are currently parachains, there is nothing funny we
-					// need to do for their lifecycle management, just swap the underlying
-					// data.
 					T::OnSwap::on_swap(id, other);
 				} else {
 					return Err(Error::<T>::CannotSwap.into());
@@ -484,11 +473,6 @@ impl<T: Config> Registrar for Pallet<T> {
 		paras::Parachains::<T>::get()
 	}
 
-	// Return if a para is a parathread (on-demand parachain)
-	fn is_parathread(id: ParaId) -> bool {
-		paras::Pallet::<T>::is_parathread(id)
-	}
-
 	// Return if a para is a lease holding parachain
 	fn is_parachain(id: ParaId) -> bool {
 		paras::Pallet::<T>::is_parachain(id)
@@ -522,28 +506,13 @@ impl<T: Config> Registrar for Pallet<T> {
 		Self::do_deregister(id)
 	}
 
-	// Upgrade a registered on-demand parachain into a lease holding parachain.
-	fn make_parachain(id: ParaId) -> DispatchResult {
-		// Para backend should think this is an on-demand parachain...
-		ensure!(
-			paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parathread),
-			Error::<T>::NotParathread
-		);
-		polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(id)
-			.map_err(|_| Error::<T>::CannotUpgrade)?;
-
+	// Upgrade a registered parachain (no-op: all paras are already parachains).
+	fn make_parachain(_id: ParaId) -> DispatchResult {
 		Ok(())
 	}
 
-	// Downgrade a registered para into a parathread (on-demand parachain).
-	fn make_parathread(id: ParaId) -> DispatchResult {
-		// Para backend should think this is a parachain...
-		ensure!(
-			paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain),
-			Error::<T>::NotParachain
-		);
-		polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
-			.map_err(|_| Error::<T>::CannotDowngrade)?;
+	// Downgrade to a parathread — no longer supported; all paras are parachains.
+	fn make_parathread(_id: ParaId) -> DispatchResult {
 		Ok(())
 	}
 
@@ -683,7 +652,7 @@ impl<T: Config> Pallet<T> {
 		};
 		ensure!(paras::Pallet::<T>::lifecycle(id).is_none(), Error::<T>::AlreadyRegistered);
 		let (genesis, deposit) =
-			Self::validate_onboarding_data(genesis_head, validation_code, ParaKind::Parathread)?;
+			Self::validate_onboarding_data(genesis_head, validation_code, ParaKind::Parachain)?;
 		let deposit = deposit_override.unwrap_or(deposit);
 
 		if let Some(additional) = deposit.checked_sub(&deposited) {
@@ -702,11 +671,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Deregister a Para Id, freeing all data returning any deposit.
+	///
+	/// The para must be settled or absent. With a single `Parachain` lifecycle this no longer
+	/// tells a leased para from an unleased one: see the `deregister` extrinsic.
 	fn do_deregister(id: ParaId) -> DispatchResult {
 		match paras::Pallet::<T>::lifecycle(id) {
-			// Para must be a parathread (on-demand parachain), or not exist at all.
-			Some(ParaLifecycle::Parathread) | None => {},
-			_ => return Err(Error::<T>::NotParathread.into()),
+			Some(ParaLifecycle::Parachain) | None => {},
+			_ => return Err(Error::<T>::CannotDeregister.into()),
 		}
 		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
 			.map_err(|_| Error::<T>::CannotDeregister)?;
@@ -749,16 +720,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(code_len <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(head_len <= config.max_head_data_size as usize, Error::<T>::HeadDataTooLarge);
 		Ok(())
-	}
-
-	/// Swap a lease holding parachain and parathread (on-demand parachain), which involves
-	/// scheduling an appropriate lifecycle update.
-	fn do_thread_and_chain_swap(to_downgrade: ParaId, to_upgrade: ParaId) {
-		let res1 = polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(to_downgrade);
-		debug_assert!(res1.is_ok());
-		let res2 = polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(to_upgrade);
-		debug_assert!(res2.is_ok());
-		T::OnSwap::on_swap(to_upgrade, to_downgrade);
 	}
 }
 

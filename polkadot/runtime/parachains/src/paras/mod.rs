@@ -119,7 +119,7 @@ use codec::{Decode, Encode};
 use core::{cmp, mem};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
+	traits::{EnsureOriginWithArg, EstimateNextSessionRotation, StorageVersion},
 	DefaultNoBound,
 };
 use frame_system::pallet_prelude::*;
@@ -140,6 +140,8 @@ pub use crate::Origin as ParachainOrigin;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+
+pub mod migration;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -185,63 +187,36 @@ pub struct ParaPastCodeMeta<N> {
 /// state will be used to determine the state transition to apply to the para.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
 pub enum ParaLifecycle {
-	/// Para is new and is onboarding as an on-demand or lease holding Parachain.
+	/// Para is new and is onboarding as a Parachain.
 	Onboarding,
-	/// Para is a Parathread (on-demand parachain).
-	Parathread,
 	/// Para is a lease holding Parachain.
 	Parachain,
-	/// Para is a Parathread (on-demand parachain) which is upgrading to a lease holding Parachain.
-	UpgradingParathread,
-	/// Para is a lease holding Parachain which is downgrading to an on-demand parachain.
-	DowngradingParachain,
-	/// Parathread (on-demand parachain) is queued to be offboarded.
-	OffboardingParathread,
 	/// Parachain is queued to be offboarded.
 	OffboardingParachain,
 }
 
 impl ParaLifecycle {
-	/// Returns true if parachain is currently onboarding. To learn if the
-	/// parachain is onboarding as a lease holding or on-demand parachain, look at the
-	/// `UpcomingGenesis` storage item.
+	/// Returns true if parachain is currently onboarding.
 	pub fn is_onboarding(&self) -> bool {
 		matches!(self, ParaLifecycle::Onboarding)
 	}
 
 	/// Returns true if para is in a stable state, i.e. it is currently
-	/// a lease holding or on-demand parachain, and not in any transition state.
+	/// a lease holding parachain and not in any transition state.
 	pub fn is_stable(&self) -> bool {
-		matches!(self, ParaLifecycle::Parathread | ParaLifecycle::Parachain)
+		matches!(self, ParaLifecycle::Parachain)
 	}
 
 	/// Returns true if para is currently treated as a parachain.
 	/// This also includes transitioning states, so you may want to combine
 	/// this check with `is_stable` if you specifically want `Paralifecycle::Parachain`.
 	pub fn is_parachain(&self) -> bool {
-		matches!(
-			self,
-			ParaLifecycle::Parachain |
-				ParaLifecycle::DowngradingParachain |
-				ParaLifecycle::OffboardingParachain
-		)
-	}
-
-	/// Returns true if para is currently treated as a parathread (on-demand parachain).
-	/// This also includes transitioning states, so you may want to combine
-	/// this check with `is_stable` if you specifically want `Paralifecycle::Parathread`.
-	pub fn is_parathread(&self) -> bool {
-		matches!(
-			self,
-			ParaLifecycle::Parathread |
-				ParaLifecycle::UpgradingParathread |
-				ParaLifecycle::OffboardingParathread
-		)
+		matches!(self, ParaLifecycle::Parachain | ParaLifecycle::OffboardingParachain)
 	}
 
 	/// Returns true if para is currently offboarding.
 	pub fn is_offboarding(&self) -> bool {
-		matches!(self, ParaLifecycle::OffboardingParathread | ParaLifecycle::OffboardingParachain)
+		matches!(self, ParaLifecycle::OffboardingParachain)
 	}
 
 	/// Returns true if para is in any transitionary state.
@@ -316,10 +291,15 @@ pub struct ParaGenesisArgs {
 	pub para_kind: ParaKind,
 }
 
-/// Distinguishes between lease holding Parachain and Parathread (on-demand parachain)
+/// Controls whether a coretime core is assigned when a para is initialized.
+///
+/// Both variants share the `Parachain` lifecycle (the `Parathread` lifecycle variant has been
+/// removed). The distinction is only whether `AssignCoretime` is called at init.
 #[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Debug)]
 pub enum ParaKind {
+	/// On-demand parachain — no initial core assignment.
 	Parathread,
+	/// Lease-holding parachain — receives a core assignment at init.
 	Parachain,
 }
 
@@ -652,7 +632,14 @@ pub mod pallet {
 
 	type BalanceOf<T> = <<T as Config>::Fungible as Inspect<AccountIdFor<T>>>::Balance;
 
+	/// Storage version of the paras pallet.
+	///
+	/// v0: Original storage with parathread lifecycle variants.
+	/// v1: Parathread lifecycle variants removed; all paras are parachains.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
@@ -759,8 +746,6 @@ pub mod pallet {
 		CannotOffboard,
 		/// Para cannot be upgraded to a lease holding parachain.
 		CannotUpgrade,
-		/// Para cannot be downgraded to an on-demand parachain.
-		CannotDowngrade,
 		/// The statement for PVF pre-checking is stale.
 		PvfCheckStatementStale,
 		/// The statement for PVF pre-checking is for a future session.
@@ -812,7 +797,7 @@ pub mod pallet {
 
 	/// The current lifecycle of a all known Para IDs.
 	#[pallet::storage]
-	pub(super) type ParaLifecycles<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaLifecycle>;
+	pub type ParaLifecycles<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaLifecycle>;
 
 	/// The head-data of every registered para.
 	#[pallet::storage]
@@ -1576,26 +1561,15 @@ impl<T: Config> Pallet<T> {
 		for para in actions {
 			let lifecycle = ParaLifecycles::<T>::get(&para);
 			match lifecycle {
-				None | Some(ParaLifecycle::Parathread) | Some(ParaLifecycle::Parachain) => { // Nothing to do...
+				None | Some(ParaLifecycle::Parachain) => { // Nothing to do...
 				},
 				Some(ParaLifecycle::Onboarding) => {
 					if let Some(genesis_data) = UpcomingParasGenesis::<T>::take(&para) {
 						Self::initialize_para_now(&mut parachains, para, &genesis_data);
 					}
 				},
-				// Upgrade an on-demand parachain to a lease holding parachain
-				Some(ParaLifecycle::UpgradingParathread) => {
-					parachains.add(para);
-					ParaLifecycles::<T>::insert(&para, ParaLifecycle::Parachain);
-				},
-				// Downgrade a lease holding parachain to an on-demand parachain
-				Some(ParaLifecycle::DowngradingParachain) => {
-					parachains.remove(para);
-					ParaLifecycles::<T>::insert(&para, ParaLifecycle::Parathread);
-				},
-				// Offboard a lease holding or on-demand parachain from the system
-				Some(ParaLifecycle::OffboardingParachain) |
-				Some(ParaLifecycle::OffboardingParathread) => {
+				// Offboard a parachain from the system
+				Some(ParaLifecycle::OffboardingParachain) => {
 					parachains.remove(para);
 
 					Heads::<T>::remove(&para);
@@ -2142,9 +2116,6 @@ impl<T: Config> Pallet<T> {
 		match lifecycle {
 			// If para is not registered, nothing to do!
 			None => return Ok(()),
-			Some(ParaLifecycle::Parathread) => {
-				ParaLifecycles::<T>::insert(&id, ParaLifecycle::OffboardingParathread);
-			},
 			Some(ParaLifecycle::Parachain) => {
 				ParaLifecycles::<T>::insert(&id, ParaLifecycle::OffboardingParachain);
 			},
@@ -2161,44 +2132,6 @@ impl<T: Config> Pallet<T> {
 		if <T as Config>::QueueFootprinter::message_count(UmpQueueId::Para(id)) != 0 {
 			return Err(Error::<T>::CannotOffboard.into());
 		}
-
-		Ok(())
-	}
-
-	/// Schedule a parathread (on-demand parachain) to be upgraded to a lease holding parachain.
-	///
-	/// Will return error if `ParaLifecycle` is not `Parathread`.
-	pub(crate) fn schedule_parathread_upgrade(id: ParaId) -> DispatchResult {
-		let scheduled_session = Self::scheduled_session();
-		let lifecycle = ParaLifecycles::<T>::get(&id).ok_or(Error::<T>::NotRegistered)?;
-
-		ensure!(lifecycle == ParaLifecycle::Parathread, Error::<T>::CannotUpgrade);
-
-		ParaLifecycles::<T>::insert(&id, ParaLifecycle::UpgradingParathread);
-		ActionsQueue::<T>::mutate(scheduled_session, |v| {
-			if let Err(i) = v.binary_search(&id) {
-				v.insert(i, id);
-			}
-		});
-
-		Ok(())
-	}
-
-	/// Schedule a lease holding parachain to be downgraded to an on-demand parachain.
-	///
-	/// Noop if `ParaLifecycle` is not `Parachain`.
-	pub(crate) fn schedule_parachain_downgrade(id: ParaId) -> DispatchResult {
-		let scheduled_session = Self::scheduled_session();
-		let lifecycle = ParaLifecycles::<T>::get(&id).ok_or(Error::<T>::NotRegistered)?;
-
-		ensure!(lifecycle == ParaLifecycle::Parachain, Error::<T>::CannotDowngrade);
-
-		ParaLifecycles::<T>::insert(&id, ParaLifecycle::DowngradingParachain);
-		ActionsQueue::<T>::mutate(scheduled_session, |v| {
-			if let Err(i) = v.binary_search(&id) {
-				v.insert(i, id);
-			}
-		});
 
 		Ok(())
 	}
@@ -2486,23 +2419,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Whether a para ID corresponds to any live lease holding parachain.
-	///
-	/// Includes lease holding parachains which will downgrade to a on-demand parachains in the
-	/// future.
 	pub fn is_parachain(id: ParaId) -> bool {
 		if let Some(state) = ParaLifecycles::<T>::get(&id) {
 			state.is_parachain()
-		} else {
-			false
-		}
-	}
-
-	/// Whether a para ID corresponds to any live parathread (on-demand parachain).
-	///
-	/// Includes on-demand parachains which will upgrade to lease holding parachains in the future.
-	pub fn is_parathread(id: ParaId) -> bool {
-		if let Some(state) = ParaLifecycles::<T>::get(&id) {
-			state.is_parathread()
 		} else {
 			false
 		}
@@ -2577,11 +2496,10 @@ impl<T: Config> Pallet<T> {
 		genesis_data: &ParaGenesisArgs,
 	) {
 		match genesis_data.para_kind {
-			ParaKind::Parachain => {
+			ParaKind::Parachain | ParaKind::Parathread => {
 				parachains.add(id);
 				ParaLifecycles::<T>::insert(&id, ParaLifecycle::Parachain);
 			},
-			ParaKind::Parathread => ParaLifecycles::<T>::insert(&id, ParaLifecycle::Parathread),
 		}
 
 		// HACK: see the notice in `schedule_para_initialize`.
