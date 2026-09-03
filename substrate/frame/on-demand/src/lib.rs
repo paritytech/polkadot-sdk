@@ -245,7 +245,7 @@ pub mod pallet {
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			// Fail early if the batch is already full.
-			if PendingBatch::<T>::get().len() >= MAX_BATCH_SIZE {
+			if PendingBatch::<T>::get().len() >= MAX_BATCH_SIZE as usize {
 				return Err(Error::<T>::BatchFull.into());
 			}
 
