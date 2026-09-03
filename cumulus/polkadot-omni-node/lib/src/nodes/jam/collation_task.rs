@@ -973,11 +973,11 @@ impl<Block: BlockT> PackageSource<Block> {
 			export_count: 0,
 		};
 
-		// `auth_code_host` stays 0: the authorizer code is hosted by the genesis bootstrap
-		// service, which is where guarantors look the blob up by preimage.
+		// The parachain service hosts its own authorizer blob, so it is also the service
+		// guarantors look that blob's preimage up in.
 		WorkPackage {
 			authorization: Authorization::default(),
-			auth_code_host: 0,
+			auth_code_host: self.service_id,
 			authorizer: self.authorizer.clone(),
 			context: anchored.context.clone(),
 			items: vec![work_item].try_into().expect("a single work item always fits; qed"),
@@ -1248,12 +1248,15 @@ mod tests {
 	/// two must agree exactly.
 	/// A package is submitted under the para's own authorizer and carries a token, so a guarantor
 	/// looks the AURA blob up by the hash the core's pool holds instead of waving the package
-	/// through. `auth_code_host` stays 0 because that is the service hosting the blob's preimage.
+	/// through. `auth_code_host` is the parachain service, which is where that blob's preimage is
+	/// hosted — a package naming any other host is one no guarantor can resolve the code for.
 	#[test]
 	fn a_package_runs_under_the_paras_own_authorizer() {
 		let package = signed(&package_source(), &anchored(11));
 
-		assert_eq!(package.auth_code_host, 0);
+		// The literal is `package_source`'s parachain service, so this pins the host to that
+		// service rather than to the bootstrap service 0 the blob used to be hosted by.
+		assert_eq!(package.auth_code_host, 42);
 		assert_eq!(
 			jam_cumulus_facade::authorizer::authorizer_hash(&package.authorizer),
 			aura().hash(),

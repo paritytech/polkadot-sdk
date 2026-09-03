@@ -422,7 +422,7 @@ pub(crate) mod tests {
 		};
 		WorkPackage {
 			authorization: Authorization::default(),
-			auth_code_host: 0,
+			auth_code_host: SERVICE_ID,
 			authorizer: authorizer.authorizer(),
 			context: RefineContext {
 				anchor: [1u8; 32].into(),
