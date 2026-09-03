@@ -440,6 +440,14 @@ pub trait Virtualization {
 			.expect("VirtManagerExt not registered in externalities")
 			.write_memory(instance_id, offset, src)
 	}
+
+	/// Clear the module cache so every subsequent [`lookup`] misses, as in a fresh block.
+	fn reset_module_cache(&mut self) {
+		use sp_externalities::ExternalitiesExt as _;
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
+			.reset_module_cache()
+	}
 }
 
 /// The host-side operations driven by the virtualization host functions.
@@ -493,6 +501,9 @@ pub trait VirtManagerBackend: Send + 'static {
 		offset: u32,
 		src: &[u8],
 	) -> Result<(), MemoryError>;
+
+	/// Clear the module cache so every subsequent [`VirtManagerBackend::lookup`] misses.
+	fn reset_module_cache(&mut self);
 }
 
 #[cfg(not(substrate_runtime))]

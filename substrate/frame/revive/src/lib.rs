@@ -2180,6 +2180,10 @@ impl<T: Config> Pallet<T> {
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
 
+		// Start from the empty module cache of the fresh block the transaction will execute in.
+		#[cfg(revive_jit)]
+		sp_virtualization::reset_module_cache();
+
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
 
