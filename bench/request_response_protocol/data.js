@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788429760331,
+  "lastUpdate": 1788470933731,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -120743,6 +120743,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2582135056,
             "range": "± 22131841",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd42d2f58404290bfff77492f4e48c531d209bf4",
+          "message": "[EPMB] bound the tx-fee refund of a signed submission (#12877)\n\nThe winner of the signed phase is paid `RewardBase` plus the transaction\nfees their submission cost them, tracked in `SubmissionMetadata::fee`.\nTwo changes:\n\n- A new `signed::Config::MaxFeeRefund` caps the refundable portion, both\nfor the winner and for an invulnerable clearing a discarded submission.\nThe payout is now bounded by config\n- Storing a page that is already stored no longer accrues a fee,\nmatching what the refund is meant to cover.\n\nRuntimes should set `MaxFeeRefund` to\n`signed::FullSubmissionFee<Runtime, TransactionPayment>`, which prices\none `register` plus `Pages` `submit_page` calls at the maximum encoded\npage size.\n\n`FullSubmissionFee` needs the fee of a call it cannot afford to build,\nso `frame_support` gains `EstimateFee`, a sibling of `EstimateCallFee`\nthat takes an encoded length and a `DispatchInfo` instead of a call,\nimplemented by `pallet-transaction-payment`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-09-03T20:15:32Z",
+          "tree_id": "4f29e232935bc2556b9ab962b13659ae8b2f592d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd42d2f58404290bfff77492f4e48c531d209bf4"
+        },
+        "date": 1788470900158,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19508691,
+            "range": "± 145002",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19890618,
+            "range": "± 202579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21160718,
+            "range": "± 192394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26152612,
+            "range": "± 182406",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61237457,
+            "range": "± 577989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 373254332,
+            "range": "± 4246496",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2814516583,
+            "range": "± 51769381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16734033,
+            "range": "± 172985",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17177504,
+            "range": "± 164228",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17178829,
+            "range": "± 127956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21896318,
+            "range": "± 145552",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61731870,
+            "range": "± 1114961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 363126881,
+            "range": "± 4831307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2659576990,
+            "range": "± 14597177",
             "unit": "ns/iter"
           }
         ]
