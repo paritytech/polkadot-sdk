@@ -51,6 +51,9 @@
 //!
 //! [`Pallet::add_lock`] shuts the manager out of a registered para, leaving it to the para's own
 //! governance. Only root or the para itself can lift it again with [`Pallet::remove_lock`].
+//! [`Pallet::lock_para`] is the same lock without the origin check, for a runtime that applies it
+//! on its own trigger: on the Coretime chain `pallet-broker` locks a para as soon as it is given
+//! a core.
 //!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
 
@@ -501,19 +504,9 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::add_lock())]
 		pub fn add_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
-			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
-			ensure!(!info.locked, Error::<T>::AlreadyLocked);
-			ensure!(
-				matches!(info.state, RegistrationState::Registered { .. }),
-				Error::<T>::NotRegistered
-			);
-
-			info.locked = true;
-			Paras::<T>::insert(para_id, info);
-
-			Self::deposit_event(Event::ParaLocked { para_id });
-			Ok(())
+			Self::lock_para(para_id)
 		}
 
 		/// Unlock a para, handing control back to the manager.
@@ -539,6 +532,25 @@ impl<T: Config> Pallet<T> {
 	/// The footprint a registration is charged for: the head data plus the *declared* code length.
 	pub fn registration_footprint(head_len: u32, code_len: u32) -> Footprint {
 		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
+	}
+
+	/// Lock `para_id` with no origin check, for a runtime that locks paras on its own trigger:
+	/// the Coretime chain locks a para once it has been given a core.
+	///
+	/// Fails if the para is unknown here, not registered on the relay chain, or locked already.
+	pub fn lock_para(para_id: ParaId) -> DispatchResult {
+		let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+		ensure!(!info.locked, Error::<T>::AlreadyLocked);
+		ensure!(
+			matches!(info.state, RegistrationState::Registered { .. }),
+			Error::<T>::NotRegistered
+		);
+
+		info.locked = true;
+		Paras::<T>::insert(para_id, info);
+
+		Self::deposit_event(Event::ParaLocked { para_id });
+		Ok(())
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its manager while unlocked, or root.
