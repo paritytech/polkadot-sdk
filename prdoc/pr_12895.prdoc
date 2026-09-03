@@ -1,0 +1,22 @@
+title: 'fix(pgas): charge_pgas benchmark'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR fixes the `charge_pgas` benchmark inside the `transaction-payment` pallet which skipped the worst case of a account reap + re-creation post dispatch.
+
+    Closes a [Security Finding](https://intelligence.security.parity.io/finding/individuality-1268-1786709825/6055)
+
+    ## Integration
+
+    Any runtime using `ChargePGAS` must regenerate their `pallet_pgas_allowance` weights.
+
+    ## Review Notes
+
+    The fix was to to set the account balance, `fee` and `actual_fee` to values which trigger a account reap and re-creation post dispatch.
+crates:
+- name: pallet-pgas-allowance
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
