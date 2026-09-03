@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788430644100,
+  "lastUpdate": 1788471787587,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aaf8ab15b68a826e79fded0f4d7aca6da631eed0",
-          "message": "[Pool] Use active era for withdrawals (#10986)\n\nStandardising using active era in pools and staking. Current Era should\nonly be used for election logic\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2026-02-04T15:01:29Z",
-          "tree_id": "daec796376b0adfb04642cc8ff0bf86b60d2f4e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aaf8ab15b68a826e79fded0f4d7aca6da631eed0"
-        },
-        "date": 1770221532538,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.305550219966666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11938560949999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1385860848333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd42d2f58404290bfff77492f4e48c531d209bf4",
+          "message": "[EPMB] bound the tx-fee refund of a signed submission (#12877)\n\nThe winner of the signed phase is paid `RewardBase` plus the transaction\nfees their submission cost them, tracked in `SubmissionMetadata::fee`.\nTwo changes:\n\n- A new `signed::Config::MaxFeeRefund` caps the refundable portion, both\nfor the winner and for an invulnerable clearing a discarded submission.\nThe payout is now bounded by config\n- Storing a page that is already stored no longer accrues a fee,\nmatching what the refund is meant to cover.\n\nRuntimes should set `MaxFeeRefund` to\n`signed::FullSubmissionFee<Runtime, TransactionPayment>`, which prices\none `register` plus `Pages` `submit_page` calls at the maximum encoded\npage size.\n\n`FullSubmissionFee` needs the fee of a call it cannot afford to build,\nso `frame_support` gains `EstimateFee`, a sibling of `EstimateCallFee`\nthat takes an encoded length and a `DispatchInfo` instead of a call,\nimplemented by `pallet-transaction-payment`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-09-03T20:15:32Z",
+          "tree_id": "4f29e232935bc2556b9ab962b13659ae8b2f592d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd42d2f58404290bfff77492f4e48c531d209bf4"
+        },
+        "date": 1788471746750,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.091644560366667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1451936395,
             "unit": "seconds"
           }
         ]
