@@ -622,7 +622,7 @@ impl pallet_assets_precompiles::PermitConfig for Runtime {
 }
 
 /// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
-const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
+pub const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
 const FOREIGN_ASSETS_PRECOMPILE: u16 = 0x0220;
 const POOL_ASSETS_PRECOMPILE: u16 = 0x0320;
 const ASSET_CONVERSION_PRECOMPILE: u16 = 0x0420;

@@ -51,12 +51,14 @@ doc:
     is charged against the block where the log is emitted, rather than reserved up front, since
     the mirroring paths have no gas meter and the drain belongs to no extrinsic's benchmark. A
     contract's `LOG` reaches the same buffer whenever it runs off the ethereum path (`Revive::call`,
-    an XCM `Transact`), but pays the drain through the gas it is already charged per event. A new
-    `Config` item `MaxOutsideFrameLogs` bounds the buffer's size as a backstop; a log arriving past
-    the cap is not buffered, so the block's `logs_bloom` and `receipts_root` omit it while its
-    `ContractEmitted` still stands — which is why the committed count is reported, letting the
-    serving layer serve only what the header covers. Setting the cap to zero turns the buffer off,
-    so logs emitted outside an ethereum transaction stay substrate-only, as they were before.
+    an XCM `Transact`), and pays that same drain charge: it is registered at the emit site for every
+    buffered log, while the gas meter's per-event term covers only folding a log into the receipt of
+    the transaction that emitted it. A new `Config` item `MaxOutsideFrameLogs` bounds the buffer's
+    size as a backstop; a log arriving past the cap is not buffered, so the block's `logs_bloom`
+    and `receipts_root` omit it while its `ContractEmitted` still stands — which is why the
+    committed count is reported, letting the serving layer serve only what the header covers.
+    Setting the cap to zero turns the buffer off, so logs emitted outside an ethereum transaction
+    stay substrate-only, as they were before.
 
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the

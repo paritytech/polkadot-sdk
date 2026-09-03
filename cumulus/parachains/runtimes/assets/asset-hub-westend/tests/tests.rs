@@ -29,11 +29,12 @@ use asset_hub_westend_runtime::{
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
 		WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Executive, ExistentialDeposit,
-	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
-	ParachainSystem, PolkadotXcm, PoolAssets, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, SessionKeys, ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension,
-	UncheckedExtrinsic, Uniques, WeightToFee, XcmpQueue,
+	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Dap, Executive,
+	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
+	MetadataDepositPerByte, ParachainSystem, PolkadotXcm, PoolAssets, Proxy, Revive, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, ToRococoXcmRouterInstance,
+	TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques, WeightToFee, XcmpQueue,
+	TRUST_BACKED_ASSETS_PRECOMPILE,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -59,15 +60,17 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
+use pallet_assets_precompiles::{AssetPrecompileConfig, InlineIdConfig};
 use pallet_revive::{
-	test_utils::builder::{BareCallBuilder, BareInstantiateBuilder, Contract},
+	evm::{fees::InfoT as _, HashesOrTransactionInfos},
+	test_utils::builder::{BareCallBuilder, BareInstantiateBuilder, Contract, EthCallBuilder},
 	AddressMapper, Code, TransactionLimits,
 };
 use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
-use sp_core::{crypto::Ss58Codec, H256};
+use sp_core::{crypto::Ss58Codec, H160, H256};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::Era,
@@ -2359,6 +2362,82 @@ fn mirrored_transfer_log_resolves_to_the_foreign_token() {
 		));
 
 		assert_mirrored_log_resolves_to_live_token(&owner, &recipient, 400, 400);
+	});
+}
+
+// The mirror's main path: an EVM `transfer()` inside an ethereum transaction. The precompile no
+// longer emits a `Transfer` itself, so the mirrored log has to land on that transaction's receipt,
+// or `eth_getTransactionReceipt` serves an EVM transfer with no logs at all. A mirror that missed
+// the open receipt would be buffered instead and surface as the block's synthetic transaction.
+#[test]
+fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+		// The ethereum path burns the round-up of the fee, which `Dap` resolves into its staging
+		// account — so that account has to exist before the transaction runs.
+		Balances::mint_into(&Dap::staging_account(), ExistentialDeposit::get()).unwrap();
+		// Dispatching the extrinsic directly skips `ChargeTransactionPayment`, so seed the fee pot
+		// the storage deposit is settled against.
+		<Runtime as pallet_revive::Config>::FeeInfo::deposit_txfee(
+			<Balances as fungible::Balanced<AccountId>>::issue(UNITS),
+		);
+
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+
+		// The mint is mirrored too, and with no ethereum transaction open it buffers for its
+		// block's synthetic transaction — so drain it and leave that block behind. `run_to_block`
+		// finalizes `frame_system` only, hence the explicit `on_finalize` here.
+		Revive::on_finalize(System::block_number());
+		RuntimeHelper::run_to_block(2, owner.clone());
+
+		let mut token =
+			<InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }> as AssetPrecompileConfig>::MATCHER
+				.base_address();
+		token[..4].copy_from_slice(&asset_id.to_be_bytes());
+		let recipient_addr =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+		let data = IERC20::transferCall { to: recipient_addr.0.into(), value: U256::from(400) }
+			.abi_encode();
+
+		assert_ok!(EthCallBuilder::<Runtime>::eth_call(
+			pallet_revive::Origin::<Runtime>::EthTransaction(owner.clone()).into(),
+			H160::from(token)
+		)
+		.data(data)
+		.build());
+		// The transfer ran rather than reverted — a reverted frame rolls its logs back too.
+		assert_eq!(Assets::balance(asset_id, &owner), 600);
+
+		Revive::on_finalize(System::block_number());
+
+		// One transaction in the block and no synthetic one: the log took the receipt of the
+		// transaction that caused it, and the bloom the header commits to carries it.
+		let block = Revive::eth_block();
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 1, "the mirrored log added a transaction to the block");
+		assert!(
+			Revive::eth_synthetic_transaction().is_none(),
+			"the mirrored log was buffered instead of taking the open receipt"
+		);
+		assert_ne!(block.logs_bloom.0, [0u8; 256], "the mirrored log never reached the bloom");
 	});
 }
 
