@@ -163,7 +163,6 @@ members = [
 	"polkadot/erasure-coding/fuzzer",
 	"polkadot/jemalloc-shim",
 	"polkadot/node/clock",
-	"polkadot/node/collation-generation",
 	"polkadot/node/core/approval-voting",
 	"polkadot/node/core/approval-voting-parallel",
 	"polkadot/node/core/av-store",
@@ -214,6 +213,7 @@ members = [
 	"polkadot/parachain",
 	"polkadot/parachain/test-parachains/adder",
 	"polkadot/parachain/test-parachains/adder/collator",
+	"polkadot/parachain/test-parachains/collator-driver",
 	"polkadot/parachain/test-parachains/halt",
 	"polkadot/parachain/test-parachains/undying",
 	"polkadot/parachain/test-parachains/undying/collator",
@@ -1145,7 +1145,6 @@ polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", defau
 polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false }
 polkadot-node-clock = { path = "polkadot/node/clock", default-features = false }
-polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false }
 polkadot-node-core-approval-voting-parallel = { path = "polkadot/node/core/approval-voting-parallel", default-features = false }
 polkadot-node-core-av-store = { path = "polkadot/node/core/av-store", default-features = false }
@@ -1456,6 +1455,7 @@ test-case = { version = "=3.3.1" }
 test-log = { version = "0.2.14" }
 test-pallet = { path = "substrate/frame/support/test/pallet", default-features = false, package = "frame-support-test-pallet" }
 test-parachain-adder = { path = "polkadot/parachain/test-parachains/adder" }
+test-parachain-collator-driver = { path = "polkadot/parachain/test-parachains/collator-driver" }
 test-parachain-halt = { path = "polkadot/parachain/test-parachains/halt" }
 test-parachain-undying = { path = "polkadot/parachain/test-parachains/undying" }
 test-runtime-constants = { path = "polkadot/runtime/test-runtime/constants", default-features = false }

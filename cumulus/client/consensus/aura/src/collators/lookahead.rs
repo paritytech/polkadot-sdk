@@ -33,7 +33,11 @@
 //! must be propagated to the next author before their turn.
 
 use codec::{Codec, Encode};
-use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
+use cumulus_client_collator::{
+	metrics::Metrics,
+	segment::{SegmentDistributor, SegmentToDistribute},
+	service::ServiceInterface as CollatorServiceInterface,
+};
 use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
 };
@@ -42,12 +46,9 @@ use cumulus_primitives_core::{
 	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_node_primitives::{SegmentCollation, SubmitSegmentParams};
-use polkadot_node_subsystem::messages::CollationGenerationMessage;
+use polkadot_node_primitives::SegmentCollation;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	CandidateDescriptorVersion, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
-};
+use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId, OccupiedCoreAssumption};
 use sp_consensus::Environment;
 
 use crate::{
@@ -56,6 +57,7 @@ use crate::{
 	export_pov_to_path,
 };
 use futures::prelude::*;
+use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
@@ -68,7 +70,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, Member},
-	BoundedVec, Saturating,
+	Saturating,
 };
 use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -91,8 +93,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> 
 	pub code_hash_provider: CHP,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
-	/// The collator key used to sign collations before submitting to validators.
-	pub collator_key: CollatorPair,
 	/// The collator network peer id.
 	pub collator_peer_id: PeerId,
 	/// The para's ID.
@@ -107,11 +107,11 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> 
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
-	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
-	pub reinitialize: bool,
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
+	/// Prometheus registry for collation metrics.
+	pub prometheus_registry: Option<Registry>,
 }
 
 /// Get the current parachain slot from a given block hash.
@@ -247,11 +247,28 @@ where
 	async move {
 		cumulus_client_collator::initialize_collator_subsystems(
 			&mut params.overseer_handle,
-			params.collator_key,
 			params.para_id,
-			params.reinitialize,
 		)
 		.await;
+
+		let metrics = match Metrics::register(params.prometheus_registry.as_ref()) {
+			Ok(m) => m,
+			Err(err) => {
+				tracing::warn!(
+					target: crate::LOG_TARGET,
+					?err,
+					"Failed to register collation metrics."
+				);
+				Metrics::default()
+			},
+		};
+
+		let mut segment_distributor = SegmentDistributor::new(
+			params.relay_client.clone(),
+			params.overseer_handle.clone(),
+			params.para_id,
+			metrics,
+		);
 
 		let mut import_notifications = match params.relay_client.import_notification_stream().await
 		{
@@ -361,7 +378,6 @@ where
 			// Distance from included block to best parent.
 			let initial_parent_depth =
 				(*parent_header.number()).saturating_sub(*included_header.number());
-			let overseer_handle = &mut params.overseer_handle;
 
 			// Do not try to build upon an unknown, pruned or bad block
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
@@ -515,28 +531,25 @@ where
 						);
 					}
 
-					// Send a submit-collation message to the collation generation subsystem,
-					// which then distributes this to validators.
+					// Build the candidate and hand it to the collator protocol, which
+					// distributes it to the validators.
 					//
 					// Here we are assuming that the leaf is imported, as we've gotten an
 					// import notification.
-					overseer_handle
-						.send_msg(
-							CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
-								scheduling_parent: relay_parent,
-								core_index,
-								candidates_descriptor_version: CandidateDescriptorVersion::V2,
-								collations: BoundedVec::try_from(vec![SegmentCollation {
-									relay_parent,
-									collation,
-									validation_code_hash,
-									session_index,
-									validation_data,
-								}])
-								.expect("One element segment should fit;qed!"),
-							}),
-							"SubmitSegment",
-						)
+					segment_distributor
+						.distribute(SegmentToDistribute {
+							core_index,
+							scheduling_parent: relay_parent,
+							scheduling_session: session_index,
+							candidates_descriptor_version: CandidateDescriptorVersion::V2,
+							collations: vec![SegmentCollation {
+								relay_parent,
+								collation,
+								validation_code_hash,
+								session_index,
+								validation_data,
+							}],
+						})
 						.await;
 				},
 				Ok(None) => {

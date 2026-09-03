@@ -24,10 +24,7 @@ use cumulus_client_service::{
 	BuildNetworkParams, DARecoveryProfile, ParachainHostFunctions, StartRelayChainTasksParams,
 };
 #[docify::export(cumulus_primitives)]
-use cumulus_primitives_core::{
-	relay_chain::{CollatorPair, ValidationCode},
-	GetParachainInfo, ParaId,
-};
+use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
 // Substrate Imports
@@ -183,7 +180,6 @@ fn start_consensus(
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
-	collator_key: CollatorPair,
 	collator_peer_id: PeerId,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -207,7 +203,6 @@ fn start_consensus(
 			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 		},
 		keystore,
-		collator_key,
 		collator_peer_id,
 		para_id,
 		overseer_handle,
@@ -215,8 +210,8 @@ fn start_consensus(
 		proposer,
 		collator_service,
 		authoring_duration: Duration::from_millis(2000),
-		reinitialize: false,
 		max_pov_percentage: None,
+		prometheus_registry: prometheus_registry.cloned(),
 	};
 	let fut = aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _, _>(
 		params,
@@ -255,7 +250,7 @@ pub async fn start_parachain_node(
 	let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
 	let parachain_public_addresses = parachain_config.network.public_addresses.clone();
 
-	let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
+	let (relay_chain_interface, _collator_key, relay_chain_network, paranode_rx) =
 		build_relay_chain_interface(
 			polkadot_config,
 			&parachain_config,
@@ -358,9 +353,9 @@ pub async fn start_parachain_node(
 		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, false) {
 			Err(err) if validator => {
 				log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
-				err
-			);
+					"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
+					err
+				);
 			},
 			_ => {},
 		}
@@ -433,7 +428,6 @@ pub async fn start_parachain_node(
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
-			collator_key.expect("Command line arguments do not allow this. qed"),
 			collator_peer_id,
 			overseer_handle,
 			announce_block,

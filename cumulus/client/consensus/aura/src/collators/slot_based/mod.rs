@@ -66,7 +66,7 @@
 //! functions:
 //!
 //! 1. Block compression
-//! 2. Submission to the collation-generation subsystem
+//! 2. Building the candidate receipt and handing the segment to the collator protocol
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
 pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
@@ -82,9 +82,9 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, PersistedValidationData,
-	ValidationCodeHash,
+	CoreIndex, Hash as RelayHash, Id as ParaId, PersistedValidationData, ValidationCodeHash,
 };
+use prometheus_endpoint::Registry;
 use sc_client_api::{
 	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, BlockchainEvents,
 	UsageProvider,
@@ -133,8 +133,6 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub code_hash_provider: CHP,
 	/// The underlying keystore, which should contain Aura consensus keys.
 	pub keystore: KeystorePtr,
-	/// The collator key used to sign collations before submitting to validators.
-	pub collator_key: CollatorPair,
 	/// The collator network peer id.
 	pub collator_peer_id: PeerId,
 	/// The para's ID.
@@ -143,8 +141,6 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
-	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
-	pub reinitialize: bool,
 	/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
 	pub slot_offset: Duration,
@@ -159,6 +155,8 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	/// The maximum percentage of the maximum PoV size that the collator can use.
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
+	/// Prometheus registry for collation metrics.
+	pub prometheus_registry: Option<Registry>,
 }
 
 /// Run aura-based block building and collation task.
@@ -205,18 +203,17 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		relay_client,
 		code_hash_provider,
 		keystore,
-		collator_key,
 		collator_peer_id,
 		para_id,
 		proposer,
 		collator_service,
-		reinitialize,
 		slot_offset,
 		block_import_handle,
 		spawner,
 		export_pov,
 		relay_chain_slot_duration,
 		max_pov_percentage,
+		prometheus_registry,
 	} = params;
 
 	// Initialize proof size recording cleanup
@@ -231,12 +228,11 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
 	let collator_task_params = collation_task::Params {
 		relay_client: relay_client.clone(),
-		collator_key,
 		para_id,
-		reinitialize,
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
 		export_pov,
+		prometheus_registry,
 	};
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);

@@ -17,8 +17,7 @@
 //! Collator for the `Undying` test parachain.
 
 use polkadot_cli::{Error, Result};
-use polkadot_node_primitives::CollationGenerationConfig;
-use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
@@ -27,6 +26,7 @@ use std::{
 	fs,
 	io::{self, Write},
 };
+use test_parachain_collator_driver::DistributionMode;
 use test_parachain_undying_collator::Collator;
 
 mod cli;
@@ -134,37 +134,27 @@ fn main() -> Result<()> {
 				log::info!("Genesis state: {}", genesis_head_hex);
 				log::info!("Validation code: {}", validation_code_hex);
 
-				let config = CollationGenerationConfig {
-					key: collator.collator_key(),
-					// If the collator is malicious, disable the collation function
-					// (set to None) and manually handle collation submission later.
-					collator: if cli.run.malus_type == MalusType::None {
-						Some(
-							collator
-								.create_collation_function(full_node.task_manager.spawn_handle()),
-						)
-					} else {
-						None
-					},
-					para_id,
+				let distribution_mode = if cli.run.malus_type == MalusType::DuplicateCollations {
+					DistributionMode::DuplicateToAllAssignedCores
+				} else {
+					DistributionMode::OnePerAssignedCore
 				};
-				overseer_handle
-					.send_msg(CollationGenerationMessage::Initialize(config), "Collator")
-					.await;
 
 				overseer_handle
 					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
 
-				// If the collator is configured to behave maliciously, simulate the specified
-				// malicious behavior.
-				if cli.run.malus_type == MalusType::DuplicateCollations {
-					collator.send_same_collations_to_all_assigned_cores(
-						&full_node,
+				full_node.task_manager.spawn_handle().spawn(
+					"undying-collator",
+					None,
+					test_parachain_collator_driver::run(test_parachain_collator_driver::Params {
+						client: full_node.client.clone(),
 						overseer_handle,
 						para_id,
-					);
-				}
+						build_collation: collator.create_collation_builder(),
+						distribution_mode,
+					}),
+				);
 
 				Ok(full_node.task_manager)
 			})

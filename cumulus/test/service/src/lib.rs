@@ -278,7 +278,7 @@ async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await
-			.map(|r| (r.0, r.2.local_peer_id()))
+			.map(|r| (r.0, r.2.local_peer_id()));
 		},
 	};
 
@@ -462,7 +462,7 @@ where
 	})?;
 
 	let collator_peer_id = relay_chain_peer_id;
-	if let Some(collator_key) = collator_key {
+	if collator_key.is_some() {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -487,18 +487,17 @@ where
 					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				keystore,
-				collator_key,
 				relay_chain_slot_duration,
 				para_id,
 				proposer,
 				collator_service,
-				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
 				block_import_handle,
 				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
 				collator_peer_id,
+				prometheus_registry: prometheus_registry.clone(),
 			};
 
 			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
@@ -514,7 +513,6 @@ where
 					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				keystore,
-				collator_key,
 				collator_peer_id,
 				para_id,
 				overseer_handle,
@@ -522,8 +520,8 @@ where
 				proposer,
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
-				reinitialize: false,
 				max_pov_percentage: None,
+				prometheus_registry: prometheus_registry.clone(),
 			};
 
 			let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);

@@ -81,7 +81,6 @@ mock!(BitfieldSigning);
 mock!(BitfieldDistribution);
 mock!(Provisioner);
 mock!(NetworkBridgeRx);
-mock!(CollationGeneration);
 mock!(CollatorProtocol);
 mock!(GossipSupport);
 mock!(DisputeDistribution);

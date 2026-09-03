@@ -22,25 +22,22 @@
 
 #![deny(missing_docs)]
 
-use std::{env::var, pin::Pin, sync::LazyLock};
+use std::{env::var, sync::LazyLock};
 
 use bounded_vec::BoundedVec;
 use codec::{Decode, Encode, Error as CodecError, Input};
-use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateDescriptorVersion, CandidateHash,
-	ChunkIndex, CollatorPair, CommittedCandidateReceiptError,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement, CoreIndex,
-	EncodeAs, Hash, HashT, HeadData, Id as ParaId, PersistedValidationData, SessionIndex, Signed,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex,
+	CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CompactStatement, EncodeAs, Hash, HashT, HeadData, PersistedValidationData, SessionIndex,
+	Signed, UncheckedSigned, ValidationCode, ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
 	Randomness as BabeRandomness,
 };
-use sp_runtime::{self, traits::ConstU32};
 
 pub use polkadot_parachain_primitives::primitives::{
 	BlockData, HorizontalMessages, UpwardMessages,
@@ -465,52 +462,7 @@ pub struct Collation<BlockNumber = polkadot_primitives::BlockNumber> {
 	pub hrmp_watermark: BlockNumber,
 }
 
-/// Result of the [`CollatorFn`] invocation.
-#[cfg(not(target_os = "unknown"))]
-pub struct CollationResult {
-	/// The collation that was build.
-	pub collation: Collation,
-}
-
-/// Collation function.
-///
-/// Will be called with the hash of the relay chain block the parachain block should be build on and
-/// the [`PersistedValidationData`] that provides information about the state of the parachain on
-/// the relay chain.
-///
-/// Returns an optional [`CollationResult`].
-#[cfg(not(target_os = "unknown"))]
-pub type CollatorFn = Box<
-	dyn Fn(
-			Hash,
-			&PersistedValidationData,
-		) -> Pin<Box<dyn Future<Output = Option<CollationResult>> + Send>>
-		+ Send
-		+ Sync,
->;
-
-/// Configuration for the collation generator
-#[cfg(not(target_os = "unknown"))]
-pub struct CollationGenerationConfig {
-	/// Collator's authentication key, so it can sign things.
-	pub key: CollatorPair,
-	/// Collation function. See [`CollatorFn`] for more details.
-	///
-	/// If this is `None`, it implies that collations are intended to be submitted
-	/// out-of-band and not pulled out of the function.
-	pub collator: Option<CollatorFn>,
-	/// The parachain that this collator collates for
-	pub para_id: ParaId,
-}
-
-#[cfg(not(target_os = "unknown"))]
-impl std::fmt::Debug for CollationGenerationConfig {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "CollationGenerationConfig {{ ... }}")
-	}
-}
-
-/// A single collation in a segment submitted via `CollationGenerationMessage::SubmitSegment`.
+/// A single collation, ready to be built into a candidate and distributed as part of a segment.
 #[derive(Debug)]
 pub struct SegmentCollation {
 	/// The collation itself (PoV and commitments).
@@ -525,26 +477,6 @@ pub struct SegmentCollation {
 	/// The session index of the relay parent. Goes into the candidate descriptor.
 	/// Must be provided by the caller because the relay parent's state may be pruned.
 	pub session_index: SessionIndex,
-}
-
-/// Parameters for `CollationGenerationMessage::SubmitSegment`.
-///
-/// Submits multiple collations that share a common scheduling parent and target core. Each
-/// [`SegmentCollation`] in `collations` carries the fields that may differ between blocks of the
-/// segment (relay parent, collation payload, validation data, etc.).
-#[derive(Debug)]
-pub struct SubmitSegmentParams {
-	/// The scheduling parent shared by all collations in the segment.
-	///
-	/// For V2 segments this is the collations' relay parent. For V3 segments it
-	/// is the explicit scheduling parent written into every candidate descriptor.
-	pub scheduling_parent: Hash,
-	/// The core index on which the resulting candidates should be backed.
-	pub core_index: CoreIndex,
-	/// Version of the candidates in the segment
-	pub candidates_descriptor_version: CandidateDescriptorVersion,
-	/// The collations in this segment, in the order they should be submitted.
-	pub collations: sp_runtime::BoundedVec<SegmentCollation, ConstU32<MAX_SEGMENT_LEN>>,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.

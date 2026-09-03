@@ -53,7 +53,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
-use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
+use polkadot_primitives::UpgradeGoAhead;
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
@@ -714,7 +714,6 @@ where
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
-		collator_key: CollatorPair,
 		collator_peer_id: PeerId,
 		_overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -735,6 +734,7 @@ where
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
 		let params = SlotBasedParams {
+			prometheus_registry: prometheus_registry.cloned(),
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
 				async move {
@@ -764,12 +764,10 @@ where
 				client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 			},
 			keystore,
-			collator_key,
 			collator_peer_id,
 			para_id,
 			proposer,
 			collator_service,
-			reinitialize: false,
 			slot_offset: Duration::from_secs(1),
 			block_import_handle,
 			spawner: task_manager.spawn_essential_handle(),
@@ -883,7 +881,6 @@ where
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
-		collator_key: CollatorPair,
 		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -935,7 +932,6 @@ where
 					}
 				},
 				keystore,
-				collator_key,
 				collator_peer_id,
 				para_id,
 				overseer_handle,
@@ -943,8 +939,8 @@ where
 				proposer,
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
-				reinitialize: false,
 				max_pov_percentage: node_extra_args.max_pov_percentage,
+				prometheus_registry: prometheus_registry.cloned(),
 			},
 		};
 

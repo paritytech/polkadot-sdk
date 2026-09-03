@@ -935,7 +935,6 @@ node = [
 	"polkadot-gossip-support",
 	"polkadot-network-bridge",
 	"polkadot-node-clock",
-	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
 	"polkadot-node-core-approval-voting-parallel",
 	"polkadot-node-core-av-store",
@@ -2493,11 +2492,6 @@ path = "../polkadot/node/network/bridge"
 default-features = false
 optional = true
 path = "../polkadot/node/clock"
-
-[dependencies.polkadot-node-collation-generation]
-default-features = false
-optional = true
-path = "../polkadot/node/collation-generation"
 
 [dependencies.polkadot-node-core-approval-voting]
 default-features = false

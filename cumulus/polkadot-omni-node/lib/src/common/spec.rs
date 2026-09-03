@@ -41,7 +41,6 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
 use log::{debug, info};
 use parachains_common_types::Hash;
-use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
@@ -106,7 +105,6 @@ where
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
-		collator_key: CollatorPair,
 		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
@@ -407,7 +405,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let para_id = Self::parachain_id(&client, &parachain_config)
 				.ok_or("Failed to retrieve the parachain id")?;
 			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
-			let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
+			let (relay_chain_interface, _collator_key, relay_chain_network, paranode_rx) =
 				build_relay_chain_interface(
 					polkadot_config,
 					&parachain_config,
@@ -686,7 +684,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					params.keystore_container.keystore(),
 					relay_chain_slot_duration,
 					para_id,
-					collator_key.expect("Command line arguments do not allow this. qed"),
 					peer_id,
 					overseer_handle,
 					announce_block,

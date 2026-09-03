@@ -17,8 +17,7 @@
 //! Collator for the adder test parachain.
 
 use polkadot_cli::{Error, Result};
-use polkadot_node_primitives::CollationGenerationConfig;
-use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
@@ -121,20 +120,22 @@ fn main() -> Result<()> {
 				log::info!("Genesis state: {}", genesis_head_hex);
 				log::info!("Validation code: {}", validation_code_hex);
 
-				let config = CollationGenerationConfig {
-					key: collator.collator_key(),
-					collator: Some(
-						collator.create_collation_function(full_node.task_manager.spawn_handle()),
-					),
-					para_id,
-				};
-				overseer_handle
-					.send_msg(CollationGenerationMessage::Initialize(config), "Collator")
-					.await;
-
 				overseer_handle
 					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
+
+				full_node.task_manager.spawn_handle().spawn(
+					"adder-collator",
+					None,
+					test_parachain_collator_driver::run(test_parachain_collator_driver::Params {
+						client: full_node.client.clone(),
+						overseer_handle,
+						para_id,
+						build_collation: collator.create_collation_builder(),
+						distribution_mode:
+							test_parachain_collator_driver::DistributionMode::OnePerAssignedCore,
+					}),
+				);
 
 				Ok(full_node.task_manager)
 			})
