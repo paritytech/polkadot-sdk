@@ -175,12 +175,12 @@ pub fn process_authorizations<T: Config>(
 					// `NativeDepositOf[(authority, original_payer)]` entry, because the
 					// refund-side lookup keys on the destination).
 					let old_payer = AccountInfo::<T>::get_delegation_payer(&authority);
-					let (previous, current): (BalanceOf<T>, BalanceOf<T>) = if auth.address.is_zero() {
-						(AccountInfo::<T>::clear_delegation(&authority)?, BalanceOf::<T>::zero())
+					let change = if auth.address.is_zero() {
+						AccountInfo::<T>::clear_delegation(&authority)?
 					} else {
-						let change = AccountInfo::<T>::set_delegation(&authority, auth.address)?;
-						(change.previous, change.current)
+						AccountInfo::<T>::set_delegation(&authority, auth.address)?
 					};
+					let (previous, current) = (change.previous, change.current);
 
 					// Same-payer path applies a net diff (avoids round-tripping through
 					// `T::Deposit` twice, which under `PGasDeposit` would burn

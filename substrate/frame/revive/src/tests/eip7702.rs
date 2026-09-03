@@ -59,6 +59,12 @@ fn expected_weight_refund(new_accounts: u32, existing_accounts: u32) -> Weight {
 	expected_weight_refund_for(new_accounts + existing_accounts, new_accounts, existing_accounts)
 }
 
+/// The `DelegatedEOA` account entry's own item/byte deposit, without any code lockup.
+fn delegation_entry_deposit() -> crate::BalanceOf<Test> {
+	crate::storage::ContractInfo::<Test>::new_for_delegation(&H160::zero(), Default::default())
+		.update_base_deposit(Default::default())
+}
+
 /// Common setup for delegation tests that call `process_authorizations` directly.
 pub struct DelegationTestSetup {
 	pub signer: TestSigner,
@@ -188,7 +194,7 @@ fn authorization_happy_path() {
 		let existing_one = AuthorizationResult {
 			existing_accounts: 1,
 			new_accounts: 0,
-			deposit: crate::StorageDeposit::Charge(0),
+			deposit: crate::StorageDeposit::Charge(delegation_entry_deposit()),
 			weight_refund: expected_weight_refund(0, 1),
 		};
 
@@ -204,10 +210,10 @@ fn authorization_happy_path() {
 			frame_system::Pallet::<Test>::account_nonce(&setup.authority_id),
 			nonce_before + 1
 		);
-		// Target is non-contract → no storage-deposit hold, origin's free balance untouched.
+		// Target is non-contract → the entry deposit is held, but no code lockup.
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
-			0,
+			delegation_entry_deposit(),
 		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin),
@@ -223,7 +229,7 @@ fn authorization_happy_path() {
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
-			0,
+			delegation_entry_deposit(),
 		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin),
@@ -387,7 +393,7 @@ fn multiple_authorizations_with_same_nonce_first_wins() {
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
-				deposit: crate::StorageDeposit::Charge(0),
+				deposit: crate::StorageDeposit::Charge(delegation_entry_deposit()),
 				weight_refund: expected_weight_refund_for(3, 0, 1)
 			},
 		);
@@ -398,11 +404,10 @@ fn multiple_authorizations_with_same_nonce_first_wins() {
 			Some(target1)
 		);
 
-		// Only one delegation committed (to `target1`, a non-contract) so no storage hold,
-		// and the two skipped tuples must not have moved origin's free balance.
+		// The two skipped tuples must not have moved origin's free balance.
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
-			0,
+			delegation_entry_deposit(),
 		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin),
@@ -425,7 +430,9 @@ fn new_account_sets_delegation() {
 			AuthorizationResult {
 				existing_accounts: 0,
 				new_accounts: 1,
-				deposit: crate::StorageDeposit::Charge(1),
+				deposit: crate::StorageDeposit::Charge(
+					delegation_entry_deposit() + Pallet::<Test>::min_balance()
+				),
 				weight_refund: expected_weight_refund(1, 0)
 			},
 		);
@@ -434,11 +441,10 @@ fn new_account_sets_delegation() {
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), Some(target));
 		let balance = <<Test as Config>::Currency as Inspect<_>>::balance(&setup.authority_id);
 		assert_eq!(balance, Pallet::<Test>::min_balance());
-		// Non-contract target → no storage-deposit hold (only the ED transfer).
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
-			0,
-			"non-contract target must not produce a storage-deposit hold",
+			delegation_entry_deposit(),
+			"non-contract target must hold exactly the account entry's deposit",
 		);
 		// Under `new_eth_tx`, deposits/EDs flow through the tx-fee pot, never origin's free
 		// balance.
@@ -463,7 +469,7 @@ fn clearing_delegation_with_zero_address() {
 			AuthorizationResult {
 				existing_accounts: 1,
 				new_accounts: 0,
-				deposit: crate::StorageDeposit::Charge(0),
+				deposit: crate::StorageDeposit::Charge(delegation_entry_deposit()),
 				weight_refund: expected_weight_refund(0, 1)
 			},
 		);
@@ -484,12 +490,9 @@ fn clearing_delegation_with_zero_address() {
 		assert!(!AccountInfo::<Test>::is_delegated(&setup.signer.address));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&setup.signer.address), None);
 
-		// Target was a non-contract → set+clear must produce no net hold and no movement of
-		// origin's free balance. A misrouted refund of the zero deposit would still surface
-		// as a balance delta on `origin` if any phantom charge leaked through.
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
-			0,
+			delegation_entry_deposit(),
 		);
 	});
 }
@@ -569,23 +572,19 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 		);
 		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
 
-		// `clear_submitter` paid nothing and the refund went to a *different* account
-		// (`set_payer`), so the deposit reported to `clear_submitter`'s metering budget must be a
-		// net-zero charge — not `Refund(hold)`. A cross-account refund here would credit
-		// `clear_submitter`'s EVM deposit budget with money it never paid.
+		// `previous` was refunded to `set_payer`, so reporting it as a `Refund` here would
+		// credit `clear_submitter`'s deposit budget with money it never put up.
 		assert_eq!(
 			clear_result.deposit,
-			crate::StorageDeposit::Charge(0),
-			"payer-change clear must not credit the clear submitter's deposit budget",
+			crate::StorageDeposit::Charge(delegation_entry_deposit()),
+			"payer-change clear must charge the submitter the entry deposit, nothing else",
 		);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
-			0,
-			"hold must be fully released after clear",
+			delegation_entry_deposit(),
+			"the persisting account entry keeps its deposit held after clear",
 		);
 
-		// The correctness invariant: refund must restore the original payer, and the
-		// unrelated clear-submitter must not gain anything.
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&set_payer),
 			set_payer_before,
@@ -593,8 +592,8 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&clear_submitter),
-			clear_submitter_before,
-			"clear_submitter should not pocket the deposit",
+			clear_submitter_before - delegation_entry_deposit(),
+			"clear_submitter pays the entry deposit and must not pocket the refund",
 		);
 	});
 }
@@ -602,10 +601,10 @@ fn refund_routes_to_set_payer_not_clear_submitter() {
 /// Under eth-tx, a payer-change refund must reach the recorded payer, not the fee pot: the
 /// `Funds::TxFee` rail drops the recipient and returns the deposit to the pot (→ the current
 /// submitter), so the refund must go out as a `Funds::Balance` transfer to `old_payer`.
-/// Exercises both payer-change refund legs — re-delegation (`current > 0`) and clear
-/// (`current == 0`) — and the moving recorded-payer across them, asserting the refund lands on
-/// the right account and the pot never recovers it. (Full cross-tx loss needs two separate gas
-/// pools, out of scope here.)
+/// Exercises both payer-change refund legs — re-delegation (`current` includes a code lockup)
+/// and clear (`current` is just the entry deposit) — and the moving recorded-payer across them,
+/// asserting the refund lands on the right account and the pot never recovers it. (Full cross-tx
+/// loss needs two separate gas pools, out of scope here.)
 #[test]
 fn eth_tx_payer_change_refund_reaches_recorded_payer() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -708,8 +707,8 @@ fn eth_tx_payer_change_refund_reaches_recorded_payer() {
 			"only the new charge hit the pot; the refund of `previous` bypassed it",
 		);
 
-		// Step 3: a *third* relayer clears (`current == 0`). The refund must now reach the most
-		// recent payer (`redelegate_payer`), again via balance, never the pot or the submitter.
+		// Step 3: a *third* relayer clears. The refund must follow the recorded payer, which
+		// has since moved to `redelegate_payer`.
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let auth_clear = signer.sign_authorization(chain_id, H160::zero(), nonce);
 		let _ = crate::evm::eip7702::process_authorizations::<Test>(
@@ -720,8 +719,8 @@ fn eth_tx_payer_change_refund_reaches_recorded_payer() {
 		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
-			0,
-			"hold must be fully released after clear",
+			delegation_entry_deposit(),
+			"the persisting account entry keeps its deposit held after clear",
 		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&redelegate_payer),
@@ -736,12 +735,12 @@ fn eth_tx_payer_change_refund_reaches_recorded_payer() {
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&clear_submitter),
 			clear_submitter_before,
-			"the clear submitter must not pocket the refund",
+			"the clear submitter must not pocket the refund (its charge is drawn from the pot)",
 		);
 		assert_eq!(
 			<Test as Config>::FeeInfo::remaining_txfee(),
-			pot_after_redelegate,
-			"the clear refund must bypass the pot (it goes to redelegate_payer's balance)",
+			pot_after_redelegate.saturating_sub(delegation_entry_deposit()),
+			"only the entry re-charge hits the pot; the refund goes to redelegate_payer's balance",
 		);
 	});
 }
@@ -753,7 +752,7 @@ fn eth_tx_payer_change_refund_reaches_recorded_payer() {
 ///
 /// With `previous == current`, a cross-account `current - previous` net would report
 /// `Charge(0)`, handing the new submitter a full deposit's worth of free EVM budget. The
-/// clear-path test above only exercises `current == 0`.
+/// clear-path test above only exercises `current < previous`.
 #[test]
 fn payer_change_redelegation_charges_new_payer_in_full() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -993,7 +992,9 @@ fn process_multiple_authorizations_from_different_signers() {
 			AuthorizationResult {
 				existing_accounts: 2,
 				new_accounts: 1,
-				deposit: crate::StorageDeposit::Charge(1),
+				deposit: crate::StorageDeposit::Charge(
+					3 * delegation_entry_deposit() + Pallet::<Test>::min_balance()
+				),
 				weight_refund: expected_weight_refund(1, 2)
 			},
 		);
@@ -1002,15 +1003,14 @@ fn process_multiple_authorizations_from_different_signers() {
 		assert!(AccountInfo::<Test>::is_delegated(&setup2.signer.address));
 		assert!(AccountInfo::<Test>::is_delegated(&setup3.signer.address));
 
-		// All targets are non-contracts → no storage-deposit holds anywhere.
+		// All targets are non-contracts → each authority holds exactly one entry deposit.
 		for setup in [&setup1, &setup2, &setup3] {
 			assert_eq!(
 				get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id,),
-				0,
+				delegation_entry_deposit(),
 			);
 		}
-		// Under `new_eth_tx`, the only `Charge(1)` (ED for setup3) flowed through the
-		// tx-fee pot, not origin's free balance.
+		// Charges flow through the tx-fee pot under `new_eth_tx`, never origin's free balance.
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&setup1.origin),
 			origin_before,
@@ -1150,8 +1150,8 @@ fn runtime_set_and_clear_authorization() {
 		assert!(!AccountInfo::<Test>::is_contract(&authority));
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
-			0,
-			"deposit should be fully released"
+			delegation_entry_deposit(),
+			"code lockup released; the persisting account entry keeps its deposit"
 		);
 	});
 }
@@ -2010,7 +2010,7 @@ fn system_terminate_via_delegatecall_on_delegated_account_reverts() {
 	assert_system_terminate_on_delegated_reverts(1, "METHOD_DELEGATE_CALL via delegatecall");
 }
 
-/// Delegating to a contract charges a storage deposit; clearing refunds it.
+/// Delegating to a contract charges a storage deposit; clearing refunds the code-lockup part.
 #[test]
 fn delegation_deposit_lifecycle() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -2032,13 +2032,13 @@ fn delegation_deposit_lifecycle() {
 		assert!(hold > 0, "should have a storage deposit hold after delegation");
 		assert_eq!(hold, get_contract(&setup.signer.address).storage_base_deposit());
 
-		// Clear delegation → deposit refunded
+		// Clear delegation → code lockup refunded
 		let auth = setup.sign_authorization(H160::zero());
 		setup.process(&[auth]);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
-			0,
-			"hold should be fully released after clearing delegation"
+			delegation_entry_deposit(),
+			"the persisting account entry keeps its deposit after clearing delegation"
 		);
 		assert!(get_contract_checked(&setup.signer.address).is_none());
 	});
@@ -2087,13 +2087,13 @@ fn pure_revoke_authorization_yields_net_refund() {
 		let revoke_result = setup.process(&[revoke_auth]);
 		assert_eq!(
 			revoke_result.deposit,
-			crate::StorageDeposit::Refund(expected_deposit),
+			crate::StorageDeposit::Refund(expected_deposit - delegation_entry_deposit()),
 			"pure-revoke authorization must propagate as Refund, not be clamped to zero",
 		);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &setup.authority_id),
-			0,
-			"hold must be fully released after revoke",
+			delegation_entry_deposit(),
+			"the persisting account entry keeps its deposit after revoke",
 		);
 		assert_eq!(
 			<<Test as Config>::Currency as Inspect<_>>::balance(&setup.origin),
@@ -2275,11 +2275,15 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 		assert_eq!(CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(), refcount_a_before + 1);
 		assert_no_balance_movement("after step 1");
 
-		// Step 2: re-delegate to a plain EOA — refunds the full deposit, decrements refcount
+		// Step 2: re-delegate to a plain EOA — releases the code lockup, decrements refcount
 		let plain_eoa = H160::from([0x77; 20]);
 		let deposit_eoa = AccountInfo::<Test>::set_delegation(&authority, plain_eoa).unwrap();
 		assert_eq!(deposit_eoa.previous, charge_a, "previous deposit should match step 1's charge");
-		assert_eq!(deposit_eoa.current, 0, "re-delegating to EOA should leave no new deposit");
+		assert_eq!(
+			deposit_eoa.current,
+			delegation_entry_deposit(),
+			"re-delegating to EOA still requires the account entry's own deposit"
+		);
 		assert_eq!(
 			CodeInfoOf::<Test>::get(hash_a).unwrap().refcount(),
 			refcount_a_before,
@@ -2289,7 +2293,11 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 
 		// Step 3: re-delegate to contract C — charges a fresh deposit, must NOT touch A
 		let deposit_c = AccountInfo::<Test>::set_delegation(&authority, target_c.addr).unwrap();
-		assert_eq!(deposit_c.previous, 0, "post-EOA re-delegation should have no previous deposit");
+		assert_eq!(
+			deposit_c.previous,
+			delegation_entry_deposit(),
+			"post-EOA re-delegation carries the entry deposit over as previous"
+		);
 		let charge_c = deposit_c.current;
 		assert!(charge_c > 0, "delegation to contract should charge a deposit");
 		assert_eq!(
@@ -2306,9 +2314,9 @@ fn redelegation_via_eoa_does_not_double_decrement() {
 	});
 }
 
-/// Delegating to a non-contract (plain EOA) does not create a contract_info or charge a deposit.
+/// The entry is paid for even though it exposes no loadable `contract_info`.
 #[test]
-fn delegation_to_eoa_has_no_deposit() {
+fn delegation_to_eoa_charges_only_entry_deposit() {
 	ExtBuilder::default().build().execute_with(|| {
 		let authority = H160::from([0x11; 20]);
 		let plain_eoa = H160::from([0x22; 20]);
@@ -2319,12 +2327,16 @@ fn delegation_to_eoa_has_no_deposit() {
 
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(deposit.previous, 0, "delegation to EOA should not surface a previous deposit");
-		assert_eq!(deposit.current, 0, "delegation to EOA should not charge any deposit");
+		assert_eq!(
+			deposit.current,
+			delegation_entry_deposit(),
+			"delegation to EOA charges the account entry's deposit, no code lockup"
+		);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
 			0
 		);
-		// No contract info created
+		// No loadable contract info created
 		assert!(get_contract_checked(&authority).is_none());
 	});
 }
@@ -2358,11 +2370,15 @@ fn set_delegation_to_zero_hash_contract_succeeds() {
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(precompile_like));
 		assert_eq!(deposit.previous, 0, "fresh delegation should have no previous deposit");
-		assert_eq!(deposit.current, 0, "zero-code target should not charge a code-lockup deposit");
+		assert_eq!(
+			deposit.current,
+			delegation_entry_deposit(),
+			"zero-code target charges only the entry deposit, no code lockup"
+		);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &authority_id),
 			0,
-			"a zero-code target must produce no storage-deposit hold",
+			"direct set_delegation computes the deposit but places no hold",
 		);
 	});
 }

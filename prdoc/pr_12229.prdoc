@@ -20,7 +20,8 @@ doc:
     Revive-specific costs per authorization, beyond the EVM baseline:
 
     - **ED for new accounts**: an authority that didn't exist on-chain is created.
-    - **Code lockup deposit + refcount**: delegating to a contract increments the refcount on its code hash so the code can't be deleted while delegated, and reserves a deposit equal to the code's storage cost. The deposit is tracked against the relayer that paid it (see `payer` below) so it's refunded to the original payer regardless of who relays the next set/clear.
+    - **Account-entry deposit**: the `DelegatedEOA` entry persists for the life of the account, so the item/byte cost of its `ContractInfo` is charged on first delegation — even when the target is not a contract — and stays held after clearing. There is no release path: a delegated EOA cannot be terminated, so this deposit is locked permanently once an account has ever been delegated. On a relayed set/clear the recorded payer is refunded in full and the relayer is charged the entry deposit anew (becoming the recorded payer) — relaying a revocation is therefore no longer deposit-neutral for the relayer.
+    - **Code lockup deposit + refcount**: delegating to a contract increments the refcount on its code hash so the code can't be deleted while delegated, and reserves a deposit equal to the lockup share of the code's storage cost. Deposits are tracked against the relayer that paid them (see `payer` below) so refunds flow to the original payer regardless of who relays the next set/clear.
 
     ## Storage changes
 
@@ -35,7 +36,7 @@ doc:
     - Once delegated, an EOA stays `DelegatedEOA` permanently; clearing only zeroes the target.
     - The child trie survives across target changes (re-delegate keeps storage).
     - Code refcounts are managed on set/clear.
-    - Clearing refunds `storage_base_deposit`; per-item storage deposits stay locked until the user re-delegates to a contract that lets them release the items through normal storage operations.
+    - Clearing refunds the code-lockup share of `storage_base_deposit`; the account entry's own deposit stays held — permanently, since the entry persists and delegated accounts cannot be terminated. Per-item storage deposits stay locked until the user re-delegates to a contract that lets them release the items through normal storage operations.
 
     New error variant: `Error::CannotTerminateDelegatedAccount = 0x44` — `seal_terminate` invoked on a delegated EOA; delegated accounts cannot be torn down via the contract-termination path.
 

@@ -94,21 +94,18 @@ pub enum AccountType<T: Config> {
 		delegate_target: Option<H160>,
 		/// Storage accounting for this EOA's child trie.
 		contract_info: ContractInfo<T>,
-		/// Account that paid the current `contract_info.storage_base_deposit`. `Some` whenever a
-		/// non-zero deposit is held; `None` for fresh delegations and post-clear leftovers. Used
-		/// on clear/re-delegation so the refund flows back to the original payer regardless of
-		/// who relays the next authorization.
+		/// Account that paid the current `contract_info.storage_base_deposit`, so that a
+		/// clear or re-delegation refunds them rather than whoever relays it.
 		payer: Option<T::AccountId>,
 	},
 }
 
-/// Deposit movement caused by [`AccountInfo::set_delegation`].
+/// `storage_base_deposit` before and after [`AccountInfo::set_delegation`] or
+/// [`AccountInfo::clear_delegation`].
 ///
-/// `previous` is the `storage_base_deposit` that was held under the *prior* delegation (0 if the
-/// account is freshly delegated). `current` is the deposit required by the *new* delegation
-/// target (0 if the target carries no code). The caller is responsible for refunding `previous`
-/// to whoever originally paid it (look up via [`AccountInfo::get_delegation_payer`]) and charging
-/// `current` from the new payer.
+/// `current` covers the account entry itself, which outlives the delegation, plus the code
+/// lockup while one is held. The caller refunds `previous` to
+/// [`AccountInfo::get_delegation_payer`] and charges `current` to the new payer.
 #[derive(Debug, PartialEq, Eq)]
 pub struct DelegationDepositChange<T: Config> {
 	pub previous: BalanceOf<T>,
@@ -423,11 +420,11 @@ impl<T: Config> AccountInfo<T> {
 									.unwrap_or(Zero::zero())
 							},
 							None => {
-								// Target is not a contract — clear any stale snapshot so a
-								// later re-delegation doesn't double-account refcount/deposit.
+								// Clear any stale snapshot so a later re-delegation doesn't
+								// double-account refcount/deposit. Still non-zero: only the
+								// code lockup drops out, the account entry stays charged.
 								contract_info.code_hash = Default::default();
-								contract_info.storage_base_deposit = Zero::zero();
-								Zero::zero()
+								contract_info.update_base_deposit(Zero::zero())
 							},
 						};
 
@@ -465,16 +462,19 @@ impl<T: Config> AccountInfo<T> {
 	/// The account stays `DelegatedEOA` with `delegate_target = None` so that
 	/// the child trie and deposit accounting are preserved for future re-delegation.
 	///
-	/// Returns the previously held `storage_base_deposit` (now released). The caller must
-	/// refund this amount to whoever originally paid it — look up via
-	/// [`AccountInfo::get_delegation_payer`] before invoking `clear_delegation`.
-	pub(crate) fn clear_delegation(address: &H160) -> Result<BalanceOf<T>, DispatchError> {
+	/// Releases the code lockup only; see [`DelegationDepositChange`] for settling the rest.
+	pub(crate) fn clear_delegation(
+		address: &H160,
+	) -> Result<DelegationDepositChange<T>, DispatchError> {
 		// Atomic: a failed `decrement_refcount` must roll back `delegate_target = None`.
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			let result = AccountInfoOf::<T>::mutate(
 				address,
-				|account| -> Result<BalanceOf<T>, DispatchError> {
-					let mut refund: BalanceOf<T> = Zero::zero();
+				|account| -> Result<DelegationDepositChange<T>, DispatchError> {
+					let mut change = DelegationDepositChange::<T> {
+						previous: Zero::zero(),
+						current: Zero::zero(),
+					};
 					if let Some(AccountInfo {
 						account_type:
 							AccountType::DelegatedEOA { delegate_target, contract_info, .. },
@@ -482,20 +482,21 @@ impl<T: Config> AccountInfo<T> {
 					}) = account
 					{
 						*delegate_target = None;
+						change.previous = contract_info.storage_base_deposit;
 						if !contract_info.code_hash.is_zero() {
 							let _ = CodeInfo::<T>::decrement_refcount(contract_info.code_hash).inspect_err(|e| {
 								log::warn!(target: LOG_TARGET, "decrement_refcount({:?}) failed: {e:?}", contract_info.code_hash);
 							})?;
-							refund = core::mem::take(&mut contract_info.storage_base_deposit);
 							contract_info.code_hash = Default::default();
 						}
+						change.current = contract_info.update_base_deposit(Zero::zero());
 					}
-					Ok(refund)
+					Ok(change)
 				},
 			);
 
 			match result {
-				Ok(deposit) => TransactionOutcome::Commit(Ok(deposit)),
+				Ok(change) => TransactionOutcome::Commit(Ok(change)),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
