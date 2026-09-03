@@ -106,12 +106,22 @@ pub enum MessageToRelayV1<AccountId> {
 		/// own record of the manager.
 		manager: AccountId,
 	},
+	/// Ask the relay chain to abandon a [`MessageToRelayV1::Deregister`] it has not acted on.
+	///
+	/// Answered with [`MessageToParaV1::CancelDeregistrationResponse`].
+	#[codec(index = 3)]
+	CancelDeregistration {
+		/// The para id whose deregistration should be abandoned.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+	},
 	/// Ask the relay chain to authorize a validation code upgrade for `para_id`.
 	///
 	/// As with a registration, the blob itself is not sent: the relay chain is told which bytes to
 	/// accept and they are uploaded to it separately. Answered with
 	/// [`MessageToParaV1::CodeUpgradeResponse`].
-	#[codec(index = 3)]
+	#[codec(index = 4)]
 	AuthorizeCodeUpgrade {
 		/// The para id being upgraded.
 		para_id: ParaId,
@@ -128,7 +138,7 @@ pub enum MessageToRelayV1<AccountId> {
 	///
 	/// The head data is small enough to travel with the request, so unlike a code upgrade this is
 	/// a single round trip. Answered with [`MessageToParaV1::SetHeadResponse`].
-	#[codec(index = 4)]
+	#[codec(index = 5)]
 	SetCurrentHead {
 		/// The para id whose head is being set.
 		para_id: ParaId,
@@ -201,12 +211,24 @@ pub enum MessageToParaV1 {
 		/// Whether the para was dropped.
 		outcome: Outcome,
 	},
+	/// Answer a [`MessageToRelayV1::CancelDeregistration`].
+	///
+	/// `Ok(())` means the para is still registered, so the deposits stay where they are.
+	#[codec(index = 3)]
+	CancelDeregistrationResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::CancelDeregistration`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the deregistration was abandoned.
+		outcome: Outcome,
+	},
 	/// Answer a [`MessageToRelayV1::AuthorizeCodeUpgrade`].
 	///
 	/// `Ok(expire_at)` means the relay chain is holding the authorization and will accept the blob
 	/// until that relay-chain block. The upgrade is not scheduled yet: that is reported separately
 	/// with [`MessageToParaV1::CodeUpgradeScheduled`] once the code lands.
-	#[codec(index = 3)]
+	#[codec(index = 4)]
 	CodeUpgradeResponse {
 		/// The para id the answer is about.
 		para_id: ParaId,
@@ -220,7 +242,7 @@ pub enum MessageToParaV1 {
 	/// Sent when the blob is uploaded, which may be many blocks after the authorization and is not
 	/// something the parachain asked for, so this carries no outcome: a failure to upload simply
 	/// leaves the authorization to lapse.
-	#[codec(index = 4)]
+	#[codec(index = 5)]
 	CodeUpgradeScheduled {
 		/// The para id the report is about.
 		para_id: ParaId,
@@ -231,7 +253,7 @@ pub enum MessageToParaV1 {
 	///
 	/// The parachain checks the head against its own mirror of the relay chain's limits first, so
 	/// a refusal here means the two have drifted apart.
-	#[codec(index = 5)]
+	#[codec(index = 6)]
 	SetHeadResponse {
 		/// The para id the answer is about.
 		para_id: ParaId,
