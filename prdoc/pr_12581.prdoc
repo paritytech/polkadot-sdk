@@ -2,98 +2,70 @@ title: 'pallet-assets: mirror balance changes as ERC-20 Transfer logs via Assets
 doc:
 - audience: Runtime Dev
   description: |-
-    `AssetsCallback` gains infallible balance-change hooks (`issued`, `transferred`,
-    `burned`, `deposited`, `withdrawn`) fired next to the matching pallet-assets events on
-    every path: extrinsics, the `fungibles` traits (incl. XCM asset transactors) and the
-    `Balanced` imbalance paths. The trait gains a third generic parameter `Balance`; any
-    hand-written `impl AssetsCallback<Id, Acct>` must add it (implementations wired only as
-    `CallbackHandle` need no change beyond a recompile). Genesis asset creation now fires
-    `created` as well, so a `CallbackHandle` implementing it seeds genesis assets like
-    runtime-created ones; a failure there panics genesis construction.
+    `AssetsCallback` gains infallible balance-change hooks (`issued`, `transferred`, `burned`,
+    `deposited`, `withdrawn`) fired next to the matching pallet-assets events on every path:
+    extrinsics, the `fungibles` traits (incl. XCM asset transactors) and the `Balanced` imbalance
+    paths. The trait gains a third generic parameter `Balance`; any hand-written
+    `impl AssetsCallback<Id, Acct>` must add it. Genesis asset creation now fires `created` too, so
+    a `CallbackHandle` seeds genesis assets like runtime-created ones; a failure there panics
+    genesis construction.
 
-    On a runtime that wires a log-mirroring `CallbackHandle`, every balance-changing operation
-    deposits an additional `pallet_revive::Event::ContractEmitted` right after the pallet-assets
-    event, so per-extrinsic event count and ordering change for substrate-side consumers. Code
-    asserting on the last emitted event (e.g. `assert_last_event`) must assert presence instead.
+    On a runtime wiring a log-mirroring `CallbackHandle`, every balance-changing operation deposits
+    an additional `pallet_revive::Event::ContractEmitted` right after the pallet-assets event, so
+    per-extrinsic event count and ordering change for substrate-side consumers. Code asserting on
+    the last emitted event (e.g. `assert_last_event`) must assert presence instead.
 
     `pallet_revive::Pallet::emit_contract_log_outside_frame` is exposed for runtime components that
-    mirror non-contract activity as EVM logs from outside any contract call frame. The call tracer gains
-    a matching `Tracing::log_event_outside_frame` hook so tracing a block that contains such a log
-    no longer panics; the in-frame `log_event` (the `LOG` opcode) keeps its active-frame invariant.
+    mirror non-contract activity as EVM logs from outside any contract call frame, with a matching
+    `Tracing::log_event_outside_frame` hook so tracing such a log no longer panics. The in-frame
+    `log_event` (the `LOG` opcode) keeps its active-frame invariant.
 
-    A new `Erc20TransferLogsCallback` callback in `pallet-assets-precompiles` mirrors those balance
-    changes as canonical ERC-20 `Transfer` logs at the asset's precompile address, so plain
-    substrate asset activity is visible to Ethereum log consumers. The `ERC20` precompile no
-    longer emits its own `Transfer` log; wire `Erc20TransferLogsCallback` as the instance's
-    `CallbackHandle` to keep precompile transfers logged. On Asset Hub Westend it is wired for the
-    trust-backed and pool asset instances (inline-id) and for the foreign-assets instance
-    (foreign-id, via `ForeignIdConfig` and the foreign asset-index map); the kitchensink runtime
-    wires it for both of its inline-id instances.
+    A new `Erc20TransferLogsCallback` in `pallet-assets-precompiles` mirrors the balance changes as
+    canonical ERC-20 `Transfer` logs at the asset's precompile address. The `ERC20` precompile no
+    longer emits its own `Transfer` log, so wire this callback as the instance's `CallbackHandle`
+    to keep precompile transfers logged. Asset Hub Westend wires it for the trust-backed and pool
+    instances (inline-id) and for foreign assets (via `ForeignIdConfig` and the asset-index map);
+    the kitchensink runtime wires it for both of its inline-id instances.
 
-    Logs emitted with no ethereum transaction open — a mirror fired from a plain extrinsic or an XCM
-    balance change — have no receipt to attach to, so they are buffered per block and flushed in
+    A log emitted with no ethereum transaction open — a mirror from a plain extrinsic or an XCM
+    balance change — has no receipt to attach to, so it is buffered per block and flushed in
     `on_finalize` as one synthetic transaction, entering the block's `logs_bloom`, `receipts_root`
-    and transaction trie. It is an unsigned legacy transaction distinguished only by
-    `nonce = block_number` and is not executable; eth-rpc rebuilds the same payload from block
-    number and chain id to recover its hash and serves those logs against it via `eth_getLogs` and
-    `eth_getTransactionReceipt`. Consumers therefore see one more transaction in such a block than
-    it has real ethereum transactions. It is served as `from: 0x0` with `to: null`,
-    `contractAddress: null`, `gasUsed: 0`, type 0 and a dummy signature — so `ecrecover` on it
-    yields neither the served sender nor a meaningful one, and the `to: null` that usually marks a
-    contract creation is paired with no created address. `eth_receipt_data_versioned` is bumped to
-    version 2, which reports the synthetic transaction separately from the ethereum transactions:
-    its gas entry, plus the number of logs the block committed to it. Version 1 keeps its contract
-    of one entry per ethereum transaction and omits it, so an eth-rpc that predates this change
-    stores no receipt for the synthetic transaction — while still receiving its hash in the block's
-    `transactions`, since `eth_block` stays at version 1 and the header commits to that
-    transaction. Such a block therefore lists a hash that `eth_getTransactionByHash` and
-    `eth_getTransactionReceipt` resolve to null, and `eth_getBlockTransactionCountBy*`, served from
-    the stored receipts, is one lower than the length of that array. A consumer that rebuilds those
-    logs from block events must reconcile against the reported count, because the events are a
-    superset in emission order of what the header commits to. The `on_finalize` drain of each such
-    log is charged against the block where the log is emitted, rather than reserved up front, since
-    the mirroring paths have no gas meter and the drain belongs to no extrinsic's benchmark. A
-    contract's `LOG` reaches the same buffer whenever it runs off the ethereum path (`Revive::call`,
-    an XCM `Transact`), and pays that same drain charge: it is registered at the emit site for every
-    buffered log, while the gas meter's per-event term covers only folding a log into the receipt of
-    the transaction that emitted it. A new `Config` item `MaxOutsideFrameLogs` bounds the buffer's
-    size as a backstop; a log arriving past the cap is not buffered, so the block's `logs_bloom`
-    and `receipts_root` omit it while its `ContractEmitted` still stands — which is why the
-    committed count is reported, letting the serving layer serve only what the header covers.
-    Setting the cap to zero turns the buffer off, so logs emitted outside an ethereum transaction
-    stay substrate-only, as they were before.
+    and transaction trie. Such a block therefore holds one more transaction than it has real
+    ethereum transactions; eth-rpc rebuilds the same payload from block number and chain id to
+    recover its hash and serves those logs against it. `eth_receipt_data_versioned` is bumped to
+    version 2, reporting that transaction separately: its gas entry plus the number of logs the
+    block committed to it. A consumer rebuilding those logs from block events must reconcile
+    against that count, since the events are a superset, in emission order, of what the header
+    commits to. The new `Config` item `MaxOutsideFrameLogs` bounds the buffer as a backstop; a log
+    arriving past the cap is not buffered, so the bloom omits it while its `ContractEmitted` still
+    stands. Zero turns the buffer off, leaving such logs substrate-only as they were before.
 
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
         same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
-      - eth-rpc must be upgraded before or together with the runtime: an older one lists the
-        synthetic transaction's hash in a block's `transactions` without being able to resolve it,
-        so an indexer that walks that array and fetches each receipt breaks on it.
-      - Weights: the extrinsic-path mirror log must be benchmarked (`/cmd bench`) before production;
-        the placeholder weight leaves it effectively unmetered.
-      - Foreign asset-index mappings must exist before a mirror can resolve a token address. They
-        are established by the creation callback, including for genesis-seeded assets; assets that
-        predate the callback wiring need the index-map migration to backfill them.
-      - Asset destruction has no mirror: pallet-assets can destroy an asset, but ERC-20 has no
-        equivalent concept, so there is nothing to project `destroy_accounts` onto. Firing a burn
-        log per holder instead would emit an unbounded number of events for a single destruction.
-        Log consumers must drop a token's balances once the asset is destroyed, or an inline id
-        later reused by `force_create` will inherit them.
-      - Genesis-seeded balances have no mirror either: genesis asset creation fires `created`, but
-        the accounts it endows are credited without an `Issued` event or an `issued`/`deposited`
-        callback, and a log buffered at genesis would have nothing to drain it until block 1. On a
-        runtime whose presets endow accounts, log-derived balances for those holders stay at zero
-        while `balanceOf` reports the real amount. Log consumers must seed genesis balances from
-        storage and apply logs on top, rather than deriving the whole balance from the log stream.
+      - eth-rpc must be upgraded before or with the runtime. An older one stores no receipt for
+        the synthetic transaction while still listing its hash in the block's `transactions`, so
+        an indexer walking that array and fetching each receipt breaks on it.
+      - Weights: the mirror's cost lands in the weights of every pallet that moves assets, so a
+        runtime wiring it must re-run `/cmd bench` for those pallets, not only for pallet-assets.
+      - Foreign asset-index mappings must exist before a mirror can resolve a token address. The
+        creation callback establishes them, genesis assets included; assets predating the callback
+        wiring need the index-map migration to backfill them.
+      - Asset destruction has no mirror: ERC-20 has no equivalent concept, and firing a burn log
+        per holder would emit an unbounded number of events for one destruction. Log consumers
+        must drop a token's balances once the asset is destroyed, or an inline id later reused by
+        `force_create` will inherit them.
+      - Genesis-seeded balances have no mirror either: genesis creation fires `created`, but the
+        accounts it endows are credited with no `Issued` event or `issued`/`deposited` callback.
+        Log consumers must seed genesis balances from storage and apply logs on top.
       - Same-account holds are kept out of the projection: `ERC20::balanceOf` now reports
-        `fungibles::Inspect::total_balance` (free plus held) instead of the free balance, so a
-        `MutateHold` hold or release moves balance within one account without moving `balanceOf`
-        and needs no log. The hold paths that move value between accounts — `transfer_on_hold`,
-        `transfer_and_hold` and `burn_held` — are a known gap: they run through pallet-assets'
-        `Unbalanced` impl, which fires no balance-change callback, so they move `balanceOf`
-        without emitting a `Transfer` log. Nothing drives them on a `fungibles` holder today, so
-        the gap is latent; wiring `pallet-assets-holder` to report them needs to land before any
-        consumer holds assets on an instance that also wires the mirror.
+        `fungibles::Inspect::total_balance` (free plus held), so a hold or release moves balance
+        within one account without moving `balanceOf` and needs no log. The hold paths that move
+        value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — are a
+        known gap: they run through pallet-assets' `Unbalanced` impl, which fires no callback, so
+        they move `balanceOf` with no `Transfer` log. Nothing drives them on a `fungibles` holder
+        today, so the gap is latent; wiring `pallet-assets-holder` to report them must land before
+        any consumer holds assets on an instance that also wires the mirror.
 crates:
 - name: pallet-assets
   bump: major

@@ -59,17 +59,14 @@ pub trait OnFinalizeBlockParts {
 	/// in `on_finalize`.
 	///
 	/// Charged at the emit site via `frame_system::register_extra_weight_unchecked`, so blocks pay
-	/// for the buffered logs they produce instead of reserving the cap up-front. Every emitter
-	/// pays it, whether a mirrored balance change or a contract's `LOG` running off the ethereum
-	/// path: the charge sits past the point where a log destined for a real transaction's receipt
-	/// has already been taken, so only a log that actually landed in the buffer reaches it.
+	/// for the buffered logs they produce instead of reserving the cap up-front. The charge sits
+	/// past the point where a log destined for a real transaction's receipt has already been
+	/// taken, so only a log that actually landed in the buffer reaches it.
 	///
-	/// Distinct from [`Self::on_finalize_block_per_event`], which covers folding a log into the
-	/// receipt of the transaction that emitted it — a path that never touches this buffer.
-	///
-	/// Only the drain. The buffer insert runs inside the emitting extrinsic and is covered by that
-	/// pallet's own benchmark; the drain runs after every extrinsic is done and so belongs to no
-	/// benchmark of its own.
+	/// Covers the drain alone: the buffer insert is measured by the emitting pallet's own
+	/// benchmark, and the drain runs after every extrinsic is done, so it belongs to none. Also
+	/// disjoint from [`Self::on_finalize_block_per_event`], which folds a log into the receipt of
+	/// the transaction that emitted it and never touches this buffer.
 	fn per_outside_frame_log() -> Weight;
 }
 

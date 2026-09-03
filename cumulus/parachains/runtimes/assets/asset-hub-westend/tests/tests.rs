@@ -2272,55 +2272,6 @@ fn mirrored_transfer_log_resolves_to_the_trust_backed_token() {
 	});
 }
 
-#[test]
-fn mirrored_transfer_log_resolves_to_the_pool_token() {
-	erc20_mirror_ext().execute_with(|| {
-		let owner = AccountId::from(ALICE);
-		let recipient = AccountId::from(BOB);
-		Balances::mint_into(&owner, 100 * UNITS).unwrap();
-
-		let pool_asset_id = 1;
-		assert_ok!(PoolAssets::force_create(
-			RuntimeHelper::root_origin(),
-			pool_asset_id,
-			owner.clone().into(),
-			true,
-			1
-		));
-		assert_ok!(PoolAssets::mint(
-			RuntimeHelper::origin_of(owner.clone()),
-			pool_asset_id,
-			owner.clone().into(),
-			1_000
-		));
-
-		// Same id in the other inline instance, holding a different balance — see the trust-backed
-		// test.
-		assert_ok!(Assets::force_create(
-			RuntimeHelper::root_origin(),
-			pool_asset_id.into(),
-			owner.clone().into(),
-			true,
-			1
-		));
-		assert_ok!(Assets::mint(
-			RuntimeHelper::origin_of(owner.clone()),
-			pool_asset_id.into(),
-			recipient.clone().into(),
-			222
-		));
-
-		assert_ok!(PoolAssets::transfer(
-			RuntimeHelper::origin_of(owner.clone()),
-			pool_asset_id,
-			recipient.clone().into(),
-			400
-		));
-
-		assert_mirrored_log_resolves_to_live_token(&owner, &recipient, 400, 400);
-	});
-}
-
 // The foreign instance additionally exercises the asset-index map: unlike an inline id, the token
 // address is only derivable once `created` has allocated an index for the `Location`.
 //

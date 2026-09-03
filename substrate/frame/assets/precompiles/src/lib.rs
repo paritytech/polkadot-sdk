@@ -151,13 +151,12 @@ where
 ///
 /// # Wiring
 ///
-/// This precompile does not emit the `Transfer` log for a balance-changing call. The log is
-/// produced by [`Erc20TransferLogsCallback`], which must be wired as the instance's
-/// `pallet_assets::Config::CallbackHandle` for the token to be EIP-20 compliant — mirroring the
-/// balance changes pallet-assets reports through that handle, whether they came through this
-/// precompile or through pallet-assets directly. A runtime that registers the precompile without
-/// it compiles and answers calls, but emits no `Transfer` log for any non-zero transfer. See
-/// [`Erc20TransferLogsCallback`] for the balance changes that have no mirror.
+/// This precompile does not emit the `Transfer` log for a balance-changing call.
+/// [`Erc20TransferLogsCallback`] produces it and must be wired as the instance's
+/// `pallet_assets::Config::CallbackHandle` for the token to be EIP-20 compliant, covering changes
+/// made through pallet-assets directly as well as through this precompile. A runtime that
+/// registers the precompile without it compiles and answers calls, but emits no `Transfer` log for
+/// any non-zero transfer. See [`Erc20TransferLogsCallback`] for the changes that have no mirror.
 pub struct ERC20<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -230,22 +229,17 @@ where
 /// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change it is
 /// notified of, at the asset's [`ERC20`] precompile address.
 ///
-/// Holds are not a balance change from the projection's point of view: [`ERC20::balance_of`]
-/// reports `fungibles::Inspect::total_balance`, so a `MutateHold` hold or release moves balance
-/// between the free and held portions of one account without moving `balanceOf`, and emits no
-/// log. The hold paths that do move value between accounts — `transfer_on_hold`,
-/// `transfer_and_hold` and `burn_held` — have no mirror yet: they run through pallet-assets'
-/// `Unbalanced` impl, which fires no balance-change callback, so they move `balanceOf` without
-/// emitting a `Transfer` log. No runtime drives them on a `fungibles` holder today.
+/// A same-account hold is not a balance change here: [`ERC20::balance_of`] reports
+/// `fungibles::Inspect::total_balance`, so a hold or release moves balance between the free and
+/// held portions of one account without moving `balanceOf`, and needs no log. The hold paths that
+/// move value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — have no
+/// mirror yet: they run through pallet-assets' `Unbalanced` impl, which fires no callback, so they
+/// move `balanceOf` with no `Transfer` log. No runtime drives them on a `fungibles` holder today.
 ///
-/// Asset destruction has no mirror: pallet-assets can destroy an asset, but ERC-20 has no
-/// equivalent concept, so there is nothing to project `destroy_accounts` onto, and it fires no
-/// balance-change callback. Firing a burn log per holder instead would emit an unbounded number
-/// of events for a single destruction.
-///
-/// Consumers must therefore treat the token as dead once the asset is destroyed and drop any
-/// log-derived balances for it. For inline-id assets the token address is a function of the asset
-/// id, so an id later reused by `force_create` would otherwise inherit those balances.
+/// Asset destruction has no mirror either: ERC-20 has no equivalent concept, and firing a burn log
+/// per holder would emit an unbounded number of events for one destruction. Consumers must treat
+/// the token as dead once the asset is destroyed and drop any log-derived balances, since for an
+/// inline id later reused by `force_create` the address would otherwise inherit them.
 pub struct Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -443,11 +437,9 @@ where
 		call: &IERC20::transferCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// `transfer()` is benchmarked with the mirror-log callback wired, so the mirrored
-		// `Transfer` log's cost is part of this charge — except the ethereum-context receipt
-		// capture (RLP-append + bloom accrual), which a pallet benchmark never executes
-		// (capture is a no-op outside an ethereum context). That per-log slice is accepted
-		// as unmetered.
+		// `transfer()` is benchmarked with the mirror-log callback wired, so the mirrored log's
+		// cost is part of this charge — except the ethereum-context receipt capture, which a
+		// pallet benchmark never executes and which stays unmetered.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer())?;
 
 		let from = Self::caller(env)?;
@@ -468,11 +460,9 @@ where
 		)?;
 
 		// A zero-value transfer is a no-op in `do_transfer` and fires no callback, but EIP-20
-		// requires it to still emit a `Transfer` log. Emit it here rather than invoking
-		// `CallbackHandle`: that is the whole callback tuple, and reporting a balance change the
-		// pallet did not perform to every observer wired on the instance is not this precompile's
-		// to do. `contract_addr` is the address the caller invoked, so the log lands on the right
-		// token by construction. Its cost is accounted for by `transfer()` above.
+		// requires it to still emit a `Transfer` log. Emitted here rather than through
+		// `CallbackHandle`, which is the whole callback tuple: reporting a balance change the
+		// pallet did not perform to every observer on the instance is not this precompile's to do.
 		if call.value.is_zero() {
 			emit_transfer_log::<Runtime>(contract_addr, from.0.into(), call.to, call.value);
 		}

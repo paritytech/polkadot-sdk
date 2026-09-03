@@ -127,12 +127,11 @@ impl EthereumCallResult {
 ///
 /// Inside an ethereum transaction the log is added to that transaction's receipt. Outside of one
 /// (e.g. a log mirrored from a plain extrinsic or XCM balance change) there is no receipt to
-/// attach it to, so it is accumulated into the block-level buffer, flushed in `on_finalize` as a
-/// synthetic transaction so the log still enters the block's bloom, receipts_root and tx trie.
+/// attach it to, so it is buffered and flushed in `on_finalize` as a synthetic transaction, which
+/// is how it still enters the block's bloom, receipts_root and tx trie.
 ///
-/// A log the buffer cannot take reaches neither, and stays a substrate-only event — the behaviour
-/// on a runtime that leaves [`Config::MaxOutsideFrameLogs`] at zero. Callers deposit their
-/// `ContractEmitted` either way: an `Ext::deposit_event` that succeeded while losing the log
+/// A log the buffer cannot take reaches neither and stays a substrate-only event. Callers deposit
+/// their `ContractEmitted` either way: an `Ext::deposit_event` that succeeded while losing the log
 /// outright would break the `LOG` opcode's guarantee that a log takes effect or its frame reverts.
 pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
 	let captured = receipt::with(|receipt| {

@@ -409,13 +409,9 @@ pub mod pallet {
 		/// Maximum number of logs that may be buffered outside any ethereum transaction within a
 		/// single block (see [`OutsideFrameLogs`]).
 		///
-		/// These are logs mirrored from substrate-native activity (e.g. plain pallet-assets
-		/// transfers, XCM) that have no ethereum transaction to attach a receipt to; they are
-		/// drained in `on_finalize` into one synthetic transaction. Each log's drain is charged
-		/// where it is emitted, so this is a bound on the buffer's size rather than on its cost.
-		/// Zero disables the buffer, leaving such logs substrate-only; a log arriving past a
-		/// non-zero cap is likewise not buffered, so the block's bloom omits it while its
-		/// `ContractEmitted` still stands (see `capture_ethereum_log`).
+		/// Each log's drain is charged where it is emitted, so this bounds the buffer's size, not
+		/// its cost. Zero disables the buffer; a log arriving past a non-zero cap is likewise not
+		/// buffered, so the block's bloom omits it while its `ContractEmitted` still stands.
 		#[pallet::constant]
 		type MaxOutsideFrameLogs: Get<u32>;
 	}

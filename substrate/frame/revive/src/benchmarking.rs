@@ -3739,13 +3739,9 @@ mod benchmarks {
 	/// `OutsideFrameLogs::take` each one costs, and folding it into the synthetic transaction's
 	/// receipt (RLP + bloom).
 	///
-	/// Only the drain. The `OutsideFrameLogs` insert happens inside the extrinsic that emitted the
-	/// log, so it is measured by that pallet's own benchmark; charging it here as well would
-	/// double-count it. The drain has no such home — it runs after every extrinsic is done — which
-	/// is why this marginal is charged at the emit site instead. Disjoint from
-	/// `on_finalize_per_event`, which captures its logs into a real transaction's receipt and so
-	/// never reaches this buffer. Being `pov_mode = Measured`, it captures the per-log **proof
-	/// size**, which a constant estimate cannot infer.
+	/// `pov_mode = Measured` so the marginal carries the per-log proof size, which a constant
+	/// estimate cannot infer. See `OnFinalizeBlockParts::per_outside_frame_log` for why the insert
+	/// is out of scope here.
 	///
 	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
 	/// data word.
