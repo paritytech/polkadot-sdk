@@ -463,6 +463,134 @@ mod receive {
 			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 0, Ok(())));
 		});
 	}
+
+	#[test]
+	fn a_set_head_response_becomes_an_event() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let response = |outcome| {
+				MessageToPara::V1(MessageToParaV1::SetHeadResponse {
+					para_id,
+					message_id: 1,
+					outcome,
+				})
+			};
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), response(Ok(()))));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				response(Err(FailureReason::HeadDataTooLarge))
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::HeadUpdated { para_id, message_id: 1 },
+					Event::HeadUpdateFailed {
+						para_id,
+						message_id: 1,
+						reason: FailureReason::HeadDataTooLarge,
+					},
+				]
+			);
+		});
+	}
+}
+
+mod set_current_head {
+	use super::*;
+
+	#[test]
+	fn the_manager_asks_the_relay_chain() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let info = Paras::<Test>::get(para_id).unwrap();
+			let deposit = held(ALICE);
+
+			assert_ok!(Registrar::set_current_head(
+				RuntimeOrigin::signed(ALICE),
+				para_id,
+				head(20)
+			));
+
+			// Registration took message id 0, so this is message 1. Nothing is recorded here.
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+					para_id,
+					message_id: 1,
+					manager: ALICE,
+					head: head(20),
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRequested { para_id, message_id: 1 }]
+			);
+			assert_eq!(crate::NextMessageId::<Test>::get(), 2);
+			assert_eq!(Paras::<Test>::get(para_id).unwrap(), info);
+			assert_eq!(held(ALICE), deposit);
+		});
+	}
+
+	#[test]
+	fn rejects_an_unknown_id_a_non_manager_an_unregistered_para_a_locked_one_and_a_large_head() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), 4242, head(20)),
+				Error::<Test>::NotReserved
+			);
+
+			let reserved = reserve_for(ALICE);
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(BOB), reserved, head(20)),
+				Error::<Test>::NotOwner
+			);
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), reserved, head(20)),
+				Error::<Test>::NotRegistered
+			);
+			// A registration in flight is not registered either.
+			request_registration(ALICE, reserved, 20, 300);
+			let _ = take_sent();
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), reserved, head(20)),
+				Error::<Test>::NotRegistered
+			);
+
+			let locked = locked_para(ALICE);
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), locked, head(20)),
+				Error::<Test>::ParaLocked
+			);
+
+			let para_id = registered_para(ALICE);
+			assert_noop!(
+				Registrar::set_current_head(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					head(MAX_HEAD_SIZE as usize + 1)
+				),
+				Error::<Test>::HeadDataTooLarge
+			);
+
+			assert!(take_sent().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_rolls_the_whole_call_back() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(20)),
+				Error::<Test>::SendFailed
+			);
+			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
+		});
+	}
 }
 
 mod cancel_registration {

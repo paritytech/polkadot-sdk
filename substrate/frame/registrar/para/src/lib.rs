@@ -302,6 +302,12 @@ pub mod pallet {
 		ParaLocked { para_id: ParaId },
 		/// The manager may control this para again.
 		ParaUnlocked { para_id: ParaId },
+		/// The relay chain has been asked to set this para's current head.
+		HeadUpdateRequested { para_id: ParaId, message_id: u64 },
+		/// The relay chain set the head.
+		HeadUpdated { para_id: ParaId, message_id: u64 },
+		/// The relay chain refused the head.
+		HeadUpdateFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
 	}
 
 	#[pallet::error]
@@ -586,15 +592,39 @@ pub mod pallet {
 			todo!()
 		}
 
+		/// Set the current head of a registered para.
+		///
+		/// Manager only, while the para is unlocked. Nothing is recorded here: the outcome comes
+		/// back through [`Pallet::receive`] as an event.
 		#[pallet::call_index(9)]
-		#[pallet::weight(Weight::zero())]
+		#[pallet::weight(T::WeightInfo::set_current_head(head.len() as u32))]
 		pub fn set_current_head(
 			origin: OriginFor<T>,
 			para_id: ParaId,
 			head: Vec<u8>,
 		) -> DispatchResult {
-			let _ = (origin, para_id, head);
-			todo!()
+			let who = ensure_signed(origin)?;
+
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			ensure!(info.manager == who, Error::<T>::NotOwner);
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+			ensure!(!info.locked, Error::<T>::ParaLocked);
+			ensure!(head.len() as u32 <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
+
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+				para_id,
+				message_id,
+				manager: who,
+				head,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::HeadUpdateRequested { para_id, message_id });
+			Ok(())
 		}
 
 		#[pallet::call_index(10)]
@@ -786,9 +816,13 @@ impl<T: Config> Pallet<T> {
 		todo!()
 	}
 
+	/// Nothing was recorded for the request, so the answer is only surfaced as an event.
 	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let _ = (para_id, message_id, outcome);
-		todo!()
+		Self::deposit_event(match outcome {
+			Ok(()) => Event::HeadUpdated { para_id, message_id },
+			Err(reason) => Event::HeadUpdateFailed { para_id, message_id, reason },
+		});
+		Ok(())
 	}
 
 	fn on_cancel_deregistration_response(
