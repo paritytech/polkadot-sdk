@@ -52,7 +52,16 @@ fn forged_receipt_proof_is_rejected_after_path_check_fix() {
 	let forged_receipt_bytes = alloy_rlp::encode(&forged_receipt);
 
 	let fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
-	let receipts_root = fixture.event.proof.execution_proof.execution_header.receipts_root();
+	// Pre-Gloas fixture: the leaf is the payload-header root, and the receipts root it
+	// authenticates comes straight off that header; qed
+	let receipts_root = fixture
+		.event
+		.proof
+		.execution_proof
+		.execution_header
+		.commitment()
+		.expect("deneb fixture merkleizes; qed")
+		.receipts_root_once_proven();
 	let root_node = fixture.event.proof.receipt_proof[0].clone();
 	let exploit_proof_nodes = vec![root_node, forged_receipt_bytes];
 

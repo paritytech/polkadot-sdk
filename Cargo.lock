@@ -24308,6 +24308,7 @@ dependencies = [
 name = "snowbridge-beacon-primitives"
 version = "0.2.0"
 dependencies = [
+ "alloy-rlp",
  "byte-slice-cast",
  "frame-support",
  "hex",
