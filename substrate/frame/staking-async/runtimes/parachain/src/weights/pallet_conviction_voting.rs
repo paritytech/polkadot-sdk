@@ -192,4 +192,13 @@ impl<T: frame_system::Config> pallet_conviction_voting::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	fn cleanup_empty_storage() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `11593`
+		//  Estimated: `30706`
+		// Minimum execution time: 83_405_000 picoseconds.
+		Weight::from_parts(92_198_000, 30706)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }

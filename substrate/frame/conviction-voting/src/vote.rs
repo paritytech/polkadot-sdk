@@ -283,6 +283,25 @@ where
 		AsMut::<PriorLock<BlockNumber, Balance>>::as_mut(self).rejig(now);
 	}
 
+	/// Returns `true` if this entry carries no active votes, no delegations, and no prior lock,
+	/// meaning it can be safely removed from storage.
+	pub fn is_empty(&self) -> bool {
+		match self {
+			Voting::Casting(Casting { votes, delegations, prior }) => {
+				votes.is_empty() &&
+					delegations.votes.is_zero() &&
+					delegations.capital.is_zero() &&
+					prior.locked().is_zero()
+			},
+			Voting::Delegating(Delegating { balance, delegations, prior, .. }) => {
+				balance.is_zero() &&
+					delegations.votes.is_zero() &&
+					delegations.capital.is_zero() &&
+					prior.locked().is_zero()
+			},
+		}
+	}
+
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {
