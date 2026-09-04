@@ -76,6 +76,8 @@ parameter_types! {
 	pub static AlreadyKnown: Vec<ParaId> = Vec::new();
 	/// When true, `MockRegistrar::register` fails.
 	pub static RegisterFails: bool = false;
+	/// Heads `MockRegistrar` has set, in order.
+	pub static Heads: Vec<(ParaId, Vec<u8>)> = Vec::new();
 	/// Reports handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
@@ -111,6 +113,18 @@ impl ParachainRegistrar for MockRegistrar {
 		}
 		Onboarded::mutate(|v| v.push((para_id, manager, genesis_head, validation_code)));
 		Ok(())
+	}
+
+	fn check_head_data(head_len: u32) -> Result<(), ()> {
+		if head_len <= MAX_HEAD_SIZE {
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+
+	fn set_current_head(para_id: ParaId, head: Vec<u8>) {
+		Heads::mutate(|v| v.push((para_id, head)));
 	}
 }
 
@@ -158,6 +172,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Onboarded::set(Vec::new());
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
+	Heads::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 

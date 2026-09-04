@@ -187,6 +187,10 @@ pub mod pallet {
 		AuthorizationCancelled { para_id: ParaId, message_id: u64 },
 		/// A cancellation arrived after the para had already been onboarded, and was refused.
 		CancellationRefused { para_id: ParaId, message_id: u64 },
+		/// A para's current head was set at the parachain's request.
+		HeadUpdated { para_id: ParaId, message_id: u64 },
+		/// A head update was refused.
+		HeadUpdateRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// A report could not be sent back to the parachain.
 		///
 		/// The relay chain's own state is already correct; the parachain is now out of step and
@@ -227,10 +231,11 @@ pub mod pallet {
 				T::WeightInfo::receive_register(genesis_head.len() as u32),
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
 				T::WeightInfo::receive_cancel_registration(),
+			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { head, .. }) =>
+				T::WeightInfo::receive_set_current_head(head.len() as u32),
 			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::zero(),
+			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) => Weight::zero(),
 		})]
 		pub fn receive(
 			origin: OriginFor<T>,
@@ -272,12 +277,13 @@ pub mod pallet {
 				}) => Self::on_authorize_code_upgrade_request(
 					para_id, message_id, manager, code_hash, code_len,
 				),
+				// The parachain has already checked who may act; only the size is checked here.
 				MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
 					para_id,
 					message_id,
-					manager,
+					manager: _,
 					head,
-				}) => Self::on_set_current_head_request(para_id, message_id, manager, head),
+				}) => Self::on_set_current_head_request(para_id, message_id, head),
 				MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
 					para_id,
 					message_id,
@@ -488,14 +494,23 @@ pub mod pallet {
 			todo!()
 		}
 
-		fn on_set_current_head_request(
-			para_id: ParaId,
-			message_id: u64,
-			manager: T::AccountId,
-			head: Vec<u8>,
-		) {
-			let _ = (para_id, message_id, manager, head);
-			todo!()
+		/// Set `para_id`'s head if it fits the live configuration, and report either way.
+		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
+			let fits = u32::try_from(head.len())
+				.is_ok_and(|len| T::Registrar::check_head_data(len).is_ok());
+			if !fits {
+				let reason = FailureReason::HeadDataTooLarge;
+				Self::report_set_head(para_id, message_id, Err(reason.clone()));
+				return Self::deposit_event(Event::HeadUpdateRejected {
+					para_id,
+					message_id,
+					reason,
+				});
+			}
+
+			T::Registrar::set_current_head(para_id, head);
+			Self::report_set_head(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::HeadUpdated { para_id, message_id });
 		}
 
 		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
@@ -543,7 +558,7 @@ pub mod pallet {
 			);
 		}
 
-		#[allow(dead_code)]
+		/// Tell the parachain whether the head was set.
 		fn report_set_head(para_id: ParaId, message_id: u64, outcome: Outcome) {
 			Self::report(
 				para_id,
