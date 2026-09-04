@@ -1106,6 +1106,31 @@ mod governance {
 	}
 
 	#[test]
+	fn add_external_asset_uses_recorded_internal_decimals_after_metadata_changes() {
+		new_test_ext().execute_with(|| {
+			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				b"Internal Asset".to_vec(),
+				b"INTERNAL".to_vec(),
+				31
+			));
+
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
+			let stored = crate::ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, new_asset)
+				.expect("external present");
+			assert_eq!(stored.decimals, 6);
+		});
+	}
+
+	#[test]
 	fn add_external_asset_fails_decimals_out_of_range() {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;

@@ -636,7 +636,7 @@ pub mod pallet {
 		InsufficientPrivilege,
 		/// Maximum number of approved external assets reached.
 		TooManyAssets,
-		/// Live decimals diverged from the snapshot taken at registration or genesis.
+		/// Reserved legacy error; retained to preserve error variant indices.
 		DecimalsMismatch,
 		/// The asset's decimal precision is outside the supported range.
 		DecimalsRangeExceeded,
@@ -1301,8 +1301,6 @@ pub mod pallet {
 		/// - [`Error::AssetAlreadyApproved`]: If `external_asset` is already approved on this PSM.
 		/// - [`Error::AssetDoesNotExist`]: If `external_asset` does not exist in the underlying
 		///   fungibles backend.
-		/// - [`Error::DecimalsMismatch`]: If the internal asset's live decimals diverged from the
-		///   snapshot in [`PsmInfo`].
 		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|` exceeds
 		///   [`MAX_DECIMALS_DIFF`].
 		///
@@ -1329,10 +1327,6 @@ pub mod pallet {
 			);
 
 			let asset_decimals = T::Fungibles::decimals(external_asset.clone());
-			ensure!(
-				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-				Error::<T>::DecimalsMismatch
-			);
 			ensure!(
 				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
