@@ -112,6 +112,30 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Force-registering an id nobody reserved: the worst case, since both considerations are
+	/// taken rather than just the registration's.
+	#[benchmark]
+	fn force_register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = T::FirstPublicParaId::get();
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Root,
+			para_id,
+			who,
+			alloc::vec![2u8; h as usize],
+			T::MaxCodeSize::get(),
+			sp_core::H256::repeat_byte(1),
+		);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Pending { .. })
+		));
+		Ok(())
+	}
+
 	/// Asking the relay chain to drop an authorization. The deposit stays held, so this is the
 	/// state write plus the message.
 	#[benchmark]
