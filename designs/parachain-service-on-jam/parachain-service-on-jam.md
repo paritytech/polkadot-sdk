@@ -1901,13 +1901,17 @@ A receiver block consumes only messages under a `StreamsRoot` the sender has ena
 the block that declared its `StreamsRoot` enacts, and a receiver that consumes a root that's not in the ring is rejected.
 A receiver block also fails settlement if the `StreamsRoot` was evicted (ie, newer `MAX_SETTLEMENT_RING_CAPACITY` roots were pushed).
 
-The settlement ring is generously sized for normal operations, but it is possible for a parachain to enact candidates faster than the
+The settlement ring is properly sized for normal operations, but it is possible for a parachain to enact candidates faster than the
 receiver can. In that case, the receiver parachain may fail the settlement check for a candidate that was valid when it was built.
 The receiver parachain must resubmit a new work package that targets the latest `StreamsRoot` present in the source parachain's settlement ring.
+
+For example, assuming one candidate per core, a root remains settleable for `64 / cores` timeslots. This equates to 64 slots for a single core,
+21 slots for 3 cores, and roughly 6 slots for 10 cores.
 
 ### 8.1 Declaring Roots
 
 The `set_messages_streams_root` and `set_messages_requires_roots` host calls are optional and must be called at most once per Refine.
+A PVF should call `set_messages_streams_root` only when the root changed since its last enacted block.
 
 A second call aborts Refine with `RefineLog::MessagesCallRepeated`.
 
