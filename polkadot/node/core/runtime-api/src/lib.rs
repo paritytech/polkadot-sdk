@@ -229,6 +229,9 @@ where
 					info,
 				)
 			},
+			SessionExecutionConfig(session_index, config) => {
+				self.requests_cache.cache_session_execution_config(session_index, config)
+			},
 		}
 	}
 
@@ -470,6 +473,15 @@ where
 						queried_relay_parent,
 						sender,
 					))
+				}
+			},
+			Request::SessionExecutionConfig(session_index, sender) => {
+				if let Some(value) = self.requests_cache.session_execution_config(session_index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(*value));
+					None
+				} else {
+					Some(Request::SessionExecutionConfig(session_index, sender))
 				}
 			},
 		}
@@ -832,6 +844,13 @@ where
 			unapplied_slashes_v2(),
 			ver = Request::UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT,
 			sender
+		),
+		Request::SessionExecutionConfig(session_index, sender) => query!(
+			SessionExecutionConfig,
+			session_execution_config(session_index),
+			ver = Request::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT,
+			sender,
+			result = (session_index)
 		),
 	}
 }

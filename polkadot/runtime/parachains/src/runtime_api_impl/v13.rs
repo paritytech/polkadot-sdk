@@ -598,8 +598,7 @@ pub fn candidates_pending_availability<T: initializer::Config>(
 
 /// Implementation for `validation_code_bomb_limit` function from the runtime API
 pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
-	configuration::ActiveConfig::<T>::get().max_code_size *
-		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
+	configuration::ActiveConfig::<T>::get().validation_code_bomb_limit()
 }
 
 /// Implementation for `scheduling_lookahead` function from the runtime API

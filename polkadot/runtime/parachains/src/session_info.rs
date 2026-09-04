@@ -31,7 +31,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
-	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo,
+	vstaging::SessionExecutionConfig, AssignmentId, AuthorityDiscoveryId, ExecutorParams,
+	SessionIndex, SessionInfo,
 };
 
 pub use pallet::*;
@@ -106,6 +107,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SessionExecutorParams<T: Config> =
 		StorageMap<_, Identity, SessionIndex, ExecutorParams>;
+
+	/// Execution-relevant host configuration for a given session index.
+	///
+	/// Stored in a rolling window matching the dispute period, so that
+	/// validators can look up the configuration that was active when a
+	/// candidate was produced.
+	#[pallet::storage]
+	pub type SessionExecutionConfigs<T: Config> =
+		StorageMap<_, Identity, SessionIndex, SessionExecutionConfig>;
 }
 
 /// An abstraction for the authority discovery pallet
@@ -158,6 +168,7 @@ impl<T: Config> Pallet<T> {
 				// But it shouldn't be a problem.
 				AccountKeys::<T>::remove(&idx);
 				SessionExecutorParams::<T>::remove(&idx);
+				SessionExecutionConfigs::<T>::remove(&idx);
 			}
 			// update `EarliestStoredSession` based on `config.dispute_period`
 			EarliestStoredSession::<T>::set(new_earliest_stored_session);
@@ -189,6 +200,8 @@ impl<T: Config> Pallet<T> {
 			dispute_period,
 		};
 		Sessions::<T>::insert(&new_session_index, &new_session_info);
+
+		SessionExecutionConfigs::<T>::insert(&new_session_index, config.session_execution_config());
 
 		SessionExecutorParams::<T>::insert(&new_session_index, config.executor_params);
 	}

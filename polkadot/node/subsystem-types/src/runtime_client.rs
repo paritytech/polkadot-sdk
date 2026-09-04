@@ -19,7 +19,7 @@ use polkadot_primitives::{
 	async_backing::{self, Constraints},
 	runtime_api::ParachainHost,
 	slashing,
-	vstaging::RelayParentInfo,
+	vstaging::{RelayParentInfo, SessionExecutionConfig},
 	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
@@ -379,6 +379,14 @@ pub trait RuntimeApiSubsystemClient {
 		session_index: SessionIndex,
 		relay_parent: Hash,
 	) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, ApiError>;
+
+	// == v17 ==
+	/// Get the execution-relevant host configuration for the given session.
+	async fn session_execution_config(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<Option<SessionExecutionConfig>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -697,6 +705,14 @@ where
 		self.client
 			.runtime_api()
 			.ancestor_relay_parent_info(at, session_index, relay_parent)
+	}
+
+	async fn session_execution_config(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<Option<SessionExecutionConfig>, ApiError> {
+		self.client.runtime_api().session_execution_config(at, session_index)
 	}
 }
 

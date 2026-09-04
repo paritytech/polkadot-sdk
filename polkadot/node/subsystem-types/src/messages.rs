@@ -45,7 +45,7 @@ use polkadot_primitives::{
 	self,
 	async_backing::{self, Constraints},
 	slashing,
-	vstaging::RelayParentInfo,
+	vstaging::{RelayParentInfo, SessionExecutionConfig},
 	ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateCommitments,
 	CandidateEvent, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
 	CoalescedApprovalCandidateHashes, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
@@ -204,11 +204,18 @@ pub enum CandidateValidationMessage {
 		candidate_receipt: CandidateReceipt,
 		/// The proof-of-validity
 		pov: Arc<PoV>,
-		/// Scheduling session index for this candidate. For V1 descriptors this
-		/// equals the relay-parent session and serves as fallback for both
-		/// execution and scheduling session. For V2+, sessions are in the
-		/// descriptor and this field is ignored. Can be removed once V1 support
-		/// is dropped.
+		/// Scheduling session index for this candidate. Used by the backing path
+		/// to verify that the descriptor's `scheduling_parent` resolves to the
+		/// session of the leaf.
+		///
+		/// For V1 descriptors this also serves as the fallback for the
+		/// **execution (relay-parent) session** — which keys `executor_params`,
+		/// `max_pov_size`, and `validation_code_bomb_limit` — because V1 has
+		/// `relay_parent == scheduling_parent`, so execution session ==
+		/// scheduling session. For V2+ descriptors the execution session is
+		/// taken from the descriptor itself, and this field is only used as a
+		/// fallback if the descriptor's session fields are unset. Can be
+		/// removed once V1 support is dropped.
 		scheduling_session_index: SessionIndex,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,
@@ -892,6 +899,9 @@ pub enum RuntimeApiRequest {
 		Hash,
 		RuntimeApiSender<Option<RelayParentInfo<Hash, BlockNumber>>>,
 	),
+	/// Get the execution-relevant host configuration for the given session.
+	/// `V17`
+	SessionExecutionConfig(SessionIndex, RuntimeApiSender<Option<SessionExecutionConfig>>),
 }
 
 impl RuntimeApiRequest {
@@ -953,6 +963,9 @@ impl RuntimeApiRequest {
 
 	/// `AncestorRelayParentInfo`
 	pub const ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT: u32 = 16;
+
+	/// `SessionExecutionConfig`
+	pub const SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT: u32 = 17;
 }
 
 /// A message to the Runtime API subsystem.

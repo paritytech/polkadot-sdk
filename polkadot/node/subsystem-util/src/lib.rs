@@ -321,7 +321,8 @@ specialize_requests! {
 	fn request_node_features(session_index: SessionIndex) -> NodeFeatures; NodeFeatures;
 	fn request_approval_voting_params(session_index: SessionIndex) -> ApprovalVotingParams; ApprovalVotingParams;
 	fn request_para_ids(session_index: SessionIndex) -> Vec<ParaId>; ParaIds;
-
+	fn request_session_execution_config(session_index: SessionIndex) -> Option<polkadot_primitives::vstaging::SessionExecutionConfig>; SessionExecutionConfig;
+	fn request_validation_code_bomb_limit(session_index: SessionIndex) -> u32; ValidationCodeBombLimit;
 }
 
 /// Result of [`check_relay_parent_session`].
