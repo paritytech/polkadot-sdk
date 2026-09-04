@@ -191,6 +191,31 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
+  test-rfc145:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 90
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      RUSTFLAGS: "--cfg rfc145 -Cdebug-assertions=y -Dwarnings"
+      RUST_BACKTRACE: 1
+      WASM_BUILD_NO_COLOR: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: script
+        id: required
+        run: forklift cargo test --locked --release -p sp-runtime-interface-test -p sc-executor
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
     name: All tests passed
@@ -201,6 +226,7 @@ jobs:
         test-linux-stable-runtime-benchmarks,
         test-linux-stable,
         test-linux-stable-no-try-runtime,
+        test-rfc145,
       ]
     if: always() && !cancelled()
     steps:
