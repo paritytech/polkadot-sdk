@@ -72,7 +72,7 @@ fn try_state_detects_inconsistent_active_current_era() {
 
 #[test]
 fn try_state_bad_exposure() {
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(2);
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 
@@ -85,6 +85,11 @@ fn try_state_bad_exposure() {
 		metadata.total += 1;
 		ErasStakersOverview::<T>::insert(2, validator, metadata);
 		assert!(Staking::do_try_state(System::block_number()).is_err());
+
+		// Restore valid state so build_and_execute post-check passes.
+		let mut metadata = ErasStakersOverview::<T>::get(2, validator).unwrap();
+		metadata.total -= 1;
+		ErasStakersOverview::<T>::insert(2, validator, metadata);
 	});
 }
 
@@ -92,7 +97,7 @@ fn try_state_bad_exposure() {
 fn last_validator_era_can_be_one_greater_than_active_era() {
 	// When the election for the next era has finished but the era is not yet active,
 	// `LastValidatorEra` is set to `active_era + 1`.
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(1);
 		let era = active_era();
 
@@ -120,11 +125,14 @@ fn last_validator_era_can_be_one_greater_than_active_era() {
 
 #[test]
 fn try_state_bad_eras_total_stake() {
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(2);
 		assert!(Staking::do_try_state(System::block_number()).is_ok());
 		ErasTotalStake::<T>::mutate(2, |s| *s -= 1);
 		assert!(Staking::do_try_state(System::block_number()).is_err());
+
+		// Restore valid state so build_and_execute post-check passes.
+		ErasTotalStake::<T>::mutate(2, |s| *s += 1);
 	});
 }
 

@@ -84,7 +84,7 @@ fn get_ledger_works() {
 
 #[test]
 fn get_ledger_bad_state_fails() {
-	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 		setup_double_bonded_ledgers();
 
 		// Case 1: double bonded but not corrupted:
@@ -119,9 +119,12 @@ fn get_ledger_bad_state_fails() {
 		ledger.stash = 444;
 		Ledger::<Test>::insert(444, ledger);
 
-		// now, we are prevented from fetching the ledger by stash from 1. It's associated
-		// controller (2) is now bonding a ledger with a different stash (2, not 1).
+		// now, we are prevented from fetching the ledger by stash 333. Its associated
+		// controller (444) is now bonding a ledger with a different stash (444, not 333).
 		assert!(StakingLedger::<Test>::get(StakingAccount::Stash(333)).is_err());
+
+		// Restore valid state so build_and_execute post-check passes.
+		cleanup_double_bonded_ledgers();
 	})
 }
 
@@ -242,7 +245,7 @@ fn set_controller_with_bad_state_ok() {
 
 #[test]
 fn set_controller_with_bad_state_fails() {
-	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 		setup_double_bonded_ledgers();
 
 		// setting the controller of ledger associated with stash 555 fails since its stash is a
@@ -250,6 +253,9 @@ fn set_controller_with_bad_state_fails() {
 		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(555)), Error::<Test>::BadState);
 		assert_noop!(Staking::set_controller(RuntimeOrigin::signed(444)), Error::<Test>::BadState);
 		assert_ok!(Staking::set_controller(RuntimeOrigin::signed(333)));
+
+		// Restore valid state so build_and_execute post-check passes.
+		cleanup_double_bonded_ledgers();
 	})
 }
 
@@ -258,7 +264,7 @@ mod deprecate_controller_call {
 
 	#[test]
 	fn deprecate_controller_batch_works_full_weight() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// Given:
 
 			let start = 1001;
@@ -390,7 +396,7 @@ mod deprecate_controller_call {
 
 	#[test]
 	fn deprecate_controller_batch_skips_unmigrated_controller_payees() {
-		ExtBuilder::default().try_state(false).build_and_execute(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// Given:
 
 			let stash: u64 = 1000;
@@ -458,7 +464,7 @@ mod deprecate_controller_call {
 
 	#[test]
 	fn deprecate_controller_batch_with_bad_state_failures() {
-		ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+		ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
 			// now let's deprecate all the controllers for all the existing ledgers.
@@ -476,6 +482,9 @@ mod deprecate_controller_call {
 				*staking_events().last().unwrap(),
 				Event::ControllerBatchDeprecated { failures: 2 }
 			);
+
+			// Restore valid state so build_and_execute post-check passes.
+			cleanup_double_bonded_ledgers();
 		})
 	}
 }
@@ -485,7 +494,7 @@ mod ledger_recovery {
 
 	#[test]
 	fn inspect_recovery_ledger_simple_works() {
-		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
 			// non corrupted ledger.
@@ -497,12 +506,15 @@ mod ledger_recovery {
 
 			// double bonded but not corrupted.
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+
+			// Restore valid state so build_and_execute post-check passes.
+			cleanup_double_bonded_ledgers();
 		})
 	}
 
 	#[test]
 	fn inspect_recovery_ledger_corupted_killed_works() {
-		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
 			let lock_333_before = asset::staked::<Test>(&333);
@@ -554,12 +566,15 @@ mod ledger_recovery {
 			assert!(Ledger::<Test>::get(&555).is_none()); // NOK
 
 			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// Restore valid state so build_and_execute post-check passes.
+			cleanup_double_bonded_ledgers();
 		})
 	}
 
 	#[test]
 	fn inspect_recovery_ledger_corupted_killed_other_works() {
-		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
 			let lock_333_before = asset::staked::<Test>(&333);
@@ -610,12 +625,15 @@ mod ledger_recovery {
 			assert!(Ledger::<Test>::get(&555).is_none()); // OK
 
 			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// Restore valid state so build_and_execute post-check passes.
+			cleanup_double_bonded_ledgers();
 		})
 	}
 
 	#[test]
 	fn inspect_recovery_ledger_lock_corrupted_works() {
-		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
 			// get into lock corrupted ledger state by bond_extra on a ledger that is double bonded
@@ -641,6 +659,9 @@ mod ledger_recovery {
 				Staking::inspect_bond_state(&444).unwrap(),
 				LedgerIntegrityState::LockCorrupted
 			);
+
+			// Restore valid state so build_and_execute post-check passes.
+			cleanup_double_bonded_ledgers();
 		})
 	}
 
