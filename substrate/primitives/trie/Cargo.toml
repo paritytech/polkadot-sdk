@@ -55,7 +55,7 @@ std = [
 	"foldhash/std",
 	"hash-db/std",
 	"memory-db/std",
-	"nohash-hasher",
+	"nohash-hasher/std",
 	"parking_lot",
 	"prometheus-endpoint",
 	"rand",

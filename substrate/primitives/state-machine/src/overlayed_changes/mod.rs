@@ -19,6 +19,7 @@
 
 mod changeset;
 mod offchain;
+mod storage_key_delta_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -46,6 +47,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
+pub use storage_key_delta_tracker::DeltaKeyOp;
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
@@ -337,6 +339,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		element: StorageValue,
 		init: impl Fn() -> StorageValue,
 	) {
+		self.mark_dirty();
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = element.len() as u64;
 		self.stats.tally_write_overlay(size_write);
@@ -677,6 +680,25 @@ impl<H: Hasher> OverlayedChanges<H> {
 		(root, false)
 	}
 
+	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
+	/// as seen by the current transaction.
+	pub fn record_proof_for_dirty_keys<B: Backend<H>>(&mut self, backend: &B)
+	where
+		H::Out: Ord + Encode + codec::Codec,
+	{
+		let snapshot = self.top.take_delta();
+
+		let child_snapshots: Vec<_> =
+			self.children.values_mut().map(|v| (&v.1, v.0.take_delta())).collect();
+
+		let delta = snapshot.values().map(|(k, op)| (&k[..], *op));
+		let child_delta = child_snapshots
+			.iter()
+			.map(|(info, snap)| (*info, snap.values().map(|(k, op)| (&k[..], *op))));
+
+		backend.record_proof_for_dirty_keys_full(delta, child_delta);
+	}
+
 	/// Generate the child storage root using `backend` and all child changes
 	/// as seen by the current transaction.
 	///
@@ -821,7 +843,9 @@ where
 /// or an owned extension.
 #[cfg(feature = "std")]
 pub enum OverlayedExtension<'a> {
+	/// A mutable reference to an extension owned elsewhere.
 	MutRef(&'a mut Box<dyn Extension>),
+	/// An extension owned by this overlay.
 	Owned(Box<dyn Extension>),
 }
 

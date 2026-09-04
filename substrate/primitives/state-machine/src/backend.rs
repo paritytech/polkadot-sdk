@@ -20,8 +20,8 @@
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
 use crate::{
-	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, StorageCollection,
-	StorageKey, StorageValue, UsageInfo,
+	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, DeltaKeyOp,
+	StorageCollection, StorageKey, StorageValue, UsageInfo,
 };
 use alloc::vec::Vec;
 use codec::Encode;
@@ -266,6 +266,21 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	where
 		H::Out: Ord;
 
+	/// Updates the recorder's proof size by recording trie nodes for a given delta.
+	///
+	/// Does not include child storage updates.
+	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>)
+	where
+		H::Out: Ord;
+
+	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
+	fn record_proof_for_child_dirty_keys<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+	) where
+		H::Out: Ord;
+
 	/// Returns a lifetimeless raw storage iterator.
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error>;
 
@@ -324,6 +339,31 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		txs.consolidate(parent_txs);
 
 		(root, txs)
+	}
+
+	/// Updates the recorder's proof size by recording trie nodes for a given delta and children
+	/// trie nodes for given child_deltas.
+	fn record_proof_for_dirty_keys_full<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		child_deltas: impl Iterator<
+			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], DeltaKeyOp)>),
+		>,
+	) where
+		H::Out: Ord + Encode,
+	{
+		let mut child_roots: Vec<Vec<u8>> = Default::default();
+		// child first
+		for (child_info, child_delta) in child_deltas {
+			self.record_proof_for_child_dirty_keys(child_info, child_delta);
+			child_roots.push(child_info.prefixed_storage_key().into_inner());
+		}
+		// At "estimation phase" we don't know if child trie is empty or not. Let's assume
+		// worst case - removal of the child storage root value from the main trie:
+		let mut delta_and_child_roots: Vec<_> = delta.collect();
+		delta_and_child_roots
+			.extend(child_roots.iter().map(|k| (k.as_slice(), DeltaKeyOp::Deleted)));
+		self.record_proof_for_dirty_keys(delta_and_child_roots.into_iter());
 	}
 
 	/// Register stats from overlay of state machine.

@@ -34,7 +34,7 @@ use {
 	},
 	sp_core::storage::StateVersion,
 	sp_runtime::{generic, OpaqueExtrinsic},
-	sp_state_machine::{Backend, TrieBackendBuilder},
+	sp_state_machine::{Backend, DeltaKeyOp, TrieBackendBuilder},
 };
 
 // Include the WASM binary
@@ -59,8 +59,12 @@ pub struct StorageAccessParams<B: traits::Block> {
 pub enum StorageAccessPayload {
 	// Storage keys with optional child info.
 	Read(Vec<(Vec<u8>, Option<ChildInfo>)>),
-	// Storage key-value pairs with optional child info.
-	Write((Vec<(Vec<u8>, Vec<u8>)>, Option<ChildInfo>)),
+	// Storage key-value pairs with optional child info and estimation_batch_size.
+	Write {
+		changes: Vec<(Vec<u8>, Vec<u8>)>,
+		child_info: Option<ChildInfo>,
+		estimation_batch_size: u32,
+	},
 }
 
 impl<B: traits::Block> StorageAccessParams<B> {
@@ -83,11 +87,16 @@ impl<B: traits::Block> StorageAccessParams<B> {
 		state_root: B::Hash,
 		storage_proof: StorageProof,
 		payload: (Vec<(Vec<u8>, Vec<u8>)>, Option<ChildInfo>),
+		estimation_batch_size: u32,
 	) -> Self {
 		Self {
 			state_root,
 			storage_proof,
-			payload: StorageAccessPayload::Write(payload),
+			payload: StorageAccessPayload::Write {
+				changes: payload.0,
+				child_info: payload.1,
+				estimation_batch_size,
+			},
 			is_dry_run: false,
 		}
 	}
@@ -143,7 +152,39 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 				}
 			}
 		},
-		StorageAccessPayload::Write((changes, maybe_child_info)) => {
+		StorageAccessPayload::Write {
+			changes,
+			child_info: maybe_child_info,
+			estimation_batch_size,
+		} => {
+			// Call record_proof_for_dirty_keys if enabled
+			if estimation_batch_size > 0 {
+				let batch_size = changes.len();
+				let triggers_per_batch = estimation_batch_size as usize;
+				let trigger_interval = batch_size.div_ceil(triggers_per_batch);
+
+				for i in 0..triggers_per_batch {
+					let start_idx = i * trigger_interval;
+					let end_idx = batch_size.min((i + 1) * trigger_interval);
+
+					let trigger_changes = &changes[start_idx..end_idx];
+					let trigger_delta = trigger_changes
+						.iter()
+						.map(|(key, _value)| (key.as_ref(), DeltaKeyOp::Updated));
+
+					match &maybe_child_info {
+						Some(child_info) => {
+							let _ = backend
+								.record_proof_for_child_dirty_keys(child_info, trigger_delta);
+						},
+						None => {
+							let _ = backend.record_proof_for_dirty_keys(trigger_delta);
+						},
+					}
+				}
+			}
+
+			// Perform the actual storage_root calculation
 			let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
 			match maybe_child_info {
 				Some(child_info) => {

@@ -133,7 +133,7 @@ pub use crate::{
 	error::{Error, ExecutionError},
 	ext::Ext,
 	overlayed_changes::{
-		ChildStorageCollection, IndexOperation, OffchainChangesCollection,
+		ChildStorageCollection, DeltaKeyOp, IndexOperation, OffchainChangesCollection,
 		OffchainOverlayedChanges, OverlayedChanges, StorageChanges, StorageCollection, StorageKey,
 		StorageValue,
 	},

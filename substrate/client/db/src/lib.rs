@@ -88,7 +88,7 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	BackendTransaction, ChildStorageCollection, DBValue, IndexOperation, IterArgs,
+	BackendTransaction, ChildStorageCollection, DBValue, DeltaKeyOp, IndexOperation, IterArgs,
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
@@ -304,6 +304,18 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		state_version: StateVersion,
 	) -> (B::Hash, bool, BackendTransaction<HashingFor<B>>) {
 		self.state.child_storage_root(child_info, delta, state_version)
+	}
+
+	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>) {
+		self.state.record_proof_for_dirty_keys(delta)
+	}
+
+	fn record_proof_for_child_dirty_keys<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+	) {
+		self.state.record_proof_for_child_dirty_keys(child_info, delta)
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
