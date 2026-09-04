@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788470933731,
+  "lastUpdate": 1788514112855,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -120851,6 +120851,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2659576990,
             "range": "± 14597177",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55137770+JasonColapietro@users.noreply.github.com",
+            "name": "Jason Colapietro",
+            "username": "JasonColapietro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2aa08d3336790474a90221573cd8eea214bc6796",
+          "message": "fix(rpc): release capacity after registration failure (#12853)\n\nFixes #12787.\n\n## Summary\n\nKeep a reserved RPC connection owned by `ReservedConnection` until\nidentifier registration succeeds. If registration rejects a duplicate\nidentifier, `Drop` now releases the reserved capacity instead of leaking\nit.\n\nThe regression test reserves capacity, triggers duplicate registration,\nand verifies that another reservation can still use the released slot.\n\n## Testing\n\n- `rustfmt` on the changed source\n- isolated crate harness including `connections.rs`: 3 unit tests and\ndoc tests pass\n\nA schema-validated `prdoc/stable2606/pr_12853.prdoc` entry is included\nwith a patch bump for `sc-rpc-spec-v2`.\n\n---------\n\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-04T08:14:03Z",
+          "tree_id": "5a40e85882d67bff18bae91702efb6aa123bec99",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2aa08d3336790474a90221573cd8eea214bc6796"
+        },
+        "date": 1788514074791,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19423827,
+            "range": "± 153931",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20090769,
+            "range": "± 118525",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21271828,
+            "range": "± 102884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25635789,
+            "range": "± 122257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59918618,
+            "range": "± 732105",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 348383688,
+            "range": "± 6863471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2606152390,
+            "range": "± 181900993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16730193,
+            "range": "± 230648",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16834772,
+            "range": "± 179599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17618632,
+            "range": "± 164196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21954558,
+            "range": "± 180149",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61084171,
+            "range": "± 669508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 354917674,
+            "range": "± 2815513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2659473548,
+            "range": "± 32324442",
             "unit": "ns/iter"
           }
         ]
