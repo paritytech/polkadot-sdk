@@ -143,6 +143,7 @@ async fn heads_belong_to_their_own_para(run: &mut Run) -> anyhow::Result<()> {
 /// must *not* happen is the collator stopping too, so the assertion is deliberately two-sided:
 /// the JAM head stands still and the local chain does not.
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "mid-run core control is out of scope: the target setup preconfigures cores in genesis"]
 async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 ) -> Result<(), anyhow::Error> {
 	const TEST: &str = "freeing_the_core_freezes_the_para_head_until_it_is_assigned_again";
@@ -232,6 +233,7 @@ async fn stall_then_heal(run: &mut Run, tool: &Path) -> anyhow::Result<()> {
 /// one head at a time, each within a bounded wait, so that a stall anywhere across the handover
 /// fails here instead of being averaged out by a generous overall budget.
 #[tokio::test(flavor = "multi_thread")]
+#[ignore = "mid-run core control is out of scope: the target setup preconfigures cores in genesis"]
 async fn moving_the_para_to_the_other_core_keeps_its_head_moving() -> Result<(), anyhow::Error> {
 	const TEST: &str = "moving_the_para_to_the_other_core_keeps_its_head_moving";
 
