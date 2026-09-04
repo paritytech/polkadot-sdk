@@ -84,10 +84,15 @@ pub const PARA_STATE_BALANCE: u64 = u64::MAX;
 /// `head_data`, and the collator's first block declares whatever header its client built from
 /// this very spec.
 pub fn export_genesis_head(omni_node: &Path, spec: &Path) -> anyhow::Result<Vec<u8>> {
+	// Its own base path, because the command builds a client: without one it would litter (or
+	// trip over) the machine-wide default.
+	let base_path = spec.parent().unwrap_or(Path::new(".")).join("export-genesis-head");
 	let output = std::process::Command::new(omni_node)
 		.arg("export-genesis-head")
 		.arg("--chain")
 		.arg(spec)
+		.arg("--base-path")
+		.arg(&base_path)
 		.output()
 		.with_context(|| format!("running {} export-genesis-head", omni_node.display()))?;
 	anyhow::ensure!(
