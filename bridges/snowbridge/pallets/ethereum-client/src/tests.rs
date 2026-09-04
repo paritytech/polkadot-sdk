@@ -1482,10 +1482,6 @@ mod gloas_sync_committee {
 ///   -- rlp element 5       --> receipts_root
 ///   -- receipt MPT         --> the receipt carrying the log
 /// ```
-///
-/// The execution header is a genuine Gloas one — 23 RLP fields, including the
-/// `block_access_list_hash` and `slot_number` that Gloas appends — so this also exercises
-/// the parser against a header shape that does not exist pre-Gloas.
 mod gloas_end_to_end {
 	use super::*;
 	use snowbridge_beacon_primitives::{
@@ -1756,8 +1752,7 @@ mod gloas_end_to_end {
 ///
 /// `force_checkpoint` is where the gindex-352 `block_roots` arm is actually consumed: it
 /// proves `block_roots_root` out of the checkpoint state and caches it, and every ancestry
-/// proof afterwards is rooted at that cached value. Testing 352 standalone leaves that
-/// wiring unproven, which is why this exists.
+/// proof afterwards is rooted at that cached value.
 ///
 /// Real data throughout: checkpoint at Platåberget slot 116768, whose state merkleizes to
 /// the `state_root` its own block commits to, and which carries the slot-115968 block root
@@ -1870,13 +1865,7 @@ mod gloas_checkpoint_and_ancestry {
 	}
 }
 
-/// Fork isolation: adding Gloas must not break the legacy path, and neither variant may
-/// be presented for the other fork's era.
-///
-/// The variant/era cross-check in `verify_execution_proof` is what enforces the second
-/// half. Until now it was only asserted at the merkle level — a Gloas branch not verifying
-/// at gindex 25 — which is a different claim: that says the *proof* fails, not that the
-/// pallet refuses to try. These drive it through `verify_execution_proof` itself.
+/// Fork isolation: adding Gloas must not break the legacy path.
 mod gloas_fork_isolation {
 	use super::*;
 	use snowbridge_beacon_primitives::CommitmentScheme;
@@ -1908,12 +1897,10 @@ mod gloas_fork_isolation {
 /// A second, independent end-to-end message — different beacon block, different execution
 /// block, different transaction.
 ///
-/// One fixture can pass for reasons peculiar to itself. This one differs from
-/// `gloas_end_to_end` in ways that matter: the payload bid carries **11 blob commitments**
-/// where the other carried none, so the branch to gindex 2856 runs through a different
-/// subtree; the execution header has 29 bytes of `extra_data` and a non-zero `blob_gas_used`,
-/// so the RLP walk sees different item widths; and the receipt is proven at a different
-/// transaction index, against a log that is not the first in its receipt.
+/// One fixture can pass for reasons peculiar to itself. This one carries 11 blob commitments
+/// where the other carried none, so the branch to 2856 runs through a different subtree; the
+/// header has 29 bytes of `extra_data`, so the RLP walk sees different item widths; and the
+/// receipt is at a different transaction index, against a log that is not the first in it.
 ///
 /// Platåberget beacon block 128608, execution block 125689.
 mod gloas_end_to_end_second {

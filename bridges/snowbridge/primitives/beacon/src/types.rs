@@ -422,7 +422,7 @@ pub enum CommitmentError {
 	MalformedExecutionHeader,
 }
 
-/// What `ExecutionProof::execution_branch` must prove, and what proving it establishes.
+/// The leaf `ExecutionProof::execution_branch` must prove, and the receipts root it unlocks.
 ///
 /// Carries the leaf to verify against `BeaconHeader::body_root` together with the receipts
 /// root that leaf authenticates. The receipts root is private and reachable only through
@@ -460,7 +460,7 @@ impl VersionedExecutionPayloadHeader {
 		}
 	}
 
-	/// Derive what the execution branch must prove, and what proving it establishes.
+	/// Build the commitment the execution branch must prove.
 	///
 	/// This is the only way to obtain a receipts root. For Gloas it parses
 	/// submitter-supplied bytes.
