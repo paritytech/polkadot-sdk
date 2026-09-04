@@ -102,7 +102,6 @@ pub struct Run {
 	pub network: JamNetwork,
 	/// One entry per para, in the order they were started.
 	pub paras: Vec<ParaRun>,
-	pub binaries: Binaries,
 	work_dir: WorkDir,
 	pub deadline: Instant,
 }
@@ -132,8 +131,7 @@ impl Run {
 			started.push(ParaRun { para, collators });
 		}
 
-		let mut run =
-			Run { network, paras: started, binaries: binaries.clone(), work_dir, deadline };
+		let mut run = Run { network, paras: started, work_dir, deadline };
 		run.check_authorizers_agree().await?;
 		Ok(run)
 	}
@@ -254,7 +252,7 @@ impl Run {
 	pub async fn sample(&self, index: usize, rpc: &CollatorRpc) -> anyhow::Result<ParaProgress> {
 		let para = self.paras.get(index).context("no para with that index")?;
 		let height = rpc.height().await?;
-		let jam_head = self.network.para_head(&self.binaries, para.para.id)?;
+		let jam_head = self.network.para_head(para.para.id).await?;
 		Ok(ParaProgress { height, jam_head })
 	}
 

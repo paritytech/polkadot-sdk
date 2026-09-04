@@ -6,7 +6,10 @@
 
 use super::{collators::Para, env::Binaries, genesis, rpc::JamRpc};
 use anyhow::Context;
+use codec::DecodeAll;
+use jam_cumulus_facade::service_state::{para_info_key, ParaInfo};
 use serde_json::json;
+use sp_runtime::traits::BlakeTwo256;
 use std::{
 	path::{Path, PathBuf},
 	process::Command,
@@ -41,6 +44,9 @@ fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 /// cores that carry them.
 pub struct JamNetwork {
 	network: Network<LocalFileSystem>,
+	/// The connection every state read goes down, kept for the run rather than reopened per read:
+	/// the para head is polled every few seconds by every assertion there is.
+	rpc: JamRpc,
 	pub rpc_url: String,
 	pub service_id: u32,
 	/// The copy of the authorizer blob whose hash went into genesis. Everything that has to agree
@@ -124,44 +130,23 @@ impl JamNetwork {
 		let rpc_url = format!("ws://127.0.0.1:{rpc_port}");
 		log::info!("JAM network up, ordinary node RPC at {rpc_url}");
 
+		let spec_path = base_dir.join("jam_spec.json");
+		ensure_spec_holds_parasim(&spec_path, PARASIM_SERVICE_ID)?;
+		let rpc = JamRpc::wait_ready(&rpc_url, deadline)
+			.await
+			.with_context(|| format!("JAM node log tail:\n{}", log_tail(&network, 60)))?;
+
 		let jam_network = JamNetwork {
 			network,
+			rpc,
 			rpc_url,
 			service_id: PARASIM_SERVICE_ID,
 			authorizer_blob,
-			spec_path: base_dir.join("jam_spec.json"),
+			spec_path,
 		};
-		jam_network.ensure_spec_holds_parasim()?;
-		let rpc = JamRpc::wait_ready(&jam_network.rpc_url, deadline).await.with_context(|| {
-			format!("JAM node log tail:\n{}", jam_network.ordinary_node_log_tail(60))
-		})?;
-		jam_network.ensure_parasim_is_in_genesis(&rpc).await?;
+		jam_network.ensure_parasim_is_in_genesis().await?;
 
 		Ok(jam_network)
-	}
-
-	/// Fail unless the chain spec `gen-spec` wrote holds parasim's service record.
-	///
-	/// Checked on the file, before a single RPC: a `gen-spec` that does not know the genesis keys
-	/// drops them without a word, and the spec it writes is the first place that shows. Waiting
-	/// for the nodes first would report the same thing minutes later.
-	fn ensure_spec_holds_parasim(&self) -> anyhow::Result<()> {
-		let spec: serde_json::Value = serde_json::from_slice(
-			&std::fs::read(&self.spec_path)
-				.with_context(|| format!("reading {}", self.spec_path.display()))?,
-		)
-		.with_context(|| format!("parsing {}", self.spec_path.display()))?;
-		let key = service_record_key(self.service_id);
-		anyhow::ensure!(
-			spec["genesis_state"].get(&key).is_some(),
-			"{} holds no record of service {} (genesis_state key {key}): the polkajam that ran \
-			 gen-spec ignores the genesis keys; set JAM_GENSPEC_BIN to a build from the \
-			 mku-genspec branch",
-			self.spec_path.display(),
-			self.service_id,
-		);
-		log::info!("{} holds parasim as service {}", self.spec_path.display(), self.service_id);
-		Ok(())
 	}
 
 	/// Fail unless the chain the nodes actually started from is the one that was generated.
@@ -170,8 +155,8 @@ impl JamNetwork {
 	/// nodes started on some other spec than the one just checked. That leaves every collator
 	/// submitting packages nothing will authorize, so this has to be loud and name the files to
 	/// look at.
-	async fn ensure_parasim_is_in_genesis(&self, rpc: &JamRpc) -> anyhow::Result<()> {
-		let services = rpc.services().await.context("listing the chain's services")?;
+	async fn ensure_parasim_is_in_genesis(&self) -> anyhow::Result<()> {
+		let services = self.rpc.services().await.context("listing the chain's services")?;
 		anyhow::ensure!(
 			services.contains(&(self.service_id as u64)),
 			"the chain has services {services:?}, which does not include parasim as service {}; \
@@ -191,10 +176,10 @@ impl JamNetwork {
 	/// authorizer code out of service 0 — which genesis cannot be asked to host a preimage for.
 	/// The collators name the parachain service instead and need none of it. Idempotent, and off
 	/// everything's critical path: it can go as soon as `parasim-tool` names `--service` there.
-	pub fn host_authorizer_for_control_packages(&self, binaries: &Binaries) -> anyhow::Result<()> {
+	pub fn host_authorizer_for_control_packages(&self, tool: &Path) -> anyhow::Result<()> {
 		run_step(
 			&format!("deploy-authorizer: {}", self.authorizer_blob.display()),
-			self.parasim_tool(binaries).arg("deploy-authorizer"),
+			self.parasim_tool(tool).arg("deploy-authorizer"),
 		)
 	}
 
@@ -212,7 +197,7 @@ impl JamNetwork {
 	/// authorizer, so afterwards the core really can carry the para's packages.
 	pub fn assign_core(
 		&self,
-		binaries: &Binaries,
+		tool: &Path,
 		para: &Para,
 		core: u32,
 		via: Option<&Para>,
@@ -222,7 +207,7 @@ impl JamNetwork {
 		// the core being assigned, which is exactly what is wanted, and that is not this para's
 		// own core — the reassignment test assigns core 1 to a para sitting on core 0.
 		let carrier = via.unwrap_or(para);
-		let mut command = self.parasim_tool(binaries);
+		let mut command = self.parasim_tool(tool);
 		command
 			.args(["--collators", &names])
 			.args(["assign-core", &para.id.to_string(), &core.to_string()])
@@ -252,11 +237,11 @@ impl JamNetwork {
 	/// Parked is not unassigned. The core keeps the same authorizer code, so it keeps taking
 	/// control packages — which is what leaves [`Self::assign_core`] able to put a para back on it
 	/// without a second core to carry the command.
-	pub fn free_core(&self, binaries: &Binaries, para: &Para, core: u32) -> anyhow::Result<()> {
+	pub fn free_core(&self, tool: &Path, para: &Para, core: u32) -> anyhow::Result<()> {
 		let names = para.collator_names();
 		run_step(
 			&format!("free-core: core {core}, carried under para {}'s authorizer", para.id),
-			self.parasim_tool(binaries)
+			self.parasim_tool(tool)
 				.args(["--collators", &names])
 				.args(["free-core", &core.to_string()])
 				.args(["--via-para", &para.id.to_string()]),
@@ -269,13 +254,31 @@ impl JamNetwork {
 	/// para head that moves is the only proof that a work package was guaranteed, reported and
 	/// accumulated. Reading it out of service storage rather than out of a collator's log is what
 	/// makes an assertion about it an assertion about the chain.
-	pub fn para_head(&self, binaries: &Binaries, para: u32) -> anyhow::Result<Option<ParaHead>> {
-		let what = format!("display-key parahead: para {para}");
-		let output = capture_step(
-			&what,
-			self.parasim_tool(binaries).args(["display-key", "parahead", &para.to_string()]),
-		)?;
-		parse_para_head(&output).with_context(|| format!("{what}: reading\n{output}"))
+	///
+	/// The read is the collator's own: `serviceValue` at the best block, under the key the
+	/// parachain service files a para's [`ParaInfo`] at.
+	pub async fn para_head(&self, para: u32) -> anyhow::Result<Option<ParaHead>> {
+		let key = para_info_key(para.into());
+		let at = self.rpc.best_block_hash().await?;
+
+		let started = std::time::Instant::now();
+		let stored = self.rpc.service_value(&at, self.service_id, &key).await?;
+		let elapsed = started.elapsed();
+
+		let head = stored
+			.as_deref()
+			.map(decode_para_head)
+			.transpose()
+			.with_context(|| format!("para {para}'s entry at block {at}"))?;
+		log::info!(
+			"serviceValue(service {}, para {para}) at block {at}: {} in {elapsed:?}",
+			self.service_id,
+			match &head {
+				Some(head) => format!("head {head}"),
+				None => "no entry".to_string(),
+			},
+		);
+		Ok(head)
 	}
 
 	/// A `parasim-tool` invocation carrying the arguments every phase-6 command needs.
@@ -288,8 +291,8 @@ impl JamNetwork {
 	/// `--scheme` is spelled out even though sr25519 is the tool's default: it is the parachain
 	/// template runtime's `AuraId`, and a default that moves in the other repo would silently
 	/// point every core here at the wrong verifier blob.
-	fn parasim_tool(&self, binaries: &Binaries) -> Command {
-		let mut command = Command::new(&binaries.parasim_tool);
+	fn parasim_tool(&self, tool: &Path) -> Command {
+		let mut command = Command::new(tool);
 		command
 			.args(["--rpc", &self.rpc_url])
 			.args(["--service", &self.service_id.to_string()])
@@ -300,21 +303,8 @@ impl JamNetwork {
 		command
 	}
 
-	/// Where the ordinary node writes its log, for failure diagnostics.
-	fn ordinary_node_log(&self) -> Option<PathBuf> {
-		let base = self.network.base_dir()?;
-		Some(Path::new(base).join(ORDINARY_NODE).join(format!("{ORDINARY_NODE}.log")))
-	}
-
 	pub fn ordinary_node_log_tail(&self, lines: usize) -> String {
-		match self.ordinary_node_log() {
-			Some(path) => format!(
-				"----- JAM node {ORDINARY_NODE} ({}) -----\n{}",
-				path.display(),
-				super::collators::tail(&path, lines)
-			),
-			None => "(the network has no base dir, so its logs cannot be located)".to_string(),
-		}
+		log_tail(&self.network, lines)
 	}
 
 	/// Stop every JAM node. Dropping the network does the same via `kill_on_drop`, which is what
@@ -324,6 +314,44 @@ impl JamNetwork {
 			log::warn!("tearing down the JAM network failed: {error}");
 		}
 	}
+}
+
+/// The tail of the ordinary node's log, for failure diagnostics.
+///
+/// A free function because the first thing it is needed for is a network that has not finished
+/// coming up, and so has no [`JamNetwork`] around it yet.
+fn log_tail(network: &Network<LocalFileSystem>, lines: usize) -> String {
+	let Some(base) = network.base_dir() else {
+		return "(the network has no base dir, so its logs cannot be located)".to_string();
+	};
+	let path = Path::new(base).join(ORDINARY_NODE).join(format!("{ORDINARY_NODE}.log"));
+	format!(
+		"----- JAM node {ORDINARY_NODE} ({}) -----\n{}",
+		path.display(),
+		super::collators::tail(&path, lines)
+	)
+}
+
+/// Fail unless the chain spec `gen-spec` wrote holds parasim's service record.
+///
+/// Checked on the file, before a single RPC: a `gen-spec` that does not know the genesis keys
+/// drops them without a word, and the spec it writes is the first place that shows. Waiting for
+/// the nodes first would report the same thing minutes later.
+fn ensure_spec_holds_parasim(spec_path: &Path, service_id: u32) -> anyhow::Result<()> {
+	let spec: serde_json::Value = serde_json::from_slice(
+		&std::fs::read(spec_path).with_context(|| format!("reading {}", spec_path.display()))?,
+	)
+	.with_context(|| format!("parsing {}", spec_path.display()))?;
+	let key = service_record_key(service_id);
+	anyhow::ensure!(
+		spec["genesis_state"].get(&key).is_some(),
+		"{} holds no record of service {service_id} (genesis_state key {key}): the polkajam that \
+		 ran gen-spec ignores the genesis keys; set JAM_GENSPEC_BIN to a build from the \
+		 mku-genspec branch",
+		spec_path.display(),
+	);
+	log::info!("{} holds parasim as service {service_id}", spec_path.display());
+	Ok(())
 }
 
 /// Every para's core, paired with the authorizer hash its queue is filled with at genesis.
@@ -470,35 +498,33 @@ impl std::fmt::Display for ParaHead {
 	}
 }
 
-/// Pull the accumulated head out of `parasim-tool display-key parahead`'s report.
-///
-/// The head is a substrate header the tool decodes for us, so only its hash and number are read
-/// back. An unrecognised report is an error rather than "no head": the two mean opposite things to
-/// a stall assertion, and a tool whose output has moved on should say so loudly.
-fn parse_para_head(output: &str) -> anyhow::Result<Option<ParaHead>> {
-	if output.contains("no entry:") {
-		return Ok(None);
-	}
-	let (_, header) = output
-		.split_once("head (substrate header)")
-		.context("no decoded header in the report")?;
-	let field = |name: &str| {
-		header
-			.lines()
-			.find_map(|line| line.trim().strip_prefix(name))
-			.map(str::trim)
-			.with_context(|| format!("the decoded header has no {name}"))
-	};
+/// The parachain header type, which is the parachain template runtime's `Header`.
+type ParaHeader = sp_runtime::generic::Header<u32, BlakeTwo256>;
 
-	Ok(Some(ParaHead {
-		number: field("number")?.parse().context("the header's number is not a number")?,
-		hash: field("hash")?.to_string(),
-	}))
+/// Read the accumulated head out of a para's stored [`ParaInfo`].
+///
+/// Both decodes go through the real types — the service's own `ParaInfo`, and the header type the
+/// runtime the collators run defines — so no layout is spelled out here to drift out of step with
+/// either. A value that does not decode is an error rather than "no head": the two mean opposite
+/// things to a stall assertion, so a layout that has moved on has to say so loudly.
+fn decode_para_head(stored: &[u8]) -> anyhow::Result<ParaHead> {
+	let info = ParaInfo::decode_all(&mut &stored[..])
+		.with_context(|| format!("decoding {} bytes as the service's ParaInfo", stored.len()))?;
+	let head = info.head_data.into_inner();
+	let header = ParaHeader::decode_all(&mut &head[..]).with_context(|| {
+		format!("decoding ParaInfo's {} bytes of head_data as a substrate header", head.len())
+	})?;
+
+	Ok(ParaHead {
+		number: header.number.into(),
+		hash: array_bytes::bytes2hex("0x", header.hash()),
+	})
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::Encode;
 
 	/// The whole of what this harness knows about `gen-spec`'s config is these keys and shapes.
 	/// Anything more belongs to polkajam's `jam-chainspec`, which owns the schema.
@@ -545,48 +571,62 @@ mod tests {
 		assert_eq!(service_record_key(0x0403_0201), format!("ff01000200030004{}", "00".repeat(23)));
 	}
 
-	/// Verbatim output of `parasim-tool display-key parahead 0`, trimmed of the long hex.
-	const REPORT: &str = "\
-block       0xaaaa
-service     5
-para        0
-service key 0xbbbb
-state key   0xcccc
+	/// A header of the kind a collator files as its para head.
+	fn header(number: u32) -> ParaHeader {
+		ParaHeader {
+			parent_hash: sp_core::H256::repeat_byte(0xaa),
+			number,
+			state_root: sp_core::H256::repeat_byte(0xbb),
+			extrinsics_root: sp_core::H256::repeat_byte(0xcc),
+			digest: Default::default(),
+		}
+	}
 
-ParaInfo    123 bytes
-  head_data           99 bytes
-  validation_code     None
-  pending_upgrade     None
-  total_state_balance 0
-  used_state_balance  0
-  is_deregistering    false
+	/// The bytes the parachain service files under a para's key, given its `head_data`.
+	fn stored_entry(head_data: Vec<u8>) -> Vec<u8> {
+		ParaInfo {
+			head_data: head_data.try_into().expect("the head fits in HeadData; qed"),
+			validation_code: None,
+			pending_upgrade: None,
+			total_state_balance: 0,
+			used_state_balance: 0,
+			is_deregistering: false,
+		}
+		.encode()
+	}
 
-head (substrate header)
-  hash        0xdddd
-  parent_hash 0xeeee
-  number      17
-  state_root  0xffff
-  encoded     0x0102
-";
-
+	/// The head arrives wrapped in `ParaInfo`, so the two decodes have to compose. Both fields are
+	/// asserted because a header read at the wrong offset would still yield *some* number and
+	/// *some* hash, and every phase assertion in this suite is a comparison of those.
 	#[test]
-	fn the_accumulated_head_is_read_out_of_the_report() {
-		let head = parse_para_head(REPORT).expect("the report parses").expect("there is a head");
-		// `parent_hash` and `state_root` sit either side of the two fields wanted, so a parser
-		// matching on a prefix could pick up the wrong line without ever failing.
-		assert_eq!(head, ParaHead { number: 17, hash: "0xdddd".to_string() });
+	fn the_accumulated_head_is_the_header_in_para_infos_head_data() {
+		let header = header(17);
+
+		let head = decode_para_head(&stored_entry(header.encode())).expect("the entry decodes");
+
+		assert_eq!(head.number, 17);
+		// The collator's RPC is handed this string verbatim, and substrate reads a block hash as
+		// `0x` and 32 bytes of hex.
+		assert_eq!(head.hash, array_bytes::bytes2hex("0x", header.hash()));
+		assert_eq!(head.hash.len(), 2 + 64);
 	}
 
 	#[test]
-	fn a_para_with_no_head_yet_is_not_a_head_of_zero() {
-		// Height zero is a real head — the genesis one — so "nothing accumulated yet" has to stay
-		// distinguishable from it, or a stall would read as progress.
-		let empty = "block       0xaaaa\n\nno entry: para 0 has no head at this block\n";
-		assert_eq!(parse_para_head(empty).expect("the report parses"), None);
+	fn a_head_of_zero_is_a_real_head() {
+		// Height zero is a real head — the genesis one — so "nothing accumulated yet" has to come
+		// from the para having no entry at all, never from its number, or a stall would read as
+		// progress.
+		let stored = stored_entry(header(0).encode());
+		assert_eq!(decode_para_head(&stored).expect("the entry decodes").number, 0);
 	}
 
 	#[test]
-	fn an_unrecognised_report_is_an_error() {
-		assert!(parse_para_head("ParaInfo    123 bytes\n  (undecodable)\n").is_err());
+	fn an_entry_that_is_not_a_para_info_is_an_error() {
+		assert!(decode_para_head(&[0xff; 8]).is_err());
+	}
+
+	#[test]
+	fn a_head_that_is_not_a_substrate_header_is_an_error() {
+		assert!(decode_para_head(&stored_entry(vec![0xff; 8])).is_err());
 	}
 }

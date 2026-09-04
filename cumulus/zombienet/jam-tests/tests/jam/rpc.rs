@@ -4,6 +4,7 @@
 //! The two JSON-RPC clients the harness needs: one for a JAM node, one for a collator.
 
 use anyhow::Context;
+use jam_types::{AnyBytes, AnyVec};
 use jsonrpsee::{
 	core::client::ClientT,
 	rpc_params,
@@ -64,16 +65,41 @@ impl JamRpc {
 		Ok(block["slot"].as_u64().unwrap_or(0))
 	}
 
-	/// The service ids known at the best block.
-	pub async fn services(&self) -> anyhow::Result<Vec<u64>> {
+	/// The header hash of the best block, which is the block every state read is taken at.
+	pub async fn best_block_hash(&self) -> anyhow::Result<Value> {
 		let best: Value =
 			self.client.request("bestBlock", rpc_params![]).await.context("bestBlock")?;
+		Ok(best["header_hash"].clone())
+	}
+
+	/// The service ids known at the best block.
+	pub async fn services(&self) -> anyhow::Result<Vec<u64>> {
 		let services: Vec<u64> = self
 			.client
-			.request("listServices", rpc_params![best["header_hash"].clone()])
+			.request("listServices", rpc_params![self.best_block_hash().await?])
 			.await
 			.context("listServices")?;
 		Ok(services)
+	}
+
+	/// What service `service` has stored under `key` in the posterior state of block `at`.
+	///
+	/// This is the read the collator makes (`cumulus/jam/rpc-interface`), on the harness's own
+	/// connection. `None` is an answer and not a failure: it means the service has no entry under
+	/// that key. The two byte strings travel as [`AnyVec`] and [`AnyBytes`] so the base64 the JAM
+	/// RPC speaks comes from polkajam's own serde rather than from a second spelling of it here.
+	pub async fn service_value(
+		&self,
+		at: &Value,
+		service: u32,
+		key: &[u8],
+	) -> anyhow::Result<Option<Vec<u8>>> {
+		let value: Option<AnyBytes> = self
+			.client
+			.request("serviceValue", rpc_params![at, service, AnyVec(key.to_vec())])
+			.await
+			.context("serviceValue")?;
+		Ok(value.map(|bytes| bytes.0.to_vec()))
 	}
 }
 

@@ -18,7 +18,11 @@ pub struct Binaries {
 	/// are, one build writes the genesis and another serves it.
 	pub genspec_node: Option<PathBuf>,
 	/// The `parasim-tool` CLI, used by the dynamic-core tests to point cores at paras mid-run.
-	pub parasim_tool: PathBuf,
+	///
+	/// `None` unless `PARASIM_TOOL_BIN` is set. Nothing else shells out to it — the para head
+	/// every other test asserts on is read straight off the JAM node's RPC — so a run without it
+	/// skips those two tests and nothing more.
+	pub parasim_tool: Option<PathBuf>,
 	/// The compiled parasim service blob, which genesis creates the service from.
 	pub parasim_blob: PathBuf,
 	/// The compiled AURA authorizer blob. Only its hash ever reaches the chain, but the collators
@@ -51,7 +55,7 @@ impl Binaries {
 		let binaries = Binaries {
 			jam_node: from_env_or("JAM_NODE_BIN", PathBuf::new),
 			genspec_node: std::env::var_os("JAM_GENSPEC_BIN").map(PathBuf::from),
-			parasim_tool: from_env_or("PARASIM_TOOL_BIN", PathBuf::new),
+			parasim_tool: std::env::var_os("PARASIM_TOOL_BIN").map(PathBuf::from),
 			parasim_blob: from_env_or("PARASIM_BLOB", PathBuf::new),
 			authorizer_blob: from_env_or("AUTHORIZER_BLOB", PathBuf::new),
 			omni_node: from_env_or("OMNI_NODE_BIN", || {
@@ -74,7 +78,6 @@ impl Binaries {
 
 		let mut wanted: Vec<(&str, &PathBuf)> = vec![
 			("JAM_NODE_BIN (the polkajam node binary)", &binaries.jam_node),
-			("PARASIM_TOOL_BIN (the parasim-tool CLI)", &binaries.parasim_tool),
 			("PARASIM_BLOB (the parasim service .jam blob)", &binaries.parasim_blob),
 			(
 				"AUTHORIZER_BLOB (parachain-authorizer-sr25519.jam, the scheme the template \
@@ -98,19 +101,39 @@ impl Binaries {
 				genspec,
 			));
 		}
+		// Likewise optional, but checked here rather than where it is used: a `PARASIM_TOOL_BIN`
+		// that points at nothing is a typo, and every test should say so instead of two of them
+		// skipping as though it had been left unset.
+		if let Some(tool) = &binaries.parasim_tool {
+			wanted.push((PARASIM_TOOL, tool));
+		}
 
-		let missing: Vec<String> = wanted
-			.iter()
-			.filter(|(_, path)| !path.exists())
-			.map(|(what, path)| format!("  {what}: {}", path.display()))
-			.collect();
-
-		if missing.is_empty() {
-			Ok(binaries)
-		} else {
-			Err(format!("missing artifacts:\n{}", missing.join("\n")))
+		match missing(&wanted) {
+			None => Ok(binaries),
+			Some(reason) => Err(reason),
 		}
 	}
+}
+
+/// How `PARASIM_TOOL_BIN` is named in a skip message, wherever it is missed.
+const PARASIM_TOOL: &str = "PARASIM_TOOL_BIN (the parasim-tool CLI)";
+
+/// The ones of `wanted` that are not on disk, as a skip message. `None` when they all are.
+fn missing(wanted: &[(&str, &PathBuf)]) -> Option<String> {
+	let missing: Vec<String> = wanted
+		.iter()
+		.filter(|(_, path)| !path.exists())
+		.map(|(what, path)| format!("  {what}: {}", path.display()))
+		.collect();
+	(!missing.is_empty()).then(|| format!("missing artifacts:\n{}", missing.join("\n")))
+}
+
+/// Say the test is being skipped, and why.
+///
+/// Not `log::warn!`: this has to be readable without a logger, and both are only visible under
+/// `--nocapture` anyway.
+fn skip(test: &str, reason: &str) {
+	eprintln!("SKIP {test}: {reason}");
 }
 
 /// Resolve the artifacts, or print why the test is being skipped and return `None`.
@@ -118,9 +141,21 @@ pub fn binaries_or_skip(test: &str) -> Option<Binaries> {
 	match Binaries::from_env() {
 		Ok(binaries) => Some(binaries),
 		Err(reason) => {
-			// Not `log::warn!`: this has to be readable without a logger, and both are only
-			// visible under `--nocapture` anyway.
-			eprintln!("SKIP {test}: {reason}");
+			skip(test, &reason);
+			None
+		},
+	}
+}
+
+/// The `parasim-tool` CLI, or `None` after saying that this test is being skipped without it.
+///
+/// For the two dynamic-core tests, which are the only ones that move a core mid-run and so the
+/// only ones that shell out to the tool at all.
+pub fn parasim_tool_or_skip(test: &str, binaries: &Binaries) -> Option<PathBuf> {
+	match &binaries.parasim_tool {
+		Some(tool) => Some(tool.clone()),
+		None => {
+			skip(test, &format!("missing artifacts:\n  {PARASIM_TOOL}: unset"));
 			None
 		},
 	}

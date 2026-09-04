@@ -21,11 +21,12 @@
 
 use super::{
 	collators::Para,
+	env::parasim_tool_or_skip,
 	harness::{finish, setup, Run},
 	rpc::CollatorRpc,
 };
 use anyhow::Context;
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 /// The para the single-para tests run, and the core it starts on.
 const PARA: u32 = 0;
@@ -147,14 +148,18 @@ async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 	const TEST: &str = "freeing_the_core_freezes_the_para_head_until_it_is_assigned_again";
 
 	let Some(binaries) = setup(TEST) else { return Ok(()) };
+	// Before the network is spawned: whether the tool is there decides whether this test can run
+	// at all, and eight minutes of warm-up is a long way to go to find that out.
+	let Some(tool) = parasim_tool_or_skip(TEST, &binaries) else { return Ok(()) };
+
 	let mut run = Run::start(TEST, &binaries, vec![Para::single(1)]).await?;
 	run.extend_deadline(EXTRA_TIME);
 
-	let result = stall_then_heal(&mut run).await;
+	let result = stall_then_heal(&mut run, &tool).await;
 	finish(run, result).await
 }
 
-async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
+async fn stall_then_heal(run: &mut Run, tool: &Path) -> anyhow::Result<()> {
 	/// How long the head has to stand still before the stall is called. The builder re-roots after
 	/// eight para slots, so this is comfortably more than that: a run that reaches this point has
 	/// been through the whole soft-resubmit and re-root sequence, not just a slow block.
@@ -172,8 +177,8 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 	let healthy = run.wait_for_jam_head(0, &rpc, HEALTHY_HEAD, WARM_UP).await?;
 	log::info!("para {PARA} is healthy on core {CORE}: {healthy}");
 
-	run.network.host_authorizer_for_control_packages(&run.binaries)?;
-	run.network.free_core(&run.binaries, &para, CORE)?;
+	run.network.host_authorizer_for_control_packages(tool)?;
+	run.network.free_core(tool, &para, CORE)?;
 	let freed = run.sample(0, &rpc).await?;
 	// Counted from here, not from the start of the run: a slow patch early on can stall the head
 	// for eight slots too, and a re-root that happened before the core was taken away would say
@@ -210,7 +215,7 @@ async fn stall_then_heal(run: &mut Run) -> anyhow::Result<()> {
 	// even though it carries no parachain work — and parasim, holding its assigner privilege from
 	// genesis, can act on one. No spare core is involved, so what this asserts is that losing a
 	// core is recoverable on a network with nothing else to fall back on.
-	run.network.assign_core(&run.binaries, &para, CORE, None)?;
+	run.network.assign_core(tool, &para, CORE, None)?;
 	let frozen_at = frozen.jam_head.context("the head froze before anything accumulated")?;
 	let healed = run.wait_for_jam_head(0, &rpc, frozen_at.number + 1, HEAL_BUDGET).await?;
 	log::info!("para {PARA} healed on core {CORE}, the core it lost: {frozen_at} -> {healed}");
@@ -231,14 +236,16 @@ async fn moving_the_para_to_the_other_core_keeps_its_head_moving() -> Result<(),
 	const TEST: &str = "moving_the_para_to_the_other_core_keeps_its_head_moving";
 
 	let Some(binaries) = setup(TEST) else { return Ok(()) };
+	let Some(tool) = parasim_tool_or_skip(TEST, &binaries) else { return Ok(()) };
+
 	let mut run = Run::start(TEST, &binaries, vec![Para::single(1)]).await?;
 	run.extend_deadline(EXTRA_TIME);
 
-	let result = move_to_the_other_core(&mut run).await;
+	let result = move_to_the_other_core(&mut run, &tool).await;
 	finish(run, result).await
 }
 
-async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
+async fn move_to_the_other_core(run: &mut Run, tool: &Path) -> anyhow::Result<()> {
 	/// The longest a single head is allowed to take. A healthy para accumulates one every slot or
 	/// two; this tolerates an order of magnitude worse and still fails a para that has stopped.
 	const GAP_TOLERANCE: Duration = Duration::from_secs(2 * 60);
@@ -256,12 +263,12 @@ async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
 
 	// Before core 1 is assigned, not after: a bootstrap instruction only rides a core still under
 	// the null authorizer, and once this run has assigned core 1 there is no such core left.
-	run.network.host_authorizer_for_control_packages(&run.binaries)?;
+	run.network.host_authorizer_for_control_packages(tool)?;
 
 	// Genesis named only core 0 in a single-para run, so core 1 still holds the null authorizer and
 	// service 0 as its assigner: this rides the bootstrap lane on core 1 itself, and needs no
 	// carrier.
-	run.network.assign_core(&run.binaries, &para, SPARE_CORE, None)?;
+	run.network.assign_core(tool, &para, SPARE_CORE, None)?;
 	let overlapping = walk_heads(run, &rpc, OVERLAP_HEADS, GAP_TOLERANCE).await?;
 	log::info!("both cores hold the authorizer and the head kept moving: {overlapping}");
 
@@ -275,7 +282,7 @@ async fn move_to_the_other_core(run: &mut Run) -> anyhow::Result<()> {
 		 seeing both cores and staying on the lower-numbered one"
 	);
 
-	run.network.free_core(&run.binaries, &para, CORE)?;
+	run.network.free_core(tool, &para, CORE)?;
 	let moved = walk_heads(run, &rpc, MOVED_HEADS, GAP_TOLERANCE).await?;
 	log::info!("core {CORE} is parked and the head kept moving: {moved}");
 
