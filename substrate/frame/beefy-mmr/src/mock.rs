@@ -27,7 +27,7 @@ use sp_io::TestExternalities;
 use sp_runtime::{
 	impl_opaque_keys,
 	traits::{ConvertInto, Keccak256, OpaqueKeys},
-	BuildStorage,
+	BuildStorage, StateVersion,
 };
 use sp_state_machine::BasicExternalities;
 
@@ -209,7 +209,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExt
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext: TestExternalities = t.into();
+	let mut ext = TestExternalities::new_with_state_version(t, StateVersion::V0);
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));

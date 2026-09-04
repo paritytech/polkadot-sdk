@@ -217,7 +217,7 @@ fn extract_validation_context_should_work_correctly() {
 
 		// Check the MMR root log
 		let expected_mmr_root: [u8; 32] = array_bytes::hex_n_into_unchecked(
-			"0333f4968ecba74b0751b0172f8b3f4bdca18576cfc848e113f8ec76b1ac4e0b",
+			"978417a9bd59f376fd5934e6dd69b76c427331f179641c6cd2256039032f3131",
 		);
 
 		assert_eq!(
