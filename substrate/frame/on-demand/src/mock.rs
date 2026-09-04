@@ -136,6 +136,9 @@ pub fn advance_block() {
 	OnDemand::on_initialize(now + 1);
 }
 
+/// The default balance for test accounts.
+pub const DEFAULT_ACCOUNT_BALANCE: u64 = DEFAULT_BASE_FEE as u64 * 1000;
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	set_relay_block_number(0);
 	QUEUED_BATCHES.with(|b| b.borrow_mut().clear());
@@ -143,9 +146,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
-			(1, DEFAULT_BASE_FEE as u64 * 1000),
-			(2, DEFAULT_BASE_FEE as u64 * 1000),
-			(3, DEFAULT_BASE_FEE as u64 * 1000),
+			(1, DEFAULT_ACCOUNT_BALANCE),
+			(2, DEFAULT_ACCOUNT_BALANCE),
+			(3, DEFAULT_ACCOUNT_BALANCE),
 		],
 		..Default::default()
 	}

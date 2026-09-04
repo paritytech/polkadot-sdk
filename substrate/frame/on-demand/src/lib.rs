@@ -96,7 +96,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Mutate, tokens::Preservation::Expendable},
+		traits::{
+			fungible::{Inspect, Mutate},
+			tokens::{Fortitude::Polite, Preservation::Expendable},
+		},
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
@@ -177,6 +180,11 @@ pub mod pallet {
 		SpotPriceHigherThanMaxAmount,
 		/// The on-demand pool has no cores assigned.
 		EmptyPool,
+		/// The funds in the account submitting the order were not sufficient to cover the declared
+		/// `max_amount`.
+		/// Note: this can be returned even if the funds are sufficient to cover the actual spot
+		/// price.
+		InsufficientFunds,
 	}
 
 	#[pallet::hooks]
@@ -247,6 +255,10 @@ pub mod pallet {
 			// Fail early if the batch is already full.
 			if PendingBatch::<T>::get().len() >= MAX_BATCH_SIZE as usize {
 				return Err(Error::<T>::BatchFull.into());
+			}
+			// Fail early if the account can't cover the declared max_amount.
+			if T::Currency::reducible_balance(&who, Expendable, Polite) < max_amount {
+				return Err(Error::<T>::InsufficientFunds.into());
 			}
 
 			let now = T::RelayBlockNumberProvider::current_block_number();

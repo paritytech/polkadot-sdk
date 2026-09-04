@@ -114,7 +114,7 @@ fn place_order_fails_once_the_order_cap_is_reached() {
 			DEFAULT_BASE_FEE as u64
 		));
 		assert_noop!(
-			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, Balance::MAX),
+			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE / 2),
 			Error::<Test>::QueueFull
 		);
 	});
@@ -125,7 +125,7 @@ fn place_order_fails_when_no_cores_in_pool() {
 	new_test_ext().execute_with(|| {
 		MockCorePool::set_pool_cores(0);
 		assert_noop!(
-			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, Balance::MAX),
+			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE),
 			Error::<Test>::EmptyPool
 		);
 	});
@@ -135,7 +135,11 @@ fn place_order_fails_when_no_cores_in_pool() {
 fn the_queue_estimate_drains_over_relay_chain_blocks() {
 	new_test_ext().execute_with(|| {
 		for _ in 0..3 {
-			assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, Balance::MAX));
+			assert_ok!(OnDemand::place_order(
+				RuntimeOrigin::signed(ALICE),
+				2000,
+				DEFAULT_ACCOUNT_BALANCE / 10
+			));
 		}
 		assert_eq!(QueueState::<Test>::get().unwrap().outstanding_orders, 3);
 
@@ -159,8 +163,16 @@ fn the_queue_estimate_drains_over_relay_chain_blocks() {
 #[test]
 fn the_pending_batch_is_forwarded_to_the_relay_chain_on_finalize() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, Balance::MAX));
-		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2001, Balance::MAX));
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			2000,
+			DEFAULT_ACCOUNT_BALANCE
+		));
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			2001,
+			DEFAULT_ACCOUNT_BALANCE / 2
+		));
 
 		advance_block();
 
