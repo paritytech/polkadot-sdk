@@ -2733,6 +2733,7 @@ impl pallet_registrar_para::Config for Runtime {
 	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
 	type PendingDeadline = ConstU32<600>;
 	type BlockNumberProvider = System;
+	type HeldByCoretime = Broker;
 	type WeightInfo = pallet_registrar_para::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2742,11 +2743,18 @@ pub struct AcceptingRegistrar;
 impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	type AccountId = AccountId;
 
-	fn check_onboarding(_head_len: u32, _code_len: u32) -> Result<(), ()> {
+	fn check_onboarding(
+		_head_len: u32,
+		_code_len: u32,
+	) -> Result<(), registrar_primitives::FailureReason> {
 		Ok(())
 	}
 
 	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
+		false
+	}
+
+	fn is_deregistering(_para_id: registrar_primitives::ParaId) -> bool {
 		false
 	}
 
@@ -2756,6 +2764,12 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		_genesis_head: Vec<u8>,
 		_validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	fn deregister(
+		_para_id: registrar_primitives::ParaId,
+	) -> Result<(), registrar_primitives::FailureReason> {
 		Ok(())
 	}
 }

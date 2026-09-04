@@ -118,6 +118,20 @@ pub fn take_sent() -> Vec<MessageToRelay<AccountId>> {
 }
 
 parameter_types! {
+	/// Para ids that count as still holding Coretime.
+	pub static CoretimeHolders: Vec<u32> = Vec::new();
+}
+
+/// Stands in for `pallet-broker` answering whether a para still holds a core.
+pub struct HeldByCoretime;
+
+impl frame_support::traits::Contains<u32> for HeldByCoretime {
+	fn contains(para_id: &u32) -> bool {
+		CoretimeHolders::get().contains(para_id)
+	}
+}
+
+parameter_types! {
 	/// Signed accounts allowed to act as a para, as `(account, para id)`.
 	pub static ParaOriginAccounts: Vec<(AccountId, u32)> = Vec::new();
 }
@@ -190,6 +204,7 @@ impl pallet_registrar_para::Config for Test {
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type PendingDeadline = ConstU32<PENDING_DEADLINE>;
 	type BlockNumberProvider = System;
+	type HeldByCoretime = HeldByCoretime;
 	type WeightInfo = ();
 }
 
@@ -198,6 +213,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 	ParaOriginAccounts::set(Vec::new());
+	CoretimeHolders::set(Vec::new());
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {

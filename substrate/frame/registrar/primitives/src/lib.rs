@@ -36,6 +36,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
+use sp_runtime::DispatchResult;
 
 /// A parachain id.
 ///
@@ -93,22 +94,19 @@ pub enum MessageToRelayV1<AccountId> {
 	},
 	/// Ask the relay chain to drop `para_id` from the registry.
 	///
-	/// The parachain has already checked that it holds neither a lease nor a region, but only the
-	/// relay chain knows whether the para is still live, locked, or has messages left in flight,
-	/// so the deposits stay held until it answers with [`MessageToParaV1::DeregisterResponse`].
+	/// Ownership and Coretime are checked on the parachain, so nothing about the caller travels
+	/// with this. Answered with [`MessageToParaV1::DeregisterResponse`].
 	#[codec(index = 2)]
 	Deregister {
 		/// The para id to drop.
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
-		/// The account that manages this para on the parachain, matched against the relay chain's
-		/// own record of the manager.
-		manager: AccountId,
 	},
 	/// Ask the relay chain to abandon a [`MessageToRelayV1::Deregister`] it has not acted on.
 	///
-	/// Answered with [`MessageToParaV1::CancelDeregistrationResponse`].
+	/// Nothing is parked there, so this takes nothing back: it asks which way the deregistration
+	/// went. Answered with [`MessageToParaV1::CancelDeregistrationResponse`].
 	#[codec(index = 3)]
 	CancelDeregistration {
 		/// The para id whose deregistration should be abandoned.
@@ -213,7 +211,8 @@ pub enum MessageToParaV1 {
 	},
 	/// Answer a [`MessageToRelayV1::CancelDeregistration`].
 	///
-	/// `Ok(())` means the para is still registered, so the deposits stay where they are.
+	/// `Ok(())` means the para is still registered, so the deposits stay. The one refusal is
+	/// [`FailureReason::NotRegistered`]: it did go after all, so they can be released.
 	#[codec(index = 3)]
 	CancelDeregistrationResponse {
 		/// The para id the answer is about.
@@ -286,9 +285,18 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
+	/// The relay chain does not know this para id.
+	///
+	/// Also the answer to a [`MessageToRelayV1::CancelDeregistration`] that came too late.
+	#[codec(index = 2)]
+	NotRegistered,
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The relay chain will not drop this para: not an on-demand parathread, or code in
+	/// pre-checking.
+	#[codec(index = 4)]
+	NotDeregisterable,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -303,20 +311,28 @@ pub trait ParachainRegistrar {
 	///
 	/// Checked against the relay chain's live configuration so a doomed request can be rejected
 	/// before the user goes and uploads megabytes of code.
-	#[allow(clippy::result_unit_err)]
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()>;
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason>;
 
 	/// Whether the relay chain already knows this para id.
 	fn is_registered(para_id: ParaId) -> bool;
 
+	/// Whether `para_id` has left the registry, or is on its way out.
+	///
+	/// Not the inverse of [`Self::is_registered`]: a para being cleaned up is both.
+	fn is_deregistering(para_id: ParaId) -> bool;
+
 	/// Onboard `para_id` under `manager`.
 	///
 	/// No deposit is taken: the manager's funds are held on the chain running
-	/// `pallet-registrar-para`.
+	/// `pallet-registrar-para`. A refusal here fails the extrinsic that carried the validation
+	/// code rather than being reported to the parachain, so this one speaks `DispatchError`.
 	fn register(
 		manager: Self::AccountId,
 		para_id: ParaId,
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
-	) -> sp_runtime::DispatchResult;
+	) -> DispatchResult;
+
+	/// Drop `para_id` from the registry. An id it does not know is dropped as a no-op.
+	fn deregister(para_id: ParaId) -> Result<(), FailureReason>;
 }
