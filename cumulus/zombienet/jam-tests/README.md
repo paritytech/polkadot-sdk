@@ -35,8 +35,9 @@ build with the second: only `gen-spec` runs from `JAM_GENSPEC_BIN`, and the gene
 portable between the two.
 
 From the parachain-service repository: the compiled `parasim-service.jam` and
-`parachain-authorizer-sr25519.jam` blobs, and the `parasim-tool` CLI, which the para-head reads
-and the dynamic-core tests use.
+`parachain-authorizer-sr25519.jam` blobs. The `parasim-tool` CLI is needed only by the two
+dynamic-core tests, which are the only ones that move a core mid-run; without it they skip and
+everything else runs.
 
 There is one authorizer blob per signature scheme, and which one a para needs is decided by its
 runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite puts on the
@@ -51,6 +52,7 @@ export JAM_NODE_BIN=/path/to/polkajam/target/release/polkajam
 export JAM_GENSPEC_BIN=/path/to/a/polkajam/whose/gen-spec/reads/the/genesis/keys
 export PARASIM_BLOB=/path/to/parachain-service/.../parasim-service.jam
 export AUTHORIZER_BLOB=/path/to/parachain-service/.../parachain-authorizer-sr25519.jam
+# Only for `jam::core_assignment`'s two dynamic-core tests:
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
 
 cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
@@ -63,7 +65,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | --- | --- |
 | `JAM_NODE_BIN` | the polkajam node binary zombienet spawns for every JAM node |
 | `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
-| `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, used to read para heads and to move cores mid-run |
+| `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
 | `PARASIM_BLOB` | `parasim-service.jam`, the service genesis creates and the collators talk to |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
 | `OMNI_NODE_BIN`, `RUNTIME_WASM`, `RELAY_NODE_BIN` | override the `target/release` defaults |
@@ -79,7 +81,8 @@ of exactly those bytes — and the copy is what genesis hosts.
 them concurrently would fight over CPU and make the six-second slot budget unrealistic.
 
 If any artifact is missing the tests print what they need and pass without running — they never
-fail for a reason unrelated to the collator.
+fail for a reason unrelated to the collator. `PARASIM_TOOL_BIN` skips only the two dynamic-core
+tests; every other variable skips the whole suite.
 
 ### Keeping the logs
 
@@ -279,10 +282,15 @@ progress tests never do. Two things about it are worth knowing before adding a t
 
 **A test asserts on the accumulated head, not on the collator's height.** A collator authors
 whether or not anything works, so its own height proves nothing about JAM. What proves it is the
-head parasim has stored for the para, read back with `parasim-tool display-key parahead`; the
-harness exposes it as `JamNetwork::para_head` and every phase wait is written against it. The two
-readings together are the assertion: a frozen head with a climbing local best is a stall, and both
-climbing is a healthy para.
+head parasim has stored for the para, read the way the collator reads it: `serviceValue` at the
+best block, under the key the parachain service files a para's `ParaInfo` at, whose `head_data` is
+the para's header. The harness exposes it as `JamNetwork::para_head` and every phase wait is
+written against it. The two readings together are the assertion: a frozen head with a climbing
+local best is a stall, and both climbing is a healthy para.
+
+The key and both decodes come from the crates that wrote them — `para_info_key` and `ParaInfo`
+from the facade, the header from the runtime's own type — so nothing in the harness holds a byte
+offset that could drift out of step with the service.
 
 **Freeing a core parks it; it does not empty it.** `free-core` installs the same authorizer code
 under a config naming no para, so the para's hash drains out of the pool and the core stops
