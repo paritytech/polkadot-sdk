@@ -160,25 +160,50 @@ where
 		};
 	}
 
+	/// As `query!`, but for runtime APIs returning `Option`: logs and bails when absent, rather
+	/// than returning `None` silently.
+	macro_rules! query_some {
+		($what:expr, $name:literal) => {
+			match query!($what, $name) {
+				Some(value) => value,
+				None => {
+					gum::debug!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?para_id,
+						"{} is not available",
+						$name,
+					);
+					return None;
+				},
+			}
+		};
+	}
+
 	let claim_queue =
 		ClaimQueueSnapshot::from(query!(api.claim_queue(relay_parent), "claim queue"));
 
 	// Nothing to do if no core is assigned to us at any depth.
 	if !claim_queue.iter_all_claims().any(|(_, paras)| paras.contains(&para_id)) {
-		gum::trace!(target: LOG_TARGET, ?relay_parent, ?para_id, "Para is not assigned to any core");
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?para_id,
+			"Para is not assigned to any core",
+		);
 		return None;
 	}
 
 	// We are being very optimistic here, but one of the cores could be pending availability for
 	// some more blocks, or even time out. We assume all cores are being freed.
-	let validation_data = query!(
+	let validation_data = query_some!(
 		api.persisted_validation_data(relay_parent, para_id, OccupiedCoreAssumption::Included),
 		"persisted validation data"
-	)?;
-	let validation_code_hash = query!(
+	);
+	let validation_code_hash = query_some!(
 		api.validation_code_hash(relay_parent, para_id, OccupiedCoreAssumption::Included),
 		"validation code hash"
-	)?;
+	);
 	let session_index =
 		query!(api.session_index_for_child(relay_parent), "session index for child");
 	let n_validators = query!(api.validators(relay_parent), "validators").len();
@@ -232,6 +257,12 @@ async fn collate_on_assigned_cores(
 			&used_cores,
 		) {
 			Ok(core_index) => core_index,
+			// Core reuse means the para committed the same selector twice and its chain is
+			// truncated here; the base logged that at `warn`. The other variants are ordinary.
+			Err(error @ CoreSelectionError::CoreReused(_)) => {
+				gum::warn!(target: LOG_TARGET, ?para_id, "Not collating: {error}");
+				return;
+			},
 			Err(error) => {
 				gum::debug!(target: LOG_TARGET, ?para_id, "Not collating: {error}");
 				return;

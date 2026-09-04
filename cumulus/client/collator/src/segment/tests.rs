@@ -100,15 +100,12 @@ struct MockRelayClient {
 	claim_queue_result: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	/// Number of validators to return.
 	n_validators: usize,
-	/// Session index to return from `session_index_for_child`.
-	session_index: SessionIndex,
 }
 
 impl MockRelayClient {
 	fn new(
 		claim_queue_result: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 		n_validators: usize,
-		session_index: SessionIndex,
 	) -> (Self, Arc<Mutex<Vec<Hash>>>, Arc<Mutex<Vec<Hash>>>) {
 		let validators_calls = Arc::new(Mutex::new(Vec::new()));
 		let claim_queue_calls = Arc::new(Mutex::new(Vec::new()));
@@ -117,7 +114,6 @@ impl MockRelayClient {
 			claim_queue_calls: claim_queue_calls.clone(),
 			claim_queue_result,
 			n_validators,
-			session_index,
 		};
 		(client, validators_calls, claim_queue_calls)
 	}
@@ -144,7 +140,9 @@ impl RelayChainInterface for MockRelayClient {
 	}
 
 	async fn session_index_for_child(&self, _block_id: PHash) -> RelayChainResult<RCSessionIndex> {
-		Ok(self.session_index)
+		// `SegmentDistributor` takes the session from `SchedulingContext`; it never asks the
+		// runtime, so a value here would imply a read that does not happen.
+		unimplemented!("Not needed for test")
 	}
 
 	async fn best_block_hash(&self) -> RelayChainResult<PHash> {
@@ -339,7 +337,7 @@ async fn v3_queries_scheduling_parent() {
 	let scheduling_parent = Hash::repeat_byte(0xBB);
 
 	let (client, validators_calls, claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4, 7);
+		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
 	let (overseer_handle, mut rx) = make_overseer_handle();
 
 	let mut distributor =
@@ -387,7 +385,7 @@ async fn v2_shape() {
 	let relay_parent = Hash::repeat_byte(0x01);
 
 	let (client, _validators_calls, _claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4, 1);
+		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
 	let (overseer_handle, mut rx) = make_overseer_handle();
 
 	let mut distributor =
@@ -423,7 +421,7 @@ async fn validator_count_cached_within_session() {
 	let relay_parent = Hash::repeat_byte(0x02);
 
 	let (client, validators_calls, _claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4, 5);
+		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
 	let (overseer_handle, _rx) = make_overseer_handle();
 
 	let mut distributor =
@@ -454,7 +452,7 @@ async fn claim_queue_error_is_non_fatal() {
 	let relay_parent = Hash::repeat_byte(0x03);
 
 	// Pass `None` so `claim_queue()` returns an error.
-	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(None, 4, 1);
+	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(None, 4);
 	let (overseer_handle, mut rx) = make_overseer_handle();
 
 	let mut distributor =
@@ -504,7 +502,7 @@ async fn counter_increments_per_candidate_v3() {
 	// Claim queue must have slots for two candidates on core 0.
 	let claim_queue = [(CoreIndex(0), VecDeque::from([PARA_ID, PARA_ID]))].into();
 	let (client, _validators_calls, _claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue), 4, 1);
+		MockRelayClient::new(Some(claim_queue), 4);
 	let (overseer_handle, _rx) = make_overseer_handle();
 
 	let registry = Registry::new();
@@ -549,7 +547,7 @@ async fn counter_not_incremented_on_build_failure() {
 	let relay_parent = Hash::repeat_byte(0x20);
 
 	// Pass `None` so `claim_queue()` returns an error, causing `build_segment` to never run.
-	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(None, 4, 1);
+	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(None, 4);
 	let (overseer_handle, _rx) = make_overseer_handle();
 
 	let registry = Registry::new();
@@ -587,7 +585,7 @@ async fn counter_not_incremented_on_build_failure() {
 async fn supplied_claim_queue_suppresses_the_fetch() {
 	let relay_parent = Hash::repeat_byte(0x07);
 	let (client, _validators_calls, claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4, 1);
+		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
 	let (overseer_handle, mut rx) = make_overseer_handle();
 	let mut distributor =
 		SegmentDistributor::new(client, overseer_handle, PARA_ID, Default::default());

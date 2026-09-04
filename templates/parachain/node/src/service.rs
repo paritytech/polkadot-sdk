@@ -353,9 +353,9 @@ pub async fn start_parachain_node(
 		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench, false) {
 			Err(err) if validator => {
 				log::warn!(
-					"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
-					err
-				);
+				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
+				err
+			);
 			},
 			_ => {},
 		}
