@@ -117,6 +117,21 @@ impl Run {
 		let work_dir = WorkDir::create(test)?;
 		log::info!("work dir: {}", work_dir.path().display());
 
+		// Every para's chain spec exists before the JAM network does: its genesis may pre-register
+		// the paras, and a para's registration names its genesis head — which is this spec's.
+		for para in &paras {
+			let spec = super::chain_spec::path(work_dir.path(), para.id);
+			super::chain_spec::build(
+				&binaries.omni_node,
+				&binaries.runtime_wasm,
+				&spec,
+				para.id,
+				&para.collators,
+			)
+			.with_context(|| format!("building para {}'s chain spec", para.id))?;
+			log::info!("para {}'s chain spec: {}", para.id, spec.display());
+		}
+
 		let network = JamNetwork::spawn(binaries, work_dir.path(), deadline, &paras).await?;
 
 		let target = JamTarget {

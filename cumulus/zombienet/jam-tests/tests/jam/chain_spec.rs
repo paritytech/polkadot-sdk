@@ -150,6 +150,13 @@ fn ss58(keyring: Sr25519Keyring) -> String {
 	keyring.to_account_id().to_ss58check()
 }
 
+/// Where a run keeps para `para_id`'s chain spec. One place, because two moments need it: the
+/// genesis assembly (which derives the para's genesis head from it) runs before the collators
+/// (which are started on it).
+pub fn path(work_dir: &Path, para_id: u32) -> std::path::PathBuf {
+	work_dir.join(format!("jam-parachain-{para_id}-spec.json"))
+}
+
 /// Generate the chain spec of para `para_id` at `path`, with one authority per entry of
 /// `collators` — indices into [`DEV_ACCOUNTS`], in the order the AURA round-robin walks them.
 pub fn build(

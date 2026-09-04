@@ -81,21 +81,19 @@ impl Para {
 }
 
 impl Collators {
-	/// Build `para`'s chain spec and start one collator per dev account in its set.
+	/// Start one collator per dev account in `para`'s set, on the chain spec built for it.
+	///
+	/// The spec is the caller's ([`chain_spec::build`], before the JAM network came up): the JAM
+	/// genesis may carry this chain's genesis head, so the spec has to exist first, and the
+	/// collators have to run the very same one.
 	pub fn spawn(
 		binaries: &Binaries,
 		work_dir: &Path,
 		para: &Para,
 		jam: &JamTarget,
 	) -> anyhow::Result<Self> {
-		let spec = work_dir.join(format!("jam-parachain-{}-spec.json", para.id));
-		chain_spec::build(
-			&binaries.omni_node,
-			&binaries.runtime_wasm,
-			&spec,
-			para.id,
-			&para.collators,
-		)?;
+		let spec = chain_spec::path(work_dir, para.id);
+		anyhow::ensure!(spec.exists(), "para {}'s chain spec was not built first", para.id);
 
 		let count = para.collators.len();
 		let first_port = NEXT_PORT.fetch_add(count as u16 * PORTS_PER_COLLATOR, Ordering::Relaxed);
