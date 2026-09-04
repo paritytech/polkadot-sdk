@@ -1098,3 +1098,22 @@ pub mod pallet {
 		}
 	}
 }
+
+/// Whether a task currently holds Coretime here, so whoever registered it must not drop it.
+///
+/// Answered from [`pallet::Leases`] and the current [`pallet::Workload`], a read per core. A
+/// region assigned to a future timeslice is in [`pallet::Workplan`] only, which has no task index;
+/// the registrar catches that through the lock [`ParaLock::lock`] sets on assignment.
+impl<T: Config> frame_support::traits::Contains<TaskId> for Pallet<T> {
+	fn contains(task: &TaskId) -> bool {
+		if Leases::<T>::get().iter().any(|lease| lease.task == *task) {
+			return true;
+		}
+
+		Workload::<T>::iter_values().any(|schedule| {
+			schedule
+				.iter()
+				.any(|item| matches!(item.assignment, CoreAssignment::Task(id) if id == *task))
+		})
+	}
+}

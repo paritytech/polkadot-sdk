@@ -3237,3 +3237,31 @@ fn claim_revenue_reverts_when_pot_cannot_pay() {
 		assert_eq!(pot(), 0);
 	});
 }
+
+/// Leases and the current workload are what the registrar can see through `Contains`.
+#[test]
+fn a_task_with_coretime_is_contained() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		use frame_support::traits::Contains;
+
+		assert!(!Broker::contains(&1001));
+
+		// A legacy lease counts.
+		Leases::<Test>::put(
+			BoundedVec::try_from(vec![LeaseRecordItem { task: 1001u32, until: 10u32 }]).unwrap(),
+		);
+		assert!(Broker::contains(&1001));
+		assert!(!Broker::contains(&1002));
+		Leases::<Test>::kill();
+
+		// So does a region that has become the core's workload.
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, Some(1), 1002, Final));
+		advance_to(6);
+
+		assert!(Broker::contains(&1002));
+		assert!(!Broker::contains(&1001));
+	});
+}
