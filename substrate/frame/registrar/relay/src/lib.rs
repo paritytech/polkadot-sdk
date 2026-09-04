@@ -44,7 +44,9 @@
 //! ## Deregistration
 //!
 //! Applied as it arrives; nothing is parked, and nothing here reports on it twice: a verdict lost
-//! in transit is lost.
+//! in transit is lost. A parachain left waiting sends
+//! [`MessageToRelayV1::CancelDeregistration`], which is answered from current state, since there
+//! is no parked request to take back.
 //!
 //! ## Runtime requirement
 //!
@@ -196,6 +198,10 @@ pub mod pallet {
 		Deregistered { para_id: ParaId, message_id: u64 },
 		/// The registry refused to drop a para.
 		DeregistrationRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A deregistration was abandoned at the parachain's request; the para never left.
+		DeregistrationCancelled { para_id: ParaId, message_id: u64 },
+		/// A deregistration could not be abandoned, because the para is already on its way out.
+		DeregistrationCancellationRefused { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
 		///
 		/// The relay chain's own state is already correct; the parachain is now out of step and
@@ -238,6 +244,8 @@ pub mod pallet {
 				T::WeightInfo::receive_cancel_registration(),
 			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) =>
 				T::WeightInfo::receive_deregister(),
+			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) =>
+				T::WeightInfo::receive_cancel_deregistration(),
 			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::zero(),
 		})]
@@ -270,6 +278,10 @@ pub mod pallet {
 				MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id }) => {
 					Self::on_deregister_request(para_id, message_id)
 				},
+				MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
+					para_id,
+					message_id,
+				}) => Self::on_cancel_deregistration_request(para_id, message_id),
 				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
 					para_id,
 					message_id,
@@ -494,6 +506,28 @@ pub mod pallet {
 			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}
 
+		/// Say whether a deregistration can still be abandoned.
+		///
+		/// A para still in the registry never left it; one on its way out cannot be kept. This
+		/// chain is the authority on which of the two it is, which is what makes the answer safe
+		/// for the parachain to release deposits on.
+		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
+			if T::Registrar::is_deregistering(para_id) {
+				Self::report_cancel_deregistration(
+					para_id,
+					message_id,
+					Err(FailureReason::NotRegistered),
+				);
+				return Self::deposit_event(Event::DeregistrationCancellationRefused {
+					para_id,
+					message_id,
+				});
+			}
+
+			Self::report_cancel_deregistration(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::DeregistrationCancelled { para_id, message_id });
+		}
+
 		fn on_authorize_code_upgrade_request(
 			para_id: ParaId,
 			message_id: u64,
@@ -521,6 +555,15 @@ pub mod pallet {
 				para_id,
 				message_id,
 				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome },
+			);
+		}
+
+		/// Tell the parachain what became of its deregistration cancellation.
+		fn report_cancel_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
+			Self::report(
+				para_id,
+				message_id,
+				MessageToParaV1::CancelDeregistrationResponse { para_id, message_id, outcome },
 			);
 		}
 

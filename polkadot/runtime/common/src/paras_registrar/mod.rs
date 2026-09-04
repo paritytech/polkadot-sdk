@@ -595,6 +595,15 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
 	}
 
+	/// Not the inverse of [`Self::is_registered`]: a para being cleaned up is both.
+	fn is_deregistering(para_id: u32) -> bool {
+		matches!(
+			paras::Pallet::<T>::lifecycle(ParaId::from(para_id)),
+			None | Some(ParaLifecycle::OffboardingParathread) |
+				Some(ParaLifecycle::OffboardingParachain)
+		)
+	}
+
 	fn register(
 		manager: T::AccountId,
 		para_id: u32,

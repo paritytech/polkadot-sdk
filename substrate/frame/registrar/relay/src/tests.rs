@@ -112,6 +112,27 @@ fn deregister_report(para_id: ParaId, outcome: registrar_primitives::Outcome) ->
 	})
 }
 
+/// The message id every test deregistration cancellation carries, distinct from the ids above.
+const CANCEL_DEREGISTER_ID: u64 = 8;
+
+fn cancel_deregister_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
+		para_id,
+		message_id: CANCEL_DEREGISTER_ID,
+	})
+}
+
+fn cancel_deregister_report(
+	para_id: ParaId,
+	outcome: registrar_primitives::Outcome,
+) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+		para_id,
+		message_id: CANCEL_DEREGISTER_ID,
+		outcome,
+	})
+}
+
 /// Onboard `para_id` for real, so the registry knows it.
 fn onboard(para_id: ParaId) {
 	let blob = request(para_id, 20, 300);
@@ -651,6 +672,83 @@ mod receive_deregister {
 
 			assert_noop!(
 				Registrar::receive(RuntimeOrigin::signed(ALICE), deregister_msg(PARA_A)),
+				DispatchError::BadOrigin
+			);
+			assert!(MockRegistrar::is_registered(PARA_A));
+		});
+	}
+}
+
+mod receive_cancel_deregistration {
+	use super::*;
+
+	#[test]
+	fn a_para_still_in_the_registry_never_left_it() {
+		new_test_ext().execute_with(|| {
+			// The deregistration was refused and the refusal was lost, so the cancellation is
+			// what tells the parachain to keep its deposits.
+			onboard(PARA_A);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_deregister_msg(PARA_A)));
+
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert_eq!(take_sent(), vec![cancel_deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationCancelled {
+					para_id: PARA_A,
+					message_id: CANCEL_DEREGISTER_ID,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_already_on_its_way_out_cannot_be_kept() {
+		new_test_ext().execute_with(|| {
+			// The deregistration went through and only its verdict was lost, so the parachain is
+			// told to release everything after all.
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_deregister_msg(PARA_A)));
+
+			assert_eq!(
+				take_sent(),
+				vec![cancel_deregister_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationCancellationRefused {
+					para_id: PARA_A,
+					message_id: CANCEL_DEREGISTER_ID,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn an_id_this_chain_never_knew_is_refused_too() {
+		new_test_ext().execute_with(|| {
+			// Nothing to keep, so the parachain releases its deposits.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_deregister_msg(PARA_B)));
+
+			assert_eq!(
+				take_sent(),
+				vec![cancel_deregister_report(PARA_B, Err(FailureReason::NotRegistered))]
+			);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_ask() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+
+			assert_noop!(
+				Registrar::receive(RuntimeOrigin::signed(ALICE), cancel_deregister_msg(PARA_A)),
 				DispatchError::BadOrigin
 			);
 			assert!(MockRegistrar::is_registered(PARA_A));

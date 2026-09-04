@@ -188,6 +188,27 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Giving up on a deregistration: the deadline write plus the message.
+	#[benchmark]
+	fn cancel_deregister() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_deregistering::<T>(&who)?;
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number()
+				.saturating_add(T::PendingDeadline::get())
+				.saturating_add(1u32.into()),
+		);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Deregistering { .. })
+		));
+		Ok(())
+	}
+
 	/// Locking a registered para: one state read and write.
 	#[benchmark]
 	fn add_lock() -> Result<(), BenchmarkError> {

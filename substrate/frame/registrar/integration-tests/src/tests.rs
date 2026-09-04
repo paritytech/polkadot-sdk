@@ -460,6 +460,94 @@ fn a_deregistration_travels_to_the_relay_chain_and_frees_every_deposit() {
 }
 
 #[test]
+fn a_lost_deregistration_verdict_is_settled_by_a_cancellation() {
+	MockNet::reset();
+
+	let para_id = onboarded_para(ALICE);
+	let deposit = para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64);
+
+	// The relay chain drops the para, but its verdict never arrives.
+	senders::RelayReportsLost::set(true);
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+	Relay::execute_with(|| assert!(!relay_has_record(para_id)));
+
+	// So the parachain is stuck holding deposits for a para that is already gone, and gives up on
+	// the deregistration to find out which way it went.
+	senders::RelayReportsLost::set(false);
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Deregistering { .. })));
+		assert_eq!(para_held(&ALICE), deposit);
+
+		para::System::set_block_number(para::PENDING_DEADLINE + 1);
+		assert_ok!(para::Registrar::cancel_deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+
+	// The para is on its way out, so the cancellation is refused...
+	Relay::execute_with(|| assert!(!relay_has_record(para_id)));
+
+	// ...and that refusal is what frees the deposits, taking the para id with them.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_state(para_id), None);
+		assert_eq!(para_held(&ALICE), 0);
+
+		let events = para::System::events();
+		assert!(events.iter().any(|e| matches!(
+			&e.event,
+			para::RuntimeEvent::Registrar(pallet_registrar_para::Event::Deregistered { .. })
+		)));
+	});
+}
+
+#[test]
+fn a_cancellation_keeps_a_para_the_relay_chain_would_not_drop() {
+	MockNet::reset();
+
+	Relay::execute_with(|| relay::run_to_session(1));
+
+	let para_id = reserve(ALICE);
+	let blob = request_registration(ALICE, para_id, 32, 64);
+	let deposit = para::PARA_DEPOSIT + para::PER_BYTE * (32 + 64);
+
+	Relay::execute_with(|| {
+		assert_ok!(submit_code(para_id, blob));
+	});
+
+	// The relay chain is still onboarding the para, so it will refuse to drop it, and this time
+	// the refusal is what goes missing.
+	senders::RelayReportsLost::set(true);
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+	Relay::execute_with(|| assert!(relay_has_record(para_id)));
+
+	senders::RelayReportsLost::set(false);
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Deregistering { .. })));
+
+		para::System::set_block_number(para::PENDING_DEADLINE + 1);
+		assert_ok!(para::Registrar::cancel_deregister(para::RuntimeOrigin::signed(ALICE), para_id));
+	});
+
+	Relay::execute_with(|| assert!(relay_has_record(para_id)));
+
+	// The para never left, so it goes back to registered with both deposits still held.
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
+		assert_eq!(para_held(&ALICE), deposit);
+
+		let events = para::System::events();
+		assert!(events.iter().any(|e| matches!(
+			&e.event,
+			para::RuntimeEvent::Registrar(
+				pallet_registrar_para::Event::DeregistrationCancelled { .. }
+			)
+		)));
+	});
+}
+
+#[test]
 fn the_relay_chain_refuses_to_drop_a_para_it_is_still_onboarding() {
 	MockNet::reset();
 

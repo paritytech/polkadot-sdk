@@ -102,6 +102,11 @@ impl ParachainRegistrar for MockRegistrar {
 			Onboarded::get().iter().any(|(id, ..)| *id == para_id)
 	}
 
+	/// No offboarding window here: a para is gone as soon as it is dropped.
+	fn is_deregistering(para_id: ParaId) -> bool {
+		!Self::is_registered(para_id)
+	}
+
 	fn register(
 		manager: Self::AccountId,
 		para_id: ParaId,

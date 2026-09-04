@@ -51,6 +51,8 @@
 //!
 //! [`Pallet::deregister`] drops an id that was never registered on the spot. One that was
 //! onboarded has to go on the relay chain first, so both deposits stay held until it answers.
+//! [`Pallet::cancel_deregister`] gives up on a verdict that never arrives, the same way
+//! [`Pallet::cancel_registration`] gives up on a registration.
 //!
 //! ## Locking
 //!
@@ -156,6 +158,8 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	Deregistering {
 		/// The registration's [`Consideration`] ticket, released once the relay chain confirms.
 		ticket: Ticket,
+		/// The block from which the manager may give up on this deregistration.
+		cancellable_at: BlockNumber,
 	},
 }
 
@@ -315,6 +319,11 @@ pub mod pallet {
 		DeregisterRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
 		/// The relay chain dropped the para. Every consideration was returned and the id is gone.
 		Deregistered { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// A manager gave up on a deregistration, and the relay chain has been asked which way it
+		/// went.
+		CancelDeregisterRequested { para_id: ParaId, message_id: u64, manager: T::AccountId },
+		/// The relay chain confirmed the para never left it. Both considerations stay taken.
+		DeregistrationCancelled { para_id: ParaId, message_id: u64, manager: T::AccountId },
 		/// The relay chain refused to drop the para. It stays registered, considerations included.
 		DeregistrationFailed {
 			para_id: ParaId,
@@ -360,6 +369,8 @@ pub mod pallet {
 		NotRegistered,
 		/// A deregistration is already in flight for this para.
 		AlreadyDeregistering,
+		/// There is no deregistration in flight for this para.
+		NotDeregistering,
 		/// The para still holds Coretime, so it cannot be dropped.
 		HeldByCoretime,
 	}
@@ -403,6 +414,11 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_deregister_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
 				MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
 					para_id,
 					message_id,
@@ -606,7 +622,9 @@ pub mod pallet {
 					Self::deposit_event(Event::ReservationDropped { para_id, who: manager });
 				},
 				RegistrationState::Registered { ticket } => {
-					info.state = RegistrationState::Deregistering { ticket };
+					let cancellable_at = T::BlockNumberProvider::current_block_number()
+						.saturating_add(T::PendingDeadline::get());
+					info.state = RegistrationState::Deregistering { ticket, cancellable_at };
 					Paras::<T>::insert(para_id, info);
 
 					// A transport failure returns `Err` and unwinds the new state with it.
@@ -632,7 +650,45 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Give up on a deregistration the relay chain never reported on.
+		///
+		/// Callable from [`Config::PendingDeadline`] blocks after the request, and takes nothing
+		/// back: it asks which way the deregistration went, and [`Pallet::receive`] acts on the
+		/// answer.
 		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::cancel_deregister())]
+		pub fn cancel_deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
+
+			let manager = info.manager.clone();
+			let RegistrationState::Deregistering { ticket, cancellable_at } = info.state else {
+				return Err(Error::<T>::NotDeregistering.into());
+			};
+			let now = T::BlockNumberProvider::current_block_number();
+			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
+
+			// Another deadline's grace before the manager may ask again, so a cancellation that
+			// goes missing can be retried without the relay chain being asked once per block.
+			info.state = RegistrationState::Deregistering {
+				ticket,
+				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+			};
+			Paras::<T>::insert(para_id, info);
+
+			// A transport failure returns `Err` and unwinds the new deadline with it.
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
+				para_id,
+				message_id,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::CancelDeregisterRequested { para_id, message_id, manager });
+			Ok(())
+		}
+
+		#[pallet::call_index(8)]
 		#[pallet::weight(Weight::zero())]
 		pub fn schedule_code_upgrade(
 			origin: OriginFor<T>,
@@ -644,7 +700,7 @@ pub mod pallet {
 			todo!()
 		}
 
-		#[pallet::call_index(8)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(Weight::zero())]
 		pub fn set_current_head(
 			origin: OriginFor<T>,
@@ -655,7 +711,7 @@ pub mod pallet {
 			todo!()
 		}
 
-		#[pallet::call_index(9)]
+		#[pallet::call_index(10)]
 		#[pallet::weight(Weight::zero())]
 		pub fn force_register(
 			origin: OriginFor<T>,
@@ -876,6 +932,58 @@ impl<T: Config> Pallet<T> {
 					manager,
 					reason,
 				});
+			},
+		}
+
+		Ok(())
+	}
+
+	/// Apply the relay chain's answer to a [`Pallet::cancel_deregister`].
+	///
+	/// `Ok(())` puts the para back to [`RegistrationState::Registered`], considerations included.
+	/// The one refusal is [`FailureReason::NotRegistered`]: it did go, so everything is released.
+	///
+	/// As with a cancelled registration, an answer for a para that is already settled is expected
+	/// rather than defensive: a verdict in flight when the cancellation was sent lands first.
+	fn on_cancel_deregistration_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let Some(mut info) = Paras::<T>::get(para_id) else {
+			log::debug!(
+				target: "runtime::registrar-para",
+				"cancel deregistration for para {para_id} which is gone, dropping",
+			);
+			return Ok(());
+		};
+		let RegistrationState::Deregistering { ticket, .. } = info.state else {
+			log::debug!(
+				target: "runtime::registrar-para",
+				"cancel deregistration for para {para_id} which is settled, dropping",
+			);
+			return Ok(());
+		};
+
+		let manager = info.manager.clone();
+		match outcome {
+			Ok(()) => {
+				info.state = RegistrationState::Registered { ticket };
+				Paras::<T>::insert(para_id, info);
+				Self::deposit_event(Event::DeregistrationCancelled {
+					para_id,
+					message_id,
+					manager,
+				});
+			},
+			Err(FailureReason::NotRegistered) => {
+				Self::release_and_forget(para_id, &manager, info.reservation, ticket)?;
+				Self::deposit_event(Event::Deregistered { para_id, message_id, manager });
+			},
+			// Nothing else refuses a cancellation, so leave the para deregistering: the manager
+			// can ask again once the deadline comes round.
+			Err(reason) => {
+				defensive!("unexpected deregistration cancel refusal", (para_id, &reason));
 			},
 		}
 
