@@ -376,18 +376,35 @@ impl<T: Config> Pallet<T> {
 				};
 
 				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
+					// remove old entry as might have diverged
+					AutoRenewalRetries::<T>::remove((record.core, payer.clone()));
+					AutoRenewalRetries::<T>::insert((new_core_index, payer), 0);
 					Some(AutoRenewalRecord {
 						core: new_core_index,
 						task: record.task,
 						next_renewal: sale.region_end,
 					})
 				} else {
+					// check if renewal count has been exceeded and reset counter, else increment
+					// retry counter
+					let max_renewal_retries = T::MaxAutoRenewalRetries::get();
+					let mut retries = AutoRenewalRetries::<T>::get((record.core, payer.clone()));
 					Self::deposit_event(Event::<T>::AutoRenewalFailed {
 						core: record.core,
-						payer: Some(payer),
+						payer: Some(payer.clone()),
 					});
-
-					None
+					if retries >= max_renewal_retries {
+						AutoRenewalRetries::<T>::take((record.core, payer));
+						None
+					} else {
+						retries = retries.saturating_add(1);
+						AutoRenewalRetries::<T>::insert((record.core, payer), retries);
+						Some(AutoRenewalRecord {
+							core: record.core,
+							task: record.task,
+							next_renewal: sale.region_end,
+						})
+					}
 				}
 			})
 			.collect::<Vec<AutoRenewalRecord>>()

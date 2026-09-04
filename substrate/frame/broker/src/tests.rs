@@ -2369,12 +2369,14 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
-		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
+		// The renewal persists however due to retry logic
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
 				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 10 },
+				// the renewal now retries since our default retry is 2 for test
 				AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
 			]
 		);
@@ -2382,6 +2384,115 @@ fn auto_renewal_works() {
 }
 
 #[test]
+fn auto_renewal_retries_persist_when_below_max() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+
+		// Purchase 2 cores
+		let region_1 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		// Assign tasks and enable auto renewals
+		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(7)));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(7)));
+
+		// Fund only task 1001's sovereign account (1002 will fail)
+		endow(1001, 1000);
+		let initial_retry_count = AutoRenewalRetries::<Test>::get((region_2.core, 1002));
+
+		// Trigger renewal time
+		advance_to(7);
+
+		// Renewal #1 succeeds for task 1001, fails for 1002
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: region_2.core, payer: Some(1002) }.into(),
+		);
+
+		// Retry count should be +1 now
+		let retry_count = AutoRenewalRetries::<Test>::get((region_2.core, 1002));
+		assert_eq!(retry_count, initial_retry_count + 1);
+
+		// AutoRenewals should still contain record for core 2
+		assert!(AutoRenewals::<Test>::get().iter().any(|r| r.core == region_2.core));
+	});
+}
+
+#[test]
+fn auto_renewal_record_removed_when_max_retries_reached() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+
+		// Purchase and assign
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, Some(1), 1002, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region.core, 1002, Some(7)));
+
+		// Will just simulate we're at max
+		let max_retries: u8 = <Test as Config>::MaxAutoRenewalRetries::get();
+		AutoRenewalRetries::<Test>::insert((region.core, 1002), max_retries);
+
+		// Move to renewal block
+		advance_to(7);
+
+		// The renewal should fail again, but since we're at max retry, record dropped
+		System::assert_has_event(
+			Event::<Test>::AutoRenewalFailed { core: region.core, payer: Some(1002) }.into(),
+		);
+
+		// Ensure it no longer exists in AutoRenewals
+		assert!(
+			!AutoRenewals::<Test>::get().iter().any(|r| r.core == region.core),
+			"Auto renewal record should be removed once max retries reached"
+		);
+
+		// Retry counter reset
+		assert_eq!(AutoRenewalRetries::<Test>::get((region.core, 1002)), 0);
+	});
+}
+
+#[test]
+fn check_retry_ids_after_rotations() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_set_lease(1000, 8)); // lease ends 8
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// task 1001 buys single market core (core 1)
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_eq!(region.core, 1);
+		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
+		assert_ok!(Broker::do_enable_auto_renew(1001, region.core, 1001, Some(7)));
+		// endow soverign for 2 upcoming renewals
+		endow(1001, 1000);
+
+		// Will just simulate we're 1 retry from failing
+		let max_retries: u8 = <Test as Config>::MaxAutoRenewalRetries::get();
+		AutoRenewalRetries::<Test>::insert((region.core, 1002), 1);
+
+		// first rotation, lease still active
+		advance_to(6);
+		assert_eq!(
+			AutoRenewals::<Test>::get().iter().find(|r| r.task == 1001).map(|r| r.core),
+			Some(1),
+		);
+
+		// second rotation - so core is shifted to 0 properly after lease is gone
+		advance_to(12);
+		assert_eq!(
+			AutoRenewals::<Test>::get().iter().find(|r| r.task == 1001).map(|r| r.core),
+			Some(0)
+		);
+
+		// stale entry under old core must be cleaned up - fails currently
+		assert!(
+			!AutoRenewalRetries::<Test>::contains_key((1u16, 1001u64)),
+			"stale retry entry under old core(1, task 1001)"
+		);
+	})
 fn enable_auto_renew_immediate_updates_core_and_renews() {
 	TestExt::new().endow(1, 1000).endow(2, 1000).endow(1001, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));
