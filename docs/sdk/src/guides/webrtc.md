@@ -1,8 +1,7 @@
 # WebRTC Transport for Light Clients
 
 In-browser light clients use the WebRTC transport to connect to Polkadot full nodes. Unlike WSS, it
-needs no domain name, TLS certificate, or reverse proxy, but it complements WSS rather than
-replacing it. This guide explains how to set up a full node to accept light client connections.
+needs no domain name, TLS certificate, or reverse proxy.
 
 WebRTC is only supported by the litep2p network backend (the default). Light client connections
 count towards the `--in-peers-light` limit (500 by default).
@@ -11,8 +10,8 @@ count towards the `--in-peers-light` limit (500 by default).
 
 Unless you pass `--listen-addr`, a full node listens for incoming WebRTC connections on UDP port
 30333, or on the port specified with `--port`. A parachain node runs two network stacks and accepts
-WebRTC on both: by default UDP 30333 on the parachain side and 30334 on the relay chain side.
-Everything below applies to each side; relay chain options go after `--`.
+WebRTC on both: by default UDP 30333 on the parachain side and 30334 on the relay chain side. Relay
+chain options go after `--`.
 
 Validators and collators, on either side, don't listen on WebRTC by default and should serve light
 clients from separate full nodes instead. `--force-enable-webrtc` overrides this. To disable WebRTC
@@ -21,8 +20,8 @@ UDP port: the node would still advertise its WebRTC address, and light clients w
 connect.
 
 If you manually specify `--listen-addr` for TCP/WS/WSS connections, make sure to also include a
-`--listen-addr` for WebRTC connections: `/ip4/10.0.0.1/udp/30333/webrtc-direct`, substituting your
-IP address and port. `/ip6/...` addresses and the wildcard `0.0.0.0` / `[::]` also work.
+`--listen-addr` for WebRTC connections, e.g. `/ip4/0.0.0.0/udp/30333/webrtc-direct` or
+`/ip6/::/udp/30333/webrtc-direct`.
 
 ## 2. Public Addresses
 
@@ -33,8 +32,7 @@ behind NAT or you redirect the ports), make sure to include a matching `--public
 clients to discover it.
 
 Don't append `/certhash/...` or `/p2p/...` to WebRTC listen or public addresses: the node adds them
-itself and refuses to start if they are present. It also refuses to start if a public WebRTC
-address is given without a WebRTC listen address.
+itself and refuses to start if they are present.
 
 ## 3. Firewall / Port Forwarding
 
@@ -52,6 +50,6 @@ lists the WebRTC listen addresses with the certhash and peer ID appended, e.g.
 
 For light clients to bootstrap over WebRTC, network operators need to add the bootnodes' WebRTC
 addresses to `bootNodes` in the chainspec, alongside the existing TCP/WS/WSS ones. The address has
-the form `/dns/<host>/udp/<port>/webrtc-direct/certhash/<certhash>/p2p/<peer id>`. The node prints
-both values at startup, as `WebRTC certhash: uEi...` and `Local node identity is: 12D3Koo...`. Both
-are derived from the node key, so they only change if the key does.
+the form `/dns/<host>/udp/<port>/webrtc-direct/certhash/<certhash>/p2p/<peer id>`. Take the
+certhash and peer ID from the RPC or console output above. Both are derived from the node key, so they only
+change if the key does.
