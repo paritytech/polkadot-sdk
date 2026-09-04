@@ -141,7 +141,7 @@ The CRJA pipeline for a parachain block:
     │
     ▼
 [Accumulate]  ON-CHAIN: The Parachain Service's Accumulate function runs on-chain.
-              It checks the offchain message roots, records the new parachain head, applies the PVF's upward host-function
+              It checks the message roots, records the new parachain head, applies the PVF's upward host-function
               effects (code upgrades, outbound transfers, authorizer updates, etc.), and queues
               incoming transfers from other services.
 
@@ -216,12 +216,12 @@ struct ParachainServiceState {
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
 
     /// Per parachain settlement ring. See §8.
-    offchain_msg_cursor: Map<ParaId, SettlementCursor>,
+    messages_cursor: Map<ParaId, SettlementCursor>,
     /// Maps `StreamsRoot` to `position`.
     /// The only ring entry the settlement check reads (§5.1 step 6).
-    offchain_msg_member: Map<(ParaId, StreamsRoot), MemberEntry>,
+    messages_member: Map<(ParaId, StreamsRoot), MemberEntry>,
     /// Ring position to root. Read on eviction and teardown.
-    offchain_msg_queue: Map<(ParaId, u32), StreamsRoot>,
+    messages_queue: Map<(ParaId, u32), StreamsRoot>,
 }
 
 enum LogEntry {
@@ -293,12 +293,12 @@ enum RefineLog {
     /// `set_head` was called with head data beyond the 4 KiB `HeadData` bound.
     /// See §4.3.
     HeadDataTooLarge,
-    /// `set_offchain_streams_root` or `set_offchain_requires_roots` was called more than once in
+    /// `set_messages_streams_root` or `set_messages_requires_roots` was called more than once in
     /// a single Refine invocation. See §4.3.
-    OffchainMsgCallRepeated,
-    /// `set_offchain_requires_roots` was called with more than `MAX_REQUIRES_SOURCES`
+    MessagesCallRepeated,
+    /// `set_messages_requires_roots` was called with more than `MAX_REQUIRES_SOURCES`
     /// entries, a repeated `ParaId`, or the candidate's own `para_id`. See §4.3.
-    OffchainMsgInvalidRequires,
+    MessagesInvalidRequires,
 }
 
 /// Why a state-balance reservation failed (see §6.1).
@@ -495,7 +495,7 @@ struct IncomingTransferBuckets {
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
 /// A parachain's commitment to the messages it has sent, declared via
-/// `set_offchain_streams_root`. Opaque to the service. See §8.
+/// `set_messages_streams_root`. See §8.
 type StreamsRoot = [u8; 32];
 
 /// Positions of a parachain's settlement ring. See §8.
@@ -570,9 +570,9 @@ singletons; the tag prepended to the encoded map key for map entries).
 | `0x06` | `incoming_transfers` |
 | `0x07` | `incoming_transfer_buckets` |
 | `0x08` | `key_value_storage` |
-| `0x09` | `offchain_msg_cursor` |
-| `0x0a` | `offchain_msg_member` |
-| `0x0b` | `offchain_msg_queue` |
+| `0x09` | `messages_cursor` |
+| `0x0a` | `messages_member` |
+| `0x0b` | `messages_queue` |
 
 ### 3.2 Work Items
 
@@ -631,10 +631,10 @@ enum ParachainWorkDigest {
         lookup_anchor: Timeslot,
         /// The `StreamsRoot` this candidate publishes, if any. Pushed into
         /// the parachain's settlement ring on enactment (§5.1 step 6, §8).
-        offchain_streams_root: Option<StreamsRoot>,
+        messages_streams_root: Option<StreamsRoot>,
         /// The senders this candidate consumed messages from, one entry per
         /// sender with the root it consumed against. See §8.
-        offchain_requires_roots: BoundedVec<(ParaId, StreamsRoot), MAX_REQUIRES_SOURCES>,
+        messages_requires_roots: BoundedVec<(ParaId, StreamsRoot), MAX_REQUIRES_SOURCES>,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
@@ -877,8 +877,8 @@ Accumulate:
 | 101 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | 102 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 103 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
-| 104 | `set_offchain_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes (§8). **Optional**, at most once per Refine invocation. Aborts Refine with `Err(RefineLog::OffchainMsgCallRepeated)` on a second call. It is forwarded to Accumulate as `ParachainWorkDigest.offchain_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 6). |
-| 105 | `set_offchain_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from, one `(ParaId, StreamsRoot)` per sender (§8). **Optional**, at most once per Refine invocation, carrying the whole set. Aborts Refine with `Err(RefineLog::OffchainMsgCallRepeated)` on a second call. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::OffchainMsgInvalidRequires)`. Refine checks nothing else. The entries are forwarded as `ParachainWorkDigest.offchain_requires_roots` and checked against the senders' settlement rings on enactment (§5.1 step 6). |
+| 104 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes (§8). **Optional**, at most once per Refine invocation. Aborts Refine with `Err(RefineLog::MessagesCallRepeated)` on a second call. It is forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 6). |
+| 105 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from, one `(ParaId, StreamsRoot)` per sender (§8). **Optional**, at most once per Refine invocation, carrying the whole set. Aborts Refine with `Err(RefineLog::MessagesCallRepeated)` on a second call. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. Refine checks nothing else. The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders' settlement rings on enactment (§5.1 step 6). |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the PVF. The 40 KiB
@@ -994,8 +994,8 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    `ParaInfo.validation_code` or the pending upgrade's code. If it matches neither,
    the candidate is rejected.
 6. **Settlement check + head data update + code upgrade check**: Every
-   `(ParaId, StreamsRoot)` in the digest's `offchain_requires_roots` must be a key of
-   `offchain_msg_member` (§8). If any is missing, the candidate is rejected. This is
+   `(ParaId, StreamsRoot)` in the digest's `messages_requires_roots` must be a key of
+   `messages_member` (§8). If any is missing, the candidate is rejected. This is
    the last check, so a candidate that passes it is enacted, and it runs before
    the head write, so a rejected candidate publishes no root of its own.
 
@@ -1006,7 +1006,7 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    candidates from the same parachain in the same block may already use the new
    code.
 
-   Finally, if the digest carries an `offchain_streams_root`, push it into the
+   Finally, if the digest carries a `messages_streams_root`, push it into the
    parachain's settlement ring (§8). A root enters the ring only for a candidate
    that enacted.
 7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
@@ -1328,10 +1328,6 @@ Coretime must emit `ParachainSetStateBalance` first in any registration
 sequence. On an existing `ParaId`, `ParachainSetHead` /
 `ParachainSetValidationCode` simply overwrite (useful for forced recovery).
 
-`parachain_set_head` on an existing `ParaId` and `parachain_clean_up` also drop
-the parachain's settlement ring (§8), so no candidate can enact against a root of
-the replaced or removed history.
-
 ### 6.1 State-Balance Accounting
 
 JAM bills each service for **everything it holds in state** (its storage key/value
@@ -1489,13 +1485,13 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
 ```
 
 Settlement ring at capacity: the `(ParaId, SettlementCursor)` entry plus
-`MAX_SETTLEMENT_RING_CAPACITY = 64` entries in each of `offchain_msg_member` and
-`offchain_msg_queue`, with `StreamsRoot = 32 B`:
+`MAX_SETTLEMENT_RING_CAPACITY = 64` entries in each of `messages_member` and
+`messages_queue`, with `StreamsRoot = 32 B`:
 
 ```
-offchain_msg_cursor: 34 + 5 (tag + ParaId) + 8 (SettlementCursor)      =      47
-offchain_msg_member: 64 × (34 + 37 (tag + ParaId + root) + 4 (seq))    =   4 800
-offchain_msg_queue:  64 × (34 + 9 (tag + ParaId + u32) + 32 (root))    =   4 800
+messages_cursor:     34 + 5 (tag + ParaId) + 8 (SettlementCursor)      =      47
+messages_member:     64 × (34 + 37 (tag + ParaId + root) + 4 (seq))    =   4 800
+messages_queue:      64 × (34 + 9 (tag + ParaId + u32) + 32 (root))    =   4 800
                                                               octets       9 647
                                                               129 items    1 290
                                                                          -------
@@ -1625,8 +1621,7 @@ The same two messages also handle exceptional recovery, e.g. unsticking a chain
 whose last included block cannot be built on, or swapping in a new PVF outside the normal
 upgrade lifecycle:
 
-- `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data and drops the
-  parachain's settlement ring (§8).
+- `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data`.
 - `ParachainSetValidationCode { para_id, new_hash, new_len }` sets
   `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
   `pending_upgrade`. Unless the parachain already references `new_hash`, in which case
@@ -1667,10 +1662,10 @@ Parachain Service (Accumulate)
 	│  is at most BASELINE_FOOTPRINT + preimage_footprint(validation_code)
 	│  + preimage_footprint(pending_upgrade code, if any), i.e. the parachain
 	│  has already released all other solicited preimages and key_value_storage.
-	│  Otherwise drops the settlement ring (§8) and forgets the validation
-	│  code(s). If any cannot be expunged yet (JAM's two-step forget; see
-	│  §6.1), sets ParaInfo.is_deregistering = true and stops. Once
-	│  expungeable, drops parachains[para_id] and parachain_log[para_id].
+	│  Otherwise forgets the validation code(s). If any cannot be expunged yet
+	│  (JAM's two-step forget; see §6.1), sets ParaInfo.is_deregistering = true
+	│  and stops. Once expungeable, drops parachains[para_id]
+	│  and parachain_log[para_id].
 ```
 
 Requiring the parachain to drain its own extra state first keeps clean-up bounded:
@@ -1678,6 +1673,8 @@ the service only ever has to forget the two validation codes, never an unbounded
 set of solicited preimages or KV entries. A parachain that can no longer produce
 blocks cannot drain itself, so `Forget` and `RemoveKV` take a `para_id` (§3.3),
 letting the Coretime chain free any parachain's state on its behalf.
+
+The first accepted call also deletes the parachain's settlement ring (§8.3).
 
 A clean-up that stops for a retry leaves `validation_code` and `pending_upgrade` in
 place. Their footprints remain charged until the expunging `forget` succeeds, so the
@@ -1879,7 +1876,7 @@ decides the policy, constructs the authorizer config, and emits `AssignCore`.
 Parachains exchange messages off-chain. The message payloads exist entirely in the parachain
 runtimes and are never written into the JAM relay chain.
 
-The offchain communication mechanism relies on the [speculative messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md) design.
+The messaging mechanism relies on the [speculative messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md) design.
 
 A sender parachain block commits its outbound message streams under a single `StreamsRoot`, the
 root of a MMR (Merkle Mountain Range) over the streams. The 32 byte `StreamsRoot` is written into the
@@ -1896,8 +1893,8 @@ runtime verifies messages against a source root. These are outside the scope of 
 The parachain service handles only the on-chain settlement of these roots. A receiver parachain block enacts only if all its
 `Requires` roots are present in the source parachains settlement ring.
 
-A sender block declares its `StreamsRoot` via `set_offchain_streams_root`, and a receiver block declares one
-`(ParaId, StreamsRoot)` per consumed source via `set_offchain_requires_roots` (§4.3). How the PVF defines the roots from its own state
+A sender block declares its `StreamsRoot` via `set_messages_streams_root`, and a receiver block declares one
+`(ParaId, StreamsRoot)` per consumed source via `set_messages_requires_roots` (§4.3). How the PVF defines the roots from its own state
 and the PoV is the parachain's job. When a sender block enacts, Accumulate pushes the `StreamsRoot` into the source's
 settlement ring. When a receiver block accumulates, every declared `(ParaId, StreamsRoot)` is matched against the source's settlement ring.
 
@@ -1911,16 +1908,16 @@ The receiver parachain must resubmit a new work package that targets the latest 
 
 ### 8.1 Declaring Roots
 
-The `set_offchain_streams_root` and `set_offchain_requires_roots` host calls are optional and must be called at most once per Refine.
+The `set_messages_streams_root` and `set_messages_requires_roots` host calls are optional and must be called at most once per Refine.
 
-A second call aborts Refine with `RefineLog::OffchainMsgCallRepeated`.
+A second call aborts Refine with `RefineLog::MessagesCallRepeated`.
 
-A `set_offchain_requires_roots` call with more than `MAX_REQUIRES_SOURCES` (32) entries or duplicated source parachain ids
-aborts Refine with `RefineLog::OffchainMsgInvalidRequires`.
+A `set_messages_requires_roots` call with more than `MAX_REQUIRES_SOURCES` (32) entries or duplicated source parachain ids
+aborts Refine with `RefineLog::MessagesInvalidRequires`.
 
 > Refine checks nothing about the roots themselves.
 
-The declarations reach Accumulate as digest fields `offchain_streams_root` and `offchain_requires_roots`. Accumulate has to check
+The declarations reach Accumulate as digest fields `messages_streams_root` and `messages_requires_roots`. Accumulate has to check
 the requires before it writes the head.
 
 For bundled PoVs, only the last produced root is reported, even when later inner blocks send nothing.
@@ -1936,45 +1933,46 @@ at a slightly higher cost of service state.
 ```rust
 /// Ring positions. Absent until the parachain's first push.
 /// Key: `0x09 ++ para_id`
-offchain_msg_cursor: Map<ParaId, SettlementCursor { head: u32, tail: u32 }>
+messages_cursor: Map<ParaId, SettlementCursor { head: u32, tail: u32 }>
 
 /// Membership index: `(para_id, root)` is present exactly while `root` is
 /// in `para_id`'s ring. The only ring entry the settlement check reads.
 /// Key: `0x0a ++ para_id ++ root`
-offchain_msg_member: Map<(ParaId, StreamsRoot), MemberEntry { seq: u32 }>
+messages_member: Map<(ParaId, StreamsRoot), MemberEntry { seq: u32 }>
 
 /// Ring position to root. Read on eviction and teardown.
 /// Key: `0x0b ++ para_id ++ position`
-offchain_msg_queue: Map<(ParaId, u32), StreamsRoot>
+messages_queue: Map<(ParaId, u32), StreamsRoot>
 ```
 
 Positions are allocated by `SettlementCursor.head` and freed by `SettlementCursor.tail`.
 The live positions are in range `[tail, head)`, with `head` wrapping around at `u32::MAX`.
 At most `MAX_SETTLEMENT_RING_CAPACITY` (64) entries are live at once.
 
-The settlement check reads only `offchain_msg_member` once per declared `offchain_requires_roots` entry.
+The settlement check reads only `messages_member` once per declared `messages_requires_roots` entry.
 The check is `O(1)` per source parachain, and the total cost is linear in the number of source parachains.
 
 Pushing a `new_root` for a `para_id` is a multi step operation. Firstly, the `SettlementCursor` is loaded.
 If the wrapping distance between `head` and `tail` is `MAX_SETTLEMENT_RING_CAPACITY`, the oldest entry is evicted.
-The `oldest_root` is read from the `offchain_msg_queue` at `tail`. The `(para_id, oldest_root)` entry is removed from
-`offchain_msg_member` only if its `seq` equals `tail`. A different `seq` number means the same root was pushed again.
-The `tail` is incremented, but not written yet.
-Next, the `new_root` is written to `offchain_msg_queue` at `head`, and the `(para_id, new_root)` entry is inserted into `offchain_msg_member`.
-Finally, `head` is incremented and together with the new `tail` are written back to `offchain_msg_cursor`.
+The `oldest_root` is read from the `messages_queue` at `tail` and the `(para_id, tail)` entry is deleted.
+The `(para_id, oldest_root)` entry is removed from `messages_member` only if its `seq` equals `tail`.
+A different `seq` number means the same root was pushed again. The `tail` is incremented, but not written yet.
+Next, the `new_root` is written to `messages_queue` at `head`, and the `(para_id, new_root)` entry is inserted into `messages_member`.
+Finally, `head` is incremented and together with the new `tail` are written back to `messages_cursor`.
 
 
 ### 8.3 Teardown
 
-A `parachain_set_head` on an existing parachain and `parachain_clean_up` drop the parachain's settlement ring.
+`ParachainCleanUp` (§6.4) deletes the parachain's settlement ring. This includes the `SettlementCursor` together with every
+`messages_member` and `messages_queue` entry at positions in range `[tail, head)`. This requires sufficient gas to
+perform `1 + 2 * MAX_SETTLEMENT_RING_CAPACITY = 129` deletions.
 
-The `SettlementCursor` together with every `offchain_msg_member` and `offchain_msg_queue` entry at positions
-in range `[tail, head)` are deleted. These operations are not common. Both require sufficient gas to perform
-`1 + 2 * MAX_SETTLEMENT_RING_CAPACITY = 129` deletions.
+`ParachainSetHead` (§6.3) does not touch the ring. Roots declared before a forced head reset stay settleable
+until evicted.
 
-Both calls are upward messages of the Coretime chain and take effect when the candidate carrying them replays.
-A receiver might have already enacted earlier in the same block, before the entries were evicted from the ring.
-Its enactment is valid and nothing is rolled back.
+`ParachainCleanUp` is an upward message of the Coretime chain and takes effect when the candidate carrying it
+replays (§5.1 step 7). A receiver might have already enacted earlier in the same block against a root of the
+deleted ring. Its enactment is valid and nothing is rolled back.
 
 ---
 
@@ -1989,4 +1987,4 @@ Its enactment is valid and nothing is rolled back.
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/): Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
-- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md): The offchain messaging design document
+- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md): The speculative messaging design document
