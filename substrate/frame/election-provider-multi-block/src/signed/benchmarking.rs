@@ -17,6 +17,7 @@
 
 use crate::{
 	signed::{Config, Pallet, RewardSource, Submissions, MAX_UNPAID_REWARDS},
+	signed::{Config, Invulnerables, Pallet, Submissions},
 	types::PagedRawSolution,
 	unsigned::miner::OffchainWorkerMiner,
 	CurrentPhase, Phase, Round,
@@ -178,6 +179,9 @@ mod benchmarks {
 		// set signed phase and alice ready to submit
 		CurrentPhase::<T>::put(Phase::Signed(T::SignedPhase::get() - One::one()));
 		let alice = crate::Pallet::<T>::funded_account("alice", 0);
+
+		// worst case: an invulnerable is also refunded their tx-fee upon clearing.
+		Invulnerables::<T>::put(BoundedVec::truncate_from(sp_std::vec![alice.clone()]));
 
 		// register alice
 		let score = ElectionScore::default();

@@ -33,6 +33,10 @@ fn score_from(x: u128) -> ElectionScore {
 	ElectionScore { minimal_stake: x, ..Default::default() }
 }
 
+fn max_fee_refund() -> Balance {
+	<Runtime as crate::signed::Config>::MaxFeeRefund::get()
+}
+
 mod calls {
 	use super::*;
 	use sp_runtime::{DispatchError, TokenError::FundsUnavailable};
@@ -213,6 +217,37 @@ mod calls {
 					reward: 3
 				}
 			);
+		});
+	}
+
+	#[test]
+	fn resubmitting_a_stored_page_does_not_accumulate_fee() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN a registered submitter with one page stored.
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+
+			let before = Submissions::<Runtime>::metadata_of(0, 99).unwrap();
+			assert_eq!(before.fee, 2);
+
+			// WHEN the same page is stored again.
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+
+			// THEN nothing in the metadata moves: no second fee for the same page, and the page
+			// count, hence the deposit, is the same.
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap(), before);
 		});
 	}
 
@@ -433,6 +468,62 @@ mod calls {
 				]
 			));
 		});
+	}
+}
+
+mod max_fee_refund {
+	use super::*;
+	use codec::Encode;
+	use frame_support::{dispatch::DispatchInfo, traits::EstimateFee};
+
+	/// A fee model that charges one unit per encoded byte, and nothing for weight.
+	pub struct PerByteFee;
+	impl EstimateFee<Balance> for PerByteFee {
+		fn estimate_fee(len: u32, _: &DispatchInfo) -> Balance {
+			len.into()
+		}
+	}
+
+	#[test]
+	fn is_what_a_full_submission_accrues() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// GIVEN a full submission, under a fee model that charges one unit per call.
+			load_signed_for_verification(99, mine_full_solution().unwrap());
+			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), Pages::get() as usize);
+
+			// THEN the bound is exactly what it accrued: one `register`, plus one call per page.
+			let accrued = Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee;
+			assert_eq!(accrued, 1 + Pages::get() as Balance);
+			assert_eq!(accrued, max_fee_refund());
+		})
+	}
+
+	#[test]
+	fn covers_the_length_of_a_real_submission() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// GIVEN the calls that a full submission is made of, priced by encoded length.
+			let paged = mine_full_solution().unwrap();
+			let mut submission_len =
+				crate::signed::Call::<Runtime>::register { claimed_score: paged.score }
+					.encoded_size();
+			for (page, solution) in paged.solution_pages.pagify(Pages::get()) {
+				submission_len += crate::signed::Call::<Runtime>::submit_page {
+					page,
+					maybe_solution: Some(Box::new(solution.clone())),
+				}
+				.encoded_size();
+			}
+
+			// THEN the bound covers it with room to spare: pages are priced at the maximum page
+			// size, not their actual size.
+			assert!(FullSubmissionFee::<Runtime, PerByteFee>::get() > submission_len as Balance);
+		})
 	}
 }
 
@@ -658,6 +749,49 @@ mod e2e {
 
 			// signed pallet should be in 100% clean state.
 			assert_ok!(Submissions::<Runtime>::ensure_killed(0));
+		})
+	}
+
+	#[test]
+	fn winner_fee_refund_is_bounded_by_max_fee_refund() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// GIVEN a full, valid solution, whose accrued fee is already at the bound.
+			let paged = mine_full_solution().unwrap();
+			load_signed_for_verification(99, paged.clone());
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee, max_fee_refund());
+
+			// WHEN further fee-paying calls are made against the same submission, leaving it
+			// unchanged.
+			let (page_index, page) = paged.solution_pages.pagify(Pages::get()).next().unwrap();
+			for _ in 0..3 {
+				assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), page_index, None));
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page_index,
+					Some(Box::new(page.clone()))
+				));
+			}
+			assert_eq!(Submissions::<Runtime>::pages_of(0, 99).count(), Pages::get() as usize);
+			assert_eq!(Submissions::<Runtime>::get_page_of(0, &99, page_index), Some(page.clone()));
+			assert!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee > max_fee_refund(),
+				"the bound must actually bind for this test to mean anything"
+			);
+			let _ = signed_events_since_last_call();
+
+			// THEN the winner is paid the reward plus the bound, not the accrued fee.
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+
+			assert_eq!(
+				signed_events_since_last_call(),
+				vec![SignedEvent::Rewarded(0, 99, SignedRewardBase::get() + max_fee_refund())]
+			);
+			// deposit released, and only the bounded refund minted on top of the reward.
+			assert_eq!(balances(99), (100 + SignedRewardBase::get() + max_fee_refund(), 0));
 		})
 	}
 
@@ -1413,6 +1547,53 @@ mod invulnerables {
 			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
 			// full deposit is returned + tx-fee
 			assert_eq!(balances(99), (101, 0));
+		})
+	}
+
+	#[test]
+	fn discarded_invulnerable_fee_refund_is_bounded_by_max_fee_refund() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// GIVEN an invulnerable with an accrued fee above the bound.
+			make_invulnerable(99);
+			roll_to_signed_open();
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			for _ in 0..6 {
+				assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(99), 0, None));
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					0,
+					Some(Default::default())
+				));
+			}
+			assert!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap().fee > max_fee_refund(),
+				"the bound must actually bind for this test to mean anything"
+			);
+
+			// a stronger solution wins the round, so 99 is discarded rather than rewarded.
+			load_signed_for_verification(98, mine_full_solution().unwrap());
+			roll_to_signed_validation_open();
+			roll_to_full_verification();
+			roll_to_done();
+			MultiBlock::rotate_round();
+			assert!(signed_events_since_last_call().contains(&Event::Rewarded(
+				0,
+				98,
+				SignedRewardBase::get() + max_fee_refund()
+			)));
+
+			// WHEN they clear their discarded submission.
+			assert_ok!(SignedPallet::clear_old_round_data(
+				RuntimeOrigin::signed(99),
+				0,
+				Pages::get()
+			));
+
+			// THEN they are discarded, their deposit is returned in full, and the fee refund is
+			// the bound.
+			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
+			assert_eq!(balances(99), (100 + max_fee_refund(), 0));
 		})
 	}
 

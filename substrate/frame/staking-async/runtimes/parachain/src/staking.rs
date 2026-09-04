@@ -320,6 +320,7 @@ impl multi_block::signed::Config for Runtime {
 	type DepositPerPage = DepositPerPage;
 	type InvulnerableDeposit = InvulnerableDeposit;
 	type RewardBase = RewardBase;
+	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, TransactionPayment>;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
 	type Slash = Dap;

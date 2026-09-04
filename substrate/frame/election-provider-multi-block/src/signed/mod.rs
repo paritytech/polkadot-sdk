@@ -34,13 +34,14 @@
 //!
 //! 1. **Rewarded**: If they are the first correct solution (and consequently the best one, since we
 //!    start evaluating from the best claim), they are rewarded. Rewarded solutions always get both
-//!    their deposit and transaction fee back.
+//!    their deposit and transaction fee back, the latter up to [`signed::Config::MaxFeeRefund`].
 //! 2. **Slashed**: Any invalid solution that wasted valuable blockchain time gets slashed for their
 //!    deposit.
 //! 3. **Discarded**: Any solution after the first correct solution is eligible to be peacefully
 //!    discarded. But, to delete their data, they have to call
-//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back. Their
-//!    tx-fee is not refunded.
+//!    [`signed::Call::clear_old_round_data`]. Once done, they get their full deposit back. Accounts
+//!    in [`signed::Invulnerables`] also get their tx-fee back, up to
+//!    [`signed::Config::MaxFeeRefund`]. Other submitters' tx-fees are not refunded.
 //!
 //! ## Future Plans:
 //!
@@ -59,7 +60,7 @@ use crate::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::PageIndex;
 use frame_support::{
-	dispatch::DispatchResultWithPostInfo,
+	dispatch::{DispatchResultWithPostInfo, GetDispatchInfo},
 	pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 	traits::{
 		tokens::{
@@ -69,6 +70,7 @@ use frame_support::{
 			Imbalance, Precision, Preservation,
 		},
 		Defensive, DefensiveSaturating, EstimateCallFee, OnUnbalanced,
+		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee,
 	},
 	BoundedVec, Twox64Concat,
 };
@@ -200,6 +202,16 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					// first, let's give them their reward.
 					let reward = metadata.reward.saturating_add(metadata.fee);
 					Self::pay_reward(current_round, &winner, reward);
+					let reward =
+						metadata.reward.saturating_add(metadata.fee.min(T::MaxFeeRefund::get()));
+					// TODO: no direct mint (https://github.com/paritytech/polkadot-sdk/issues/12813)
+					let _r = T::Currency::mint_into(&winner, reward);
+					debug_assert!(_r.is_ok());
+					Self::deposit_event(Event::<T>::Rewarded(
+						current_round,
+						winner.clone(),
+						reward,
+					));
 
 					// then, unreserve their deposit
 					let _res = T::Currency::release(
@@ -293,6 +305,31 @@ where
 
 	fn paid(amount: Balance) {
 		Currency::reactivate(amount);
+/// A [`Config::MaxFeeRefund`] that is the fee of a full submission: one [`Pallet::register`], plus
+/// [`crate::Config::Pages`] [`Pallet::submit_page`] calls, each carrying a maximum-size solution
+/// page.
+///
+/// `F` is the fee model of the runtime, typically `pallet_transaction_payment::Pallet`. This is
+/// derived from the same inputs the pallet accrues from, so it follows any change to the page
+/// count, the solution type, or the fee model.
+pub struct FullSubmissionFee<T, F>(PhantomData<(T, F)>);
+
+impl<T: Config, F: EstimateFee<BalanceOf<T>>> Get<BalanceOf<T>> for FullSubmissionFee<T, F> {
+	fn get() -> BalanceOf<T> {
+		// top the length up with the largest page that `maybe_solution` could have carried.
+		let page_call = Call::<T>::submit_page { page: 0, maybe_solution: None };
+		let page_len = page_call
+			.encoded_size()
+			.saturating_add(SolutionOf::<T::MinerConfig>::max_encoded_len());
+		let per_page = F::estimate_fee(page_len as u32, &page_call.get_dispatch_info());
+
+		let register_call = Call::<T>::register { claimed_score: Default::default() };
+		let register = F::estimate_fee(
+			register_call.encoded_size() as u32,
+			&register_call.get_dispatch_info(),
+		);
+
+		register.saturating_add(per_page.saturating_mul(T::Pages::get().into()))
 	}
 }
 
@@ -348,6 +385,16 @@ pub mod pallet {
 		/// Source account for reward payments. `Some(pot)` transfers from that account; `None`
 		/// mints directly into the winner's account.
 		type RewardSource: RewardSource<Self::AccountId, BalanceOf<Self>>;
+		/// Ceiling on the transaction fee that is refunded to a submitter.
+		///
+		/// Each call that stores part of a submission accrues its transaction fee. That total is
+		/// refunded to the winner on top of [`Config::RewardBase`], and to an invulnerable whose
+		/// submission is discarded. This ceiling keeps that refund bounded by config.
+		///
+		/// Should cover one [`Pallet::register`] plus [`crate::Config::Pages`]
+		/// [`Pallet::submit_page`] calls at the maximum encoded page size. A smaller value
+		/// under-refunds a submitter that stores all of their pages.
+		type MaxFeeRefund: Get<BalanceOf<Self>>;
 
 		/// Provided weights of this pallet.
 		type WeightInfo: WeightInfo;
@@ -369,7 +416,8 @@ pub mod pallet {
 	///   [`Config::InvulnerableDeposit`]. They pay no page deposit.
 	/// * If _ejected_ by better solution from [`SortedScores`], they will get their full deposit
 	///   back.
-	/// * They always get their tx-fee back even if they are _discarded_.
+	/// * They always get their tx-fee back even if they are _discarded_, up to
+	///   [`Config::MaxFeeRefund`].
 	#[pallet::storage]
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, ConstU32<16>>, ValueQuery>;
@@ -657,6 +705,8 @@ pub mod pallet {
 				SubmissionMetadataStorage::<T>::get(round, who).ok_or(Error::<T>::NotRegistered)?;
 			ensure!(page < T::Pages::get(), Error::<T>::BadPageIndex);
 
+			let was_set = metadata.pages.get(page as usize).copied().unwrap_or_default();
+
 			// defensive only: we resize `meta.pages` once to be `T::Pages` elements once, and never
 			// resize it again; `page` is checked here to be in bound; element must exist; qed.
 			if let Some(page_bit) = metadata.pages.get_mut(page as usize).defensive() {
@@ -684,8 +734,10 @@ pub mod pallet {
 
 			// If a page is being added, we record the fee as well. For removals, we ignore the fee
 			// as it is negligible, and we don't want to encourage anyone to submit and remove
-			// anyways. Note that fee is only refunded for the winner anyways.
-			if maybe_solution.is_some() {
+			// anyways. For pages that are already stored, we ignore it too: the refund covers the
+			// cost of storing a submission once. Note that fee is only refunded for the winner
+			// anyways.
+			if maybe_solution.is_some() && !was_set {
 				let fee = T::EstimateCallFee::estimate_call_fee(
 					&Call::submit_page { page, maybe_solution: maybe_solution.clone() },
 					None.into(),
@@ -1019,6 +1071,10 @@ pub mod pallet {
 			// maybe give back their fees
 			if Self::is_invulnerable(&discarded) {
 				Self::refund_fee(round, &discarded, metadata.fee);
+				let refund = metadata.fee.min(T::MaxFeeRefund::get());
+				// TODO: no direct mint (https://github.com/paritytech/polkadot-sdk/issues/12813)
+				let _r = T::Currency::mint_into(&discarded, refund);
+				debug_assert!(_r.is_ok());
 			}
 
 			Self::deposit_event(Event::<T>::Discarded(round, discarded));

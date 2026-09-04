@@ -42,6 +42,8 @@ parameter_types! {
 	pub const LeftAsset: Either<(), u32> = Either::Left(());
 	pub const RightAsset: Either<u32, ()> = Either::Right(());
 	pub const RightUnitAsset: Either<(), ()> = Either::Right(());
+	pub const LeftFirstAsset: Either<u32, ()> = Either::Left(FIRST_ASSET);
+	pub const RightFirstAsset: Either<(), u32> = Either::Right(FIRST_ASSET);
 }
 
 /// Implementation of the `fungible` traits through the [`ItemOf`] type, specifically for a
@@ -72,6 +74,16 @@ type LeftFungibles<T> = fungibles::UnionOf<RightFungible<T>, T, ConvertToValue<L
 /// [`fungibles::UnionOf`], and [`ItemOf`] to access the underlying `fungibles::*`
 /// implementation provided by the pallet.
 type First<T> = fungibles::UnionOf<T, LeftFungibles<T>, ConvertToValue<RightAsset>, (), u64>;
+
+/// Implementation of `fungibles` traits using [`fungibles::UnionOf`] that resolves every asset to
+/// [`FIRST_ASSET`] of the pallet on the left.
+type FirstFromLeft<T> =
+	fungibles::UnionOf<T, LeftFungibles<T>, ConvertToValue<LeftFirstAsset>, (), u64>;
+
+/// Implementation of `fungibles` traits using [`fungibles::UnionOf`] that resolves every asset to
+/// [`FIRST_ASSET`] of the pallet on the right.
+type FirstFromRight<T> =
+	fungibles::UnionOf<RightFungible<T>, T, ConvertToValue<RightFirstAsset>, (), u64>;
 
 #[test]
 fn deposit_from_set_types_works() {
@@ -354,5 +366,29 @@ fn withdraw_from_set_types_works() {
 		assert_eq!(First::<Assets>::balance((), &account2), 50);
 
 		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
+	});
+}
+
+#[test]
+fn is_sufficient_from_set_types_works() {
+	new_test_ext().execute_with(|| {
+		let account1 = 1;
+
+		// An asset unknown to the pallet reports `false` through the unions.
+		assert!(!FirstFromLeft::<Assets>::is_sufficient(()));
+		assert!(!FirstFromRight::<Assets>::is_sufficient(()));
+
+		assert_ok!(<Assets as FungiblesCreate<u64>>::create(FIRST_ASSET, account1, true, 1));
+		assert!(<Assets as FungiblesInspect<u64>>::is_sufficient(FIRST_ASSET));
+
+		// Sufficiency of the underlying asset is forwarded through both branches of
+		// [`fungibles::UnionOf`].
+		assert!(FirstFromLeft::<Assets>::is_sufficient(()));
+		assert!(FirstFromRight::<Assets>::is_sufficient(()));
+
+		// The left (`fungible`) branch of [`fungible::UnionOf`] carries no sufficiency
+		// information, so the chain through `First` conservatively reports `false` even
+		// though the underlying asset is sufficient.
+		assert!(!First::<Assets>::is_sufficient(()));
 	});
 }

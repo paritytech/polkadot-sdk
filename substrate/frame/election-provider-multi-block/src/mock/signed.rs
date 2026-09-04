@@ -32,6 +32,9 @@ use frame_support::{
 		fungible::{Balanced, Credit},
 		EstimateCallFee, OnUnbalanced,
 	},
+	dispatch::{DispatchInfo, PostDispatchInfo},
+	parameter_types,
+	traits::{EstimateCallFee, EstimateFee},
 };
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{traits::Zero, Perbill};
@@ -71,6 +74,11 @@ impl EstimateCallFee<signed_pallet::Call<Runtime>, Balance> for FixedCallFee {
 		1
 	}
 }
+impl EstimateFee<Balance> for FixedCallFee {
+	fn estimate_fee(_: u32, _: &DispatchInfo) -> Balance {
+		1
+	}
+}
 
 parameter_types! {
 	pub static SignedDepositBase: Balance = 5;
@@ -102,6 +110,7 @@ impl crate::signed::Config for Runtime {
 	type DepositPerPage = SignedDepositPerPage;
 	type InvulnerableDeposit = InvulnerableDeposit;
 	type EstimateCallFee = FixedCallFee;
+	type MaxFeeRefund = crate::signed::FullSubmissionFee<Runtime, FixedCallFee>;
 	type MaxSubmissions = SignedMaxSubmissions;
 	type RewardBase = SignedRewardBase;
 	type BailoutGraceRatio = BailoutGraceRatio;
