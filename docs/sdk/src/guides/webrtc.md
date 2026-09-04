@@ -45,6 +45,20 @@ At startup the node logs `WebRTC certhash: uEi...`. The `system_localListenAddre
 lists the WebRTC listen addresses with the certhash and peer ID appended, e.g.
 `/ip4/10.0.0.1/udp/30333/webrtc-direct/certhash/uEi.../p2p/12D3Koo...`.
 
+You can probe the port forwarding from the outside using a STUN binding request:
+
+```sh
+HOST=203.0.113.1
+PORT=30333
+echo 000100382112a4427765627274635f70726f62650006000b70726f62653a70726f6265000024 \
+     00047e0004ff00080014476a2f17c8dcec9c701b44b6960ab7818517ed0380280004ca66c339 \
+  | xxd -r -p | nc -u -w2 $HOST $PORT | head -c 20 | xxd -p \
+  | grep -Eq '^0101....2112a4427765627274635f70726f6265$' && echo "WebRTC reachable"
+```
+
+The pattern matches a STUN success response with the correct transaction ID, so the message is
+printed only if the packet made it there and back. No output means the UDP port is not reachable.
+
 ## Bootnodes in the Chainspec
 
 For light clients to bootstrap over WebRTC, network operators need to add the bootnodes' WebRTC
