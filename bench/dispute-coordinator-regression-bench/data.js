@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788471986465,
+  "lastUpdate": 1788517134902,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "5588131+kianenigma@users.noreply.github.com",
-            "name": "Kian Paimani",
-            "username": "kianenigma"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "89669b38344e4378581c34b7833d109e3ad477a5",
-          "message": "Remove unused code in staking-async (#10842)\n\n- remove the `reward-fn` from `pallet-staking-async`. This crate is no\nlonger needed.\n- rename `ahm-test` to `integration-tests`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-04T11:34:00Z",
-          "tree_id": "a8b5a9abec24dd000c1670c0722bf883b0ecf7a6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/89669b38344e4378581c34b7833d109e3ad477a5"
-        },
-        "date": 1770208924749,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009488550179999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006764339799999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027173619299999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010254013199999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55137770+JasonColapietro@users.noreply.github.com",
+            "name": "Jason Colapietro",
+            "username": "JasonColapietro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2aa08d3336790474a90221573cd8eea214bc6796",
+          "message": "fix(rpc): release capacity after registration failure (#12853)\n\nFixes #12787.\n\n## Summary\n\nKeep a reserved RPC connection owned by `ReservedConnection` until\nidentifier registration succeeds. If registration rejects a duplicate\nidentifier, `Drop` now releases the reserved capacity instead of leaking\nit.\n\nThe regression test reserves capacity, triggers duplicate registration,\nand verifies that another reservation can still use the released slot.\n\n## Testing\n\n- `rustfmt` on the changed source\n- isolated crate harness including `connections.rs`: 3 unit tests and\ndoc tests pass\n\nA schema-validated `prdoc/stable2606/pr_12853.prdoc` entry is included\nwith a patch bump for `sc-rpc-spec-v2`.\n\n---------\n\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-04T08:14:03Z",
+          "tree_id": "5a40e85882d67bff18bae91702efb6aa123bec99",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2aa08d3336790474a90221573cd8eea214bc6796"
+        },
+        "date": 1788517098046,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009891331120000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025788439900000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009332470159999972,
             "unit": "seconds"
           }
         ]
