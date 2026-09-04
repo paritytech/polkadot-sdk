@@ -24,7 +24,7 @@ use frame_support::{
 };
 use pallet_registrar_para::{HoldReason, RegistrationState};
 use para::{Balances, Runtime};
-use polkadot_primitives::ValidationCode;
+use polkadot_primitives::{HeadData, ValidationCode};
 use registrar_primitives::{FailureReason, MessageToRelay, MessageToRelayV1};
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use xcm_simulator::TestExt;
@@ -113,6 +113,38 @@ type RegistrationTicket = <Runtime as pallet_registrar_para::Config>::Registrati
 
 fn para_state(para_id: u32) -> Option<RegistrationState<RegistrationTicket, u64>> {
 	pallet_registrar_para::Paras::<para::Runtime>::get(para_id).map(|info| info.state)
+}
+
+/// Take `who` all the way to a registered para with `head(32)`, returning its id.
+fn registered_para(who: AccountId32) -> u32 {
+	Relay::execute_with(|| relay::run_to_session(1));
+	let para_id = reserve(who.clone());
+	let blob = request_registration(who, para_id, 32, 64);
+	Relay::execute_with(|| {
+		assert_ok!(submit_code(para_id, blob.clone()));
+		let session =
+			polkadot_runtime_parachains::shared::CurrentSessionIndex::<relay::Runtime>::get();
+		relay::conclude_pvf_checking(&ValidationCode(blob), session);
+		relay::run_to_session(3);
+	});
+	para_id
+}
+
+/// The head the relay chain holds for `para_id`.
+fn relay_head(para_id: u32) -> Option<HeadData> {
+	polkadot_runtime_parachains::paras::Heads::<relay::Runtime>::get(polkadot_primitives::Id::from(
+		para_id,
+	))
+}
+
+fn para_events() -> Vec<pallet_registrar_para::Event<para::Runtime>> {
+	para::System::events()
+		.into_iter()
+		.filter_map(|e| match e.event {
+			para::RuntimeEvent::Registrar(inner) => Some(inner),
+			_ => None,
+		})
+		.collect()
 }
 
 #[test]
@@ -327,6 +359,62 @@ fn the_relay_chain_refuses_a_blob_that_is_not_the_one_that_was_paid_for() {
 
 	RegistrarPara::execute_with(|| {
 		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
+	});
+}
+
+#[test]
+fn a_head_update_travels_to_the_relay_chain_and_lands_in_paras() {
+	MockNet::reset();
+
+	let para_id = registered_para(ALICE);
+	Relay::execute_with(|| assert_eq!(relay_head(para_id), Some(HeadData(head(32)))));
+
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::set_current_head(
+			para::RuntimeOrigin::signed(ALICE),
+			para_id,
+			head(64)
+		));
+	});
+
+	Relay::execute_with(|| assert_eq!(relay_head(para_id), Some(HeadData(head(64)))));
+
+	// Registration was message 0, so the head update is message 1.
+	RegistrarPara::execute_with(|| {
+		assert!(para_events()
+			.contains(&pallet_registrar_para::Event::HeadUpdated { para_id, message_id: 1 }));
+	});
+}
+
+#[test]
+fn a_head_update_the_relay_chain_refuses_is_reported_back() {
+	MockNet::reset();
+
+	let para_id = registered_para(ALICE);
+
+	// The parachain's mirror of the limit has drifted from the relay chain's live one.
+	Relay::execute_with(|| {
+		polkadot_runtime_parachains::configuration::ActiveConfig::<relay::Runtime>::mutate(|c| {
+			c.max_head_data_size = 16
+		});
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::set_current_head(
+			para::RuntimeOrigin::signed(ALICE),
+			para_id,
+			head(64)
+		));
+	});
+
+	Relay::execute_with(|| assert_eq!(relay_head(para_id), Some(HeadData(head(32)))));
+
+	RegistrarPara::execute_with(|| {
+		assert!(para_events().contains(&pallet_registrar_para::Event::HeadUpdateFailed {
+			para_id,
+			message_id: 1,
+			reason: FailureReason::HeadDataTooLarge,
+		}));
 	});
 }
 
