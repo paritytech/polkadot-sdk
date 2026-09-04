@@ -1,0 +1,12 @@
+title: '`pallet-broker`: reject duplicate auto-renewal for a core'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `do_enable_auto_renew` computed the insertion index with `binary_search_by(..).unwrap_or_else(|e| e)`, which collapses the "already present" (`Ok`) and "not present" (`Err`) cases into the same position and then calls `try_insert`. Enabling auto-renewal twice for the same core inserted a duplicate `AutoRenewalRecord`, breaking the sorted-unique invariant documented on the `AutoRenewals` storage. The `workload_end_hint` branch only reads `PotentialRenewals` (it does not consume the record), so the preconditions pass on every call and the path is user-reachable.
+
+    Duplicate entries cause `rotate_sale`/`renew_cores` to renew and charge the payer once per duplicate, consume the `MaxAutoRenewals` bound with spurious records, and leave orphans after `disable_auto_renew` (which removes a single position).
+
+    A second enable for an already-enrolled core now returns the new `AutoRenewalAlreadyEnabled` error.
+crates:
+- name: pallet-broker
+  bump: major

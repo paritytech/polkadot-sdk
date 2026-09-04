@@ -585,21 +585,24 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::NotAllowed.into());
 		}
 
-		// We are sorting auto renewals by `CoreIndex`.
-		AutoRenewals::<T>::try_mutate(|renewals| {
-			let pos = renewals
-				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
-				.unwrap_or_else(|e| e);
-			renewals.try_insert(
-				pos,
-				AutoRenewalRecord {
-					core,
-					task,
-					next_renewal: workload_end_hint.unwrap_or(sale.region_end),
-				},
-			)
-		})
-		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+		// Auto renewals are kept sorted by and unique per `CoreIndex`.
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			let pos = match renewals.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core)) {
+				Ok(_) => return Err(Error::<T>::AutoRenewalAlreadyEnabled.into()),
+				Err(pos) => pos,
+			};
+			renewals
+				.try_insert(
+					pos,
+					AutoRenewalRecord {
+						core,
+						task,
+						next_renewal: workload_end_hint.unwrap_or(sale.region_end),
+					},
+				)
+				.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+			Ok(())
+		})?;
 
 		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
 		Ok(())

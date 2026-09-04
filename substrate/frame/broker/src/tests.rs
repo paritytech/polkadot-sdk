@@ -2198,6 +2198,30 @@ fn enable_auto_renew_works() {
 }
 
 #[test]
+fn enable_auto_renew_twice_is_rejected() {
+	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 5));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+
+		// First enable succeeds via the `workload_end_hint` branch.
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(7)));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: region_id.core, task: 1001, next_renewal: 7 }]
+		);
+
+		// Enabling again for the same core is rejected instead of inserting a duplicate.
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(7)),
+			Error::<Test>::AutoRenewalAlreadyEnabled
+		);
+		assert_eq!(AutoRenewals::<Test>::get().len(), 1);
+	});
+}
+
+#[test]
 fn enable_auto_renewal_works_for_legacy_leases() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		// With this test, we ensure that we don't renew unnecessarily if the task has Coretime
