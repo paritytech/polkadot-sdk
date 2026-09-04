@@ -390,6 +390,41 @@ impl SubstrateCli for TestCollatorCli {
 					Some(ParaId::from(2800)),
 				)
 			},
+			"elastic-scaling-rpo" => {
+				tracing::info!("Using elastic scaling (V2) with relay parent offset chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_rpo::WASM_BINARY,
+					Some(ParaId::from(2900)),
+				)
+			},
+			"elastic-scaling-rpo-1" => {
+				tracing::info!("Using elastic scaling (V2) with relay parent offset 1 chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_rpo_1::WASM_BINARY,
+					Some(ParaId::from(2900)),
+				)
+			},
+			"elastic-scaling-v3-rpo" => {
+				tracing::info!("Using elastic scaling V3 with relay parent offset chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::elastic_scaling_v3_rpo::WASM_BINARY,
+					Some(ParaId::from(2900)),
+				)
+			},
+			"block-bundling-v3" => {
+				tracing::info!("Using block-bundling V3 (no relay parent offset) chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::block_bundling_v3::WASM_BINARY,
+					Some(ParaId::from(3000)),
+				)
+			},
+			"block-bundling-v3-rpo" => {
+				tracing::info!("Using block-bundling V3 with relay parent offset chain spec.");
+				cumulus_test_service::get_chain_spec(
+					cumulus_test_runtime::block_bundling_v3_rpo::WASM_BINARY,
+					Some(ParaId::from(3000)),
+				)
+			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;

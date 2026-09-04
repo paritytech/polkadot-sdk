@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{resubmission::resolve_session, CollatorMessage};
+use super::{
+	resubmission::{build_v3_scheduling_proof, resolve_session},
+	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
+};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -23,7 +26,7 @@ use crate::{
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
 			scheduling::SchedulingInfo,
-			slot_timer::{SlotInfo, SlotTimer},
+			slot_timer::{SlotInfo, SlotTime, SlotTimer},
 		},
 		BackingGroupConnectionHelper, RelayHash, RelayParentData,
 	},
@@ -40,12 +43,13 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
-	TargetBlockRate,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingV3EnabledApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
+use polkadot_primitives::{
+	ApprovedPeerId, Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -69,7 +73,8 @@ use sp_trie::{
 	recorder::IgnoredNodes,
 };
 use std::{
-	collections::VecDeque,
+	collections::{HashMap, VecDeque},
+	marker::PhantomData,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -192,12 +197,13 @@ async fn derive_relay_context<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
+	slot: &Slot,
 ) -> Option<(RelayHeader, bool, RelayParentData)>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
 	let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled)
+		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, slot_time.slot())
 		.await
 	else {
 		tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
@@ -227,85 +233,482 @@ where
 	Some((scheduling_parent_header, v3_enabled, relay_parent_data))
 }
 
-/// Derive the [`BuildingPrerequisites`] for the current slot. `None` means the slot is skipped.
+/// Fork from the included head once the relay parent of the parablock we'd build on lags the
+/// scheduling parent by more than this many relay blocks past the relay parent offset (a healthy
+/// segment already trails by the offset). Deliberately large: forking is a last-resort rescue
+/// (e.g. a lost proof), and the chance of needing it is very low.
 ///
-/// The relay chain context follows the [`SchedulingParams`] of the runtime that executes the block,
-/// which is only known once the parent is settled. So the first phase derives the context from the
-/// para best head in order to run the parent search, and the second re-derives it from the chosen
-/// parent whenever the two disagree, keeping the parent the first phase settled on.
-async fn derive_building_prerequisites<Block, Client, Backend, RelayClient>(
-	para_client: &Client,
-	para_backend: &Backend,
-	relay_client: &RelayClient,
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	scheduling_info: &mut SchedulingInfo<RelayClient>,
+/// TODO: a raw relay-block gap also triggers on a voluntary pause (cores unassigned and later
+/// re-assigned), forking away a still-resubmittable segment. Accumulating the gap only while the
+/// para is scheduled would avoid that. It is a niche case though: what matters for parachains that
+/// plan to disturb the chain this way is that building cleanly resumes, even if some txs are lost.
+const MAX_RELAY_GAP_BEFORE_FORK: u32 = 1200;
+
+/// Pick the parent to build on and the unincluded segment to re-advertise: the deepest parent
+/// from the search with its segment, or — when the parent's relay parent lags the scheduling
+/// parent by more than [`MAX_RELAY_GAP_BEFORE_FORK`] plus the relay parent offset — the included
+/// head with an empty segment (a fork abandons the stuck segment), as a stall recovery. Sibling
+/// forks from different collators are arbitrated by the relay chain: once one fork block is
+/// backed, pending-availability anchoring pulls every collator onto it.
+fn select_build_parent_and_segment<Block: BlockT>(
+	parent_search_result: &consensus_common::ParentSearchResult<Block>,
+	scheduling_parent_number: u32,
+	relay_parent_offset: u32,
+	v3_enabled: bool,
+) -> (Block::Header, Vec<Block::Header>) {
+	let build_parent = parent_search_result.best_parent_header();
+	let build_parent_relay_parent =
+		cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
+			build_parent.digest(),
+		)
+		.map(|(_, number)| number);
+	let max_gap = relay_parent_offset.saturating_add(MAX_RELAY_GAP_BEFORE_FORK);
+	let fork = v3_enabled
+		&& build_parent_relay_parent
+			.is_some_and(|rp| scheduling_parent_number.saturating_sub(rp) > max_gap);
+
+	if fork {
+		let included = parent_search_result.included_at_scheduling();
+		tracing::debug!(
+			target: LOG_TARGET,
+			included_number = %included.number(),
+			build_parent_number = %build_parent.number(),
+			max_gap,
+			"Build parent relay parent lags scheduling parent; forking from included head.",
+		);
+		(included.clone(), Vec::new())
+	} else {
+		(
+			build_parent.clone(),
+			parent_search_result
+				.resubmittable_ancestry()
+				.map(|s| s.to_vec())
+				.unwrap_or_default(),
+		)
+	}
+}
+
+/// Environment shared by the block-builder phases; groups the clients, caches, and per-task
+/// state so phase helpers don't re-declare the task's generics.
+struct BuilderEnv<Block: BlockT, P, Client, Backend, RelayClient: RelayChainInterface + Clone> {
+	para_client: Arc<Client>,
+	para_backend: Arc<Backend>,
+	relay_client: RelayClient,
+	keystore: KeystorePtr,
 	para_id: ParaId,
-) -> Option<BuildingPrerequisites<Block>>
+	relay_chain_slot_duration: Duration,
+	slot_offset: Duration,
+	max_pov_percentage: Option<u32>,
+	slot_timer: SlotTimer,
+	relay_chain_data_cache: RelayChainDataCache<RelayClient>,
+	scheduling_info: SchedulingInfo<RelayClient>,
+	connection_helper: BackingGroupConnectionHelper,
+	_phantom: PhantomData<fn() -> (Block, P)>,
+}
+
+/// Everything resolved for one slot iteration, up to a successful slot claim.
+struct SlotContext<Block: BlockT, Pub> {
+	v3_enabled: bool,
+	scheduling_parent_header: RelayHeader,
+	relay_parent_offset: u32,
+	relay_parent_data: RelayParentData,
+	relay_parent_header: RelayHeader,
+	relay_parent_hash: RelayHash,
+	unincluded_headers: Vec<Block::Header>,
+	included_hash_at_execution: Block::Hash,
+	initial_parent_header: Block::Header,
+	initial_parent_hash: Block::Hash,
+	para_slot_duration: SlotDuration,
+	para_slot: SlotInfo,
+	max_pov_size: u32,
+	allowed_pov_size: usize,
+	relay_slot: Slot,
+	slot_claim: SlotClaim<Pub>,
+}
+
+/// The core/blocks plan for one slot: scheduled cores, per-core block counts, and the per-core
+/// buckets of unincluded headers to resubmit.
+struct CorePlan<Block: BlockT> {
+	cores: Cores,
+	blocks_per_cores: Vec<u32>,
+	number_of_blocks: u32,
+	block_time: Duration,
+	per_selector_unincluded_headers: HashMap<u32, Vec<Block::Header>>,
+}
+
+impl<Block, P, Client, Backend, RelayClient> BuilderEnv<Block, P, Client, Backend, RelayClient>
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-	Client::Api: SchedulingV3EnabledApi<Block> + RelayParentOffsetApi<Block> + ApiExt<Block>,
-	Backend: sc_client_api::Backend<Block>,
-	RelayClient: RelayChainInterface + 'static,
+	Client: ProvideRuntimeApi<Block>
+		+ UsageProvider<Block>
+		+ BlockOf
+		+ AuxStore
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ Send
+		+ Sync
+		+ 'static,
+	Client::Api: AuraApi<Block, P::Public>
+		+ RelayParentOffsetApi<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ TargetBlockRate<Block>
+		+ BlockBuilder<Block>
+		+ cumulus_primitives_core::KeyToIncludeInRelayProof<Block>
+		+ SchedulingV3EnabledApi<Block>,
+	Backend: sc_client_api::Backend<Block> + 'static,
+	RelayClient: RelayChainInterface + Clone + 'static,
+	P: Pair + Send + Sync + 'static,
+	P::Public: AppPublic + Member + Codec,
+	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	let best_hash = para_client.info().best_hash;
-	let best_params = scheduling_params_at(para_client, best_hash);
+	/// Derive the [`BuildingPrerequisites`] for the current slot. `None` means the slot is skipped.
+	///
+	/// The relay chain context follows the [`SchedulingParams`] of the runtime that executes the
+	/// block, which is only known once the parent is settled. So the first phase derives the
+	/// context from the para best head in order to run the parent search, and the second
+	/// re-derives it from the chosen parent whenever the two disagree, keeping the parent the
+	/// first phase settled on.
+	async fn building_prerequisites(&mut self, slot: Slot) -> Option<BuildingPrerequisites<Block>> {
+		let best_hash = self.para_client.info().best_hash;
+		let best_params = scheduling_params_at(&*self.para_client, best_hash);
 
-	let (scheduling_parent_header, v3_enabled, relay_parent_data) =
-		derive_relay_context(relay_client, relay_chain_data_cache, scheduling_info, best_params)
-			.await?;
+		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+			&self.relay_client,
+			&mut self.relay_chain_data_cache,
+			&mut self.scheduling_info,
+			best_params,
+			slot,
+		)
+		.await?;
 
-	let parent_search_params = if v3_enabled {
-		ParentSearchParams::V3 { scheduling_parent: scheduling_parent_header.hash() }
-	} else {
-		ParentSearchParams::V2 { scheduling_parent: relay_parent_data.relay_parent().hash() }
-	};
-	let parent_search_result = crate::collators::find_parent(
-		relay_client,
-		para_backend,
-		para_id,
-		parent_search_params,
-		|parent| {
-			// We never want to build on any "middle block" that isn't the last block in
-			// a core.
-			// When the digest item doesn't exist, we are running in compatibility
-			// mode and all parents are valid.
-			CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
-		},
-	)
-	.await?;
+		let parent_search_params = if v3_enabled {
+			ParentSearchParams::V3 { scheduling_parent: scheduling_parent_header.hash() }
+		} else {
+			ParentSearchParams::V2 { scheduling_parent: relay_parent_data.relay_parent().hash() }
+		};
+		let parent_search_result = crate::collators::find_parent(
+			&self.relay_client,
+			&*self.para_backend,
+			self.para_id,
+			parent_search_params,
+			|parent| {
+				// Never build on a "middle block" that isn't the last block in a core. Without the
+				// digest we run in compatibility mode and all parents are valid.
+				CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
+			},
+		)
+		.await?;
 
-	let build_parent_hash = parent_search_result.best_parent_header.hash();
-	let build_params = scheduling_params_at(para_client, build_parent_hash);
-	if build_parent_hash == best_hash || build_params == best_params {
-		return Some(BuildingPrerequisites {
+		let build_parent_hash = parent_search_result.best_parent_header().hash();
+		let build_params = scheduling_params_at(&*self.para_client, build_parent_hash);
+		if build_parent_hash == best_hash || build_params == best_params {
+			return Some(BuildingPrerequisites {
+				scheduling_parent_header,
+				v3_enabled,
+				relay_parent_offset: best_params.relay_parent_offset,
+				relay_parent_data,
+				parent_search_result,
+			});
+		}
+
+		tracing::info!(
+			target: LOG_TARGET,
+			best = ?best_hash,
+			?build_parent_hash,
+			"Build parent's runtime disagrees with the para best's, re-deriving the relay chain \
+			context from the build parent.",
+		);
+
+		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+			&self.relay_client,
+			&mut self.relay_chain_data_cache,
+			&mut self.scheduling_info,
+			build_params,
+			slot,
+		)
+		.await?;
+
+		Some(BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
-			relay_parent_offset: best_params.relay_parent_offset,
+			relay_parent_offset: build_params.relay_parent_offset,
 			relay_parent_data,
 			parent_search_result,
-		});
+		})
 	}
 
-	tracing::info!(
-		target: LOG_TARGET,
-		best = ?best_hash,
-		?build_parent_hash,
-		"Build parent's runtime disagrees with the para best's, re-deriving the relay chain \
-		context from the build parent.",
-	);
+	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
+	/// Returns `None` when this slot should be skipped.
+	async fn prepare_slot(
+		&mut self,
+		slot: Slot,
+	) -> Option<SlotContext<Block, P::Public>> {
+		// The relay chain context and the parent to build on. Reads the scheduling parameters from
+		// the runtime that will execute the block, so unlike a plain read at the para best head
+		// this stays correct when a runtime upgrade rides in on an unincluded candidate.
+		let BuildingPrerequisites {
+			scheduling_parent_header,
+			v3_enabled,
+			relay_parent_offset,
+			relay_parent_data,
+			parent_search_result,
+		} = self.building_prerequisites(slot).await?;
 
-	let (scheduling_parent_header, v3_enabled, relay_parent_data) =
-		derive_relay_context(relay_client, relay_chain_data_cache, scheduling_info, build_params)
-			.await?;
+		// Set after the derive: a context re-derived from the build parent's runtime can flip
+		// `v3_enabled`, and the timer offset must follow the final value.
+		self.slot_timer.set_offset_by_scheduling_version(v3_enabled, self.slot_offset);
 
-	Some(BuildingPrerequisites {
-		scheduling_parent_header,
-		v3_enabled,
-		relay_parent_offset: build_params.relay_parent_offset,
-		relay_parent_data,
-		parent_search_result,
-	})
+		let relay_parent_header = relay_parent_data.relay_parent().clone();
+		let relay_parent_hash = relay_parent_header.hash();
+
+		// The included header at the relay parent, used for the unincluded-segment length checks —
+		// mirroring the runtime's checks in the `set_validation_data` inherent.
+		let included_header_at_execution = match v3_enabled {
+			false => parent_search_result.included_at_scheduling().clone(),
+			true => match fetch_included_from_relay_chain(
+				&self.relay_client,
+				&*self.para_backend,
+				relay_parent_hash,
+				self.para_id,
+			)
+			.await
+			{
+				Ok(Some((header, _))) => header,
+				Ok(None) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Failed to fetch the included header at execution from the relay chain."
+					);
+					return None;
+				},
+				Err(error) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						?error,
+						"Failed to fetch the included header at execution from the relay chain."
+					);
+					return None;
+				},
+			},
+		};
+		let (initial_parent_header, unincluded_headers) = select_build_parent_and_segment(
+			&parent_search_result,
+			scheduling_parent_header.number,
+			relay_parent_offset,
+			v3_enabled,
+		);
+		let initial_parent_hash = initial_parent_header.hash();
+		let unincluded_segment_len_at_execution = initial_parent_header
+			.number()
+			.saturating_sub(*included_header_at_execution.number());
+
+		let Ok(para_slot_duration) =
+			crate::slot_duration_at(&*self.para_client, initial_parent_hash)
+		else {
+			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
+			return None;
+		};
+
+		// Use the slot calculated from the relay parent.
+		let para_slot = adjust_para_to_relay_parent_slot(
+			relay_parent_data.relay_parent(),
+			self.relay_chain_slot_duration,
+			para_slot_duration,
+		)?;
+
+		let max_pov_size = self
+			.relay_chain_data_cache
+			.get_by_hash(relay_parent_hash)
+			.await
+			.map(|d| d.max_pov_size)
+			.ok()?;
+
+		let allowed_pov_size = if let Some(max_pov_percentage) = self.max_pov_percentage {
+			max_pov_size * max_pov_percentage / 100
+		} else {
+			// 85% of the maximum PoV size; remove once
+			// https://github.com/paritytech/polkadot-sdk/issues/6020 is fixed.
+			max_pov_size * 85 / 100
+		} as usize;
+
+		let relay_slot = get_relay_slot(&relay_parent_header)?;
+
+		let included_hash_at_execution = included_header_at_execution.hash();
+
+		if let Ok(authorities) =
+			onchain_runtime_api(&*self.para_client).authorities(initial_parent_hash)
+		{
+			self.connection_helper.update::<P>(para_slot.slot, &authorities).await;
+		}
+
+		let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
+			para_slot.slot,
+			para_slot.timestamp,
+			initial_parent_hash,
+			&*self.para_client,
+			&self.keystore,
+		)
+		.await
+		else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?unincluded_segment_len_at_execution,
+				relay_parent = ?relay_parent_hash,
+				relay_parent_num = %relay_parent_header.number(),
+				?included_hash_at_execution,
+				included_num_at_execution = %included_header_at_execution.number(),
+				initial_parent = ?initial_parent_hash,
+				slot = ?para_slot.slot,
+				"Not eligible to claim slot."
+			);
+			return None;
+		};
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			?unincluded_segment_len_at_execution,
+			relay_parent = ?relay_parent_hash,
+			relay_parent_num = %relay_parent_header.number(),
+			relay_parent_offset,
+			?included_hash_at_execution,
+			included_num_at_execution = %included_header_at_execution.number(),
+			initial_parent = ?initial_parent_hash,
+			slot = ?para_slot.slot,
+			"Claiming slot."
+		);
+
+		Some(SlotContext {
+			v3_enabled,
+			scheduling_parent_header,
+			relay_parent_offset,
+			relay_parent_data,
+			relay_parent_header,
+			relay_parent_hash,
+			unincluded_headers,
+			included_hash_at_execution,
+			initial_parent_header,
+			initial_parent_hash,
+			para_slot_duration,
+			para_slot,
+			max_pov_size,
+			allowed_pov_size,
+			relay_slot,
+			slot_claim,
+		})
+	}
+
+	/// Resolve the claim queue and plan this slot's core usage: which cores, how many blocks per
+	/// core, and the per-core buckets of unincluded headers to resubmit. `Ok(None)` skips the
+	/// slot, `Err(())` is fatal.
+	async fn plan_cores(
+		&mut self,
+		cx: &SlotContext<Block, P::Public>,
+	) -> Result<Option<CorePlan<Block>>, ()> {
+		// V3: look up at scheduling_parent (fresh RC tip); the offset is max_claim_queue_offset
+		// since the claim queue is already at the tip. V1/V2: look up at relay_parent, which is
+		// relay_parent_offset blocks behind the tip, so the offset compensates for that.
+		let maybe_max_claim_queue_offset = onchain_runtime_api(&*self.para_client)
+			.max_claim_queue_offset(cx.initial_parent_hash)
+			.map(|offset| offset as u32);
+		let (claim_queue_relay_block, claim_queue_offset) = if cx.v3_enabled {
+			(&cx.scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(2))
+		} else {
+			// `max_claim_queue_offset` defaults to `0` for backwards compatibility when the
+			// runtime API is not implemented.
+			let total_offset = cx.relay_parent_offset + maybe_max_claim_queue_offset.unwrap_or(0);
+			(&cx.relay_parent_header, total_offset)
+		};
+		let mut cores = match determine_cores(
+			&mut self.relay_chain_data_cache,
+			claim_queue_relay_block,
+			self.para_id,
+			claim_queue_offset,
+		)
+		.await
+		{
+			Ok(Some(core)) => core,
+			Ok(None) => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?cx.relay_parent_hash,
+					"No cores scheduled."
+				);
+				return Ok(None);
+			},
+			Err(()) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					relay_parent = ?cx.relay_parent_hash,
+					"Failed to determine cores."
+				);
+				return Err(());
+			},
+		};
+
+		let number_of_blocks =
+			match self.para_client.runtime_api().target_block_rate(cx.initial_parent_hash) {
+				Ok(interval) => interval,
+				Err(error) => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						block = ?cx.initial_parent_hash,
+						?error,
+						"Failed to fetch `slot_schedule`, assuming one block per core"
+					);
+
+					// Backwards compatible we use the number of cores as number of blocks.
+					cores.total_cores()
+				},
+			};
+
+		// In total we want to have at max `number_of_blocks` cores to use.
+		cores.truncate_cores(number_of_blocks);
+		let raw_blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
+		let left_over_blocks = number_of_blocks % cores.total_cores();
+		let blocks_per_cores = (0..cores.total_cores())
+			.map(|i| {
+				// We distribute the left over blocks across the cores.
+				raw_blocks_per_core + u32::from(i < left_over_blocks)
+			})
+			.collect::<Vec<_>>();
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			?blocks_per_cores,
+			core_indices = ?cores.core_indices(),
+			"Core configuration",
+		);
+
+		// Core affinity serves two purposes: spread resubmission work over the assigned cores
+		// instead of piling it on one, and keep each unincluded block on a single core so it is not
+		// refetched by another. The second holds only while the assigned cores keep their order
+		// across slots; when it shifts, a duplicate refetch is possible if the block is
+		// re-advertised within ~4s.
+		let total_cores = cores.total_cores();
+		let mut per_selector_unincluded_headers: HashMap<u32, Vec<Block::Header>> = HashMap::new();
+		if total_cores > 0 {
+			for header in cx.unincluded_headers.clone() {
+				let Some(core_info) = CumulusDigestItem::find_core_info(header.digest()) else {
+					tracing::warn!(
+						target: LOG_TARGET,
+						block_hash = ?header.hash(),
+						"Skipping unincluded entry without CoreInfo digest.",
+					);
+					continue;
+				};
+				let target = (core_info.selector.0 as u32) % total_cores;
+				per_selector_unincluded_headers.entry(target).or_default().push(header);
+			}
+		}
+
+		Ok(Some(CorePlan {
+			block_time: self.relay_chain_slot_duration / number_of_blocks,
+			cores,
+			blocks_per_cores,
+			number_of_blocks,
+			per_selector_unincluded_headers,
+		}))
+	}
 }
 
 /// Run block-builder.
@@ -362,7 +765,7 @@ where
 			max_pov_percentage,
 		} = params;
 
-		let mut slot_timer = SlotTimer::new_with_offset(slot_offset, relay_chain_slot_duration);
+		let slot_timer = SlotTimer::new_with_offset(slot_offset, relay_chain_slot_duration);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -379,8 +782,7 @@ where
 			Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
-		let mut connection_helper = BackingGroupConnectionHelper::new(
+		let connection_helper = BackingGroupConnectionHelper::new(
 			keystore.clone(),
 			relay_client
 				.overseer_handle()
@@ -388,308 +790,159 @@ where
 				// doesn't work either. So it is fine to panic here.
 				.expect("Relay chain interface must provide overseer handle."),
 		);
+		let mut env: BuilderEnv<Block, P, Client, Backend, RelayClient> = BuilderEnv {
+			relay_chain_data_cache: RelayChainDataCache::new(relay_client.clone(), para_id),
+			scheduling_info: SchedulingInfo::new(relay_chain_slot_duration, slot_offset),
+			connection_helper,
+			para_client,
+			para_backend,
+			relay_client,
+			keystore,
+			para_id,
+			relay_chain_slot_duration,
+			slot_offset,
+			max_pov_percentage,
+			slot_timer,
+			_phantom: PhantomData,
+		};
 
-		let mut scheduling_info = SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
-		let maybe_best_relay_block_data = scheduling_info
-			.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
-			.await;
-
-		let v3_enabled = SchedulingInfo::<RelayClient>::is_v3_enabled(
-			scheduling_params_at(&*para_client, para_client.info().best_hash).v3_enabled,
-			maybe_best_relay_block_data,
-		);
-		slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
-
+		// The slot-timer offset is adjusted by `prepare_slot` from the second iteration on; only
+		// the very first wait runs with the constructor's offset.
 		loop {
-			let _ = scheduling_info
-				.ensure_initialized(&relay_client, &mut relay_chain_data_cache)
+			let _ = env
+				.scheduling_info
+				.ensure_initialized(&env.relay_client, &mut env.relay_chain_data_cache)
 				.await;
 
 			// We wait here until the next slot arrives.
-			let Ok(slot_time) = slot_timer.wait_until_next_slot().await else {
+			let Ok(slot_time) = env.slot_timer.wait_until_next_slot().await else {
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
 
-			let Some(BuildingPrerequisites {
-				scheduling_parent_header,
-				v3_enabled,
-				relay_parent_offset,
-				relay_parent_data,
-				parent_search_result,
-			}) = derive_building_prerequisites(
-				&*para_client,
-				&*para_backend,
-				&relay_client,
-				&mut relay_chain_data_cache,
-				&mut scheduling_info,
-				para_id,
-			)
-			.await
-			else {
-				continue;
-			};
+			let Some(cx) = env.prepare_slot(slot_time.slot()).await else { continue };
 
-			slot_timer.set_offset_by_scheduling_version(v3_enabled, slot_offset);
-
-			let relay_parent_header = relay_parent_data.relay_parent().clone();
-			let relay_parent_hash = relay_parent_header.hash();
-
-			// For the logic that follows we need the included header at the relay parent since
-			// it will be used for checking the unincluded segment len.
-			// Corresponding checks related to the unincluded segment len are also done by the
-			// runtime in the `set_validation_data` inherent, using the relay parent context.
-			let included_header_at_execution = if v3_enabled {
-				match fetch_included_from_relay_chain(
-					&relay_client,
-					&*para_backend,
-					relay_parent_hash,
-					para_id,
-				)
-				.await
-				{
-					Ok(Some((header, _))) => header,
-					Ok(None) => {
-						tracing::error!(
-							target: LOG_TARGET,
-							"Failed to fetch the included header at execution \
-							from the relay chain."
-						);
-						continue;
-					},
-					Err(error) => {
-						tracing::error!(
-							target: LOG_TARGET,
-							?error,
-							"Failed to fetch the included header at execution \
-							from the relay chain."
-						);
-						continue;
-					},
-				}
-			} else {
-				parent_search_result.included_at_scheduling
-			};
-			let initial_parent_hash = parent_search_result.best_parent_header.hash();
-			let initial_parent_header = parent_search_result.best_parent_header;
-			let unincluded_segment_len_at_execution = initial_parent_header
-				.number()
-				.saturating_sub(*included_header_at_execution.number());
-
-			let Ok(para_slot_duration) =
-				crate::slot_duration_at(&*para_client, initial_parent_hash)
-			else {
-				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-				continue;
-			};
-
-			// Use the slot calculated from relay parent
-			let Some(para_slot) = adjust_para_to_relay_parent_slot(
-				relay_parent_data.relay_parent(),
-				relay_chain_slot_duration,
-				para_slot_duration,
-			) else {
-				continue;
-			};
-
-			let Ok(max_pov_size) = relay_chain_data_cache
-				.get_by_hash(relay_parent_hash)
-				.await
-				.map(|d| d.max_pov_size)
-			else {
-				continue;
-			};
-
-			let allowed_pov_size = if let Some(max_pov_percentage) = max_pov_percentage {
-				max_pov_size * max_pov_percentage / 100
-			} else {
-				// Set the block limit to 85% of the maximum PoV size.
-				//
-				// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
-				// fixed, this should be removed.
-				max_pov_size * 85 / 100
-			} as usize;
-
-			// We mainly call this to inform users at genesis if there is a mismatch with the
-			// on-chain data.
+			// Informational; warns at genesis on a mismatch with on-chain data.
 			collator
 				.collator_service()
-				.check_block_status(initial_parent_hash, &initial_parent_header);
+				.check_block_status(cx.initial_parent_hash, &cx.initial_parent_header);
 
-			let Some(relay_slot) = get_relay_slot(&relay_parent_header) else { continue };
-
-			let included_hash_at_execution = included_header_at_execution.hash();
-
-			if let Ok(authorities) =
-				onchain_runtime_api(&*para_client).authorities(initial_parent_hash)
-			{
-				connection_helper.update::<P>(para_slot.slot, &authorities).await;
-			}
-
-			let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
-				para_slot.slot,
-				para_slot.timestamp,
-				initial_parent_hash,
-				&*para_client,
-				&keystore,
-			)
-			.await
-			else {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?unincluded_segment_len_at_execution,
-					relay_parent = ?relay_parent_hash,
-					relay_parent_num = %relay_parent_header.number(),
-					?included_hash_at_execution,
-					included_num_at_execution = %included_header_at_execution.number(),
-					initial_parent = ?initial_parent_hash,
-					slot = ?para_slot.slot,
-					"Not eligible to claim slot."
-				);
-				continue;
+			let plan = match env.plan_cores(&cx).await {
+				Ok(Some(plan)) => plan,
+				Ok(None) => continue,
+				Err(()) => break,
 			};
-
-			tracing::debug!(
-				target: LOG_TARGET,
-				?unincluded_segment_len_at_execution,
-				relay_parent = ?relay_parent_hash,
-				relay_parent_num = %relay_parent_header.number(),
-				relay_parent_offset,
-				?included_hash_at_execution,
-				included_num_at_execution = %included_header_at_execution.number(),
-				initial_parent = ?initial_parent_hash,
-				slot = ?para_slot.slot,
-				"Claiming slot."
-			);
-
-			// Determine claim queue lookup parameters.
-			//
-			// V3: look up at scheduling_parent (fresh RC tip), offset is just
-			// max_claim_queue_offset since the claim queue is already at the tip.
-			//
-			// V1/V2: look up at relay_parent which is relay_parent_offset blocks
-			// behind the tip, so the offset includes relay_parent_offset to
-			// compensate.
-			let maybe_max_claim_queue_offset = onchain_runtime_api(&*para_client)
-				.max_claim_queue_offset(initial_parent_hash)
-				.map(|offset| offset as u32);
-			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {
-				// V3: look up at scheduling_parent (fresh tip)
-				(&scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(2))
-			} else {
-				// V1/V2: look up at relay_parent, add relay_parent_offset
-				// For the `max_claim_queue_offset` we use a default of `0` for backwards
-				// compatibility when the runtime API is not implemented.
-				let total_offset = relay_parent_offset + maybe_max_claim_queue_offset.unwrap_or(0);
-				(&relay_parent_header, total_offset)
-			};
-			let mut cores = match determine_cores(
-				&mut relay_chain_data_cache,
-				claim_queue_relay_block,
-				para_id,
-				claim_queue_offset,
-			)
-			.await
-			{
-				Ok(Some(core)) => core,
-				Ok(None) => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						relay_parent = ?relay_parent_hash,
-						"No cores scheduled."
-					);
-					continue;
-				},
-				Err(()) => {
-					tracing::error!(
-						target: LOG_TARGET,
-						relay_parent = ?relay_parent_hash,
-						"Failed to determine cores."
-					);
-
-					break;
-				},
-			};
-
-			let number_of_blocks =
-				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
-					Ok(interval) => interval,
-					Err(error) => {
-						tracing::debug!(
-							target: LOG_TARGET,
-							block = ?initial_parent_hash,
-							?error,
-							"Failed to fetch `slot_schedule`, assuming one block per core"
-						);
-
-						// Backwards compatible we use the number of cores as number of blocks.
-						cores.total_cores()
-					},
-				};
-
-			// In total we want to have at max `number_of_blocks` cores to use.
-			cores.truncate_cores(number_of_blocks);
-			let raw_blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
-			let left_over_blocks = number_of_blocks % cores.total_cores();
-			let blocks_per_cores = (0..cores.total_cores())
-				.map(|i| {
-					// We distribute the left over blocks across the cores.
-					raw_blocks_per_core + u32::from(i < left_over_blocks)
-				})
-				.collect::<Vec<_>>();
-
-			tracing::debug!(
-				target: LOG_TARGET,
-				?blocks_per_cores,
-				core_indices = ?cores.core_indices(),
-				"Core configuration",
-			);
-
-			let mut pov_parent_header = initial_parent_header;
-			let mut pov_parent_hash = initial_parent_hash;
-			let block_time = relay_chain_slot_duration / number_of_blocks;
+			let CorePlan {
+				mut cores,
+				blocks_per_cores,
+				number_of_blocks,
+				block_time,
+				mut per_selector_unincluded_headers,
+			} = plan;
+			let total_cores = cores.total_cores();
+			let mut pov_parent_header = cx.initial_parent_header.clone();
+			let mut pov_parent_hash = cx.initial_parent_hash;
 
 			for blocks_per_core in blocks_per_cores {
+				let core_info = cores.core_info();
+				let this_core_index = cores.core_index();
+				let bucket_idx = (core_info.selector.0 as u32) % total_cores;
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 
-				match build_collation_for_core(BuildCollationParams {
-					pov_parent_header,
+				// For V3, strip the relay-parent descendants (only needed for V2) so the block
+				// built below sees the V3-correct inherent, and keep the header chain to sign the
+				// scheduling proof later — only if this core ends up submitting something.
+				let mut rp_data = cx.relay_parent_data.clone();
+				let v3_header_chain: Option<Vec<RelayHeader>> = if cx.v3_enabled {
+					let descendants = rp_data.take_descendants();
+					Some(descendants.into_iter().rev().collect())
+				} else {
+					None
+				};
+
+				// Time the core build so we can pace after submitting (send early, then sleep).
+				let core_start = Instant::now();
+				let built = match build_collation_for_core(BuildCollationParams {
+					pov_parent_header: pov_parent_header.clone(),
 					pov_parent_hash,
-					relay_parent_header: &relay_parent_header,
-					relay_parent_hash,
-					max_pov_size,
+					relay_parent_header: &cx.relay_parent_header,
+					relay_parent_hash: cx.relay_parent_hash,
+					max_pov_size: cx.max_pov_size,
 					para_id,
-					relay_client: &relay_client,
+					relay_client: &env.relay_client,
 					code_hash_provider: &code_hash_provider,
-					slot_claim: &slot_claim,
-					collator_sender: &collator_sender,
+					slot_claim: &cx.slot_claim,
 					collator: &mut collator,
-					allowed_pov_size,
-					core_info: cores.core_info(),
-					core_index: cores.core_index(),
+					allowed_pov_size: cx.allowed_pov_size,
+					core_info: core_info.clone(),
+					core_index: this_core_index,
 					block_time,
 					blocks_per_core,
 					time_for_core,
-					is_last_core_in_parachain_slot: cores.is_last_core() &&
-						slot_time.is_parachain_slot_ending(para_slot_duration.as_duration()),
+					is_last_core_in_parachain_slot: cores.is_last_core()
+						&& slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
 					collator_peer_id,
-					relay_parent_data: relay_parent_data.clone(),
+					relay_parent_data: rp_data,
 					total_number_of_blocks: number_of_blocks,
-					included_hash_at_execution,
-					relay_slot,
-					para_slot: para_slot.slot,
-					para_client: &*para_client,
-					v3_enabled,
+					included_hash_at_execution: cx.included_hash_at_execution,
+					relay_slot: cx.relay_slot,
+					para_slot: cx.para_slot.slot,
+					para_client: &*env.para_client,
 				})
 				.await
 				{
-					Ok(Some(header)) => {
-						pov_parent_header = header;
-						pov_parent_hash = pov_parent_header.hash();
-					},
-					// Let's wait for the next slot
-					Ok(None) => break,
+					Ok(built) => built,
 					Err(()) => return,
+				};
+
+				let has_fresh = built.is_some();
+
+				// Chain the next core's PoV parent onto the freshly-built tip (if any).
+				if let Some(BuiltCollation { tip_header, .. }) = &built {
+					pov_parent_header = tip_header.clone();
+					pov_parent_hash = pov_parent_header.hash();
+				}
+
+				// V3: this core's resubmitted bucket plus the freshly-built bundle (or the bucket
+				// alone); V2: a single collation, only when a fresh block was built.
+				let unincluded_headers =
+					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
+				let bundle = built.map(|BuiltCollation { entry, .. }| entry);
+				let submission = assemble_core_submission::<Block, P>(
+					v3_header_chain,
+					unincluded_headers,
+					bundle,
+					&core_info,
+					this_core_index,
+					&cx.relay_parent_header,
+					cx.slot_claim.author_pub(),
+					collator_peer_id,
+					&env.keystore,
+				);
+
+				match submission {
+					Some(submission) => {
+						if collator_sender.unbounded_send(submission).is_err() {
+							tracing::error!(
+								target: LOG_TARGET,
+								"Unable to send collation to the collation task.",
+							);
+							return;
+						}
+					},
+					None => tracing::debug!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						has_fresh,
+						"Nothing to submit for this core.",
+					),
+				}
+
+				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
+				if has_fresh {
+					if let Some(sleep) = time_for_core.checked_sub(core_start.elapsed()) {
+						tokio::time::sleep(sleep).await;
+					}
 				}
 
 				if !cores.advance() {
@@ -698,6 +951,72 @@ where
 			}
 		}
 	}
+}
+
+/// Assemble one core's submission. V3: the resubmitted unincluded bucket plus the freshly-built
+/// bundle (or the bucket alone), under a scheduling proof signed only when there is something to
+/// submit. V2: a single collation, only when a fresh block was built.
+fn assemble_core_submission<Block, P>(
+	v3_header_chain: Option<Vec<RelayHeader>>,
+	unincluded_headers: Vec<Block::Header>,
+	bundle: Option<CollatorSegmentEntry<Block>>,
+	core_info: &CoreInfo,
+	core_index: CoreIndex,
+	relay_parent_header: &RelayHeader,
+	author_pub: &P::Public,
+	collator_peer_id: PeerId,
+	keystore: &KeystorePtr,
+) -> Option<CollatorMessage<Block>>
+where
+	Block: BlockT,
+	P: Pair,
+	P::Public: AppPublic,
+{
+	match v3_header_chain {
+		Some(header_chain) => {
+			if unincluded_headers.is_empty() && bundle.is_none() {
+				return None;
+			}
+			let scheduling_proof =
+				ApprovedPeerId::try_from(collator_peer_id.to_bytes()).ok().and_then(|peer_id| {
+					build_v3_scheduling_proof::<P>(
+						header_chain,
+						relay_parent_header.clone(),
+						core_info,
+						peer_id,
+						author_pub,
+						keystore,
+					)
+				});
+			match scheduling_proof {
+				Some(scheduling_proof) => Some(CollatorMessage::Segment(CollatorSegmentMessage {
+					scheduling_proof,
+					core_index,
+					unincluded_headers,
+					bundle,
+				})),
+				None => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?core_index,
+						"Skipping submission: cannot build signed V3 scheduling proof.",
+					);
+					None
+				},
+			}
+		},
+		None => bundle.map(|entry| CollatorMessage::Collation { core_index, entry }),
+	}
+}
+
+/// The freshly-built collation returned by [`build_collation_for_core`]. The caller assembles and
+/// submits the segment message (resubmitting the core's unincluded bucket ahead of this block) and
+/// paces the core, so building stays decoupled from resubmission and submission.
+struct BuiltCollation<Block: BlockT> {
+	/// The freshly-built collation entry.
+	entry: CollatorSegmentEntry<Block>,
+	/// The new chain tip (last built block), for `pov_parent` chaining across cores.
+	tip_header: Block::Header,
 }
 
 /// Parameters for [`build_collation_for_core`].
@@ -722,7 +1041,6 @@ struct BuildCollationParams<
 	relay_client: &'a RelayClient,
 	code_hash_provider: &'a CHP,
 	slot_claim: &'a SlotClaim<P::Public>,
-	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
@@ -739,7 +1057,6 @@ struct BuildCollationParams<
 	relay_slot: cumulus_primitives_aura::Slot,
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
-	v3_enabled: bool,
 }
 
 /// Build a collation for one core.
@@ -766,7 +1083,6 @@ async fn build_collation_for_core<
 		relay_client,
 		code_hash_provider,
 		slot_claim,
-		collator_sender,
 		collator,
 		allowed_pov_size,
 		core_info,
@@ -776,15 +1092,14 @@ async fn build_collation_for_core<
 		time_for_core: slot_time_for_core,
 		is_last_core_in_parachain_slot,
 		collator_peer_id,
-		mut relay_parent_data,
+		relay_parent_data,
 		total_number_of_blocks,
 		included_hash_at_execution,
 		relay_slot,
 		para_slot,
 		para_client,
-		v3_enabled,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
-) -> Result<Option<Block::Header>, ()>
+) -> Result<Option<BuiltCollation<Block>>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
 	P: Pair,
@@ -809,34 +1124,6 @@ where
 		relay_parent_storage_root: *relay_parent_header.state_root(),
 		max_pov_size,
 	};
-
-	// Check if V3 scheduling is enabled and build scheduling proof if so.
-	let mut scheduling_proof = None;
-	if v3_enabled {
-		// The relay parent descendants are only needed for v2.
-		let descendants = relay_parent_data.take_descendants();
-		// The descendants are ordered from oldest to newest, so we need to reverse them.
-		let header_chain: Vec<_> = descendants.into_iter().rev().collect();
-		let scheduling_parent =
-			header_chain.first().map(|header| header.hash()).unwrap_or(relay_parent_hash);
-
-		tracing::debug!(
-			target: LOG_TARGET,
-			relay_parent = ?relay_parent_hash,
-			?scheduling_parent,
-			header_chain_len = header_chain.len(),
-			"Building V3 collation with scheduling proof",
-		);
-
-		scheduling_proof = Some(SchedulingProof {
-			header_chain,
-			// Initial submission: internal_scheduling_parent == relay_parent, so the
-			// internal scheduling parent header is the relay parent's header itself.
-			internal_scheduling_parent_header: relay_parent_header.clone(),
-			// Initial submission: no signature needed, core selection from UMP signals
-			signed_scheduling_info: None,
-		});
-	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
 		tracing::error!(
@@ -943,8 +1230,8 @@ where
 
 		let block_production_start = Instant::now();
 		// The time we have left to spent for the block.
-		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
-			(blocks_per_core - block_index) as u32;
+		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed())
+			/ (blocks_per_core - block_index) as u32;
 
 		// The first block on a multi-block core gets the full remaining core time so that the
 		// runtime's `FullCore` weight mode can actually be utilized. Subsequent blocks are
@@ -1088,26 +1375,18 @@ where
 		"Sending out PoV"
 	);
 
-	if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
+	let entry = CollatorSegmentEntry {
 		relay_parent: relay_parent_hash,
-		scheduling_proof,
 		parent_header: pov_parent_header.clone(),
 		blocks,
 		proof,
 		validation_code_hash,
-		core_index,
 		validation_data,
-	}) {
-		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
-		Err(())
-	} else {
-		// Now let's sleep for the rest of the core.
-		if let Some(sleep) = slot_time_for_core.checked_sub(core_start.elapsed()) {
-			tokio::time::sleep(sleep).await;
-		}
+	};
 
-		Ok(Some(parent_header))
-	}
+	// Return the freshly-built collation to the caller, which assembles and submits the segment
+	// (resubmitting the core's unincluded bucket ahead of this block) and paces the core.
+	Ok(Some(BuiltCollation { entry, tip_header: parent_header }))
 }
 
 /// Translate the slot of the relay parent to the slot of the parachain.
@@ -1349,9 +1628,9 @@ impl BlockProductionSchedule {
 	/// In Bundling mode, we skip the last block in the parachain slot
 	/// to give the next author time to import all previous blocks.
 	fn should_skip_production(&self) -> bool {
-		self.mode.skips_last_block() &&
-			self.is_last_block_in_core() &&
-			self.is_last_core_in_parachain_slot
+		self.mode.skips_last_block()
+			&& self.is_last_block_in_core()
+			&& self.is_last_core_in_parachain_slot
 	}
 
 	/// Whether this is effectively the last block we'll produce for this core.
@@ -1374,10 +1653,10 @@ impl BlockProductionSchedule {
 	/// - This is the second-to-last and the actual last will be skipped (Skip mode on the last core
 	///   of the parachain slot).
 	fn block_ends_bundle(&self) -> bool {
-		self.is_last_block_in_core() ||
-			(self.is_second_to_last() &&
-				self.mode.skips_last_block() &&
-				self.is_last_core_in_parachain_slot)
+		self.is_last_block_in_core()
+			|| (self.is_second_to_last()
+				&& self.mode.skips_last_block()
+				&& self.is_last_core_in_parachain_slot)
 	}
 
 	/// Compute the authoring duration given available time.
@@ -1615,8 +1894,8 @@ mod block_production_schedule_tests {
 				);
 
 				// Original is_last_block_in_core logic
-				let original_is_last = block_index + 1 == blocks_per_core ||
-					(block_index + 2 == blocks_per_core && blocks_per_core > 1);
+				let original_is_last = block_index + 1 == blocks_per_core
+					|| (block_index + 2 == blocks_per_core && blocks_per_core > 1);
 
 				// Original skip logic
 				let original_skip =
