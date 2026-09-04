@@ -25,7 +25,7 @@
 
 use crate::{self as pallet_registrar_relay, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
+use registrar_primitives::{FailureReason, MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -76,6 +76,8 @@ parameter_types! {
 	pub static AlreadyKnown: Vec<ParaId> = Vec::new();
 	/// When true, `MockRegistrar::register` fails.
 	pub static RegisterFails: bool = false;
+	/// The reason `MockRegistrar::deregister` refuses with, if it refuses at all.
+	pub static DeregisterFailure: Option<FailureReason> = None;
 	/// Reports handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
@@ -88,9 +90,9 @@ pub struct MockRegistrar;
 impl ParachainRegistrar for MockRegistrar {
 	type AccountId = AccountId;
 
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason> {
 		if !(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len) || head_len > MAX_HEAD_SIZE {
-			return Err(());
+			return Err(FailureReason::InvalidOnboardingData);
 		}
 		Ok(())
 	}
@@ -110,6 +112,15 @@ impl ParachainRegistrar for MockRegistrar {
 			return Err(sp_runtime::DispatchError::Other("registrar refused"));
 		}
 		Onboarded::mutate(|v| v.push((para_id, manager, genesis_head, validation_code)));
+		Ok(())
+	}
+
+	fn deregister(para_id: ParaId) -> Result<(), FailureReason> {
+		if let Some(reason) = DeregisterFailure::get() {
+			return Err(reason);
+		}
+		AlreadyKnown::mutate(|v| v.retain(|id| *id != para_id));
+		Onboarded::mutate(|v| v.retain(|(id, ..)| *id != para_id));
 		Ok(())
 	}
 }
@@ -158,6 +169,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Onboarded::set(Vec::new());
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
+	DeregisterFailure::set(None);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 
