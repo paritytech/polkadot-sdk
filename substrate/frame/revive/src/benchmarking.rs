@@ -108,6 +108,17 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
+///
+/// Returns the account id the `seal_call` family expects in guest memory: `address` is never
+/// mapped, so it resolves to its fallback account whose first 20 encoded bytes are `address`.
+fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId, BenchmarkError> {
+	let account_id = T::AddressMapper::to_fallback_account_id(&address);
+	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
+		.map_err(|_| "set_delegation failed")?;
+	Ok(account_id)
+}
+
 #[benchmarks(
 	where
 		T: Config,
@@ -125,6 +136,179 @@ mod benchmarks {
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
+	}
+
+	// Benchmark for processing N EIP-7702 authorizations with empty accounts
+	// This measures the overhead of processing the authorization list
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_new_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		// Worst case: every authorization targets a *distinct* contract with *distinct* code
+		// so neither `AccountInfoOf<target>` nor `CodeInfoOf<code_hash>` reads can be cached
+		// across the loop. `dummy_unique(i)` produces a unique blob per index; the contract is
+		// deployed at a unique salt-index so addresses also differ.
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let target_contract =
+				Contract::<T>::with_index(i + 1, VmBinaryModule::dummy_unique(i), vec![])?;
+			let target = target_contract.address;
+
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::zero());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, n as u32, "All authorizations should be new");
+		Ok(())
+	}
+
+	// Benchmark for processing N EIP-7702 authorizations with existing accounts.
+	//
+	// Worst case: each authority is *already* delegated to a unique target whose code is
+	// referenced only by that delegation, with the deposit paid by an account other than the
+	// bench's `caller`. Re-delegating to a fresh target then exercises the most expensive paths
+	// per auth:
+	//   - payer-change: full refund to `setup_payer` + full charge from `caller`
+	//   - old-code refcount → 0: `decrement_refcount` removes `CodeInfoOf` + `PristineCode`
+	//   - new-code refcount 0 → 1: `increment_refcount`
+	//
+	// To produce `refcount(old_code) == 1` going into the bench, we directly decrement the
+	// deployment's contribution after setup. This is equivalent to having terminated the old
+	// target (which would also drop the deployment's ref) — `#[block]` only reads the
+	// delegation snapshot's `code_hash`, never `AccountInfoOf[old_target]`, so it doesn't
+	// matter that the latter is still present.
+	//
+	// Parameter `n`: number of authorizations to process
+	#[benchmark(pov_mode = Measured)]
+	fn process_existing_account_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		// Distinct payer (≠ `caller`) so the bench takes the payer-change branch in
+		// `process_authorizations` (full refund + full charge per auth) rather than the
+		// same-payer net-diff fast path.
+		let setup_payer: T::AccountId = account("setup_payer", 0, 0);
+		T::Currency::set_balance(&setup_payer, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
+		let chain_id = U256::from(T::ChainId::get());
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			// Old delegation target with unique code (so each gets its own `CodeInfoOf` entry).
+			let old_target =
+				Contract::<T>::with_index(2 * i + 1, VmBinaryModule::dummy_unique(2 * i), vec![])?;
+			let old_code_hash = <AccountInfoOf<T>>::get(&old_target.address)
+				.and_then(|info| match info.account_type {
+					AccountType::Contract(c) => Some(c.code_hash),
+					_ => None,
+				})
+				.ok_or("old_target should be a Contract")?;
+
+			// Pre-existing delegation paid by `setup_payer`. Bumps the authority's nonce to 1
+			// and brings `refcount(old_code)` to 2 (deployment + delegation snapshot).
+			let key_material = keccak_256(&i.to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			let setup_auth =
+				eip7702::sign_authorization(&key, chain_id, old_target.address, U256::zero());
+			let _ = eip7702::process_authorizations::<T>(&[setup_auth], &setup_payer, &exec_config);
+
+			// Drop the deployment's ref so the delegation snapshot is the sole holder. This
+			// mirrors the post-termination storage state without spending setup time on real
+			// contract calls (the bench measures `#[block]`, not setup).
+			let _ =
+				CodeInfo::<T>::decrement_refcount(old_code_hash).map_err(|_| "decrement failed")?;
+
+			// New target (also unique code) that the authority re-delegates to.
+			let new_target = Contract::<T>::with_index(
+				2 * i + 2,
+				VmBinaryModule::dummy_unique(2 * i + 1),
+				vec![],
+			)?;
+
+			// Authority's nonce is 1 after setup, so the re-delegation auth signs with nonce=1.
+			let signed_auth =
+				eip7702::sign_authorization(&key, chain_id, new_target.address, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, n as u32);
+		Ok(())
+	}
+
+	// Measures the per-tuple cost of an authorization that runs through chain_id check
+	// and ecdsa_recover but then fails validation (here: nonce mismatch) — captures the
+	// sig-recovery cost without any account creation/update work.
+	#[benchmark(pov_mode = Measured)]
+	fn process_invalid_authorization(n: Linear<0, 255>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use sp_io::hashing::keccak_256;
+
+		let chain_id = U256::from(T::ChainId::get());
+		let target_contract = Contract::<T>::with_index(0, VmBinaryModule::dummy(), vec![])?;
+		let target = target_contract.address;
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+		let exec_config = ExecConfig::new_eth_tx(U256::from(1), 0, Weight::MAX);
+
+		let mut authorization_list = vec![];
+		for i in 0..n {
+			let key_material = keccak_256(&(i as u32).to_le_bytes());
+			let key = SigningKey::from_bytes(&key_material.into()).expect("valid key; qed");
+			// Force nonce mismatch: signer's nonce is 0, but we sign nonce=1.
+			let signed_auth = eip7702::sign_authorization(&key, chain_id, target, U256::one());
+			authorization_list.push(signed_auth);
+		}
+
+		let auth_result;
+		#[block]
+		{
+			auth_result =
+				eip7702::process_authorizations::<T>(&authorization_list, &caller, &exec_config);
+		}
+
+		assert_eq!(auth_result.new_accounts, 0u32);
+		assert_eq!(auth_result.existing_accounts, 0u32);
+		Ok(())
 	}
 
 	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
@@ -519,6 +703,7 @@ mod benchmarks {
 			TransactionSigned::default().signed_payload(),
 			effective_gas_price,
 			0,
+			vec![],
 		);
 
 		// contract should have received the value
@@ -2388,9 +2573,24 @@ mod benchmarks {
 	// d: with or without dust value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, address: callee_addr, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+	fn seal_call(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<0, { limits::code::BLOB_BYTES }>,
+	) -> Result<(), BenchmarkError> {
+		// An EIP-7702 delegated callee is the worst case for the account resolution in
+		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
+		// the call still runs the target's code. (A callee whose delegation snapshot is empty
+		// costs a second read of the target but skips code load and execution entirely, so it
+		// is cheaper overall.)
+		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let callee_addr = H160([0x42; 20]);
+		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+		// Keep the origin's budget the same as with a contract callee. A contract already exists
+		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
+		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
+		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
+		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -2416,6 +2616,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+		let before = Pallet::<T>::evm_balance(&callee_addr);
 
 		let result;
 		#[block]
@@ -2434,9 +2635,11 @@ mod benchmarks {
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		assert_eq!(
 			Pallet::<T>::evm_balance(&callee_addr),
-			evm_value,
-			"{callee_addr:?} balance should hold {evm_value:?}"
+			before + evm_value,
+			"{callee_addr:?} balance should have grown by {evm_value:?}"
 		);
+
+		Ok(())
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
@@ -2503,8 +2706,10 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
-		let Contract { account_id: address, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+		// Delegated code source: worst case for the callee resolution in `new_frame`.
+		// See `seal_call`.
+		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;

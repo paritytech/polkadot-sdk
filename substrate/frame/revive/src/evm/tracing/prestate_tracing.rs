@@ -182,6 +182,10 @@ where
 {
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
+		// EIP-7702: report the delegation indicator, matching eth_getCode / EXTCODEHASH.
+		if let Some(target) = AccountInfo::<T>::get_delegation_target(address) {
+			return Some(AccountInfo::<T>::delegation_indicator(&target).to_vec().into());
+		}
 		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
 		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
 		return Some(code.into());
@@ -254,19 +258,23 @@ where
 		&mut self,
 		from: H160,
 		to: H160,
-		delegate_call: Option<H160>,
+		code_address: Option<H160>,
+		is_delegate_call: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
 		_gas_limit: u64,
 	) {
-		if let Some(delegate_call) = delegate_call {
+		if is_delegate_call {
 			self.calls.push(self.current_addr());
-			self.read_account(delegate_call);
 		} else {
 			self.calls.push(to);
-			self.read_account(from);
 		}
+
+		if let Some(code_address) = code_address {
+			self.read_account(code_address);
+		}
+		self.read_account(from);
 
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);

@@ -14565,6 +14565,7 @@ dependencies = [
  "hex",
  "humantime-serde",
  "jsonrpsee",
+ "k256",
  "libsqlite3-sys",
  "log",
  "pallet-revive",
