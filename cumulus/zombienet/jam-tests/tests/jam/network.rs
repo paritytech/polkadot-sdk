@@ -32,8 +32,11 @@ pub const PARASIM_SERVICE_ID: u32 = 5;
 const PARASIM_ENDOWMENT: u64 = 1_000_000_000_000_000;
 
 /// JAM RPC ports sit above the collator range and well away from the 19800 default, so a testnet
-/// the user is running themselves is never disturbed.
-static NEXT_JAM_RPC_PORT: AtomicU16 = AtomicU16::new(42000);
+/// the user is running themselves is never disturbed. `JAM_TEST_JAM_RPC_PORT` moves the block for
+/// one run, for when such a testnet holds the default.
+static NEXT_JAM_RPC_PORT: std::sync::LazyLock<AtomicU16> = std::sync::LazyLock::new(|| {
+	AtomicU16::new(super::env::port_base("JAM_TEST_JAM_RPC_PORT", 42000))
+});
 
 /// PolkaVM cannot use its recompiler in this sandbox (no userfaultfd), and the native provider
 /// clears the environment before spawning, so every JAM node needs these explicitly.

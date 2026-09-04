@@ -59,6 +59,16 @@ fn from_env_or(var: &str, default: impl FnOnce() -> PathBuf) -> PathBuf {
 	std::env::var_os(var).map(PathBuf::from).unwrap_or_else(default)
 }
 
+/// A port base from the environment, for when a committed default block is already taken: a
+/// user's own long-running network holds exactly these blocks, and the spawn's only symptom
+/// would be zombienet's "Can't bind in socket".
+pub fn port_base(var: &str, default: u16) -> u16 {
+	match std::env::var(var) {
+		Ok(value) => value.parse().unwrap_or_else(|_| panic!("{var} is not a port: {value}")),
+		Err(_) => default,
+	}
+}
+
 impl Binaries {
 	/// Resolve every artifact from the environment, or return the human-readable list of what is
 	/// missing so the caller can skip the test with an explanation.

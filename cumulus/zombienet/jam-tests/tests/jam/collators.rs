@@ -21,9 +21,13 @@ use tokio::time::Instant;
 /// Collator ports start well above the omni-node defaults (9944/30333) so a hand-run demo, or the
 /// user's own network, keeps working while the tests run. Each set reserves its own block, because
 /// the previous set's sockets can still be in `TIME_WAIT` when the next one binds.
+/// `JAM_TEST_COLLATOR_PORT` moves the whole range for one run, for when the user's own network
+/// holds the default.
 const FIRST_PORT: u16 = 41000;
 const PORTS_PER_COLLATOR: u16 = 3;
-static NEXT_PORT: AtomicU16 = AtomicU16::new(FIRST_PORT);
+static NEXT_PORT: std::sync::LazyLock<AtomicU16> = std::sync::LazyLock::new(|| {
+	AtomicU16::new(super::env::port_base("JAM_TEST_COLLATOR_PORT", FIRST_PORT))
+});
 
 struct Collator {
 	name: String,
