@@ -1,14 +1,24 @@
 # WebRTC Transport for Light Clients
 
-In-browser light clients use the WebRTC transport to connect to Polkadot full nodes. This guide
-explains how to set up a full node to accept light client connections. WebRTC is only supported by
-the litep2p network backend (the default).
+In-browser light clients use the WebRTC transport to connect to Polkadot full nodes. Unlike WSS, it
+needs no domain name, TLS certificate, or reverse proxy, but it complements WSS rather than
+replacing it. This guide explains how to set up a full node to accept light client connections.
+
+WebRTC is only supported by the litep2p network backend (the default). Light client connections
+count towards the `--in-peers-light` limit (500 by default).
 
 ## 1. Listen Addresses
 
 Unless you pass `--listen-addr`, a full node listens for incoming WebRTC connections on UDP port
-30333, or on the port specified with `--port`. Validators and collators don't listen on WebRTC by
-default; pass `--force-enable-webrtc` to enable it.
+30333, or on the port specified with `--port`. A parachain node runs two network stacks and accepts
+WebRTC on both: by default UDP 30333 on the parachain side and 30334 on the relay chain side.
+Everything below applies to each side; relay chain options go after `--`.
+
+Validators and collators, on either side, don't listen on WebRTC by default and should serve light
+clients from separate full nodes instead. `--force-enable-webrtc` overrides this. To disable WebRTC
+on a full node, pass an explicit `--listen-addr` with TCP/WS addresses only. Don't just block the
+UDP port: the node would still advertise its WebRTC address, and light clients would fail to
+connect.
 
 If you manually specify `--listen-addr` for TCP/WS/WSS connections, make sure to also include a
 `--listen-addr` for WebRTC connections: `/ip4/10.0.0.1/udp/30333/webrtc-direct`, substituting your
@@ -31,6 +41,12 @@ address is given without a WebRTC listen address.
 Make sure the UDP port is open in your firewall. Existing rules for the TCP port don't cover UDP.
 If the node is behind NAT, forward the public address and port from step 2 to the local listen
 address and port from step 1.
+
+## Checking It Works
+
+At startup the node logs `WebRTC certhash: uEi...`. The `system_localListenAddresses` RPC call
+lists the WebRTC listen addresses with the certhash and peer ID appended, e.g.
+`/ip4/10.0.0.1/udp/30333/webrtc-direct/certhash/uEi.../p2p/12D3Koo...`.
 
 ## Bootnodes in the Chainspec
 
