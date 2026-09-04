@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788471787587,
+  "lastUpdate": 1788516964800,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a09c18f60eb31198d1422c7d4903b82a0c507e9c",
-          "message": "statement-store: validation without runtime (#10787)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10799\n\nThis removes slow runtime validation from statement-submission hot path.\nValidation now happens on the node side via direct signature\nverification and storage reads for account quotas.\n\n## Integration\n\nNode validates signatures directly, reads quotas from storage. Setting\nallowances is implementing in another PR.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-04T20:37:11Z",
-          "tree_id": "c68144a42eb5a7b82421e852f69b10c1f1bcb1c1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a09c18f60eb31198d1422c7d4903b82a0c507e9c"
-        },
-        "date": 1770241717176,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.047091334466668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11519459773333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1451936395,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "55137770+JasonColapietro@users.noreply.github.com",
+            "name": "Jason Colapietro",
+            "username": "JasonColapietro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2aa08d3336790474a90221573cd8eea214bc6796",
+          "message": "fix(rpc): release capacity after registration failure (#12853)\n\nFixes #12787.\n\n## Summary\n\nKeep a reserved RPC connection owned by `ReservedConnection` until\nidentifier registration succeeds. If registration rejects a duplicate\nidentifier, `Drop` now releases the reserved capacity instead of leaking\nit.\n\nThe regression test reserves capacity, triggers duplicate registration,\nand verifies that another reservation can still use the released slot.\n\n## Testing\n\n- `rustfmt` on the changed source\n- isolated crate harness including `connections.rs`: 3 unit tests and\ndoc tests pass\n\nA schema-validated `prdoc/stable2606/pr_12853.prdoc` entry is included\nwith a patch bump for `sc-rpc-spec-v2`.\n\n---------\n\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-04T08:14:03Z",
+          "tree_id": "5a40e85882d67bff18bae91702efb6aa123bec99",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2aa08d3336790474a90221573cd8eea214bc6796"
+        },
+        "date": 1788516925901,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1412488220333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.241426454066666,
             "unit": "seconds"
           }
         ]
