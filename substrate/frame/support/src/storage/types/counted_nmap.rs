@@ -181,16 +181,14 @@ where
 	}
 
 	/// Store or remove the value to be associated with `key` so that `get` returns the `query`.
-	/// It decrements the counter when the value is removed.
+	/// It updates the counter when an entry is added or removed.
 	pub fn set<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(
 		key: KArg,
 		query: QueryKind::Query,
 	) {
-		let option = QueryKind::from_query_to_optional_value(query);
-		if option.is_none() {
-			CounterFor::<Prefix>::mutate(|value| value.saturating_dec());
-		}
-		<Self as MapWrapper>::Map::set(key, QueryKind::from_optional_value_to_query(option))
+		Self::mutate_exists(key, |value| {
+			*value = QueryKind::from_query_to_optional_value(query);
+		})
 	}
 
 	/// Take a value from storage, removing it afterwards.
@@ -708,6 +706,31 @@ mod test {
 		fn get() -> u32 {
 			98
 		}
+	}
+
+	#[test]
+	fn set_counts_keys_not_writes() {
+		type A = CountedStorageNMap<Prefix, NMapKey<Blake2_128Concat, u16>, u32, OptionQuery>;
+
+		TestExternalities::default().execute_with(|| {
+			A::insert((1,), 10);
+			assert_eq!(A::count(), 1);
+
+			A::set((2,), None);
+			assert_eq!(A::count(), 1);
+
+			A::set((2,), Some(20));
+			assert_eq!(A::get((2,)), Some(20));
+			assert_eq!(A::count(), 2);
+
+			A::set((2,), Some(21));
+			assert_eq!(A::get((2,)), Some(21));
+			assert_eq!(A::count(), 2);
+
+			A::set((2,), None);
+			assert_eq!(A::get((2,)), None);
+			assert_eq!(A::count(), 1);
+		});
 	}
 
 	#[test]

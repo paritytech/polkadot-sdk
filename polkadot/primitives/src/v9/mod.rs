@@ -1872,7 +1872,7 @@ pub enum CandidateDescriptorVersion {
 	/// An unknown/not yet supported version.
 	///
 	/// Such a candidate must be dropped by the runtime and rejected by backers.
-	Unknown,
+	Unknown(u8),
 }
 
 /// Error returned by [`CandidateDescriptorV2::check_version_acceptance`].
@@ -2083,7 +2083,7 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 		match self.version {
 			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::Unknown,
+			_ => CandidateDescriptorVersion::Unknown(self.version),
 		}
 	}
 }
@@ -2106,7 +2106,7 @@ impl<H> CandidateDescriptorV2<H> {
 		match self.version {
 			0 => CandidateDescriptorVersion::V2,
 			1 => CandidateDescriptorVersion::V3,
-			_ => CandidateDescriptorVersion::Unknown,
+			_ => CandidateDescriptorVersion::Unknown(self.version),
 		}
 	}
 }
@@ -2215,7 +2215,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V1 => self.relay_parent,
 			CandidateDescriptorVersion::V2 => self.relay_parent,
 			CandidateDescriptorVersion::V3 => self.scheduling_parent,
-			CandidateDescriptorVersion::Unknown => self.relay_parent,
+			CandidateDescriptorVersion::Unknown(_) => self.relay_parent,
 		}
 	}
 
@@ -2232,7 +2232,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V3 => {
 				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
 			},
-			CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::Unknown(_) => None,
 		}
 	}
 
@@ -2291,7 +2291,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			CandidateDescriptorVersion::V3 => {
 				Some(self.session_index.saturating_add(self.scheduling_session_offset as _))
 			},
-			CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::Unknown(_) => None,
 		}
 	}
 
@@ -2303,7 +2303,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		v3_ever_seen: bool,
 	) -> Option<SessionIndex> {
 		match self.version_for_candidate_validation(v3_ever_seen) {
-			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown => None,
+			CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown(_) => None,
 			CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
 				Some(self.session_index)
 			},
@@ -2355,8 +2355,8 @@ where
 				.field("para_head", &self.para_head)
 				.field("validation_code_hash", &self.validation_code_hash)
 				.finish(),
-			CandidateDescriptorVersion::Unknown => {
-				write!(f, "CandidateDescriptorV2(unknown version={})", self.version)
+			CandidateDescriptorVersion::Unknown(raw_version) => {
+				write!(f, "CandidateDescriptorV2(unknown version={})", raw_version)
 			},
 		}
 	}
@@ -2899,97 +2899,118 @@ impl<H: Copy + AsRef<[u8]>> CommittedCandidateReceiptV2<H> {
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
-		let signals = self.commitments.ump_signals()?;
-
-		match self.descriptor.version() {
-			CandidateDescriptorVersion::V1 => {
-				// If the parachain runtime started sending ump signals, v1 descriptors are no
-				// longer allowed.
-				if !signals.is_empty() {
-					return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
-				} else {
-					// Nothing else to check for v1 descriptors.
-					return Ok(CandidateUMPSignals::default());
-				}
-			},
-			CandidateDescriptorVersion::V2 => {},
-			CandidateDescriptorVersion::Unknown => {
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version))
-			},
-			_ if signals.is_empty() => {
-				// V3 and above require UMP signals.
-				return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
-			},
-			_ => {},
-		}
-
-		// Check the core index
-		let (maybe_core_index_selector, cq_offset) = signals
-			.core_selector()
-			.map(|(selector, offset)| (Some(selector), offset))
-			.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
-
-		self.check_core_index(cores_per_para, maybe_core_index_selector, cq_offset)?;
-
-		// Nothing to further check for the approved peer. If everything passed so far, return the
-		// signals.
-		Ok(signals)
+		parse_ump_signals_for_commitments(
+			&self.commitments,
+			self.descriptor.version(),
+			cores_per_para,
+			self.descriptor.para_id(),
+			CoreIndex(self.descriptor.core_index as u32),
+		)
 	}
+}
 
-	/// Checks if descriptor core index is equal to the committed core index.
-	/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
-	/// a mapping between `ParaId` and the cores assigned per depth.
-	fn check_core_index(
-		&self,
-		cores_per_para: &TransposedClaimQueue,
-		maybe_core_index_selector: Option<CoreSelector>,
-		cq_offset: ClaimQueueOffset,
-	) -> Result<(), CommittedCandidateReceiptError> {
-		let assigned_cores = cores_per_para
-			.get(&self.descriptor.para_id())
-			.ok_or(CommittedCandidateReceiptError::NoAssignment)?
-			.get(&cq_offset.0)
-			.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
+/// Performs the UMP-signal checks and returns the signals.
+///
+/// The check is on the commitments: it needs the claim queue plus the three descriptor
+/// fields the core-index check consumes, and nothing else from a receipt.
+/// [`CommittedCandidateReceiptV2::parse_ump_signals`] is the convenience wrapper for
+/// callers that already hold a receipt.
+pub fn parse_ump_signals_for_commitments(
+	commitments: &CandidateCommitments,
+	version: CandidateDescriptorVersion,
+	cores_per_para: &TransposedClaimQueue,
+	para_id: Id,
+	core_index: CoreIndex,
+) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
+	let signals = commitments.ump_signals()?;
 
-		if assigned_cores.is_empty() {
-			return Err(CommittedCandidateReceiptError::NoAssignment);
-		}
-
-		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
-
-		let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
-			// We have a committed core selector, we can use it.
-			core_index_selector
-		} else if assigned_cores.len() > 1 {
-			// We got more than one assigned core and no core selector. Special care is needed.
-			if !assigned_cores.contains(&descriptor_core_index) {
-				// core index in the descriptor is not assigned to the para. Error.
-				return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
-			} else {
-				// the descriptor core index is indeed assigned to the para. This is the most we can
-				// check for now
-				return Ok(());
+	match version {
+		CandidateDescriptorVersion::V1 => {
+			// If the parachain runtime started sending ump signals, v1 descriptors are no
+			// longer allowed.
+			if !signals.is_empty() {
+				return Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor);
 			}
-		} else {
-			// No core selector but there's only one assigned core, use it.
-			CoreSelector(0)
-		};
 
-		let core_index = assigned_cores
-			.iter()
-			.nth(core_index_selector.0 as usize % assigned_cores.len())
-			.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
-			.copied()?;
-
-		if core_index != descriptor_core_index {
-			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
-				descriptor: descriptor_core_index,
-				commitments: core_index,
-			});
-		}
-
-		Ok(())
+			// Nothing else to check for v1 descriptors.
+			return Ok(CandidateUMPSignals::default());
+		},
+		CandidateDescriptorVersion::V2 => {},
+		CandidateDescriptorVersion::Unknown(version_raw) => {
+			return Err(CommittedCandidateReceiptError::UnknownVersion(version_raw))
+		},
+		_ if signals.is_empty() => {
+			// V3 and above require UMP signals.
+			return Err(CommittedCandidateReceiptError::NoUMPSignalWithV3Descriptor);
+		},
+		_ => {},
 	}
+
+	// Check the core index
+	let (maybe_core_index_selector, cq_offset) = signals
+		.core_selector()
+		.map(|(selector, offset)| (Some(selector), offset))
+		.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
+
+	check_core_index(cores_per_para, maybe_core_index_selector, cq_offset, para_id, core_index)?;
+
+	// Nothing to further check for the approved peer. If everything passed so far, return the
+	// signals.
+	Ok(signals)
+}
+
+/// Checks if descriptor core index is equal to the committed core index.
+/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
+/// a mapping between `ParaId` and the cores assigned per depth.
+fn check_core_index(
+	cores_per_para: &TransposedClaimQueue,
+	maybe_core_index_selector: Option<CoreSelector>,
+	cq_offset: ClaimQueueOffset,
+	para_id: Id,
+	descriptor_core_index: CoreIndex,
+) -> Result<(), CommittedCandidateReceiptError> {
+	let assigned_cores = cores_per_para
+		.get(&para_id)
+		.ok_or(CommittedCandidateReceiptError::NoAssignment)?
+		.get(&cq_offset.0)
+		.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
+
+	if assigned_cores.is_empty() {
+		return Err(CommittedCandidateReceiptError::NoAssignment);
+	}
+
+	let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
+		// We have a committed core selector, we can use it.
+		core_index_selector
+	} else if assigned_cores.len() > 1 {
+		// We got more than one assigned core and no core selector. Special care is needed.
+		if !assigned_cores.contains(&descriptor_core_index) {
+			// core index in the descriptor is not assigned to the para. Error.
+			return Err(CommittedCandidateReceiptError::InvalidCoreIndex);
+		} else {
+			// the descriptor core index is indeed assigned to the para. This is the most we can
+			// check for now
+			return Ok(());
+		}
+	} else {
+		// No core selector but there's only one assigned core, use it.
+		CoreSelector(0)
+	};
+
+	let core_index = assigned_cores
+		.iter()
+		.nth(core_index_selector.0 as usize % assigned_cores.len())
+		.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
+		.copied()?;
+
+	if core_index != descriptor_core_index {
+		return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+			descriptor: descriptor_core_index,
+			commitments: core_index,
+		});
+	}
+
+	Ok(())
 }
 
 /// A backed (or backable, depending on context) candidate.
