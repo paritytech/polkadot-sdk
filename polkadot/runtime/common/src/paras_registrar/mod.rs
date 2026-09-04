@@ -609,6 +609,19 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			false,
 		)
 	}
+
+	fn check_head_data(head_len: u32) -> Result<(), ()> {
+		let max = configuration::ActiveConfig::<T>::get().max_head_data_size;
+		if head_len <= max {
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+
+	fn set_current_head(para_id: u32, head: Vec<u8>) {
+		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
+	}
 }
 
 impl<T: Config> Pallet<T> {

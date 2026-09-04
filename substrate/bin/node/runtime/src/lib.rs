@@ -2758,6 +2758,12 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: registrar_primitives::ParaId, _head: Vec<u8>) {}
 }
 
 impl pallet_registrar_relay::Config for Runtime {
