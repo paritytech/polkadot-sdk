@@ -28,12 +28,12 @@
 
 #![deny(missing_docs)]
 
-use cumulus_client_collator::collation::{
-	build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams,
-};
 use futures::{future::BoxFuture, StreamExt};
 use polkadot_node_primitives::{Collation, SegmentCollation, UpwardMessages};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, SegmentEntry};
+use polkadot_node_subsystem_types::collation::{
+	build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams,
+};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{

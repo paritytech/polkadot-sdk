@@ -29,10 +29,11 @@ use cumulus_relay_chain_interface::{
 };
 use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV, SegmentCollation};
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage, Segment};
+use polkadot_node_subsystem_types::collation::{SchedulingContext, SegmentToDistribute};
 use polkadot_node_subsystem_util::metered::MeteredReceiver;
 use polkadot_overseer::{Event, Handle};
 use polkadot_primitives::{
-	vstaging::RelayParentInfo, BlockId, BlockNumber, CandidateDescriptorVersion, CandidateEvent,
+	transpose_claim_queue, vstaging::RelayParentInfo, BlockId, BlockNumber, CandidateEvent,
 	ClaimQueueOffset, CoreIndex, CoreSelector, Hash, HeadData, Id as ParaId, NodeFeatures,
 	SessionIndex, UMPSignal, ValidationCodeHash, ValidatorId, UMP_SEPARATOR,
 };
@@ -345,19 +346,20 @@ async fn v3_queries_scheduling_parent() {
 		SegmentDistributor::new(client, overseer_handle, PARA_ID, Default::default());
 
 	distributor
-		.distribute(SegmentToDistribute {
-			core_index: CoreIndex(0),
-			scheduling_parent,
-			scheduling_session: 7,
-			candidates_descriptor_version: CandidateDescriptorVersion::V3,
-			collations: vec![segment_collation(
-				collation_with_signals(&[UMPSignal::SelectCore(
-					CoreSelector(0),
-					ClaimQueueOffset(0),
-				)]),
-				relay_parent,
-			)],
-		})
+		.distribute(
+			SegmentToDistribute {
+				core_index: CoreIndex(0),
+				scheduling: SchedulingContext::V3 { scheduling_parent, scheduling_session: 7 },
+				collations: vec![segment_collation(
+					collation_with_signals(&[UMPSignal::SelectCore(
+						CoreSelector(0),
+						ClaimQueueOffset(0),
+					)]),
+					relay_parent,
+				)],
+			},
+			None,
+		)
 		.await;
 
 	// Both calls must use the scheduling_parent, not relay_parent.
@@ -392,19 +394,20 @@ async fn v2_shape() {
 		SegmentDistributor::new(client, overseer_handle, PARA_ID, Default::default());
 
 	distributor
-		.distribute(SegmentToDistribute {
-			core_index: CoreIndex(0),
-			scheduling_parent: relay_parent,
-			scheduling_session: 1,
-			candidates_descriptor_version: CandidateDescriptorVersion::V2,
-			collations: vec![segment_collation(
-				collation_with_signals(&[UMPSignal::SelectCore(
-					CoreSelector(0),
-					ClaimQueueOffset(0),
-				)]),
-				relay_parent,
-			)],
-		})
+		.distribute(
+			SegmentToDistribute {
+				core_index: CoreIndex(0),
+				scheduling: SchedulingContext::V2 { relay_parent, session: 1 },
+				collations: vec![segment_collation(
+					collation_with_signals(&[UMPSignal::SelectCore(
+						CoreSelector(0),
+						ClaimQueueOffset(0),
+					)]),
+					relay_parent,
+				)],
+			},
+			None,
+		)
 		.await;
 
 	let msgs = drain(&mut rx);
@@ -428,17 +431,18 @@ async fn validator_count_cached_within_session() {
 
 	let make_segment = || SegmentToDistribute {
 		core_index: CoreIndex(0),
-		scheduling_parent: relay_parent,
-		scheduling_session: 5,
-		candidates_descriptor_version: CandidateDescriptorVersion::V3,
+		scheduling: SchedulingContext::V3 {
+			scheduling_parent: relay_parent,
+			scheduling_session: 5,
+		},
 		collations: vec![segment_collation(
 			collation_with_signals(&[UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0))]),
 			relay_parent,
 		)],
 	};
 
-	distributor.distribute(make_segment()).await;
-	distributor.distribute(make_segment()).await;
+	distributor.distribute(make_segment(), None).await;
+	distributor.distribute(make_segment(), None).await;
 
 	// Only one validators() call for both distributes since the session didn't change.
 	assert_eq!(validators_calls.lock().unwrap().len(), 1);
@@ -457,19 +461,23 @@ async fn claim_queue_error_is_non_fatal() {
 		SegmentDistributor::new(client, overseer_handle, PARA_ID, Default::default());
 
 	distributor
-		.distribute(SegmentToDistribute {
-			core_index: CoreIndex(0),
-			scheduling_parent: relay_parent,
-			scheduling_session: 1,
-			candidates_descriptor_version: CandidateDescriptorVersion::V3,
-			collations: vec![segment_collation(
-				collation_with_signals(&[UMPSignal::SelectCore(
-					CoreSelector(0),
-					ClaimQueueOffset(0),
-				)]),
-				relay_parent,
-			)],
-		})
+		.distribute(
+			SegmentToDistribute {
+				core_index: CoreIndex(0),
+				scheduling: SchedulingContext::V3 {
+					scheduling_parent: relay_parent,
+					scheduling_session: 1,
+				},
+				collations: vec![segment_collation(
+					collation_with_signals(&[UMPSignal::SelectCore(
+						CoreSelector(0),
+						ClaimQueueOffset(0),
+					)]),
+					relay_parent,
+				)],
+			},
+			None,
+		)
 		.await;
 
 	// No message should have been sent.
@@ -506,28 +514,29 @@ async fn counter_increments_per_candidate_v3() {
 	assert_eq!(counter_value(&registry), 0.0);
 
 	distributor
-		.distribute(SegmentToDistribute {
-			core_index: CoreIndex(0),
-			scheduling_parent,
-			scheduling_session: 1,
-			candidates_descriptor_version: CandidateDescriptorVersion::V3,
-			collations: vec![
-				segment_collation(
-					collation_with_signals(&[UMPSignal::SelectCore(
-						CoreSelector(0),
-						ClaimQueueOffset(0),
-					)]),
-					relay_parent,
-				),
-				segment_collation(
-					collation_with_signals(&[UMPSignal::SelectCore(
-						CoreSelector(0),
-						ClaimQueueOffset(1),
-					)]),
-					relay_parent,
-				),
-			],
-		})
+		.distribute(
+			SegmentToDistribute {
+				core_index: CoreIndex(0),
+				scheduling: SchedulingContext::V3 { scheduling_parent, scheduling_session: 1 },
+				collations: vec![
+					segment_collation(
+						collation_with_signals(&[UMPSignal::SelectCore(
+							CoreSelector(0),
+							ClaimQueueOffset(0),
+						)]),
+						relay_parent,
+					),
+					segment_collation(
+						collation_with_signals(&[UMPSignal::SelectCore(
+							CoreSelector(0),
+							ClaimQueueOffset(1),
+						)]),
+						relay_parent,
+					),
+				],
+			},
+			None,
+		)
 		.await;
 
 	// Two candidates in the segment → counter must be 2.
@@ -548,21 +557,59 @@ async fn counter_not_incremented_on_build_failure() {
 	let mut distributor = SegmentDistributor::new(client, overseer_handle, PARA_ID, metrics);
 
 	distributor
-		.distribute(SegmentToDistribute {
-			core_index: CoreIndex(0),
-			scheduling_parent: relay_parent,
-			scheduling_session: 1,
-			candidates_descriptor_version: CandidateDescriptorVersion::V3,
-			collations: vec![segment_collation(
-				collation_with_signals(&[UMPSignal::SelectCore(
-					CoreSelector(0),
-					ClaimQueueOffset(0),
-				)]),
-				relay_parent,
-			)],
-		})
+		.distribute(
+			SegmentToDistribute {
+				core_index: CoreIndex(0),
+				scheduling: SchedulingContext::V3 {
+					scheduling_parent: relay_parent,
+					scheduling_session: 1,
+				},
+				collations: vec![segment_collation(
+					collation_with_signals(&[UMPSignal::SelectCore(
+						CoreSelector(0),
+						ClaimQueueOffset(0),
+					)]),
+					relay_parent,
+				)],
+			},
+			None,
+		)
 		.await;
 
 	// The build failed; counter must remain at zero.
 	assert_eq!(counter_value(&registry), 0.0);
+}
+
+/// A caller that already holds the claim queue at the anchor must suppress the runtime call.
+/// Re-fetching here costs an uncached round trip per core in the window between authoring and
+/// advertisement, so this asserts the fetch does not happen.
+#[tokio::test]
+async fn supplied_claim_queue_suppresses_the_fetch() {
+	let relay_parent = Hash::repeat_byte(0x07);
+	let (client, _validators_calls, claim_queue_calls) =
+		MockRelayClient::new(Some(claim_queue_for_core(0)), 4, 1);
+	let (overseer_handle, mut rx) = make_overseer_handle();
+	let mut distributor =
+		SegmentDistributor::new(client, overseer_handle, PARA_ID, Default::default());
+
+	distributor
+		.distribute(
+			SegmentToDistribute {
+				core_index: CoreIndex(0),
+				scheduling: SchedulingContext::V2 { relay_parent, session: 1 },
+				collations: vec![segment_collation(
+					collation_with_signals(&[UMPSignal::SelectCore(
+						CoreSelector(0),
+						ClaimQueueOffset(0),
+					)]),
+					relay_parent,
+				)],
+			},
+			Some(transpose_claim_queue(claim_queue_for_core(0))),
+		)
+		.await;
+
+	// No claim-queue runtime call, and the segment still went out.
+	assert!(claim_queue_calls.lock().unwrap().is_empty());
+	assert_eq!(drain(&mut rx).len(), 1);
 }

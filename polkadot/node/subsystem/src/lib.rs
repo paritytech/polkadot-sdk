@@ -24,6 +24,7 @@
 pub use polkadot_overseer::{self as overseer, *};
 
 pub use polkadot_node_subsystem_types::{
+	collation,
 	errors::{self, *},
 	ActivatedLeaf,
 };

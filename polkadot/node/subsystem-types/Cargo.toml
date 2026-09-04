@@ -13,10 +13,12 @@ workspace = true
 
 [dependencies]
 async-trait = { workspace = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
 derive_more = { workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 orchestra = { features = ["futures_channel"], workspace = true }
+polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
@@ -33,3 +35,13 @@ sp-blockchain = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+rstest = { workspace = true }
+
+[features]
+# Exposes segment-entry builders that skip the UMP-signal checks an honest collator must
+# perform. Only the test parachain collators may enable this.
+test-utils = []

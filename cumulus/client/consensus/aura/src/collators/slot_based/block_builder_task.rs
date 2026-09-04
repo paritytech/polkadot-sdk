@@ -45,6 +45,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -611,6 +612,15 @@ where
 				},
 			};
 
+			// `determine_cores` just read the claim queue at `claim_queue_relay_block`, which is
+			// the segment's scheduling anchor for both V2 and V3, so this is a cache hit. Passing
+			// it down means the collation task performs no claim-queue runtime call per core.
+			let anchor_claim_queue = relay_chain_data_cache
+				.get_by_hash(claim_queue_relay_block.hash())
+				.await
+				.ok()
+				.map(|data| data.claim_queue.clone());
+
 			let number_of_blocks =
 				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
 					Ok(interval) => interval,
@@ -653,6 +663,7 @@ where
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 
 				match build_collation_for_core(BuildCollationParams {
+					anchor_claim_queue: anchor_claim_queue.clone(),
 					pov_parent_header,
 					pov_parent_hash,
 					relay_parent_header: &relay_parent_header,
@@ -740,6 +751,8 @@ struct BuildCollationParams<
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
 	v3_enabled: bool,
+	/// The claim queue at the scheduling anchor, if the builder already had it cached.
+	anchor_claim_queue: Option<ClaimQueueSnapshot>,
 }
 
 /// Build a collation for one core.
@@ -783,6 +796,7 @@ async fn build_collation_for_core<
 		para_slot,
 		para_client,
 		v3_enabled,
+		anchor_claim_queue,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
 ) -> Result<Option<Block::Header>, ()>
 where
@@ -1097,6 +1111,7 @@ where
 		validation_code_hash,
 		core_index,
 		validation_data,
+		claim_queue: anchor_claim_queue,
 	}) {
 		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())

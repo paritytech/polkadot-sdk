@@ -81,6 +81,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	CoreIndex, Hash as RelayHash, Id as ParaId, PersistedValidationData, ValidationCodeHash,
 };
@@ -295,4 +296,7 @@ struct CollatorMessage<Block: BlockT> {
 	pub core_index: CoreIndex,
 	/// The persisted validation data for this collation.
 	pub validation_data: PersistedValidationData,
+	/// The claim queue at this segment's scheduling anchor, when the block builder already had
+	/// it. `None` makes the collation task fetch it, which costs an uncached runtime call.
+	pub claim_queue: Option<ClaimQueueSnapshot>,
 }

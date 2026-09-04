@@ -18,15 +18,15 @@
 use std::path::PathBuf;
 
 use cumulus_client_collator::{
-	metrics::Metrics,
-	segment::{SegmentDistributor, SegmentToDistribute},
+	metrics::Metrics, segment::SegmentDistributor,
 	service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
+use polkadot_node_subsystem::collation::{SchedulingContext, SegmentToDistribute};
 use prometheus_endpoint::Registry;
 
 use polkadot_node_primitives::{MaybeCompressedPoV, SegmentCollation};
-use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
+use polkadot_primitives::{transpose_claim_queue, Id as ParaId};
 
 use cumulus_primitives_core::relay_chain::BlockId;
 use futures::prelude::*;
@@ -124,6 +124,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		relay_parent,
 		core_index,
 		validation_data,
+		claim_queue,
 	} = message;
 
 	// Derive scheduling_parent from the proof (the ISP header's hash is used when the
@@ -189,23 +190,21 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 	// A V3 candidate is scheduled at a block other than its relay parent, so the scheduling
 	// session has to be fetched separately. For V2 the two contexts coincide.
-	let (scheduling_parent, scheduling_session, candidates_descriptor_version) =
-		match scheduling_parent {
-			Some(parent) => {
-				let Ok(scheduling_session) = relay_client.session_index_for_child(parent).await
-				else {
-					tracing::error!(
-						target: LOG_TARGET,
-						scheduling_parent = ?parent,
-						"Failed to fetch session index for the scheduling parent."
-					);
-					return;
-				};
+	let scheduling = match scheduling_parent {
+		Some(parent) => {
+			let Ok(scheduling_session) = relay_client.session_index_for_child(parent).await else {
+				tracing::error!(
+					target: LOG_TARGET,
+					scheduling_parent = ?parent,
+					"Failed to fetch session index for the scheduling parent."
+				);
+				return;
+			};
 
-				(parent, scheduling_session, CandidateDescriptorVersion::V3)
-			},
-			None => (relay_parent, session_index, CandidateDescriptorVersion::V2),
-		};
+			SchedulingContext::V3 { scheduling_parent: parent, scheduling_session }
+		},
+		None => SchedulingContext::V2 { relay_parent, session: session_index },
+	};
 
 	tracing::debug!(
 		target: LOG_TARGET,
@@ -215,18 +214,19 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	);
 
 	segment_distributor
-		.distribute(SegmentToDistribute {
-			core_index,
-			scheduling_parent,
-			scheduling_session,
-			candidates_descriptor_version,
-			collations: vec![SegmentCollation {
-				relay_parent,
-				collation,
-				validation_code_hash,
-				session_index,
-				validation_data,
-			}],
-		})
+		.distribute(
+			SegmentToDistribute {
+				core_index,
+				scheduling,
+				collations: vec![SegmentCollation {
+					relay_parent,
+					collation,
+					validation_code_hash,
+					session_index,
+					validation_data,
+				}],
+			},
+			claim_queue.map(|cq| transpose_claim_queue(cq.0)),
+		)
 		.await;
 }

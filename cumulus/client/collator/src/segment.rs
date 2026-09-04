@@ -17,16 +17,13 @@
 
 //! Turning collations into segments and handing them to the collator protocol.
 
-use crate::{
-	collation::{build_segment, BuildSegmentParams},
-	metrics::Metrics,
-};
+use crate::metrics::Metrics;
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_node_primitives::SegmentCollation;
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment};
+use polkadot_node_subsystem_types::collation::{build_segment, SegmentToDistribute};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	transpose_claim_queue, CandidateDescriptorVersion, CoreIndex, Hash, Id as ParaId, SessionIndex,
+	transpose_claim_queue, Hash, Id as ParaId, SessionIndex, TransposedClaimQueue,
 };
 use schnellru::{ByLength, LruMap};
 
@@ -34,21 +31,6 @@ const LOG_TARGET: &str = "cumulus-collator::segment";
 
 #[cfg(test)]
 mod tests;
-
-/// A segment of collations, ready to be built into candidates and distributed.
-pub struct SegmentToDistribute {
-	/// The core every candidate in the segment is to be backed on.
-	pub core_index: CoreIndex,
-	/// The scheduling parent shared by all collations. For V2 segments this is the collations'
-	/// relay parent.
-	pub scheduling_parent: Hash,
-	/// The session index at the scheduling parent.
-	pub scheduling_session: SessionIndex,
-	/// The descriptor version of the candidates.
-	pub candidates_descriptor_version: CandidateDescriptorVersion,
-	/// The collations, in the order they should be distributed.
-	pub collations: Vec<SegmentCollation>,
-}
 
 /// Builds the candidate receipts for our collations and hands them to the collator protocol,
 /// which distributes them to the validators backing the target core.
@@ -81,54 +63,49 @@ impl<RClient: RelayChainInterface> SegmentDistributor<RClient> {
 
 	/// Build the segment and send it to the collator protocol. Errors are logged, since there is
 	/// nothing the caller can do about a collation that cannot be turned into a candidate.
-	pub async fn distribute(&mut self, segment: SegmentToDistribute) {
+	/// `claim_queue` is the transposed claim queue at the segment's scheduling anchor. Callers
+	/// that already hold it should pass it: neither `RelayChainInterface` implementation caches
+	/// the claim queue, so re-fetching here costs an uncached round trip per core in the window
+	/// between authoring and advertisement.
+	pub async fn distribute(
+		&mut self,
+		segment: SegmentToDistribute,
+		claim_queue: Option<TransposedClaimQueue>,
+	) {
 		let _timer = self.metrics.time_submit_collation();
 
-		let SegmentToDistribute {
-			core_index,
-			scheduling_parent,
-			scheduling_session,
-			candidates_descriptor_version,
-			collations,
-		} = segment;
+		let core_index = segment.core_index;
+		let anchor = segment.scheduling.anchor();
 
-		let Some(n_validators) = self.n_validators(scheduling_parent, scheduling_session).await
+		let Some(n_validators) = self.n_validators(anchor, segment.scheduling.session()).await
 		else {
 			return;
 		};
 
-		let claim_queue = match self.relay_client.claim_queue(scheduling_parent).await {
-			Ok(claim_queue) => claim_queue,
-			Err(error) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?error,
-					?scheduling_parent,
-					"Failed to query claim queue, not distributing segment",
-				);
-				return;
+		let claim_queue = match claim_queue {
+			Some(claim_queue) => claim_queue,
+			None => match self.relay_client.claim_queue(anchor).await {
+				Ok(claim_queue) => transpose_claim_queue(claim_queue),
+				Err(error) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						?error,
+						?anchor,
+						"Failed to query claim queue, not distributing segment",
+					);
+					return;
+				},
 			},
 		};
 
-		let segment = match build_segment(
-			BuildSegmentParams {
-				para_id: self.para_id,
-				core_index,
-				n_validators,
-				scheduling_parent,
-				scheduling_session,
-				candidates_descriptor_version,
-				collations,
-			},
-			&transpose_claim_queue(claim_queue),
-		) {
+		let segment = match build_segment(segment, self.para_id, n_validators, &claim_queue) {
 			Ok(segment) => segment,
 			Err(error) => {
 				tracing::error!(
 					target: LOG_TARGET,
 					?error,
 					?core_index,
-					?scheduling_parent,
+					?anchor,
 					"Failed to build segment",
 				);
 				return;
@@ -144,7 +121,7 @@ impl<RClient: RelayChainInterface> SegmentDistributor<RClient> {
 		tracing::debug!(
 			target: LOG_TARGET,
 			?core_index,
-			?scheduling_parent,
+			?anchor,
 			"Distributing segment",
 		);
 

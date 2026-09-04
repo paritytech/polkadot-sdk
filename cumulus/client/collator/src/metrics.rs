@@ -25,8 +25,7 @@ struct MetricsInner {
 	submit_collation: Histogram,
 }
 
-/// Collator metrics, mirroring the originals from the removed `collation-generation` subsystem so
-/// existing dashboards continue to work.
+/// Collator metrics
 #[derive(Default, Clone)]
 pub struct Metrics(Option<MetricsInner>);
 

@@ -34,8 +34,7 @@
 
 use codec::{Codec, Encode};
 use cumulus_client_collator::{
-	metrics::Metrics,
-	segment::{SegmentDistributor, SegmentToDistribute},
+	metrics::Metrics, segment::SegmentDistributor,
 	service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_client_consensus_common::{
@@ -47,8 +46,9 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::SegmentCollation;
+use polkadot_node_subsystem::collation::{SchedulingContext, SegmentToDistribute};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::{transpose_claim_queue, Id as ParaId, OccupiedCoreAssumption};
 use sp_consensus::Environment;
 
 use crate::{
@@ -307,10 +307,9 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
-				.await
-				.iter_claims_at_depth_for_para(0, params.para_id)
-				.next()
+			let claim_queue = claim_queue_at(relay_parent, &mut params.relay_client).await;
+			let Some(core_index) =
+				claim_queue.iter_claims_at_depth_for_para(0, params.para_id).next()
 			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
@@ -537,19 +536,24 @@ where
 					// Here we are assuming that the leaf is imported, as we've gotten an
 					// import notification.
 					segment_distributor
-						.distribute(SegmentToDistribute {
-							core_index,
-							scheduling_parent: relay_parent,
-							scheduling_session: session_index,
-							candidates_descriptor_version: CandidateDescriptorVersion::V2,
-							collations: vec![SegmentCollation {
-								relay_parent,
-								collation,
-								validation_code_hash,
-								session_index,
-								validation_data,
-							}],
-						})
+						.distribute(
+							SegmentToDistribute {
+								core_index,
+								scheduling: SchedulingContext::V2 {
+									relay_parent,
+									session: session_index,
+								},
+								collations: vec![SegmentCollation {
+									relay_parent,
+									collation,
+									validation_code_hash,
+									session_index,
+									validation_data,
+								}],
+							},
+							// Already fetched at this relay parent for core selection above.
+							Some(transpose_claim_queue(claim_queue.0.clone())),
+						)
 						.await;
 				},
 				Ok(None) => {

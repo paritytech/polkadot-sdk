@@ -1,19 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+// This file is part of Polkadot.
 
-// Cumulus is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Cumulus is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Collator-side helpers for turning collations into the [`Segment`] that is handed to the
 //! collator protocol via [`CollatorProtocolMessage::DistributeSegment`].
@@ -22,18 +21,17 @@
 //! against the claim queue. The candidate receipt itself is assembled by the receiver from the
 //! entry fields.
 //!
-//! [`Segment`]: polkadot_node_subsystem::messages::Segment
-//! [`CollatorProtocolMessage::DistributeSegment`]: polkadot_node_subsystem::messages::CollatorProtocolMessage::DistributeSegment
+//! [`CollatorProtocolMessage::DistributeSegment`]: crate::messages::CollatorProtocolMessage::DistributeSegment
 
+use crate::messages::{Segment, SegmentEntry};
 use codec::Encode;
 use polkadot_node_primitives::{AvailableData, PoV, SegmentCollation, MAX_SEGMENT_LEN};
-use polkadot_node_subsystem::messages::{Segment, SegmentEntry};
 use polkadot_primitives::{
 	v9::parse_ump_signals_for_commitments, CandidateCommitments, CandidateDescriptorVersion,
 	CommittedCandidateReceiptError, CoreIndex, Hash, Id as ParaId, PersistedValidationData,
 	SessionIndex, TransposedClaimQueue,
 };
-use sp_core::{bounded::BoundedVec, ConstU32};
+use sp_runtime::{traits::ConstU32, BoundedVec};
 use std::sync::Arc;
 
 #[cfg(test)]
@@ -74,49 +72,82 @@ pub struct SegmentEntryParams {
 	pub n_validators: usize,
 }
 
-/// Everything needed to build a whole [`Segment`].
-pub struct BuildSegmentParams {
-	/// The parachain the collations are for.
-	pub para_id: ParaId,
+/// Which relay block determined the core assignment for a segment.
+///
+/// The variant fixes the candidate descriptor version, so a V2 segment cannot carry a scheduling
+/// parent foreign to its collations and a V3 segment cannot omit one.
+///
+/// This is the input mirror of [`Segment`]'s own V2/V3 split, and the same distinction the
+/// descriptor encodes via `CandidateDescriptorV2::new`/`new_v3` and reads back through
+/// `scheduling_session()`: for V2 the relay parent's session, for V3 an explicit one.
+#[derive(Debug, Clone, Copy)]
+pub enum SchedulingContext {
+	/// V2 descriptors: the collations' own relay parent is the scheduling context.
+	V2 {
+		/// The relay parent the collations build on, which doubles as the scheduling parent.
+		relay_parent: Hash,
+		/// The session index at `relay_parent`.
+		session: SessionIndex,
+	},
+	/// V3 descriptors: an explicit scheduling parent, which may differ from the relay parent.
+	V3 {
+		/// The scheduling parent shared by all collations in the segment.
+		scheduling_parent: Hash,
+		/// The session index at `scheduling_parent`.
+		scheduling_session: SessionIndex,
+	},
+}
+
+impl SchedulingContext {
+	/// The relay block whose claim queue and validator set govern this segment. Read on every
+	/// path, in both variants, so it is never a placeholder.
+	pub fn anchor(&self) -> Hash {
+		match self {
+			Self::V2 { relay_parent, .. } => *relay_parent,
+			Self::V3 { scheduling_parent, .. } => *scheduling_parent,
+		}
+	}
+
+	/// The session index at [`Self::anchor`].
+	pub fn session(&self) -> SessionIndex {
+		match self {
+			Self::V2 { session, .. } => *session,
+			Self::V3 { scheduling_session, .. } => *scheduling_session,
+		}
+	}
+
+	/// The candidate descriptor version this context implies.
+	pub fn descriptor_version(&self) -> CandidateDescriptorVersion {
+		match self {
+			Self::V2 { .. } => CandidateDescriptorVersion::V2,
+			Self::V3 { .. } => CandidateDescriptorVersion::V3,
+		}
+	}
+}
+
+/// A segment of collations sharing a scheduling context and a target core, ready to be built
+/// into candidates.
+pub struct SegmentToDistribute {
 	/// The core every candidate in the segment is to be backed on.
 	pub core_index: CoreIndex,
-	/// The number of validators in the session, used for erasure coding.
-	pub n_validators: usize,
-	/// The scheduling parent shared by all collations in the segment. For V2 segments this is
-	/// the collations' relay parent.
-	pub scheduling_parent: Hash,
-	/// The session index at the scheduling parent. Ignored for V2 segments.
-	pub scheduling_session: SessionIndex,
-	/// The descriptor version of the candidates, which also selects the segment shape.
-	pub candidates_descriptor_version: CandidateDescriptorVersion,
+	/// The scheduling context shared by all collations in the segment.
+	pub scheduling: SchedulingContext,
 	/// The collations, in the order they should be distributed.
 	pub collations: Vec<SegmentCollation>,
 }
 
-/// Build the [`Segment`] for a set of collations sharing a scheduling parent and a core.
+/// Build the [`Segment`] for a set of collations sharing a scheduling context and a core.
 ///
 /// A `V2` segment must carry exactly one collation, a `V3` segment between one and
-/// [`MAX_SEGMENT_LEN`] of them. Any other descriptor version is rejected.
+/// [`MAX_SEGMENT_LEN`] of them.
 pub fn build_segment(
-	params: BuildSegmentParams,
+	segment: SegmentToDistribute,
+	para_id: ParaId,
+	n_validators: usize,
 	transposed_claim_queue: &TransposedClaimQueue,
 ) -> Result<Segment, Error> {
-	let BuildSegmentParams {
-		para_id,
-		core_index,
-		n_validators,
-		scheduling_parent,
-		scheduling_session,
-		candidates_descriptor_version,
-		collations,
-	} = params;
-
-	if !matches!(
-		candidates_descriptor_version,
-		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3
-	) {
-		return Err(Error::UnsupportedDescriptorVersion);
-	}
+	let SegmentToDistribute { core_index, scheduling, collations } = segment;
+	let candidates_descriptor_version = scheduling.descriptor_version();
 
 	let len = collations.len();
 	if len == 0 {
@@ -141,12 +172,23 @@ pub fn build_segment(
 			let entry = entries.pop().ok_or(Error::InvalidSegmentSize(0))?;
 			Ok(Segment::V2(entry))
 		},
-		CandidateDescriptorVersion::V3 => Ok(Segment::V3 {
-			scheduling_parent,
-			scheduling_session,
-			candidates: BoundedVec::<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(entries)
+		CandidateDescriptorVersion::V3 => {
+			let (scheduling_parent, scheduling_session) = match scheduling {
+				SchedulingContext::V3 { scheduling_parent, scheduling_session } => {
+					(scheduling_parent, scheduling_session)
+				},
+				// `descriptor_version()` returns V3 only for the V3 variant.
+				SchedulingContext::V2 { .. } => return Err(Error::UnsupportedDescriptorVersion),
+			};
+			Ok(Segment::V3 {
+				scheduling_parent,
+				scheduling_session,
+				candidates: BoundedVec::<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(
+					entries,
+				)
 				.map_err(|_| Error::InvalidSegmentSize(len))?,
-		}),
+			})
+		},
 		CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown(_) => {
 			Err(Error::UnsupportedDescriptorVersion)
 		},
@@ -178,6 +220,7 @@ pub fn build_segment_entry(
 /// The check enforces that the parachain selected the core the candidate is submitted on, so
 /// skipping it can only produce candidates that validators reject. This exists solely for
 /// malicious test collators; honest collators must use [`build_segment_entry`].
+#[cfg(any(feature = "test-utils", test))]
 pub fn build_segment_entry_without_ump_check(
 	collation: SegmentCollation,
 	n_validators: usize,

@@ -1,29 +1,27 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+// This file is part of Polkadot.
 
-// Cumulus is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Cumulus is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
 use assert_matches::assert_matches;
 use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV};
 use polkadot_primitives::{
-	transpose_claim_queue, ClaimQueueOffset, CoreSelector, UMPSignal, ValidationCodeHash,
-	UMP_SEPARATOR,
+	transpose_claim_queue, ClaimQueueOffset, CoreSelector, HeadData, OutboundHrmpMessage,
+	UMPSignal, ValidationCode, ValidationCodeHash, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
-use rstest::rstest;
 use std::collections::{BTreeMap, VecDeque};
 
 const PARA_ID: ParaId = ParaId::new(5);
@@ -92,16 +90,28 @@ fn params(
 	collations: Vec<SegmentCollation>,
 	version: CandidateDescriptorVersion,
 	scheduling_parent: Hash,
-) -> BuildSegmentParams {
-	BuildSegmentParams {
-		para_id: PARA_ID,
-		core_index: CoreIndex(0),
-		n_validators: N_VALIDATORS,
-		scheduling_parent,
-		scheduling_session: 7,
-		candidates_descriptor_version: version,
-		collations,
-	}
+) -> SegmentToDistribute {
+	let scheduling = match version {
+		CandidateDescriptorVersion::V2 => {
+			SchedulingContext::V2 { relay_parent: scheduling_parent, session: 7 }
+		},
+		CandidateDescriptorVersion::V3 => {
+			SchedulingContext::V3 { scheduling_parent, scheduling_session: 7 }
+		},
+		// `SchedulingContext` cannot represent any other version, which is the point of the
+		// type; tests only ask for V2 or V3; qed
+		other => unreachable!("unrepresentable descriptor version in test: {other:?}"),
+	};
+
+	SegmentToDistribute { core_index: CoreIndex(0), scheduling, collations }
+}
+
+/// `build_segment` with the fixture para and validator count applied.
+fn build_seg(
+	segment: SegmentToDistribute,
+	transposed_claim_queue: &TransposedClaimQueue,
+) -> Result<Segment, Error> {
+	build_segment(segment, PARA_ID, N_VALIDATORS, transposed_claim_queue)
 }
 
 #[test]
@@ -110,7 +120,7 @@ fn builds_v2_segment() {
 	let collation =
 		collation_with_signals(&[UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0))]);
 
-	let segment = build_segment(
+	let segment = build_seg(
 		params(
 			vec![segment_collation(collation, relay_parent)],
 			CandidateDescriptorVersion::V2,
@@ -154,7 +164,7 @@ fn builds_v3_segment_with_scheduling_parent() {
 		})
 		.collect();
 
-	let segment = build_segment(
+	let segment = build_seg(
 		params(collations, CandidateDescriptorVersion::V3, scheduling_parent),
 		&claim_queue(&[0]),
 	)
@@ -178,7 +188,7 @@ fn builds_v3_segment_with_only_approved_peer_signal() {
 		collation_with_signals(&[UMPSignal::ApprovedPeer(vec![1, 2, 3, 4, 5].try_into().unwrap())]);
 
 	assert_matches!(
-		build_segment(
+		build_seg(
 			params(
 				vec![segment_collation(collation, relay_parent)],
 				CandidateDescriptorVersion::V3,
@@ -196,7 +206,7 @@ fn rejects_v3_candidate_without_ump_signals() {
 	let relay_parent = Hash::repeat_byte(0);
 
 	assert_matches!(
-		build_segment(
+		build_seg(
 			params(
 				vec![segment_collation(collation(0), relay_parent)],
 				CandidateDescriptorVersion::V3,
@@ -216,7 +226,7 @@ fn rejects_core_index_not_assigned_to_para() {
 	let relay_parent = Hash::repeat_byte(0);
 
 	assert_matches!(
-		build_segment(
+		build_seg(
 			params(
 				vec![segment_collation(collation(0), relay_parent)],
 				CandidateDescriptorVersion::V2,
@@ -248,7 +258,7 @@ fn rejects_pov_exceeding_max_pov_size() {
 		MaybeCompressedPoV::Raw(PoV { block_data: BlockData(block_data) });
 
 	assert_matches!(
-		build_segment(
+		build_seg(
 			params(
 				vec![segment_collation(collation, relay_parent)],
 				CandidateDescriptorVersion::V2,
@@ -265,10 +275,7 @@ fn rejects_empty_segment() {
 	let relay_parent = Hash::repeat_byte(0);
 
 	assert_matches!(
-		build_segment(
-			params(vec![], CandidateDescriptorVersion::V3, relay_parent),
-			&claim_queue(&[0]),
-		),
+		build_seg(params(vec![], CandidateDescriptorVersion::V3, relay_parent), &claim_queue(&[0]),),
 		Err(Error::InvalidSegmentSize(0))
 	);
 }
@@ -281,7 +288,7 @@ fn rejects_v2_segment_with_multiple_collations() {
 		.collect::<Vec<_>>();
 
 	assert_matches!(
-		build_segment(
+		build_seg(
 			params(collations, CandidateDescriptorVersion::V2, relay_parent),
 			&claim_queue(&[0]),
 		),
@@ -306,27 +313,11 @@ fn rejects_v3_segment_exceeding_max_segment_len() {
 	let len = collations.len();
 
 	assert_matches!(
-		build_segment(
+		build_seg(
 			params(collations, CandidateDescriptorVersion::V3, relay_parent),
 			&claim_queue(&[0]),
 		),
 		Err(Error::InvalidSegmentSize(reported)) => assert_eq!(reported, len)
-	);
-}
-
-#[rstest]
-#[case(CandidateDescriptorVersion::V1)]
-#[case(CandidateDescriptorVersion::Unknown(42))]
-// Only V2 and V3 descriptor versions can be built.
-fn rejects_unsupported_descriptor_version(#[case] version: CandidateDescriptorVersion) {
-	let relay_parent = Hash::repeat_byte(0);
-
-	assert_matches!(
-		build_segment(
-			params(vec![segment_collation(collation(0), relay_parent)], version, relay_parent,),
-			&claim_queue(&[0]),
-		),
-		Err(Error::UnsupportedDescriptorVersion)
 	);
 }
 
@@ -359,4 +350,53 @@ fn unchecked_builder_skips_ump_signal_checks() {
 
 	let entry = build_segment_entry_without_ump_check(collation, N_VALIDATORS).unwrap();
 	assert_eq!(entry.relay_parent, relay_parent);
+}
+
+#[test]
+// Every commitment field must reach the entry's `commitments_hash`. The other tests use default
+// commitments, so dropping a field from the `CandidateCommitments` literal in `build_entry`, or
+// transposing two of the same type, would not change any hash they assert on. In production that
+// surfaces only as validators rejecting every candidate while the collator reports success.
+fn commitments_hash_covers_every_field() {
+	let relay_parent = Hash::repeat_byte(0);
+
+	// Distinct, non-default values in all six fields.
+	let mut collation = collation(0);
+	collation.head_data = HeadData(vec![1, 2, 3]);
+	collation.new_validation_code = Some(ValidationCode(vec![4, 5, 6]));
+	collation.processed_downward_messages = 7;
+	collation.hrmp_watermark = 9;
+	collation
+		.horizontal_messages
+		.force_push(OutboundHrmpMessage { recipient: ParaId::from(11u32), data: vec![12] });
+	// A real upward message, then the separator and the core selector the UMP check needs.
+	collation.upward_messages.force_push(vec![13, 14]);
+	collation.upward_messages.force_push(UMP_SEPARATOR);
+	collation
+		.upward_messages
+		.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
+	let expected = CandidateCommitments {
+		upward_messages: collation.upward_messages.clone(),
+		horizontal_messages: collation.horizontal_messages.clone(),
+		new_validation_code: collation.new_validation_code.clone(),
+		head_data: collation.head_data.clone(),
+		processed_downward_messages: collation.processed_downward_messages,
+		hrmp_watermark: collation.hrmp_watermark,
+	};
+
+	let segment = build_seg(
+		params(
+			vec![segment_collation(collation, relay_parent)],
+			CandidateDescriptorVersion::V2,
+			relay_parent,
+		),
+		&claim_queue(&[0]),
+	)
+	.unwrap();
+
+	assert_matches!(segment, Segment::V2(entry) => {
+		assert_eq!(entry.commitments_hash, expected.hash());
+		assert_eq!(entry.output_head_data_hash, expected.head_data.hash());
+	});
 }
