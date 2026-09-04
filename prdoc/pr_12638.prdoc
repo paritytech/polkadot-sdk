@@ -1,0 +1,18 @@
+title: '[XCMP/HRMP] Retry some types of pages'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Retry:
+    - XcmpMessageFormat::Signals pages
+    - XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm pages
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: polkadot-parachain-primitives
+  bump: patch
+- name: xcm-simulator
+  bump: patch
+- name: pallet-contracts-mock-network
+  bump: patch

@@ -141,14 +141,15 @@ pub struct FromThreadLocal;
 /// A `MessageProcessor` that stores all messages in thread-local.
 pub struct SaveIntoThreadLocal;
 
-std::thread_local! {
-	pub static HANDLED_DMP_MESSAGES: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new());
-	pub static HANDLED_XCMP_MESSAGES: RefCell<Vec<(ParaId, relay_chain::BlockNumber, Vec<u8>)>> = RefCell::new(Vec::new());
-	pub static SENT_MESSAGES: RefCell<Vec<(ParaId, Vec<u8>)>> = RefCell::new(Vec::new());
+parameter_types! {
+	pub static XcmpMessagesHandlingLimit: usize = usize::MAX;
+	pub static HandledXcmpMessages: Vec<(ParaId, relay_chain::BlockNumber, Vec<u8>)> = Vec::new();
+	pub static HandledDmpMessages: Vec<Vec<u8>> = Vec::new();
+	pub static SentMessages: Vec<(ParaId, Vec<u8>)> = Vec::new();
 }
 
 pub fn send_message(dest: ParaId, message: Vec<u8>) {
-	SENT_MESSAGES.with(|m| m.borrow_mut().push((dest, message)));
+	SentMessages::mutate(|m| m.push((dest, message)));
 }
 
 impl XcmpMessageSource for FromThreadLocal {
@@ -161,8 +162,8 @@ impl XcmpMessageSource for FromThreadLocal {
 		let mut taken_messages = 0;
 		let mut taken_bytes = 0;
 		let mut result = Vec::new();
-		SENT_MESSAGES.with(|ms| {
-			ms.borrow_mut().retain(|m| {
+		SentMessages::mutate(|ms| {
+			ms.retain(|m| {
 				let status = <Pallet<Test> as GetChannelInfo>::get_channel_status(m.0);
 				let (max_size_now, max_size_ever) = match status {
 					ChannelStatus::Ready(now, ever) => (now, ever),
@@ -202,9 +203,8 @@ impl ProcessMessage for SaveIntoThreadLocal {
 	) -> Result<bool, ProcessMessageError> {
 		assert_eq!(origin, Self::Origin::Parent);
 
-		HANDLED_DMP_MESSAGES.with(|m| {
-			m.borrow_mut().push(message.to_vec());
-			Weight::zero()
+		HandledDmpMessages::mutate(|msgs| {
+			msgs.push(message.to_vec());
 		});
 		Ok(true)
 	}
@@ -213,22 +213,24 @@ impl ProcessMessage for SaveIntoThreadLocal {
 impl XcmpMessageHandler for SaveIntoThreadLocal {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 		iter: I,
-		_max_weight: Weight,
-	) -> Weight {
-		HANDLED_XCMP_MESSAGES.with(|m| {
-			for (sender, sent_at, message) in iter {
-				m.borrow_mut().push((sender, sent_at, message.to_vec()));
+		max_weight: Weight,
+	) -> (usize, Weight) {
+		let mut num_processed_pages = 0;
+		HandledXcmpMessages::mutate(|messages| {
+			for (sender, sent_at, message) in iter.take(XcmpMessagesHandlingLimit::get()) {
+				num_processed_pages += 1;
+				messages.push((sender, sent_at, message.to_vec()));
 			}
-			Weight::zero()
-		})
+		});
+		(num_processed_pages, max_weight)
 	}
 }
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	HANDLED_DMP_MESSAGES.with(|m| m.borrow_mut().clear());
-	HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
+	HandledDmpMessages::reset();
+	HandledXcmpMessages::reset();
 
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
