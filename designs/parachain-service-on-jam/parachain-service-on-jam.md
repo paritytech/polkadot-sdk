@@ -215,8 +215,7 @@ struct ParachainServiceState {
     /// See §6.1 for the per-entry formula.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
 
-    /// Per parachain settlement ring. Holds only the last `MAX_SETTLEMENT_RING_CAPACITY`
-    /// roots the parachain declared in the enacted blocks. See §8.
+    /// Per parachain settlement ring. See §8.
     offchain_msg_cursor: Map<ParaId, SettlementCursor>,
     /// Maps `StreamsRoot` to `position`.
     /// The only ring entry the settlement check reads (§5.1 step 6).
