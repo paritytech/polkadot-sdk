@@ -42,8 +42,6 @@ substrate.code-workspace
 target/
 *.scale
 rustc-ice-*
-<<<<<<< HEAD
-=======
 /.claude/settings.local.json
 *.local.md
 # Generated release changelog outputs (scripts/release/build-changelogs.sh)
@@ -51,4 +49,3 @@ scripts/release/RELEASE_DRAFT.md
 scripts/release/context.json
 scripts/release/CHANGELOG.md
 scripts/release/changelog.json
->>>>>>> c18c5215 ([Release] Changelog refactoring (#13037))

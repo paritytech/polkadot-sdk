@@ -175,16 +175,9 @@ jobs:
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
           echo "Version: $VERSION"
 
-<<<<<<< HEAD
-          if [[ ${NO_RUNTIMES} == "true"  || ${CRATES_ONLY} == "true" ]]; then
-            export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
-            export NODE_VERSION=v$(get_polkadot_node_version_from_code)
-          fi
-=======
           export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
           export NODE_VERSION=v$(get_polkadot_node_version_from_code)
           export GENERATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
->>>>>>> c18c5215 ([Release] Changelog refactoring (#13037))
 
           ./scripts/release/build-changelogs.sh
 
@@ -194,12 +187,9 @@ jobs:
           name: release-notes-context
           path: |
             scripts/release/context.json
-<<<<<<< HEAD
-=======
             scripts/release/RELEASE_DRAFT.md
             scripts/release/CHANGELOG.md
             scripts/release/changelog.json
->>>>>>> c18c5215 ([Release] Changelog refactoring (#13037))
             **/*-srtool-digest.json
 
       - name: Create draft release
