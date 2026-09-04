@@ -77,6 +77,12 @@ fn main() {
 
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")
+		.enable_feature("spec-version-3")
+		.set_file_name(v3_spec_version_incremented::WASM_FILE_NAME)
+		.build();
+
+	WasmBuilder::init_with_defaults()
+		.enable_feature("v3-descriptor")
 		.enable_feature("relay-parent-offset-2")
 		.set_file_name(v3_rpo_2::WASM_FILE_NAME)
 		.build();

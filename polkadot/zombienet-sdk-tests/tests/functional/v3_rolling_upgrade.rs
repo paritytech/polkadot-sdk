@@ -1,14 +1,30 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Rolling upgrade test: mixed V2/V3 validator fleet.
+//! Rolling upgrade test: mixed V2/V3 validator *and* collator fleets.
 //!
 //! Runs a network where some validators use the current binary (V3-capable) and others use an
-//! older binary (`OLD_POLKADOT_IMAGE`) that does not understand V3 descriptors. V3 is enabled
-//! at the runtime level. The collator produces V2 candidates throughout.
+//! older binary (`OLD_POLKADOT_IMAGE`) that does not understand V3 descriptors. The V3
+//! `CandidateReceiptV3` node feature is enabled on the relay chain, while the parachain runtime has
+//! V3 scheduling **disabled** (`async-backing`).
+//!
+//! The parachain is served by a mixed collator fleet on one core:
+//! - a **V3-capable** collator (the current `test-parachain`), and
+//! - a **V2-only** collator (an older `polkadot-parachain` release, predating V3, supplied via
+//!   `OLD_PARACHAIN_COMMAND` / `OLD_PARACHAIN_IMAGE`).
+//!
+//! Both emit V2, because the descriptor version follows the *para* runtime: with V3 disabled there,
+//! `validate_v3_scheduling` takes its V1/V2 path and accepts candidates from either binary. The
+//! relay feature being on is what makes this interesting — it must not change what a V3-disabled
+//! para produces.
+//!
+//! The old collator must be stable2603 or newer: that is the first release carrying the
+//! `KeyToIncludeInRelayProof` mechanism (#10678), which the `async-backing` runtime requires. An
+//! older binary cannot serve the key request, fails every `set_validation_data`, and authors
+//! nothing at all — halving throughput rather than exercising the mixed fleet.
 //!
 //! Verifies that:
-//! - V2 candidates are backed by the mixed fleet.
+//! - V2 candidates from both binaries are backed for the same para.
 //! - Statement and availability distribution work across binary versions.
 //! - GRANDPA finality does not stall.
 //! - Parachain throughput is sustained.
@@ -37,6 +53,11 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	let old_image = std::env::var("OLD_POLKADOT_IMAGE")
 		.expect("OLD_POLKADOT_IMAGE must be set for rolling upgrade test");
 	let old_command = std::env::var("OLD_POLKADOT_COMMAND").unwrap_or("polkadot".into());
+
+	// Old, V2-only `polkadot-parachain`
+	let old_parachain_command =
+		std::env::var("OLD_PARACHAIN_COMMAND").unwrap_or_else(|_| "polkadot-parachain-old".into());
+	let old_parachain_image = std::env::var("OLD_PARACHAIN_IMAGE").ok();
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -70,7 +91,8 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 			})
 		})
 		.with_parachain(|p| {
-			p.with_id(3000)
+			let p = p
+				.with_id(3000)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("async-backing")
@@ -78,7 +100,22 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 					("--authoring=slot-based").into(),
 					("-lparachain=debug,aura=debug").into(),
 				])
-				.with_collator(|n| n.with_name("collator-3000"))
+				// V3-capable collator (current binary); on a V3-disabled para it emits V2.
+				.with_collator(|n| n.with_name("collator-3000"));
+			// V2-only collator: an older `polkadot-parachain` that predates V3.
+			p.with_collator(|n| {
+				let n = n
+					.with_name("old-collator-3000")
+					.with_command(old_parachain_command.as_str())
+					.with_args(vec![
+						("--authoring=slot-based").into(),
+						("-lparachain=debug,aura=debug").into(),
+					]);
+				match old_parachain_image.as_deref() {
+					Some(img) => n.with_image(img),
+					None => n,
+				}
+			})
 		})
 		.build()
 		.map_err(|e| {
@@ -91,6 +128,7 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 
 	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-3000")?;
+	let old_para_node = network.get_node("old-collator-3000")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// enabling v3 here does not overwrite all node_features
@@ -127,6 +165,22 @@ async fn v3_rolling_upgrade() -> Result<(), anyhow::Error> {
 	}
 
 	assert_finality_lag(&para_node.wait_client().await?, 6).await?;
+	assert_finality_lag(&old_para_node.wait_client().await?, 6).await?;
+
+	for (name, node) in [("collator-3000", &para_node), ("old-collator-3000", &old_para_node)] {
+		node.wait_metric_with_timeout(
+			"substrate_proposer_block_constructed_count",
+			|v| v >= 15.0,
+			30u64,
+		)
+		.await
+		.map_err(|e| {
+			anyhow!(
+				"Collator {name} authored fewer than 15 parachain blocks \
+				 (metric substrate_proposer_block_constructed_count): {e}"
+			)
+		})?;
+	}
 
 	log::info!("Rolling upgrade test finished successfully");
 

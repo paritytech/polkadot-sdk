@@ -132,6 +132,7 @@
 - job-name: "zombienet-polkadot-elastic-scaling-doesnt-break-parachains"
   test-filter: "elastic_scaling::doesnt_break_parachains::doesnt_break_parachains_test"
   runner-type: "default"
+  cumulus-image: "test-parachain"
 
 
 - job-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
@@ -255,6 +256,60 @@
 - job-name: "zombienet-polkadot-scheduling-v3-rolling-upgrade"
   test-filter: "functional::v3_rolling_upgrade::v3_rolling_upgrade"
   runner-type: "default"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+  additional-setup: |
+    BIN_DIR="$(pwd)/bin_old"
+    mkdir -p $BIN_DIR
+    echo "downloading polkadot as polkadot-old in $BIN_DIR"
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
+    chmod 755 $BIN_DIR/polkadot-old
+    echo "downloading polkadot-parachain as polkadot-parachain-old in $BIN_DIR"
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-parachain-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2603/polkadot-parachain
+    chmod 755 $BIN_DIR/polkadot-parachain-old
+    for bin in polkadot-execute-worker polkadot-prepare-worker; do
+      echo "downloading $bin in $BIN_DIR"
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
+      chmod 755 $BIN_DIR/$bin
+    done
+    ls -ltr $BIN_DIR
+    export PATH=$BIN_DIR:$PATH
+    echo "PATH=$PATH" >> $GITHUB_ENV
+  additional-env:
+    OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
+    OLD_POLKADOT_COMMAND: "polkadot-old"
+    OLD_PARACHAIN_COMMAND: "polkadot-parachain-old"
+    OLD_PARACHAIN_IMAGE: "docker.io/parity/polkadot-parachain:stable2603"
+
+# TEMPORARY: added for this PR only, to observe how the dispute storm behaves in CI.
+# 15 validators per case, so the two cases run as separate jobs rather than back to back.
+# Remove both jobs before merge.
+- job-name: "zombienet-polkadot-scheduling-v3-old-validator-dispute-storm-4-old"
+  test-filter: "functional::v3_old_validator_dispute_storm::v3_old_validator_dispute_storm::case_1_four_old"
+  runner-type: "large"
+  use-zombienet-sdk: true
+  cumulus-image: "test-parachain"
+  additional-setup: |
+    BIN_DIR="$(pwd)/bin_old"
+    mkdir -p $BIN_DIR
+    echo "downloading polkadot as polkadot-old in $BIN_DIR"
+    curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/polkadot-old https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/polkadot
+    chmod 755 $BIN_DIR/polkadot-old
+    for bin in polkadot-execute-worker polkadot-prepare-worker; do
+      echo "downloading $bin in $BIN_DIR"
+      curl --retry 5 --retry-delay 10 --retry-max-time 120 -L -o $BIN_DIR/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512/$bin
+      chmod 755 $BIN_DIR/$bin
+    done
+    ls -ltr $BIN_DIR
+    export PATH=$BIN_DIR:$PATH
+    echo "PATH=$PATH" >> $GITHUB_ENV
+  additional-env:
+    OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
+    OLD_POLKADOT_COMMAND: "polkadot-old"
+
+- job-name: "zombienet-polkadot-scheduling-v3-old-validator-dispute-storm-5-old"
+  test-filter: "functional::v3_old_validator_dispute_storm::v3_old_validator_dispute_storm::case_2_five_old"
+  runner-type: "large"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
   additional-setup: |

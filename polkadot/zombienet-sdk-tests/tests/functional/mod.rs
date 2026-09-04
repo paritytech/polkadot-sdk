@@ -25,5 +25,6 @@ mod spam_statement_distribution_requests;
 mod sync_backing;
 mod systematic_chunk_recovery;
 mod v3_dynamic_enablement;
+mod v3_old_validator_dispute_storm;
 mod v3_rolling_upgrade;
 mod validator_disabling;
