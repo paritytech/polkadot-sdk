@@ -215,8 +215,7 @@ struct ParachainServiceState {
     /// See §6.1 for the per-entry formula.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
 
-    /// Per parachain settlement ring. Holds only the last `MAX_SETTLEMENT_RING_CAPACITY`
-    /// roots the parachain declared in the enacted blocks. See §8.
+    /// Per parachain settlement ring. See §8.
     offchain_msg_cursor: Map<ParaId, SettlementCursor>,
     /// Maps `StreamsRoot` to `position`.
     /// The only ring entry the settlement check reads (§5.1 step 6).
@@ -634,11 +633,7 @@ enum ParachainWorkDigest {
         /// the parachain's settlement ring on enactment (§5.1 step 6, §8).
         offchain_streams_root: Option<StreamsRoot>,
         /// The senders this candidate consumed messages from, one entry per
-        /// sender with the root it consumed against. Every entry must be in
-        /// the sender's settlement ring for the candidate to enact (§5.1
-        /// step 6, §8). Digest fields and not `UpwardMessage`s because
-        /// Accumulate checks them before the head write, while upward
-        /// messages replay after it (step 7).
+        /// sender with the root it consumed against. See §8.
         offchain_requires_roots: BoundedVec<(ParaId, StreamsRoot), MAX_REQUIRES_SOURCES>,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
