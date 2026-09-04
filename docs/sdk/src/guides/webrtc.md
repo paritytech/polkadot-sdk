@@ -31,3 +31,11 @@ address is given without a WebRTC listen address.
 Make sure the UDP port is open in your firewall. Existing rules for the TCP port don't cover UDP.
 If the node is behind NAT, forward the public address and port from step 2 to the local listen
 address and port from step 1.
+
+## Bootnodes in the Chainspec
+
+For light clients to bootstrap over WebRTC, network operators need to add the bootnodes' WebRTC
+addresses to `bootNodes` in the chainspec, alongside the existing TCP/WS/WSS ones. The address has
+the form `/dns/<host>/udp/<port>/webrtc-direct/certhash/<certhash>/p2p/<peer id>`. The node prints
+both values at startup, as `WebRTC certhash: uEi...` and `Local node identity is: 12D3Koo...`. Both
+are derived from the node key, so they only change if the key does.
