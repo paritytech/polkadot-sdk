@@ -297,8 +297,8 @@ async fn run_inner<Context>(
 				state.handle_fetched_collation(ctx.sender(), resp).await;
 			},
 			_ = &mut timer => {
-				// We don't need to do anything specific here.
 				// If the timer expires, we only need to trigger the advertisement fetching logic.
+				state.mark_replan();
 			},
 			_ = &mut persistence_timer => {
 				// Periodic persistence - write reputation DB to disk
@@ -313,18 +313,14 @@ async fn run_inner<Context>(
 		// update it.
 		state.note_in_memory_connected_peers();
 
-		// Now try triggering advertisement fetching, if we have room in any of the active leaves
-		// (any of them are in Waiting state).
-		// We could optimise to not always re-run this code (have the other functions return
-		// whether we should attempt launching fetch requests) However, most messages could
-		// indeed trigger a new legitimate request.
-		// Also, it takes constant time to run because we only try launching new requests for
-		// unfulfilled claims. It's probably not worth optimising.
-		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
-		timer = create_timer(
-			&*clock,
-			maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)),
-		);
+		// Trigger the advertisement fetching logic only when something happened that
+		// can make a new fetch possible: every such mutation sets the replan flag.
+		if let Some(maybe_delay) = state.maybe_replan(ctx.sender()).await {
+			timer = create_timer(
+				&*clock,
+				maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)),
+			);
+		}
 	}
 
 	Ok(())
@@ -522,6 +518,20 @@ async fn process_incoming_peer_message<Sender, B>(
 				);
 				return;
 			}
+
+			// A zero-len cycle is impossible for an honest block.
+			if candidates.iter().any(|fingerprint| {
+				fingerprint.parent_head_data_hash == fingerprint.output_head_data_hash
+			}) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?origin,
+					"Received a segment advertisement with a zero-length cycle",
+				);
+				return;
+			}
+
 			let entries = candidates
 				.iter()
 				.map(|candidate_fingerprint| ProspectiveCandidate::ByOutputHead {

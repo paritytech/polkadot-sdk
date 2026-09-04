@@ -1813,3 +1813,197 @@ fn test_relay_parent_below_min_relay_parent_number_rejected() {
 		Err(Error::RelayParentNotInScope(hash)) if hash == old_relay_parent
 	);
 }
+
+#[test]
+fn known_output_heads_unions_chain_and_unconnected() {
+	let mut storage = CandidateStorage::default();
+
+	let para_id = ParaId::from(5u32);
+	let relay_parent_x = Hash::repeat_byte(1);
+	let relay_parent_y = Hash::repeat_byte(2);
+	let relay_parent_z = Hash::repeat_byte(3);
+	let relay_parent_x_info =
+		RelayChainBlockInfo { number: 0, hash: relay_parent_x, storage_root: Hash::zero() };
+	let relay_parent_y_info =
+		RelayChainBlockInfo { number: 1, hash: relay_parent_y, storage_root: Hash::zero() };
+	let relay_parent_z_info =
+		RelayChainBlockInfo { number: 2, hash: relay_parent_z, storage_root: Hash::zero() };
+	// Ancestors must be in reverse order.
+	let ancestors = vec![relay_parent_y_info.clone(), relay_parent_x_info.clone()];
+
+	let base_constraints = make_constraints(0, vec![0], vec![0x0a].into());
+
+	// A -> B -> C, chained by head data: A outputs 0x0b, B outputs 0x0c, C outputs 0x0d.
+	let (pvd_a, candidate_a) = CandidateBuilder::new(para_id, relay_parent_x_info.hash)
+		.relay_parent_number(relay_parent_x_info.number)
+		.parent_head(vec![0x0a].into())
+		.para_head(vec![0x0b].into())
+		.hrmp_watermark(relay_parent_x_info.number)
+		.build();
+	let candidate_a_hash = candidate_a.hash();
+	storage
+		.add_candidate_entry(
+			CandidateEntry::new(candidate_a_hash, candidate_a, pvd_a, CandidateState::Backed)
+				.unwrap(),
+		)
+		.unwrap();
+
+	let (pvd_b, candidate_b) = CandidateBuilder::new(para_id, relay_parent_y_info.hash)
+		.relay_parent_number(relay_parent_y_info.number)
+		.parent_head(vec![0x0b].into())
+		.para_head(vec![0x0c].into())
+		.hrmp_watermark(relay_parent_y_info.number)
+		.build();
+	let candidate_b_hash = candidate_b.hash();
+	storage
+		.add_candidate_entry(
+			CandidateEntry::new(candidate_b_hash, candidate_b, pvd_b, CandidateState::Backed)
+				.unwrap(),
+		)
+		.unwrap();
+
+	let (pvd_c, candidate_c) = CandidateBuilder::new(para_id, relay_parent_z_info.hash)
+		.relay_parent_number(relay_parent_z_info.number)
+		.parent_head(vec![0x0c].into())
+		.para_head(vec![0x0d].into())
+		.hrmp_watermark(relay_parent_z_info.number)
+		.build();
+	let candidate_c_hash = candidate_c.hash();
+	storage
+		.add_candidate_entry(
+			CandidateEntry::new(candidate_c_hash, candidate_c, pvd_c, CandidateState::Backed)
+				.unwrap(),
+		)
+		.unwrap();
+
+	// Depth 1: A becomes a connected chain member (chain.by_output_head); B and C are retained
+	// as unconnected potential candidates (unconnected.by_output_head).
+	let (scheduling_scope, scope) =
+		make_scope(relay_parent_z_info.clone(), base_constraints, vec![], 1, ancestors);
+	let chain = populate_chain_from_previous_storage(&scheduling_scope, &scope, &storage);
+
+	// Precondition guard: the split really is connected={A}, unconnected={B,C}.
+	assert_eq!(chain.candidate_hashes(), vec![candidate_a_hash]);
+	assert_eq!(
+		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
+		[candidate_b_hash, candidate_c_hash].into_iter().collect()
+	);
+
+	// known_output_heads() unions both indices: A's head from the chain, B+C's from unconnected.
+	let head_a = HeadData::from(vec![0x0b]).hash(); // candidate A's output head
+	let head_b = HeadData::from(vec![0x0c]).hash(); // candidate B's output head
+	let head_c = HeadData::from(vec![0x0d]).hash(); // candidate C's output head
+	assert_eq!(
+		chain.known_output_heads(),
+		[head_a, head_b, head_c].into_iter().collect::<HashSet<_>>()
+	);
+}
+
+#[test]
+fn known_output_heads_empty_when_no_candidates() {
+	let relay_parent_info =
+		RelayChainBlockInfo { number: 0, hash: Hash::repeat_byte(1), storage_root: Hash::zero() };
+	let base_constraints = make_constraints(0, vec![0], vec![0x0a].into());
+	let (scheduling_scope, scope) =
+		make_scope(relay_parent_info, base_constraints, vec![], 5, vec![]);
+
+	let chain = FragmentChain::init(&scheduling_scope, scope, CandidateStorage::default());
+
+	assert!(chain.known_output_heads().is_empty());
+}
+
+#[test]
+fn chain_parent_heads_include_base_and_exclude_unconnected() {
+	let mut storage = CandidateStorage::default();
+
+	let para_id = ParaId::from(5u32);
+	let relay_parent_x = Hash::repeat_byte(1);
+	let relay_parent_y = Hash::repeat_byte(2);
+	let relay_parent_z = Hash::repeat_byte(3);
+	let relay_parent_x_info =
+		RelayChainBlockInfo { number: 0, hash: relay_parent_x, storage_root: Hash::zero() };
+	let relay_parent_y_info =
+		RelayChainBlockInfo { number: 1, hash: relay_parent_y, storage_root: Hash::zero() };
+	let relay_parent_z_info =
+		RelayChainBlockInfo { number: 2, hash: relay_parent_z, storage_root: Hash::zero() };
+	// Ancestors must be in reverse order.
+	let ancestors = vec![relay_parent_y_info.clone(), relay_parent_x_info.clone()];
+
+	let base_constraints = make_constraints(0, vec![0], vec![0x0a].into());
+
+	// A -> B -> C, chained by head data: A outputs 0x0b, B outputs 0x0c, C outputs 0x0d.
+	let (pvd_a, candidate_a) = CandidateBuilder::new(para_id, relay_parent_x_info.hash)
+		.relay_parent_number(relay_parent_x_info.number)
+		.parent_head(vec![0x0a].into())
+		.para_head(vec![0x0b].into())
+		.hrmp_watermark(relay_parent_x_info.number)
+		.build();
+	let candidate_a_hash = candidate_a.hash();
+	storage
+		.add_candidate_entry(
+			CandidateEntry::new(candidate_a_hash, candidate_a, pvd_a, CandidateState::Backed)
+				.unwrap(),
+		)
+		.unwrap();
+
+	let (pvd_b, candidate_b) = CandidateBuilder::new(para_id, relay_parent_y_info.hash)
+		.relay_parent_number(relay_parent_y_info.number)
+		.parent_head(vec![0x0b].into())
+		.para_head(vec![0x0c].into())
+		.hrmp_watermark(relay_parent_y_info.number)
+		.build();
+	let candidate_b_hash = candidate_b.hash();
+	storage
+		.add_candidate_entry(
+			CandidateEntry::new(candidate_b_hash, candidate_b, pvd_b, CandidateState::Backed)
+				.unwrap(),
+		)
+		.unwrap();
+
+	let (pvd_c, candidate_c) = CandidateBuilder::new(para_id, relay_parent_z_info.hash)
+		.relay_parent_number(relay_parent_z_info.number)
+		.parent_head(vec![0x0c].into())
+		.para_head(vec![0x0d].into())
+		.hrmp_watermark(relay_parent_z_info.number)
+		.build();
+	let candidate_c_hash = candidate_c.hash();
+	storage
+		.add_candidate_entry(
+			CandidateEntry::new(candidate_c_hash, candidate_c, pvd_c, CandidateState::Backed)
+				.unwrap(),
+		)
+		.unwrap();
+
+	// Depth 2: A and B become connected chain members; C is retained as an unconnected
+	// potential candidate.
+	let (scheduling_scope, scope) =
+		make_scope(relay_parent_z_info.clone(), base_constraints, vec![], 2, ancestors);
+	let chain = populate_chain_from_previous_storage(&scheduling_scope, &scope, &storage);
+
+	// Precondition guard: the split really is connected={A,B}, unconnected={C}.
+	assert_eq!(chain.candidate_hashes(), vec![candidate_a_hash, candidate_b_hash]);
+	assert_eq!(
+		chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
+		[candidate_c_hash].into_iter().collect()
+	);
+
+	// chain_parent_heads() is the chain's parent-head index: the base head (A's parent)
+	// and A's output (B's parent). The tip's output and unconnected C's parent (both
+	// 0x0c) are absent, pinning chain-only scope.
+	let base_head = HeadData::from(vec![0x0a]).hash();
+	let head_a = HeadData::from(vec![0x0b]).hash(); // candidate A's output head
+	assert_eq!(chain.chain_parent_heads(), [base_head, head_a].into_iter().collect::<HashSet<_>>());
+}
+
+#[test]
+fn chain_parent_heads_empty_when_no_candidates() {
+	let relay_parent_info =
+		RelayChainBlockInfo { number: 0, hash: Hash::repeat_byte(1), storage_root: Hash::zero() };
+	let base_constraints = make_constraints(0, vec![0], vec![0x0a].into());
+	let (scheduling_scope, scope) =
+		make_scope(relay_parent_info, base_constraints, vec![], 5, vec![]);
+
+	let chain = FragmentChain::init(&scheduling_scope, scope, CandidateStorage::default());
+
+	assert!(chain.chain_parent_heads().is_empty());
+}

@@ -32,6 +32,8 @@
 //!   view-change effects.
 //! - `scheduling_and_cq.rs`    Per-leaf claim-queue shape, claims counting, group rotation, V3
 //!   scheduling-parent semantics.
+//! - `segments.rs`             V4 segment advertisements: output-head-keyed fetching, same-head
+//!   redundancy across collators (retry-from-second-collator scenarios).
 //! - `descriptors.rs`          V1 / V3 descriptor handling: version detection, session-index
 //!   checks.
 //! - `divergent.rs`            Legacy vs experimental divergences (intended or bug_on-tracked).
@@ -60,3 +62,5 @@ mod fetching;
 mod scheduling_and_cq;
 #[path = "scenarios/seconding.rs"]
 mod seconding;
+#[path = "scenarios/segments.rs"]
+mod segments;
