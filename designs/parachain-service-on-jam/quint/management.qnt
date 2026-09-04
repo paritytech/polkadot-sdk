@@ -82,8 +82,10 @@ module management {
   /// §6.2 / §6.3: upsert head data. No-op on a ParaId whose ParaInfo
   /// doesn't exist yet (Coretime must call set_state_balance first) or that
   /// is deregistering (§6.4).
-  /// Overwriting a live head also clears the parachain's settlement ring
-  /// (§6, §8.3), so no consumer can settle against the rolled-back history.
+  /// Does not touch the parachain's settlement ring (§8.3): roots declared
+  /// before a forced head reset stay settleable until evicted, so a call the
+  /// Coretime chain makes for one parachain can never invalidate the
+  /// in-flight candidates of the parachains consuming from it.
   pure def parachainSetHead(
     s: ParachainServiceState,
     para_id: ParaId,
@@ -93,9 +95,8 @@ module management {
       { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)
-      val cleared = specMsgClearRing(s, para_id)
       {
-        state: { ...cleared, parachains: cleared.parachains.put(para_id, { ...pi, headData: newHead }) },
+        state: { ...s, parachains: s.parachains.put(para_id, { ...pi, headData: newHead }) },
         jamSolicit: Set(),
         jamForget: Set(),
         logs: List()
@@ -246,10 +247,12 @@ module management {
             afterActive.state.removeReferencer(
               para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
         }
-        // §8.3: an accepted clean-up tears the settlement ring down either
-        // way, permanently ending the drainability of the para's final
-        // messages: a dormant chain's ring persists only until this point.
-        val s1 = specMsgClearRing(afterPending.state, para_id)
+        // §6.4 / §8.3: the first accepted clean-up deletes the settlement
+        // ring, whether the parachain is dropped right away or left
+        // deregistering while a validation code awaits its expunging forget.
+        // The ring is plain storage, not a preimage, so it needs no two-step
+        // release.
+        val s1 = settlementRingDelete(afterPending.state, para_id)
         val jamForgets =
           optionToSet(afterActive.jamForget).union(optionToSet(afterPending.jamForget))
 

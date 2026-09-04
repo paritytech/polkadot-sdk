@@ -176,8 +176,8 @@ module transfers_test {
       headData: paid.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(fresh)),
       lookupAnchor: fresh,
-      specMsgProvides: None,
-      specMsgRequires: List()
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
       paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen,

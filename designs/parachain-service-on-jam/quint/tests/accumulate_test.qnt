@@ -106,8 +106,8 @@ module accumulate_test {
       // A lookup-anchor far above the seeded entry's timeslot: were this candidate
       // to prune, the entry would be gone.
       lookupAnchor: 500,
-      specMsgProvides: None,
-      specMsgRequires: List()
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
       seeded, { result: WorkOk(Ok(ok)), authTrace: 9 }, Set(), None, FixedCodeLen, 500, Map())

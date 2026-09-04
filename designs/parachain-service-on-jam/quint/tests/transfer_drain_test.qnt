@@ -64,8 +64,8 @@ module transfer_drain_test {
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(1)),
       lookupAnchor: 5,
-      specMsgProvides: None,
-      specMsgRequires: List()
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
       seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 10, Map())
@@ -111,8 +111,8 @@ module transfer_drain_test {
       headData: seeded.paraInfo(ah).headData + 1,
       upwardMessages: List(CleanUpBucketsUpTo(2)),
       lookupAnchor: 2,
-      specMsgProvides: None,
-      specMsgRequires: List()
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     val out = accumulateOnePackage(
       seeded, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen, 3, Map())
@@ -156,8 +156,8 @@ module transfer_drain_test {
       headData: tight.paraInfo(ah).headData + 1,
       upwardMessages: msgs,
       lookupAnchor: MaxIncomingTransfers,
-      specMsgProvides: None,
-      specMsgRequires: List()
+      messagesStreamsRoot: None,
+      messagesRequiresRoots: List()
     }
     pure def replay(msgs: List[UpwardMessage]): ParachainServiceState =
       accumulateOnePackage(

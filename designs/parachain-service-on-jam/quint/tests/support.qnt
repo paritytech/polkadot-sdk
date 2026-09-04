@@ -79,14 +79,14 @@ module support {
     paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
   ): bool = applyHappyPaths(List((paraId, codeHash, msgs)))
 
-  /// `applyHappyPaths` with per-package speculative-messaging declarations
-  /// (§8.3): each element also carries what the PVF's `set_provides_root` /
-  /// `set_requires_root` calls amounted to. Packages carry no upward
-  /// messages, since the spec-msg fields travel in the digest, not the
+  /// `applyHappyPaths` with per-package messaging declarations (§8.1): each
+  /// element also carries what the PVF's `set_messages_streams_root` /
+  /// `set_messages_requires_roots` calls amounted to. Packages carry no upward
+  /// messages, since the messaging fields travel in the digest, not the
   /// message list. Same shared `accumulateBlock` pipeline as the model step,
   /// so a package rejected at settlement leaves its para's head unchanged.
-  action applySpecMsgPaths(
-    pkgs: List[(ParaId, ValidationCodeHash, ProvidesDeclaration, RequiresDeclaration)]
+  action applyMessagingPaths(
+    pkgs: List[(ParaId, ValidationCodeHash, StreamsRootDeclaration, RequiresRootsDeclaration)]
   ): bool = {
     val blockNow = now + 1
     val packages: List[WorkResult] = pkgs.foldl(List(), (acc, p) => {
@@ -96,7 +96,7 @@ module support {
         items: List({ validationCode: { hash: p._2, len: FixedCodeLen }, pov: 0 })
       }
       val wr: WorkResult = {
-        result: refineSpec(
+        result: refineWithRoots(
           svc, pkg, false, PvfOk,
           Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), List(), 0,
           p._3, p._4
@@ -123,17 +123,17 @@ module support {
     }
   }
 
-  /// Singular convenience wrapper: apply one spec-msg work package.
-  action applySpecMsgPath(
+  /// Singular convenience wrapper: apply one messaging work package.
+  action applyMessagingPath(
     paraId: ParaId, codeHash: ValidationCodeHash,
-    provides: ProvidesDeclaration, requires: RequiresDeclaration
-  ): bool = applySpecMsgPaths(List((paraId, codeHash, provides, requires)))
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): bool = applyMessagingPaths(List((paraId, codeHash, provides, requires)))
 
   /// Refine one otherwise well-formed candidate for `caller`, carrying the
-  /// given spec-msg declarations (§8.3) and no upward messages.
-  pure def refineWithSpecMsg(
+  /// given messaging declarations (§8.1) and no upward messages.
+  pure def refineWithMessaging(
     s: ParachainServiceState, caller: ParaId,
-    provides: ProvidesDeclaration, requires: RequiresDeclaration
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
   ): WorkExecResult = {
     val pi = s.paraInfo(caller)
     val pkg: WorkPackage = {
@@ -143,7 +143,7 @@ module support {
         pov: 0
       })
     }
-    refineSpec(s, pkg, false, PvfOk,
+    refineWithRoots(s, pkg, false, PvfOk,
       Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), List(), 0,
       provides, requires)[0]
   }

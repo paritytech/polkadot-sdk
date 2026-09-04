@@ -40,8 +40,8 @@ module refine_test {
         headData: 1,
         upwardMessages: List(),
         lookupAnchor: 0,
-        specMsgProvides: None,
-        specMsgRequires: List()
+        messagesStreamsRoot: None,
+        messagesRequiresRoots: List()
       }))),
       init
     }
