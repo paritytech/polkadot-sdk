@@ -14,10 +14,9 @@ WebRTC on both: by default UDP 30333 on the parachain side and 30334 on the rela
 chain options go after `--`.
 
 Validators and collators, on either side, don't listen on WebRTC by default and should serve light
-clients from separate full nodes instead. `--force-enable-webrtc` overrides this. To disable WebRTC
-on a full node, pass an explicit `--listen-addr` with TCP/WS addresses only. Don't just block the
-UDP port: the node would still advertise its WebRTC address, and light clients would fail to
-connect.
+clients from separate full nodes instead. To disable WebRTC on a full node, pass an explicit
+`--listen-addr` with TCP/WS addresses only. Don't just block the UDP port: the node would still
+advertise its WebRTC address, and light clients would fail to connect.
 
 If you manually specify `--listen-addr` for TCP/WS/WSS connections, make sure to also include a
 `--listen-addr` for WebRTC connections, e.g. `/ip4/0.0.0.0/udp/30333/webrtc-direct` or
@@ -51,5 +50,5 @@ lists the WebRTC listen addresses with the certhash and peer ID appended, e.g.
 For light clients to bootstrap over WebRTC, network operators need to add the bootnodes' WebRTC
 addresses to `bootNodes` in the chainspec, alongside the existing TCP/WS/WSS ones. The address has
 the form `/dns/<host>/udp/<port>/webrtc-direct/certhash/<certhash>/p2p/<peer id>`. Take the
-certhash and peer ID from the RPC or console output above. Both are derived from the node key, so they only
-change if the key does.
+certhash and peer ID from the RPC or console output above. Both are derived from the node key, so
+they only change if the key does.
