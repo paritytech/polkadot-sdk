@@ -45,6 +45,10 @@ pub struct JamTarget {
 	/// collators must hash the very same bytes — PVM builds are not byte-deterministic, so the
 	/// build output is not a safe substitute.
 	pub authorizer_blob: PathBuf,
+	/// The copy of the PVF blob genesis hosts as a service preimage, in a real-service run: the
+	/// candidates must name this very file's hash or the service resolves no code for them.
+	/// `None` for parasim, which reads no validation code at all.
+	pub pvf_blob: Option<PathBuf>,
 }
 
 /// One parachain of a run: the id it collates under, the core its work packages are authorized
@@ -137,6 +141,9 @@ impl Collators {
 				.stdout(Stdio::from(log.try_clone()?))
 				.stderr(Stdio::from(log));
 
+			if let Some(pvf) = &jam.pvf_blob {
+				command.arg("--jam-pvf-blob").arg(pvf);
+			}
 			if let Some(bootnode) = &bootnode {
 				command.args(["--bootnodes", bootnode]);
 			}

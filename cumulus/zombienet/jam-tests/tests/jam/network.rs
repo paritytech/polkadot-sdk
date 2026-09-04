@@ -4,10 +4,11 @@
 //! The JAM network the collators collate for: spawned by zombienet-sdk from a genesis that
 //! already carries the parasim service, the paras' AURA authorizers and their cores.
 
-use super::{collators::Para, env::Binaries, genesis, rpc::JamRpc};
+use super::{chain_spec, collators::Para, env::Binaries, genesis, rpc::JamRpc};
 use anyhow::Context;
 use codec::DecodeAll;
 use jam_cumulus_facade::service_state::{para_info_key, ParaInfo};
+use jam_std_common::{ServiceKey, StorageKey};
 use serde_json::json;
 use sp_runtime::traits::BlakeTwo256;
 use std::{
@@ -55,6 +56,58 @@ pub struct JamNetwork {
 	/// Where zombienet wrote the generated chain spec, named by whatever complains that genesis
 	/// does not hold what it should.
 	spec_path: PathBuf,
+	/// The copy of the PVF blob genesis hosts, in a real-service run: the collators must stamp
+	/// this very file's hash (`--jam-pvf-blob`). `None` is the parasim arrangement.
+	pub pvf_blob: Option<PathBuf>,
+}
+
+/// What real-service mode seeds into genesis on top of the parasim-shaped base, so the real
+/// parachain service accumulates for the paras without any registration flow: the PVF hosted as
+/// a service preimage, and one pre-registered [`ParaInfo`] per para naming its genesis head and
+/// that code.
+struct ServiceSeed {
+	/// The copy of the PVF blob genesis hosts.
+	pvf_blob: PathBuf,
+	/// Per para: its id, and the SCALE-encoded [`ParaInfo`] seeded under its storage key.
+	para_infos: Vec<(u32, Vec<u8>)>,
+}
+
+/// Assemble the real-service seed: copy the PVF aside, hash the copy, and pre-register every para
+/// with its chain spec's genesis head and that code reference.
+fn service_seed(
+	binaries: &Binaries,
+	work_dir: &Path,
+	paras: &[Para],
+	pvf: &Path,
+) -> anyhow::Result<ServiceSeed> {
+	let pvf_blob = copy_aside(pvf, work_dir)?;
+	let blob = std::fs::read(&pvf_blob)
+		.with_context(|| format!("reading the PVF copy at {}", pvf_blob.display()))?;
+	let code_hash = jam_std_common::hash_raw(&blob);
+	let code_len = u32::try_from(blob.len()).context("a PVF cannot exceed 4 GiB")?;
+	log::info!(
+		"real-service mode: PVF {} ({code_len} bytes), code hash {}",
+		pvf_blob.display(),
+		array_bytes::bytes2hex("0x", code_hash),
+	);
+
+	let mut para_infos = Vec::with_capacity(paras.len());
+	for para in paras {
+		let spec = chain_spec::path(work_dir, para.id);
+		let head = genesis::export_genesis_head(&binaries.omni_node, &spec)
+			.with_context(|| format!("deriving para {}'s genesis head", para.id))?;
+		let info = genesis::encode_para_info(&head, code_hash, code_len)
+			.with_context(|| format!("encoding para {}'s ParaInfo", para.id))?;
+		log::info!(
+			"para {} pre-registered: {} bytes of genesis head, ParaInfo {} bytes under key {}",
+			para.id,
+			head.len(),
+			info.len(),
+			array_bytes::bytes2hex("0x", para_info_key(para.id.into())),
+		);
+		para_infos.push((para.id, info));
+	}
+	Ok(ServiceSeed { pvf_blob, para_infos })
 }
 
 impl JamNetwork {
@@ -83,7 +136,12 @@ impl JamNetwork {
 		let parasim_blob = path_str(&copy_aside(&binaries.parasim_blob, work_dir)?)?;
 		let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
 		let queues = auth_queues(paras, &authorizer_blob)?;
-		let overrides = genesis_overrides(&queues, &parasim_blob, &path_str(&authorizer_blob)?);
+		let seed = match &binaries.pvf_blob {
+			Some(pvf) => Some(service_seed(binaries, work_dir, paras, pvf)?),
+			None => None,
+		};
+		let overrides =
+			genesis_overrides(&queues, &parasim_blob, &path_str(&authorizer_blob)?, seed.as_ref())?;
 		let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
 
 		let config = NetworkConfigBuilder::new()
@@ -132,6 +190,9 @@ impl JamNetwork {
 
 		let spec_path = base_dir.join("jam_spec.json");
 		ensure_spec_holds_parasim(&spec_path, PARASIM_SERVICE_ID)?;
+		if let Some(seed) = &seed {
+			ensure_spec_holds_para_seed(&spec_path, PARASIM_SERVICE_ID, seed)?;
+		}
 		let rpc = JamRpc::wait_ready(&rpc_url, deadline)
 			.await
 			.with_context(|| format!("JAM node log tail:\n{}", log_tail(&network, 60)))?;
@@ -143,6 +204,7 @@ impl JamNetwork {
 			service_id: PARASIM_SERVICE_ID,
 			authorizer_blob,
 			spec_path,
+			pvf_blob: seed.map(|seed| seed.pvf_blob),
 		};
 		jam_network.ensure_parasim_is_in_genesis().await?;
 
@@ -354,6 +416,47 @@ fn ensure_spec_holds_parasim(spec_path: &Path, service_id: u32) -> anyhow::Resul
 	Ok(())
 }
 
+/// Fail unless the chain spec holds every seeded para registration, byte for byte.
+///
+/// Same moment and same reason as [`ensure_spec_holds_parasim`]: a `gen-spec` build that predates
+/// the `storage` genesis key would drop the registrations without a word, and the only later
+/// symptom would be a service silently ignoring every candidate.
+fn ensure_spec_holds_para_seed(
+	spec_path: &Path,
+	service_id: u32,
+	seed: &ServiceSeed,
+) -> anyhow::Result<()> {
+	let spec: serde_json::Value = serde_json::from_slice(
+		&std::fs::read(spec_path).with_context(|| format!("reading {}", spec_path.display()))?,
+	)
+	.with_context(|| format!("parsing {}", spec_path.display()))?;
+	for (para, info) in &seed.para_infos {
+		let key = para_info_state_key(service_id, *para);
+		let expected = serde_json::Value::from(array_bytes::bytes2hex("", info));
+		let stored = spec["genesis_state"].get(&key);
+		anyhow::ensure!(
+			stored == Some(&expected),
+			"{} does not hold para {para}'s seeded ParaInfo at genesis_state key {key}: found \
+			 {stored:?}; the polkajam that ran gen-spec ignores the 'storage' genesis key — set \
+			 JAM_GENSPEC_BIN to a build that reads it",
+			spec_path.display(),
+		);
+		log::info!(
+			"{} holds para {para}'s seeded ParaInfo at genesis_state key {key}",
+			spec_path.display(),
+		);
+	}
+	Ok(())
+}
+
+/// The `genesis_state` key of a para's [`ParaInfo`] entry, as `gen-spec` derives it: JAM's
+/// `ServiceKey::Value` over the service's raw storage key, spelled bare-hex.
+fn para_info_state_key(service_id: u32, para: u32) -> String {
+	let key = para_info_key(para.into());
+	let state_key = StorageKey::from(ServiceKey::Value { id: service_id, key: &key });
+	array_bytes::bytes2hex("", state_key.0)
+}
+
 /// Every para's core, paired with the authorizer hash its queue is filled with at genesis.
 ///
 /// One core each, and a real one: two paras sharing a core would leave the first one's authorizer
@@ -384,18 +487,23 @@ fn auth_queues(paras: &[Para], authorizer_blob: &Path) -> anyhow::Result<Vec<(u1
 /// names. Every core in `queues` is filled with its para's authorizer hash, so nothing has to be
 /// assigned once the network is up, and parasim is made those cores' assigner because the
 /// dynamic-core tests move them mid-run.
+///
+/// A `seed` — real-service mode — additionally hosts the PVF beside the authorizer and writes
+/// every para's [`ParaInfo`] into the service's storage, both spelled as bare hex the way
+/// `gen-spec`'s `storage` object takes them.
 fn genesis_overrides(
 	queues: &[(u16, String)],
 	parasim_blob: &str,
 	authorizer_blob: &str,
-) -> serde_json::Value {
+	seed: Option<&ServiceSeed>,
+) -> anyhow::Result<serde_json::Value> {
 	let auth_queues: serde_json::Map<String, serde_json::Value> =
 		queues.iter().map(|(core, hash)| (core.to_string(), json!(hash))).collect();
 	let assigners: serde_json::Map<String, serde_json::Value> = queues
 		.iter()
 		.map(|(core, _)| (core.to_string(), json!(PARASIM_SERVICE_ID)))
 		.collect();
-	json!({
+	let mut overrides = json!({
 		"services": [{
 			"id": PARASIM_SERVICE_ID,
 			"code": parasim_blob,
@@ -404,7 +512,27 @@ fn genesis_overrides(
 		}],
 		"auth_queues": auth_queues,
 		"assigners": assigners,
-	})
+	});
+
+	if let Some(seed) = seed {
+		let service = &mut overrides["services"][0];
+		service["preimages"]
+			.as_array_mut()
+			.expect("spelled as an array just above; qed")
+			.push(json!(path_str(&seed.pvf_blob)?));
+		service["storage"] = seed
+			.para_infos
+			.iter()
+			.map(|(para, info)| {
+				(
+					array_bytes::bytes2hex("", para_info_key((*para).into())),
+					json!(array_bytes::bytes2hex("", info)),
+				)
+			})
+			.collect::<serde_json::Map<_, _>>()
+			.into();
+	}
+	Ok(overrides)
 }
 
 /// A balance as the config takes it: a bare number while JSON carries it exactly, a decimal
@@ -536,7 +664,9 @@ mod tests {
 			&queues,
 			"/run/parasim-service.jam",
 			"/run/parachain-authorizer-sr25519.jam",
-		);
+			None,
+		)
+		.expect("nothing to fail without a seed");
 
 		assert_eq!(
 			overrides,
@@ -551,6 +681,66 @@ mod tests {
 				"assigners": { "0": 5, "1": 5 },
 			})
 		);
+	}
+
+	/// Real-service mode adds exactly two things, both under the service: the PVF as a second
+	/// hosted preimage, and one `storage` entry per para — the raw service key and the raw
+	/// `ParaInfo`, spelled bare-hex the way `gen-spec` reads them. Everything else must stay
+	/// byte-identical to the parasim shape, because it is the same service record.
+	#[test]
+	fn a_seed_adds_the_pvf_preimage_and_the_para_registrations() {
+		let queues = vec![(0u16, "aa".repeat(32))];
+		let seed = ServiceSeed {
+			pvf_blob: "/run/frameless.polkavm".into(),
+			para_infos: vec![(0, vec![0xde, 0xad]), (7, vec![0xbe, 0xef])],
+		};
+
+		let overrides = genesis_overrides(
+			&queues,
+			"/run/parachain-service.jam",
+			"/run/parachain-authorizer-sr25519.jam",
+			Some(&seed),
+		)
+		.expect("the paths are utf-8");
+
+		assert_eq!(
+			overrides,
+			json!({
+				"services": [{
+					"id": 5,
+					"code": "/run/parachain-service.jam",
+					"balance": 1_000_000_000_000_000u64,
+					"preimages": [
+						"/run/parachain-authorizer-sr25519.jam",
+						"/run/frameless.polkavm",
+					],
+					"storage": {
+						"0000000000": "dead",
+						"0007000000": "beef",
+					},
+				}],
+				"auth_queues": { "0": "aa".repeat(32) },
+				"assigners": { "0": 5 },
+			})
+		);
+	}
+
+	/// Hand-woven from JAM's `ServiceKey::Value` layout — blake2b over `ffffffff ‖ raw key`, the
+	/// id's and the hash's bytes interleaved — so the seed check looks for the key `gen-spec`
+	/// really writes and not merely for one this code computes.
+	#[test]
+	fn the_para_info_state_key_is_the_interleaved_service_value_key() {
+		let raw_key = para_info_key(0.into());
+		assert_eq!(raw_key, vec![0u8; 5]);
+		let hash = jam_std_common::hash_raw(&[&[0xff, 0xff, 0xff, 0xff], &raw_key[..]].concat());
+
+		let id = 5u32.to_le_bytes();
+		let mut expected = [0u8; 31];
+		expected[..8]
+			.copy_from_slice(&[id[0], hash[0], id[1], hash[1], id[2], hash[2], id[3], hash[3]]);
+		expected[8..].copy_from_slice(&hash[4..27]);
+
+		assert_eq!(para_info_state_key(5, 0), array_bytes::bytes2hex("", expected));
 	}
 
 	/// JSON numbers are exact only up to 2^53, and `gen-spec` refuses a lossy one rather than

@@ -18,10 +18,11 @@ use super::{
 	network::PARASIM_SERVICE_ID,
 };
 use anyhow::Context;
-use codec::Encode;
+use codec::{Compact, DecodeAll, Encode};
 use jam_cumulus_facade::{
 	aura::{build_collator_tree, AuthConfig, CollatorKey},
 	authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, CodeHash},
+	service_state::ParaInfo,
 };
 use sp_core::crypto::ByteArray;
 use std::path::Path;
@@ -69,6 +70,79 @@ fn collator_set(para: &Para) -> Vec<CollatorKey> {
 				.expect("an sr25519 public key is 32 bytes; qed")
 		})
 		.collect()
+}
+
+/// The state balance a pre-registered para is given: unlimited, so no §6.1 headroom check can
+/// reject a candidate in a run that is about proving the pipeline, not the accounting.
+pub const PARA_STATE_BALANCE: u64 = u64::MAX;
+
+/// The para's genesis head as its collators will derive it: the SCALE-encoded genesis header of
+/// the chain spec they are started on, read with the collator binary's own `export-genesis-head`.
+///
+/// Byte-exactness is the point of shelling out rather than deriving it here: the parachain
+/// service accepts a candidate only when its declared parent hash is the blake2b of the stored
+/// `head_data`, and the collator's first block declares whatever header its client built from
+/// this very spec.
+pub fn export_genesis_head(omni_node: &Path, spec: &Path) -> anyhow::Result<Vec<u8>> {
+	let output = std::process::Command::new(omni_node)
+		.arg("export-genesis-head")
+		.arg("--chain")
+		.arg(spec)
+		.output()
+		.with_context(|| format!("running {} export-genesis-head", omni_node.display()))?;
+	anyhow::ensure!(
+		output.status.success(),
+		"export-genesis-head on {} failed ({}): {}",
+		spec.display(),
+		output.status,
+		String::from_utf8_lossy(&output.stderr),
+	);
+	let hex = String::from_utf8(output.stdout).context("export-genesis-head wrote non-utf8")?;
+	let head = array_bytes::hex2bytes(hex.trim())
+		.map_err(|error| anyhow::anyhow!("export-genesis-head wrote no hex: {error:?}"))?;
+	log::info!(
+		"genesis head of {}: {} bytes, blake2b {} (the parent hash the para's first candidate \
+		 must declare)",
+		spec.display(),
+		head.len(),
+		array_bytes::bytes2hex("0x", jam_std_common::hash_raw(&head)),
+	);
+	Ok(head)
+}
+
+/// A para's `ParaInfo` as the parachain service stores it, for seeding into genesis: `head_data`,
+/// an active validation code of `(code_hash, code_len)`, no pending upgrade, [`PARA_STATE_BALANCE`]
+/// and not deregistering.
+///
+/// The bytes are laid out here because the facade does not re-export the service's
+/// `ValidationCode` constructor; the decode through the service's real `ParaInfo` below is what
+/// keeps this spelling from drifting away from the service.
+pub fn encode_para_info(
+	head_data: &[u8],
+	code_hash: [u8; 32],
+	code_len: u32,
+) -> anyhow::Result<Vec<u8>> {
+	let mut bytes = Vec::new();
+	head_data.to_vec().encode_to(&mut bytes); // head_data
+	bytes.push(1); // validation_code: Some(..)
+	bytes.extend_from_slice(&code_hash); // ..code_ref.hash
+	code_len.encode_to(&mut bytes); // ..code_ref.len
+	bytes.push(0); // ..pinned: false
+	bytes.push(0); // pending_upgrade: None
+	Compact(PARA_STATE_BALANCE).encode_to(&mut bytes); // total_state_balance
+	Compact(0u64).encode_to(&mut bytes); // used_state_balance
+	bytes.push(0); // is_deregistering: false
+
+	let decoded = ParaInfo::decode_all(&mut &bytes[..])
+		.context("the hand-laid bytes no longer decode as the service's ParaInfo")?;
+	anyhow::ensure!(
+		decoded.head_data.as_slice() == head_data &&
+			decoded.validation_code.is_some() &&
+			decoded.total_state_balance == PARA_STATE_BALANCE &&
+			decoded.encode() == bytes,
+		"the hand-laid ParaInfo layout has drifted from the service's",
+	);
+	Ok(bytes)
 }
 
 /// The hash out of a collator's `Derived the para's AURA authorizer` log line, as far as it is
@@ -174,6 +248,48 @@ mod tests {
 		assert_eq!(logged_authorizer_hash(LINE), Some("b925833c8af4b3f2"));
 		// The line the collator prints before it has a hash must not read as one of length zero.
 		assert_eq!(logged_authorizer_hash("collator starting"), None);
+	}
+
+	/// The seeded entry read back through the service's own type: what the run's assertions (and
+	/// the collator) decode is `ParaInfo`, so this is the round trip the seed lives or dies by.
+	#[test]
+	fn the_seeded_para_info_decodes_as_the_services() {
+		use codec::DecodeAll;
+
+		let head = vec![1u8, 2, 3];
+		let bytes = encode_para_info(&head, [7u8; 32], 42).expect("the layout self-check passes");
+
+		let info = ParaInfo::decode_all(&mut &bytes[..]).expect("the service's type decodes it");
+		assert_eq!(info.head_data.as_slice(), &head[..]);
+		assert!(info.validation_code.is_some());
+		assert!(info.pending_upgrade.is_none());
+		assert_eq!(info.total_state_balance, PARA_STATE_BALANCE);
+		assert_eq!(info.used_state_balance, 0);
+		assert!(!info.is_deregistering);
+	}
+
+	/// The `(hash, len)` pair, byte for byte where accumulate's step-5 comparison reads it: right
+	/// after the head data, hash first, length as four little-endian bytes, unpinned. A pair at
+	/// the wrong offset would still decode as *a* code reference — and silently reject every
+	/// candidate, because the service compares the whole pair.
+	#[test]
+	fn the_code_reference_is_hash_then_le_len_unpinned() {
+		let bytes = encode_para_info(&[], [7u8; 32], 42).expect("the layout self-check passes");
+
+		let mut expected = vec![0u8, 1]; // empty head_data, then Some
+		expected.extend([7u8; 32]);
+		expected.extend(42u32.to_le_bytes());
+		expected.push(0); // pinned: false
+		assert_eq!(&bytes[..expected.len()], &expected[..]);
+	}
+
+	/// A head over the service's 4 KiB `HeadData` bound must be refused here, at seed time — the
+	/// service could never have stored it, so seeding it would fake a state the pipeline cannot
+	/// reach.
+	#[test]
+	fn an_oversized_head_is_refused() {
+		assert!(encode_para_info(&vec![0u8; 4097], [7u8; 32], 42).is_err());
+		assert!(encode_para_info(&vec![0u8; 4096], [7u8; 32], 42).is_ok());
 	}
 
 	/// The abbreviation the log carries has to be a prefix of the hash written into genesis, or

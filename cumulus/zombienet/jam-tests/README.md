@@ -67,6 +67,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
 | `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
 | `PARASIM_BLOB` | `parasim-service.jam`, the service genesis creates and the collators talk to |
+| `JAM_PVF_BLOB` | the paras' PVM validation code (a raw `.polkavm` blob) — opts into real-service mode, see below |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
 | `OMNI_NODE_BIN`, `RUNTIME_WASM`, `RELAY_NODE_BIN` | override the `target/release` defaults |
 | `JAM_TEST_BASE_DIR` | keep every run's work dir under this directory |
@@ -83,6 +84,26 @@ them concurrently would fight over CPU and make the six-second slot budget unrea
 If any artifact is missing the tests print what they need and pass without running — they never
 fail for a reason unrelated to the collator. `PARASIM_TOOL_BIN` skips only the two dynamic-core
 tests; every other variable skips the whole suite.
+
+### Real-service mode
+
+The suite runs parasim by default, which registers paras on first sight and validates nothing.
+The real parachain service does neither: it accumulates a candidate only for a para already in
+its state, whose declared parent hash is the blake2b of the stored head, and whose named
+validation code it can resolve as a preimage and execute in-core. Setting `JAM_PVF_BLOB` (and
+pointing `PARASIM_BLOB` at the real `parachain-service.jam`) seeds all of that at genesis:
+
+- the PVF blob is hosted as a second service preimage beside the authorizer;
+- every para is pre-registered under the service's `[0x00] ‖ SCALE(para id)` storage key with a
+  `ParaInfo` naming its chain spec's genesis head (via the collator binary's own
+  `export-genesis-head`), the PVF's `(blake2b hash, length)` and an unlimited state balance;
+- the collators are started with `--jam-pvf-blob` on the same copy, so their candidates name the
+  hash the service resolves.
+
+The blob must be a raw PolkaVM program exporting `jam_validate_block` — as of today the only
+buildable one is `parachain-service`'s `runtimes/frameless` toy, which cannot validate the blocks
+these collators actually build, so a real-service run demonstrates the seeded pipeline up to the
+in-core PVF execution and no further (the head does not move).
 
 ### Keeping the logs
 

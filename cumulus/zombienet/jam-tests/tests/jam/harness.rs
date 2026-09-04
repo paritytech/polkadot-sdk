@@ -138,6 +138,7 @@ impl Run {
 			rpc_url: network.rpc_url.clone(),
 			service_id: network.service_id,
 			authorizer_blob: network.authorizer_blob.clone(),
+			pvf_blob: network.pvf_blob.clone(),
 		};
 		let mut started = Vec::with_capacity(paras.len());
 		for para in paras {

@@ -24,7 +24,19 @@ pub struct Binaries {
 	/// skips those two tests and nothing more.
 	pub parasim_tool: Option<PathBuf>,
 	/// The compiled parasim service blob, which genesis creates the service from.
+	///
+	/// The service blob, strictly speaking: pointing this at the real `parachain-service.jam`
+	/// runs the real service instead — see [`Binaries::pvf_blob`], which that needs.
 	pub parasim_blob: PathBuf,
+	/// The paras' PVM validation code (a raw `.polkavm` blob), when the run targets the real
+	/// parachain service. `None` — the default — is the parasim arrangement: no PVF exists,
+	/// nothing is pre-registered, parasim registers paras on first sight and validates nothing.
+	///
+	/// Set (`JAM_PVF_BLOB`), the run seeds genesis for the real service: the blob becomes a
+	/// service preimage, every para is pre-registered with its genesis head and this code's
+	/// `(hash, len)`, and the collators stamp this file's hash into their candidates
+	/// (`--jam-pvf-blob`).
+	pub pvf_blob: Option<PathBuf>,
 	/// The compiled AURA authorizer blob. Only its hash ever reaches the chain, but the collators
 	/// and the genesis that queues their core have to hash the same bytes, so this one file is
 	/// handed to both.
@@ -57,6 +69,7 @@ impl Binaries {
 			genspec_node: std::env::var_os("JAM_GENSPEC_BIN").map(PathBuf::from),
 			parasim_tool: std::env::var_os("PARASIM_TOOL_BIN").map(PathBuf::from),
 			parasim_blob: from_env_or("PARASIM_BLOB", PathBuf::new),
+			pvf_blob: std::env::var_os("JAM_PVF_BLOB").map(PathBuf::from),
 			authorizer_blob: from_env_or("AUTHORIZER_BLOB", PathBuf::new),
 			omni_node: from_env_or("OMNI_NODE_BIN", || {
 				root.join("target/release/polkadot-omni-node")
@@ -106,6 +119,9 @@ impl Binaries {
 		// skipping as though it had been left unset.
 		if let Some(tool) = &binaries.parasim_tool {
 			wanted.push((PARASIM_TOOL, tool));
+		}
+		if let Some(pvf) = &binaries.pvf_blob {
+			wanted.push(("JAM_PVF_BLOB (the paras' PVM validation code)", pvf));
 		}
 
 		match missing(&wanted) {
