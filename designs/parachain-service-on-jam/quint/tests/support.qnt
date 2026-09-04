@@ -197,9 +197,9 @@ module support {
   /// bucket in ids `0 .. MaxIncomingTransfers`, which is what one transfer per
   /// accumulate invocation produces.
   pure val fullIncomingTransfersFixture:
-    BucketId -> List[{ from: ServiceId, amount: Balance, memo: Memo }] =
+    BucketId -> List[IncomingTransfer] =
     range(0, MaxIncomingTransfers).foldl(Map(), (acc, i) =>
-      acc.put(i, List({ from: MkServiceId(0), amount: 1000 + i, memo: 0 })))
+      acc.put(i, List({ from: MkServiceId(0), amount: 1000 + i, toSupervisorBalance: false, memo: 0 })))
 
   pure val fullTransferQueue: ParachainServiceState = {
     ...initialState,
@@ -313,8 +313,8 @@ module support {
   /// unreachable. The endpoint checks alone do not catch it: both endpoints are
   /// present and every id lies between them, so only the contiguity conjunct
   /// rules it out.
-  pure val oneTransfer: List[{ from: ServiceId, amount: Balance, memo: Memo }] =
-    List({ from: MkServiceId(0), amount: 1, memo: 0 })
+  pure val oneTransfer: List[IncomingTransfer] =
+    List({ from: MkServiceId(0), amount: 1, toSupervisorBalance: false, memo: 0 })
 
   pure val gappedBucketsState: ParachainServiceState = {
     ...initialState,

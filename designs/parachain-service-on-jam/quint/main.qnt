@@ -287,9 +287,11 @@ module main {
     nondet senderId = oneOf(senderPool)
     nondet amount = oneOf(Set(0, 100, 10000))
     nondet memo = oneOf(Set(0, 1, 2))
+    // Any service may credit either balance with a deferred transfer.
+    nondet toSup = oneOf(Set(false, true))
     // Batch sizes above one exercise the in-invocation packing.
     nondet extra = oneOf(Set(0, 1))
-    val t = { from: senderId, amount: amount, memo: memo }
+    val t = { from: senderId, amount: amount, toSupervisorBalance: toSup, memo: memo }
     all {
       svc' = applyIncomingTransfers(
         svc, if (extra == 0) List(t) else List(t, { ...t, memo: memo + 1 })),

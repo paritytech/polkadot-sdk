@@ -148,4 +148,31 @@ module accumulate_test {
       init
     }
   }
+
+
+  /// §5.4: a `Forget` of the service's own running code is never forwarded.
+  /// Once expunged, JAM's `accumulate` would have no code to run and the
+  /// service could not upgrade its way back out. The control forgets a
+  /// different preimage held the same way and shows that one is released.
+  run forgetOwnServiceCodeIsNoOpTest = {
+    val ah = AssetHubParaId
+    val ownCode: Hash = { hashBytes: 31337 }
+    val otherCode: Hash = { hashBytes: 31338 }
+    val len = FixedCodeLen
+    val held = { ...initialState.addReferencer(ah, ownCode, len).state
+                   .addReferencer(ah, otherCode, len).state,
+                 serviceCodeHash: ownCode }
+    val own = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: ownCode, len: len }))
+    val other = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: otherCode, len: len }))
+    all {
+      assert(own.state == held),
+      assert(own.jamForget == Set()),
+      assert(own.logs == List()),
+      assert(held.hasReferencer(ownCode, len, ah)),
+      // Control: an unrelated preimage is released as usual.
+      assert(not(other.state.hasReferencer(otherCode, len, ah))),
+      assert(other.jamForget == Set(otherCode)),
+      init
+    }
+  }
 }

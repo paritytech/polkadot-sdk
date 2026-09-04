@@ -36,9 +36,9 @@ module management {
           jamSolicit: Set(),
           jamForget: Set(),
           logs: List(StateBalanceUpdateRejected({
+                paraId: para_id,
                 attempted: newTotal,
-                currentTotal: 0,
-                currentUsed: baselineFor(para_id)
+                reason: BelowUsed({ currentTotal: 0, currentUsed: baselineFor(para_id) })
           }))
         }
         | Some(pi) =>
@@ -49,6 +49,11 @@ module management {
           logs: List()
         }
       }
+    } else if (s.paraInfo(para_id).isDeregistering) {
+      // §6.4: a deregistering para can neither be re-funded nor re-registered.
+      { state: s, jamSolicit: Set(), jamForget: Set(),
+        logs: List(StateBalanceUpdateRejected({
+          paraId: para_id, attempted: newTotal, reason: ParachainIsDeregistering })) }
     } else {
       val pi = s.paraInfo(para_id)
       if (newTotal < pi.usedStateBalance) {
@@ -57,9 +62,10 @@ module management {
           jamSolicit: Set(),
           jamForget: Set(),
           logs: List(StateBalanceUpdateRejected({
+                paraId: para_id,
                 attempted: newTotal,
-                currentTotal: pi.totalStateBalance,
-                currentUsed: pi.usedStateBalance
+                reason: BelowUsed({
+                  currentTotal: pi.totalStateBalance, currentUsed: pi.usedStateBalance })
           }))
         }
       } else {
@@ -74,7 +80,8 @@ module management {
   }
 
   /// §6.2 / §6.3: upsert head data. No-op on a ParaId whose ParaInfo
-  /// doesn't exist yet (Coretime must call set_state_balance first).
+  /// doesn't exist yet (Coretime must call set_state_balance first) or that
+  /// is deregistering (§6.4).
   /// Overwriting a live head also clears the parachain's settlement ring
   /// (§6, §8.3), so no consumer can settle against the rolled-back history.
   pure def parachainSetHead(
@@ -82,7 +89,7 @@ module management {
     para_id: ParaId,
     newHead: HeadData
   ): MgmtOutcome = {
-    if (not(s.isLive(para_id))) {
+    if (not(s.isLive(para_id)) or s.paraInfo(para_id).isDeregistering) {
       { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)
@@ -109,7 +116,8 @@ module management {
     codeLen: int,
     now: Timeslot
   ): MgmtOutcome = {
-    if (not(s.isLive(para_id))) {
+    // No-op for an unregistered or deregistering para (§6, §6.4).
+    if (not(s.isLive(para_id)) or s.paraInfo(para_id).isDeregistering) {
       { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)

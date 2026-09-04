@@ -78,8 +78,8 @@ module accumulate {
     logPruned: List[(ParaId, Timeslot)],
     // The block's work results, in order (for `lastStepWorkResults`).
     results: List[WorkResult],
-    // The 32-byte value `accumulate` returns: the head commitment (§5.5).
-    // `None` when no head changed and the service returns no hash.
+    // The 32-byte value this accumulate invocation returns: the head
+    // commitment (§5.5). `None` when no head changed and nothing is returned.
     headRoot: Option[MerkleHash],
     foreign: ForeignServices
   }
@@ -112,6 +112,11 @@ module accumulate {
       val o = foreignSolicit(acc.foreign, s, payload.hash, payload.len, now)
       { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Parachain(target) =>
+      // §3.3: no-op for a target that is not registered or is deregistering
+      // (§6.4), so a Coretime-delegated solicit cannot add state to a
+      // half-removed para.
+      if (not(acc.state.isLive(target)) or acc.state.paraInfo(target).isDeregistering) acc
+      else {
       val pi = acc.state.paraInfo(target)
       val activeVc = pi.validationCode
       val isActive =
@@ -155,6 +160,7 @@ module accumulate {
         }
       }
       }
+      }
       | EjectService(payload) =>
       val o = foreignEject(acc.foreign, payload.service, now)
       { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
@@ -173,7 +179,11 @@ module accumulate {
       val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
       { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Parachain(target) =>
-      if (not(acc.state.isLive(target))) acc
+      // §5.4: Asset Hub holds the service's own code, so its forget of the
+      // running code is never forwarded. Once expunged, JAM's `accumulate`
+      // would have no code to run.
+      if (target == AssetHubParaId and payload.hash == acc.state.serviceCodeHash) acc
+      else if (not(acc.state.isLive(target))) acc
       else {
         val pi = acc.state.paraInfo(target)
         val activeVc = pi.validationCode
@@ -354,17 +364,25 @@ module accumulate {
           logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
         }
       | SetKV(payload) =>
-      val d = applySetKV(acc.state, para_id, payload.key, payload.value)
-      {
-        ...acc,
-        state: d.state,
-        logs: acc.logs.appendOption(d.log)
+      // §3.3: no-op for an unregistered or deregistering para (§6.4). Step 1
+      // already rejects its work packages, so this only matters if `SetKV`
+      // ever names a para.
+      if (not(acc.state.isLive(para_id)) or acc.state.paraInfo(para_id).isDeregistering) acc
+      else {
+        val d = applySetKV(acc.state, para_id, payload.key, payload.value)
+        {
+          ...acc,
+          state: d.state,
+          logs: acc.logs.appendOption(d.log)
+        }
       }
       | RemoveServiceStorage(payload) =>
       val o = foreignRemoveStorage(acc.foreign, payload.service, payload.key)
       { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | RemoveKV(payload) =>
-      if (not(acc.state.isLive(payload.paraId))) acc
+      // No-op for an unregistered or deregistering para (§6.4).
+      if (not(acc.state.isLive(payload.paraId))
+          or acc.state.paraInfo(payload.paraId).isDeregistering) acc
       else {
         val d = applyRemoveKV(acc.state, payload.paraId, payload.key)
         {
@@ -646,7 +664,7 @@ module accumulate {
   pure def admitIncomingTransfer(
     s: ParachainServiceState,
     open: Option[BucketId],
-    t: { from: ServiceId, amount: Balance, memo: Memo }
+    t: IncomingTransfer
   ): (ParachainServiceState, Option[BucketId]) = {
     val count = queuedTransferCount(s)
     // §5.1: inside the reservation the entry is already paid for.
@@ -693,7 +711,7 @@ module accumulate {
   /// in order, packing the admitted ones into buckets this invocation opens.
   pure def applyIncomingTransfers(
     s: ParachainServiceState,
-    ts: List[{ from: ServiceId, amount: Balance, memo: Memo }]
+    ts: List[IncomingTransfer]
   ): ParachainServiceState = {
     val start: (ParachainServiceState, Option[BucketId]) = (s, None)
     ts.foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t))._1
@@ -702,7 +720,7 @@ module accumulate {
   /// One transfer arriving on its own, i.e. an invocation carrying just it.
   pure def applyIncomingTransfer(
     s: ParachainServiceState,
-    t: { from: ServiceId, amount: Balance, memo: Memo }
+    t: IncomingTransfer
   ): ParachainServiceState = applyIncomingTransfers(s, List(t))
 
   /// The full per-block Accumulate pipeline (§5.1): first run always-accumulate
