@@ -45,6 +45,7 @@ use crate::traits::{OnSwap, Registrar};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
+use registrar_primitives::FailureReason;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating, Zero},
@@ -583,10 +584,10 @@ impl<T: Config> Registrar for Pallet<T> {
 impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	type AccountId = T::AccountId;
 
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason> {
 		let config = configuration::ActiveConfig::<T>::get();
 		Self::validate_onboarding_sizes(&config, head_len as usize, code_len as usize)
-			.map_err(|_| ())
+			.map_err(|_| FailureReason::InvalidOnboardingData)
 	}
 
 	fn is_registered(para_id: u32) -> bool {
@@ -608,6 +609,23 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			ValidationCode(validation_code),
 			false,
 		)
+	}
+
+	/// No origin or lock check: those belong to the control plane that took the deposit.
+	fn deregister(para_id: u32) -> Result<(), FailureReason> {
+		let id = ParaId::from(para_id);
+		ensure!(
+			matches!(paras::Pallet::<T>::lifecycle(id), Some(ParaLifecycle::Parathread) | None),
+			FailureReason::NotDeregisterable
+		);
+
+		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
+			.map_err(|_| FailureReason::NotDeregisterable)?;
+
+		Paras::<T>::remove(id);
+		Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+
+		Ok(())
 	}
 }
 

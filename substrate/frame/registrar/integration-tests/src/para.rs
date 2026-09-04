@@ -205,6 +205,7 @@ impl pallet_registrar_para::Config for Runtime {
 	// No parachain-system in this simulator; production runtimes should use
 	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
 	type BlockNumberProvider = System;
+	type HeldByCoretime = ();
 	type WeightInfo = ();
 }
 
