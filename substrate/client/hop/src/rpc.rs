@@ -22,6 +22,7 @@
 //!   see [`crate::rate_limit`] and the `--hop-*-rate` / `--hop-*-burst` CLI flags.
 
 use crate::{
+	metrics::rpc_methods,
 	pool::HopDataPool,
 	runtime_api,
 	types::{
@@ -131,7 +132,7 @@ impl<C, Block> HopRpcServer<C, Block> {
 	}
 
 	/// Decode an RPC `hash` argument: 32 raw bytes (not hex).
-	fn decode_hash(bytes: Bytes) -> RpcResult<HopHash> {
+	fn decode_hash(bytes: Bytes) -> Result<HopHash, HopError> {
 		let hash_bytes: [u8; 32] = bytes
 			.0
 			.as_slice()
@@ -155,6 +156,49 @@ where
 		signer: Bytes,
 		submit_timestamp: u64,
 	) -> RpcResult<SubmitResult> {
+		let result = self.do_submit(data, recipients, signature, signer, submit_timestamp);
+		if let Err(e) = &result {
+			self.pool.metrics().record_rpc_error(rpc_methods::SUBMIT, e);
+		}
+		Ok(result?)
+	}
+
+	fn claim(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
+		let result = Self::decode_hash(raw_hash)
+			.and_then(|hash| self.pool.claim(&hash, &signature.0).map(Bytes));
+		if let Err(e) = &result {
+			self.pool.metrics().record_rpc_error(rpc_methods::CLAIM, e);
+		}
+		Ok(result?)
+	}
+
+	fn ack(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<()> {
+		let result =
+			Self::decode_hash(raw_hash).and_then(|hash| self.pool.ack(&hash, &signature.0));
+		if let Err(e) = &result {
+			self.pool.metrics().record_rpc_error(rpc_methods::ACK, e);
+		}
+		Ok(result?)
+	}
+
+	fn pool_status(&self) -> RpcResult<PoolStatus> {
+		Ok(self.pool.status())
+	}
+}
+
+impl<C, Block> HopRpcServer<C, Block>
+where
+	Block: BlockT,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
+{
+	fn do_submit(
+		&self,
+		data: Bytes,
+		recipients: Vec<Bytes>,
+		signature: Bytes,
+		signer: Bytes,
+		submit_timestamp: u64,
+	) -> Result<SubmitResult, HopError> {
 		let recipient_keys: RecipientVec = recipients
 			.into_iter()
 			.map(|r| {
@@ -201,7 +245,7 @@ where
 		)
 		.map_err(HopError::from)?;
 		if !authorized {
-			return Err(HopError::NotAuthorized.into());
+			return Err(HopError::NotAuthorized);
 		}
 
 		// Domain-separated payload so a submit signature cannot be replayed as claim/ack,
@@ -210,29 +254,13 @@ where
 		let hash = H256(blake2_256(&data.0));
 		let submit_payload = submit_signing_payload(&hash, submit_timestamp);
 		if !multi_sig.verify(&submit_payload[..], &account_id) {
-			return Err(HopError::InvalidSignature.into());
+			return Err(HopError::InvalidSignature);
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
 		self.pool
 			.insert(data.0, recipient_keys, sender_id, signer, multi_sig, submit_timestamp)?;
 		Ok(SubmitResult { pool_status: self.pool.status() })
-	}
-
-	fn claim(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
-		let hash = Self::decode_hash(raw_hash)?;
-		let data = self.pool.claim(&hash, &signature.0)?;
-		Ok(Bytes(data))
-	}
-
-	fn ack(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<()> {
-		let hash = Self::decode_hash(raw_hash)?;
-		self.pool.ack(&hash, &signature.0)?;
-		Ok(())
-	}
-
-	fn pool_status(&self) -> RpcResult<PoolStatus> {
-		Ok(self.pool.status())
 	}
 }
 
@@ -352,10 +380,31 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				crate::rate_limit::RateLimitConfig::disabled(),
+				crate::metrics::HopMetrics::disabled(),
 			)
 			.unwrap(),
 		);
 		let client = Arc::new(MockClient::new(authorized));
+		let rpc = HopRpcServer::new(pool.clone(), client);
+		(rpc, pool, dir)
+	}
+
+	/// Same as [`setup`] but with metrics registered.
+	fn setup_metered() -> (HopRpcServer<MockClient, Block>, Arc<HopDataPool>, TempDir) {
+		let registry = prometheus_endpoint::Registry::new();
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(
+			HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				crate::rate_limit::RateLimitConfig::disabled(),
+				crate::metrics::HopMetrics::new(Some(&registry)).unwrap(),
+			)
+			.unwrap(),
+		);
+		let client = Arc::new(MockClient::new(true));
 		let rpc = HopRpcServer::new(pool.clone(), client);
 		(rpc, pool, dir)
 	}
@@ -387,6 +436,21 @@ mod tests {
 		use crate::types::{signing_payload, HOP_ACK_CONTEXT};
 		let payload = signing_payload(HOP_ACK_CONTEXT, hash);
 		Bytes(MultiSignature::Ed25519(pair.sign(&payload)).encode())
+	}
+
+	#[test]
+	fn rpc_metrics_record_errors() {
+		let (rpc, pool, _dir) = setup_metered();
+		let (pair, _) = make_keypair();
+
+		// Reaches the pool and comes back `not_found`.
+		let unknown = H256([9u8; 32]);
+		assert!(rpc.claim(Bytes(unknown.0.to_vec()), claim_sig(&pair, &unknown)).is_err());
+		assert_eq!(pool.metrics().rpc_error_count(rpc_methods::CLAIM, "not_found"), 1);
+
+		// Never reaches the pool, still counted.
+		assert!(rpc.ack(Bytes(vec![0u8; 4]), Bytes(vec![0u8; 64])).is_err());
+		assert_eq!(pool.metrics().rpc_error_count(rpc_methods::ACK, "invalid_hash_length"), 1);
 	}
 
 	#[test]

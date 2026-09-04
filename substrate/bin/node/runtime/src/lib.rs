@@ -115,8 +115,6 @@ use sp_runtime::{
 	Percent, Permill, Perquintill,
 };
 use sp_std::{borrow::Cow, prelude::*};
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
@@ -180,7 +178,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 268,
+	spec_version: 270,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -193,12 +191,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		c: PRIMARY_PROBABILITY,
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
 	};
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
@@ -544,6 +536,50 @@ impl pallet_preimage::Config for Runtime {
 			Balance,
 		>,
 	>;
+}
+
+parameter_types! {
+	pub const ScarcityHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Scarcity(pallet_scarcity::HoldReason::StorageDeposit);
+}
+
+impl pallet_scarcity::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_scarcity::weights::SubstrateWeight<Runtime>;
+	type UnixTime = Timestamp;
+	type Balance = Balance;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ScarcityHoldReason,
+		sp_runtime::traits::Identity,
+		Balance,
+	>;
+	type CollectionDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
+	type ItemDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
+	type InstanceDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
+	type MetadataDeposit = LinearStoragePrice<
+		dynamic_params::storage::BaseDeposit,
+		dynamic_params::storage::ByteDeposit,
+		Balance,
+	>;
+	type MaxKeyLen = ConstU32<32>;
+	type MaxValueLen = ConstU32<256>;
+	type MaxInstanceMetadata = ConstU32<100>;
+	type LockPeriod = ConstU64<60>;
+	type MaxTransferPriority = ConstU64<1_000_000>;
 }
 
 parameter_types! {
@@ -1650,7 +1686,7 @@ where
 			.saturating_sub(1);
 		let era = Era::mortal(period, current_block);
 		let tx_ext: TxExtension = (
-			frame_system::AuthorizeCall::<Runtime>::new(),
+			(ScarcityTxExtension::new(None), frame_system::AuthorizeCall::<Runtime>::new()),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1710,7 +1746,7 @@ where
 {
 	fn create_extension() -> Self::Extension {
 		(
-			frame_system::AuthorizeCall::<Runtime>::new(),
+			(ScarcityTxExtension::new(None), frame_system::AuthorizeCall::<Runtime>::new()),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -2638,6 +2674,92 @@ impl pallet_meta_tx::Config for Runtime {
 	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
 }
 
+/// Discards registrar messages; the counterpart chain is not modelled here.
+pub struct DiscardRegistrarMessages;
+
+impl pallet_registrar_para::SendToRelay for DiscardRegistrarMessages {
+	type AccountId = AccountId;
+
+	fn send(_message: registrar_primitives::MessageToRelay<AccountId>) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+impl pallet_registrar_relay::SendToPara for DiscardRegistrarMessages {
+	fn send(_message: registrar_primitives::MessageToPara) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+parameter_types! {
+	pub const ParaIdReservationDeposit: Balance = 100 * DOLLARS;
+	pub const RegistrationDepositPerByte: Balance = 10 * MILLICENTS;
+	pub const ParaIdReservationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::ParaIdReservation);
+	pub const RegistrationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::Registration);
+}
+
+impl pallet_registrar_para::Config for Runtime {
+	type ReservationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ParaIdReservationHoldReason,
+		ConstantStoragePrice<ParaIdReservationDeposit, Balance>,
+	>;
+	type RegistrationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RegistrationHoldReason,
+		LinearStoragePrice<ConstU128<0>, RegistrationDepositPerByte, Balance>,
+	>;
+	type SendToRelay = DiscardRegistrarMessages;
+	type RelayOrigin = EnsureRoot<AccountId>;
+	type FirstPublicParaId = ConstU32<2000>;
+	type MinCodeSize = ConstU32<9>;
+	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
+	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type PendingDeadline = ConstU32<600>;
+	type BlockNumberProvider = System;
+	type WeightInfo = pallet_registrar_para::weights::SubstrateWeight<Runtime>;
+}
+
+/// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
+pub struct AcceptingRegistrar;
+
+impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
+	type AccountId = AccountId;
+
+	fn check_onboarding(_head_len: u32, _code_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
+		false
+	}
+
+	fn register(
+		_manager: AccountId,
+		_para_id: registrar_primitives::ParaId,
+		_genesis_head: Vec<u8>,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+}
+
+impl pallet_registrar_relay::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParaOrigin = EnsureRoot<AccountId>;
+	type SendToPara = DiscardRegistrarMessages;
+	type Registrar = AcceptingRegistrar;
+	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
+	type MaxPendingRegistrations = ConstU32<128>;
+	type UnsignedPriority = ConstU64<100>;
+	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
+}
+
 #[frame_support::runtime]
 mod runtime {
 	use super::*;
@@ -2919,6 +3041,9 @@ mod runtime {
 	#[runtime::pallet_index(86)]
 	pub type Psm = pallet_psm::Pallet<Runtime>;
 
+	#[runtime::pallet_index(87)]
+	pub type Scarcity = pallet_scarcity::Pallet<Runtime>;
+
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 
@@ -2936,6 +3061,12 @@ mod runtime {
 
 	#[runtime::pallet_index(94)]
 	pub type Dap = pallet_dap::Pallet<Runtime>;
+
+	#[runtime::pallet_index(95)]
+	pub type RegistrarPara = pallet_registrar_para::Pallet<Runtime>;
+
+	#[runtime::pallet_index(96)]
+	pub type RegistrarRelay = pallet_registrar_relay::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -2952,9 +3083,16 @@ pub type BlockId = generic::BlockId<Block>;
 ///
 /// When you change this, you **MUST** modify [`sign`] in `bin/node/testing/src/keyring.rs`!
 ///
+/// `AsScarcity` follows Coinage's purse model. It must run with the origin modifiers, before
+/// `AuthorizeCall`, signed-account checks such as `CheckNonce`, and
+/// `SkipCheckIfFeeless<ChargeAssetTxPayment>`. The account checks deliberately skip the resulting
+/// `Origin::Nft`, while payment observes that origin and skips feeless NFT operations. Keep the
+/// relative order `AsScarcity -> AuthorizeCall -> CheckNonce ->
+/// SkipCheckIfFeeless<ChargeAssetTxPayment>`.
+///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (
-	frame_system::AuthorizeCall<Runtime>,
+	(pallet_scarcity::extension::AsScarcity<Runtime>, frame_system::AuthorizeCall<Runtime>),
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -2971,6 +3109,9 @@ pub type TxExtension = (
 	frame_system::WeightReclaim<Runtime>,
 );
 
+/// Scarcity authorization extension used by signed development-runtime transactions.
+pub type ScarcityTxExtension = pallet_scarcity::extension::AsScarcity<Runtime>;
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct EthExtraImpl;
 
@@ -2981,7 +3122,7 @@ impl EthExtra for EthExtraImpl {
 
 	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
-			frame_system::AuthorizeCall::<Runtime>::new(),
+			(ScarcityTxExtension::new(None), frame_system::AuthorizeCall::<Runtime>::new()),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -3108,44 +3249,13 @@ impl pallet_oracle::Config for Runtime {
 }
 
 parameter_types! {
-	/// The pUSD stablecoin asset ID.
-	pub const PsmStablecoinAssetId: u32 = 4242;
-	/// Minimum swap amount for PSM operations (100 pUSD = 100 * 10^6).
-	pub const PsmMinSwapAmount: Balance = 100_000_000;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
-	/// Insurance fund account that receives PSM fee revenue.
-	pub PsmInsuranceFundAccount: AccountId =
-		sp_runtime::traits::AccountIdConversion::<AccountId>::into_account_truncating(
-			&PalletId(*b"py/insur"),
-		);
-}
-
-type PsmInternalAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
-
-parameter_types! {
-	/// No debt ceiling: maximum possible issuance.
-	pub const NoVaultsCeiling: Balance = Balance::MAX;
-}
-
-/// EnsureOrigin implementation for PSM management that supports privilege levels.
-pub struct EnsurePsmManager;
-impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
-	type Success = pallet_psm::PsmManagerLevel;
-
-	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		use frame_system::RawOrigin;
-
-		match o.clone().into() {
-			Ok(RawOrigin::Root) => Ok(pallet_psm::PsmManagerLevel::Full),
-			_ => Err(o),
-		}
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::root())
-	}
+	/// Base deposit held for the footprint of a PSM created via `create_psm`.
+	pub const PsmCreationDeposit: Balance = 10 * DOLLARS;
+	/// Per-byte deposit slope; PSM footprints are fixed-size, so this is zero.
+	pub const PsmDepositSlope: Balance = 0;
+	pub PsmHoldReason: RuntimeHoldReason = RuntimeHoldReason::Psm(pallet_psm::HoldReason::CreationDeposit);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -3179,15 +3289,19 @@ impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 /// Configure the PSM (Peg Stability Module) pallet.
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		PsmHoldReason,
+		LinearStoragePrice<PsmCreationDeposit, PsmDepositSlope, Balance>,
+	>;
+	type CreateOrigin = pallet_psm::EnsureAssetOwner<Runtime>;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
 	type AssetId = u32;
-	type MaximumIssuance = NoVaultsCeiling;
-	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
-	type InternalAsset = PsmInternalAsset;
-	type FeeDestination = PsmInsuranceFundAccount;
 	type PalletId = PsmPalletId;
-	type MinSwapAmount = PsmMinSwapAmount;
-	type MaxExternalAssets = ConstU32<10>;
+	type MaxExternals = ConstU32<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
@@ -3309,8 +3423,11 @@ mod benches {
 		[pallet_ranked_collective, RankedCollective]
 		[pallet_referenda, Referenda]
 		[pallet_recovery, Recovery]
+		[pallet_registrar_para, RegistrarPara]
+		[pallet_registrar_relay, RegistrarRelay]
 		[pallet_remark, Remark]
 		[pallet_salary, Salary]
+		[pallet_scarcity, Scarcity]
 		[pallet_scheduler, Scheduler]
 		[pallet_glutton, Glutton]
 		[pallet_session, SessionBench::<Runtime>]
@@ -4047,7 +4164,34 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::dispatch::GetDispatchInfo;
 	use frame_system::offchain::CreateSignedTransaction;
+	use sp_runtime::{traits::DispatchTransaction, BuildStorage};
+
+	fn scarcity_tx_extension(nonce: Nonce, state_nonce: u64) -> TxExtension {
+		(
+			(
+				ScarcityTxExtension::new(Some(pallet_scarcity::extension::AsScarcityInfo::AsNft {
+					instance: 0,
+					state_nonce,
+				})),
+				frame_system::AuthorizeCall::<Runtime>::new(),
+			),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::default(),
+			frame_system::WeightReclaim::<Runtime>::new(),
+		)
+	}
 
 	#[test]
 	fn validate_transaction_submitter_bounds() {
@@ -4070,5 +4214,129 @@ mod tests {
 			 If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
+	}
+
+	#[test]
+	fn nft_only_purse_without_system_account_can_transfer() {
+		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+
+		ext.execute_with(|| {
+			System::set_block_number(1);
+			Timestamp::set_timestamp(1_000);
+			let from = AccountId::new([1u8; 32]);
+			let to = AccountId::new([2u8; 32]);
+			pallet_scarcity::NftsByOwner::<Runtime>::insert(
+				&from,
+				pallet_scarcity::Nft {
+					instance: 0,
+					collection: 0,
+					item: 0,
+					minted_at: 0,
+					last_moved: 0,
+					state_nonce: 0,
+				},
+			);
+			pallet_scarcity::Instances::<Runtime>::insert(0, &from);
+
+			assert_eq!(Balances::free_balance(&from), 0);
+			assert_eq!(System::account_nonce(&from), 0);
+			assert!(!frame_system::Account::<Runtime>::contains_key(&from));
+
+			let call = RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer {
+				to: to.clone(),
+			});
+			let info = call.get_dispatch_info();
+			// A non-zero account nonce proves `CheckNonce` skipped the `Origin::Nft`.
+			let result = scarcity_tx_extension(7, 0).dispatch_transaction(
+				RuntimeOrigin::signed(from.clone()),
+				call,
+				&info,
+				0,
+				0,
+			);
+			assert!(matches!(result, Ok(Ok(_))), "transaction failed: {result:?}");
+
+			assert_eq!(Balances::free_balance(&from), 0);
+			assert!(!frame_system::Account::<Runtime>::contains_key(&from));
+			assert!(!frame_system::Account::<Runtime>::contains_key(&to));
+			assert!(!pallet_scarcity::NftsByOwner::<Runtime>::contains_key(&from));
+			assert_eq!(
+				pallet_scarcity::NftsByOwner::<Runtime>::get(&to).map(|nft| nft.instance),
+				Some(0),
+			);
+			assert!(System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::SkipFeelessPayment(
+					pallet_skip_feeless_payment::Event::FeeSkipped { .. }
+				)
+			)));
+		});
+	}
+
+	#[test]
+	fn failed_scarcity_transfer_is_feeless_and_retryable_after_lock() {
+		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		let mut ext: sp_io::TestExternalities = storage.into();
+
+		ext.execute_with(|| {
+			System::set_block_number(1);
+			Timestamp::set_timestamp(1_000);
+			let from = AccountId::new([1u8; 32]);
+			let to = AccountId::new([2u8; 32]);
+			pallet_scarcity::NftsByOwner::<Runtime>::insert(
+				&from,
+				pallet_scarcity::Nft {
+					instance: 0,
+					collection: 0,
+					item: 0,
+					minted_at: 0,
+					last_moved: 0,
+					state_nonce: u64::MAX,
+				},
+			);
+			pallet_scarcity::Instances::<Runtime>::insert(0, &from);
+
+			let call = RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer {
+				to: to.clone(),
+			});
+			let info = call.get_dispatch_info();
+			let result = scarcity_tx_extension(9, u64::MAX).dispatch_transaction(
+				RuntimeOrigin::signed(from.clone()),
+				call,
+				&info,
+				0,
+				0,
+			);
+			assert!(matches!(result, Ok(Err(_))), "transaction did not reach dispatch: {result:?}");
+
+			assert_eq!(Balances::free_balance(&from), 0);
+			assert_eq!(System::account_nonce(&from), 0);
+			assert!(!frame_system::Account::<Runtime>::contains_key(&from));
+			assert_eq!(
+				pallet_scarcity::NftsByOwner::<Runtime>::get(&from).map(|nft| nft.state_nonce),
+				Some(u64::MAX),
+			);
+			assert!(!pallet_scarcity::NftsByOwner::<Runtime>::contains_key(&to));
+			assert_eq!(pallet_scarcity::Locked::<Runtime>::get(&from).unwrap().retries, 1);
+
+			pallet_timestamp::Now::<Runtime>::put(62_000);
+			let retry_call =
+				RuntimeCall::Scarcity(pallet_scarcity::Call::<Runtime>::transfer { to });
+			let retry_info = retry_call.get_dispatch_info();
+			let retry_result = scarcity_tx_extension(9, u64::MAX).dispatch_transaction(
+				RuntimeOrigin::signed(from.clone()),
+				retry_call,
+				&retry_info,
+				0,
+				0,
+			);
+			assert!(
+				matches!(retry_result, Ok(Err(_))),
+				"retry did not reach dispatch: {retry_result:?}"
+			);
+			assert_eq!(System::account_nonce(&from), 0);
+			assert_eq!(pallet_scarcity::Locked::<Runtime>::get(&from).unwrap().retries, 2);
+		});
 	}
 }

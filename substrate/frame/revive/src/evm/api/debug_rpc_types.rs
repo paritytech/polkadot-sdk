@@ -20,6 +20,7 @@ use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use derive_more::From;
 use pallet_revive_types::runtime_api::*;
 use sp_core::{H160, H256, U256};
+use sp_runtime::ApplyExtrinsicResult;
 
 /// The type of tracer to use.
 #[derive(Debug, Clone, PartialEq, From)]
@@ -212,6 +213,32 @@ impl From<Trace> for TraceV2 {
 			Trace::Call(value) => Self::Call(value.into()),
 			Trace::Prestate(value) => Self::Prestate(value.into()),
 			Trace::Execution(value) => Self::Execution(value.into()),
+		}
+	}
+}
+
+/// A single extrinsic's trace, or a signal that it could not be traced.
+pub enum TraceEntry {
+	/// The extrinsic's trace.
+	Traced(Trace),
+	/// The extrinsic could not be traced.
+	NotTraced,
+}
+
+impl TraceEntry {
+	/// The entry for an extrinsic that produced no trace: `NotTraced` if the replay dropped it,
+	/// `None` if there was nothing to trace. `ExhaustsResources` is the only spurious failure a
+	/// faithful replay introduces.
+	pub fn for_untraced(result: &ApplyExtrinsicResult) -> Option<Self> {
+		matches!(result, Err(err) if err.exhausted_resources()).then_some(Self::NotTraced)
+	}
+}
+
+impl From<TraceEntry> for TraceEntryV1 {
+	fn from(value: TraceEntry) -> Self {
+		match value {
+			TraceEntry::Traced(trace) => TraceEntryV1::Traced(trace.into()),
+			TraceEntry::NotTraced => TraceEntryV1::NotTraced,
 		}
 	}
 }
