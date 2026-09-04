@@ -41,7 +41,8 @@ pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::Acco
 pub struct PriceParameters<Balance> {
 	/// The maximum number of outstanding orders beyond which we reject new orders.
 	pub order_cap: u32,
-	/// The number of outstanding orders assumed to be drained per Relay-chain block.
+	/// The number of outstanding orders assumed to be drained per Relay-chain block, per pool
+	/// core.
 	pub drain_rate_per_block: u32,
 	/// The spot price increase per outstanding order in the queue.
 	pub price_step: Perbill,
