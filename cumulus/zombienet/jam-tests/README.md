@@ -72,6 +72,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | `OMNI_NODE_BIN`, `RUNTIME_WASM`, `RELAY_NODE_BIN` | override the `target/release` defaults |
 | `JAM_TEST_BASE_DIR` | keep every run's work dir under this directory |
 | `JAM_TEST_COLLATOR_PORT`, `JAM_TEST_JAM_RPC_PORT` | move the pinned port blocks (41000/42000) when a network of your own already holds them |
+| `JAM_NODE_LOG` | the JAM nodes' `RUST_LOG` — refine failures are visible only in the guarantors' debug logs |
 | `NUM_COLLATORS` | how many collators the demo runs (default 1) |
 
 Both blobs are copied into the run's work dir before genesis names them: PVM builds are not

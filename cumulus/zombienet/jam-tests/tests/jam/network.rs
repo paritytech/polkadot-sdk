@@ -40,8 +40,17 @@ static NEXT_JAM_RPC_PORT: std::sync::LazyLock<AtomicU16> = std::sync::LazyLock::
 
 /// PolkaVM cannot use its recompiler in this sandbox (no userfaultfd), and the native provider
 /// clears the environment before spawning, so every JAM node needs these explicitly.
+///
+/// `JAM_NODE_LOG` rides along as the nodes' `RUST_LOG`: a refine failure surfaces nowhere but
+/// the guarantors' debug logs (the report says `Panic` and the service can log nothing), so a
+/// stuck-head investigation has to be able to turn those on without editing this file.
 fn polkavm_env() -> Vec<(&'static str, &'static str)> {
-	vec![("POLKAVM_BACKEND", "interpreter"), ("POLKAVM_ALLOW_INSECURE", "1")]
+	let mut env = vec![("POLKAVM_BACKEND", "interpreter"), ("POLKAVM_ALLOW_INSECURE", "1")];
+	if let Ok(level) = std::env::var("JAM_NODE_LOG") {
+		// Leaked because zombienet's `EnvVar` converts from `&str` pairs only; once per process.
+		env.push(("RUST_LOG", Box::leak(level.into_boxed_str())));
+	}
+	env
 }
 
 /// A running JAM network whose genesis already holds parasim, the paras' authorizers and the
