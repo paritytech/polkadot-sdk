@@ -36,6 +36,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
+use sp_runtime::DispatchResult;
 
 /// A parachain id.
 ///
@@ -93,25 +94,11 @@ pub enum MessageToRelayV1<AccountId> {
 	},
 	/// Ask the relay chain to drop `para_id` from the registry.
 	///
-	/// The parachain has already checked that it holds neither a lease nor a region, but only the
-	/// relay chain knows whether the para is still live, locked, or has messages left in flight,
-	/// so the deposits stay held until it answers with [`MessageToParaV1::DeregisterResponse`].
+	/// Ownership and Coretime are checked on the parachain, so nothing about the caller travels
+	/// with this. Answered with [`MessageToParaV1::DeregisterResponse`].
 	#[codec(index = 2)]
 	Deregister {
 		/// The para id to drop.
-		para_id: ParaId,
-		/// The parachain's id for this message, echoed back in the response.
-		message_id: u64,
-		/// The account that manages this para on the parachain, matched against the relay chain's
-		/// own record of the manager.
-		manager: AccountId,
-	},
-	/// Ask the relay chain to abandon a [`MessageToRelayV1::Deregister`] it has not acted on.
-	///
-	/// Answered with [`MessageToParaV1::CancelDeregistrationResponse`].
-	#[codec(index = 3)]
-	CancelDeregistration {
-		/// The para id whose deregistration should be abandoned.
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
@@ -121,7 +108,7 @@ pub enum MessageToRelayV1<AccountId> {
 	/// As with a registration, the blob itself is not sent: the relay chain is told which bytes to
 	/// accept and they are uploaded to it separately. Answered with
 	/// [`MessageToParaV1::CodeUpgradeResponse`].
-	#[codec(index = 4)]
+	#[codec(index = 3)]
 	AuthorizeCodeUpgrade {
 		/// The para id being upgraded.
 		para_id: ParaId,
@@ -138,7 +125,7 @@ pub enum MessageToRelayV1<AccountId> {
 	///
 	/// The head data is small enough to travel with the request, so unlike a code upgrade this is
 	/// a single round trip. Answered with [`MessageToParaV1::SetHeadResponse`].
-	#[codec(index = 5)]
+	#[codec(index = 4)]
 	SetCurrentHead {
 		/// The para id whose head is being set.
 		para_id: ParaId,
@@ -211,24 +198,12 @@ pub enum MessageToParaV1 {
 		/// Whether the para was dropped.
 		outcome: Outcome,
 	},
-	/// Answer a [`MessageToRelayV1::CancelDeregistration`].
-	///
-	/// `Ok(())` means the para is still registered, so the deposits stay where they are.
-	#[codec(index = 3)]
-	CancelDeregistrationResponse {
-		/// The para id the answer is about.
-		para_id: ParaId,
-		/// The id of the [`MessageToRelayV1::CancelDeregistration`] this answers, echoed back.
-		message_id: u64,
-		/// Whether the deregistration was abandoned.
-		outcome: Outcome,
-	},
 	/// Answer a [`MessageToRelayV1::AuthorizeCodeUpgrade`].
 	///
 	/// `Ok(expire_at)` means the relay chain is holding the authorization and will accept the blob
 	/// until that relay-chain block. The upgrade is not scheduled yet: that is reported separately
 	/// with [`MessageToParaV1::CodeUpgradeScheduled`] once the code lands.
-	#[codec(index = 4)]
+	#[codec(index = 3)]
 	CodeUpgradeResponse {
 		/// The para id the answer is about.
 		para_id: ParaId,
@@ -242,7 +217,7 @@ pub enum MessageToParaV1 {
 	/// Sent when the blob is uploaded, which may be many blocks after the authorization and is not
 	/// something the parachain asked for, so this carries no outcome: a failure to upload simply
 	/// leaves the authorization to lapse.
-	#[codec(index = 5)]
+	#[codec(index = 4)]
 	CodeUpgradeScheduled {
 		/// The para id the report is about.
 		para_id: ParaId,
@@ -253,7 +228,7 @@ pub enum MessageToParaV1 {
 	///
 	/// The parachain checks the head against its own mirror of the relay chain's limits first, so
 	/// a refusal here means the two have drifted apart.
-	#[codec(index = 6)]
+	#[codec(index = 5)]
 	SetHeadResponse {
 		/// The para id the answer is about.
 		para_id: ParaId,
@@ -286,9 +261,16 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
+	/// The relay chain does not know this para id.
+	#[codec(index = 2)]
+	NotRegistered,
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The relay chain will not drop this para: not an on-demand parathread, or code in
+	/// pre-checking.
+	#[codec(index = 4)]
+	NotDeregisterable,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -303,8 +285,7 @@ pub trait ParachainRegistrar {
 	///
 	/// Checked against the relay chain's live configuration so a doomed request can be rejected
 	/// before the user goes and uploads megabytes of code.
-	#[allow(clippy::result_unit_err)]
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()>;
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason>;
 
 	/// Whether the relay chain already knows this para id.
 	fn is_registered(para_id: ParaId) -> bool;
@@ -312,11 +293,15 @@ pub trait ParachainRegistrar {
 	/// Onboard `para_id` under `manager`.
 	///
 	/// No deposit is taken: the manager's funds are held on the chain running
-	/// `pallet-registrar-para`.
+	/// `pallet-registrar-para`. A refusal here fails the extrinsic that carried the validation
+	/// code rather than being reported to the parachain, so this one speaks `DispatchError`.
 	fn register(
 		manager: Self::AccountId,
 		para_id: ParaId,
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
-	) -> sp_runtime::DispatchResult;
+	) -> DispatchResult;
+
+	/// Drop `para_id` from the registry. An id it does not know is dropped as a no-op.
+	fn deregister(para_id: ParaId) -> Result<(), FailureReason>;
 }
