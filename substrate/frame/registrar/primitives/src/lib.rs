@@ -289,6 +289,9 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The head data is larger than the relay chain accepts.
+	#[codec(index = 4)]
+	HeadDataTooLarge,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -319,4 +322,11 @@ pub trait ParachainRegistrar {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
+
+	/// Whether head data of this size is acceptable under the relay chain's live configuration.
+	#[allow(clippy::result_unit_err)]
+	fn check_head_data(head_len: u32) -> Result<(), ()>;
+
+	/// Set the current head of `para_id`.
+	fn set_current_head(para_id: ParaId, head: Vec<u8>);
 }
