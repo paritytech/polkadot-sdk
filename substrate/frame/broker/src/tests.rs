@@ -717,6 +717,58 @@ fn instapool_payouts_work() {
 }
 
 #[test]
+fn instapool_claim_does_not_consume_unsettled_timeslices() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region, None, 2, Final));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+
+		assert_eq!(InstaPoolHistory::<Test>::get(region.begin), None);
+		assert_ok!(Broker::do_claim_revenue(region, 100));
+		assert_eq!(balance(2), 0);
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(region),
+			Some(ContributionRecord { length: 3, payee: 2 })
+		);
+		System::assert_last_event(
+			Event::RevenueClaimPaid { who: 2, amount: 0, next: Some(region) }.into(),
+		);
+
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		assert_eq!(
+			InstaPoolHistory::<Test>::get(region.begin).unwrap(),
+			InstaPoolHistoryRecord {
+				private_contributions: 80,
+				system_contributions: 0,
+				maybe_payout: None,
+			}
+		);
+
+		assert_ok!(Broker::do_claim_revenue(region, 100));
+		assert_eq!(balance(2), 0);
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(region),
+			Some(ContributionRecord { length: 3, payee: 2 })
+		);
+		System::assert_last_event(
+			Event::RevenueClaimPaid { who: 2, amount: 0, next: Some(region) }.into(),
+		);
+
+		advance_to(11);
+		assert_eq!(pot(), 10);
+		assert_ok!(Broker::do_claim_revenue(region, 1));
+		assert_eq!(balance(2), 10);
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(RegionId { begin: region.begin + 1, ..region }),
+			Some(ContributionRecord { length: 2, payee: 2 })
+		);
+	});
+}
+
+#[test]
 fn instapool_partial_core_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
