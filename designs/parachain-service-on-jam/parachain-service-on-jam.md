@@ -502,8 +502,7 @@ type StreamsRoot = [u8; 32];
 struct SettlementCursor {
     /// Position the next root is written at.
     head: u32,
-    /// Oldest live position. `head - tail` positions are live, at most
-    /// `MAX_SETTLEMENT_RING_CAPACITY`.
+    /// Oldest live position.
     tail: u32,
 }
 
@@ -1946,26 +1945,27 @@ messages_queue: Map<(ParaId, u32), StreamsRoot>
 ```
 
 Positions are allocated by `SettlementCursor.head` and freed by `SettlementCursor.tail`.
-The live positions are in range `[tail, head)`, with `head` wrapping around at `u32::MAX`.
+Both counters advance with wrapping arithmetic. The live positions are in wrapping range `[tail, head)`.
 At most `MAX_SETTLEMENT_RING_CAPACITY` (64) entries are live at once.
 
 The settlement check reads only `messages_member` once per declared `messages_requires_roots` entry.
 The check is `O(1)` per source parachain, and the total cost is linear in the number of source parachains.
 
 Pushing a `new_root` for a `para_id` is a multi step operation. Firstly, the `SettlementCursor` is loaded.
-If the wrapping distance between `head` and `tail` is `MAX_SETTLEMENT_RING_CAPACITY`, the oldest entry is evicted.
+If `head.wrapping_sub(tail) == MAX_SETTLEMENT_RING_CAPACITY`, the oldest entry is evicted.
 The `oldest_root` is read from the `messages_queue` at `tail` and the `(para_id, tail)` entry is deleted.
 The `(para_id, oldest_root)` entry is removed from `messages_member` only if its `seq` equals `tail`.
-A different `seq` number means the same root was pushed again. The `tail` is incremented, but not written yet.
+A different `seq` number means the same root was pushed again. The `tail` is incremented with wrapping, but not written yet.
 Next, the `new_root` is written to `messages_queue` at `head`, and the `(para_id, new_root)` entry is inserted into `messages_member`.
-Finally, `head` is incremented and together with the new `tail` are written back to `messages_cursor`.
+Finally, `head` is incremented with wrapping and together with the new `tail` are written back to `messages_cursor`.
 
 
 ### 8.3 Teardown
 
-`ParachainCleanUp` (§6.4) deletes the parachain's settlement ring. This includes the `SettlementCursor` together with every
-`messages_member` and `messages_queue` entry at positions in range `[tail, head)`. This requires sufficient gas to
-perform `1 + 2 * MAX_SETTLEMENT_RING_CAPACITY = 129` deletions.
+`ParachainCleanUp` (§6.4) deletes the parachain's settlement ring on the first accepted call.
+This includes the `SettlementCursor` together with every `messages_member` and `messages_queue` entry at positions in
+wrapping range `[tail, head)`. This requires sufficient gas to perform the worst case of
+`1 + MAX_SETTLEMENT_RING_CAPACITY = 65` reads and `1 + 2 * MAX_SETTLEMENT_RING_CAPACITY = 129` deletions.
 
 `ParachainSetHead` (§6.3) does not touch the ring. Roots declared before a forced head reset stay settleable
 until evicted.
