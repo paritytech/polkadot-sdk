@@ -534,6 +534,41 @@ mod set_current_head {
 	}
 
 	#[test]
+	fn the_para_itself_and_root_may_ask_even_while_locked() {
+		new_test_ext().execute_with(|| {
+			// The lock only shuts out the manager.
+			let para_id = locked_para(ALICE);
+
+			// Another para cannot pose as this one.
+			assert_noop!(
+				Registrar::set_current_head(para_origin(para_id + 1), para_id, head(20)),
+				Error::<Test>::NotOwner
+			);
+
+			assert_ok!(Registrar::set_current_head(para_origin(para_id), para_id, head(20)));
+			assert_ok!(Registrar::set_current_head(RuntimeOrigin::root(), para_id, head(20)));
+
+			// Whoever asked, the message carries the manager recorded on this chain.
+			let request = |message_id| {
+				MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+					para_id,
+					message_id,
+					manager: ALICE,
+					head: head(20),
+				})
+			};
+			assert_eq!(take_sent(), vec![request(1), request(2)]);
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::HeadUpdateRequested { para_id, message_id: 1 },
+					Event::HeadUpdateRequested { para_id, message_id: 2 },
+				]
+			);
+		});
+	}
+
+	#[test]
 	fn rejects_an_unknown_id_a_non_manager_an_unregistered_para_a_locked_one_and_a_large_head() {
 		new_test_ext().execute_with(|| {
 			assert_noop!(

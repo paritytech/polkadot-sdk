@@ -594,8 +594,8 @@ pub mod pallet {
 
 		/// Set the current head of a registered para.
 		///
-		/// Manager only, while the para is unlocked. Nothing is recorded here: the outcome comes
-		/// back through [`Pallet::receive`] as an event.
+		/// Root, the para itself, or its manager while unlocked. Nothing is recorded here: the
+		/// outcome comes back through [`Pallet::receive`] as an event.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::set_current_head(head.len() as u32))]
 		pub fn set_current_head(
@@ -603,22 +603,19 @@ pub mod pallet {
 			para_id: ParaId,
 			head: Vec<u8>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			ensure!(info.manager == who, Error::<T>::NotOwner);
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
 			ensure!(
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
 			);
-			ensure!(!info.locked, Error::<T>::ParaLocked);
 			ensure!(head.len() as u32 <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
 
 			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
 				para_id,
 				message_id,
-				manager: who,
+				manager: info.manager,
 				head,
 			}))
 			.map_err(|()| Error::<T>::SendFailed)?;
