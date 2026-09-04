@@ -31,7 +31,7 @@ use sp_core::storage::{
 };
 #[cfg(feature = "std")]
 use sp_externalities::TransactionType;
-use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
+use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults, StateLoad};
 
 use crate::{trace, warn};
 use alloc::{boxed::Box, vec::Vec};
@@ -160,6 +160,33 @@ where
 		result
 	}
 
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
+		let _guard = guard();
+
+		let result = self.overlay.storage(key).map(|x| x.map(|x| x.to_vec())).map_or_else(
+			|| self.backend.storage_with_status(key).expect(EXT_NOT_ALLOWED_TO_FAIL),
+			|data| StateLoad { data, is_cold: false },
+		);
+
+		// NOTE: be careful about touching the key names – used outside substrate!
+		trace!(
+			target: "state",
+			method = "GetWithStatus",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			key = %HexDisplay::from(&key),
+			is_cold = %result.is_cold,
+			result = ?result.data.as_ref().map(HexDisplay::from),
+			result_encoded = %HexDisplay::from(
+				&result
+					.data.as_ref()
+					.map(|v| EncodeOpaqueValue(v.clone()))
+					.encode()
+			),
+		);
+
+		result
+	}
+
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		let _guard = guard();
 		let result = self
@@ -195,6 +222,39 @@ where
 			child_info = %HexDisplay::from(&child_info.storage_key()),
 			key = %HexDisplay::from(&key),
 			result = ?result.as_ref().map(HexDisplay::from)
+		);
+
+		result
+	}
+
+	fn child_storage_with_status(
+		&mut self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> StateLoad<Option<StorageValue>> {
+		let _guard = guard();
+
+		let result = self
+			.overlay
+			.child_storage(child_info, key)
+			.map(|x| x.map(|x| x.to_vec()))
+			.map_or_else(
+				|| {
+					self.backend
+						.child_storage_with_status(child_info, key)
+						.expect(EXT_NOT_ALLOWED_TO_FAIL)
+				},
+				|data| StateLoad { data, is_cold: false },
+			);
+
+		trace!(
+			target: "state",
+			method = "ChildGetWithStatus",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			child_info = %HexDisplay::from(&child_info.storage_key()),
+			key = %HexDisplay::from(&key),
+			is_cold = %result.is_cold,
+			result = ?result.data.as_ref().map(HexDisplay::from),
 		);
 
 		result
@@ -832,7 +892,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::InMemoryBackend;
+	use crate::{InMemoryBackend, TrieBackendBuilder};
 	use codec::{Decode, Encode};
 	use sp_core::{
 		map,
@@ -1064,5 +1124,258 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
+	}
+
+	#[test]
+	fn storage_with_status_overlay_pending_changes_are_hot() {
+		let written_key = vec![10];
+		let written_value = vec![20];
+		let deleted_key = vec![30];
+		let mut overlay = OverlayedChanges::default();
+		overlay.set_storage(written_key.clone(), Some(written_value.clone()));
+		overlay.set_storage(deleted_key.clone(), None);
+		// Backend has the deleted key — read must still return None and be hot.
+		let backend: TestBackend = (
+			Storage { top: map![deleted_key.clone() => vec![40]], children_default: map![] },
+			StateVersion::default(),
+		)
+			.into();
+
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
+
+		let r = ext.storage_with_status(&written_key);
+		assert_eq!(r.data, Some(written_value));
+		assert!(!r.is_cold, "pending overlay write; read should be hot");
+
+		let r = ext.storage_with_status(&deleted_key);
+		assert_eq!(r.data, None);
+		assert!(!r.is_cold, "pending overlay delete; read should be hot");
+	}
+
+	#[test]
+	fn child_storage_with_status_overlay_pending_changes_are_hot() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let written_key = vec![10];
+		let written_value = vec![20];
+		let deleted_key = vec![30];
+		let mut overlay = OverlayedChanges::default();
+		overlay.set_child_storage(&child_info, written_key.clone(), Some(written_value.clone()));
+		overlay.set_child_storage(&child_info, deleted_key.clone(), None);
+		// Backend has the deleted key — read must still return None and be hot.
+		let backend: TestBackend = (
+			Storage {
+				top: map![],
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: map![deleted_key.clone() => vec![40]],
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
+
+		let r = ext.child_storage_with_status(&child_info, &written_key);
+		assert_eq!(r.data, Some(written_value));
+		assert!(!r.is_cold, "pending overlay write; child read should be hot");
+
+		let r = ext.child_storage_with_status(&child_info, &deleted_key);
+		assert_eq!(r.data, None);
+		assert!(!r.is_cold, "pending overlay delete; child read should be hot");
+	}
+
+	#[test]
+	fn storage_with_status_overlay_path_is_independent_of_recorder() {
+		let overwrite: (Vec<u8>, Vec<u8>) = (vec![10], vec![20]);
+		let new_value = vec![21];
+		let delete: (Vec<u8>, Vec<u8>) = (vec![30], vec![40]);
+		let untouched: (Vec<u8>, Vec<u8>) = (vec![50], vec![60]);
+		let overlay_only: (Vec<u8>, Vec<u8>) = (vec![70], vec![80]);
+
+		let inner: TestBackend = (
+			Storage {
+				top: map![
+					overwrite.0.clone() => overwrite.1.clone(),
+					delete.0.clone() => delete.1.clone(),
+					untouched.0.clone() => untouched.1.clone()
+				],
+				children_default: map![],
+			},
+			StateVersion::default(),
+		)
+			.into();
+		let backend = TrieBackendBuilder::wrap(&inner).with_recorder(Default::default()).build();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		// Warm the recorder for the three backend keys.
+		assert!(
+			ext.storage_with_status(&overwrite.0).is_cold,
+			"first read of overwrite key should be cold"
+		);
+		assert!(
+			ext.storage_with_status(&delete.0).is_cold,
+			"first read of delete key should be cold"
+		);
+		assert!(
+			ext.storage_with_status(&untouched.0).is_cold,
+			"first read of untouched key should be cold"
+		);
+
+		// Stage overlay changes: overwrite, delete, and a key with no backend equivalent.
+		ext.place_storage(overwrite.0.clone(), Some(new_value.clone()));
+		ext.place_storage(delete.0.clone(), None);
+		ext.place_storage(overlay_only.0.clone(), Some(overlay_only.1.clone()));
+
+		let r = ext.storage_with_status(&overwrite.0);
+		assert_eq!(r.data, Some(new_value));
+		assert!(!r.is_cold, "overlay write should shadow recorder-warm backend read");
+
+		let r = ext.storage_with_status(&delete.0);
+		assert_eq!(r.data, None);
+		assert!(!r.is_cold, "overlay delete should shadow recorder-warm backend read");
+
+		let r = ext.storage_with_status(&overlay_only.0);
+		assert_eq!(r.data, Some(overlay_only.1));
+		assert!(!r.is_cold, "overlay-only write; read should be hot");
+
+		let r = ext.storage_with_status(&untouched.0);
+		assert_eq!(r.data, Some(untouched.1));
+		assert!(!r.is_cold, "re-read of recorder-warm backend key should be hot");
+	}
+
+	#[test]
+	fn child_storage_with_status_overlay_path_is_independent_of_recorder() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let overwrite: (Vec<u8>, Vec<u8>) = (vec![10], vec![20]);
+		let new_value = vec![21];
+		let delete: (Vec<u8>, Vec<u8>) = (vec![30], vec![40]);
+		let untouched: (Vec<u8>, Vec<u8>) = (vec![50], vec![60]);
+		let overlay_only: (Vec<u8>, Vec<u8>) = (vec![70], vec![80]);
+
+		let inner: TestBackend = (
+			Storage {
+				top: map![],
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: map![
+							overwrite.0.clone() => overwrite.1.clone(),
+							delete.0.clone() => delete.1.clone(),
+							untouched.0.clone() => untouched.1.clone()
+						],
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+		let backend = TrieBackendBuilder::wrap(&inner).with_recorder(Default::default()).build();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		// Warm the recorder for the three backend keys.
+		assert!(
+			ext.child_storage_with_status(&child_info, &overwrite.0).is_cold,
+			"first child read of overwrite key should be cold"
+		);
+		assert!(
+			ext.child_storage_with_status(&child_info, &delete.0).is_cold,
+			"first child read of delete key should be cold"
+		);
+		assert!(
+			ext.child_storage_with_status(&child_info, &untouched.0).is_cold,
+			"first child read of untouched key should be cold"
+		);
+
+		// Stage overlay changes: overwrite, delete, and a key with no backend equivalent.
+		ext.place_child_storage(&child_info, overwrite.0.clone(), Some(new_value.clone()));
+		ext.place_child_storage(&child_info, delete.0.clone(), None);
+		ext.place_child_storage(&child_info, overlay_only.0.clone(), Some(overlay_only.1.clone()));
+
+		let r = ext.child_storage_with_status(&child_info, &overwrite.0);
+		assert_eq!(r.data, Some(new_value));
+		assert!(!r.is_cold, "overlay write should shadow recorder-warm child backend read");
+
+		let r = ext.child_storage_with_status(&child_info, &delete.0);
+		assert_eq!(r.data, None);
+		assert!(!r.is_cold, "overlay delete should shadow recorder-warm child backend read");
+
+		let r = ext.child_storage_with_status(&child_info, &overlay_only.0);
+		assert_eq!(r.data, Some(overlay_only.1));
+		assert!(!r.is_cold, "overlay-only child write; child read should be hot");
+
+		let r = ext.child_storage_with_status(&child_info, &untouched.0);
+		assert_eq!(r.data, Some(untouched.1));
+		assert!(!r.is_cold, "re-read of recorder-warm child backend key should be hot");
+	}
+
+	#[test]
+	fn storage_with_status_hot_after_overlay_rollback() {
+		let key = vec![10];
+		let value = vec![20];
+
+		let inner: TestBackend = (
+			Storage { top: map![key.clone() => value.clone()], children_default: map![] },
+			StateVersion::default(),
+		)
+			.into();
+		let backend = TrieBackendBuilder::wrap(&inner).with_recorder(Default::default()).build();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		ext.storage_start_transaction();
+
+		let r = ext.storage_with_status(&key);
+		assert_eq!(r.data, Some(value.clone()));
+		assert!(r.is_cold, "first read inside transaction should be cold");
+
+		ext.place_storage(key.clone(), Some(vec![99]));
+		assert!(ext.storage_rollback_transaction().is_ok());
+
+		let r = ext.storage_with_status(&key);
+		assert_eq!(r.data, Some(value));
+		assert!(!r.is_cold, "recorder survives overlay rollback; read should be hot");
+	}
+
+	#[test]
+	fn child_storage_with_status_hot_after_overlay_rollback() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let key = vec![10];
+		let value = vec![20];
+
+		let inner: TestBackend = (
+			Storage {
+				top: map![],
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: map![key.clone() => value.clone()],
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+		let backend = TrieBackendBuilder::wrap(&inner).with_recorder(Default::default()).build();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = Ext::new(&mut overlay, &backend, None);
+
+		ext.storage_start_transaction();
+
+		let r = ext.child_storage_with_status(&child_info, &key);
+		assert_eq!(r.data, Some(value.clone()));
+		assert!(r.is_cold, "first child read inside transaction should be cold");
+
+		ext.place_child_storage(&child_info, key.clone(), Some(vec![99]));
+
+		assert!(ext.storage_rollback_transaction().is_ok());
+
+		let r = ext.child_storage_with_status(&child_info, &key);
+		assert_eq!(r.data, Some(value));
+		assert!(!r.is_cold, "recorder survives overlay rollback; child read should be hot");
 	}
 }
