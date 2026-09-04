@@ -607,13 +607,6 @@ pub mod pallet {
 		/// The relay chain's `paras_registrar::force_register`, moved here: the same checks and the
 		/// same deposits, except that the id need not have been reserved first, so root can onboard
 		/// an id nobody holds, the system range included.
-		///
-		/// ## Costs
-		///
-		/// `manager` pays, exactly as it would through [`Pallet::reserve`] and
-		/// [`Pallet::register`]: [`Config::ReservationConsideration`] unless the id is already
-		/// reserved to it, plus [`Config::RegistrationConsideration`] for the head data and the
-		/// declared code length.
 		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::force_register(genesis_head.len() as u32))]
 		pub fn force_register(
