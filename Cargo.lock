@@ -17230,7 +17230,6 @@ dependencies = [
  "sp-consensus-slots",
  "sp-keystore 0.34.0",
  "sp-maybe-compressed-blob 11.0.0",
- "sp-runtime 31.0.1",
  "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
@@ -17268,20 +17267,15 @@ dependencies = [
 name = "polkadot-node-subsystem-types"
 version = "7.0.0"
 dependencies = [
- "assert_matches",
  "async-trait",
  "derive_more 0.99.17",
  "fatality",
  "futures",
  "orchestra",
- "parity-scale-codec",
- "polkadot-erasure-coding",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-primitives",
- "polkadot-primitives-test-helpers",
  "polkadot-statement-table",
- "rstest",
  "sc-client-api 28.0.0",
  "sc-network 0.34.0",
  "sc-network-types 0.10.0",
@@ -17321,6 +17315,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
+ "rstest",
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",

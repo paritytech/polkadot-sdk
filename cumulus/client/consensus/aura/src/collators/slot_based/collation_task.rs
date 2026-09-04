@@ -22,7 +22,7 @@ use cumulus_client_collator::{
 	service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_node_subsystem::collation::{SchedulingContext, SegmentToDistribute};
+use polkadot_node_subsystem_util::collation::{SchedulingContext, SegmentToDistribute};
 use prometheus_endpoint::Registry;
 
 use polkadot_node_primitives::{MaybeCompressedPoV, SegmentCollation};
@@ -82,7 +82,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 
 	cumulus_client_collator::initialize_collator_subsystems(&mut overseer_handle, para_id).await;
 
-	let metrics = match Metrics::register(prometheus_registry.as_ref()) {
+	let metrics = match Metrics::register(prometheus_registry.as_ref(), para_id) {
 		Ok(m) => m,
 		Err(err) => {
 			tracing::warn!(target: LOG_TARGET, ?err, "Failed to register collation metrics.");

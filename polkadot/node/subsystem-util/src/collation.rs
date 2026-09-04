@@ -23,15 +23,15 @@
 //!
 //! [`CollatorProtocolMessage::DistributeSegment`]: crate::messages::CollatorProtocolMessage::DistributeSegment
 
-use crate::messages::{Segment, SegmentEntry};
 use codec::Encode;
 use polkadot_node_primitives::{AvailableData, PoV, SegmentCollation, MAX_SEGMENT_LEN};
+use polkadot_node_subsystem_types::messages::{Segment, SegmentEntry};
 use polkadot_primitives::{
 	v9::parse_ump_signals_for_commitments, CandidateCommitments, CandidateDescriptorVersion,
 	CommittedCandidateReceiptError, CoreIndex, Hash, Id as ParaId, PersistedValidationData,
 	SessionIndex, TransposedClaimQueue,
 };
-use sp_runtime::{traits::ConstU32, BoundedVec};
+use sp_core::{bounded::BoundedVec, ConstU32};
 use std::sync::Arc;
 
 #[cfg(test)]
@@ -156,6 +156,13 @@ pub fn build_segment(
 	if candidates_descriptor_version == CandidateDescriptorVersion::V2 && len > 1 {
 		return Err(Error::V2InvalidSegmentLength);
 	}
+	// Check the bound up front. `collations` is a plain `Vec`, so an over-long segment is
+	// reachable here — and the `BoundedVec` conversion below would only reject it after every
+	// entry had been compressed and erasure-coded. In the removed subsystem the bound rode on
+	// the message type, so this was unreachable.
+	if len > MAX_SEGMENT_LEN as usize {
+		return Err(Error::InvalidSegmentSize(len));
+	}
 
 	let mut entries = Vec::with_capacity(len);
 	for collation in collations {
@@ -166,32 +173,20 @@ pub fn build_segment(
 		)?);
 	}
 
-	match candidates_descriptor_version {
-		CandidateDescriptorVersion::V2 => {
+	// Matching the context rather than the derived version keeps this exhaustive without an
+	// unreachable arm for V1/Unknown, which `SchedulingContext` cannot represent.
+	match scheduling {
+		SchedulingContext::V2 { .. } => {
 			// Validated above to contain exactly one collation.
 			let entry = entries.pop().ok_or(Error::InvalidSegmentSize(0))?;
 			Ok(Segment::V2(entry))
 		},
-		CandidateDescriptorVersion::V3 => {
-			let (scheduling_parent, scheduling_session) = match scheduling {
-				SchedulingContext::V3 { scheduling_parent, scheduling_session } => {
-					(scheduling_parent, scheduling_session)
-				},
-				// `descriptor_version()` returns V3 only for the V3 variant.
-				SchedulingContext::V2 { .. } => return Err(Error::UnsupportedDescriptorVersion),
-			};
-			Ok(Segment::V3 {
-				scheduling_parent,
-				scheduling_session,
-				candidates: BoundedVec::<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(
-					entries,
-				)
+		SchedulingContext::V3 { scheduling_parent, scheduling_session } => Ok(Segment::V3 {
+			scheduling_parent,
+			scheduling_session,
+			candidates: BoundedVec::<SegmentEntry, ConstU32<MAX_SEGMENT_LEN>>::try_from(entries)
 				.map_err(|_| Error::InvalidSegmentSize(len))?,
-			})
-		},
-		CandidateDescriptorVersion::V1 | CandidateDescriptorVersion::Unknown(_) => {
-			Err(Error::UnsupportedDescriptorVersion)
-		},
+		}),
 	}
 }
 
@@ -201,12 +196,19 @@ pub fn build_segment_entry(
 	transposed_claim_queue: &TransposedClaimQueue,
 	candidates_descriptor_version: CandidateDescriptorVersion,
 ) -> Result<SegmentEntry, Error> {
+	if !matches!(
+		candidates_descriptor_version,
+		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3
+	) {
+		return Err(Error::UnsupportedDescriptorVersion);
+	}
+
 	let SegmentEntryParams { collation, para_id, core_index, n_validators } = params;
 
 	build_entry(
 		collation,
 		n_validators,
-		Some(UmpSignalCheck {
+		Some(UmpCheckInputs {
 			transposed_claim_queue,
 			candidates_descriptor_version,
 			para_id,
@@ -228,7 +230,8 @@ pub fn build_segment_entry_without_ump_check(
 	build_entry(collation, n_validators, None)
 }
 
-struct UmpSignalCheck<'a> {
+/// The inputs [`parse_ump_signals_for_commitments`] needs beyond the commitments themselves.
+struct UmpCheckInputs<'a> {
 	transposed_claim_queue: &'a TransposedClaimQueue,
 	candidates_descriptor_version: CandidateDescriptorVersion,
 	para_id: ParaId,
@@ -238,7 +241,7 @@ struct UmpSignalCheck<'a> {
 fn build_entry(
 	collation: SegmentCollation,
 	n_validators: usize,
-	ump_check: Option<UmpSignalCheck<'_>>,
+	ump_check: Option<UmpCheckInputs<'_>>,
 ) -> Result<SegmentEntry, Error> {
 	let SegmentCollation {
 		collation,
@@ -273,13 +276,13 @@ fn build_entry(
 		hrmp_watermark: collation.hrmp_watermark,
 	};
 
-	if let Some(check) = ump_check {
+	if let Some(ump_check) = ump_check {
 		parse_ump_signals_for_commitments(
 			&commitments,
-			check.candidates_descriptor_version,
-			check.transposed_claim_queue,
-			check.para_id,
-			check.core_index,
+			ump_check.candidates_descriptor_version,
+			ump_check.transposed_claim_queue,
+			ump_check.para_id,
+			ump_check.core_index,
 		)
 		.map_err(Error::CandidateReceiptCheck)?;
 	}

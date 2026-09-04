@@ -20,7 +20,7 @@
 use crate::metrics::Metrics;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment};
-use polkadot_node_subsystem_types::collation::{build_segment, SegmentToDistribute};
+use polkadot_node_subsystem_util::collation::{build_segment, SegmentToDistribute};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	transpose_claim_queue, Hash, Id as ParaId, SessionIndex, TransposedClaimQueue,

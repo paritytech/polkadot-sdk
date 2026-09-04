@@ -31,6 +31,7 @@ sp-runtime = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
@@ -54,7 +55,6 @@ sp-version = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
 
 # Cumulus

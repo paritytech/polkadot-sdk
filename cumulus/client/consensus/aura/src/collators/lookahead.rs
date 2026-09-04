@@ -46,7 +46,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::SegmentCollation;
-use polkadot_node_subsystem::collation::{SchedulingContext, SegmentToDistribute};
+use polkadot_node_subsystem_util::collation::{SchedulingContext, SegmentToDistribute};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{transpose_claim_queue, Id as ParaId, OccupiedCoreAssumption};
 use sp_consensus::Environment;
@@ -251,7 +251,7 @@ where
 		)
 		.await;
 
-		let metrics = match Metrics::register(params.prometheus_registry.as_ref()) {
+		let metrics = match Metrics::register(params.prometheus_registry.as_ref(), params.para_id) {
 			Ok(m) => m,
 			Err(err) => {
 				tracing::warn!(

@@ -22,6 +22,7 @@ use polkadot_primitives::{
 	UMPSignal, ValidationCode, ValidationCodeHash, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
+use rstest::rstest;
 use std::collections::{BTreeMap, VecDeque};
 
 const PARA_ID: ParaId = ParaId::new(5);
@@ -325,30 +326,34 @@ fn rejects_v3_segment_exceeding_max_segment_len() {
 // The unchecked builder accepts a core index that the UMP signal checks would reject.
 fn unchecked_builder_skips_ump_signal_checks() {
 	let relay_parent = Hash::repeat_byte(0);
-	let collation = segment_collation(
-		collation_with_signals(&[UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0))]),
-		relay_parent,
-	);
+
+	// The two builders must be given the *same* input for the comparison to mean anything, and
+	// that input must be one the check actually rejects. A separator followed by an undecodable
+	// signal fails inside `ump_signals()`, independently of the core index.
+	let mut malformed = collation(0);
+	malformed.upward_messages.force_push(UMP_SEPARATOR);
+	malformed.upward_messages.force_push(vec![0xFF; 8]);
+
+	let params = |collation| SegmentEntryParams {
+		collation: segment_collation(collation, relay_parent),
+		para_id: PARA_ID,
+		core_index: CoreIndex(0),
+		n_validators: N_VALIDATORS,
+	};
 
 	let checked = build_segment_entry(
-		SegmentEntryParams {
-			collation: segment_collation(
-				collation_with_signals(&[UMPSignal::SelectCore(
-					CoreSelector(0),
-					ClaimQueueOffset(0),
-				)]),
-				relay_parent,
-			),
-			para_id: PARA_ID,
-			core_index: CoreIndex(1),
-			n_validators: N_VALIDATORS,
-		},
+		params(malformed.clone()),
 		&claim_queue(&[0]),
 		CandidateDescriptorVersion::V2,
 	);
 	assert_matches!(checked, Err(Error::CandidateReceiptCheck(_)));
 
-	let entry = build_segment_entry_without_ump_check(collation, N_VALIDATORS).unwrap();
+	// Same collation, check skipped: it builds.
+	let entry = build_segment_entry_without_ump_check(
+		segment_collation(malformed, relay_parent),
+		N_VALIDATORS,
+	)
+	.unwrap();
 	assert_eq!(entry.relay_parent, relay_parent);
 }
 
@@ -399,4 +404,29 @@ fn commitments_hash_covers_every_field() {
 		assert_eq!(entry.commitments_hash, expected.hash());
 		assert_eq!(entry.output_head_data_hash, expected.head_data.hash());
 	});
+}
+
+#[rstest]
+#[case(CandidateDescriptorVersion::V1)]
+#[case(CandidateDescriptorVersion::Unknown(42))]
+// `build_segment_entry` takes a raw descriptor version, so it keeps the explicit guard the
+// removed subsystem had. Callers going through `build_segment` are protected by the type.
+fn build_segment_entry_rejects_unsupported_descriptor_version(
+	#[case] version: CandidateDescriptorVersion,
+) {
+	let relay_parent = Hash::repeat_byte(0);
+
+	assert_matches!(
+		build_segment_entry(
+			SegmentEntryParams {
+				collation: segment_collation(collation(0), relay_parent),
+				para_id: PARA_ID,
+				core_index: CoreIndex(0),
+				n_validators: N_VALIDATORS,
+			},
+			&claim_queue(&[0]),
+			version,
+		),
+		Err(Error::UnsupportedDescriptorVersion)
+	);
 }

@@ -36,7 +36,6 @@ pub use polkadot_primitives::{Block, BlockNumber, Hash};
 /// racing against finality, e.g. for slashing purposes.
 pub type UnpinHandle = sc_client_api::UnpinHandle<Block>;
 
-pub mod collation;
 pub mod errors;
 pub mod messages;
 

@@ -15,8 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use polkadot_primitives::Id as ParaId;
 use prometheus_endpoint::{
-	register, Counter, Histogram, HistogramOpts, PrometheusError, Registry, U64,
+	register, Counter, CounterVec, Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError,
+	Registry, U64,
 };
 
 #[derive(Clone)]
@@ -31,23 +33,34 @@ pub struct Metrics(Option<MetricsInner>);
 
 impl Metrics {
 	/// Register metrics with the given Prometheus registry. Returns a no-op `Metrics` on `None`.
-	pub fn register(registry: Option<&Registry>) -> Result<Self, PrometheusError> {
+	pub fn register(registry: Option<&Registry>, para_id: ParaId) -> Result<Self, PrometheusError> {
 		let Some(registry) = registry else { return Ok(Metrics(None)) };
-		let inner = MetricsInner {
-			collations_generated_total: register(
-				Counter::new(
+		let para_id = para_id.to_string();
+
+		let collations_generated_total = register(
+			CounterVec::new(
+				Opts::new(
 					"polkadot_parachain_collations_generated_total",
 					"Number of collations generated.",
-				)?,
-				registry,
+				),
+				&["para_id"],
 			)?,
-			submit_collation: register(
-				Histogram::with_opts(HistogramOpts::new(
+			registry,
+		)?;
+		let submit_collation = register(
+			HistogramVec::new(
+				HistogramOpts::new(
 					"polkadot_parachain_collation_generation_submit_collation",
 					"Time spent preparing and submitting a collation to the network protocol",
-				))?,
-				registry,
+				),
+				&["para_id"],
 			)?,
+			registry,
+		)?;
+
+		let inner = MetricsInner {
+			collations_generated_total: collations_generated_total.with_label_values(&[&para_id]),
+			submit_collation: submit_collation.with_label_values(&[&para_id]),
 		};
 		Ok(Metrics(Some(inner)))
 	}

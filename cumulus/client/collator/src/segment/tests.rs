@@ -29,15 +29,17 @@ use cumulus_relay_chain_interface::{
 };
 use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV, SegmentCollation};
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage, Segment};
-use polkadot_node_subsystem_types::collation::{SchedulingContext, SegmentToDistribute};
-use polkadot_node_subsystem_util::metered::MeteredReceiver;
+use polkadot_node_subsystem_util::{
+	collation::{SchedulingContext, SegmentToDistribute},
+	metered::MeteredReceiver,
+};
 use polkadot_overseer::{Event, Handle};
 use polkadot_primitives::{
 	transpose_claim_queue, vstaging::RelayParentInfo, BlockId, BlockNumber, CandidateEvent,
 	ClaimQueueOffset, CoreIndex, CoreSelector, Hash, HeadData, Id as ParaId, NodeFeatures,
 	SessionIndex, UMPSignal, ValidationCodeHash, ValidatorId, UMP_SEPARATOR,
 };
-use prometheus_endpoint::Registry;
+use prometheus_endpoint::{PrometheusError, Registry};
 use sc_client_api::StorageProof;
 use sp_version::RuntimeVersion;
 use std::{
@@ -46,6 +48,7 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
+const PARA_ID_2: u32 = 9;
 const PARA_ID: ParaId = ParaId::new(5);
 
 fn pvd() -> RCPersistedValidationData {
@@ -506,7 +509,7 @@ async fn counter_increments_per_candidate_v3() {
 	let (overseer_handle, _rx) = make_overseer_handle();
 
 	let registry = Registry::new();
-	let metrics = Metrics::register(Some(&registry)).expect("metrics registered; qed");
+	let metrics = Metrics::register(Some(&registry), PARA_ID).expect("metrics registered; qed");
 	let mut distributor = SegmentDistributor::new(client, overseer_handle, PARA_ID, metrics);
 
 	assert_eq!(counter_value(&registry), 0.0);
@@ -551,7 +554,7 @@ async fn counter_not_incremented_on_build_failure() {
 	let (overseer_handle, _rx) = make_overseer_handle();
 
 	let registry = Registry::new();
-	let metrics = Metrics::register(Some(&registry)).expect("metrics registered; qed");
+	let metrics = Metrics::register(Some(&registry), PARA_ID).expect("metrics registered; qed");
 	let mut distributor = SegmentDistributor::new(client, overseer_handle, PARA_ID, metrics);
 
 	distributor
@@ -610,4 +613,19 @@ async fn supplied_claim_queue_suppresses_the_fetch() {
 	// No claim-queue runtime call, and the segment still went out.
 	assert!(claim_queue_calls.lock().unwrap().is_empty());
 	assert_eq!(drain(&mut rx).len(), 1);
+}
+
+/// Registering twice against one registry still fails: the collector name is registry-global, so
+/// the `para_id` label alone does not make registration idempotent. Both call sites log a warning
+/// and fall back to no-op metrics — correct for a node (one para per process), but it means a
+/// second para sharing a process gets no collation metrics.
+#[test]
+fn second_registration_against_the_same_registry_is_rejected() {
+	let registry = Registry::new();
+
+	assert!(Metrics::register(Some(&registry), PARA_ID).is_ok());
+	assert!(matches!(
+		Metrics::register(Some(&registry), ParaId::from(PARA_ID_2)),
+		Err(PrometheusError::AlreadyReg)
+	));
 }

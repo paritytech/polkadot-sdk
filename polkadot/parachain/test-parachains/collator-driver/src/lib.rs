@@ -28,13 +28,13 @@
 
 #![deny(missing_docs)]
 
-use futures::{future::BoxFuture, StreamExt};
+use futures::{channel::oneshot, future::BoxFuture, StreamExt};
 use polkadot_node_primitives::{Collation, SegmentCollation, UpwardMessages};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, SegmentEntry};
-use polkadot_node_subsystem_types::collation::{
-	build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams,
+use polkadot_node_subsystem_util::{
+	collation::{build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams},
+	runtime::ClaimQueueSnapshot,
 };
-use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	runtime_api::ParachainHost, transpose_claim_queue, Block, CandidateCommitments,
@@ -97,6 +97,10 @@ where
 	while let Some(notification) = import_notifications.next().await {
 		let relay_parent = notification.hash;
 
+		if !wait_for_activation(&mut overseer_handle, relay_parent).await {
+			continue;
+		}
+
 		let Some(leaf) = leaf_info(&*client, relay_parent, para_id) else { continue };
 
 		match distribution_mode {
@@ -121,6 +125,34 @@ where
 				.await
 			},
 		}
+	}
+}
+
+/// Block until the overseer reports `relay_parent` as an active leaf. Returns `false` if the
+/// wait could not be completed, in which case the leaf must be skipped rather than collated on.
+async fn wait_for_activation(overseer_handle: &mut OverseerHandle, relay_parent: Hash) -> bool {
+	let (tx, rx) = oneshot::channel();
+	overseer_handle.wait_for_activation(relay_parent, tx).await;
+
+	match rx.await {
+		Ok(Ok(())) => true,
+		Ok(Err(error)) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?error,
+				"Overseer failed to activate the leaf, not collating on it",
+			);
+			false
+		},
+		Err(_) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Activation response dropped, not collating on this leaf",
+			);
+			false
+		},
 	}
 }
 
