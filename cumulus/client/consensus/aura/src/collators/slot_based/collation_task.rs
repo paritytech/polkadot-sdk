@@ -190,7 +190,10 @@ impl<Block: BlockT> CollatorMessage<Block> {
 					code_hash_provider,
 					resubmission_store,
 				);
+				let resubmitted = all_entries.len();
 				all_entries.extend(bundle);
+				let total_entries = all_entries.len();
+				let fresh = total_entries.saturating_sub(resubmitted);
 
 				// Entries that fail to build or whose session lookup fails are skipped — they do
 				// not abort the whole segment.
@@ -210,6 +213,13 @@ impl<Block: BlockT> CollatorMessage<Block> {
 				}
 
 				if collations.is_empty() {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?core_index,
+						resubmitted,
+						fresh,
+						"No collations built for segment; nothing submitted for core.",
+					);
 					return;
 				}
 
@@ -227,6 +237,9 @@ impl<Block: BlockT> CollatorMessage<Block> {
 					target: LOG_TARGET,
 					?core_index,
 					segment_len = collations.len(),
+					resubmitted,
+					fresh,
+					dropped = total_entries.saturating_sub(collations.len()),
 					"Submitting segment for core.",
 				);
 

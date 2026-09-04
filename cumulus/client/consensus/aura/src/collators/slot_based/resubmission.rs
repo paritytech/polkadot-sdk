@@ -135,6 +135,11 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 
 	let mut finality_notifications = para_client.finality_notification_stream();
 
+	tracing::debug!(
+		target: LOG_TARGET,
+		"Resubmission backfill task started; awaiting imported blocks.",
+	);
+
 	loop {
 		let import_fut = block_import_handle.next().fuse();
 		let notification_fut = finality_notifications.next().fuse();
@@ -156,6 +161,12 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 				}
 			},
 			(block, proof) = import_fut => {
+				tracing::trace!(
+					target: LOG_TARGET,
+					block_hash = ?block.header().hash(),
+					number = ?block.header().number(),
+					"Backfilling resubmission entry for imported block.",
+				);
 				backfill_resubmission_entry(
 					&relay_client,
 					&*para_client,
@@ -185,6 +196,12 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	let number = *header.number();
 
 	if number <= para_client.info().finalized_number {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?block_hash,
+			?number,
+			"Imported block is already finalized; no resubmission entry needed.",
+		);
 		return;
 	}
 
@@ -223,6 +240,12 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		},
 	};
 	if number <= para_client.info().finalized_number {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?block_hash,
+			?number,
+			"Block finalized while resolving relay data; dropping resubmission entry.",
+		);
 		return;
 	}
 

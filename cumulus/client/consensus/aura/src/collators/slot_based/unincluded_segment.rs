@@ -124,6 +124,7 @@ where
 	// from the planned bundle length, and the builder stops a bundle early when the just-built
 	// block's digest carries `UseFullCore` (or a runtime upgrade) — leaving a truncated bundle
 	// with no `is_last` block at all.
+	let num_headers = headers.len();
 	let mut bundles: Vec<Vec<Block::Header>> = Vec::new();
 	let mut current: Vec<Block::Header> = Vec::new();
 	let mut prev_index: Option<u8> = None;
@@ -144,13 +145,24 @@ where
 		bundles.push(current);
 	}
 
-	let mut entries = Vec::with_capacity(bundles.len());
+	let num_bundles = bundles.len();
+	let mut entries = Vec::with_capacity(num_bundles);
 	for bundle in bundles {
 		// Attribute a failure to the bundle's first block for logging.
 		let block_number = *bundle[0].number();
 		let block_hash = bundle[0].hash();
+		let bundle_len = bundle.len();
 		match build_bundle_entry(bundle, para_backend, code_hash_provider, store) {
-			Ok(entry) => entries.push(entry),
+			Ok(entry) => {
+				tracing::trace!(
+					target: LOG_TARGET,
+					?block_number,
+					?block_hash,
+					bundle_len,
+					"Hydrated unincluded-segment bundle for resubmission.",
+				);
+				entries.push(entry)
+			},
 			Err(err) => tracing::warn!(
 				target: LOG_TARGET,
 				?block_number,
@@ -160,6 +172,16 @@ where
 			),
 		}
 	}
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		headers = num_headers,
+		bundles = num_bundles,
+		hydrated = entries.len(),
+		skipped = num_bundles.saturating_sub(entries.len()),
+		"Hydrated unincluded segment for resubmission.",
+	);
+
 	entries
 }
 
