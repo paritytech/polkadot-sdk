@@ -69,8 +69,7 @@ use frame_support::{
 			},
 			Imbalance, Precision, Preservation,
 		},
-		Defensive, DefensiveSaturating, EstimateCallFee, OnUnbalanced,
-		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee,
+		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee, OnUnbalanced,
 	},
 	BoundedVec, Twox64Concat,
 };
@@ -200,18 +199,9 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
 				{
 					// first, let's give them their reward.
-					let reward = metadata.reward.saturating_add(metadata.fee);
-					Self::pay_reward(current_round, &winner, reward);
 					let reward =
 						metadata.reward.saturating_add(metadata.fee.min(T::MaxFeeRefund::get()));
-					// TODO: no direct mint (https://github.com/paritytech/polkadot-sdk/issues/12813)
-					let _r = T::Currency::mint_into(&winner, reward);
-					debug_assert!(_r.is_ok());
-					Self::deposit_event(Event::<T>::Rewarded(
-						current_round,
-						winner.clone(),
-						reward,
-					));
+					Self::pay_reward(current_round, &winner, reward);
 
 					// then, unreserve their deposit
 					let _res = T::Currency::release(
@@ -305,6 +295,9 @@ where
 
 	fn paid(amount: Balance) {
 		Currency::reactivate(amount);
+	}
+}
+
 /// A [`Config::MaxFeeRefund`] that is the fee of a full submission: one [`Pallet::register`], plus
 /// [`crate::Config::Pages`] [`Pallet::submit_page`] calls, each carrying a maximum-size solution
 /// page.
@@ -385,6 +378,7 @@ pub mod pallet {
 		/// Source account for reward payments. `Some(pot)` transfers from that account; `None`
 		/// mints directly into the winner's account.
 		type RewardSource: RewardSource<Self::AccountId, BalanceOf<Self>>;
+
 		/// Ceiling on the transaction fee that is refunded to a submitter.
 		///
 		/// Each call that stores part of a submission accrues its transaction fee. That total is
@@ -1070,11 +1064,7 @@ pub mod pallet {
 
 			// maybe give back their fees
 			if Self::is_invulnerable(&discarded) {
-				Self::refund_fee(round, &discarded, metadata.fee);
-				let refund = metadata.fee.min(T::MaxFeeRefund::get());
-				// TODO: no direct mint (https://github.com/paritytech/polkadot-sdk/issues/12813)
-				let _r = T::Currency::mint_into(&discarded, refund);
-				debug_assert!(_r.is_ok());
+				Self::refund_fee(round, &discarded, metadata.fee.min(T::MaxFeeRefund::get()));
 			}
 
 			Self::deposit_event(Event::<T>::Discarded(round, discarded));

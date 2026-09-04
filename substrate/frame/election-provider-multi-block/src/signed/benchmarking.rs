@@ -16,8 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	signed::{Config, Pallet, RewardSource, Submissions, MAX_UNPAID_REWARDS},
-	signed::{Config, Invulnerables, Pallet, Submissions},
+	signed::{Config, Invulnerables, Pallet, RewardSource, Submissions, MAX_UNPAID_REWARDS},
 	types::PagedRawSolution,
 	unsigned::miner::OffchainWorkerMiner,
 	CurrentPhase, Phase, Round,

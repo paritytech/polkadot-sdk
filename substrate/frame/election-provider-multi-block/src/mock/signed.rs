@@ -26,15 +26,12 @@ use crate::{
 use frame_election_provider_support::PageIndex;
 use frame_support::{
 	assert_ok,
-	dispatch::PostDispatchInfo,
+	dispatch::{DispatchInfo, PostDispatchInfo},
 	parameter_types,
 	traits::{
 		fungible::{Balanced, Credit},
-		EstimateCallFee, OnUnbalanced,
+		EstimateCallFee, EstimateFee, OnUnbalanced,
 	},
-	dispatch::{DispatchInfo, PostDispatchInfo},
-	parameter_types,
-	traits::{EstimateCallFee, EstimateFee},
 };
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{traits::Zero, Perbill};
