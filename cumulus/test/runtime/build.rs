@@ -112,6 +112,13 @@ fn main() {
 		.set_file_name(elastic_scaling_rpo::WASM_FILE_NAME)
 		.build();
 
+	// Elastic scaling (V2 descriptors) with a relay parent offset of 1.
+	WasmBuilder::init_with_defaults()
+		.enable_feature("velocity-3")
+		.enable_feature("relay-parent-offset-1")
+		.set_file_name(elastic_scaling_rpo_1::WASM_FILE_NAME)
+		.build();
+
 	// Elastic scaling V3 with a relay parent offset of 2.
 	WasmBuilder::init_with_defaults()
 		.enable_feature("v3-descriptor")

@@ -26,6 +26,8 @@ use zombienet_sdk::{
 #[case::three_glutton(3, true, "elastic-scaling")]
 #[case::single_rpo2(1, false, "elastic-scaling-rpo")]
 #[case::three_rpo2(3, false, "elastic-scaling-rpo")]
+#[case::single_rpo1(1, false, "elastic-scaling-rpo-1")]
+#[case::three_rpo1(3, false, "elastic-scaling-rpo-1")]
 #[tokio::test(flavor = "multi_thread")]
 async fn v2_resubmit_counterpart(
 	#[case] num_collators: usize,
