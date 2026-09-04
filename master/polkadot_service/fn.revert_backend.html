@@ -153,7 +153,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
     backend: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="type" href="type.FullBackend.html" title="type polkadot_service::FullBackend">FullBackend</a>&gt;,
     blocks: <a class="type" href="type.BlockNumber.html" title="type polkadot_service::BlockNumber">BlockNumber</a>,
     config: <a class="struct" href="struct.Configuration.html" title="struct polkadot_service::Configuration">Configuration</a>,
-    task_handle: SpawnTaskHandle,
+    task_handle: <a class="struct" href="../sc_service/task_manager/struct.SpawnTaskHandle.html" title="struct sc_service::task_manager::SpawnTaskHandle">SpawnTaskHandle</a>,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.Error.html" title="enum polkadot_service::Error">Error</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reverts the node state down to at most the last finalized block.</p>
 <p>In particular this reverts:</p>
 <ul>
