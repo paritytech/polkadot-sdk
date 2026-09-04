@@ -99,6 +99,7 @@
 
 extern crate alloc;
 
+pub mod decimal_scale;
 pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -108,6 +109,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub use decimal_scale::{DecimalScale, DecimalScaleError, DecimalsPair, ScaledPair};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -144,11 +146,14 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{CheckedDiv, CheckedMul, Saturating, TrailingZeroInput, Zero},
+		traits::{Saturating, TrailingZeroInput, Zero},
 		Perbill, Permill, TypeId,
 	};
 
-	use crate::WeightInfo;
+	use crate::{
+		decimal_scale::{DecimalScale, DecimalScaleError, DecimalsPair},
+		WeightInfo,
+	};
 
 	/// Circuit breaker levels for emergency control.
 	#[derive(
@@ -266,11 +271,6 @@ pub mod pallet {
 			Permill::from_parts(5_000)
 		}
 	}
-
-	/// Maximum absolute difference between an external asset's decimals and the internal
-	/// asset's decimals. Bounds the scaling factor `10^diff` well below `u128::MAX`
-	/// so realistic balances cannot overflow during conversion.
-	pub const MAX_DECIMALS_DIFF: u32 = 24;
 
 	/// On-chain record of a PSM instance.
 	#[derive(
@@ -654,6 +654,15 @@ pub mod pallet {
 		Unexpected,
 	}
 
+	impl<T: Config> From<DecimalScaleError> for Error<T> {
+		fn from(e: DecimalScaleError) -> Self {
+			match e {
+				DecimalScaleError::DiffOutOfRange => Error::<T>::DecimalsRangeExceeded,
+				DecimalScaleError::Overflow => Error::<T>::ConversionOverflow,
+			}
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Swap external asset for internal on a specific PSM instance.
@@ -713,31 +722,29 @@ pub mod pallet {
 				.ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(external.status.allows_minting(), Error::<T>::MintingStopped);
 
-			let (ext_decimals, internal_decimals) =
-				Self::ensure_decimals_match(&info, &internal_asset, &external_asset, &external)?;
+			Self::ensure_decimals_match(&info, &internal_asset, &external_asset, &external)?;
+			let scale = Self::snapshot_scale(&info, &external)?;
 
-			let internal_equivalent =
-				Self::external_to_internal(external_amount, ext_decimals, internal_decimals)?;
-			ensure!(!internal_equivalent.is_zero(), Error::<T>::AmountTooSmallAfterConversion);
-			ensure!(internal_equivalent >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
-
-			let effective_external =
-				Self::internal_to_external(internal_equivalent, ext_decimals, internal_decimals)?;
+			let swap = scale
+				.pair_from_external(external_amount)
+				.ok_or(Error::<T>::ConversionOverflow)?;
+			ensure!(!swap.internal.is_zero(), Error::<T>::AmountTooSmallAfterConversion);
+			ensure!(swap.internal >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
 
 			let fee_rate = MintingFee::<T>::get(&internal_asset, &external_asset);
 			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
-			let fee = fee_rate.mul_ceil(internal_equivalent);
-			let internal_to_user = internal_equivalent.saturating_sub(fee);
+			let fee = fee_rate.mul_ceil(swap.internal);
+			let internal_to_user = swap.internal.saturating_sub(fee);
 
 			let current_total_psm_debt = Self::total_psm_debt(&internal_asset);
 			ensure!(
-				current_total_psm_debt.saturating_add(internal_equivalent) <= info.max_debt,
+				current_total_psm_debt.saturating_add(swap.internal) <= info.max_debt,
 				Error::<T>::ExceedsMaxPsmDebt
 			);
 
 			let current_debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
 			let max_debt = Self::max_asset_debt(&internal_asset, &external_asset, &info);
-			let new_debt = current_debt.saturating_add(internal_equivalent);
+			let new_debt = current_debt.saturating_add(swap.internal);
 			ensure!(new_debt <= max_debt, Error::<T>::ExceedsMaxPsmDebt);
 
 			let psm_account = Self::psm_account(&internal_asset);
@@ -745,7 +752,7 @@ pub mod pallet {
 				external_asset.clone(),
 				&who,
 				&psm_account,
-				effective_external,
+				swap.external,
 				Preservation::Expendable,
 			)?;
 			T::Fungibles::mint_into(internal_asset.clone(), &who, internal_to_user)?;
@@ -759,7 +766,7 @@ pub mod pallet {
 				who,
 				internal_asset,
 				external_asset,
-				external_consumed: effective_external,
+				external_consumed: swap.external,
 				internal_received: internal_to_user,
 				internal_fee: fee,
 			});
@@ -822,8 +829,9 @@ pub mod pallet {
 				.ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(external.status.allows_redemption(), Error::<T>::AllSwapsStopped);
 
-			let ext_decimals = external.decimals;
-			let internal_decimals = info.internal_decimals;
+			// Unlike `mint`, no live-decimals check: the scale comes from the snapshots taken
+			// at registration, so existing positions can unwind even under metadata drift.
+			let scale = Self::snapshot_scale(&info, &external)?;
 
 			ensure!(internal_amount >= info.min_swap_amount, Error::<T>::BelowMinimumSwap);
 
@@ -832,24 +840,21 @@ pub mod pallet {
 			let fee = fee_rate.mul_ceil(internal_amount);
 			let internal_net = internal_amount.saturating_sub(fee);
 
-			let external_out =
-				Self::internal_to_external(internal_net, ext_decimals, internal_decimals)?;
+			// `swap.internal` is what we actually burn and what the tracked debt decreases by;
+			// truncation dust stays in the caller's internal balance, symmetric with `mint`,
+			// which takes only the round-tripped share of the external amount.
+			let swap =
+				scale.pair_from_internal(internal_net).ok_or(Error::<T>::ConversionOverflow)?;
 			ensure!(
-				internal_net.is_zero() || !external_out.is_zero(),
+				internal_net.is_zero() || !swap.external.is_zero(),
 				Error::<T>::AmountTooSmallAfterConversion
 			);
-			// `effective_internal_net` is the internal value that round-trips to `external_out`;
-			// it is what we actually burn and what the tracked debt decreases by. Any truncation
-			// dust stays in the caller's internal balance, symmetric with `mint`, which takes
-			// only the round-tripped share of the external amount.
-			let effective_internal_net =
-				Self::external_to_internal(external_out, ext_decimals, internal_decimals)?;
 
 			let current_debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
-			ensure!(current_debt >= effective_internal_net, Error::<T>::InsufficientReserve);
+			ensure!(current_debt >= swap.internal, Error::<T>::InsufficientReserve);
 
 			let reserve = Self::get_reserve(&internal_asset, &external_asset);
-			if reserve < external_out {
+			if reserve < swap.external {
 				defensive!("PSM reserve is less than expected output amount");
 				return Err(Error::<T>::Unexpected.into());
 			}
@@ -864,11 +869,11 @@ pub mod pallet {
 				)?;
 			}
 
-			if !effective_internal_net.is_zero() {
+			if !swap.internal.is_zero() {
 				T::Fungibles::burn_from(
 					internal_asset.clone(),
 					&who,
-					effective_internal_net,
+					swap.internal,
 					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Polite,
@@ -876,26 +881,26 @@ pub mod pallet {
 			}
 
 			let psm_account = Self::psm_account(&internal_asset);
-			if !external_out.is_zero() {
+			if !swap.external.is_zero() {
 				T::Fungibles::transfer(
 					external_asset.clone(),
 					&psm_account,
 					&who,
-					external_out,
+					swap.external,
 					Preservation::Expendable,
 				)?;
 			}
 
 			PsmDebt::<T>::mutate(&internal_asset, &external_asset, |debt| {
-				*debt = debt.saturating_sub(effective_internal_net);
+				*debt = debt.saturating_sub(swap.internal);
 			});
 
 			Self::deposit_event(Event::Redeemed {
 				who,
 				internal_asset,
 				external_asset,
-				internal_consumed: effective_internal_net.saturating_add(fee),
-				external_received: external_out,
+				internal_consumed: swap.internal.saturating_add(fee),
+				external_received: swap.external,
 				internal_fee: fee,
 			});
 			Ok(())
@@ -1306,7 +1311,8 @@ pub mod pallet {
 		/// - [`Error::DecimalsMismatch`]: If the internal asset's live decimals diverged from the
 		///   snapshot in [`PsmInfo`].
 		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|` exceeds
-		///   [`MAX_DECIMALS_DIFF`].
+		///   [`DecimalScale::MAX_DIFF`].
+		/// - [`Error::ConversionOverflow`]: If the scaling factor does not fit the balance type.
 		///
 		/// ## Events
 		///
@@ -1335,10 +1341,14 @@ pub mod pallet {
 				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
 				Error::<T>::DecimalsMismatch
 			);
-			ensure!(
-				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
-				Error::<T>::DecimalsRangeExceeded
-			);
+			// The only place the pair's decimals difference is validated: a pair is only
+			// registered if the scale can be built, so swaps can always rebuild it from
+			// the snapshots.
+			DecimalScale::<BalanceOf<T>>::try_new(DecimalsPair {
+				external: asset_decimals,
+				internal: info.internal_decimals,
+			})
+			.map_err(Error::<T>::from)?;
 
 			ExternalAssets::<T>::insert(
 				&internal_asset,
@@ -1588,62 +1598,22 @@ pub mod pallet {
 			T::Fungibles::balance(external_asset.clone(), &Self::psm_account(internal_asset))
 		}
 
-		/// Convert an amount denominated in external-asset units into internal units.
+		/// Rebuild the pair's [`DecimalScale`] from the snapshots taken at registration.
 		///
-		/// Scales by `10^(ext_decimals - internal_decimals)` — multiplies up when internal has more
-		/// decimals, floor-divides when it has fewer. Returns [`Error::ConversionOverflow`] if
-		/// the scaling factor or the product does not fit in the balance type.
-		pub(crate) fn external_to_internal(
-			amount: BalanceOf<T>,
-			ext_decimals: u8,
-			internal_decimals: u8,
-		) -> Result<BalanceOf<T>, Error<T>> {
-			use core::cmp::Ordering::*;
-			match ext_decimals.cmp(&internal_decimals) {
-				Equal => Ok(amount),
-				Less => {
-					let diff = (internal_decimals - ext_decimals) as u32;
-					let factor = Self::pow10(diff)?;
-					amount.checked_mul(&factor).ok_or(Error::<T>::ConversionOverflow)
-				},
-				Greater => {
-					let diff = (ext_decimals - internal_decimals) as u32;
-					let factor = Self::pow10(diff)?;
-					Ok(amount.checked_div(&factor).unwrap_or_else(BalanceOf::<T>::zero))
-				},
-			}
-		}
-
-		/// Convert an amount denominated in internal units into external-asset units.
-		///
-		/// Inverse of [`Self::external_to_internal`]. Floor-divides when internal has more
-		/// decimals, multiplies up when it has fewer.
-		pub(crate) fn internal_to_external(
-			amount: BalanceOf<T>,
-			ext_decimals: u8,
-			internal_decimals: u8,
-		) -> Result<BalanceOf<T>, Error<T>> {
-			use core::cmp::Ordering::*;
-			match ext_decimals.cmp(&internal_decimals) {
-				Equal => Ok(amount),
-				Less => {
-					let diff = (internal_decimals - ext_decimals) as u32;
-					let factor = Self::pow10(diff)?;
-					Ok(amount.checked_div(&factor).unwrap_or_else(BalanceOf::<T>::zero))
-				},
-				Greater => {
-					let diff = (ext_decimals - internal_decimals) as u32;
-					let factor = Self::pow10(diff)?;
-					amount.checked_mul(&factor).ok_or(Error::<T>::ConversionOverflow)
-				},
-			}
-		}
-
-		/// Compute `10^exp` as a [`BalanceOf`]. Returns [`Error::ConversionOverflow`] if the result
-		/// does not fit in `u128` or in `BalanceOf<T>`.
-		fn pow10(exp: u32) -> Result<BalanceOf<T>, Error<T>> {
-			let factor_u128 = 10u128.checked_pow(exp).ok_or(Error::<T>::ConversionOverflow)?;
-			factor_u128.try_into().map_err(|_| Error::<T>::ConversionOverflow)
+		/// [`Pallet::add_external_asset`] only registers pairs whose scale can be built,
+		/// so a failure here means corrupted storage.
+		pub(crate) fn snapshot_scale(
+			info: &PsmInfo<T>,
+			external: &ExternalAssetInfo,
+		) -> Result<DecimalScale<BalanceOf<T>>, DispatchError> {
+			DecimalScale::try_new(DecimalsPair {
+				external: external.decimals,
+				internal: info.internal_decimals,
+			})
+			.map_err(|_| {
+				defensive!("stored decimals snapshot no longer yields a valid scale");
+				Error::<T>::Unexpected.into()
+			})
 		}
 
 		/// Verify the live decimals for an external still match the snapshot taken at
@@ -1654,7 +1624,7 @@ pub mod pallet {
 			internal_asset: &T::AssetId,
 			external_asset: &T::AssetId,
 			external: &ExternalAssetInfo,
-		) -> Result<(u8, u8), DispatchError> {
+		) -> DispatchResult {
 			ensure!(
 				T::Fungibles::decimals(external_asset.clone()) == external.decimals,
 				Error::<T>::DecimalsMismatch
@@ -1663,7 +1633,7 @@ pub mod pallet {
 				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
 				Error::<T>::DecimalsMismatch
 			);
-			Ok((external.decimals, info.internal_decimals))
+			Ok(())
 		}
 
 		/// Authorise an operation on the PSM keyed by `internal_asset`.
@@ -1706,12 +1676,18 @@ pub mod pallet {
 				{
 					counted = counted.saturating_add(1);
 
-					// 1. Per-external reserve covers tracked debt.
+					// 1. Per-external reserve covers tracked debt, at the snapshot rate (the
+					// check stays valid under live-metadata drift).
 					let debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
 					let reserve = Self::get_reserve(&internal_asset, &external_asset);
-					let debt_as_external =
-						Self::internal_to_external(debt, external.decimals, info.internal_decimals)
-							.map_err(|_| "Failed to convert tracked debt to external units")?;
+					let scale = DecimalScale::<BalanceOf<T>>::try_new(DecimalsPair {
+						external: external.decimals,
+						internal: info.internal_decimals,
+					})
+					.map_err(|_| "Stored decimals snapshot does not yield a valid scale")?;
+					let debt_as_external = scale
+						.to_external(debt)
+						.ok_or("Failed to convert tracked debt to external units")?;
 					ensure!(
 						reserve >= debt_as_external,
 						"PSM reserve is less than tracked debt for an asset"

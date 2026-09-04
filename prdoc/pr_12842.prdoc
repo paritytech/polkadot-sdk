@@ -1,0 +1,18 @@
+title: 'Unify PSM decimal scaling'
+doc:
+- audience: Runtime Dev
+  description: |-
+    PSM decimal handling was scattered across several helper functions and checks,
+    which made it easy to get wrong.
+
+    This PR gathers it all into one small, validated type that every part of the
+    pallet goes through: validation happens once when an external asset is
+    registered, and swaps reuse the stored result. Amounts are rounded down so both
+    sides of a swap always match exactly, with any leftover dust staying with the
+    caller.
+
+    No behavior change. The public `MAX_DECIMALS_DIFF` constant is replaced by
+    `DecimalScale::MAX_DIFF`.
+crates:
+- name: pallet-psm
+  bump: major

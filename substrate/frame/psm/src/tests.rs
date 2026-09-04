@@ -1084,7 +1084,7 @@ mod governance {
 	fn add_external_asset_accepts_differing_decimals_within_range() {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;
-			// Asset with 8 decimals vs internal's 6 — within MAX_DECIMALS_DIFF.
+			// Asset with 8 decimals vs internal's 6 — within DecimalScale::MAX_DIFF.
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
@@ -1109,7 +1109,7 @@ mod governance {
 	fn add_external_asset_fails_decimals_out_of_range() {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;
-			// Decimals 6 + 25 = 31 exceeds MAX_DECIMALS_DIFF (24).
+			// Decimals 6 + 25 = 31 exceeds DecimalScale::MAX_DIFF (24).
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
@@ -2454,64 +2454,10 @@ mod cycles {
 /// registered with PSM via `register_external_asset_with_weight` inside each test.
 mod decimal_scaling {
 	use super::*;
-	use crate::MAX_DECIMALS_DIFF;
 
 	fn set_zero_fees(asset_id: u32) {
 		set_minting_fee(asset_id, Permill::zero());
 		set_redemption_fee(asset_id, Permill::zero());
-	}
-
-	// Conversion helpers
-
-	#[test]
-	fn external_to_internal_same_decimals_is_identity() {
-		new_test_ext().execute_with(|| {
-			assert_eq!(Psm::external_to_internal(1_000_000, 6, 6).unwrap(), 1_000_000);
-		});
-	}
-
-	#[test]
-	fn external_to_internal_scale_up_is_exact() {
-		new_test_ext().execute_with(|| {
-			// USDX (2) -> internal (6): multiply by 10^4.
-			assert_eq!(Psm::external_to_internal(100, 2, 6).unwrap(), 1_000_000);
-		});
-	}
-
-	#[test]
-	fn external_to_internal_scale_down_truncates() {
-		new_test_ext().execute_with(|| {
-			// DAI (18) -> internal (6): divide by 10^12, floor.
-			assert_eq!(
-				Psm::external_to_internal(1_500_000_000_000_000_123, 18, 6).unwrap(),
-				1_500_000
-			);
-		});
-	}
-
-	#[test]
-	fn internal_to_external_round_trip_bounds() {
-		new_test_ext().execute_with(|| {
-			// For any amount, round-trip should shrink or preserve.
-			for (ext_decimals, internal_decimals) in [(2u8, 6u8), (6, 6), (18, 6), (6, 18), (6, 2)]
-			{
-				for amount in [0u128, 1, 100, 1_234_567, 10u128.pow(18)] {
-					let fwd =
-						Psm::external_to_internal(amount, ext_decimals, internal_decimals).unwrap();
-					let rtp =
-						Psm::internal_to_external(fwd, ext_decimals, internal_decimals).unwrap();
-					assert!(rtp <= amount, "round-trip grew: amount={} got {}", amount, rtp);
-				}
-			}
-		});
-	}
-
-	#[test]
-	fn conversion_overflow_surfaces_error() {
-		new_test_ext().execute_with(|| {
-			// 10^40 overflows u128 (max ~3.4e38).
-			assert!(Psm::external_to_internal(1, 0, 40).is_err());
-		});
 	}
 
 	// Mint with scale-up (fewer external decimals)
@@ -3158,15 +3104,6 @@ mod decimal_scaling {
 		});
 	}
 
-	#[test]
-	fn max_decimals_diff_const_is_protective() {
-		// Compile-time sanity: the chosen bound is wide but below the overflow point.
-		// 10^24 fits comfortably in u128 (< 10^38), and leaves ~10^14 headroom on
-		// balances. The const is documented; this asserts it has not been widened
-		// beyond the safe range.
-		assert!(MAX_DECIMALS_DIFF <= 30);
-	}
-
 	// Mixed-decimal aggregate bookkeeping
 
 	#[test]
@@ -3279,8 +3216,8 @@ mod decimal_scaling {
 				1000 * INTERNAL_UNIT
 			);
 
-			// Donate extra DAI straight to the PSM account. Reserve now exceeds
-			// internal_to_external(debt). try_state check 2 uses the external-side
+			// Donate extra DAI straight to the PSM account. Reserve now exceeds the debt
+			// scaled to external units. try_state check 2 uses the external-side
 			// comparison and must still pass.
 			let psm = psm_account();
 			fund_external_asset(DAI_MOCK_ASSET_ID, psm.clone(), 7 * DAI_UNIT);
