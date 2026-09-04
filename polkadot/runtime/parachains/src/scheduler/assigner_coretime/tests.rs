@@ -82,7 +82,12 @@ fn default_test_assignments() -> Vec<(CoreAssignment, PartsOf57600)> {
 }
 
 fn default_test_schedule() -> Schedule<BlockNumberFor<Test>> {
-	Schedule { assignments: default_test_assignments(), end_hint: None, next_schedule: None }
+	Schedule {
+		assignments: default_test_assignments(),
+		end_hint: None,
+		next_schedule: None,
+		kind: ScheduleKind::Windowed,
+	}
 }
 
 #[test]
@@ -347,6 +352,7 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 				(CoreAssignment::Pool, PartsOf57600(28800)),
 				(CoreAssignment::Idle, PartsOf57600(28800)),
 			],
+			kind: ScheduleKind::Windowed,
 		};
 
 		// Call assign_core for each of five schedules
@@ -457,6 +463,7 @@ fn ensure_workload_works() {
 			end_hint: Some(BlockNumberFor::<Test>::from(15u32)),
 			pos: 0,
 			step: PartsOf57600::FULL,
+			kind: ScheduleKind::Windowed,
 		}),
 	};
 

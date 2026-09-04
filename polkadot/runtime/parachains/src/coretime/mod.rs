@@ -245,6 +245,39 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::CoreAssigned { core });
 			Ok(())
 		}
+
+		/// Schedule each of the given tasks on `core` for one block each, in order, starting no
+		/// earlier than `begin`.
+		///
+		/// In contrast to `assign_core`, entries appended here are neither skipped when they
+		/// activate late nor overwritten by later schedules: late delivery shifts service, it
+		/// never cancels it. `begin` is only a floor, so this call has no ordering requirement
+		/// towards previously scheduled assignments; the only failure is an empty `tasks`.
+		///
+		/// Parameters:
+		/// -`origin`: Root or the coretime chain.
+		/// -`core`: The core the tasks should be scheduled on.
+		/// -`begin`: The relay block the first task may be served at, at the earliest.
+		/// -`tasks`: The tasks, each of which gets exactly one block, in order.
+		#[pallet::call_index(5)]
+		// TODO: dedicated benchmark; the one-shot path does strictly less work than
+		// `assign_core` with the same number of entries, so this is a safe stand-in.
+		#[pallet::weight(<T as Config>::WeightInfo::assign_core(tasks.len() as u32))]
+		pub fn assign_core_once(
+			origin: OriginFor<T>,
+			core: BrokerCoreIndex,
+			begin: BlockNumberFor<T>,
+			tasks: Vec<pallet_broker::TaskId>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the coretime chain or root.
+			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
+
+			let core = u32::from(core).into();
+
+			<scheduler::Pallet<T>>::assign_core_once(core, begin, tasks)?;
+			Self::deposit_event(Event::<T>::CoreAssigned { core });
+			Ok(())
+		}
 	}
 }
 
