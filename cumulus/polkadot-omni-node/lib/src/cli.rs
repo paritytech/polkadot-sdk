@@ -205,6 +205,15 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = 1)]
 	pub jam_slot_duration: u32,
 
+	/// EXPERIMENTAL (JAM): Path to the parachain's PVM validation code (PVF).
+	///
+	/// When given, every candidate names this file's blake2b-256 hash as its validation code,
+	/// instead of the hash of the runtime's own wasm. The real parachain service resolves that
+	/// hash as a preimage it hosts and executes the blob in-core, so the file has to be the very
+	/// bytes hosted there. Without it the wasm hash is stamped, which only parasim accepts.
+	#[arg(long, value_name = "PATH")]
+	pub jam_pvf_blob: Option<PathBuf>,
+
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
 	/// Use slot-based collator which can handle elastic scaling.
@@ -306,6 +315,8 @@ pub struct JamNodeParams {
 	pub authorizer_blob: PathBuf,
 	/// Length of a parachain slot in JAM timeslots.
 	pub slot_duration: u32,
+	/// The PVM validation code whose hash the candidates name, when not the runtime's wasm.
+	pub pvf_blob: Option<PathBuf>,
 }
 
 /// Development sealing mode.
@@ -382,6 +393,7 @@ impl<Config: CliConfig> Cli<Config> {
 			service_id,
 			authorizer_blob,
 			slot_duration: self.jam_slot_duration,
+			pvf_blob: self.jam_pvf_blob.clone(),
 		}))
 	}
 

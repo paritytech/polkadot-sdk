@@ -96,6 +96,10 @@ pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub message_receiver: mpsc::Receiver<JamCollatorMessage<Block>>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	pub max_resubmits: u32,
+	/// The validation-code hash to stamp into every candidate, when the collator was started with
+	/// a PVF blob (`--jam-pvf-blob`). `None` stamps the runtime's wasm hash, which only parasim
+	/// accepts — the real parachain service resolves the hash as a preimage and runs it.
+	pub pvf_code_hash: Option<[u8; 32]>,
 }
 
 pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
@@ -114,6 +118,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		mut message_receiver,
 		announce_block,
 		max_resubmits,
+		pvf_code_hash,
 	} = params;
 
 	let (refine_gas_limit, accumulate_gas_limit) = loop {
@@ -184,6 +189,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		accumulate_gas_limit,
 		max_resubmits,
 		resubmit_after_slots = RESUBMIT_AFTER_SLOTS,
+		pvf_code_hash = ?pvf_code_hash.map(CodeHash::from),
 		authorizer_hash = ?authorizer.hash(),
 		collator_set_size = authorizer.collator_set_size(),
 		own_index = authorizer.own_index(),
@@ -202,6 +208,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		service_code_hash,
 		refine_gas_limit,
 		accumulate_gas_limit,
+		pvf_code_hash,
 		policy: ReanchorThenForget::new(max_resubmits),
 		announce_block,
 		packages: InFlightPackages::new(),
@@ -377,6 +384,7 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	service_code_hash: CodeHash,
 	refine_gas_limit: UnsignedGas,
 	accumulate_gas_limit: UnsignedGas,
+	pvf_code_hash: Option<[u8; 32]>,
 	policy: ReanchorThenForget,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	packages: InFlightPackages<Block>,
@@ -431,23 +439,26 @@ where
 				},
 			};
 
-		let validation_code = match self.para_client.code_at(parent_hash) {
-			Ok(code) => code,
-			Err(error) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?block_hash,
-					?error,
-					"Failed to read the validation code; dropping the block.",
-				);
-				return;
+		let validation_code_hash = match self.pvf_code_hash {
+			Some(hash) => hash,
+			None => match self.para_client.code_at(parent_hash) {
+				Ok(code) => sp_crypto_hashing::blake2_256(&code),
+				Err(error) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						?block_hash,
+						?error,
+						"Failed to read the validation code; dropping the block.",
+					);
+					return;
+				},
 			},
 		};
 
 		let source = PackageSource {
 			blocks: vec![block],
 			proof: compact_proof,
-			validation_code_hash: sp_crypto_hashing::blake2_256(&validation_code),
+			validation_code_hash,
 			service_id: self.service_id,
 			service_code_hash: self.service_code_hash,
 			refine_gas_limit: self.refine_gas_limit,
@@ -492,6 +503,9 @@ where
 			expected_collator = self.authorizer.collator_for(anchored.context.lookup_anchor_slot),
 			own_index = self.authorizer.own_index(),
 			authorizer_hash = ?self.authorizer.hash(),
+			validation_code_hash = ?CodeHash::from(validation_code_hash),
+			validation_code_source =
+				if self.pvf_code_hash.is_some() { "--jam-pvf-blob" } else { "runtime wasm" },
 			token_len = package.authorization.len(),
 			pov_len = package.items[0].payload.0.len(),
 			anchor_proof_nodes = anchored.head_proof.nodes.len(),

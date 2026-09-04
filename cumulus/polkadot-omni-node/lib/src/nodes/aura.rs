@@ -580,6 +580,29 @@ where
 			jam_params.service_id,
 		);
 
+		// Hashed once, up front, and fatal when unreadable: the hash names the validation code in
+		// every candidate, so a collator that cannot produce it has nothing valid to submit.
+		let pvf_code_hash = jam_params
+			.pvf_blob
+			.as_ref()
+			.map(|path| {
+				let blob = std::fs::read(path).map_err(|error| {
+					sc_service::Error::Other(format!(
+						"cannot read the PVF blob at {}: {error}",
+						path.display(),
+					))
+				})?;
+				let hash = sp_crypto_hashing::blake2_256(&blob);
+				log::info!(
+					"🍇 JAM validation code (PVF): {} ({} bytes), blake2b-256 {:?}",
+					path.display(),
+					blob.len(),
+					sp_core::H256(hash),
+				);
+				Ok::<_, sc_service::Error>(hash)
+			})
+			.transpose()?;
+
 		// Before anything reads a key: `spawn_tasks` is what puts this node's session keys in the
 		// keystore (`generate_initial_session_keys`, which is where `--alice` and friends land), so
 		// the authorizer below would find an empty keystore if it ran first. The relay-chain path
@@ -758,6 +781,7 @@ where
 							message_receiver,
 							announce_block,
 							max_resubmits: 3,
+							pvf_code_hash,
 						},
 					)),
 				);
