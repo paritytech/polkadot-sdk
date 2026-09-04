@@ -1012,6 +1012,18 @@ pub trait EstimateCallFee<Call, Balance> {
 	fn estimate_call_fee(call: &Call, post_info: crate::dispatch::PostDispatchInfo) -> Balance;
 }
 
+/// Something that can estimate the fee of a (frame-based) call from its encoded length and
+/// dispatch info.
+///
+/// A fee depends on only those two things. [`EstimateCallFee`] takes the call itself and reads them
+/// off it, whereas here they are passed directly. That allows pricing a call that the caller does
+/// not have, such as one carrying a maximum-size payload that would be wasteful to build in memory
+/// just to measure it.
+pub trait EstimateFee<Balance> {
+	/// Estimate the fee of a call with the given encoded length and dispatch info.
+	fn estimate_fee(len: u32, info: &crate::dispatch::DispatchInfo) -> Balance;
+}
+
 // Useful for building mocks.
 #[cfg(feature = "std")]
 impl<Call, Balance: From<u32>, const T: u32> EstimateCallFee<Call, Balance> for ConstU32<T> {
@@ -1023,6 +1035,20 @@ impl<Call, Balance: From<u32>, const T: u32> EstimateCallFee<Call, Balance> for 
 #[cfg(feature = "std")]
 impl<Call, Balance: From<u32>, const T: u64> EstimateCallFee<Call, Balance> for ConstU64<T> {
 	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
+		(T as u32).into()
+	}
+}
+
+#[cfg(feature = "std")]
+impl<Balance: From<u32>, const T: u32> EstimateFee<Balance> for ConstU32<T> {
+	fn estimate_fee(_: u32, _: &crate::dispatch::DispatchInfo) -> Balance {
+		T.into()
+	}
+}
+
+#[cfg(feature = "std")]
+impl<Balance: From<u32>, const T: u64> EstimateFee<Balance> for ConstU64<T> {
+	fn estimate_fee(_: u32, _: &crate::dispatch::DispatchInfo) -> Balance {
 		(T as u32).into()
 	}
 }
