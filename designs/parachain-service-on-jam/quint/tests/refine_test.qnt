@@ -39,7 +39,9 @@ module refine_test {
         parentHeadHash: headHash(0),
         headData: 1,
         upwardMessages: List(),
-        lookupAnchor: 0
+        lookupAnchor: 0,
+        messagesStreamsRoot: None,
+        messagesRequiresRoots: List()
       }))),
       init
     }

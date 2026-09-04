@@ -55,6 +55,13 @@ module messages {
   // `set_head` was called with head data beyond the 4 KiB `HeadData` bound
   // (§4.3).
   | HeadDataTooLarge
+  // `set_messages_streams_root` or `set_messages_requires_roots` was called
+  // more than once in a single Refine invocation (§4.3, §8.1).
+  | MessagesCallRepeated
+  // A `set_messages_requires_roots` set exceeded `MaxRequiresSources`,
+  // repeated a source `ParaId`, or named the candidate's own `para_id`
+  // (§4.3, §8.1).
+  | MessagesInvalidRequires
 
   // --- Accumulate-side log payloads ---------------------------------------
 
@@ -288,7 +295,15 @@ module messages {
     parentHeadHash: HeadHash,
     headData: HeadData,
     upwardMessages: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    // §8: the `StreamsRoot` this candidate publishes, `None` when it declared
+    // none. Pushed into the parachain's settlement ring on enactment (§5.1
+    // step 6), so a root enters the ring only for an enacted candidate.
+    messagesStreamsRoot: Option[StreamsRoot],
+    // §8: the senders this candidate consumed messages from, one entry per
+    // sender with the root it consumed against. Checked against the senders'
+    // settlement rings before the head write (§5.1 step 6).
+    messagesRequiresRoots: List[(ParaId, StreamsRoot)]
   }
 
   /// Refine output per work item: a success digest or a Refine error.

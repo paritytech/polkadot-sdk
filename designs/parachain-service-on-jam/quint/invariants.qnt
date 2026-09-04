@@ -266,39 +266,60 @@ module invariants {
   /// Parent-head continuity (§5.1 step 3): replay the block's head-affecting
   /// operations in order and confirm the result matches the stored heads. Start
   /// from the pre-block heads; for each `Ok` work result, apply it ONLY if its
-  /// para is live and its declared parent matches that para's current head
-  /// (step 3). If accepted, write its new head (step 6) then replay its
-  /// `parachain_set_head` messages (step 7). A rejected candidate (stale parent)
-  /// is ignored entirely (its head update AND its upward messages), just as
-  /// Accumulate never replays a rejected candidate's messages. This is what lets a
-  /// forced `parachain_set_head` survive a same-block candidate built on a
-  /// superseded head, while a candidate legitimately continuing the current head
-  /// is allowed.
+  /// para is live, its declared parent matches that para's current head
+  /// (step 3), and its `messages_requires_roots` settle against the rings as
+  /// of that digest (step 6, §8). Settlement is the one Accumulate rejection
+  /// Refine cannot pre-filter, so the mirror must carry the rings: pushes from
+  /// earlier accepted digests in the same block included, threaded through the
+  /// real ring functions so eviction stays exact. If accepted, write its new
+  /// head and push its `messages_streams_root` (step 6), then replay its
+  /// `parachain_set_head` messages (step 7), which move heads only and leave
+  /// every ring alone (§8.3). A rejected candidate (stale parent or missed
+  /// settlement) is ignored entirely (its head update, its push, AND its
+  /// upward messages), just as Accumulate never applies a rejected candidate.
+  /// This is what lets a forced `parachain_set_head` survive a same-block
+  /// candidate built on a superseded head, while a candidate legitimately
+  /// continuing the current head is allowed.
+  ///
+  /// `ParachainCleanUp`'s ring deletion (§8.3) is deliberately NOT mirrored:
+  /// the step's menu only cleans up paras the requires menu never names as a
+  /// source (see `arbitraryMessages` / `requiresRootsMenu`), so the ring a
+  /// clean-up deletes can never decide a later settlement here.
   val parent_head_continuity: bool = {
     val initialHeads = prevSvc.parachains.keys().mapBy(p => prevSvc.paraInfo(p).headData)
-    val replayedHeads =
-      lastStepWorkResults.foldl(initialHeads, (heads, r) => match r.result {
-        | WorkErr => heads
+    val replayed =
+      lastStepWorkResults.foldl((initialHeads, prevSvc), (acc, r) => match r.result {
+        | WorkErr => acc
         | WorkOk(digest) => match digest {
-          | Err(_) => heads
+          | Err(_) => acc
           | Ok(ok) =>
-            if (not(heads.keys().contains(ok.paraId))) heads
-            else if (ok.parentHeadHash != headHash(heads.get(ok.paraId))) heads
-            else
-              // Accepted: write the new head (step 6), then replay its forced
+            if (not(acc._1.keys().contains(ok.paraId))) acc
+            else if (ok.parentHeadHash != headHash(acc._1.get(ok.paraId))) acc
+            else if (not(settlementCheck(acc._2, ok.messagesRequiresRoots))) acc
+            else {
+              // Accepted: write the new head and push the candidate's
+              // `messages_streams_root` (step 6), then replay its forced
               // `parachain_set_head` messages (step 7), each a no-op for a
-              // non-live target.
-              ok.upwardMessages.foldl(heads.put(ok.paraId, ok.headData), (h, m) =>
+              // non-live target and none touching a ring (§8.3).
+              val pushed = match ok.messagesStreamsRoot {
+                | Some(root) => settlementRingPush(acc._2, ok.paraId, root)
+                | None => acc._2
+              }
+              val heads = ok.upwardMessages.foldl(
+                acc._1.put(ok.paraId, ok.headData), (h, m) =>
                 match m {
                   | ParachainSetHead(pl) =>
-                    if (h.keys().contains(pl.paraId)) h.put(pl.paraId, pl.newHead) else h
+                    if (h.keys().contains(pl.paraId)) h.put(pl.paraId, pl.newHead)
+                    else h
                   | _ => h
                 })
+              (heads, pushed)
+            }
         }
       })
     prevSvc.parachains.keys().forall(p =>
       if (not(svc.parachains.keys().contains(p))) true
-      else replayedHeads.get(p) == svc.paraInfo(p).headData)
+      else replayed._1.get(p) == svc.paraInfo(p).headData)
   }
 
   /// For every Refine Err in lastStepWorkResults targeting a registered para,
@@ -429,6 +450,44 @@ module invariants {
         | _ => true
       })
 
+  /// §8.2 settlement-ring shape. For every para with a cursor, both positions
+  /// are `u32` values, the live window `[tail, head)` (a wrapping range of
+  /// `head.wrapping_sub(tail)` positions) holds at most
+  /// `MaxSettlementRingCapacity` entries, and `messagesQueue` holds exactly
+  /// those positions; every queue or member entry belongs to a para with a
+  /// cursor; membership is exactly the set of roots in the live window, each
+  /// member entry pointing at a live queue position that holds its root (the
+  /// newest one, per the §8.2 re-push rule).
+  val settlement_ring_coherent: bool = and {
+    svc.messagesCursor.keys().forall(p => {
+      val c = svc.messagesCursor.get(p)
+      val live = ringLive(c)
+      and {
+        0 <= c.head and c.head < U32Modulus,
+        0 <= c.tail and c.tail < U32Modulus,
+        live <= MaxSettlementRingCapacity,
+        svc.messagesQueue.keys().filter(k => k._1 == p)
+          == 0.to(live - 1).map(i => (p, wrappingAddU32(c.tail, i)))
+      }
+    }),
+    svc.messagesQueue.keys().forall(k => svc.messagesCursor.keys().contains(k._1)),
+    svc.messagesMember.keys().forall(k => svc.messagesCursor.keys().contains(k._1)),
+    svc.messagesMember.keys().forall(k => {
+      val seq = svc.messagesMember.get(k).seq
+      svc.messagesQueue.keys().contains((k._1, seq)) and
+      svc.messagesQueue.get((k._1, seq)) == k._2
+    }),
+    svc.messagesQueue.keys().forall(k =>
+      svc.messagesMember.keys().contains((k._1, svc.messagesQueue.get(k))))
+  }
+
+  /// §8.3: a settlement ring exists only for a live parachain. Deletion runs
+  /// inside `parachainCleanUp`, so a removed para must leave no ring behind.
+  /// (A live para without a cursor is fine: the cursor is absent until the
+  /// para's first push, §8.2.)
+  val settlement_ring_only_for_live: bool =
+    svc.messagesCursor.keys().forall(p => svc.parachains.keys().contains(p))
+
   /// Composite invariant: every invariant above must hold simultaneously.
   val invariants: bool = and {
     balance_invariant,
@@ -462,6 +521,8 @@ module invariants {
     staged_validator_keys_bounded,
     accumulate_log_batch_nonempty,
     parachain_log_within_capacity,
-    parachain_log_above_lookup
+    parachain_log_above_lookup,
+    settlement_ring_coherent,
+    settlement_ring_only_for_live
   }
 }

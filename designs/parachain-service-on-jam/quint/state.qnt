@@ -70,6 +70,17 @@ module state {
   type IncomingTransfer =
     { from: ServiceId, amount: Balance, toSupervisorBalance: bool, memo: Memo }
 
+  // --- Settlement ring (design §8.2) --------------------------------------
+
+  /// Positions of a parachain's settlement ring: `head` is where the next root
+  /// is written, `tail` the oldest live position. Both are `u32` counters
+  /// advanced with wrapping arithmetic (`wrappingAddU32`), so the live window
+  /// is the wrapping range `[tail, head)`.
+  type SettlementCursor = { head: int, tail: int }
+
+  /// A settlement-ring member: the position of the root's most recent push.
+  type MemberEntry = { seq: int }
+
   // --- Top-level service state -------------------------------------------
 
   type ParachainServiceState = {
@@ -115,6 +126,18 @@ module state {
     // Per-parachain key/value store (design §3.1, §6.1). Keyed by
     // (ParaId, user_key); each entry is billed under the sole-user rule.
     keyValueStorage: (ParaId, List[int]) -> List[int],
+    // §8.2 settlement ring, mirroring the three storage maps under tags
+    // `0x09`–`0x0b`. `messagesCursor` holds the ring positions, absent until
+    // the parachain's first push and never read by the settlement check.
+    // `messagesMember` is the membership index, present iff the root is one
+    // of the sender's last `MaxSettlementRingCapacity` enacted roots, and the
+    // ONLY entry the settlement check reads. `messagesQueue` maps ring
+    // position to root, read on eviction and teardown. The ring at capacity
+    // is reserved in the baseline footprint (§6.1, `SettlementRingFootprint`),
+    // so pushes are never charged.
+    messagesCursor: ParaId -> SettlementCursor,
+    messagesMember: (ParaId, StreamsRoot) -> MemberEntry,
+    messagesQueue: (ParaId, int) -> StreamsRoot,
     // MODEL-ONLY ghost state, NOT part of the service's real storage or
     // footprint. The spec keeps no bookkeeping for the two-step forget and
     // reads request status from JAM's `query` (§6.1); the model stands that in
@@ -136,6 +159,9 @@ module state {
     stagedValidatorKeys: List(),
     serviceCodeHash: { hashBytes: 0 },
     keyValueStorage: Map(),
+    messagesCursor: Map(),
+    messagesMember: Map(),
+    messagesQueue: Map(),
     preimageStatus: Map()
   }
 
@@ -450,4 +476,78 @@ module state {
       para_id, s.parachainLog.get(para_id).select(e => e._1 >= threshold)
     )
   }
+
+  // --- Messaging settlement ring (§8.2) -----------------------------------
+
+  /// Number of live positions in a ring with cursor `c`: the length of the
+  /// wrapping range `[tail, head)`, i.e. `head.wrapping_sub(tail)` (§8.2).
+  pure def ringLive(c: SettlementCursor): int = wrappingSubU32(c.head, c.tail)
+
+  /// §5.1 step 6: the settlement check. One `messagesMember` point read per
+  /// `messages_requires_roots` entry: every named `(source, root)` must be a
+  /// key of `messagesMember`, i.e. one of the source's last
+  /// `MaxSettlementRingCapacity` enacted roots. `true` on an empty list (a
+  /// candidate that consumed nothing always settles).
+  pure def settlementCheck(
+    s: ParachainServiceState, requires: List[(ParaId, StreamsRoot)]
+  ): bool =
+  requires.foldl(true, (acc, e) => acc and s.messagesMember.keys().contains(e))
+
+  /// §8.2 push: run on enactment for a candidate carrying a
+  /// `messages_streams_root` (§5.1 step 6, after the head write). Mirrors the
+  /// multi-step operation of §8.2: load the cursor; if
+  /// `head.wrapping_sub(tail) == MaxSettlementRingCapacity`, evict the oldest
+  /// entry (read the root at `tail`, delete that `messagesQueue` entry, drop
+  /// the `messagesMember` entry only if its `seq` equals `tail`, advance
+  /// `tail`); then write the new root at `head`, insert its membership at
+  /// `head`, and advance `head`. Both counters wrap as `u32`. At most one
+  /// eviction is ever needed since roots are pushed one at a time.
+  ///
+  /// A repeated root only moves its `messagesMember` entry to the new
+  /// position; the old `messagesQueue` entry stays until its position is
+  /// evicted, and that eviction leaves the membership alive because its `seq`
+  /// no longer matches the evicted position.
+  pure def settlementRingPush(
+    s: ParachainServiceState, para: ParaId, root: StreamsRoot
+  ): ParachainServiceState = {
+    val cursor =
+      if (s.messagesCursor.keys().contains(para)) s.messagesCursor.get(para)
+      else { head: 0, tail: 0 }
+    val atCapacity = ringLive(cursor) == MaxSettlementRingCapacity
+    val evicted =
+      if (not(atCapacity)) s
+      else {
+        val victim = s.messagesQueue.get((para, cursor.tail))
+        { ...s,
+          messagesQueue: s.messagesQueue.mapRemove((para, cursor.tail)),
+          messagesMember:
+            // The victim root may have been re-pushed since; its membership
+            // then points at the newer position and survives this eviction.
+            if (s.messagesMember.get((para, victim)).seq == cursor.tail)
+              s.messagesMember.mapRemove((para, victim))
+            else s.messagesMember }
+      }
+    { ...evicted,
+      messagesQueue: evicted.messagesQueue.put((para, cursor.head), root),
+      messagesMember: evicted.messagesMember.put((para, root), { seq: cursor.head }),
+      messagesCursor: evicted.messagesCursor.put(para, {
+        head: wrappingAddU32(cursor.head, 1),
+        tail: if (atCapacity) wrappingAddU32(cursor.tail, 1) else cursor.tail
+      }) }
+  }
+
+  /// §8.3 teardown: delete `para`'s whole ring, the cursor together with every
+  /// `messagesMember` and `messagesQueue` entry at positions in the wrapping
+  /// range `[tail, head)`. Run by the first accepted `parachain_clean_up`
+  /// (§6.4), and by nothing else: a forced `parachain_set_head` does not touch
+  /// the ring (§8.3). The model deletes atomically; the service needs gas for
+  /// `1 + MaxSettlementRingCapacity` reads and `1 + 2 * MaxSettlementRingCapacity`
+  /// deletions in the worst case.
+  pure def settlementRingDelete(
+    s: ParachainServiceState, para: ParaId
+  ): ParachainServiceState =
+  { ...s,
+    messagesCursor: s.messagesCursor.mapRemove(para),
+    messagesMember: s.messagesMember.mapFilterKeys(k => k._1 != para),
+    messagesQueue: s.messagesQueue.mapFilterKeys(k => k._1 != para) }
 }
