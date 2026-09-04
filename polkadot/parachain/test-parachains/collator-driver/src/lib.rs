@@ -34,6 +34,7 @@ use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, Segmen
 use polkadot_node_subsystem_util::{
 	collation::{build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams},
 	runtime::ClaimQueueSnapshot,
+	TimeoutExt,
 };
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
@@ -44,12 +45,16 @@ use polkadot_primitives::{
 };
 use sc_client_api::BlockchainEvents;
 use sp_api::ProvideRuntimeApi;
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 #[cfg(test)]
 mod tests;
 
 const LOG_TARGET: &str = "parachain::collator-driver";
+
+/// A leaf the overseer already deactivated is never answered, so the wait needs a cap. One block
+/// time: past that the leaf is stale anyway.
+const ACTIVATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 /// Builds a collation on top of the given [`PersistedValidationData`].
 ///
@@ -134,9 +139,9 @@ async fn wait_for_activation(overseer_handle: &mut OverseerHandle, relay_parent:
 	let (tx, rx) = oneshot::channel();
 	overseer_handle.wait_for_activation(relay_parent, tx).await;
 
-	match rx.await {
-		Ok(Ok(())) => true,
-		Ok(Err(error)) => {
+	match rx.timeout(ACTIVATION_TIMEOUT).await {
+		Some(Ok(Ok(()))) => true,
+		Some(Ok(Err(error))) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				?relay_parent,
@@ -145,11 +150,19 @@ async fn wait_for_activation(overseer_handle: &mut OverseerHandle, relay_parent:
 			);
 			false
 		},
-		Err(_) => {
+		Some(Err(_)) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				?relay_parent,
 				"Activation response dropped, not collating on this leaf",
+			);
+			false
+		},
+		None => {
+			gum::debug!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Activation timed out, not collating on this leaf",
 			);
 			false
 		},

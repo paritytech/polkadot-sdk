@@ -21,7 +21,8 @@
 //! against the claim queue. The candidate receipt itself is assembled by the receiver from the
 //! entry fields.
 //!
-//! [`CollatorProtocolMessage::DistributeSegment`]: crate::messages::CollatorProtocolMessage::DistributeSegment
+//! [`CollatorProtocolMessage::DistributeSegment`]:
+//!     polkadot_node_subsystem_types::messages::CollatorProtocolMessage::DistributeSegment
 
 use codec::Encode;
 use polkadot_node_primitives::{AvailableData, PoV, SegmentCollation, MAX_SEGMENT_LEN};
@@ -165,7 +166,12 @@ pub fn build_segment(
 	}
 
 	let mut entries = Vec::with_capacity(len);
-	for collation in collations {
+	for mut collation in collations {
+		// V2: derive session_index from the scheduling context so the emitted entry
+		// cannot carry a wrong session by construction.
+		if let SchedulingContext::V2 { session, .. } = scheduling {
+			collation.session_index = session;
+		}
 		entries.push(build_segment_entry(
 			SegmentEntryParams { collation, para_id, core_index, n_validators },
 			transposed_claim_queue,
@@ -191,6 +197,9 @@ pub fn build_segment(
 }
 
 /// Build a single [`SegmentEntry`] and check the collation's UMP signals against the claim queue.
+///
+/// Unlike [`build_segment`], this does not derive the session index: a V2 caller must set
+/// `SegmentCollation::session_index` to the scheduling context's session itself.
 pub fn build_segment_entry(
 	params: SegmentEntryParams,
 	transposed_claim_queue: &TransposedClaimQueue,
@@ -219,9 +228,10 @@ pub fn build_segment_entry(
 
 /// Build a single [`SegmentEntry`] without checking the UMP signals.
 ///
-/// The check enforces that the parachain selected the core the candidate is submitted on, so
-/// skipping it can only produce candidates that validators reject. This exists solely for
-/// malicious test collators; honest collators must use [`build_segment_entry`].
+/// The skipped check enforces that the parachain selected the core the candidate is submitted
+/// on, so this can only produce candidates that validators reject. It exists solely for the
+/// malicious test collator (`collator-driver`) and no production path may call it; honest
+/// collators must use [`build_segment_entry`].
 #[cfg(any(feature = "test-utils", test))]
 pub fn build_segment_entry_without_ump_check(
 	collation: SegmentCollation,

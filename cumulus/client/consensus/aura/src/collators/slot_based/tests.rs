@@ -281,6 +281,123 @@ async fn determine_core_no_cores_available() {
 	assert!(core.is_none());
 }
 
+#[tokio::test]
+// Only depth-0 assignments count: cores where our para appears deeper must not be returned.
+async fn determine_cores_only_returns_para_assigned_cores() {
+	let (headers, _best_hash) = create_header_chain();
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let relay_parent = RelayHeader {
+		parent_hash: Default::default(),
+		number: 100,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest: Default::default(),
+	};
+
+	let our_para = ParaId::from(1);
+	let other_para = ParaId::from(2);
+
+	// Core 0: other_para at depth 0, our_para at depth 1 — must not appear in result at offset 0.
+	// Core 1: other_para at depth 0 only — must not appear.
+	// Core 2: our_para at depth 0 — the only core that should be returned.
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(CoreIndex(0), VecDeque::from([other_para, our_para]));
+	claim_queue.insert(CoreIndex(1), VecDeque::from([other_para]));
+	claim_queue.insert(CoreIndex(2), VecDeque::from([our_para]));
+
+	cache.set_test_data_with_claim_queue(relay_parent.clone(), claim_queue, Default::default());
+
+	let result = determine_cores(&mut cache, &relay_parent, our_para, 0).await;
+	let cores = result.unwrap().unwrap();
+	assert_eq!(cores.total_cores(), 1);
+	assert_eq!(cores.core_index(), CoreIndex(2));
+}
+
+#[tokio::test]
+// The assigned cores come back in `CoreIndex` order, not claim-queue insertion order.
+async fn determine_cores_are_ordered_by_core_index() {
+	let (headers, _best_hash) = create_header_chain();
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let relay_parent = RelayHeader {
+		parent_hash: Default::default(),
+		number: 100,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest: Default::default(),
+	};
+
+	let our_para = ParaId::from(1);
+	let other_para = ParaId::from(2);
+
+	// Ours are cores 3 and 1, inserted out of order and interleaved with another para's.
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(CoreIndex(3), VecDeque::from([our_para]));
+	claim_queue.insert(CoreIndex(0), VecDeque::from([other_para]));
+	claim_queue.insert(CoreIndex(1), VecDeque::from([our_para]));
+	claim_queue.insert(CoreIndex(2), VecDeque::from([other_para]));
+
+	cache.set_test_data_with_claim_queue(relay_parent.clone(), claim_queue, Default::default());
+
+	let cores = determine_cores(&mut cache, &relay_parent, our_para, 0).await.unwrap().unwrap();
+	assert_eq!(cores.total_cores(), 2);
+	// Selector 0 must map to the lowest assigned core, not the first one inserted.
+	assert_eq!(cores.core_index(), CoreIndex(1));
+}
+
+#[tokio::test]
+async fn determine_core_new_relay_parent_single_core() {
+	let (headers, _best_hash) = create_header_chain();
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let relay_parent = RelayHeader {
+		parent_hash: Default::default(),
+		number: 100,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest: Default::default(),
+	};
+
+	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0)], Default::default());
+
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
+	let core = result.unwrap().unwrap();
+	assert_eq!(core.core_info().selector, CoreSelector(0));
+	assert_eq!(core.core_index(), CoreIndex(0));
+	assert_eq!(core.total_cores(), 1);
+}
+
+#[tokio::test]
+async fn determine_core_new_relay_parent_three_cores() {
+	let (headers, _best_hash) = create_header_chain();
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let relay_parent = RelayHeader {
+		parent_hash: Default::default(),
+		number: 100,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest: Default::default(),
+	};
+
+	cache.set_test_data(
+		relay_parent.clone(),
+		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
+		Default::default(),
+	);
+
+	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
+	let core = result.unwrap().unwrap();
+	assert_eq!(core.core_info().selector, CoreSelector(0));
+	assert_eq!(core.core_index(), CoreIndex(0));
+	assert_eq!(core.total_cores(), 3);
+}
+
 #[derive(Clone)]
 pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
@@ -632,6 +749,24 @@ impl RelayChainDataCache<TestRelayClient> {
 			node_features,
 		};
 
+		self.insert_test_data(relay_parent_hash, data);
+	}
+
+	/// Build fixture data with explicit per-core para assignments, allowing mixed claim queues
+	/// where different cores are assigned to different paras at each depth.
+	fn set_test_data_with_claim_queue(
+		&mut self,
+		relay_parent_header: RelayHeader,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+		node_features: NodeFeatures,
+	) {
+		let relay_parent_hash = relay_parent_header.hash();
+		let data = RelayChainData {
+			relay_header: relay_parent_header,
+			claim_queue: ClaimQueueSnapshot::from(claim_queue),
+			max_pov_size: 1024 * 1024,
+			node_features,
+		};
 		self.insert_test_data(relay_parent_hash, data);
 	}
 }

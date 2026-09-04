@@ -33,6 +33,8 @@ pub struct Metrics(Option<MetricsInner>);
 
 impl Metrics {
 	/// Register metrics with the given Prometheus registry. Returns a no-op `Metrics` on `None`.
+	/// A second para sharing a process gets no collation metrics: a second `register` returns
+	/// `AlreadyReg` and both call sites fall back to `Metrics::default()`.
 	pub fn register(registry: Option<&Registry>, para_id: ParaId) -> Result<Self, PrometheusError> {
 		let Some(registry) = registry else { return Ok(Metrics(None)) };
 		let para_id = para_id.to_string();
@@ -50,6 +52,8 @@ impl Metrics {
 		let submit_collation = register(
 			HistogramVec::new(
 				HistogramOpts::new(
+					// Deliberately keeps the removed subsystem's metric name for Grafana
+					// continuity.
 					"polkadot_parachain_collation_generation_submit_collation",
 					"Time spent preparing and submitting a collation to the network protocol",
 				),

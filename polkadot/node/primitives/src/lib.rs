@@ -474,8 +474,7 @@ pub struct SegmentCollation {
 	pub validation_data: PersistedValidationData,
 	/// The hash of the validation code the collation was created against.
 	pub validation_code_hash: ValidationCodeHash,
-	/// The session index of the relay parent. Goes into the candidate descriptor.
-	/// Must be provided by the caller because the relay parent's state may be pruned.
+	/// The relay parent's session index for the candidate descriptor, supplied by the caller.
 	pub session_index: SessionIndex,
 }
 

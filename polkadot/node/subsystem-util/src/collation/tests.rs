@@ -133,12 +133,39 @@ fn builds_v2_segment() {
 
 	assert_matches!(segment, Segment::V2(entry) => {
 		assert_eq!(entry.relay_parent, relay_parent);
-		assert_eq!(entry.session_index, 1);
+		assert_eq!(entry.session_index, 7); // derived from SchedulingContext::V2 { session }
 		assert_eq!(entry.validation_code_hash, validation_code_hash());
 		assert_eq!(entry.persisted_validation_data_hash, pvd().hash());
 		assert_eq!(entry.parent_head_data.hash(), dummy_head_data().hash());
 		assert_eq!(entry.output_head_data_hash, dummy_head_data().hash());
 		assert_eq!(entry.erasure_root, expected_erasure_root(&entry.pov));
+	});
+}
+
+#[test]
+// V2 session_index is always derived from SchedulingContext::V2 { session }, not from the
+// collation, so a caller that supplies an inconsistent value still emits the correct session.
+fn v2_session_index_derived_from_scheduling_context() {
+	let relay_parent = Hash::repeat_byte(0);
+	let collation =
+		collation_with_signals(&[UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0))]);
+	// Collation carries session_index 99, but the scheduling context says 7.
+	let mut seg = segment_collation(collation, relay_parent);
+	seg.session_index = 99;
+
+	let segment = build_seg(
+		SegmentToDistribute {
+			core_index: CoreIndex(0),
+			scheduling: SchedulingContext::V2 { relay_parent, session: 7 },
+			collations: vec![seg],
+		},
+		&claim_queue(&[0]),
+	)
+	.unwrap();
+
+	assert_matches!(segment, Segment::V2(entry) => {
+		// Must be 7 (from context), not 99 (from collation).
+		assert_eq!(entry.session_index, 7);
 	});
 }
 

@@ -146,6 +146,9 @@ impl<RClient: RelayChainInterface> SegmentDistributor<RClient> {
 			return Some(*n_validators);
 		}
 
+		// The key is the scheduling context's session — `session_index_for_child(anchor)` at the
+		// call sites — while the value is `validators(anchor)`. On the last block of a session
+		// those name different sets, so the count can be stale for that one block.
 		match self.relay_client.validators(relay_parent).await {
 			Ok(validators) => {
 				let n_validators = validators.len();
