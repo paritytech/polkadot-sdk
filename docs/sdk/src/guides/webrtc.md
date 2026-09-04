@@ -57,7 +57,8 @@ echo 000100382112a4427765627274635f70726f62650006000b70726f62653a70726f626500002
 ```
 
 The pattern matches a STUN success response with the correct transaction ID, so the message is
-printed only if the packet made it there and back. No output means the UDP port is not reachable.
+printed only if the packet made it there and back. No output means the WebRTC endpoint is not
+reachable.
 
 ## Bootnodes in the Chainspec
 
