@@ -274,11 +274,18 @@ pub mod pallet {
 
 				Vesting::<T>::try_append(who, vesting_info)
 					.expect("Too many vesting schedules at genesis.");
+			}
 
-				let reasons =
-					WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
-
-				T::Currency::set_lock(VESTING_ID, who, locked, reasons);
+			// Lock once per account, after every schedule is stored. `set_lock` replaces a
+			// lock of the same ID, so locking inside the loop above would leave an account
+			// with several entries holding only the last entry's amount.
+			let reasons = WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
+			for (who, schedules) in Vesting::<T>::iter() {
+				let locked = schedules
+					.iter()
+					.map(|s| s.locked())
+					.fold(BalanceOf::<T>::zero(), |a, b| a.saturating_add(b));
+				T::Currency::set_lock(VESTING_ID, &who, locked, reasons);
 			}
 		}
 	}
