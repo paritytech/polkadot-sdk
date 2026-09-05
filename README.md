@@ -1,8 +1,5 @@
 <div align="center">
 
-![SDK Logo](./docs/images/Polkadot_Logo_Horizontal_Pink_White.png#gh-dark-mode-only)
-![SDK Logo](./docs/images/Polkadot_Logo_Horizontal_Pink_Black.png#gh-light-mode-only)
-
 # Polkadot SDK
 
 ![GitHub stars](https://img.shields.io/github/stars/paritytech/polkadot-sdk)&nbsp;&nbsp;![GitHub
@@ -17,7 +14,22 @@ forks](https://img.shields.io/github/forks/paritytech/polkadot-sdk)
 
 </div>
 
-## ⚡ Quickstart
+## Choose your path
+
+Polkadot SDK is the starting point for runtime, chain, and protocol development. If you're building at a different layer of the Polkadot stack, these routes are better starting points:
+
+| I want to… | Start here |
+|---|---|
+| Build an application with TypeScript | [Product SDK](https://github.com/paritytech/product-sdk) |
+| Build a smart contract with Solidity | [Polkadot smart contract docs](https://docs.polkadot.com/develop/smart-contracts/) and [Revive](https://github.com/paritytech/revive) |
+| Build a runtime or parachain | [Polkadot SDK parachain development docs](https://docs.polkadot.com/develop/parachains/) |
+| Query or integrate with a network through REST | [Polkadot REST API](https://github.com/paritytech/polkadot-rest-api) |
+| Contribute to Polkadot SDK | [Contribution guidelines](./docs/contributor/CONTRIBUTING.md) |
+
+If you're working directly on Polkadot SDK, continue with the quickstart below.
+
+## ⚡ Polkadot SDK quickstart
+
 If you want to get an example node running quickly you can execute the following getting started script:
 
 ```
