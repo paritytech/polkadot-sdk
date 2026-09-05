@@ -102,6 +102,7 @@ pub trait WeightInfo {
 	fn prune_era_validator_slash_in_era(v: u32, ) -> Weight;
 	fn prune_era_validator_incentive_weight(v: u32, ) -> Weight;
 	fn chill_inactive(v: u32, ) -> Weight;
+	fn merge_staked() -> Weight;
 }
 
 /// Weights for `pallet_staking_async` using the Substrate node and recommended hardware.
@@ -1182,6 +1183,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(5))
 			.saturating_add(Weight::from_parts(0, 2564).saturating_mul(l.into()))
 	}
+	fn merge_staked() -> Weight {
+		Self::bond_extra()
+			.saturating_add(Self::bond_extra())
+			.saturating_add(Self::withdraw_unbonded_kill())
+	}
 }
 
 // For backwards compatibility and tests.
@@ -2260,5 +2266,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(l.into())))
 			.saturating_add(RocksDbWeight::get().writes(5))
 			.saturating_add(Weight::from_parts(0, 2564).saturating_mul(l.into()))
+	}
+	fn merge_staked() -> Weight {
+		Self::bond_extra()
+			.saturating_add(Self::bond_extra())
+			.saturating_add(Self::withdraw_unbonded_kill())
 	}
 }
