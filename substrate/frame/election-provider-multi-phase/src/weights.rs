@@ -81,6 +81,7 @@ pub trait WeightInfo {
 	fn elect_queued(a: u32, d: u32, ) -> Weight;
 	fn submit() -> Weight;
 	fn submit_unsigned(v: u32, t: u32, a: u32, d: u32, ) -> Weight;
+	fn authorize_submit_unsigned(a: u32, d: u32, ) -> Weight;
 	fn feasibility_check(v: u32, t: u32, a: u32, d: u32, ) -> Weight;
 }
 
@@ -253,6 +254,28 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(t.into()))
 			.saturating_add(Weight::from_parts(0, 553).saturating_mul(v.into()))
+	}
+	/// Storage: `ElectionProviderMultiPhase::CurrentPhase` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::CurrentPhase` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ElectionProviderMultiPhase::Round` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::Round` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ElectionProviderMultiPhase::DesiredTargets` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::DesiredTargets` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ElectionProviderMultiPhase::QueuedSolution` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::QueuedSolution` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `a` is `[500, 800]`.
+	/// The range of component `d` is `[200, 400]`.
+	fn authorize_submit_unsigned(a: u32, d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `409 + a * (768 ±0) + d * (48 ±0)`
+		//  Estimated: `1981 + a * (768 ±0) + d * (49 ±0)`
+		// Minimum execution time: 456_000_000 picoseconds.
+		Weight::from_parts(481_000_000, 1981)
+			// Standard Error: 5_776
+			.saturating_add(Weight::from_parts(228_019, 0).saturating_mul(a.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(Weight::from_parts(0, 768).saturating_mul(a.into()))
+			.saturating_add(Weight::from_parts(0, 49).saturating_mul(d.into()))
 	}
 	/// Storage: `ElectionProviderMultiPhase::DesiredTargets` (r:1 w:0)
 	/// Proof: `ElectionProviderMultiPhase::DesiredTargets` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -450,6 +473,28 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(t.into()))
 			.saturating_add(Weight::from_parts(0, 553).saturating_mul(v.into()))
+	}
+	/// Storage: `ElectionProviderMultiPhase::CurrentPhase` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::CurrentPhase` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ElectionProviderMultiPhase::Round` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::Round` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ElectionProviderMultiPhase::DesiredTargets` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::DesiredTargets` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `ElectionProviderMultiPhase::QueuedSolution` (r:1 w:0)
+	/// Proof: `ElectionProviderMultiPhase::QueuedSolution` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `a` is `[500, 800]`.
+	/// The range of component `d` is `[200, 400]`.
+	fn authorize_submit_unsigned(a: u32, d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `409 + a * (768 ±0) + d * (48 ±0)`
+		//  Estimated: `1981 + a * (768 ±0) + d * (49 ±0)`
+		// Minimum execution time: 456_000_000 picoseconds.
+		Weight::from_parts(481_000_000, 1981)
+			// Standard Error: 5_776
+			.saturating_add(Weight::from_parts(228_019, 0).saturating_mul(a.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(Weight::from_parts(0, 768).saturating_mul(a.into()))
+			.saturating_add(Weight::from_parts(0, 49).saturating_mul(d.into()))
 	}
 	/// Storage: `ElectionProviderMultiPhase::DesiredTargets` (r:1 w:0)
 	/// Proof: `ElectionProviderMultiPhase::DesiredTargets` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
