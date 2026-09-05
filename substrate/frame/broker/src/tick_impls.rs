@@ -380,7 +380,9 @@ impl<T: Config> Pallet<T> {
 				// enabled. The task must only pay for renewing its own workload.
 				let renewal_id = PotentialRenewalId { core: record.core, when: sale.region_begin };
 				let renews_own_workload = PotentialRenewals::<T>::get(renewal_id)
-					.map_or(false, |renewal| renewal.complete_workload_includes(record.task));
+					.map_or(false, |renewal| {
+						renewal.completion.is_complete_and_contains_task(record.task)
+					});
 				if !renews_own_workload {
 					Self::deposit_event(Event::<T>::AutoRenewalFailed {
 						core: record.core,

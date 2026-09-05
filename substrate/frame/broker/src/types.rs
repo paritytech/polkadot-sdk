@@ -135,6 +135,12 @@ impl CompletionStatus {
 			Self::Partial(_) => None,
 		}
 	}
+	/// Return whether the workload is complete and includes the given task.
+	pub fn is_complete_and_contains_task(&self, task: TaskId) -> bool {
+		self.complete().map_or(false, |workload| {
+			workload.iter().any(|item| item.assignment == CoreAssignment::Task(task))
+		})
+	}
 }
 
 /// A record of a potential renewal.
@@ -148,14 +154,6 @@ pub struct PotentialRenewalRecord<Balance> {
 	/// The workload which will be scheduled on the Core in the case a renewal is made, or if
 	/// incomplete, then the parts of the core which have been scheduled.
 	pub completion: CompletionStatus,
-}
-impl<Balance> PotentialRenewalRecord<Balance> {
-	/// Return whether the workload to be renewed is complete and includes the given task.
-	pub fn complete_workload_includes(&self, task: TaskId) -> bool {
-		self.completion.complete().map_or(false, |workload| {
-			workload.iter().any(|item| item.assignment == CoreAssignment::Task(task))
-		})
-	}
 }
 pub type PotentialRenewalRecordOf<T> = PotentialRenewalRecord<BalanceOf<T>>;
 

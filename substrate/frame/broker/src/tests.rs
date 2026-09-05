@@ -2222,7 +2222,10 @@ fn enable_auto_renewal_works_for_legacy_leases() {
 
 		// Will fail if we don't provide the end hint since it expects renewal record to be at next
 		// sale start.
-		assert_noop!(Broker::do_enable_auto_renew(1001, 0, 1001, None), Error::<Test>::NotAllowed);
+		assert_noop!(
+			Broker::do_enable_auto_renew(1001, 0, 1001, None),
+			Error::<Test>::TaskNotInWorkload
+		);
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, 0, 1001, Some(10)));
 		assert_eq!(
@@ -2469,7 +2472,7 @@ fn enable_auto_renew_fails_for_workload_of_another_task() {
 		advance_to(6);
 		assert_noop!(
 			Broker::do_enable_auto_renew(1001, region_2.core, 1001, None),
-			Error::<Test>::NotAllowed
+			Error::<Test>::TaskNotInWorkload
 		);
 		assert_eq!(balance(1001), 1000);
 		assert_eq!(AutoRenewals::<Test>::get().to_vec(), vec![]);

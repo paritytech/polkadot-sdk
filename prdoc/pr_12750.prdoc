@@ -9,8 +9,8 @@ doc:
     it every sale.
 
     `enable_auto_renew` now only renews immediately if the expiring workload includes the task.
-    Otherwise it falls through to the `workload_end_hint` path, which fails with the new
-    `TaskNotInWorkload` error unless the referenced renewal record includes the task. Automatic
+    Otherwise it requires a `workload_end_hint` pointing at a renewal record that includes the
+    task, and fails with the new `TaskNotInWorkload` error if it does not. Automatic
     renewal processing re-checks this before charging the task's sovereign account and emits
     `AutoRenewalFailed` (dropping the record) on a mismatch. Additionally, when enabling triggers
     an immediate renewal, `next_renewal` is now set to the end of the renewed period instead of
@@ -18,3 +18,5 @@ doc:
 crates:
 - name: pallet-broker
   bump: major
+- name: coretime-westend-runtime
+  bump: patch
