@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788514112855,
+  "lastUpdate": 1788571998635,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -120959,6 +120959,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2659473548,
             "range": "± 32324442",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4",
+          "message": "Aggregate the genesis vesting lock across an account's schedules (#13016)\n\n`GenesisConfig::build` called `set_lock` once per entry with that\nentry's amount. `set_lock` replaces rather than adds, so an account with\nseveral genesis entries kept a lock covering only the last one. The\nruntime path already aggregates through `write_lock`.",
+          "timestamp": "2026-09-05T00:15:40Z",
+          "tree_id": "1888ea43300ea323d144f20de48af40b9cf8a6fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4"
+        },
+        "date": 1788571960017,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20216351,
+            "range": "± 217140",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20490088,
+            "range": "± 138904",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21496278,
+            "range": "± 113983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26802915,
+            "range": "± 199554",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62136509,
+            "range": "± 1112454",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 367473805,
+            "range": "± 4410314",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2520795627,
+            "range": "± 85631447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16911661,
+            "range": "± 164136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17023153,
+            "range": "± 112890",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17315644,
+            "range": "± 216680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21984290,
+            "range": "± 139251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63985495,
+            "range": "± 625817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 370402824,
+            "range": "± 6432714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2737113280,
+            "range": "± 27536692",
             "unit": "ns/iter"
           }
         ]
