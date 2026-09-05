@@ -30,6 +30,14 @@ mod tests_instance;
 mod utils;
 
 pub mod baseline;
+
+/// Legacy v1 benchmarking macros.
+///
+/// Soft-deprecated in favor of [`v2`]: write new benchmarks with [`v2`] and migrate existing ones
+/// when convenient. See the [`v2`] docs for a migration guide.
+///
+/// This is documentation-only; no `#[deprecated]` attribute is added, since v1 is still widely
+/// used and the warnings would break the `-D warnings` build.
 pub mod v1;
 
 /// Private exports that are being used by macros.
