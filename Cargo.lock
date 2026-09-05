@@ -24494,7 +24494,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
