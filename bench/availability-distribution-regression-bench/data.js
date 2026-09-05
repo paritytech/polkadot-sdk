@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788517007931,
+  "lastUpdate": 1788572801354,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a09c18f60eb31198d1422c7d4903b82a0c507e9c",
-          "message": "statement-store: validation without runtime (#10787)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10799\n\nThis removes slow runtime validation from statement-submission hot path.\nValidation now happens on the node side via direct signature\nverification and storage reads for account quotas.\n\n## Integration\n\nNode validates signatures directly, reads quotas from storage. Setting\nallowances is implementing in another PR.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-04T20:37:11Z",
-          "tree_id": "c68144a42eb5a7b82421e852f69b10c1f1bcb1c1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a09c18f60eb31198d1422c7d4903b82a0c507e9c"
-        },
-        "date": 1770241751904,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023370947939999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010031240946666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007000925479999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14754029108000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007735877313333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4",
+          "message": "Aggregate the genesis vesting lock across an account's schedules (#13016)\n\n`GenesisConfig::build` called `set_lock` once per entry with that\nentry's amount. `set_lock` replaces rather than adds, so an account with\nseveral genesis entries kept a lock covering only the last one. The\nruntime path already aggregates through `write_lock`.",
+          "timestamp": "2026-09-05T00:15:40Z",
+          "tree_id": "1888ea43300ea323d144f20de48af40b9cf8a6fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4"
+        },
+        "date": 1788572762057,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007712795439999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025264969633333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01004295391999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14568882826666665,
             "unit": "seconds"
           }
         ]
