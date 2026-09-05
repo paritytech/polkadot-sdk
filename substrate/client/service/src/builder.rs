@@ -84,8 +84,7 @@ use sc_rpc_spec_v2::{
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_tracing::block::TracingExecuteBlock;
-use sc_transaction_pool::TransactionPoolHandle;
-use sc_transaction_pool_api::MaintainedTransactionPool;
+use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
@@ -475,7 +474,7 @@ impl<Block: BlockT, T> ClientForService<Block> for T where
 }
 
 /// Parameters to pass into [`spawn_tasks`].
-pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TRpc, Backend> {
+pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool: ?Sized, TRpc, Backend> {
 	/// The service configuration.
 	pub config: Configuration,
 	/// A shared client returned by `new_full_parts`.
@@ -487,7 +486,7 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TRpc, Backend> {
 	/// A shared keystore returned by `new_full_parts`.
 	pub keystore: KeystorePtr,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<TBl>>,
+	pub transaction_pool: Arc<TExPool>,
 	/// Builds additional [`RpcModule`]s that should be added to the server
 	pub rpc_builder: Box<dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>>,
 	/// A shared network instance.
@@ -508,7 +507,7 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TRpc, Backend> {
 }
 
 /// Spawn the tasks that are required to run a node.
-pub fn spawn_tasks<TBl, TBackend, TRpc, TCl>(
+pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
 	SpawnTasksParams {
 		mut config,
 		task_manager,
@@ -523,7 +522,7 @@ pub fn spawn_tasks<TBl, TBackend, TRpc, TCl>(
 		sync_service,
 		telemetry,
 		tracing_execute_block: execute_block,
-	}: SpawnTasksParams<TBl, TCl, TRpc, TBackend>,
+	}: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
 	TCl: ClientForService<TBl>
@@ -538,6 +537,8 @@ where
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
 	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
 {
 	let chain_info = client.usage_info().chain;
 
@@ -804,13 +805,13 @@ where
 }
 
 /// Parameters for [`gen_rpc_module`].
-pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc> {
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TExPool: ?Sized, TRpc> {
 	/// The handle to spawn tasks on the RPC runtime.
 	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
 	pub client: Arc<TCl>,
 	/// The transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<TBl>>,
+	pub transaction_pool: Arc<TExPool>,
 	/// Keystore handle.
 	pub keystore: KeystorePtr,
 	/// Sender for system requests.
@@ -840,7 +841,7 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc> {
 }
 
 /// Generate RPC module using provided configuration
-pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc>(
+pub fn gen_rpc_module<TBl, TBackend, TCl, TExPool, TRpc>(
 	GenRpcModuleParams {
 		spawn_handle,
 		client,
@@ -857,7 +858,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc>(
 		metrics,
 		sync_oracle,
 		tracing_execute_block: execute_block,
-	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc>,
+	}: GenRpcModuleParams<TBl, TBackend, TCl, TExPool, TRpc>,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
@@ -869,6 +870,8 @@ where
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
 {
 	let system_info = sc_rpc::system::SystemInfo {
 		chain_name: chain_spec.name().into(),
@@ -986,7 +989,7 @@ where
 }
 
 /// Parameters to pass into [`build_network`].
-pub struct BuildNetworkParams<'a, Block, Net, IQ, Client>
+pub struct BuildNetworkParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -998,7 +1001,7 @@ where
 	/// A shared client returned by `new_full_parts`.
 	pub client: Arc<Client>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<Block>>,
+	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// A handle for spawning essential tasks.
@@ -1023,8 +1026,8 @@ where
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
-pub fn build_network<Block, Net, IQ, Client>(
-	params: BuildNetworkParams<Block, Net, IQ, Client>,
+pub fn build_network<Block, Net, TxPool, IQ, Client>(
+	params: BuildNetworkParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
 	(
 		Arc<dyn sc_network::service::traits::NetworkService>,
@@ -1038,6 +1041,7 @@ pub fn build_network<Block, Net, IQ, Client>(
 where
 	Block: BlockT,
 	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -1145,7 +1149,7 @@ where
 }
 
 /// Parameters to pass into [`build_network_advanced`].
-pub struct BuildNetworkAdvancedParams<'a, Block, Net, IQ, Client>
+pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -1163,7 +1167,7 @@ where
 	/// A shared client returned by `new_full_parts`.
 	pub client: Arc<Client>,
 	/// A shared transaction pool.
-	pub transaction_pool: Arc<TransactionPoolHandle<Block>>,
+	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
 	/// A handle for spawning essential tasks.
@@ -1187,8 +1191,8 @@ where
 /// Builds the lower-level network service.
 ///
 /// The final tuple element contains the Bitswap handle when IPFS is enabled.
-pub fn build_network_advanced<Block, Net, IQ, Client>(
-	params: BuildNetworkAdvancedParams<Block, Net, IQ, Client>,
+pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
+	params: BuildNetworkAdvancedParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
 	(
 		Arc<dyn sc_network::service::traits::NetworkService>,
@@ -1202,6 +1206,7 @@ pub fn build_network_advanced<Block, Net, IQ, Client>(
 where
 	Block: BlockT,
 	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
