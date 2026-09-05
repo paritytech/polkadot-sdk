@@ -9,8 +9,8 @@
 
 use crate::utils::{
 	assert_nodes_are_validators, check_metrics, env_or_default, initialize_network,
-	MetricCheckSetup, APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
-	MALUS_IMAGE_ENV,
+	maybe_enable_experimental_collator_protocol, MetricCheckSetup,
+	APPROVAL_CHECKING_FINALITY_LAG_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
 };
 
 use anyhow::anyhow;
@@ -120,7 +120,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(vec![("-lparachain=debug").into()])
+			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				("-lparachain=debug").into(),
+			]))
 			.with_genesis_overrides(json!({
 				"patch": {
 					"configuration": {

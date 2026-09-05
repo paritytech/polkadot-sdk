@@ -26,7 +26,7 @@ use frame_support::traits::{
 		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
 		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
-	Consideration, EnsureOriginWithArg, Footprint, Get,
+	Consideration, EnsureOriginWithArg, Get,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
@@ -58,7 +58,7 @@ where
 		if let Some(depositor) = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
 			.expect("benchmark CreateOrigin succeeds")
 		{
-			T::Consideration::ensure_successful(&depositor, Footprint::from_parts(1, 0));
+			T::Consideration::ensure_successful(&depositor, Psm::<T>::psm_creation_footprint());
 		}
 		let root_origin: T::PalletsOrigin = RawOrigin::Root.into();
 		Psm::<T>::create_psm(
@@ -314,7 +314,7 @@ mod benchmarks {
 		let maybe_depositor = T::CreateOrigin::ensure_origin(origin.clone(), &internal_id)
 			.map_err(|_| BenchmarkError::Stop("CreateOrigin failed"))?;
 		if let Some(who) = &maybe_depositor {
-			T::Consideration::ensure_successful(who, Footprint::from_parts(1, 0));
+			T::Consideration::ensure_successful(who, Psm::<T>::psm_creation_footprint());
 		}
 
 		let admin: T::PalletsOrigin =
