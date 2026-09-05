@@ -619,6 +619,12 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 
 impl parachain_info::Config for Runtime {}
 
+impl cumulus_pallet_source_discovery::Config for Runtime {
+	type SetSourceOrigin = EnsureRoot<AccountId>;
+	type SelfParaId = parachain_info::Pallet<Runtime>;
+	type MaxSources = ConstU32<128>;
+}
+
 parameter_types! {
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
 }
@@ -841,6 +847,7 @@ construct_runtime!(
 
 		// Handy utilities.
 		Utility: pallet_utility = 40,
+		SourceDiscovery: cumulus_pallet_source_discovery = 41,
 
 		// The main stage.
 
@@ -1019,6 +1026,13 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl cumulus_primitives_source_discovery::SourceDiscoveryApi<Block> for Runtime {
+		fn source_discovery_info(
+		) -> Vec<(cumulus_primitives_core::ParaId, ([u8; 32], Option<Vec<u8>>))> {
+			SourceDiscovery::source_discovery_info()
 		}
 	}
 

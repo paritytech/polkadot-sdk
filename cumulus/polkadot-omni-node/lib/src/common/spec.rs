@@ -29,7 +29,10 @@ use crate::{
 	},
 };
 use codec::Encode;
-use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
+use cumulus_client_bootnodes::{
+	start_bootnode_tasks, start_capability_advertisement, StartBootnodeTasksParams,
+	StartCapabilityAdvertisementParams,
+};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
@@ -75,6 +78,11 @@ use std::{
 // substreams with us and our node closes a connection after
 // `idle_connection_timeout`.
 const IPFS_WORKAROUND_TIMEOUT: Duration = Duration::from_secs(3600);
+
+/// Capability tag for speculative-messaging source discovery, shared by the `--spec-msg-serve`
+/// advertiser and the source-discovery resolver so both key the same DHT provider namespace. This
+/// spec-msg-specific value lives at the integration edge; the discovery crate stays agnostic.
+const SPEC_MSG_CAPABILITY: &[u8] = b"spec-msg/v1";
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -465,6 +473,39 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let _ = bitswap_slot.set(Arc::new(handle));
 			}
 
+			// Cross-parachain source discovery: for each source configured on-chain
+			// (`set_source_genesis`), resolve its collators over the relay DHT,
+			// register their addresses with the network (so a consumer transport can
+			// dial them), and hold the resolved set in a per-source `PeerRegistry`.
+			// The registry is the loop's own peer state today (drives retry/peerless
+			// detection); exposing it to a higher layer (e.g. speculative-messaging
+			// fetch) is a follow-up. Version-gated + governance-opt-in — a runtime
+			// without `SourceDiscoveryApi`, or with no configured source, does nothing.
+			{
+				use cumulus_client_source_discovery::{
+					run_source_discovery, BootnodeSourceDiscovery, PeerRegistry,
+					DISCOVERY_REFRESH_INTERVAL,
+				};
+				let registry = Arc::new(PeerRegistry::default());
+				let discovery = Arc::new(BootnodeSourceDiscovery::new(
+					network.clone(),
+					relay_chain_interface.clone(),
+					relay_chain_network.clone(),
+					relay_chain_fork_id.clone(),
+					SPEC_MSG_CAPABILITY.to_vec(),
+				));
+				task_manager.spawn_handle().spawn(
+					"cumulus-source-discovery",
+					Some("source-discovery"),
+					run_source_discovery::<Self::Block, _>(
+						client.clone(),
+						discovery,
+						registry,
+						DISCOVERY_REFRESH_INTERVAL,
+					),
+				);
+			}
+
 			let peer_id = relay_chain_network.local_peer_id();
 
 			if validator && node_extra_args.collator_reserved_slots > 0 {
@@ -657,6 +698,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				sync_service: sync_service.clone(),
 				prometheus_registry: prometheus_registry.as_ref(),
 			})?;
+
+			// Spec-msg serving nodes additionally advertise under the capability-scoped DHT key, so
+			// spec-msg receivers (`cumulus-client-source-discovery`) resolve only serving
+			// collators. Runs alongside the plain bootnode advertisement below.
+			if collator_options.spec_msg_serve {
+				start_capability_advertisement(StartCapabilityAdvertisementParams {
+					task_manager: &mut task_manager,
+					para_id,
+					capability: SPEC_MSG_CAPABILITY.to_vec(),
+					relay_chain_interface: relay_chain_interface.clone(),
+					relay_chain_network: relay_chain_network.clone(),
+					parachain_network: network.clone(),
+				});
+			}
 
 			start_bootnode_tasks(StartBootnodeTasksParams {
 				embedded_dht_bootnode: collator_options.embedded_dht_bootnode,

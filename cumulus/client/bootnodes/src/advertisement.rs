@@ -67,12 +67,17 @@ pub struct BootnodeAdvertisementParams {
 	pub parachain_fork_id: Option<String>,
 	/// Parachain side public addresses.
 	pub public_addresses: Vec<Multiaddr>,
+	/// Capability tag mixed into the DHT provider key (empty = the plain RFC-0008 key). A serving
+	/// node that advertises a capability (e.g. `b"spec-msg/v1"`) publishes under a
+	/// capability-scoped key, so capability-aware discoverers resolve *only* serving nodes.
+	pub capability: Vec<u8>,
 }
 
 /// Parachain bootnode advertisement service.
 pub struct BootnodeAdvertisement {
 	para_id: ParaId,
 	para_id_scale_compact: Vec<u8>,
+	capability: Vec<u8>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	relay_chain_network: Arc<dyn NetworkService>,
 	current_epoch_key: Option<KademliaKey>,
@@ -100,6 +105,7 @@ impl BootnodeAdvertisement {
 			parachain_genesis_hash,
 			parachain_fork_id,
 			public_addresses,
+			capability,
 		}: BootnodeAdvertisementParams,
 	) -> Self {
 		// Discard `/p2p/<peer_id>` from public addresses on initialization to not generate warnings
@@ -126,6 +132,7 @@ impl BootnodeAdvertisement {
 		Self {
 			para_id,
 			para_id_scale_compact: CompactRef(&para_id).encode(),
+			capability,
 			relay_chain_interface,
 			relay_chain_network,
 			current_epoch_key: None,
@@ -158,12 +165,7 @@ impl BootnodeAdvertisement {
 	}
 
 	fn epoch_key(&self, randomness: Randomness) -> KademliaKey {
-		self.para_id_scale_compact
-			.clone()
-			.into_iter()
-			.chain(randomness.into_iter())
-			.collect::<Vec<_>>()
-			.into()
+		crate::key::provider_key(&self.para_id_scale_compact, &self.capability, &randomness)
 	}
 
 	async fn current_and_next_epoch_keys(

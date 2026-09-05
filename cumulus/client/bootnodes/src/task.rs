@@ -84,6 +84,9 @@ async fn bootnode_advertisement(
 		parachain_genesis_hash,
 		parachain_fork_id,
 		public_addresses,
+		// Plain RFC-0008 bootnode advertisement; capability-scoped advertisement is opted into by
+		// dedicated callers (e.g. a spec-msg serving node) via `start_capability_advertisement`.
+		capability: Vec::new(),
 	});
 
 	if let Err(e) = bootnode_advertisement.run().await {
@@ -132,6 +135,12 @@ async fn bootnode_discovery(
 		relay_chain_interface,
 		relay_chain_network,
 		paranode_protocol_name,
+		// Own-parachain bootstrap: addresses are injected into the parachain
+		// network, not streamed to a caller.
+		discovered_tx: None,
+		// Plain RFC-0008 bootnode discovery; capability-scoped discovery is opted into by dedicated
+		// callers (e.g. `cumulus-client-source-discovery`) constructing the params directly.
+		capability: Vec::new(),
 	});
 
 	match bootnode_discovery.run().await {
@@ -198,4 +207,77 @@ pub fn start_bootnode_tasks(
 			),
 		);
 	}
+}
+
+/// Params for [`start_capability_advertisement`].
+pub struct StartCapabilityAdvertisementParams<'a> {
+	/// Task manager.
+	pub task_manager: &'a mut TaskManager,
+	/// Parachain ID whose bootnodes are advertised under the capability-scoped key.
+	pub para_id: ParaId,
+	/// Capability tag mixed into the DHT provider key, e.g. `b"spec-msg/v1".to_vec()`.
+	pub capability: Vec<u8>,
+	/// Relay chain interface.
+	pub relay_chain_interface: Arc<dyn RelayChainInterface>,
+	/// Relay chain network service.
+	pub relay_chain_network: Arc<dyn NetworkService>,
+	/// Parachain node network service.
+	pub parachain_network: Arc<dyn NetworkService>,
+}
+
+/// Start a DHT-only **capability** advertisement task: publishes this node's bootnodes under the
+/// capability-scoped provider key (`para_id ++ capability ++ randomness`), so capability-aware
+/// discoverers (e.g. `cumulus-client-source-discovery`) resolve *only* nodes serving that
+/// capability — sidestepping the closest-K dilution where the serving subset is lost among all of a
+/// parachain's collators under the single plain key.
+///
+/// It reuses [`BootnodeAdvertisement`]'s epoch tracking + provider (re)publication but answers
+/// **no** `/paranode` requests (there is one `/paranode` protocol per node; those are served by the
+/// plain advertiser). Run this *alongside* [`start_bootnode_tasks`] on a serving node so it stays
+/// discoverable both as a plain bootnode and under the capability.
+pub fn start_capability_advertisement(
+	StartCapabilityAdvertisementParams {
+		task_manager,
+		para_id,
+		capability,
+		relay_chain_interface,
+		relay_chain_network,
+		parachain_network,
+	}: StartCapabilityAdvertisementParams,
+) {
+	log::info!(
+		target: LOG_TARGET,
+		"Starting DHT capability advertisement for para {para_id} under capability {}",
+		String::from_utf8_lossy(&capability),
+	);
+	task_manager.spawn_essential_handle().spawn(
+		"cumulus-dht-capability-advertisement",
+		None,
+		async move {
+			// Idle `/paranode` channel: this task only publishes the capability-scoped DHT provider
+			// key. Keeping the sender alive holds the receiver open, so `recv()` pends forever and
+			// the advertiser's request branch never fires (a *closed* channel would instead
+			// terminate it). Genesis/fork/public-addresses are only read when building `/paranode`
+			// responses (never here), so they are left empty.
+			let (request_sender, request_receiver) = async_channel::bounded::<IncomingRequest>(1);
+			let advertisement = BootnodeAdvertisement::new(BootnodeAdvertisementParams {
+				para_id,
+				relay_chain_interface,
+				relay_chain_network,
+				request_receiver,
+				parachain_network,
+				advertise_non_global_ips: false,
+				parachain_genesis_hash: Vec::new(),
+				parachain_fork_id: None,
+				public_addresses: Vec::new(),
+				capability,
+			});
+			let result = advertisement.run().await;
+			// Hold the idle `/paranode` sender for the whole run, then release it.
+			drop(request_sender);
+			if let Err(e) = result {
+				error!(target: LOG_TARGET, "Capability advertisement terminated with error: {e}");
+			}
+		},
+	);
 }

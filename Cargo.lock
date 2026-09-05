@@ -5195,6 +5195,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-source-discovery"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cumulus-client-bootnodes",
+ "cumulus-primitives-core",
+ "cumulus-primitives-source-discovery",
+ "cumulus-relay-chain-interface",
+ "futures",
+ "futures-timer",
+ "sc-client-api 28.0.0",
+ "sc-network 0.34.0",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-runtime 31.0.1",
+ "tracing",
+]
+
+[[package]]
 name = "cumulus-pallet-aura-ext"
 version = "0.7.0"
 dependencies = [
@@ -5309,6 +5328,20 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "scale-info",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "cumulus-pallet-source-discovery"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
 
@@ -5452,6 +5485,16 @@ dependencies = [
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
+]
+
+[[package]]
+name = "cumulus-primitives-source-discovery"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api 26.0.0",
 ]
 
 [[package]]
@@ -15964,10 +16007,12 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
+ "cumulus-pallet-source-discovery",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-source-discovery",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -17365,8 +17410,10 @@ dependencies = [
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
+ "cumulus-client-source-discovery",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-source-discovery",
  "cumulus-relay-chain-interface",
  "cumulus-test-runtime",
  "docify",
