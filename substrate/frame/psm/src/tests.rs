@@ -18,7 +18,7 @@
 use super::mock::*;
 use crate::{
 	AssetCeilingWeight, CircuitBreakerLevel, Error, Event, ExternalAssets, MintingFee, PsmDebt,
-	RedemptionFee,
+	PsmManagerLevel, RedemptionFee,
 };
 use codec::{Decode, Encode};
 use frame_support::{assert_noop, assert_ok, hypothetically};
@@ -713,6 +713,73 @@ mod redeem {
 					Permill::zero()
 				),
 				Error::<Test>::InsufficientReserve
+			);
+		});
+	}
+
+	#[test]
+	fn redeem_with_nonzero_fee_charges_fee_destination() {
+		new_test_ext().execute_with(|| {
+			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(1));
+			let mint_fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				mint_fee,
+			));
+
+			let held = get_asset_balance(INTERNAL_ASSET_ID, ALICE);
+			let before = get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND);
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				held,
+				Permill::from_percent(1)
+			));
+			assert!(get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND) > before);
+		});
+	}
+
+	#[test]
+	fn redeem_fails_when_sender_has_no_internal() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{
+				fungibles::Mutate,
+				tokens::{Fortitude, Precision, Preservation},
+			};
+
+			let mint_fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				mint_fee,
+			));
+			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(1));
+
+			let held = get_asset_balance(INTERNAL_ASSET_ID, ALICE);
+			assert_ok!(Assets::burn_from(
+				INTERNAL_ASSET_ID,
+				&ALICE,
+				held,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			));
+
+			assert_noop!(
+				Psm::redeem(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					1_000 * INTERNAL_UNIT,
+					Permill::from_percent(1)
+				),
+				TokenError::FundsUnavailable
 			);
 		});
 	}
@@ -1638,6 +1705,12 @@ mod helpers {
 			assert_ne!(account, INSURANCE_FUND);
 		});
 	}
+
+	#[test]
+	fn can_set_circuit_breaker_covers_full_and_emergency() {
+		assert!(PsmManagerLevel::Full.can_set_circuit_breaker());
+		assert!(PsmManagerLevel::Emergency.can_set_circuit_breaker());
+	}
 }
 
 mod circuit_breaker {
@@ -2018,6 +2091,115 @@ mod ceiling_redistribution {
 				),
 				Error::<Test>::ExceedsMaxPsmDebt
 			);
+		});
+	}
+
+	const OVER: u128 = 100 * INTERNAL_UNIT;
+
+	/// Companion to `mint::fails_mint_exceeds_aggregate_psm_ceiling`: that test hits
+	/// the instance ceiling while the per-asset one allows; this one is the reverse.
+	#[test]
+	fn minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::fungibles::Mutate;
+
+			set_max_debt(5_000_000 * INTERNAL_UNIT);
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
+			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
+			let usdc_ceiling = psm_max_asset_debt(USDC_ASSET_ID);
+			let _ = Assets::mint_into(USDC_ASSET_ID, &ALICE, usdc_ceiling + OVER);
+
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				usdc_ceiling,
+				Permill::from_percent(1)
+			));
+
+			// The instance ceiling still has room, so only the per-asset gate can reject.
+			assert!(
+				Psm::total_psm_debt(&INTERNAL_ASSET_ID).saturating_add(OVER) <= psm_max_debt(),
+				"instance headroom must exist for this test to be meaningful",
+			);
+			assert_noop!(
+				Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					OVER,
+					Permill::from_percent(1)
+				),
+				Error::<Test>::ExceedsMaxPsmDebt
+			);
+		});
+	}
+
+	#[test]
+	fn usdc_at_ceiling_does_not_consume_usdt_ceiling() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::fungibles::Mutate;
+
+			set_max_debt(10_000_000 * INTERNAL_UNIT);
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
+			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
+			let usdc_ceiling = psm_max_asset_debt(USDC_ASSET_ID);
+			let usdt_ceiling = psm_max_asset_debt(USDT_ASSET_ID);
+			let _ = Assets::mint_into(USDC_ASSET_ID, &ALICE, usdc_ceiling);
+			let _ = Assets::mint_into(USDT_ASSET_ID, &ALICE, usdt_ceiling);
+
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				usdc_ceiling,
+				Permill::from_percent(1)
+			));
+			assert_eq!(psm_max_asset_debt(USDT_ASSET_ID), usdt_ceiling);
+
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDT_ASSET_ID,
+				usdt_ceiling,
+				Permill::from_percent(1)
+			));
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDT_ASSET_ID), usdt_ceiling);
+		});
+	}
+
+	#[test]
+	fn boundary_both_assets_min_swap_below_ceiling() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::fungibles::Mutate;
+
+			set_max_debt(10_000_000 * INTERNAL_UNIT);
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
+			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
+			let usdc_ceiling = psm_max_asset_debt(USDC_ASSET_ID);
+			let usdt_ceiling = psm_max_asset_debt(USDT_ASSET_ID);
+			let _ = Assets::mint_into(USDC_ASSET_ID, &ALICE, usdc_ceiling + OVER);
+			let _ = Assets::mint_into(USDT_ASSET_ID, &ALICE, usdt_ceiling + OVER);
+
+			for (asset, ceiling) in [(USDC_ASSET_ID, usdc_ceiling), (USDT_ASSET_ID, usdt_ceiling)] {
+				assert_ok!(Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					asset,
+					ceiling - OVER,
+					Permill::from_percent(1)
+				));
+				assert_ok!(Psm::mint(
+					RuntimeOrigin::signed(ALICE),
+					INTERNAL_ASSET_ID,
+					asset,
+					OVER,
+					Permill::from_percent(1)
+				));
+			}
+
+			// The per-asset ceilings sum to exactly the instance ceiling.
+			assert_eq!(Psm::total_psm_debt(&INTERNAL_ASSET_ID), psm_max_debt());
 		});
 	}
 }
@@ -3805,6 +3987,400 @@ mod admin {
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
 				signed_origin(EMERGENCY_ACCOUNT)
 			);
+		});
+	}
+}
+
+/// One test per `do_try_state` check, numbered to match the check numbers in
+/// `do_try_state` itself. Each test corrupts exactly one piece of storage.
+///
+/// Advisory checks (10, 11, 16, 17) log instead of failing, so their tests
+/// assert the warning state still returns `Ok`.
+mod try_state {
+	use super::*;
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+
+	fn dts() -> Result<(), sp_runtime::TryRuntimeError> {
+		crate::Pallet::<Test>::do_try_state()
+	}
+
+	fn approve_raw(external: u32, decimals: u8) {
+		ExternalAssets::<Test>::insert(
+			INTERNAL_ASSET_ID,
+			external,
+			crate::ExternalAssetInfo { status: CircuitBreakerLevel::AllEnabled, decimals },
+		);
+	}
+
+	#[test]
+	fn passes_on_valid_state() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(dts());
+		});
+	}
+
+	// Check 1
+	#[test]
+	fn detects_missing_admin_record() {
+		new_test_ext().execute_with(|| {
+			crate::PsmAdmin::<Test>::remove(INTERNAL_ASSET_ID);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("PSM instance without a paired PsmAdmin record")
+			);
+		});
+	}
+
+	// Check 2
+	#[test]
+	fn detects_internal_decimal_mismatch() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				b"INTERNAL".to_vec(),
+				b"INTERNAL".to_vec(),
+				8
+			));
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other(
+					"Internal asset live decimals differ from the PsmInfo snapshot"
+				)
+			);
+		});
+	}
+
+	// Check 3
+	#[test]
+	fn detects_missing_psm_account() {
+		new_test_ext().execute_with(|| {
+			let psm = psm_account();
+			let _ = frame_system::Pallet::<Test>::dec_providers(&psm);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("PSM reserve account does not exist")
+			);
+		});
+	}
+
+	// Check 4
+	#[test]
+	fn detects_missing_fee_destination() {
+		new_test_ext().execute_with(|| {
+			// A never-created account: the genesis endowment and install_test_psm
+			// each hold a provider ref on INSURANCE_FUND, so dec_providers alone
+			// would not reap it.
+			let ghost = AccountId::new([9; 32]);
+			crate::Psm::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				if let Some(info) = maybe.as_mut() {
+					info.fee_destination = ghost;
+				}
+			});
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("PSM fee destination account does not exist")
+			);
+		});
+	}
+
+	// Check 5
+	#[test]
+	fn detects_zero_min_swap_amount() {
+		new_test_ext().execute_with(|| {
+			crate::Psm::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				if let Some(info) = maybe.as_mut() {
+					info.min_swap_amount = 0;
+				}
+			});
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("PSM instance has a zero min_swap_amount")
+			);
+		});
+	}
+
+	// Check 6
+	#[test]
+	fn detects_issuance_below_psm_debt() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+			assert_ok!(dts());
+
+			let _ = Assets::burn_from(
+				INTERNAL_ASSET_ID,
+				&ALICE,
+				1,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("Total internal issuance is less than total PSM debt")
+			);
+		});
+	}
+
+	// Check 7
+	#[test]
+	fn detects_external_decimal_mismatch() {
+		new_test_ext().execute_with(|| {
+			create_asset_with_metadata(UNSUPPORTED_ASSET_ID);
+			approve_raw(UNSUPPORTED_ASSET_ID, 18);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other(
+					"External asset live decimals differ from the registration snapshot"
+				)
+			);
+		});
+	}
+
+	// Check 8
+	#[test]
+	fn detects_reserve_deficit() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+			assert_ok!(dts());
+
+			let psm = psm_account();
+			let reserve = get_asset_balance(USDC_ASSET_ID, psm.clone());
+			let _ = Assets::burn_from(
+				USDC_ASSET_ID,
+				&psm,
+				reserve,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("PSM reserve is less than tracked debt for an asset")
+			);
+		});
+	}
+
+	// Check 10 (advisory). The warning fires with minting enabled or disabled;
+	// the retire-an-asset procedure (disable minting, zero the weight) must
+	// not turn the warning into an error.
+	#[test]
+	fn debt_above_ceiling_warns_even_with_minting_disabled() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+			set_asset_status(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::zero());
+			assert!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID) >
+					psm_max_asset_debt(USDC_ASSET_ID),
+				"debt must exceed the ceiling for this test to exercise check 10",
+			);
+			assert_ok!(dts());
+		});
+	}
+
+	// Check 10 (advisory)
+	#[test]
+	fn warns_on_debt_exceeds_asset_ceiling() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_parts(1));
+			assert!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID) >
+					psm_max_asset_debt(USDC_ASSET_ID),
+				"debt must exceed the ceiling for this test to exercise check 10",
+			);
+			assert_ok!(dts());
+		});
+	}
+
+	// Check 11 (advisory)
+	#[test]
+	fn warns_on_zero_ceiling_zero_debt_nonzero_reserve() {
+		new_test_ext().execute_with(|| {
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::zero());
+			fund_external_asset(USDC_ASSET_ID, psm_account(), 1_000 * INTERNAL_UNIT);
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), 0);
+			assert_ok!(dts());
+		});
+	}
+
+	// Check 12
+	#[test]
+	fn detects_external_count_mismatch() {
+		new_test_ext().execute_with(|| {
+			create_asset_with_metadata(UNSUPPORTED_ASSET_ID);
+			approve_raw(UNSUPPORTED_ASSET_ID, 6);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other(
+					"PsmInfo.external_count does not match the approved externals"
+				)
+			);
+		});
+	}
+
+	// Check 13
+	#[test]
+	fn detects_asset_count_exceeds_bound() {
+		new_test_ext().execute_with(|| {
+			for id in 20u32..32 {
+				create_asset_with_metadata(id);
+				approve_raw(id, 6);
+			}
+			// Keep external_count consistent so check 11 does not fire first.
+			crate::Psm::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				if let Some(info) = maybe.as_mut() {
+					info.external_count =
+						ExternalAssets::<Test>::iter_prefix(INTERNAL_ASSET_ID).count() as u32;
+				}
+			});
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("ExternalAssets count exceeds MaxExternals for a PSM")
+			);
+		});
+	}
+
+	// Check 14
+	#[test]
+	fn detects_orphan_debt_for_non_approved_pair() {
+		new_test_ext().execute_with(|| {
+			let debt = 1_000 * INTERNAL_UNIT;
+			// Fund internal issuance so check 5 passes and check 13 is what fires.
+			let _ = Assets::mint_into(INTERNAL_ASSET_ID, &ALICE, debt);
+			PsmDebt::<Test>::insert(INTERNAL_ASSET_ID, UNSUPPORTED_ASSET_ID, debt);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("PsmDebt entry exists for non-approved pair")
+			);
+		});
+	}
+
+	// Check 14: a zero-valued row is not a violation.
+	#[test]
+	fn zero_orphan_debt_does_not_error() {
+		new_test_ext().execute_with(|| {
+			PsmDebt::<Test>::insert(INTERNAL_ASSET_ID, UNSUPPORTED_ASSET_ID, 0u128);
+			assert_ok!(dts());
+		});
+	}
+
+	// Check 15
+	#[test]
+	fn detects_orphan_external_assets_row() {
+		new_test_ext().execute_with(|| {
+			ExternalAssets::<Test>::insert(
+				9999,
+				USDC_ASSET_ID,
+				crate::ExternalAssetInfo { status: CircuitBreakerLevel::AllEnabled, decimals: 6 },
+			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("Orphaned ExternalAssets row without parent PSM")
+			);
+		});
+	}
+
+	// Check 16
+	#[test]
+	fn detects_orphan_minting_fee() {
+		new_test_ext().execute_with(|| {
+			MintingFee::<Test>::insert(
+				INTERNAL_ASSET_ID,
+				UNSUPPORTED_ASSET_ID,
+				Permill::from_percent(1),
+			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("MintingFee entry exists for non-approved pair")
+			);
+		});
+	}
+
+	// Check 16
+	#[test]
+	fn detects_orphan_redemption_fee() {
+		new_test_ext().execute_with(|| {
+			RedemptionFee::<Test>::insert(
+				INTERNAL_ASSET_ID,
+				UNSUPPORTED_ASSET_ID,
+				Permill::from_percent(1),
+			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("RedemptionFee entry exists for non-approved pair")
+			);
+		});
+	}
+
+	// Check 16. A stray weight row is the worst of the three: the ceiling
+	// formula divides by the sum of the weights, so it shrinks the ceilings
+	// of the approved assets.
+	#[test]
+	fn detects_orphan_ceiling_weight() {
+		new_test_ext().execute_with(|| {
+			AssetCeilingWeight::<Test>::insert(
+				INTERNAL_ASSET_ID,
+				UNSUPPORTED_ASSET_ID,
+				Permill::from_percent(50),
+			);
+			assert_eq!(
+				dts().unwrap_err(),
+				DispatchError::Other("AssetCeilingWeight entry exists for non-approved pair")
+			);
+		});
+	}
+
+	// Check 17 (advisory)
+	#[test]
+	fn warns_on_total_debt_exceeds_ceiling() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+			set_max_debt(1);
+			assert!(
+				Psm::total_psm_debt(&INTERNAL_ASSET_ID) > psm_max_debt(),
+				"debt must exceed the ceiling for this test to exercise check 17",
+			);
+			assert_ok!(dts());
 		});
 	}
 }
