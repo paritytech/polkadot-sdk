@@ -74,7 +74,8 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureAuthorized, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
+	EnsureWithSuccess,
 };
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
@@ -2330,7 +2331,9 @@ impl pallet_whitelist::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<AccountId>;
-	type DispatchWhitelistedOrigin = EnsureRoot<AccountId>;
+	// Opt into permissionless dispatch.
+	type DispatchWhitelistedOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureAuthorized<AccountId>>;
 	type Preimages = Preimage;
 	type DeferredDispatchExpiration = ConstU32<{ 28 * DAYS }>;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;

@@ -147,4 +147,36 @@ impl<T: frame_system::Config> pallet_whitelist::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// Storage: `Preimage::PreimageFor` (r:1 w:0)
+	/// Proof: `Preimage::PreimageFor` (`max_values`: None, `max_size`: Some(4194344), added: 4196819, mode: `Measured`)
+	/// Storage: `Preimage::RequestStatusFor` (r:1 w:0)
+	/// Proof: `Preimage::RequestStatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
+	/// Storage: `Preimage::StatusFor` (r:1 w:0)
+	/// Proof: `Preimage::StatusFor` (`max_values`: None, `max_size`: Some(91), added: 2566, mode: `MaxEncodedLen`)
+	/// Storage: `Whitelist::WhitelistedCall` (r:1 w:0)
+	/// Proof: `Whitelist::WhitelistedCall` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 4194294]`.
+	fn authorize_dispatch_whitelisted_call(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `245 + n * (1 ±0)`
+		//  Estimated: `3979 + n * (1 ±0)`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 3979)
+			// Standard Error: 12
+			.saturating_add(Weight::from_parts(1_580, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(n.into()))
+	}
+	/// Storage: `Whitelist::WhitelistedCall` (r:1 w:0)
+	/// Proof: `Whitelist::WhitelistedCall` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 10000]`.
+	fn authorize_dispatch_whitelisted_call_with_preimage(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `245`
+		//  Estimated: `3505`
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(5_000_000, 3505)
+			.saturating_add(Weight::from_parts(1_300, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
 }
