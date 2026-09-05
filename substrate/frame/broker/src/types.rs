@@ -135,6 +135,12 @@ impl CompletionStatus {
 			Self::Partial(_) => None,
 		}
 	}
+	/// Return whether the workload is complete and includes the given task.
+	pub fn is_complete_and_contains_task(&self, task: TaskId) -> bool {
+		self.complete().map_or(false, |workload| {
+			workload.iter().any(|item| item.assignment == CoreAssignment::Task(task))
+		})
+	}
 }
 
 /// A record of a potential renewal.
