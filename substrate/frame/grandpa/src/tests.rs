@@ -34,7 +34,7 @@ use sp_runtime::testing::Digest;
 
 #[test]
 fn authorities_change_logged() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 0, None).unwrap();
 
@@ -68,7 +68,7 @@ fn authorities_change_logged() {
 
 #[test]
 fn authorities_change_logged_after_delay() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 1, None).unwrap();
 		Grandpa::on_finalize(1);
@@ -107,7 +107,7 @@ fn authorities_change_logged_after_delay() {
 
 #[test]
 fn cannot_schedule_change_when_one_pending() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 1, None).unwrap();
 		assert!(PendingChange::<Test>::exists());
@@ -140,7 +140,7 @@ fn cannot_schedule_change_when_one_pending() {
 
 #[test]
 fn dispatch_forced_change() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		initialize_block(1, Default::default());
 		Grandpa::schedule_change(to_authorities(vec![(4, 1), (5, 1), (6, 1)]), 5, Some(0)).unwrap();
 
@@ -233,7 +233,7 @@ fn dispatch_forced_change() {
 
 #[test]
 fn schedule_pause_only_when_live() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		// we schedule a pause at block 1 with delay of 1
 		initialize_block(1, Default::default());
 		Grandpa::schedule_pause(1).unwrap();
@@ -262,7 +262,7 @@ fn schedule_pause_only_when_live() {
 
 #[test]
 fn schedule_resume_only_when_paused() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		initialize_block(1, Default::default());
 
 		// the set is currently live, resuming it is an error
@@ -321,7 +321,7 @@ pub fn test_authorities() -> AuthorityList {
 fn report_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
@@ -399,7 +399,7 @@ fn report_equivocation_current_set_works() {
 fn report_equivocation_old_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		start_era(1);
 
 		let authorities = Grandpa::grandpa_authorities();
@@ -478,7 +478,7 @@ fn report_equivocation_old_set_works() {
 fn report_equivocation_invalid_set_id() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		start_era(1);
 
 		let authorities = Grandpa::grandpa_authorities();
@@ -515,7 +515,7 @@ fn report_equivocation_invalid_set_id() {
 fn report_equivocation_invalid_session() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		start_era(1);
 
 		let authorities = Grandpa::grandpa_authorities();
@@ -556,7 +556,7 @@ fn report_equivocation_invalid_session() {
 fn report_equivocation_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		start_era(1);
 		let authorities = Grandpa::grandpa_authorities();
 
@@ -601,7 +601,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 fn report_equivocation_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		start_era(1);
 
 		let authorities = Grandpa::grandpa_authorities();
@@ -670,7 +670,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		start_era(1);
 
 		let authorities = Grandpa::grandpa_authorities();
@@ -751,7 +751,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 
 #[test]
 fn on_new_session_doesnt_start_new_set_if_schedule_change_failed() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		assert_eq!(CurrentSetId::<Test>::get(), 0);
 
 		// starting a new era should lead to a change in the session
@@ -786,7 +786,7 @@ fn on_new_session_doesnt_start_new_set_if_schedule_change_failed() {
 
 #[test]
 fn cleans_up_old_set_id_session_mappings() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		let max_set_id_session_entries = MaxSetIdSessionEntries::get();
 
 		start_era(max_set_id_session_entries);
@@ -813,7 +813,7 @@ fn cleans_up_old_set_id_session_mappings() {
 
 #[test]
 fn always_schedules_a_change_on_new_session_when_stalled() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		start_era(1);
 
 		assert!(PendingChange::<Test>::get().is_none());
@@ -860,7 +860,7 @@ fn report_equivocation_has_valid_weight() {
 fn valid_equivocation_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	build_and_execute_with_raw_authorities(authorities, || {
 		start_era(1);
 
 		let equivocation_key = &Grandpa::grandpa_authorities()[0].0;
@@ -921,7 +921,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 #[test]
 fn stalled_state_is_kept_on_schedule_change_failure() {
-	new_test_ext(vec![(1, 1), (2, 1), (3, 1)]).execute_with(|| {
+	build_and_execute(vec![(1, 1), (2, 1), (3, 1)], || {
 		initialize_block(1, Default::default());
 
 		// Schedule a normal change so one is pending.
