@@ -62,17 +62,25 @@ jobs:
           pr-number: ${{ inputs.pr }}
           GH_TOKEN: ${{ github.token }}
       - name: Generate PrDoc
+        env:
+          PR: ${{ inputs.pr }}
+          BUMP: ${{ inputs.bump }}
+          AUDIENCE: ${{ inputs.audience }}
+          OVERWRITE: ${{ inputs.overwrite }}
         run: |
           python3 -m pip install -q cargo-workspace PyGithub whatthepatch pyyaml toml
 
-          python3 .github/scripts/generate-prdoc.py --pr "${{ inputs.pr }}" --bump "${{ inputs.bump }}" --audience "${{ inputs.audience }}" --force "${{ inputs.overwrite }}"
+          python3 .github/scripts/generate-prdoc.py --pr "$PR" --bump "$BUMP" --audience "$AUDIENCE" --force "$OVERWRITE"
 
       - name: Report failure
         if: ${{ failure() }}
-        run: gh pr comment ${{ inputs.pr }} --body "<h2>Command failed ❌</h2> Run by @${{ github.actor }} for <code>${{ github.workflow }}</code> failed. See logs <a href=\"$RUN\">here</a>."
         env:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          ACTOR: ${{ github.actor }}
+          WORKFLOW: ${{ github.workflow }}
+        run: gh pr comment "$PR" --body "<h2>Command failed ❌</h2> Run by @$ACTOR for <code>$WORKFLOW</code> failed. See logs <a href=\"$RUN\">here</a>."
       - name: Push Commit
         uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
         with:
