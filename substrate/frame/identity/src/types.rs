@@ -36,12 +36,12 @@ pub type RegistrarIndex = u32;
 /// than 32-bytes then it will be truncated when encoding.
 ///
 /// Can also be `None`.
-#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq, Debug, MaxEncodedLen)]
-pub enum Data {
+#[derive(DecodeWithMemTracking, MaxEncodedLen)]
+pub enum Data<MaxRawSize: Get<u32> = ConstU32<32>> {
 	/// No data here.
 	None,
 	/// The data is stored directly.
-	Raw(BoundedVec<u8, ConstU32<32>>),
+	Raw(BoundedVec<u8, MaxRawSize>),
 	/// Only the Blake2 hash of the data is stored. The preimage of the hash may be retrieved
 	/// through some hash-lookup service.
 	BlakeTwo256([u8; 32]),
@@ -56,21 +56,69 @@ pub enum Data {
 	ShaThree256([u8; 32]),
 }
 
-impl Data {
-	pub fn is_none(&self) -> bool {
-		self == &Data::None
+impl<MaxRawSize: Get<u32>> Clone for Data<MaxRawSize> {
+	fn clone(&self) -> Self {
+		match self {
+			Data::None => Data::None,
+			Data::Raw(v) => Data::Raw(v.clone()),
+			Data::BlakeTwo256(h) => Data::BlakeTwo256(*h),
+			Data::Sha256(h) => Data::Sha256(*h),
+			Data::Keccak256(h) => Data::Keccak256(*h),
+			Data::ShaThree256(h) => Data::ShaThree256(*h),
+		}
 	}
 }
 
-impl Decode for Data {
+impl<MaxRawSize: Get<u32>> PartialEq for Data<MaxRawSize> {
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Data::None, Data::None) => true,
+			(Data::Raw(a), Data::Raw(b)) => a == b,
+			(Data::BlakeTwo256(a), Data::BlakeTwo256(b)) => a == b,
+			(Data::Sha256(a), Data::Sha256(b)) => a == b,
+			(Data::Keccak256(a), Data::Keccak256(b)) => a == b,
+			(Data::ShaThree256(a), Data::ShaThree256(b)) => a == b,
+			_ => false,
+		}
+	}
+}
+
+impl<MaxRawSize: Get<u32>> Eq for Data<MaxRawSize> {}
+
+impl<MaxRawSize: Get<u32>> core::fmt::Debug for Data<MaxRawSize> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Data::None => write!(f, "None"),
+			Data::Raw(v) => write!(f, "Raw({:?})", v),
+			Data::BlakeTwo256(h) => write!(f, "BlakeTwo256({:?})", h),
+			Data::Sha256(h) => write!(f, "Sha256({:?})", h),
+			Data::Keccak256(h) => write!(f, "Keccak256({:?})", h),
+			Data::ShaThree256(h) => write!(f, "ShaThree256({:?})", h),
+		}
+	}
+}
+
+impl<MaxRawSize: Get<u32>> Data<MaxRawSize> {
+	pub fn is_none(&self) -> bool {
+		matches!(self, Data::None)
+	}
+}
+
+impl<MaxRawSize: Get<u32>> Decode for Data<MaxRawSize> {
 	fn decode<I: codec::Input>(input: &mut I) -> core::result::Result<Self, codec::Error> {
 		let b = input.read_byte()?;
 		Ok(match b {
 			0 => Data::None,
 			n @ 1..=33 => {
-				let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
+				let len = n as usize - 1;
+				// Ensure the raw length fits within our bound
+				ensure!(
+					len <= MaxRawSize::get() as usize,
+					codec::Error::from("raw data length exceeds configured maximum")
+				);
+				let mut r: BoundedVec<u8, MaxRawSize> = vec![0u8; n as usize - 1]
 					.try_into()
-					.expect("bound checked in match arm condition; qed");
+					.map_err(|_| codec::Error::from("raw data too large for this configuration"))?;
 				input.read(&mut r[..])?;
 				Data::Raw(r)
 			},
@@ -83,14 +131,14 @@ impl Decode for Data {
 	}
 }
 
-impl Encode for Data {
+impl<MaxRawSize: Get<u32>> Encode for Data<MaxRawSize> {
 	fn encode(&self) -> Vec<u8> {
 		match self {
 			Data::None => vec![0u8; 1],
 			Data::Raw(ref x) => {
-				let l = x.len().min(32);
+				let l = x.len().min(MaxRawSize::get() as usize);
 				let mut r = vec![l as u8 + 1; l + 1];
-				r[1..].copy_from_slice(&x[..l as usize]);
+				r[1..].copy_from_slice(&x[..l]);
 				r
 			},
 			Data::BlakeTwo256(ref h) => once(34u8).chain(h.iter().cloned()).collect(),
@@ -100,7 +148,7 @@ impl Encode for Data {
 		}
 	}
 }
-impl codec::EncodeLike for Data {}
+impl<MaxRawSize: Get<u32>> codec::EncodeLike for Data<MaxRawSize> {}
 
 /// Add a Raw variant with the given index and a fixed sized byte array
 macro_rules! data_raw_variants {
@@ -115,7 +163,7 @@ macro_rules! data_raw_variants {
     }
 }
 
-impl TypeInfo for Data {
+impl<MaxRawSize: Get<u32> + 'static> TypeInfo for Data<MaxRawSize> {
 	type Identity = Self;
 
 	fn type_info() -> Type {
@@ -173,11 +221,17 @@ impl TypeInfo for Data {
 				v.index(37).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			});
 
-		Type::builder().path(Path::new("Data", module_path!())).variant(variants)
+		Type::builder()
+			.path(Path::new("Data", module_path!()))
+			.type_params(vec![scale_info::TypeParameter::new(
+				"MaxRawSize",
+				Some(scale_info::meta_type::<u32>()),
+			)])
+			.variant(variants)
 	}
 }
 
-impl Default for Data {
+impl<MaxRawSize: Get<u32>> Default for Data<MaxRawSize> {
 	fn default() -> Self {
 		Self::None
 	}
@@ -243,6 +297,9 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 pub trait IdentityInformationProvider:
 	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + Default
 {
+	/// The max byte size of raw data fields.
+	type MaxRawSize: Get<u32>;
+
 	/// Type capable of holding information on which identity fields are set.
 	type FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
 
@@ -256,6 +313,14 @@ pub trait IdentityInformationProvider:
 	/// The identity information representation for all identity fields enabled.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn all_fields() -> Self::FieldsIdentifier;
+
+	/// The encoded size of the identity info.
+	fn encoded_size(&self) -> usize
+	where
+		Self: Encode,
+	{
+		self.encode().len()
+	}
 }
 
 /// Information on an identity along with judgements from registrars.
