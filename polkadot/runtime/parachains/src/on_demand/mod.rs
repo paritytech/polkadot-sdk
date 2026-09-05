@@ -557,6 +557,19 @@ where
 		})
 	}
 
+	/// Adds a batch of coretime orders to the queue.
+	pub fn queue_order_batch(batch: Vec<(ParaId, BlockNumberFor<T>)>) -> DispatchResult {
+		pallet::OrderStatus::<T>::mutate(|order_status| {
+			for (para_id, ordered_at) in batch {
+				order_status
+					.queue
+					.try_push(ordered_at, para_id)
+					.defensive_map_err(|_| Error::<T>::QueueFull)?;
+			}
+			Ok(())
+		})
+	}
+
 	/// Calculate and update spot traffic.
 	fn update_spot_traffic(
 		config: &configuration::HostConfiguration<BlockNumberFor<T>>,
