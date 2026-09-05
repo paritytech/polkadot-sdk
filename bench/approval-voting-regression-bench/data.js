@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788517049995,
+  "lastUpdate": 1788572849345,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a09c18f60eb31198d1422c7d4903b82a0c507e9c",
-          "message": "statement-store: validation without runtime (#10787)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10799\n\nThis removes slow runtime validation from statement-submission hot path.\nValidation now happens on the node side via direct signature\nverification and storage reads for account quotas.\n\n## Integration\n\nNode validates signatures directly, reads quotas from storage. Setting\nallowances is implementing in another PR.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-04T20:37:11Z",
-          "tree_id": "c68144a42eb5a7b82421e852f69b10c1f1bcb1c1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a09c18f60eb31198d1422c7d4903b82a0c507e9c"
-        },
-        "date": 1770241786453,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52938.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63617.16000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.644661272819999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021683110000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021683110000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.719033477260023,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00510364125,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6722325534300007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8219072439700194,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.491515672662981,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6150766967100005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.307283785740002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6527682833400013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021743769999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021743769999999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.7427403569300006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4",
+          "message": "Aggregate the genesis vesting lock across an account's schedules (#13016)\n\n`GenesisConfig::build` called `set_lock` once per entry with that\nentry's amount. `set_lock` replaces rather than adds, so an account with\nseveral genesis entries kept a lock covering only the last one. The\nruntime path already aggregates through `write_lock`.",
+          "timestamp": "2026-09-05T00:15:40Z",
+          "tree_id": "1888ea43300ea323d144f20de48af40b9cf8a6fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4"
+        },
+        "date": 1788572810557,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.9,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52946.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.793858500429998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.334193405779967,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018000929999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001712308,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0049337441300000015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001712308,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7648737277999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7972083178899987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7737204504099995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3693345628699842,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018000929999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8302641022499891,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.437984212692742,
             "unit": "seconds"
           }
         ]
