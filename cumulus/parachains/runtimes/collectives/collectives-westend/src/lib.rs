@@ -852,6 +852,11 @@ type Migrations = (
 	>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	// unreleased
+	pallet_treasury::migration::MigrateToOrderedPayouts<
+		Runtime,
+		fellowship::FellowshipTreasuryInstance,
+	>,
 );
 
 // Helpers for the core fellowship pallet v1->v2 storage migration.

@@ -1364,6 +1364,8 @@ parameter_types! {
 	pub const MaxApprovals: u32 = 100;
 	pub const MaxBalance: Balance = Balance::max_value();
 	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
+	pub const MaxQueuedSpends: u32 = 100;
+	pub const OrderExpirationPeriod: BlockNumber = 10 * HOURS;
 }
 
 impl pallet_treasury::Config for Runtime {
@@ -1388,6 +1390,8 @@ impl pallet_treasury::Config for Runtime {
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = SpendPayoutPeriod;
 	type BlockNumberProvider = System;
+	type MaxQueuedSpends = MaxQueuedSpends;
+	type OrderExpirationPeriod = OrderExpirationPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletTreasuryArguments;
 }
@@ -3169,6 +3173,7 @@ type Migrations = (
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
+	pallet_treasury::migration::MigrateToOrderedPayouts<Runtime>,
 );
 
 type EventRecord = frame_system::EventRecord<

@@ -1045,6 +1045,8 @@ impl pallet_treasury::Config for Runtime {
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = System;
+	type MaxQueuedSpends = ConstU32<100>;
+	type OrderExpirationPeriod = ConstU32<{ 2 * DAYS }>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }

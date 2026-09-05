@@ -504,6 +504,7 @@ impl pallet_session::historical::Config for Runtime {
 parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 6;
 	pub const BondingDuration: sp_staking::EraIndex = 28;
+
 }
 
 parameter_types! {
@@ -524,6 +525,8 @@ parameter_types! {
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxQueuedSpends: u32 = 100;
+	pub const OrderExpirationPeriod: BlockNumber = 2 * DAYS;
 }
 
 impl pallet_treasury::Config for Runtime {
@@ -562,6 +565,8 @@ impl pallet_treasury::Config for Runtime {
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = System;
+	type MaxQueuedSpends = MaxQueuedSpends;
+	type OrderExpirationPeriod = OrderExpirationPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
@@ -1747,7 +1752,7 @@ pub mod migrations {
         pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
         pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
-        pallet_treasury::migration::cleanup_proposals::Migration<Runtime, (), BalanceUnreserveWeight>,
+        pallet_treasury::migration::CleanupProposalsMigration<Runtime, (), BalanceUnreserveWeight>,
 
         // Delete all Gov v1 pallet storage key/values.
 
@@ -1772,6 +1777,8 @@ pub mod migrations {
 
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
+
+		pallet_treasury::migration::MigrateToOrderedPayouts<Runtime>,
 
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
