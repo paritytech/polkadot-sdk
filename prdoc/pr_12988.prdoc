@@ -1,0 +1,9 @@
+title: Fix stale people ring positions after suspensions
+doc:
+- audience: Runtime Dev
+  description: |-
+    Keep pallet-people person records synchronized when suspension cleanup
+    compacts a ring, so later suspension sessions remove the intended keys.
+crates:
+- name: pallet-people
+  bump: patch
