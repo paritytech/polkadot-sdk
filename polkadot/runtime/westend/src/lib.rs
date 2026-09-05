@@ -1806,6 +1806,7 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
+		parachains_paras::migration::MigrateToV1<Runtime>,
 		// #11705: drain residual legacy `py/trsry` balance into the ACF accumulation
 		// account.
 		// Idempotent. No further activity on the legacy `py/trsry`

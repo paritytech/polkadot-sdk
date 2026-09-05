@@ -116,7 +116,7 @@ use crate::{
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
-use core::{cmp, mem};
+use core::cmp;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
@@ -143,6 +143,8 @@ pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+pub mod migration;
 
 pub use pallet::*;
 
@@ -378,6 +380,16 @@ impl TypeInfo for ParaKind {
 	fn type_info() -> Type {
 		bool::type_info()
 	}
+}
+
+/// Upcoming para instantiation args stored in `UpcomingParasGenesis`. Omits the validation code,
+/// which onboarding inserts eagerly via `CurrentCodeHash`.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+pub struct UpcomingParaGenesis {
+	/// The initial head data to use.
+	pub genesis_head: HeadData,
+	/// Lease holding or on-demand parachain.
+	pub para_kind: ParaKind,
 }
 
 /// This enum describes a reason why a particular PVF pre-checking vote was initiated. When the
@@ -652,8 +664,12 @@ pub mod pallet {
 
 	type BalanceOf<T> = <<T as Config>::Fungible as Inspect<AccountIdFor<T>>>::Balance;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -934,11 +950,11 @@ pub mod pallet {
 
 	/// Upcoming paras instantiation arguments.
 	///
-	/// NOTE that after PVF pre-checking is enabled the para genesis arg will have it's code set
-	/// to empty. Instead, the code will be saved into the storage right away via `CodeByHash`.
+	/// The validation code is not stored here: `schedule_para_initialize` inserts it eagerly via
+	/// `CurrentCodeHash` and `CodeByHash`.
 	#[pallet::storage]
 	pub(super) type UpcomingParasGenesis<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, ParaGenesisArgs>;
+		StorageMap<_, Twox64Concat, ParaId, UpcomingParaGenesis>;
 
 	/// The number of reference on the validation code in [`CodeByHash`] storage.
 	#[pallet::storage]
@@ -1579,8 +1595,8 @@ impl<T: Config> Pallet<T> {
 				None | Some(ParaLifecycle::Parathread) | Some(ParaLifecycle::Parachain) => { // Nothing to do...
 				},
 				Some(ParaLifecycle::Onboarding) => {
-					if let Some(genesis_data) = UpcomingParasGenesis::<T>::take(&para) {
-						Self::initialize_para_now(&mut parachains, para, &genesis_data);
+					if let Some(genesis) = UpcomingParasGenesis::<T>::take(&para) {
+						Self::enact_upcoming_para(&mut parachains, para, &genesis);
 					}
 				},
 				// Upgrade an on-demand parachain to a lease holding parachain
@@ -2052,7 +2068,7 @@ impl<T: Config> Pallet<T> {
 	/// be onboarded.
 	pub(crate) fn schedule_para_initialize(
 		id: ParaId,
-		mut genesis_data: ParaGenesisArgs,
+		genesis_data: ParaGenesisArgs,
 	) -> DispatchResult {
 		// Make sure parachain isn't already in our system and that the onboarding parameters are
 		// valid.
@@ -2060,42 +2076,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(!genesis_data.validation_code.0.is_empty(), Error::<T>::CannotOnboard);
 		ParaLifecycles::<T>::insert(&id, ParaLifecycle::Onboarding);
 
-		// HACK: here we are doing something nasty.
-		//
-		// In order to fix the [soaking issue] we insert the code eagerly here. When the onboarding
-		// is finally enacted, we do not need to insert the code anymore. Therefore, there is no
-		// reason for the validation code to be copied into the `ParaGenesisArgs`. We also do not
-		// want to risk it by copying the validation code needlessly to not risk adding more
-		// memory pressure.
-		//
-		// That said, we also want to preserve `ParaGenesisArgs` as it is, for now. There are two
-		// reasons:
-		//
-		// - Doing it within the context of the PR that introduces this change is undesirable, since
-		//   it is already a big change, and that change would require a migration. Moreover, if we
-		//   run the new version of the runtime, there will be less things to worry about during the
-		//   eventual proper migration.
-		//
-		// - This data type already is used for generating genesis, and changing it will probably
-		//   introduce some unnecessary burden.
-		//
-		// So instead of going through it right now, we will do something sneaky. Specifically:
-		//
-		// - Insert the `CurrentCodeHash` now, instead during the onboarding. That would allow to
-		//   get rid of hashing of the validation code when onboarding.
-		//
-		// - Replace `validation_code` with a sentinel value: an empty vector. This should be fine
-		//   as long we do not allow registering parachains with empty code. At the moment of
-		//   writing this should already be the case.
-		//
-		// - Empty value is treated as the current code is already inserted during the onboarding.
-		//
-		// This is only an intermediate solution and should be fixed in foreseeable future.
-		//
-		// [soaking issue]: https://github.com/paritytech/polkadot/issues/3918
-		let validation_code =
-			mem::replace(&mut genesis_data.validation_code, ValidationCode(Vec::new()));
-		UpcomingParasGenesis::<T>::insert(&id, genesis_data);
+		// Insert the code eagerly to fix the soaking issue (paritytech/polkadot#3918): once
+		// onboarding is enacted the code is already present, so it is not carried in
+		// `UpcomingParasGenesis`.
+		let ParaGenesisArgs { genesis_head, validation_code, para_kind } = genesis_data;
+		UpcomingParasGenesis::<T>::insert(&id, UpcomingParaGenesis { genesis_head, para_kind });
 		let validation_code_hash = validation_code.hash();
 		CurrentCodeHash::<T>::insert(&id, validation_code_hash);
 
@@ -2570,13 +2555,14 @@ impl<T: Config> Pallet<T> {
 		Heads::<T>::insert(para_id, head_data);
 	}
 
-	/// A low-level function to eagerly initialize a given para.
-	pub(crate) fn initialize_para_now(
+	/// Set the lifecycle, head, and recent context of a newly initialized para.
+	fn register_para(
 		parachains: &mut ParachainsCache<T>,
 		id: ParaId,
-		genesis_data: &ParaGenesisArgs,
+		para_kind: &ParaKind,
+		genesis_head: &HeadData,
 	) {
-		match genesis_data.para_kind {
+		match para_kind {
 			ParaKind::Parachain => {
 				parachains.add(id);
 				ParaLifecycles::<T>::insert(&id, ParaLifecycle::Parachain);
@@ -2584,19 +2570,30 @@ impl<T: Config> Pallet<T> {
 			ParaKind::Parathread => ParaLifecycles::<T>::insert(&id, ParaLifecycle::Parathread),
 		}
 
-		// HACK: see the notice in `schedule_para_initialize`.
-		//
-		// Apparently, this is left over from a prior version of the runtime.
-		// To handle this we just insert the code and link the current code hash
-		// to it.
-		if !genesis_data.validation_code.0.is_empty() {
-			let code_hash = genesis_data.validation_code.hash();
-			Self::increase_code_ref(&code_hash, &genesis_data.validation_code);
-			CurrentCodeHash::<T>::insert(&id, code_hash);
-		}
-
-		Heads::<T>::insert(&id, &genesis_data.genesis_head);
+		Heads::<T>::insert(&id, genesis_head);
 		MostRecentContext::<T>::insert(&id, BlockNumberFor::<T>::from(0u32));
+	}
+
+	/// Enact an onboarding para. The code was already inserted in `schedule_para_initialize`.
+	fn enact_upcoming_para(
+		parachains: &mut ParachainsCache<T>,
+		id: ParaId,
+		genesis: &UpcomingParaGenesis,
+	) {
+		Self::register_para(parachains, id, &genesis.para_kind, &genesis.genesis_head);
+	}
+
+	/// Eagerly initialize a para at genesis from full [`ParaGenesisArgs`], inserting its code.
+	pub(crate) fn initialize_para_now(
+		parachains: &mut ParachainsCache<T>,
+		id: ParaId,
+		genesis_data: &ParaGenesisArgs,
+	) {
+		let code_hash = genesis_data.validation_code.hash();
+		Self::increase_code_ref(&code_hash, &genesis_data.validation_code);
+		CurrentCodeHash::<T>::insert(&id, code_hash);
+
+		Self::register_para(parachains, id, &genesis_data.para_kind, &genesis_data.genesis_head);
 	}
 
 	#[cfg(test)]
