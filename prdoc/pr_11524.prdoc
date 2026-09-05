@@ -1,0 +1,19 @@
+title: "Add `slash_submission_deposit` extrinsic to pallet-referenda"
+doc:
+- audience: Runtime Dev
+  description: |
+    Adds a new extrinsic `slash_submission_deposit` to `pallet-referenda` that allows slashing
+    the submission deposit for referenda that have been `Rejected` or `TimedOut`.
+
+    This complements the existing `refund_submission_deposit` which only works for `Approved`
+    or `Cancelled` referenda.
+
+crates:
+- name: pallet-referenda
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
