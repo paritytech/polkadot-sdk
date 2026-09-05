@@ -275,6 +275,8 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	// Validator incentive payouts vest for 4 BondingDuration intervals (2 days).
+	pub const ValidatorVestingBondingPeriods: u32 = 4;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -313,6 +315,11 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type VestingBondingPeriods = ValidatorVestingBondingPeriods;
+	type BlocksPerSession = RelaySessionDuration;
+	type VestingBlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type ValidatorIncentivePayout =
+		pallet_staking_async::VestedIncentivePayout<Balances, pallet_vesting::Pallet<Runtime>>;
 	type IsValidatorInactive = ();
 }
 
@@ -648,6 +655,18 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn vesting_schedule_headroom_exceeds_vesting_bonding_periods() {
+		// Ensure that staking-related vesting schedule quota strictly exceeds
+		// `VestingBondingPeriods` so incentives never get dropped at the cap.
+		let staking_cap =
+			<Runtime as pallet_vesting::Config>::slot_cap(pallet_vesting::VestingKind::System);
+		assert!(
+			staking_cap > ValidatorVestingBondingPeriods::get(),
+			"The staking-related vesting schedule quota must exceed VestingBondingPeriods"
+		);
+	}
 
 	#[test]
 	fn all_epmb_weights_sane() {

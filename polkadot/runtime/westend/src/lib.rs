@@ -1860,6 +1860,7 @@ pub mod migrations {
 		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		pallet_vesting::migrations::v2::Migration<Runtime>,
 	);
 }
 

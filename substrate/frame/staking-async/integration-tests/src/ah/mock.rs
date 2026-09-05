@@ -492,7 +492,10 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = RcClient;
 
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
-
+	type VestingBondingPeriods = ConstU32<0>;
+	type BlocksPerSession = ConstU64<1>;
+	type VestingBlockNumberProvider = frame_system::Pallet<Runtime>;
+	type ValidatorIncentivePayout = pallet_staking_async::LiquidIncentivePayout<Balances>;
 	type IsValidatorInactive = ();
 }
 

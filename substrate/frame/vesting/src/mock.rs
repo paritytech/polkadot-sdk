@@ -50,10 +50,11 @@ parameter_types! {
 	pub static ExistentialDeposit: u64 = 1;
 }
 impl Config for Test {
+	const MAX_VESTING_SCHEDULES: u32 = 4;
+	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 3;
 	type BlockNumberToBalance = Identity;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
-	const MAX_VESTING_SCHEDULES: u32 = 3;
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;

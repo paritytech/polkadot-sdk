@@ -85,7 +85,7 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{traits::BlockNumberProvider, Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 	StakerRewardCalculator,
@@ -873,6 +873,21 @@ impl<T: Config> Rotator<T> {
 		// start the next era.
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
+
+		// Snapshot the vesting epoch start block, keyed by bonding-period index. Written once
+		// per bonding period (including mid-period on first enable). Stale entries are removed
+		// lazily via the SingleEntryCleanups pruning step.
+		let bonding_duration = T::BondingDuration::get();
+
+		if bonding_duration != 0 && T::VestingBondingPeriods::get() > 0 {
+			let bonding_period = starting_era / bonding_duration;
+			if !VestingEpochStartBlocks::<T>::contains_key(bonding_period) {
+				VestingEpochStartBlocks::<T>::insert(
+					bonding_period,
+					T::VestingBlockNumberProvider::current_block_number(),
+				);
+			}
+		}
 
 		// Snapshot the current nominators slashable setting for this era.
 		// Cleanup will happen via lazy pruning at HistoryDepth.

@@ -224,7 +224,10 @@ use codec::{Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{
 	traits::{
-		tokens::fungible::{Credit, Debt},
+		tokens::{
+			fungible::{Credit, Debt, Mutate as FunMutate},
+			Preservation, VestedPayout, VestedPayoutError, VestingKind,
+		},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
 	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, WeakBoundedVec,
@@ -233,7 +236,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
+	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto, Zero},
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
@@ -666,7 +669,7 @@ pub struct SequentialTest;
 #[cfg(feature = "std")]
 impl<AccountId> PotAccountProvider<AccountId> for SequentialTest
 where
-	AccountId: From<u64>,
+	AccountId: codec::Encode + From<u64>,
 {
 	fn pot_account(pot: RewardPot) -> AccountId {
 		match pot {
@@ -715,6 +718,83 @@ where
 
 	fn pot_account() -> AccountId {
 		P::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake))
+	}
+}
+
+/// Adapter trait for delivering validator self-stake incentive payouts.
+pub trait ValidatorIncentivePayout<AccountId, Balance, BlockNumber> {
+	/// Transfer `amount` from `source` to `dest` with a vesting schedule defined by `start_at` and
+	/// `duration`. Implementations that do not vest may ignore both parameters.
+	fn pay(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		start_at: BlockNumber,
+		duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError>;
+}
+
+/// Liquid payout adapter — funds arrive immediately with no vesting lock.
+pub struct LiquidIncentivePayout<C>(core::marker::PhantomData<C>);
+
+impl<AccountId, Balance, BlockNumber, C> ValidatorIncentivePayout<AccountId, Balance, BlockNumber>
+	for LiquidIncentivePayout<C>
+where
+	C: FunMutate<AccountId, Balance = Balance>,
+	AccountId: Eq,
+	Balance: Copy,
+	BlockNumber: Copy,
+{
+	fn pay(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		_start_at: BlockNumber,
+		_duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError> {
+		C::transfer(source, dest, amount, Preservation::Expendable)
+	}
+}
+
+/// Vested payout adapter — funds arrive under a linear vesting schedule.
+pub struct VestedIncentivePayout<C, V>(core::marker::PhantomData<(C, V)>);
+
+impl<AccountId, Balance, BlockNumber, C, V>
+	ValidatorIncentivePayout<AccountId, Balance, BlockNumber> for VestedIncentivePayout<C, V>
+where
+	C: FunMutate<AccountId, Balance = Balance>,
+	V: VestedPayout<AccountId, Balance, BlockNumber = BlockNumber>,
+	AccountId: Eq,
+	Balance: Copy,
+	BlockNumber: Zero + Copy,
+{
+	fn pay(
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Balance,
+		start_at: BlockNumber,
+		duration: BlockNumber,
+	) -> Result<Balance, sp_runtime::DispatchError> {
+		if duration.is_zero() {
+			// Duration should never be 0. Liquid mode should use LiquidIncentivePayout instead.
+			return Err(sp_runtime::DispatchError::Other(
+				"VestedIncentivePayout: duration is zero",
+			));
+		}
+
+		V::add_to_vesting(source, dest, amount, duration, start_at, VestingKind::System)
+			.or_else(|e| match e {
+				VestedPayoutError::NoCapacity => V::merge_amount_into_closest_schedule(
+					source,
+					dest,
+					amount,
+					duration,
+					start_at,
+					VestingKind::System,
+				),
+				VestedPayoutError::Other(e) => Err(e),
+			})
+			.map(|()| amount)
 	}
 }
 

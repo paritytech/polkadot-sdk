@@ -23,7 +23,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstBool, ConstU64, ConstU8, Nothing, VariantCountOf},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Nothing, VariantCountOf},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -135,6 +135,10 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type RcClientInterface = MockRcClient;
+	type VestingBondingPeriods = ConstU32<0>;
+	type BlocksPerSession = ConstU64<1>;
+	type VestingBlockNumberProvider = frame_system::Pallet<Runtime>;
+	type ValidatorIncentivePayout = pallet_staking_async::LiquidIncentivePayout<Balances>;
 }
 
 parameter_types! {

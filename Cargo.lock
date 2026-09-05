@@ -7712,6 +7712,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "sp-weights 27.0.0",
+ "strum 0.26.3",
  "tt-call",
 ]
 
@@ -14900,6 +14901,7 @@ dependencies = [
  "pallet-dap",
  "pallet-staking-async-rc-client",
  "pallet-timestamp",
+ "pallet-vesting",
  "parity-scale-codec",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -15505,6 +15507,7 @@ dependencies = [
  "scale-info",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "strum 0.26.3",
 ]
 
 [[package]]

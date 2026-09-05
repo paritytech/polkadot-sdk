@@ -46,6 +46,7 @@ pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-dap = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
+pallet-vesting = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
@@ -65,6 +66,7 @@ std = [
 	"pallet-dap/std",
 	"pallet-staking-async-rc-client/std",
 	"pallet-timestamp/std",
+	"pallet-vesting/std",
 	"rand/std",
 	"rand_chacha/std",
 	"scale-info/std",
@@ -89,6 +91,7 @@ runtime-benchmarks = [
 	"pallet-dap/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-vesting/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -101,5 +104,6 @@ try-runtime = [
 	"pallet-dap/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-vesting/try-runtime",
 	"sp-runtime/try-runtime",
 ]

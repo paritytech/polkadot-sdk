@@ -26,7 +26,8 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, EraRewardPoints, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	Nominations, NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination,
-	RewardKind, RewardPoint, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	RewardKind, RewardPoint, RewardPot, SnapshotStatus, StakingLedger, ValidatorIncentivePayout,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -47,7 +48,7 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::{
-	traits::{CheckedAdd, Saturating, StaticLookup, Zero},
+	traits::{BlockNumberProvider, CheckedAdd, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchResult, Perbill,
 };
 use sp_staking::{
@@ -759,7 +760,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Transfer validator incentive from era pot to the validator's payout account.
 	///
-	/// This is a direct liquid transfer. Future PRs may introduce vesting via a trait.
+	/// Delegates delivery to [`Config::ValidatorIncentivePayout`]. On success emits
+	/// [`Event::ValidatorIncentivePaid`]. On failure emits
+	/// [`Event::Unexpected`]`(`[`UnexpectedKind::ValidatorIncentiveDropped`]`)`, indicating
+	/// a non-recoverable condition (e.g. misconfigured runtime parameters).
 	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
@@ -778,26 +782,64 @@ impl<T: Config> Pallet<T> {
 			crate::RewardKind::ValidatorSelfStake,
 		));
 
-		match T::Currency::transfer(
+		// In liquid mode (VestingBondingPeriods = 0) the start and duration values are not used.
+		// In vesting mode, look up the epoch-start block for the bonding window that contains
+		// `era`, so the payout merges into that era's own vesting schedule slot. If no entry
+		// exists (era predates the pallet upgrade), use the current block as the epoch
+		// start for that window.
+		let (start_at, duration) = if T::VestingBondingPeriods::get() == 0 {
+			(BlockNumberFor::<T>::zero(), BlockNumberFor::<T>::zero())
+		} else {
+			let bonding_duration = T::BondingDuration::get();
+
+			if bonding_duration == 0 {
+				defensive!("Incentive dropped: BondingDuration is zero in vesting mode", era);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveDropped { era, stash: stash.clone(), amount },
+				));
+				return;
+			}
+
+			let bonding_period = era / bonding_duration;
+			let start = match VestingEpochStartBlocks::<T>::get(bonding_period) {
+				Some(s) => s,
+				None => {
+					// This applies only to eras prior to the enablement of validator vesting and
+					// where the start era was never seeded; the insert pins the block to allow
+					// all validators that claim this era to merge their vesting schedules.
+					let now = T::VestingBlockNumberProvider::current_block_number();
+					VestingEpochStartBlocks::<T>::insert(bonding_period, now);
+					now
+				},
+			};
+
+			let duration = T::BlocksPerSession::get()
+				.saturating_mul(T::SessionsPerEra::get().into())
+				.saturating_mul(T::BondingDuration::get().into())
+				.saturating_mul(T::VestingBondingPeriods::get().into());
+			(start, duration)
+		};
+
+		match T::ValidatorIncentivePayout::pay(
 			&incentive_pot,
 			&payout_account,
 			amount,
-			Preservation::Expendable,
+			start_at,
+			duration,
 		) {
-			Ok(_) => {
+			Ok(transferred) => {
 				Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
 					era,
 					validator_stash: stash.clone(),
 					dest,
-					amount,
+					amount: transferred,
 				});
 			},
 			Err(e) => {
-				log!(warn, "Failed to transfer liquid incentive: {:?}", e);
+				log!(warn, "Incentive for era {:?} dropped: {:?}", era, e);
 				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
+					UnexpectedKind::ValidatorIncentiveDropped { era, stash: stash.clone(), amount },
 				));
-				defensive!("Validator incentive liquid transfer failed");
 			},
 		}
 	}

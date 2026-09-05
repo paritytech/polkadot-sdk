@@ -540,6 +540,7 @@ parameter_types! {
 
 impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 100;
+	const MAX_PUBLIC_VESTING_SCHEDULES: u32 = 72;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type BlockNumberToBalance = ConvertInto;
 	type Currency = Balances;
@@ -1859,6 +1860,7 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	pallet_vesting::migrations::v2::Migration<Runtime>,
 	// Records the cutoff era from which the weighted-points validator self-stake
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.

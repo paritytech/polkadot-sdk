@@ -425,6 +425,43 @@ pub mod pallet {
 		/// another way (such as pools).
 		type Filter: Contains<Self::AccountId>;
 
+		/// Number of bonding-duration windows over which validator self-stake incentives vest.
+		///
+		/// To get the total vesting duration, multiply this by `BondingDuration`.
+		/// For example, set this to `13` for a runtime with a bonding duration of 28 days to get
+		/// a 1-year vesting period. Set to `0` to disable vesting and do liquid transfers instead.
+		#[pallet::no_default]
+		type VestingBondingPeriods: Get<u32>;
+
+		/// The number of blocks in one session.
+		///
+		/// Used for computing the total vesting duration in blocks:
+		/// `BlocksPerSession × SessionsPerEra × BondingDuration × VestingBondingPeriods`.
+		#[pallet::no_default]
+		type BlocksPerSession: Get<BlockNumberFor<Self>>;
+
+		/// Block number provider used to snapshot [`VestingEpochStartBlocks`].
+		///
+		/// Must use the **same** block-number space as `pallet_vesting`'s
+		/// `BlockNumberProvider` so that `start_at` keys round-trip correctly.
+		/// On parachains this should be `RelaychainDataProvider<Runtime>` when
+		/// pallet-vesting is also configured with relay-chain block numbers.
+		#[pallet::no_default]
+		type VestingBlockNumberProvider: sp_runtime::traits::BlockNumberProvider<
+			BlockNumber = BlockNumberFor<Self>,
+		>;
+
+		/// Adapter that delivers validator self-stake incentive payouts.
+		///
+		/// Wire [`crate::VestedIncentivePayout`] for vested delivery, or
+		/// [`crate::LiquidIncentivePayout`] for immediate liquid delivery.
+		#[pallet::no_default]
+		type ValidatorIncentivePayout: crate::ValidatorIncentivePayout<
+			Self::AccountId,
+			BalanceOf<Self>,
+			BlockNumberFor<Self>,
+		>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -588,6 +625,22 @@ pub mod pallet {
 		IncentiveWeight<T>,
 		OptionQuery,
 	>;
+
+	/// Mapping between bonding periods and epoch start blocks.
+	///
+	/// The index of each [`Config::BondingDuration`]-era window is mapped to the block
+	/// number of the window's first block. That block number is used as the merge key
+	/// for [`crate::VestedIncentivePayout`], so all incentive payouts for a given era
+	/// accumulate into the vesting schedule slot of *that era's* bonding window.
+	/// Old entries are removed lazily: when an era falls off the history window and its
+	/// [`EraPruningState`] reaches `SingleEntryCleanups`, the entry for that era's bonding
+	/// period is dropped only if the era is the *last* era of that period (so earlier eras in
+	/// the same period can still look up the start block during their own cleanup). If a
+	/// payout looks up an era whose window predates the upgrade (no entry exists), the current
+	/// block is assigned as that era's epoch start.
+	#[pallet::storage]
+	pub type VestingEpochStartBlocks<T: Config> =
+		StorageMap<_, Twox64Concat, u32, BlockNumberFor<T>, OptionQuery>;
 
 	/// Running sum of `validator_incentive_weight × era_points` across all validators
 	/// with non-zero era points for the era.
@@ -1484,8 +1537,11 @@ pub mod pallet {
 		MissingPayee { era: EraIndex, stash: T::AccountId },
 		/// Total validator weight is zero but incentive allocation exists.
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
-		/// Validator incentive transfer from era pot failed.
-		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// Vested incentive delivery failed — the payout was lost.
+		///
+		/// This should never happen in a correctly configured chain (it indicates e.g. a
+		/// `BondingDuration` of zero in vesting mode, or an unexpected transfer failure).
+		ValidatorIncentiveDropped { era: EraIndex, stash: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -1697,6 +1753,12 @@ pub mod pallet {
 					ErasValidatorIncentiveBudget::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
 					ErasSumWeightedPoints::<T>::remove(era);
+					// Remove the vesting epoch start for this bonding period once its last era is
+					// pruned (so earlier eras of the same period can still query the start block).
+					let bd = T::BondingDuration::get();
+					if bd != 0 && (era.saturating_add(1)).is_multiple_of(bd) {
+						VestingEpochStartBlocks::<T>::remove(era / bd);
+					}
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},

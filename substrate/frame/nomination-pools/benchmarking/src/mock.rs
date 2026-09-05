@@ -21,7 +21,7 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstBool, Nothing, VariantCountOf},
+	traits::{ConstBool, ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
 use sp_runtime::{
@@ -88,6 +88,10 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type RcClientInterface = MockRcClient;
+	type VestingBondingPeriods = ConstU32<0>;
+	type BlocksPerSession = ConstU64<1>;
+	type VestingBlockNumberProvider = frame_system::Pallet<Self>;
+	type ValidatorIncentivePayout = pallet_staking_async::LiquidIncentivePayout<Balances>;
 }
 
 parameter_types! {
