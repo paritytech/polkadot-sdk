@@ -151,6 +151,9 @@ pub mod pallet {
 	use crate::WeightInfo;
 
 	/// Circuit breaker levels for emergency control.
+	///
+	/// Variants are declared from least to most restrictive. The derived ordering follows
+	/// declaration order, not codec index, and is relied upon by [`Pallet::set_asset_status`].
 	#[derive(
 		Encode,
 		Decode,
@@ -161,16 +164,21 @@ pub mod pallet {
 		Copy,
 		PartialEq,
 		Eq,
+		PartialOrd,
+		Ord,
 		Debug,
 		Default,
 	)]
 	pub enum CircuitBreakerLevel {
 		/// Normal operation, all swaps enabled.
 		#[default]
+		#[codec(index = 0)]
 		AllEnabled,
 		/// Minting disabled, redemptions still allowed.
+		#[codec(index = 1)]
 		MintingDisabled,
 		/// All swaps disabled.
+		#[codec(index = 2)]
 		AllDisabled,
 	}
 
@@ -211,7 +219,8 @@ pub mod pallet {
 		#[default]
 		Full,
 		/// Emergency access, held by the instance's `emergency_admin`.
-		/// Can modify circuit breaker status.
+		/// Can raise the circuit breaker status to a more restrictive level.
+		/// Lowering it requires `Full`.
 		Emergency,
 	}
 
@@ -222,9 +231,16 @@ pub mod pallet {
 		}
 
 		/// Whether this level allows modifying the circuit breaker status.
-		/// Both Full and Emergency levels can set circuit breaker.
+		/// Both Full and Emergency levels can set the circuit breaker, but Emergency
+		/// may only keep or raise it: see [`Self::can_lower_circuit_breaker`].
 		pub const fn can_set_circuit_breaker(&self) -> bool {
 			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
+		}
+
+		/// Whether this level allows lowering the circuit breaker to a less restrictive
+		/// level. Emergency may only keep or raise it.
+		pub const fn can_lower_circuit_breaker(&self) -> bool {
+			matches!(self, PsmManagerLevel::Full)
 		}
 
 		/// Whether this level allows modifying the PSM debt ceiling.
@@ -1189,8 +1205,9 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must match the PSM instance's `full_admin` or `emergency_admin`; either the
-		/// `Full` or `Emergency` privilege level may use this call.
+		/// Must match the PSM instance's `full_admin` or `emergency_admin`. The `Full` level
+		/// can set any status. The `Emergency` level may only keep or raise the status to a
+		/// more restrictive level, never lower it.
 		///
 		/// ## Parameters
 		///
@@ -1201,6 +1218,8 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::AssetNotApproved`]: If `external_asset` is not approved on `internal_asset`.
+		/// - [`Error::InsufficientPrivilege`]: If an `Emergency` caller tries to lower the status
+		///   to a less restrictive level.
 		///
 		/// ## Events
 		///
@@ -1213,12 +1232,17 @@ pub mod pallet {
 			external_asset: T::AssetId,
 			status: CircuitBreakerLevel,
 		) -> DispatchResult {
-			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_circuit_breaker())?;
+			let level =
+				Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_set_circuit_breaker())?;
 			ExternalAssets::<T>::try_mutate(
 				&internal_asset,
 				&external_asset,
 				|maybe| -> DispatchResult {
 					let info = maybe.as_mut().ok_or(Error::<T>::AssetNotApproved)?;
+					ensure!(
+						status >= info.status || level.can_lower_circuit_breaker(),
+						Error::<T>::InsufficientPrivilege
+					);
 					info.status = status;
 					Ok(())
 				},
@@ -1676,7 +1700,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,
 			required: impl Fn(PsmManagerLevel) -> bool,
-		) -> DispatchResult {
+		) -> Result<PsmManagerLevel, DispatchError> {
 			let admin = PsmAdmin::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			let caller = <T as Config>::RuntimeOrigin::from(origin).into_caller();
 			let level = if caller == admin.full_admin {
@@ -1687,7 +1711,7 @@ pub mod pallet {
 				return Err(DispatchError::BadOrigin);
 			};
 			ensure!(required(level), Error::<T>::InsufficientPrivilege);
-			Ok(())
+			Ok(level)
 		}
 
 		#[cfg(any(feature = "try-runtime", test))]
