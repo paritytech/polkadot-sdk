@@ -270,6 +270,11 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
 
+	/// Options for the embedded Ethereum JSON-RPC endpoint.
+	#[cfg(feature = "experimental-eth-rpc-in-node")]
+	#[command(flatten)]
+	pub eth_rpc: crate::common::eth_rpc::EthRpcParams,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -326,6 +331,8 @@ impl<Config: CliConfig> Cli<Config> {
 			storage_monitor: self.storage_monitor.clone(),
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
+			#[cfg(feature = "experimental-eth-rpc-in-node")]
+			eth_rpc: self.eth_rpc.clone(),
 		}
 	}
 

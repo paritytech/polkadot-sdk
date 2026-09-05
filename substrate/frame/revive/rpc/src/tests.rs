@@ -24,7 +24,7 @@ use crate::{
 	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
-		Client, GapFillRequest, SubscriptionGapQueue, connect,
+		Client, GapFillRequest, SubscriptionGapQueue, connect, connect_with,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
 	},
 	example::TransactionBuilder,
@@ -2187,7 +2187,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 	let node_url = SharedResources::node_rpc_url();
 	let max_request_size = RPC_DEFAULT_MAX_REQUEST_SIZE_MB * 1024 * 1024;
 	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
-	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
+	let rpc_client = connect(node_url, max_request_size, max_response_size).await?;
+	let (api, rpc) = connect_with(rpc_client.clone()).await?;
 	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
 	let pool = SqlitePoolOptions::new()

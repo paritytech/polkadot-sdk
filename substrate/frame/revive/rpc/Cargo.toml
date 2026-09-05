@@ -80,6 +80,25 @@ sp-io = { workspace = true, default-features = true }
 subxt-rpcs = { workspace = true, features = ["mock-rpc-client"] }
 tempfile = { workspace = true }
 
+[features]
+# Serving the ETH RPC from inside another node's process, rather than as this crate's standalone
+# `eth-rpc` binary. Off by default: the in-process transport is still being redesigned and its
+# shape may change before it's ready for general use.
+experimental-eth-rpc-in-node = []
+runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
+	"revive-dev-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-system/try-runtime",
+	"pallet-revive/try-runtime",
+	"revive-dev-runtime/try-runtime",
+	"sp-runtime/try-runtime",
+]
+
 [build-dependencies]
 git2 = { workspace = true }
 revive-dev-runtime = { workspace = true, default-features = true }

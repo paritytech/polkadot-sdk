@@ -22,7 +22,19 @@ futures = { features = ["thread-pool"], workspace = true }
 futures-timer = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
 
-polkadot-sdk = { workspace = true, features = ["experimental", "node"] }
+polkadot-sdk = { workspace = true, features = [
+	"experimental",
+	"node",
+	"pallet-timestamp",
+	"sp-api",
+	"sp-block-builder",
+	"sp-core",
+	"sp-genesis-builder",
+	"sp-io",
+	"sp-runtime",
+	"sp-timestamp",
+	"sp-virtualization",
+] }
 revive-dev-runtime = { workspace = true }
 
 [build-dependencies]

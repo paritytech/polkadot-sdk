@@ -16,62 +16,20 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
-	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
-	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	client::{
-		Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect,
-		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
-	},
+	LOG_TARGET,
+	client::{Client, SubscriptionGapQueue, connect},
+	service::{build_client, rpc_module, spawn_indexing_tasks},
 };
 use clap::{CommandFactory, FromArgMatches, Parser};
-use futures::{FutureExt, future::BoxFuture, pin_mut};
-use jsonrpsee::server::RpcModule;
+use futures::{FutureExt, pin_mut};
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	TaskManager,
 	config::{BasePath, PrometheusConfig, RpcConfiguration},
 	create_rpc_runtime, start_rpc_servers,
 };
-use sqlx::{
-	SqlitePool,
-	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
-};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use std::path::PathBuf;
-
-/// Query the maximum number of bound parameters SQLite allows per query
-async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
-	let limit = async {
-		let mut conn = pool
-			.acquire()
-			.await
-			.inspect_err(|e| log::warn!(target: LOG_TARGET, "💾 Failed to acquire connection: {e}"))
-			.ok()?;
-		let mut handle = conn
-			.lock_handle()
-			.await
-			.inspect_err(|e| log::warn!(target: LOG_TARGET, "💾 Failed to lock handle: {e}"))
-			.ok()?;
-		// SAFETY: `lock_handle` guarantees the raw pointer is valid for
-		// the lifetime of the guard, and passing -1 only queries the limit.
-		let raw = unsafe {
-			libsqlite3_sys::sqlite3_limit(
-				handle.as_raw_handle().as_ptr(),
-				libsqlite3_sys::SQLITE_LIMIT_VARIABLE_NUMBER,
-				-1,
-			)
-		};
-		raw.try_into().ok()
-	}
-	.await;
-
-	let default = DbContext::DEFAULT_MAX_VARIABLE_NUMBER;
-	limit.inspect(|n| log::info!(target: LOG_TARGET, "💾 SQLite db_query_max_variable_number: {n}"))
-		.unwrap_or_else(|| {
-			log::warn!(target: LOG_TARGET, "💾 Failed to query SQLite variable limit, falling back to {default}");
-			default
-		})
-}
 
 /// Specifies the eth-rpc pruning mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -232,7 +190,7 @@ fn resolve_db_dir(base_path: Option<BasePath>) -> PathBuf {
 }
 
 /// Resolve SQLite connection options from CLI arguments.
-fn resolve_db_options(
+pub(crate) fn resolve_db_options(
 	eth_pruning: EthPruningMode,
 	base_path: Option<BasePath>,
 ) -> anyhow::Result<SqliteConnectOptions> {
@@ -254,7 +212,7 @@ fn resolve_db_options(
 	}
 }
 
-fn build_client(
+fn connect_and_build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	eth_pruning: EthPruningMode,
 	node_rpc_url: &str,
@@ -265,54 +223,9 @@ fn build_client(
 	subscription_gap_queue: SubscriptionGapQueue,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc) =
-			connect(node_rpc_url, max_request_size, max_response_size).await?;
-		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
-
-		let (pool, keep_latest_n_blocks) = match eth_pruning {
-			EthPruningMode::Archive => {
-				(SqlitePoolOptions::new().connect_with(db_options).await?, None)
-			},
-			EthPruningMode::KeepLatest(max_blocks) => {
-				log::info!(target: LOG_TARGET,
-					"💾 Using in-memory database, keeping only {max_blocks} blocks");
-				// see sqlite in-memory issue: https://github.com/transact-rs/sqlx/issues/2510
-				let pool = SqlitePoolOptions::new()
-					.max_connections(1)
-					.idle_timeout(None)
-					.max_lifetime(None)
-					.connect_with(db_options)
-					.await?;
-				(pool, Some(max_blocks))
-			},
-		};
-
-		let runtime_api_provider =
-			VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
-		let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
-		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
-		let db_ctx = DbContext::new(pool, max_variable_number);
-
-		let receipt_provider = ReceiptProvider::new(
-			db_ctx,
-			block_provider.clone(),
-			receipt_extractor.clone(),
-			keep_latest_n_blocks,
-		)
-		.await?;
-
-		let client = Client::new(
-			api,
-			rpc_client,
-			rpc,
-			block_provider,
-			receipt_provider,
-			eth_pruning.is_archive(),
-			subscription_gap_queue,
-			runtime_api_provider,
-		)
-		.await?;
-
+		let rpc_client = connect(node_rpc_url, max_request_size, max_response_size).await?;
+		let client =
+			build_client(rpc_client, eth_pruning, db_options, subscription_gap_queue).await?;
 		Ok(client)
 	}
 	.fuse();
@@ -385,7 +298,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
 
 	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
-	let client = build_client(
+	let client = connect_and_build_client(
 		tokio_handle,
 		eth_pruning,
 		&node_rpc_url,
@@ -418,69 +331,12 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		None,
 	)?;
 
-	task_manager
-		.spawn_essential_handle()
-		.spawn("block-subscription", None, async move {
-			let mut futures: Vec<BoxFuture<'_, Result<(), _>>> = vec![
-				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks)),
-				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
-			];
-
-			if eth_pruning.is_archive() {
-				futures.push(Box::pin(client.sync_backward()));
-			}
-
-			// Backfill gaps caused by subscription reconnects.
-			futures.push(Box::pin(async {
-				client.run_subscription_gap_filler(gap_fill_rx).await;
-				Ok::<_, ClientError>(())
-			}));
-
-			if let Err(err) = futures::future::try_join_all(futures).await {
-				panic!("Block subscription task failed: {err:?}",)
-			}
-		});
+	spawn_indexing_tasks(&task_manager.spawn_essential_handle(), client, eth_pruning, gap_fill_rx);
 
 	task_manager.keep_alive(rpc_server_handle);
 	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))?;
 	Ok(())
-}
-
-/// Create the JSON-RPC module.
-fn rpc_module(
-	is_dev: bool,
-	client: Client,
-	allow_unprotected_txs: bool,
-) -> Result<RpcModule<()>, sc_service::Error> {
-	let eth_api = EthRpcServerImpl::new(client.clone())
-		.with_accounts(if is_dev {
-			vec![
-				crate::Account::from(subxt_signer::eth::dev::alith()),
-				crate::Account::from(subxt_signer::eth::dev::baltathar()),
-				crate::Account::from(subxt_signer::eth::dev::charleth()),
-				crate::Account::from(subxt_signer::eth::dev::dorothy()),
-				crate::Account::from(subxt_signer::eth::dev::ethan()),
-			]
-		} else {
-			vec![]
-		})
-		.with_allow_unprotected_txs(allow_unprotected_txs)
-		.with_use_pending_for_estimate_gas(is_dev)
-		.into_rpc();
-
-	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
-	let debug_api = DebugRpcServerImpl::new(client.clone()).into_rpc();
-	let polkadot_api = PolkadotRpcServerImpl::new(client).into_rpc();
-
-	let mut module = RpcModule::new(());
-	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
-	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
-	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
-	module
-		.merge(polkadot_api)
-		.map_err(|e| sc_service::Error::Application(e.into()))?;
-	Ok(module)
 }
 
 #[cfg(test)]

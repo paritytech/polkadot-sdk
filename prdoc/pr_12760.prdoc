@@ -1,0 +1,38 @@
+title: '[pallet-revive] Serve the ETH RPC from inside the node'
+
+doc:
+- audience: Node Operator
+  description: |-
+    A `polkadot-omni-node` built with the new `experimental-eth-rpc-in-node` compile-time
+    feature serves the Ethereum JSON-RPC server itself on `--eth-rpc-port` (8545 by
+    default), instead of running a separate `eth-rpc` process over a loopback WebSocket.
+    Experimental: the in-process transport between the embedded server and the node (how
+    it dispatches JSON-RPC calls into the node without a socket) is still being reworked
+    and may change.
+
+- audience: Node Dev
+  description: |-
+    `pallet-revive-eth-rpc` gains `in_process::InProcessRpcClient`, a `subxt` `RpcClientT`
+    that dispatches into a node's in-memory `RpcModule` instead of a socket, and
+    `service::start_embedded`, which builds the ETH RPC client on it and spawns the
+    server on an existing `TaskManager`. Both are gated behind the crate's own
+    `experimental-eth-rpc-in-node` feature, off by default, which `polkadot-omni-node-lib`
+    forwards under the same feature name.
+
+    `polkadot-omni-node-lib` now optionally depends on `pallet-revive-eth-rpc`, which
+    build-depends on `revive-dev-runtime` for its subxt metadata. That's cyclic through
+    the umbrella crate (which re-exports `polkadot-omni-node-lib`), so `revive-dev-runtime`
+    now depends on individual `polkadot-sdk` crates instead of the umbrella one, and gains
+    `try-runtime`/`runtime-benchmarks` features so it still builds with `--all-features`.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-omni-node
+  bump: patch
+- name: revive-dev-runtime
+  bump: minor
+- name: revive-dev-node
+  bump: patch

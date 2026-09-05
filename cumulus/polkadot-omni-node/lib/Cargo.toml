@@ -40,6 +40,7 @@ frame-benchmarking-cli = { workspace = true, default-features = true }
 frame-support = { optional = true, workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
+pallet-revive-eth-rpc = { optional = true, workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
@@ -94,6 +95,7 @@ sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
 substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
+tokio = { optional = true, features = ["rt-multi-thread"], workspace = true }
 
 # Polkadot
 polkadot-cli = { workspace = true, default-features = true, features = [
@@ -126,6 +128,11 @@ wait-timeout = { workspace = true }
 
 [features]
 default = []
+experimental-eth-rpc-in-node = [
+	"dep:pallet-revive-eth-rpc",
+	"dep:tokio",
+	"pallet-revive-eth-rpc?/experimental-eth-rpc-in-node",
+]
 rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = [
@@ -133,6 +140,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"pallet-revive-eth-rpc?/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -143,6 +151,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-revive-eth-rpc?/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",

@@ -1070,6 +1070,7 @@ pallet-referenda = { path = "substrate/frame/referenda", default-features = fals
 pallet-registrar-para = { path = "substrate/frame/registrar/para", default-features = false }
 pallet-registrar-relay = { path = "substrate/frame/registrar/relay", default-features = false }
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
+pallet-revive-eth-rpc = { path = "substrate/frame/revive/rpc", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
 pallet-revive-types = { path = "substrate/frame/revive/types", default-features = false }

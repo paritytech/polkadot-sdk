@@ -226,6 +226,8 @@ where
 			ref storage_monitor,
 			ref hop,
 			collator_reserved_slots: _,
+			#[cfg(feature = "experimental-eth-rpc-in-node")]
+			ref eth_rpc,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -461,6 +463,9 @@ where
 
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
+		#[cfg(feature = "experimental-eth-rpc-in-node")]
+		let eth_rpc = crate::common::eth_rpc::embedded_config(eth_rpc, &config);
+
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
 			client,
@@ -475,6 +480,15 @@ where
 			config,
 			telemetry: telemetry.as_mut(),
 			tracing_execute_block: None,
+		})?;
+
+		#[cfg(feature = "experimental-eth-rpc-in-node")]
+		tokio::task::block_in_place(|| {
+			futures::executor::block_on(crate::common::eth_rpc::start(
+				eth_rpc,
+				&_rpc_handlers,
+				&mut task_manager,
+			))
 		})?;
 
 		// Spawn the storage monitor.

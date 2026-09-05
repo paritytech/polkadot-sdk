@@ -17381,6 +17381,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "nix 0.29.0",
+ "pallet-revive-eth-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -20224,11 +20225,29 @@ name = "revive-dev-runtime"
 version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-revive",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parachains-common",
  "parity-scale-codec",
- "polkadot-sdk",
+ "polkadot-primitives",
+ "polkadot-sdk-frame",
  "scale-info",
  "serde_json",
  "sp-debug-derive 14.0.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-io 30.0.0",
+ "sp-keyring",
+ "sp-metadata-ir 0.6.0",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
