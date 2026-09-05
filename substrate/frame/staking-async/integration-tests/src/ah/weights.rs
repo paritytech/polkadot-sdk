@@ -96,6 +96,9 @@ impl pallet_election_provider_multi_block_signed::WeightInfo for MultiBlockElect
 	fn unset_page() -> Weight {
 		unreachable!()
 	}
+	fn claim_unpaid_reward() -> Weight {
+		unreachable!()
+	}
 }
 
 impl pallet_election_provider_multi_block_unsigned::WeightInfo for MultiBlockElectionWeightInfo {

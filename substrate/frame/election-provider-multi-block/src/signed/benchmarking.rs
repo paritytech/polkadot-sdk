@@ -16,17 +16,20 @@
 // limitations under the License.
 
 use crate::{
-	signed::{Config, Invulnerables, Pallet, Submissions},
+	signed::{Config, Invulnerables, Pallet, RewardSource, Submissions, MAX_UNPAID_REWARDS},
 	types::PagedRawSolution,
 	unsigned::miner::OffchainWorkerMiner,
 	CurrentPhase, Phase, Round,
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::ElectionProvider;
-use frame_support::pallet_prelude::*;
+use frame_support::{
+	pallet_prelude::*,
+	traits::fungible::{Inspect, Mutate},
+};
 use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::traits::One;
+use sp_runtime::traits::{One, Saturating};
 use sp_std::boxed::Box;
 
 #[benchmarks(where T: crate::Config + crate::verifier::Config + crate::unsigned::Config)]
@@ -198,6 +201,52 @@ mod benchmarks {
 			Pallet::<T>::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)?;
 		}
 
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn claim_unpaid_reward() -> Result<(), BenchmarkError> {
+		// Worst case: UnpaidRewards is full, and the claimed entry is the last one scanned.
+		for i in 0..MAX_UNPAID_REWARDS {
+			let who = crate::Pallet::<T>::funded_account("filler", i);
+			let entry = crate::signed::UnpaidReward::<T> {
+				round: i,
+				who,
+				amount: <T as Config>::RewardBase::get(),
+			};
+			crate::signed::UnpaidRewards::<T>::try_mutate(|unpaid| unpaid.try_push(entry))
+				.map_err(|_| BenchmarkError::Stop("UnpaidRewards is full"))?;
+		}
+		let target_round = MAX_UNPAID_REWARDS - 1;
+
+		// The claim pays out of `RewardSource`, so it must be able to cover one entry and still
+		// hold ED afterwards, as the payout uses `Preservation::Preserve`. A `None` source mints
+		// and needs no funding.
+		let source_and_balance_before = if let Some(source) = T::RewardSource::account() {
+			let funds =
+				<T as Config>::RewardBase::get().saturating_add(T::Currency::minimum_balance());
+			T::Currency::mint_into(&source, funds)?;
+			Some((source.clone(), T::Currency::balance(&source)))
+		} else {
+			None
+		};
+
+		let caller = crate::Pallet::<T>::funded_account("caller", 0);
+
+		#[block]
+		{
+			Pallet::<T>::claim_unpaid_reward(RawOrigin::Signed(caller).into(), target_round)?;
+		}
+
+		assert_eq!(crate::signed::UnpaidRewards::<T>::get().len(), MAX_UNPAID_REWARDS as usize - 1);
+		// Guard against silently measuring the mint fallback instead of the real transfer: if a
+		// pot is configured, its balance must have dropped by the claimed amount.
+		if let Some((source, balance_before)) = source_and_balance_before {
+			assert!(
+				T::Currency::balance(&source) < balance_before,
+				"claim must have transferred out of the configured RewardSource pot"
+			);
+		}
 		Ok(())
 	}
 
