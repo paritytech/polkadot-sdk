@@ -235,6 +235,10 @@ macro_rules! impl_node_runtime_apis {
 				) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
 					unimplemented!()
 				}
+
+				fn runtime_block_limits() -> frame_benchmarking::RuntimeBlockLimits {
+					unimplemented!()
+				}
 			}
 
 			impl sp_genesis_builder::GenesisBuilder<$block> for $runtime {

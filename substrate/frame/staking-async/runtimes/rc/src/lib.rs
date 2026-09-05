@@ -2737,6 +2737,16 @@ sp_api::impl_runtime_apis! {
 			return (list, storage_info)
 		}
 
+		fn runtime_block_limits() -> frame_benchmarking::RuntimeBlockLimits {
+			use frame_support::dispatch::DispatchClass;
+			let max_extrinsic_weight = BlockWeights::get()
+				.per_class
+				.get(DispatchClass::Normal)
+				.max_extrinsic;
+			let db_weight = <Self as frame_system::Config>::DbWeight::get();
+			frame_benchmarking::RuntimeBlockLimits::new(max_extrinsic_weight, db_weight)
+		}
+
 		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig,
