@@ -379,6 +379,13 @@ pub trait RuntimeApiSubsystemClient {
 		session_index: SessionIndex,
 		relay_parent: Hash,
 	) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, ApiError>;
+
+	// == v17 ==
+	/// Fetch the executor parameters that will be in effect at the next session.
+	async fn session_executor_params_for_next_session(
+		&self,
+		at: Hash,
+	) -> Result<Option<ExecutorParams>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -697,6 +704,13 @@ where
 		self.client
 			.runtime_api()
 			.ancestor_relay_parent_info(at, session_index, relay_parent)
+	}
+
+	async fn session_executor_params_for_next_session(
+		&self,
+		at: Hash,
+	) -> Result<Option<ExecutorParams>, ApiError> {
+		self.client.runtime_api().session_executor_params_for_next_session(at)
 	}
 }
 

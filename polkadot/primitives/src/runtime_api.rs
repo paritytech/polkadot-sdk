@@ -343,5 +343,20 @@ sp_api::decl_runtime_apis! {
 			session_index: SessionIndex,
 			relay_parent: Hash,
 		) -> Option<RelayParentInfo<Hash, BlockNumber>>;
+
+		/***** Added in v17 *****/
+
+		/// Returns the executor parameters that will be in effect at the next session.
+		///
+		/// Reads `PendingConfigs` and returns the `executor_params` of the entry
+		/// scheduled to apply at `current_session + 1`, falling back to
+		/// `ActiveConfig.executor_params` when no such pending entry exists.
+		///
+		/// Used by the candidate-validation subsystem to precompile PVFs with the
+		/// parameters that will actually be in force when the node becomes a
+		/// validator next session, avoiding wasted preparation work when governance
+		/// has scheduled an executor parameter change.
+		#[api_version(17)]
+		fn session_executor_params_for_next_session() -> Option<ExecutorParams>;
 	}
 }

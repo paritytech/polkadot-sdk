@@ -84,6 +84,7 @@ pub(crate) struct RequestResultCache {
 	max_relay_parent_session_age: LruMap<SessionIndex, u32>,
 	ancestor_relay_parent_info:
 		LruMap<(Hash, SessionIndex, Hash), Option<RelayParentInfo<Hash, BlockNumber>>>,
+	session_executor_params_for_next_session: LruMap<Hash, Option<ExecutorParams>>,
 }
 
 impl Default for RequestResultCache {
@@ -128,6 +129,7 @@ impl Default for RequestResultCache {
 			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			max_relay_parent_session_age: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			ancestor_relay_parent_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			session_executor_params_for_next_session: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -677,6 +679,21 @@ impl RequestResultCache {
 		self.ancestor_relay_parent_info
 			.insert((relay_parent, session_index, queried_relay_parent), value);
 	}
+
+	pub(crate) fn session_executor_params_for_next_session(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&Option<ExecutorParams>> {
+		self.session_executor_params_for_next_session.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_session_executor_params_for_next_session(
+		&mut self,
+		relay_parent: Hash,
+		value: Option<ExecutorParams>,
+	) {
+		self.session_executor_params_for_next_session.insert(relay_parent, value);
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -734,6 +751,7 @@ pub(crate) enum RequestResult {
 	MaxRelayParentSessionAge(SessionIndex, u32),
 	AncestorRelayParentInfo(Hash, SessionIndex, Hash, Option<RelayParentInfo<Hash, BlockNumber>>),
 	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
+	SessionExecutorParamsForNextSession(Hash, Option<ExecutorParams>),
 }
 
 #[cfg(test)]
