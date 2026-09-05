@@ -28,7 +28,7 @@ use jsonrpsee::{
 use pallet_revive::evm::*;
 use pallet_revive_types::runtime_api::{
 	BlockV1, ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1,
-	TraceV1, TracerTypeV1, TransactionInfoV1,
+	SyntheticTransactionV1, TraceV1, TracerTypeV1, TransactionInfoV1,
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;

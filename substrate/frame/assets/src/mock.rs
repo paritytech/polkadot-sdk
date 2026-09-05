@@ -20,7 +20,7 @@
 use super::*;
 use crate as pallet_assets;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32},
@@ -41,6 +41,7 @@ construct_runtime!(
 
 type AccountId = u64;
 type AssetId = u32;
+type Balance = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -55,7 +56,7 @@ impl pallet_balances::Config for Test {
 }
 
 pub struct AssetsCallbackHandle;
-impl AssetsCallback<AssetId, AccountId> for AssetsCallbackHandle {
+impl AssetsCallback<AssetId, AccountId, Balance> for AssetsCallbackHandle {
 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
 		if Self::should_err() {
 			Err(())
@@ -73,13 +74,53 @@ impl AssetsCallback<AssetId, AccountId> for AssetsCallbackHandle {
 			Ok(())
 		}
 	}
+
+	fn issued(id: &AssetId, owner: &AccountId, amount: Balance) {
+		Self::record(Self::ISSUED, (id, owner, amount).encode());
+	}
+
+	fn transferred(id: &AssetId, from: &AccountId, to: &AccountId, amount: Balance) {
+		Self::record(Self::TRANSFERRED, (id, from, to, amount).encode());
+	}
+
+	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
+		Self::record(Self::BURNED, (id, owner, amount).encode());
+	}
+
+	fn deposited(id: &AssetId, who: &AccountId, amount: Balance) {
+		Self::record(Self::DEPOSITED, (id, who, amount).encode());
+	}
+
+	fn withdrawn(id: &AssetId, who: &AccountId, amount: Balance) {
+		Self::record(Self::WITHDRAWN, (id, who, amount).encode());
+	}
 }
 
 impl AssetsCallbackHandle {
 	pub const CREATED: &'static str = "asset_created";
 	pub const DESTROYED: &'static str = "asset_destroyed";
+	pub const ISSUED: &'static str = "asset_issued";
+	pub const TRANSFERRED: &'static str = "asset_transferred";
+	pub const BURNED: &'static str = "asset_burned";
+	pub const DEPOSITED: &'static str = "asset_deposited";
+	pub const WITHDRAWN: &'static str = "asset_withdrawn";
 
 	const RETURN_ERROR: &'static str = "return_error";
+
+	// Append one balance-change callback invocation. Recording every call (rather than
+	// overwriting) lets tests assert the exact fire count, catching a double-fire.
+	fn record(key: &str, payload: Vec<u8>) {
+		let mut calls = Self::calls(key);
+		calls.push(payload);
+		storage::set(key.as_bytes(), &calls.encode());
+	}
+
+	// The recorded invocations for `key`, oldest first (empty if the callback never fired).
+	pub fn calls(key: &str) -> Vec<Vec<u8>> {
+		storage::get(key.as_bytes())
+			.and_then(|b| Decode::decode(&mut &b[..]).ok())
+			.unwrap_or_default()
+	}
 
 	// Configures `Self` to return `Ok` when callbacks are invoked
 	pub fn set_return_ok() {

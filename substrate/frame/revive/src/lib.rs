@@ -105,7 +105,10 @@ pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
-	evm::{Address as EthAddress, Block as EthBlock, block_hash::ReceiptGasInfo},
+	evm::{
+		Address as EthAddress, Block as EthBlock,
+		block_hash::{ReceiptGasInfo, SyntheticTransactionInfo},
+	},
 	exec::{
 		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
 		ReentrancyProtection,
@@ -141,6 +144,11 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 type CallOf<T> = <T as Config>::RuntimeCall;
+
+/// Topics of a contract log, bounded to the limit the `LOG` opcode enforces.
+pub type ContractLogTopics = BoundedVec<H256, ConstU32<{ limits::NUM_EVENT_TOPICS }>>;
+/// Data payload of a contract log, bounded to the limit the `LOG` opcode enforces.
+pub type ContractLogData = BoundedVec<u8, ConstU32<{ limits::EVENT_BYTES }>>;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -397,6 +405,15 @@ pub mod pallet {
 		#[pallet::constant]
 		#[pallet::no_default_bounds]
 		type GasScale: Get<u32>;
+
+		/// Maximum number of logs that may be buffered outside any ethereum transaction within a
+		/// single block (see [`OutsideFrameLogs`]).
+		///
+		/// Each log's drain is charged where it is emitted, so this bounds the buffer's size, not
+		/// its cost. Zero disables the buffer; a log arriving past a non-zero cap is likewise not
+		/// buffered, so the block's bloom omits it while its `ContractEmitted` still stands.
+		#[pallet::constant]
+		type MaxOutsideFrameLogs: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -483,6 +500,7 @@ pub mod pallet {
 			type AutoMap = ConstBool<false>;
 			type GasScale = GasScale;
 			type OnBurn = ();
+			type MaxOutsideFrameLogs = ConstU32<1024>;
 		}
 	}
 
@@ -790,6 +808,15 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
 
+	/// What the block committed to its synthetic transaction, if it has one.
+	///
+	/// Separate from [`ReceiptInfoData`] rather than a field alongside it, so that item's encoding
+	/// is unchanged: a runtime upgrade enacts mid-block, and a runtime API call at the enacting
+	/// block reads what the previous runtime wrote.
+	#[pallet::storage]
+	pub(crate) type SyntheticReceiptInfo<T: Config> =
+		StorageValue<_, SyntheticTransactionInfo, OptionQuery>;
+
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
 	#[pallet::unbounded]
@@ -804,6 +831,24 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
 		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
+
+	/// Logs emitted during the block outside of any ethereum transaction (e.g. by pallet-assets
+	/// balance-change callbacks on non-`eth_transact` paths), keyed by emission order.
+	///
+	/// Each log is written as its own entry so buffering a log is a single bounded write rather
+	/// than a read-modify-write of a growing accumulator. Drained in emission order in
+	/// `on_finalize` and flushed as a single synthetic transaction receipt, so the logs enter the
+	/// block's `logs_bloom`, `receipts_root` and transaction trie.
+	///
+	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type OutsideFrameLogs<T: Config> =
+		StorageMap<_, Twox64Concat, u32, (H160, Vec<H256>, Vec<u8>), OptionQuery>;
+
+	/// Number of logs buffered in [`OutsideFrameLogs`] this block; also the next emission index.
+	#[pallet::storage]
+	pub(crate) type OutsideFrameLogCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
@@ -969,7 +1014,10 @@ pub mod pallet {
 
 			// Warm up the pallet account.
 			System::<T>::account_exists(&Pallet::<T>::account_id());
-			// Account for the fixed part of the costs incurred in `on_finalize`.
+			// Only the fixed part of `on_finalize`. Everything that scales with what the block
+			// actually did is charged as it happens: per transaction and per event through the gas
+			// meter, per outside-of-frame log — plus the one synthetic transaction those logs are
+			// flushed as — at the emit site.
 			<T as Config>::WeightInfo::on_finalize_block_fixed()
 		}
 
@@ -2465,6 +2513,11 @@ impl<T: Config> Pallet<T> {
 		ReceiptInfoData::<T>::get()
 	}
 
+	/// What the block committed to its synthetic transaction, if it has one.
+	pub fn eth_synthetic_transaction() -> Option<SyntheticTransactionInfo> {
+		SyntheticReceiptInfo::<T>::get()
+	}
+
 	/// Set the EVM balance of an account.
 	///
 	/// The account's total balance becomes the EVM value plus the existential deposit,
@@ -2643,6 +2696,34 @@ impl<T: Config> Pallet<T> {
 				.into(),
 		);
 		Ok(maybe_value)
+	}
+
+	/// Emit an EVM log attributed to `contract` from outside any contract call frame: traced
+	/// via the outside-frame hook, captured into the current ethereum receipt — or the block's
+	/// synthetic receipt when outside an ethereum transaction — and deposited as
+	/// [`Event::ContractEmitted`]. For log-mirroring runtime components. Contract execution keeps
+	/// its own in-frame path (`Ext::deposit_event`), which differs only in the tracer hook it
+	/// calls.
+	///
+	/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
+	/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
+	pub fn emit_contract_log_outside_frame(
+		contract: H160,
+		topics: ContractLogTopics,
+		data: ContractLogData,
+	) {
+		if_tracing(|tracer| {
+			let log_index = frame_system::Pallet::<T>::event_count();
+			tracer.log_event_outside_frame(contract, &topics, &data, log_index);
+		});
+
+		evm::block_storage::capture_ethereum_log::<T>(&contract, &data, &topics);
+
+		Self::deposit_event(Event::ContractEmitted {
+			contract,
+			data: data.into_inner(),
+			topics: topics.into_inner(),
+		});
 	}
 
 	/// Convert a native balance to EVM balance.
@@ -2927,7 +3008,10 @@ sp_api::decl_runtime_apis! {
 		///
 		/// # Note
 		///
-		/// Each entry corresponds to the appropriate Ethereum transaction in the current block.
+		/// Each entry corresponds to the appropriate Ethereum transaction in the current block. A
+		/// block may also carry a synthetic transaction for the logs emitted outside any ethereum
+		/// transaction; it has no entry here, and only `eth_receipt_data_versioned` at version 2
+		/// or above reports it.
 		#[deprecated(note = "Use the versioned equivalent `eth_receipt_data_versioned` if available on your runtime")]
 		fn eth_receipt_data() -> Vec<ReceiptGasInfoV1>;
 
@@ -3662,7 +3746,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					ReviveRuntimeApiVersionDeclarations::new()
 						.insert("eth_block_versioned", 1)
 						.insert("eth_block_hash_versioned", 1)
-						.insert("eth_receipt_data_versioned", 1)
+						.insert("eth_receipt_data_versioned", 2)
 						.insert("block_gas_limit_versioned", 1)
 						.insert("max_extrinsic_weight_in_gas_versioned", 1)
 						.insert("balance_versioned", 1)
@@ -3745,10 +3829,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							ReceiptDataInputPayload::from(payload),
 							Box::new(|output| ReceiptDataVersionedOutputPayload::V1(output.into())),
 						),
+						ReceiptDataVersionedInputPayload::V2(payload) => (
+							ReceiptDataInputPayload::from(payload),
+							Box::new(|output| ReceiptDataVersionedOutputPayload::V2(output.into())),
+						),
 					};
 
 					let output = ReceiptDataOutputPayload {
-						receipt_data: $crate::Pallet::<Self>::eth_receipt_data()
+						receipt_data: $crate::Pallet::<Self>::eth_receipt_data(),
+						synthetic: $crate::Pallet::<Self>::eth_synthetic_transaction(),
 					};
 					output_wrapper(output)
 				}

@@ -27,7 +27,7 @@ use ethereum_standards::{
 	IERC20::{IERC20Calls, IERC20Events},
 };
 use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
-use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
+use pallet_assets::{weights::WeightInfo as _, AssetsCallback, Call, Config, TransferFlags};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -71,6 +71,8 @@ pub trait AssetIdExtractor {
 	type AssetId;
 	/// Extracts the asset id from the address.
 	fn asset_id_from_address(address: &[u8; 20]) -> Result<Self::AssetId, Error>;
+	/// The `u32` index `id` maps to, encoded into its precompile address; `None` if unmapped.
+	fn asset_index(id: &Self::AssetId) -> Option<u32>;
 }
 
 /// The configuration of a pallet-assets precompile.
@@ -91,6 +93,9 @@ impl AssetIdExtractor for InlineAssetIdExtractor {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
 		let index = u32::from_be_bytes(bytes);
 		Ok(index)
+	}
+	fn asset_index(id: &Self::AssetId) -> Option<u32> {
+		Some(*id)
 	}
 }
 
@@ -121,6 +126,9 @@ where
 		pallet::Pallet::<Runtime>::asset_id_of(index)
 			.ok_or(Error::Revert(Revert { reason: "Invalid foreign asset id".into() }))
 	}
+	fn asset_index(id: &Self::AssetId) -> Option<u32> {
+		pallet::Pallet::<Runtime>::asset_index_of(id)
+	}
 }
 
 /// A precompile configuration that uses a prefix [`AddressMatcher`].
@@ -140,6 +148,15 @@ where
 }
 
 /// An ERC20 precompile with EIP-2612 permit support.
+///
+/// # Wiring
+///
+/// This precompile does not emit the `Transfer` log for a balance-changing call.
+/// [`Erc20TransferLogsCallback`] produces it and must be wired as the instance's
+/// `pallet_assets::Config::CallbackHandle` for the token to be EIP-20 compliant, covering changes
+/// made through pallet-assets directly as well as through this precompile. A runtime that
+/// registers the precompile without it compiles and answers calls, but emits no `Transfer` log for
+/// any non-zero transfer. See [`Erc20TransferLogsCallback`] for the changes that have no mirror.
 pub struct ERC20<Runtime, PrecompileConfig, Instance = ()> {
 	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
 }
@@ -185,12 +202,14 @@ where
 			},
 
 			// ERC20 functions
-			IERC20Calls::transfer(call) => Self::transfer(asset_id, call, env),
+			IERC20Calls::transfer(call) => Self::transfer(asset_id, contract_addr, call, env),
 			IERC20Calls::totalSupply(_) => Self::total_supply(asset_id, env),
 			IERC20Calls::balanceOf(call) => Self::balance_of(asset_id, call, env),
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
-			IERC20Calls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+			IERC20Calls::transferFrom(call) => {
+				Self::transfer_from(asset_id, contract_addr, call, env)
+			},
 
 			// ERC20Permit functions (EIP-2612)
 			IERC20Calls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
@@ -205,6 +224,156 @@ where
 			IERC20Calls::decimals(_) => Self::decimals(asset_id, env),
 		}
 	}
+}
+
+/// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change it is
+/// notified of, at the asset's [`ERC20`] precompile address.
+///
+/// A same-account hold is not a balance change here: [`ERC20::balance_of`] reports
+/// `fungibles::Inspect::total_balance`, so a hold or release moves balance between the free and
+/// held portions of one account without moving `balanceOf`, and needs no log. The hold paths that
+/// move value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — have no
+/// mirror yet: they run through pallet-assets' `Unbalanced` impl, which fires no callback, so they
+/// move `balanceOf` with no `Transfer` log. No runtime drives them on a `fungibles` holder today.
+///
+/// Asset destruction has no mirror either: ERC-20 has no equivalent concept, and firing a burn log
+/// per holder would emit an unbounded number of events for one destruction. Consumers must treat
+/// the token as dead once the asset is destroyed and drop any log-derived balances, since for an
+/// inline id later reused by `force_create` the address would otherwise inherit them.
+pub struct Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance = ()> {
+	_phantom: PhantomData<(Runtime, PrecompileConfig, Instance)>,
+}
+
+impl<Runtime, PrecompileConfig, Instance>
+	AssetsCallback<
+		<Runtime as Config<Instance>>::AssetId,
+		<Runtime as frame_system::Config>::AccountId,
+		<Runtime as Config<Instance>>::Balance,
+	> for Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance>
+where
+	PrecompileConfig: AssetPrecompileConfig,
+	Runtime: Config<Instance> + pallet_revive::Config,
+	<Runtime as Config<Instance>>::AssetId:
+		Clone + Into<<PrecompileConfig::AssetIdExtractor as AssetIdExtractor>::AssetId>,
+	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
+	Instance: 'static,
+{
+	fn issued(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		owner: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, alloy::primitives::Address::ZERO, Self::evm_address(owner), amount);
+	}
+
+	fn transferred(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		from: &<Runtime as frame_system::Config>::AccountId,
+		to: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, Self::evm_address(from), Self::evm_address(to), amount);
+	}
+
+	fn burned(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		owner: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, Self::evm_address(owner), alloy::primitives::Address::ZERO, amount);
+	}
+
+	fn deposited(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		who: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, alloy::primitives::Address::ZERO, Self::evm_address(who), amount);
+	}
+
+	fn withdrawn(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		who: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		Self::emit(id, Self::evm_address(who), alloy::primitives::Address::ZERO, amount);
+	}
+}
+
+impl<Runtime, PrecompileConfig, Instance>
+	Erc20TransferLogsCallback<Runtime, PrecompileConfig, Instance>
+where
+	PrecompileConfig: AssetPrecompileConfig,
+	Runtime: Config<Instance> + pallet_revive::Config,
+	<Runtime as Config<Instance>>::AssetId:
+		Clone + Into<<PrecompileConfig::AssetIdExtractor as AssetIdExtractor>::AssetId>,
+	alloy::primitives::U256: TryFrom<<Runtime as Config<Instance>>::Balance>,
+	Instance: 'static,
+{
+	/// The precompile/token address of `id`: the matcher's base address with the asset's index
+	/// inlined big-endian into the first four bytes (the inverse of `asset_id_from_address`).
+	fn token_address(id: &<Runtime as Config<Instance>>::AssetId) -> Option<H160> {
+		let index = PrecompileConfig::AssetIdExtractor::asset_index(&id.clone().into())?;
+		let mut address = PrecompileConfig::MATCHER.base_address();
+		address[..4].copy_from_slice(&index.to_be_bytes());
+		Some(H160(address))
+	}
+
+	fn evm_address(
+		account: &<Runtime as frame_system::Config>::AccountId,
+	) -> alloy::primitives::Address {
+		<Runtime as pallet_revive::Config>::AddressMapper::to_address(account).0.into()
+	}
+
+	fn emit(
+		id: &<Runtime as Config<Instance>>::AssetId,
+		from: alloy::primitives::Address,
+		to: alloy::primitives::Address,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) {
+		let Ok(value) = alloy::primitives::U256::try_from(amount) else {
+			frame_support::defensive!(
+				"asset balance exceeds U256; Transfer log dropped (unreachable for balance types up to 256 bit)",
+				(id, from, to, amount)
+			);
+			return;
+		};
+		let Some(token) = Self::token_address(id) else {
+			frame_support::defensive!(
+				"asset has no precompile address mapping; Transfer log dropped (unreachable unless a foreign asset predates its mapping migration)",
+				(id, from, to, amount)
+			);
+			return;
+		};
+		emit_transfer_log::<Runtime>(token, from, to, value);
+	}
+}
+
+/// Emit the canonical ERC-20 `Transfer` log for `token`.
+///
+/// The single place the log bytes are built, so the mirror and the precompile's own EIP-20
+/// zero-value log cannot drift apart.
+fn emit_transfer_log<Runtime: pallet_revive::Config>(
+	token: H160,
+	from: alloy::primitives::Address,
+	to: alloy::primitives::Address,
+	value: alloy::primitives::U256,
+) {
+	let (topics, data) = IERC20Events::Transfer(IERC20::Transfer { from, to, value })
+		.into_log_data()
+		.split();
+	let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
+	let (Ok(topics), Ok(data)) = (
+		pallet_revive::ContractLogTopics::try_from(topics),
+		pallet_revive::ContractLogData::try_from(data.to_vec()),
+	) else {
+		frame_support::defensive!(
+			"Transfer log exceeds the contract-log topic or data bound; log dropped (unreachable: 3 topics, 32 bytes)",
+			(token, from, to, value)
+		);
+		return;
+	};
+	pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(token, topics, data);
 }
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
@@ -259,36 +428,44 @@ where
 	}
 
 	/// Execute the transfer call.
+	///
+	/// Only the zero-value `Transfer` is emitted here; every other one comes from the instance's
+	/// `CallbackHandle` (see [`ERC20`]).
 	fn transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
+		contract_addr: H160,
 		call: &IERC20::transferCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		// `transfer()` is benchmarked with the mirror-log callback wired, so the mirrored log's
+		// cost is part of this charge — except the ethereum-context receipt capture, which a
+		// pallet benchmark never executes and which stays unmetered.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer())?;
 
 		let from = Self::caller(env)?;
+		let from_account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
 		let dest = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(
 			&call.to.into_array().into(),
 		);
+		let amount = Self::to_balance(call.value)?;
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 			asset_id,
-			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
+			&from_account,
 			&dest,
-			Self::to_balance(call.value)?,
+			amount,
 			None,
 			f,
 		)?;
 
-		Self::deposit_event(
-			env,
-			IERC20Events::Transfer(IERC20::Transfer {
-				from: from.0.into(),
-				to: call.to,
-				value: call.value,
-			}),
-		)?;
+		// A zero-value transfer is a no-op in `do_transfer` and fires no callback, but EIP-20
+		// requires it to still emit a `Transfer` log. Emitted here rather than through
+		// `CallbackHandle`, which is the whole callback tuple: reporting a balance change the
+		// pallet did not perform to every observer on the instance is not this precompile's to do.
+		if call.value.is_zero() {
+			emit_transfer_log::<Runtime>(contract_addr, from.0.into(), call.to, call.value);
+		}
 
 		Ok(IERC20::transferCall::abi_encode_returns(&true))
 	}
@@ -307,16 +484,23 @@ where
 	}
 
 	/// Execute the balance_of call.
+	///
+	/// Reports the free *and* held balance, so that moving funds between those two portions of the
+	/// same account — a `fungibles::MutateHold` hold or release, which emits no `Transfer` log —
+	/// does not move `balanceOf`.
 	fn balance_of(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		call: &IERC20::balanceOfCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		use frame_support::traits::fungibles::Inspect;
+
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::balance())?;
 		let account = call.account.into_array().into();
 		let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&account);
-		let value =
-			Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id, account))?;
+		let value = Self::to_u256(pallet_assets::Pallet::<Runtime, Instance>::total_balance(
+			asset_id, &account,
+		))?;
 		Ok(IERC20::balanceOfCall::abi_encode_returns(&value))
 	}
 
@@ -432,11 +616,17 @@ where
 	}
 
 	/// Execute the transfer_from call.
+	///
+	/// Only the zero-value `Transfer` is emitted here; every other one comes from the instance's
+	/// `CallbackHandle` (see [`ERC20`]).
 	fn transfer_from(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
+		contract_addr: H160,
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		// `transfer_approved()` accounts for the mirror-log callback; see `transfer` for the
+		// receipt-capture slice that stays unmetered.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
 		let spender = Self::caller(env)?;
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
@@ -456,14 +646,12 @@ where
 			approval_amount,
 		)?;
 
-		Self::deposit_event(
-			env,
-			IERC20Events::Transfer(IERC20::Transfer {
-				from: call.from,
-				to: call.to,
-				value: call.value,
-			}),
-		)?;
+		// A zero-value transfer is a no-op in `do_transfer_approved` and fires no callback, but
+		// EIP-20 requires it to still emit a `Transfer` log; see `transfer` for why this is emitted
+		// directly rather than through `CallbackHandle`.
+		if call.value.is_zero() {
+			emit_transfer_log::<Runtime>(contract_addr, call.from, call.to, call.value);
+		}
 
 		Ok(IERC20::transferFromCall::abi_encode_returns(&true))
 	}

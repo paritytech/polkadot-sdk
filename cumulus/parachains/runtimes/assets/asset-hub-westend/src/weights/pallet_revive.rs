@@ -1793,4 +1793,16 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
+	/// Placeholder — regenerate with `/cmd bench`. The per-`n` terms are the point of this entry:
+	/// they carry the cost and PoV of the `OutsideFrameLogs` take that drains one outside-of-frame
+	/// log in `on_finalize`.
+	fn outside_frame_log(n: u32, ) -> Weight {
+		Weight::from_parts(54_202_186, 0)
+			.saturating_add(Weight::from_parts(0, 5680))
+			.saturating_add(Weight::from_parts(50_000, 300).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+	}
 }

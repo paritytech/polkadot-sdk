@@ -158,6 +158,7 @@ snowbridge-runtime-common = { workspace = true }
 alloy-core = { workspace = true, features = ["sol-types"] }
 approx = { workspace = true }
 asset-test-utils = { workspace = true, default-features = true }
+ethereum-standards = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 remote-externalities = { workspace = true, default-features = true }
