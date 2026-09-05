@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["IVesting","benchmarking","pallet","weights"],"struct":["Pallet","Vesting"]};
+window.SIDEBAR_ITEMS = {"mod":["IVesting","benchmarking","pallet","weights"],"struct":["Pallet","Vesting"],"trait":["WeightInfo"]};
