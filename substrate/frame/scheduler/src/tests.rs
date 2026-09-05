@@ -3291,3 +3291,63 @@ fn not_permanently_overweight_when_task_from_not_first_agenda() {
 		assert_eq!(IncompleteSince::<Test>::get(), Some(System::block_number() + 1));
 	});
 }
+
+#[test]
+fn priority_reserve_gates_low_priority_when_agenda_full() {
+	new_test_ext().execute_with(|| {
+		use crate::RESERVED_PRIORITY_THRESHOLD;
+		let max = <<Test as Config>::MaxScheduledPerBlock as Get<u32>>::get();
+		let reserve = 3u32;
+		PriorityReserve::set(reserve);
+		let when = 10;
+
+		let bound = |i: u32| {
+			Preimage::bound(RuntimeCall::Logger(logger::Call::log {
+				i,
+				weight: Weight::from_parts(1, 0),
+			}))
+			.unwrap()
+		};
+
+		// Fill the non-reserved portion with low-priority tasks.
+		for i in 0..(max - reserve) {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(when),
+				None,
+				RESERVED_PRIORITY_THRESHOLD + 1,
+				root(),
+				bound(i),
+			));
+		}
+
+		// A further low-priority task is rejected: only reserved slots remain.
+		assert_noop!(
+			Scheduler::do_schedule(
+				DispatchTime::At(when),
+				None,
+				RESERVED_PRIORITY_THRESHOLD + 1,
+				root(),
+				bound(100)
+			),
+			DispatchError::Exhausted
+		);
+
+		// High-priority tasks may still occupy the reserved slots, up to the hard cap.
+		for i in 0..reserve {
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(when),
+				None,
+				RESERVED_PRIORITY_THRESHOLD,
+				root(),
+				bound(200 + i),
+			));
+		}
+		assert_eq!(Agenda::<Test>::get(when).iter().filter(|s| s.is_some()).count(), max as usize);
+
+		// Once completely full, even a high-priority task is rejected.
+		assert_noop!(
+			Scheduler::do_schedule(DispatchTime::At(when), None, 0, root(), bound(300)),
+			DispatchError::Exhausted
+		);
+	});
+}

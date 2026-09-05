@@ -247,6 +247,7 @@ pub mod pallet {
 							min_enactment_period: info.min_enactment_period,
 							min_approval: info.min_approval,
 							min_support: info.min_support,
+							alarm_priority: info.alarm_priority,
 						},
 					)
 				})
@@ -442,6 +443,9 @@ pub mod pallet {
 		PreimageNotExist,
 		/// The preimage is stored with a different length than the one provided.
 		PreimageStoredWithDifferentLength,
+		/// The scheduler could not accept the referendum's alarm because the relevant blocks'
+		/// agendas are full.
+		AlarmScheduleFailed,
 	}
 
 	#[pallet::hooks]
@@ -501,6 +505,12 @@ pub mod pallet {
 			let now = T::BlockNumberProvider::current_block_number();
 			let nudge_call =
 				T::Preimages::bound(CallOf::<T, I>::from(Call::nudge_referendum { index }))?;
+			let alarm = Self::set_alarm(
+				nudge_call,
+				now.saturating_add(T::UndecidingTimeout::get()),
+				Self::gated_alarm_priority(track, false),
+			)
+			.ok_or(Error::<T, I>::AlarmScheduleFailed)?;
 			let status = ReferendumStatus {
 				track,
 				origin: proposal_origin,
@@ -512,7 +522,7 @@ pub mod pallet {
 				deciding: None,
 				tally: TallyOf::<T, I>::new(track),
 				in_queue: false,
-				alarm: Self::set_alarm(nudge_call, now.saturating_add(T::UndecidingTimeout::get())),
+				alarm: Some(alarm),
 			};
 			ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
 
@@ -914,22 +924,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Earliest allowed block is always at minimum the next block.
 		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
-		let ok = T::Scheduler::schedule_named(
+		let priority = track.alarm_priority;
+		let _ = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
 			None,
-			63,
+			priority,
 			origin,
 			call,
-		)
-		.is_ok();
-		debug_assert!(ok, "LOGIC ERROR: bake_referendum/schedule_named failed");
+		);
 	}
 
 	/// Set an alarm to dispatch `call` at block number `when`.
+	///
+	/// Returns `None` if the scheduler rejected the alarm (e.g. the target block's agenda is full);
+	/// callers must handle this rather than assume an alarm was set.
 	fn set_alarm(
 		call: BoundedCallOf<T, I>,
 		when: BlockNumberFor<T, I>,
+		priority: frame_support::traits::schedule::Priority,
 	) -> Option<(BlockNumberFor<T, I>, ScheduleAddressOf<T, I>)> {
 		let alarm_interval = T::AlarmInterval::get().max(One::one());
 		// Alarm must go off no earlier than `when`.
@@ -940,18 +953,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let result = T::Scheduler::schedule(
 			DispatchTime::At(when),
 			None,
-			128u8,
+			priority,
 			frame_system::RawOrigin::Root.into(),
 			call,
 		);
-		debug_assert!(
-			result.is_ok(),
-			"Unable to schedule a new alarm at #{:?} (now: #{:?}), scheduler error: `{:?}`",
-			when,
-			T::BlockNumberProvider::current_block_number(),
-			result.unwrap_err(),
-		);
 		result.ok().map(|x| (when, x))
+	}
+
+	fn track_alarm_priority(track: TrackIdOf<T, I>) -> frame_support::traits::schedule::Priority {
+		T::Tracks::info(track).map(|t| t.alarm_priority).unwrap_or(u8::MAX)
+	}
+
+	/// Returns the track's `alarm_priority` if the decision deposit is posted, otherwise
+	/// the least-urgent priority. Only deposited, privileged referenda reach the reserved
+	/// scheduler band.
+	fn gated_alarm_priority(
+		track: TrackIdOf<T, I>,
+		has_decision_deposit: bool,
+	) -> frame_support::traits::schedule::Priority {
+		if has_decision_deposit {
+			Self::track_alarm_priority(track)
+		} else {
+			u8::MAX
+		}
 	}
 
 	/// Mutate a referendum's `status` into the correct deciding state.
@@ -1051,7 +1075,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				return;
 			},
 		};
-		Self::set_alarm(call, next_block);
+		Self::set_alarm(call, next_block, Self::gated_alarm_priority(track, false));
 	}
 
 	/// Ensure that a `service_referendum` alarm happens for the referendum `index` at `alarm`.
@@ -1078,7 +1102,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						return false;
 					},
 				};
-			status.alarm = Self::set_alarm(call, alarm);
+			status.alarm = Self::set_alarm(
+				call,
+				alarm,
+				Self::gated_alarm_priority(status.track, status.decision_deposit.is_some()),
+			);
 			true
 		} else {
 			false

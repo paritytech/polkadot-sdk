@@ -106,6 +106,12 @@ use sp_runtime::{
 	BoundedVec, Debug, DispatchError,
 };
 
+/// Maximum priority (inclusive) that may claim a
+/// [`Config::PriorityReserve`] slot. Tasks above this
+/// threshold are rejected with [`DispatchError::Exhausted`] once the non-reserved portion
+/// of the agenda is full. Lower values are more urgent.
+pub const RESERVED_PRIORITY_THRESHOLD: schedule::Priority = 62;
+
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -298,6 +304,15 @@ pub mod pallet {
 		/// higher limit under `runtime-benchmarks` feature.
 		#[pallet::constant]
 		type MaxScheduledPerBlock: Get<u32>;
+
+		/// Number of per-block agenda slots reserved for high-priority tasks.
+		///
+		/// Once a block's agenda holds `MaxScheduledPerBlock - PriorityReserve` tasks, only tasks
+		/// with [`Priority`](schedule::Priority) at most [`RESERVED_PRIORITY_THRESHOLD`] may take
+		/// the remaining slots; the rest are rejected with [`DispatchError::Exhausted`]. Set to
+		/// `0` to disable the reservation.
+		#[pallet::constant]
+		type PriorityReserve: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -1000,7 +1015,15 @@ impl<T: Config> Pallet<T> {
 		what: ScheduledOf<T>,
 	) -> Result<u32, (DispatchError, ScheduledOf<T>)> {
 		let mut agenda = Agenda::<T>::get(when);
-		let index = if (agenda.len() as u32) < T::MaxScheduledPerBlock::get() {
+		let max = T::MaxScheduledPerBlock::get();
+		let normal_cap = max.saturating_sub(T::PriorityReserve::get());
+		if what.priority > RESERVED_PRIORITY_THRESHOLD {
+			let occupied = agenda.iter().filter(|i| i.is_some()).count() as u32;
+			if occupied >= normal_cap {
+				return Err((DispatchError::Exhausted, what));
+			}
+		}
+		let index = if (agenda.len() as u32) < max {
 			// will always succeed due to the above check.
 			let _ = agenda.try_push(Some(what));
 			agenda.len() as u32 - 1
