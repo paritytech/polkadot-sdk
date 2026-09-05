@@ -747,6 +747,18 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>>
+		for Pallet<T, I>
+	{
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> GetSalary<RankOf<T, I>, T::AccountId, T::Balance> for Pallet<T, I> {
 		fn get_salary(rank: RankOf<T, I>, who: &T::AccountId) -> T::Balance {
 			let index = match Self::rank_to_index(rank) {
@@ -762,6 +774,46 @@ pub mod pallet {
 				if member.is_active { params.active_salary } else { params.passive_salary };
 			salary[index]
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_members()?;
+		Self::try_state_member_evidence()?;
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every account in [`Member`] must also be ranked in the underlying `T::Members` collective.
+	fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
+		Member::<T, I>::iter().try_for_each(|(who, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+			ensure!(
+				T::Members::rank_of(&who).is_some(),
+				"Account in `Member` is not ranked in the underlying collective"
+			);
+			Ok(())
+		})
+	}
+
+	/// # Invariants
+	///
+	/// * Every account in [`MemberEvidence`] must also exist in [`Member`].
+	fn try_state_member_evidence() -> Result<(), sp_runtime::TryRuntimeError> {
+		MemberEvidence::<T, I>::iter().try_for_each(
+			|(who, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+				ensure!(
+					Member::<T, I>::contains_key(&who),
+					"Account in `MemberEvidence` is not tracked in `Member`"
+				);
+				Ok(())
+			},
+		)
 	}
 }
 
