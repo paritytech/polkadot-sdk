@@ -14,12 +14,17 @@ doc:
       public API of `sc-transaction-pool`: `sc_transaction_pool::error` and
       `sc_transaction_pool::Transaction` are now exported.
 
-      As a consequence `BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams` and
-      `GenRpcModuleParams` no longer carry a transaction pool type parameter, and none of them
-      constrain the client on the transaction pool's behalf any more: the `BlockIdTo` and
-      `TaggedTransactionQueue` bounds that only existed to build a pool are gone from
-      `build_network`, `build_network_advanced`, `spawn_tasks`, `gen_rpc_module` and from the
-      cumulus `build_network`.
+      `BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams` and
+      `GenRpcModuleParams` keep a generic transaction pool parameter, so the service does not pin
+      the pool's error or in-pool transaction type either. They no longer constrain the client on
+      the transaction pool's behalf though: the `BlockIdTo` and `TaggedTransactionQueue` bounds
+      that only existed to build a pool are gone from `build_network`, `build_network_advanced`,
+      `spawn_tasks`, `gen_rpc_module` and from the cumulus `build_network`.
+
+      What each of those entry points does need from the client is now spelled out once as the new
+      `sc_service::ClientForService`, in the same shape as the existing `ClientForGrandpa` and
+      `ClientForTransactionPool`, with each entry point adding only the few capabilities it
+      genuinely uses on top.
 
       The client capabilities needed to actually construct a pool are spelled out once as
       `sc_transaction_pool::ClientForTransactionPool`, which is used by the transaction pool
@@ -37,11 +42,9 @@ doc:
       - `sc_transaction_pool::Builder::build` hands back an `Arc` already, so drop the surrounding
         `Arc::from(..)` at the construction site.
       - `TransactionPoolHandle<Block, Client>` is `TransactionPoolHandle<Block>` now.
-      - Drop the transaction pool type argument where `BuildNetworkParams`,
-        `BuildNetworkAdvancedParams`, `SpawnTasksParams` or `GenRpcModuleParams` are named
-        explicitly, since the block type now determines it.
       - Add `?Sized` to any generic parameter that holds the pool behind an `Arc`, because
-        `TransactionPoolHandle` is a trait object and no longer has a statically known size.
+        `TransactionPoolHandle` is a trait object and no longer has a statically known size. The
+        parameters above already do this, so passing the handle into them needs no change.
 
 crates:
   - name: sc-transaction-pool
