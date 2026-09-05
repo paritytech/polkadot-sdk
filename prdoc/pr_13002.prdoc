@@ -1,0 +1,24 @@
+title: Fix ETH RPC Log Filtering Logic
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    We have had a number of issues in the eth-rpc related to the log filtering logic and to its data representation such as:
+
+    - https://github.com/paritytech/polkadot-sdk/pull/12626
+    - https://github.com/paritytech/polkadot-sdk/pull/12483
+    - https://github.com/alloy-rs/alloy/pull/4153
+
+    Some of the issues that I link to here can't be fixed without changing the models we're using since there are certain things which alloy's `Filter` type can't represent (https://github.com/alloy-rs/alloy/pull/4153).
+
+    This PR does the following:
+    - Introduces our own `Filter` type which we use instead of alloy's filter type (due to the issues it has with what data it can't represent as seen in https://github.com/alloy-rs/alloy/pull/4153).
+    - Implement `Filter` matching logic on the `Filter` type itself as an authoritative implementation that can be used anywhere in the codebase.
+    - Removes the duplicated subscription filter type that we used to have in favor of this new `Filter` type.
+    - Updates the `ReceiptProvider::logs` implementation to match the filtering logic implemented on the `Filter` type.
+
+    This PR fixes all of the github issues/PRs linked to above and should close them once its merged.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
