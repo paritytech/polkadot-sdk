@@ -23,7 +23,8 @@ use super::{
 };
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
+	DeletionQueue, DeletionQueueCounter, Error, ExecConfig, HoldReason, NativeDepositOf, Origin,
+	Pallet, StorageDeposit,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -59,10 +60,13 @@ use frame_support::{
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_types::runtime_api::*;
-use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
+use pallet_revive_uapi::{
+	ReturnErrorCode as RuntimeReturnCode, ReturnFlags, precompiles::system::SYSTEM_PRECOMPILE_ADDR,
+};
 use pretty_assertions::{assert_eq, assert_ne};
-use sp_core::U256;
-use sp_io::hashing::blake2_256;
+use revm::bytecode::opcode::*;
+use sp_core::{H160, U256};
+use sp_io::hashing::{blake2_256, keccak_256};
 use sp_runtime::{
 	AccountId32, BoundedVec, DispatchError, SaturatedConversion, TokenError, testing::H256,
 };
@@ -481,6 +485,276 @@ fn instantiate_unique_trie_id() {
 
 		// Trie ids shouldn't match or we might have a collision
 		assert_ne!(trie_id, get_contract(&addr).trie_id);
+	});
+}
+
+const STALE_DELETION_SALT: [u8; 32] = [0x22; 32];
+const STALE_DELETION_OLD_SLOT: u8 = 1;
+const STALE_DELETION_NEW_SLOT: u8 = 2;
+const STALE_DELETION_OLD_VALUE: [u8; 32] = [0xa1; 32];
+const STALE_DELETION_NEW_VALUE: [u8; 32] = [0xc3; 32];
+const STALE_DELETION_WRITE_OLD_MODE: u8 = 0;
+const STALE_DELETION_WRITE_NEW_MODE: u8 = 1;
+const STALE_DELETION_TERMINATE_MODE: u8 = 2;
+const STALE_DELETION_CLEAR_NEW_MODE: u8 = 3;
+const STALE_DELETION_TERMINATE_ARGS_OFFSET: u8 = 4;
+const STALE_DELETION_TERMINATE_CALLDATA_LEN: u8 = 36;
+const STALE_DELETION_RUNTIME_OFFSET: u8 = 13;
+
+fn stale_deletion_push32(code: &mut Vec<u8>, bytes: [u8; 32]) {
+	code.push(PUSH32);
+	code.extend_from_slice(&bytes);
+}
+
+fn stale_deletion_sstore(code: &mut Vec<u8>, slot: u8, value: [u8; 32]) {
+	stale_deletion_push32(code, value);
+	code.extend_from_slice(&[PUSH1, slot, SSTORE]);
+}
+
+fn stale_deletion_jump_if_mode(code: &mut Vec<u8>, mode: u8, patches: &mut Vec<usize>) {
+	code.extend_from_slice(&[DUP1, PUSH1, mode, EQ, PUSH2, 0, 0, JUMPI]);
+	patches.push(code.len() - 3);
+}
+
+fn stale_deletion_terminate_runtime(code: &mut Vec<u8>) {
+	let selector = &keccak_256(b"terminate(address)")[..4];
+	let mut selector_word = [0u8; 32];
+	selector_word[..4].copy_from_slice(selector);
+	let mut beneficiary_word = [0u8; 32];
+	beneficiary_word[12..].copy_from_slice(DJANGO_ADDR.as_bytes());
+
+	stale_deletion_push32(code, selector_word);
+	code.extend_from_slice(&[PUSH0, MSTORE]);
+	stale_deletion_push32(code, beneficiary_word);
+	code.extend_from_slice(&[
+		PUSH1,
+		STALE_DELETION_TERMINATE_ARGS_OFFSET,
+		MSTORE,
+		PUSH0,
+		PUSH0,
+		PUSH1,
+		STALE_DELETION_TERMINATE_CALLDATA_LEN,
+		PUSH0,
+		PUSH0,
+		PUSH20,
+	]);
+	code.extend_from_slice(&SYSTEM_PRECOMPILE_ADDR);
+	code.extend_from_slice(&[GAS, CALL, POP, STOP]);
+}
+
+fn stale_deletion_lifecycle_runtime() -> Vec<u8> {
+	let mut code = vec![PUSH0, CALLDATALOAD];
+	let mut patches = Vec::new();
+	let mut labels = Vec::new();
+
+	for mode in [
+		STALE_DELETION_WRITE_OLD_MODE,
+		STALE_DELETION_WRITE_NEW_MODE,
+		STALE_DELETION_TERMINATE_MODE,
+		STALE_DELETION_CLEAR_NEW_MODE,
+	] {
+		stale_deletion_jump_if_mode(&mut code, mode, &mut patches);
+	}
+	code.push(STOP);
+
+	labels.push(code.len());
+	code.extend_from_slice(&[JUMPDEST, POP]);
+	stale_deletion_sstore(&mut code, STALE_DELETION_OLD_SLOT, STALE_DELETION_OLD_VALUE);
+	code.push(STOP);
+
+	labels.push(code.len());
+	code.extend_from_slice(&[JUMPDEST, POP]);
+	stale_deletion_sstore(&mut code, STALE_DELETION_NEW_SLOT, STALE_DELETION_NEW_VALUE);
+	code.push(STOP);
+
+	labels.push(code.len());
+	code.extend_from_slice(&[JUMPDEST, POP]);
+	stale_deletion_terminate_runtime(&mut code);
+
+	labels.push(code.len());
+	code.extend_from_slice(&[JUMPDEST, POP]);
+	stale_deletion_sstore(&mut code, STALE_DELETION_NEW_SLOT, [0; 32]);
+	code.push(STOP);
+
+	for (offset, target) in patches.into_iter().zip(labels) {
+		let target = target as u16;
+		let [high, low] = target.to_be_bytes();
+		code[offset] = high;
+		code[offset + 1] = low;
+	}
+
+	code
+}
+
+fn stale_deletion_lifecycle_initcode() -> Vec<u8> {
+	let runtime = stale_deletion_lifecycle_runtime();
+	let len = runtime.len() as u16;
+	let [high, low] = len.to_be_bytes();
+	let mut init = vec![
+		PUSH2,
+		high,
+		low,
+		PUSH2,
+		0,
+		STALE_DELETION_RUNTIME_OFFSET,
+		PUSH0,
+		CODECOPY,
+		PUSH2,
+		high,
+		low,
+		PUSH0,
+		RETURN,
+	];
+	init.extend(runtime);
+	init
+}
+
+fn stale_deletion_mode(mode: u8) -> Vec<u8> {
+	let mut data = vec![0u8; 32];
+	data[31] = mode;
+	data
+}
+
+fn stale_deletion_storage_key(slot: u8) -> Key {
+	let mut key = [0u8; 32];
+	key[31] = slot;
+	Key::Fix(key)
+}
+
+fn stale_deletion_call_from(addr: H160, origin: &AccountId32, mode: u8) {
+	let result = builder::bare_call(addr)
+		.origin(RuntimeOrigin::signed(origin.clone()))
+		.data(stale_deletion_mode(mode))
+		.build_and_unwrap_result();
+	assert!(!result.did_revert());
+}
+
+fn stale_deletion_weight_per_native_key() -> Weight {
+	<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(1)
+		.saturating_sub(
+			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(0),
+		)
+}
+
+fn stale_deletion_native_cleanup_weight(native_keys: u32) -> Weight {
+	<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch() +
+		<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_entry()
+			.saturating_sub(<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch()) +
+		stale_deletion_weight_per_native_key().saturating_mul(u64::from(native_keys))
+}
+
+fn stale_deletion_process_cleanup(limit: Weight) {
+	let mut meter = WeightMeter::with_limit(limit);
+	ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
+}
+
+fn stale_deletion_native_rows(account_id: &AccountId32) -> Vec<(AccountId32, u128)> {
+	NativeDepositOf::<Test>::iter_prefix(account_id).collect()
+}
+
+fn stale_deletion_native_row(account_id: &AccountId32, contributor: &AccountId32) -> u128 {
+	NativeDepositOf::<Test>::get(account_id, contributor)
+}
+
+fn stale_deletion_storage_hold(account_id: &AccountId32) -> u128 {
+	get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), account_id)
+}
+
+fn stale_deletion_accounted_storage_deposit(info: &ContractInfo<Test>) -> u128 {
+	info.storage_base_deposit + info.storage_item_deposit + info.storage_byte_deposit
+}
+
+#[test]
+fn stale_deletion_preserves_recreated_contract_native_refund() {
+	let code = stale_deletion_lifecycle_initcode();
+	let mut ext = ExtBuilder::default().existential_deposit(50).build();
+
+	let (addr, account_id, old_info) = ext.execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		set_balance(&ALICE, 1000 * min_balance);
+		set_balance(&BOB, 1000 * min_balance);
+
+		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some(STALE_DELETION_SALT))
+			.native_value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		stale_deletion_call_from(addr, &ALICE, STALE_DELETION_WRITE_OLD_MODE);
+		let old_info = get_contract(&addr);
+		assert_eq!(
+			old_info.read(&stale_deletion_storage_key(STALE_DELETION_OLD_SLOT)),
+			Some(STALE_DELETION_OLD_VALUE.to_vec())
+		);
+		assert_eq!(stale_deletion_native_rows(&account_id).len(), 1);
+
+		stale_deletion_call_from(addr, &ALICE, STALE_DELETION_TERMINATE_MODE);
+		assert!(get_contract_checked(&addr).is_none());
+		assert_eq!(DeletionQueueCounter::<Test>::get().as_test_tuple(), (1, 0));
+		let queue_item = DeletionQueue::<Test>::get(0).unwrap();
+		assert_eq!(queue_item.trie_id, old_info.trie_id);
+		assert_eq!(queue_item.account_id, account_id);
+
+		(addr, account_id, old_info)
+	});
+
+	ext.commit_all().unwrap();
+
+	ext.execute_with(|| {
+		stale_deletion_process_cleanup(stale_deletion_native_cleanup_weight(1));
+		assert_eq!(stale_deletion_native_rows(&account_id).len(), 0);
+		assert_eq!(
+			old_info.read(&stale_deletion_storage_key(STALE_DELETION_OLD_SLOT)),
+			Some(STALE_DELETION_OLD_VALUE.to_vec())
+		);
+
+		let Contract { addr: recreated_addr, account_id: recreated_account_id } =
+			builder::bare_instantiate(Code::Upload(code.clone()))
+				.salt(Some(STALE_DELETION_SALT))
+				.build_and_unwrap_contract();
+		assert_eq!(recreated_addr, addr);
+		assert_eq!(recreated_account_id, account_id);
+
+		let new_info = get_contract(&addr);
+		assert_ne!(new_info.trie_id, old_info.trie_id);
+		assert_eq!(new_info.read(&stale_deletion_storage_key(STALE_DELETION_OLD_SLOT)), None);
+
+		stale_deletion_call_from(addr, &BOB, STALE_DELETION_WRITE_NEW_MODE);
+		let before_cleanup = get_contract(&addr);
+		let expected_refund =
+			before_cleanup.storage_item_deposit + before_cleanup.storage_byte_deposit;
+		let bob_native_row_before = stale_deletion_native_row(&account_id, &BOB);
+		let bob_free_after_write = <Test as Config>::Currency::free_balance(&BOB);
+		let hold_before_cleanup = stale_deletion_storage_hold(&account_id);
+		assert_eq!(bob_native_row_before, expected_refund);
+		assert_eq!(hold_before_cleanup, stale_deletion_accounted_storage_deposit(&before_cleanup));
+		assert_eq!(
+			before_cleanup.read(&stale_deletion_storage_key(STALE_DELETION_NEW_SLOT)),
+			Some(STALE_DELETION_NEW_VALUE.to_vec())
+		);
+
+		let native_rows_before = stale_deletion_native_rows(&account_id);
+		stale_deletion_process_cleanup(Weight::MAX);
+		assert_eq!(stale_deletion_native_rows(&account_id), native_rows_before);
+		assert!(DeletionQueue::<Test>::get(0).is_none());
+		assert_eq!(old_info.read(&stale_deletion_storage_key(STALE_DELETION_OLD_SLOT)), None);
+
+		stale_deletion_call_from(addr, &BOB, STALE_DELETION_CLEAR_NEW_MODE);
+		let after_clear = get_contract(&addr);
+		assert_eq!(after_clear.storage_items, 0);
+		assert_eq!(after_clear.storage_bytes, 0);
+		assert_eq!(after_clear.storage_item_deposit, 0);
+		assert_eq!(after_clear.storage_byte_deposit, 0);
+		assert_eq!(after_clear.read(&stale_deletion_storage_key(STALE_DELETION_NEW_SLOT)), None);
+		assert_eq!(stale_deletion_native_row(&account_id, &BOB), 0);
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&BOB),
+			bob_free_after_write + expected_refund
+		);
+		assert_eq!(stale_deletion_storage_hold(&account_id), hold_before_cleanup - expected_refund);
+		assert_eq!(
+			stale_deletion_storage_hold(&account_id),
+			stale_deletion_accounted_storage_deposit(&after_clear)
+		);
 	});
 }
 
