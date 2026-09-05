@@ -1516,6 +1516,7 @@ where
 		//
 		// `with_transactional` may return an error caused by a limit in the
 		// transactional storage depth.
+		let receipt_checkpoint = block_storage::checkpoint_ethereum_receipt();
 		let transaction_outcome =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = if let Some(mock_answer) = mock_answer {
@@ -1584,6 +1585,9 @@ where
 				(false, Err(error.into()))
 			},
 		};
+		if !success && let Some(receipt_checkpoint) = receipt_checkpoint {
+			block_storage::rollback_ethereum_receipt(receipt_checkpoint);
+		}
 		self.with_transient_storage_mut(|transient_storage| {
 			if success {
 				transient_storage.commit_transaction();
