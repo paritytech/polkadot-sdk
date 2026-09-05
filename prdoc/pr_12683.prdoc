@@ -1,0 +1,40 @@
+title: Remove deprecated treasury spend_local and remove_approval
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removed `spend_local` and `remove_approval` (deprecated by May 2025), plus the related public
+    getters, and dropped the legacy drain loop from `spend_funds` along with its
+    `on_initialize_proposals` benchmark and weight entries.
+
+    The legacy `ProposalCount` / `Proposals` / `Approvals` storage now lives behind
+    `migration::legacy` aliases and is cleared by the new
+    `migration::migrate_legacy_proposals::Migration`. That migration pays approved proposals out of
+    the pot, refunds every proposer's bond and then deletes the legacy storage, doing in one
+    upgrade what `spend_funds` previously did once per spend period. If the pot cannot cover an
+    approved proposal, the migration defers it, logs a warning naming the index and amount, and
+    keeps the legacy storage. **Before enacting the upgrade, a chain whose pot cannot cover an
+    approved proposal must pay it out manually, fund the pot, or remove the approval: once this
+    migration leaves the runtime `Migrations` tuple, deferred entries are orphaned with no code
+    path left.** It is wired into the Rococo, Asset Hub Westend, Collectives Westend and
+    kitchensink runtimes.
+
+    `MaxApprovals` stays because the bounties pallet bounds its own `BountyApprovals` queue with it.
+
+    Removed the deprecated `Config::RuntimeEvent` associated type from `pallet_bounties::Config`;
+    external runtimes must bound `frame_system::Config` with
+    `RuntimeEvent: From<pallet_bounties::Event>`.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: pallet-bounties
+  bump: major
+- name: pallet-child-bounties
+  bump: patch
+- name: pallet-tips
+  bump: patch
+- name: pallet-treasury
+  bump: major
