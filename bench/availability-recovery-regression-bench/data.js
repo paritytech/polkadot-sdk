@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788516964800,
+  "lastUpdate": 1788572753058,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0be9d3a1924bc3278e816495c925bddb07965844",
-          "message": "FixedPoint: Support parsing `x.y` format (#9184)\n\nThis makes it easier to declare a fixed point value. The old format is\nalso still supported.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-02-04T21:21:05Z",
-          "tree_id": "607bd7ed665e626059dc8fe90b415e3264704b78",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0be9d3a1924bc3278e816495c925bddb07965844"
-        },
-        "date": 1770245662647,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12211833136666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.246381456566663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.241426454066666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4",
+          "message": "Aggregate the genesis vesting lock across an account's schedules (#13016)\n\n`GenesisConfig::build` called `set_lock` once per entry with that\nentry's amount. `set_lock` replaces rather than adds, so an account with\nseveral genesis entries kept a lock covering only the last one. The\nruntime path already aggregates through `write_lock`.",
+          "timestamp": "2026-09-05T00:15:40Z",
+          "tree_id": "1888ea43300ea323d144f20de48af40b9cf8a6fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3b5699e26a4ffff2a6dcbf51af00ff3b2a272f4"
+        },
+        "date": 1788572714163,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.267543076200003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13195826150000003,
             "unit": "seconds"
           }
         ]
