@@ -1,0 +1,16 @@
+title: '[pallet-staking-async] Add checked_mutate for ledger-related storage mutations'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    All mutations to ledger-related storage items (`Bonded`, `Ledger`, `Payee`) in
+    `pallet-staking-async` are now wrapped in a transactional storage layer. After each
+    mutation a consistency check verifies that the `(stash, controller, ledger)` triple is
+    coherent and that the ledger stake bookkeeping (`total == active + sum(unlocking)`) holds.
+    If either the mutation or the check fails, all storage changes are rolled back atomically.
+    This is a defensive guard to prevent the class of state-corruption bugs described in
+    issue #3245.
+
+crates:
+- name: pallet-staking-async
+  bump: patch

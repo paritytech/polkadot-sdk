@@ -151,6 +151,32 @@ fn bond_works() {
 }
 
 #[test]
+fn checked_mutate_rolls_back_inconsistent_update() {
+	ExtBuilder::default().build_and_execute(|| {
+		let ledger = Staking::ledger(StakingAccount::Stash(11)).unwrap();
+
+		// Break the bookkeeping invariant: lower active without adjusting total.
+		let mut corrupt = ledger.clone();
+		corrupt.active -= 100;
+
+		assert_storage_noop!(assert_eq!(corrupt.update().unwrap_err(), Error::<Test>::BadState));
+		assert_eq!(Staking::ledger(StakingAccount::Stash(11)).unwrap().total, ledger.total);
+	})
+}
+
+#[test]
+fn checked_mutate_rolls_back_corrupted_bond() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		let ledger = Staking::ledger(StakingAccount::Stash(11)).unwrap();
+
+		// Point stash 11's bond at controller 21 whose ledger belongs to a different stash.
+		Bonded::<Test>::insert(11, 21);
+
+		assert_storage_noop!(assert_eq!(ledger.update().unwrap_err(), Error::<Test>::BadState));
+	})
+}
+
+#[test]
 fn bond_controller_cannot_be_stash_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// `create_unique_stash_controller` bonds `ED * (balance_factor / 10).max(1)`. Pass a
@@ -854,6 +880,37 @@ mod ledger_recovery {
 			assert_eq!(asset::staked::<Test>(&444), ledger_444.total);
 
 			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
+		})
+	}
+
+	#[test]
+	fn restore_ledger_with_unlocking_derives_active_correctly() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+			set_controller_no_checks(&444);
+
+			// 333 is now corrupted.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+
+			let unlock_chunk = UnlockChunk { value: 50, era: 99 };
+			let maybe_unlocking = bounded_vec![unlock_chunk];
+
+			// Restore with unlocking chunks: active must be derived as total - sum(unlocking).
+			assert_ok!(Staking::restore_ledger(
+				RuntimeOrigin::root(),
+				333,
+				None,
+				Some(200),
+				Some(maybe_unlocking),
+			));
+
+			let ledger = Bonded::<Test>::get(&333).and_then(Ledger::<Test>::get).unwrap();
+			// active == total - sum(unlocking) == 200 - 50 == 150.
+			assert_eq!(ledger.total, 200);
+			assert_eq!(ledger.active, 150);
+			assert_eq!(ledger.unlocking.len(), 1);
+			// Invariant holds.
 			assert_ok!(Staking::do_try_state(System::block_number()));
 		})
 	}

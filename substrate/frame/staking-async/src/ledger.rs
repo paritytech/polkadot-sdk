@@ -39,11 +39,15 @@ use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
+	storage::{with_transaction, TransactionOutcome},
 	traits::{Defensive, DefensiveSaturating, Get},
 	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Zero, DispatchResult, Perquintill, Rounding, Saturating};
+use sp_runtime::{
+	traits::{CheckedAdd, Zero},
+	DispatchError, DispatchResult, Perquintill, Rounding, Saturating,
+};
 use sp_staking::{EraIndex, OnStakingUpdate, StakingAccount, StakingInterface};
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
@@ -107,7 +111,66 @@ pub struct StakingLedger<T: Config> {
 	pub controller: Option<T::AccountId>,
 }
 
+/// Expected bond state of a `stash` after a checked ledger mutation.
+#[derive(Clone, Copy, PartialEq)]
+enum BondExpectation {
+	/// `stash` should remain bonded with a consistent ledger.
+	Bonded,
+	/// `stash`'s bond should be fully removed from storage.
+	Killed,
+}
+
 impl<T: Config> StakingLedger<T> {
+	/// Runs `mutation` inside a transactional storage layer and verifies the resulting state
+	/// matches `expectation`. Rolls back all changes if the mutation or the consistency check
+	/// fails.
+	fn checked_mutate_ledger<E: From<Error<T>>>(
+		stash: &T::AccountId,
+		expectation: BondExpectation,
+		mutation: impl FnOnce() -> Result<(), E>,
+	) -> Result<(), E> {
+		with_transaction(|| -> TransactionOutcome<Result<Result<(), E>, DispatchError>> {
+			let result = mutation()
+				.and_then(|()| Self::ensure_bond_consistent(stash, expectation).map_err(E::from));
+
+			match result {
+				Ok(()) => TransactionOutcome::Commit(Ok(Ok(()))),
+				Err(e) => TransactionOutcome::Rollback(Ok(Err(e))),
+			}
+		})
+		.unwrap_or_else(|_: DispatchError| Err(Error::<T>::BadState.into()))
+	}
+
+	/// Verifies ledger storage integrity for `stash` against `expectation`. Staking locks are
+	/// excluded as out-of-sync locks on corrupted bonds are repaired via
+	/// [`Pallet::restore_ledger`].
+	fn ensure_bond_consistent(
+		stash: &T::AccountId,
+		expectation: BondExpectation,
+	) -> Result<(), Error<T>> {
+		match expectation {
+			BondExpectation::Bonded => {
+				let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::BadState)?;
+				let ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::BadState)?;
+				ensure!(ledger.stash == *stash, Error::<T>::BadState);
+
+				let real_total = ledger
+					.unlocking
+					.iter()
+					.try_fold(ledger.active, |acc, chunk| acc.checked_add(&chunk.value))
+					.ok_or(Error::<T>::BadState)?;
+				ensure!(real_total == ledger.total, Error::<T>::BadState);
+			},
+			BondExpectation::Killed => {
+				ensure!(!<Bonded<T>>::contains_key(stash), Error::<T>::BadState);
+				ensure!(!<Payee<T>>::contains_key(stash), Error::<T>::BadState);
+				ensure!(!<VirtualStakers<T>>::contains_key(stash), Error::<T>::BadState);
+			},
+		}
+
+		Ok(())
+	}
+
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn default_from(stash: T::AccountId) -> Self {
 		Self {
@@ -250,22 +313,25 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash);
 		}
 
-		// We skip locking virtual stakers.
-		if !Pallet::<T>::is_virtual_staker(&self.stash) {
-			// for direct stakers, update lock on stash based on ledger.
-			asset::update_stake::<T>(&self.stash, self.total)
-				.map_err(|_| Error::<T>::NotEnoughFunds)?;
-		}
+		let stash = self.stash.clone();
+		Self::checked_mutate_ledger(&stash, BondExpectation::Bonded, move || {
+			// We skip locking virtual stakers.
+			if !Pallet::<T>::is_virtual_staker(&self.stash) {
+				// for direct stakers, update lock on stash based on ledger.
+				asset::update_stake::<T>(&self.stash, self.total)
+					.map_err(|_| Error::<T>::NotEnoughFunds)?;
+			}
 
-		Ledger::<T>::insert(
-			&self.controller().ok_or_else(|| {
-				defensive!("update called on a ledger that is not bonded.");
-				Error::<T>::NotController
-			})?,
-			&self,
-		);
+			Ledger::<T>::insert(
+				&self.controller().ok_or_else(|| {
+					defensive!("update called on a ledger that is not bonded.");
+					Error::<T>::NotController
+				})?,
+				&self,
+			);
 
-		Ok(())
+			Ok(())
+		})
 	}
 
 	/// Bonds a ledger.
@@ -276,9 +342,12 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded);
 		}
 
-		<Payee<T>>::insert(&self.stash, payee);
-		<Bonded<T>>::insert(&self.stash, &self.stash);
-		self.update()
+		let stash = self.stash.clone();
+		Self::checked_mutate_ledger(&stash, BondExpectation::Bonded, move || {
+			<Payee<T>>::insert(&self.stash, payee);
+			<Bonded<T>>::insert(&self.stash, &self.stash);
+			self.update()
+		})
 	}
 
 	/// Sets the ledger Payee.
@@ -287,8 +356,11 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash);
 		}
 
-		<Payee<T>>::insert(&self.stash, payee);
-		Ok(())
+		let stash = self.stash.clone();
+		Self::checked_mutate_ledger(&stash, BondExpectation::Bonded, move || {
+			<Payee<T>>::insert(&self.stash, payee);
+			Ok(())
+		})
 	}
 
 	/// Sets the ledger controller to its stash.
@@ -308,11 +380,15 @@ impl<T: Config> StakingLedger<T> {
 			ensure!(bonded_ledger.stash == self.stash, Error::<T>::BadState);
 		}
 
-		<Ledger<T>>::remove(&controller);
-		<Ledger<T>>::insert(&self.stash, &self);
-		<Bonded<T>>::insert(&self.stash, &self.stash);
+		let stash = self.stash.clone();
+		Self::checked_mutate_ledger(&stash, BondExpectation::Bonded, move || {
+			let controller = self.controller().ok_or(Error::<T>::NotController)?;
+			<Ledger<T>>::remove(&controller);
+			<Ledger<T>>::insert(&self.stash, &self);
+			<Bonded<T>>::insert(&self.stash, &self.stash);
 
-		Ok(())
+			Ok(())
+		})
 	}
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
@@ -320,21 +396,23 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn kill(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			Ledger::<T>::remove(controller);
-			<Bonded<T>>::remove(&stash);
-			<Payee<T>>::remove(&stash);
+		Self::checked_mutate_ledger(stash, BondExpectation::Killed, || {
+			<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
+				Ledger::<T>::remove(&controller);
+				<Bonded<T>>::remove(&stash);
+				<Payee<T>>::remove(&stash);
 
-			// kill virtual staker if it exists.
-			if <VirtualStakers<T>>::take(&ledger.stash).is_none() {
-				// if not virtual staker, clear locks.
-				asset::kill_stake::<T>(&ledger.stash)?;
-			}
-			Pallet::<T>::deposit_event(crate::Event::<T>::StakerRemoved {
-				stash: ledger.stash.clone(),
-			});
-			Ok(())
-		})?
+				// kill virtual staker if it exists.
+				if <VirtualStakers<T>>::take(&ledger.stash).is_none() {
+					// if not virtual staker, clear locks.
+					asset::kill_stake::<T>(&ledger.stash)?;
+				}
+				Pallet::<T>::deposit_event(crate::Event::<T>::StakerRemoved {
+					stash: ledger.stash.clone(),
+				});
+				Ok(())
+			})?
+		})
 	}
 
 	#[cfg(test)]
