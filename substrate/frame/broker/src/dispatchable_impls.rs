@@ -20,7 +20,7 @@ use core::cmp;
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
+	traits::{fungible::Mutate, tokens::Preservation::Expendable},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, Convert};
@@ -458,8 +458,10 @@ impl<T: Config> Pallet<T> {
 		if contribution.length > 0 {
 			InstaPoolContribution::<T>::insert(region, &contribution);
 		}
-		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)
-			.defensive_ok();
+		// The steps above removed the contribution and reduced the stored payouts. If the
+		// transfer fails, the error must revert them. The storage changes and the payment
+		// must both happen, or neither.
+		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)?;
 		let next = if last < region.begin + contribution.length { Some(region) } else { None };
 		Self::deposit_event(Event::RevenueClaimPaid {
 			who: contribution.payee,
