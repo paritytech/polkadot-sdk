@@ -93,7 +93,7 @@ use sp_consensus::block_validation::{
 };
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
+use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
@@ -446,8 +446,35 @@ where
 	)
 }
 
-/// Parameters to pass into `build`.
-pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
+/// The client capabilities every service entry point relies on.
+///
+/// It is blanket implemented, so every full client qualifies. Having it as a single bound keeps
+/// the client bounds readable at [`build_network`], [`build_network_advanced`], [`spawn_tasks`]
+/// and [`gen_rpc_module`], each of which adds only the few capabilities it genuinely needs on top.
+pub trait ClientForService<Block: BlockT>:
+	ProvideRuntimeApi<Block>
+	+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+	+ HeaderBackend<Block>
+	+ BlockBackend<Block>
+	+ ProofProvider<Block>
+	+ BlockchainEvents<Block>
+	+ 'static
+{
+}
+
+impl<Block: BlockT, T> ClientForService<Block> for T where
+	T: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ ProofProvider<Block>
+		+ BlockchainEvents<Block>
+		+ 'static
+{
+}
+
+/// Parameters to pass into [`spawn_tasks`].
+pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool: ?Sized, TRpc, Backend> {
 	/// The service configuration.
 	pub config: Configuration,
 	/// A shared client returned by `new_full_parts`.
@@ -498,29 +525,20 @@ pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
 	}: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
 ) -> Result<RpcHandlers, Error>
 where
-	TCl: ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: ClientForService<TBl>
 		+ Chain<TBl>
-		+ BlockBackend<TBl>
-		+ BlockIdTo<TBl, Error = sp_blockchain::Error>
-		+ ProofProvider<TBl>
-		+ HeaderBackend<TBl>
-		+ BlockchainEvents<TBl>
 		+ ExecutorProvider<TBl>
 		+ UsageProvider<TBl>
 		+ StorageProvider<TBl, TBackend>
-		+ CallApiAt<TBl>
-		+ Send
-		+ 'static,
-	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_api::Metadata<TBl>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<TBl>
-		+ sp_session::SessionKeys<TBl>
-		+ sp_api::ApiExt<TBl>,
+		+ CallApiAt<TBl>,
+	<TCl as ProvideRuntimeApi<TBl>>::Api:
+		sp_api::Metadata<TBl> + sp_session::SessionKeys<TBl> + sp_api::ApiExt<TBl>,
 	TBl: BlockT,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
 	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
 {
 	let chain_info = client.usage_info().chain;
 
@@ -703,7 +721,7 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 	telemetry: Option<TelemetryHandle>,
 ) where
 	Block: BlockT,
-	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash>,
+	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized,
 {
 	const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -787,7 +805,7 @@ where
 }
 
 /// Parameters for [`gen_rpc_module`].
-pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TExPool: ?Sized, TRpc> {
 	/// The handle to spawn tasks on the RPC runtime.
 	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
@@ -823,7 +841,7 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool> {
 }
 
 /// Generate RPC module using provided configuration
-pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
+pub fn gen_rpc_module<TBl, TBackend, TCl, TExPool, TRpc>(
 	GenRpcModuleParams {
 		spawn_handle,
 		client,
@@ -840,27 +858,20 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 		metrics,
 		sync_oracle,
 		tracing_execute_block: execute_block,
-	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
+	}: GenRpcModuleParams<TBl, TBackend, TCl, TExPool, TRpc>,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
-	TCl: ProvideRuntimeApi<TBl>
-		+ BlockchainEvents<TBl>
-		+ HeaderBackend<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: ClientForService<TBl>
 		+ ExecutorProvider<TBl>
 		+ CallApiAt<TBl>
-		+ ProofProvider<TBl>
-		+ StorageProvider<TBl, TBackend>
-		+ BlockBackend<TBl>
-		+ Send
-		+ Sync
-		+ 'static,
+		+ StorageProvider<TBl, TBackend>,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
 {
 	let system_info = sc_rpc::system::SystemInfo {
 		chain_name: chain_spec.name().into(),
@@ -978,7 +989,7 @@ where
 }
 
 /// Parameters to pass into [`build_network`].
-pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
+pub struct BuildNetworkParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -1029,16 +1040,8 @@ pub fn build_network<Block, Net, TxPool, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
-	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -1146,7 +1149,7 @@ where
 }
 
 /// Parameters to pass into [`build_network_advanced`].
-pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool, IQ, Client>
+pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -1202,16 +1205,8 @@ pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
-	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
