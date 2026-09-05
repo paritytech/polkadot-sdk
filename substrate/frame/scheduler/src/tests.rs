@@ -2029,6 +2029,36 @@ fn cancel_removes_retry_entry() {
 }
 
 #[test]
+fn cancel_named_with_no_origin_removes_retry_entry() {
+	new_test_ext().execute_with(|| {
+		// Schedule a named task and give it a retry config.
+		assert_ok!(Scheduler::do_schedule_named(
+			[1u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 1));
+		assert!(Retries::<Test>::contains_key((4, 0)));
+
+		// Cancel through the origin-less path used by the `schedule::Named` trait impls.
+		assert_ok!(Scheduler::do_cancel_named(None, [1u8; 32]));
+
+		// Task, lookup and retry config are all removed.
+		assert!(Lookup::<Test>::get([1u8; 32]).is_none());
+		assert!(Agenda::<Test>::get(4).get(0).map_or(true, Option::is_none));
+		assert!(!Retries::<Test>::contains_key((4, 0)));
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
 fn cancel_retries_works() {
 	new_test_ext().execute_with(|| {
 		// task fails until block 99 is reached

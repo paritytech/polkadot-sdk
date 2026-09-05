@@ -1168,12 +1168,13 @@ impl<T: Config> Pallet<T> {
 				let i = index as usize;
 				Agenda::<T>::try_mutate(when, |agenda| -> DispatchResult {
 					if let Some(s) = agenda.get_mut(i) {
-						if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
-							Self::ensure_privilege(o, &s.origin)?;
-							Retries::<T>::remove((when, index));
-							T::Preimages::drop(&s.call);
+						if let (Some(ref o), Some(ref task)) = (origin, s.borrow()) {
+							Self::ensure_privilege(o, &task.origin)?;
 						}
-						*s = None;
+						if let Some(task) = s.take() {
+							Retries::<T>::remove((when, index));
+							T::Preimages::drop(&task.call);
+						}
 					}
 					Ok(())
 				})?;
