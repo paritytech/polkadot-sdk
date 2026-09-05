@@ -166,6 +166,7 @@ pub fn expand_outer_inherent(
 
 				#(
 					#pallet_attrs
+					#[allow(deprecated)]
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
 							if !pallet_has_inherent[#pallet_positions] {
