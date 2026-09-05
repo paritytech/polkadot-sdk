@@ -1,0 +1,114 @@
+name: Zombienet Bridges
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUN_IN_CONTAINER: 1
+  FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
+  LOCAL_DIR: "./bridges/testing"
+  GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
+
+# only run if we have changes in [subtrate, cumulus, polkadot] directories or this workflow.
+jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
+  preflight:
+    needs: isdraft
+    uses: ./.github/workflows/zombienet-reusable-preflight.yml
+
+  zombienet-bridges-0001-asset-transfer-works:
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot || needs.preflight.outputs.changes_bridges) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-bridges-0001-asset-transfer-works') }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    timeout-minutes: 60
+    container:
+      image: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/bridges-zombienet-tests:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+    env:
+      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/bridges-zombienet-tests:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: script
+        run: |
+          echo "Zombienet Tests Config"
+          echo "${ZOMBIENET_IMAGE}"
+          echo "${LOCAL_DIR}"
+          ls "${LOCAL_DIR}"
+          echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
+          /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-test.sh 0001-asset-transfer --docker
+          echo "Done"
+
+      - name: prepare logs
+        if: ${{ ! cancelled() }}
+        run: |
+          mkdir -p ./zombienet-logs
+          # copy general logs
+          cp -r /tmp/bridges-tests-run-*/logs/* ./zombienet-logs/ 2>/dev/null || :
+          # copy logs of rococo nodes
+          cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/ 2>/dev/null || :
+          # copy logs of westend nodes
+          cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/ 2>/dev/null || :
+
+      - name: upload logs
+        if: ${{ ! cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
+          path: |
+            ./zombienet-logs/
+
+  #
+  #
+  zombienet-bridges-0002-free-headers-synced-while-idle:
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot || needs.preflight.outputs.changes_bridges) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-bridges-0002-free-headers-synced-while-idle') }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    timeout-minutes: 60
+    container:
+        image: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/bridges-zombienet-tests:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+    env:
+        ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/bridges-zombienet-tests:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: script
+        run: |
+            echo "Zombienet Tests Config"
+            echo "${ZOMBIENET_IMAGE}"
+            echo "${LOCAL_DIR}"
+            ls "${LOCAL_DIR}"
+            echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+            export DEBUG=${{ needs.preflight.outputs.DEBUG }}
+            /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-test.sh 0002-free-headers-synced-while-idle --docker
+            echo "Done"
+
+      - name: prepare logs
+        if: ${{ ! cancelled() }}
+        run: |
+          mkdir -p ./zombienet-logs
+          # copy general logs
+          cp -r /tmp/bridges-tests-run-*/logs/* ./zombienet-logs/
+          # copy logs of rococo nodes
+          cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/
+          # copy logs of westend nodes
+          cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
+
+      - name: upload logs
+        if: ${{ ! cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
+          path: |
+            ./zombienet-logs/
