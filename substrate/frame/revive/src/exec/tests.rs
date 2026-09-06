@@ -3717,9 +3717,9 @@ fn cold_hot_a_load_warms_both_code_entries() {
 fn cold_hot_failed_code_load_leaves_code_cold() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let before = ctx.ext.access_list_metrics();
-		let r = run_child_call(ctx.ext, &DJANGO_ADDR, vec![]);
+		let result = run_child_call(ctx.ext, &DJANGO_ADDR, vec![]);
 		assert_eq!(
-			r,
+			result,
 			Err(Error::<Test>::CodeNotFound.into()),
 			"the dangling code hash fails to load",
 		);

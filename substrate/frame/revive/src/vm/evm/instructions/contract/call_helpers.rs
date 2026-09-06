@@ -66,6 +66,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 ) -> ControlFlow<Halt, ()> {
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
+	let dust_transfer = Pallet::<E::T>::has_dust(value);
 	let mut transfer_keys = None;
 	match precompile {
 		Some(precompile) => {
@@ -86,10 +87,8 @@ pub fn charge_call_gas<'a, E: Ext>(
 		},
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
-			let transfer = (!value.is_zero()).then(|| Transfer {
-				from: interpreter.ext.address(),
-				dust: Pallet::<E::T>::has_dust(value),
-			});
+			let transfer = (!value.is_zero())
+				.then(|| Transfer { from: interpreter.ext.address(), dust: dust_transfer });
 			let call_access = CallAccess::new(callee, scheme.is_delegate_call(), transfer);
 			let warmth = interpreter.ext.warm(call_access);
 			transfer_keys = warmth.transfer_keys();
@@ -107,7 +106,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 			.ext
 			.frame_meter_mut()
 			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
-				dust_transfer: Pallet::<E::T>::has_dust(value),
+				dust_transfer,
 				keys: transfer_keys,
 			})?;
 	}

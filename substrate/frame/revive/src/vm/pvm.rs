@@ -645,6 +645,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			CallType::DelegateCall => U256::zero(),
 		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
+		let dust_transfer = Pallet::<E::T>::has_dust(value);
 		let mut transfer_keys = None;
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
@@ -652,10 +653,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => {
-				let transfer = (!value.is_zero()).then(|| Transfer {
-					from: self.ext.address(),
-					dust: Pallet::<E::T>::has_dust(value),
-				});
+				let transfer = (!value.is_zero())
+					.then(|| Transfer { from: self.ext.address(), dust: dust_transfer });
 				let call_access =
 					CallAccess::new(callee, matches!(&call_type, CallType::DelegateCall), transfer);
 				let warmth = self.ext.warm(call_access);
@@ -697,7 +696,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					}
 
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-						dust_transfer: Pallet::<E::T>::has_dust(value),
+						dust_transfer,
 						keys: transfer_keys,
 					})?;
 				}

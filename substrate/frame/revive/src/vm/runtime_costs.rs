@@ -556,8 +556,8 @@ mod tests {
 	#[test]
 	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
 		let len = 64u32;
-		let cold = Warmth::Cold { revertible: false };
-		let cold_revertible = Warmth::Cold { revertible: true };
+		let cold = Warmth::cold_non_revertible();
+		let cold_revertible = Warmth::cold_revertible();
 		let read_paid = Warmth::Hot { charged: StorageOp::Read };
 		let write_paid = Warmth::Hot { charged: StorageOp::Write };
 
@@ -661,7 +661,8 @@ mod tests {
 			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { account_info: cold }));
 		assert!(
 			delegate_cold.ref_time() > delegate_hot.ref_time(),
-			"cold delegate call must be more expensive than hot: cold={delegate_cold:?} hot={delegate_hot:?}",
+			"cold delegate call must be more expensive than hot: cold={delegate_cold:?} \
+			 hot={delegate_hot:?}",
 		);
 		assert_eq!(delegate_hot.proof_size(), 0, "hot delegate call: {delegate_hot:?}");
 		assert!(delegate_cold.proof_size() > 0, "cold delegate call: {delegate_cold:?}");
@@ -833,6 +834,11 @@ mod tests {
 			("journaled upgrade", RuntimeCosts::access_list_upgrade_overhead::<Test>()),
 			("deferred write", RuntimeCosts::deferred_write_cost::<Test>()),
 			("hot storage overlay", overlay),
+			(
+				"hot call transfer",
+				<Test as Config>::WeightInfo::seal_call_hot_transfer(0)
+					.saturating_sub(<Test as Config>::WeightInfo::seal_call_hot()),
+			),
 		];
 		for (name, weight) in derived {
 			assert!(
