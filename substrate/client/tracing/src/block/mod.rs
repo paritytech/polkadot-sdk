@@ -102,7 +102,7 @@ where
 	fn execute_block(&self, _: Block::Hash, block: Block) -> sp_blockchain::Result<()> {
 		self.client
 			.runtime_api()
-			.execute_block(*block.header().parent_hash(), block.into())
+			.execute_block(*block.header().parent_hash(), block)
 			.map_err(Into::into)
 	}
 }

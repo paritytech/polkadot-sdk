@@ -277,7 +277,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		);
 
 		runtime_api
-			.execute_block(parent_hash, block.into())
+			.execute_block(parent_hash, block)
 			.map_err(|e| Box::new(e) as Box<_>)?;
 
 		let storage_proof =

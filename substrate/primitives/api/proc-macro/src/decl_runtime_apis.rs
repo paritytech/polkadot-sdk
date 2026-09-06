@@ -24,7 +24,7 @@ use crate::{
 		extract_parameter_names_types_and_borrows, fold_fn_decl_for_client_side,
 		generate_crate_access, generate_runtime_mod_name_for_trait, parse_runtime_api_version,
 		prefix_function_with_trait, replace_wild_card_parameter_names, return_type_extract_type,
-		versioned_trait_name, AllowSelfRefInParameters,
+		take_encode_like_attributes, versioned_trait_name, AllowSelfRefInParameters,
 	},
 };
 
@@ -202,6 +202,8 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			match i {
 				TraitItem::Fn(ref mut method) => {
 					let method_attrs = remove_supported_attributes(&mut method.attrs);
+					// Client side only, drop it before it reaches the runtime side trait.
+					take_encode_like_attributes(&mut method.sig);
 					let mut method_version = trait_api_version;
 					// validate the api version for the method (if any) and generate default
 					// implementation for versioned methods
@@ -355,21 +357,56 @@ impl<'a> ToClientSideDecl<'a> {
 		mut method: TraitItemFn,
 		trait_generics_num: usize,
 	) -> TraitItemFn {
-		let params = match extract_parameter_names_types_and_borrows(
-			&method.sig,
-			AllowSelfRefInParameters::No,
-		) {
-			Ok(res) => res.into_iter().map(|v| v.0).collect::<Vec<_>>(),
-			Err(e) => {
-				self.errors.push(e.to_compile_error());
-				Vec::new()
-			},
-		};
+		// Consume before extracting, so the attribute never reaches the generated signature.
+		let encode_like_params = take_encode_like_attributes(&mut method.sig);
+
+		let (params, param_types): (Vec<_>, Vec<_>) =
+			match extract_parameter_names_types_and_borrows(
+				&method.sig,
+				AllowSelfRefInParameters::No,
+			) {
+				Ok(res) => res.into_iter().map(|v| (v.0, v.1)).unzip(),
+				Err(e) => {
+					self.errors.push(e.to_compile_error());
+					(Vec::new(), Vec::new())
+				},
+			};
 		let ret_type = return_type_extract_type(&method.sig.output);
+
+		let crate_ = self.crate_;
+
+		// Only marked parameters become generic, making all of them generic would break type
+		// inference at every call site of the api.
+		let generic_names = encode_like_params
+			.iter()
+			.zip(param_types.iter())
+			.enumerate()
+			.filter(|(_, (encode_like, _))| **encode_like)
+			.map(|(i, (_, param_type))| {
+				let name = Ident::new(&format!("__SrApiParam{}__", i), Span::call_site());
+				method.sig.generics.params.push(parse_quote!(
+					#name: #crate_::EncodeLike<#param_type>
+				));
+				(i, name)
+			})
+			.collect::<HashMap<_, _>>();
+
+		if !generic_names.is_empty() {
+			// A generic method is not dispatchable, keep the trait object safe.
+			let where_clause = method.sig.generics.make_where_clause();
+			where_clause.predicates.push(parse_quote!(Self: Sized));
+		}
 
 		fold_fn_decl_for_client_side(&mut method.sig, self.block_hash, self.crate_);
 
-		let crate_ = self.crate_;
+		// Skip `&self` and the block hash that `fold_fn_decl_for_client_side` prepended.
+		for (i, arg) in method.sig.inputs.iter_mut().skip(2).enumerate() {
+			let (FnArg::Typed(typed), Some(generic_name)) = (arg, generic_names.get(&i)) else {
+				continue;
+			};
+
+			typed.ty = Box::new(parse_quote!(#generic_name));
+		}
 
 		let found_attributes = remove_supported_attributes(&mut method.attrs);
 
