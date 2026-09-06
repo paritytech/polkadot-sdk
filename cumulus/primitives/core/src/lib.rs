@@ -35,6 +35,15 @@ pub mod parachain_block_data;
 pub mod scheduling;
 
 pub use parachain_block_data::ParachainBlockData;
+// Parachain-side speculative-messaging off-chain types, surfaced here as the
+// parachain primitives hub (the relay-visible commitments stay in
+// `polkadot-primitives::v9`).
+pub use cumulus_primitives_spec_messaging::{
+	build_requires, leaf_hash, verify_messages_response, ConsumptionRecord, Interval,
+	MMRExtensionProof, MaxSpeculativeMessageLen, MessagePosition, MessagesRequest,
+	MessagesResponse, MmrFrontier, MmrRoot, Register, RequiresLift, SpecHasher, SpecMsgKind,
+	SpecMsgSignal, StreamId, StreamProof, TreeInclusionProof, WindowGrant,
+};
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,

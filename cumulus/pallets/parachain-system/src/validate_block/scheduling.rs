@@ -269,6 +269,12 @@ impl SchedulingSignals {
 						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
 					}
 				},
+				// Speculative-messaging commitments (`Provides`/`Requires`) are not scheduling
+				// signals: they are built and emitted per candidate by the spec-messaging signal
+				// builder (`spec_messaging::SpecMessagingSignals` in the poc-mvp), with their own
+				// cardinality rules. Matched here — never silently dropped — to satisfy the
+				// exhaustive guard above; scheduling itself leaves them to that builder.
+				UMPSignal::Provides(_) | UMPSignal::Requires(_) => {},
 			}
 		}
 		signals.emit(upward_messages);
