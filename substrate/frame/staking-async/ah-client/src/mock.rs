@@ -79,6 +79,11 @@ impl SessionInterface for MockSessionInterface {
 			return Err(err);
 		}
 		SetKeysCalls::mutate(|calls| calls.push((*account, keys)));
+		RegisteredKeys::mutate(|registered| {
+			if !registered.contains(account) {
+				registered.push(*account)
+			}
+		});
 		Ok(())
 	}
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
@@ -86,6 +91,7 @@ impl SessionInterface for MockSessionInterface {
 			return Err(err);
 		}
 		PurgeKeysCalls::mutate(|calls| calls.push(*account));
+		RegisteredKeys::mutate(|registered| registered.retain(|a| a != account));
 		Ok(())
 	}
 	fn set_keys_weight() -> Weight {
@@ -93,6 +99,12 @@ impl SessionInterface for MockSessionInterface {
 	}
 	fn purge_keys_weight() -> Weight {
 		Weight::zero()
+	}
+}
+
+impl frame_support::traits::ValidatorRegistration<u64> for MockSessionInterface {
+	fn is_registered(id: &u64) -> bool {
+		RegisteredKeys::get().contains(id)
 	}
 }
 
@@ -141,13 +153,41 @@ parameter_types! {
 	pub static SetKeysError: Option<DispatchError> = None;
 	pub static PurgeKeysCalls: Vec<u64> = vec![];
 	pub static PurgeKeysError: Option<DispatchError> = None;
+	pub static RegisteredKeys: Vec<u64> = vec![];
+	pub static KeysStateCalls: Vec<(u64, bool)> = vec![];
+	pub static NextKeysStateSendFails: bool = false;
+}
+
+/// Records the key state reported to AssetHub, so tests can assert on it.
+pub struct MockSendToAssetHub;
+impl SendToAssetHub for MockSendToAssetHub {
+	type AccountId = u64;
+
+	fn relay_session_report(_report: rc_client::SessionReport<Self::AccountId>) -> Result<(), ()> {
+		unimplemented!()
+	}
+
+	fn relay_new_offence_paged(
+		_offences: Vec<(u32, rc_client::Offence<Self::AccountId>)>,
+	) -> Result<(), ()> {
+		unimplemented!()
+	}
+
+	fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()> {
+		// `::take` resets it to `false`, so a test arms one failure at a time.
+		if NextKeysStateSendFails::take() {
+			return Err(());
+		}
+		KeysStateCalls::mutate(|calls| calls.push((stash, has_keys)));
+		Ok(())
+	}
 }
 
 impl Config for Test {
 	type CurrencyBalance = u128;
 	type AssetHubOrigin = frame_system::EnsureRoot<u64>;
 	type AdminOrigin = frame_system::EnsureRoot<u64>;
-	type SendToAssetHub = ();
+	type SendToAssetHub = MockSendToAssetHub;
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
 	type MaximumValidatorsWithPoints = ConstU32<128>;
 	type UnixTime = MockUnixTime;
@@ -164,5 +204,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	SetKeysError::take();
 	PurgeKeysCalls::take();
 	PurgeKeysError::take();
+	RegisteredKeys::take();
+	KeysStateCalls::take();
+	NextKeysStateSendFails::take();
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
