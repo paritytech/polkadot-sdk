@@ -2538,6 +2538,7 @@ parameter_types! {
 }
 
 impl pallet_mixnet::Config for Runtime {
+	type WeightInfo = pallet_mixnet::weights::SubstrateWeight<Runtime>;
 	type MaxAuthorities = MaxAuthorities;
 	type MaxExternalAddressSize = ConstU32<128>;
 	type MaxExternalAddressesPerMixnode = ConstU32<16>;
@@ -3455,6 +3456,7 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
+		[pallet_mixnet, Mixnet]
 		[pallet_psm, Psm]
 	);
 }

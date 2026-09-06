@@ -1,0 +1,33 @@
+title: Migrate `pallet-mixnet` to use `TransactionExtension` API
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Migrates `pallet-mixnet` from the deprecated `ValidateUnsigned` trait to the modern
+      `TransactionExtension` API using the `#[pallet::authorize]` attribute.
+
+      This change uses the `#[pallet::authorize]` attribute to validate mixnet registration
+      transactions, providing better composability and flexibility.
+
+      The pallet now uses `#[pallet::authorize]` on the `register` call to validate:
+      - Session index matches the current session (not future/stale)
+      - Authority index is valid and within bounds
+      - Authority ID exists in the authority set
+      - Authority hasn't already registered for this session
+      - Signature is valid for the registration data
+
+      Runtime integrators: the pallet's `Config` trait now requires
+      `CreateAuthorizedTransaction<Call<Self>>` instead of `CreateBare<Call<Self>>`.
+      If your runtime already has a blanket `impl<C> CreateAuthorizedTransaction<C> for Runtime`
+      (as kitchensink does), no extra changes are needed.
+
+      This serves as a reference example for other consensus/authority-based pallets
+      migrating away from `ValidateUnsigned`.
+
+crates:
+  - name: pallet-mixnet
+    bump: major
+  - name: kitchensink-runtime
+    bump: patch
+  - name: polkadot-sdk
+    bump: patch
