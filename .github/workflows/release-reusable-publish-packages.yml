@@ -39,7 +39,7 @@ jobs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate package type
         if: ${{ inputs.package_type != 'deb' && inputs.package_type != 'rpm' }}
@@ -71,7 +71,7 @@ jobs:
       NODE_VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.NODE_VERSION }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         id: fetch_artifacts_from_s3
@@ -121,7 +121,7 @@ jobs:
           echo "PGPKMS_RPMSIGN_PATH=$(which pgpkms-rpmsign)" >> $GITHUB_ENV
 
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download artifacts from previous job
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
