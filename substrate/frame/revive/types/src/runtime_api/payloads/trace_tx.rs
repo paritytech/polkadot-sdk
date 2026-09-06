@@ -32,7 +32,7 @@ pub struct TraceTxInputPayloadV1<Block> {
 pub struct TraceTxInputPayloadV2<Block> {
 	pub block: Block,
 	pub tx_index: u32,
-	pub config: TracerTypeV1,
+	pub config: TracerTypeV2,
 }
 
 /// The input type used when calling the `trace_tx_versioned` runtime API function. This function
@@ -44,8 +44,8 @@ pub enum TraceTxVersionedInputPayload<Block> {
 	/// When this version is provided, the function behaves identically to and returns the same
 	/// output as the unversioned `trace_tx` runtime API function.
 	V1(TraceTxInputPayloadV1<Block>),
-	/// This version accepts the same arguments as `V1` and selects `TraceV2` rather than `TraceV1`
-	/// for the returned trace data.
+	/// This version takes `TracerTypeV2`, whose execution tracer adds `step_offset`: paired with
+	/// `limit` it captures one window of an execution's steps at a time.
 	V2(TraceTxInputPayloadV2<Block>),
 }
 

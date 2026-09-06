@@ -31,7 +31,7 @@ pub struct TraceBlockInputPayloadV1<Block> {
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockInputPayloadV2<Block> {
 	pub block: Block,
-	pub config: TracerTypeV1,
+	pub config: TracerTypeV2,
 }
 
 /// The input type used when calling the `trace_block_versioned` runtime API function. This function
@@ -43,8 +43,8 @@ pub enum TraceBlockVersionedInputPayload<Block> {
 	/// When this version is provided, the function behaves identically to and returns the same
 	/// output as the unversioned `trace_block` runtime API function.
 	V1(TraceBlockInputPayloadV1<Block>),
-	/// This version accepts the same arguments as `V1` and selects `TraceV2` rather than `TraceV1`
-	/// for the returned trace data.
+	/// This version takes `TracerTypeV2`, whose execution tracer adds `step_offset`: paired with
+	/// `limit` it captures one window of an execution's steps at a time.
 	V2(TraceBlockInputPayloadV2<Block>),
 }
 

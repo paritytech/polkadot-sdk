@@ -36,6 +36,47 @@ impl Default for TracerTypeV1 {
 	}
 }
 
+/// As [`TracerTypeV1`], but the execution tracer takes [`ExecutionTracerConfigV2`].
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq, From)]
+#[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
+pub enum TracerTypeV2 {
+	CallTracer(Option<CallTracerConfigV1>),
+	PrestateTracer(Option<PrestateTracerConfigV1>),
+	ExecutionTracer(Option<ExecutionTracerConfigV2>),
+}
+
+/// Widens a V1 selection into V2. V1 has no window, so the result captures from the first step.
+impl From<TracerTypeV1> for TracerTypeV2 {
+	fn from(value: TracerTypeV1) -> Self {
+		match value {
+			TracerTypeV1::CallTracer(config) => Self::CallTracer(config),
+			TracerTypeV1::PrestateTracer(config) => Self::PrestateTracer(config),
+			TracerTypeV1::ExecutionTracer(config) => Self::ExecutionTracer(config.map(Into::into)),
+		}
+	}
+}
+
+impl From<ExecutionTracerConfigV1> for ExecutionTracerConfigV2 {
+	fn from(value: ExecutionTracerConfigV1) -> Self {
+		Self {
+			enable_memory: value.enable_memory,
+			disable_stack: value.disable_stack,
+			disable_storage: value.disable_storage,
+			enable_return_data: value.enable_return_data,
+			disable_syscall_details: value.disable_syscall_details,
+			step_offset: 0,
+			limit: value.limit,
+			memory_word_limit: value.memory_word_limit,
+		}
+	}
+}
+
+impl Default for TracerTypeV2 {
+	fn default() -> Self {
+		TracerTypeV2::ExecutionTracer(Some(ExecutionTracerConfigV2::default()))
+	}
+}
+
 #[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
 #[serde(default, rename_all = "camelCase")]
 pub struct CallTracerConfigV1 {
@@ -78,6 +119,36 @@ impl Default for ExecutionTracerConfigV1 {
 			disable_storage: false,
 			enable_return_data: false,
 			disable_syscall_details: false,
+			limit: None,
+			memory_word_limit: 16,
+		}
+	}
+}
+
+/// As [`ExecutionTracerConfigV1`], plus [`Self::step_offset`].
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ExecutionTracerConfigV2 {
+	pub enable_memory: bool,
+	pub disable_stack: bool,
+	pub disable_storage: bool,
+	pub enable_return_data: bool,
+	pub disable_syscall_details: bool,
+	pub step_offset: u64,
+	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
+	pub limit: Option<u64>,
+	pub memory_word_limit: u32,
+}
+
+impl Default for ExecutionTracerConfigV2 {
+	fn default() -> Self {
+		Self {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: false,
+			enable_return_data: false,
+			disable_syscall_details: false,
+			step_offset: 0,
 			limit: None,
 			memory_word_limit: 16,
 		}
