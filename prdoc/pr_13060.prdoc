@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Registrar: add lock and unlock'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      `pallet-registrar-para` gains `add_lock`, which shuts the manager out of a registered para,
+      and `remove_lock`, for root or the para itself only. `pallet-broker` applies the same lock
+      through a new `ParaLock` config type whenever a region is assigned to a task, so a para is
+      locked as soon as it holds Coretime. `ParaLock` is `()` on a chain with no registrar.
+
+      `pallet-registrar-relay::authorize_code` and `cancel_authorization` are merged into a single
+      `receive` at call index 0, so the transport no longer picks a call index per message variant.
+      The `UnexpectedMessage` error is gone and weights split into `receive_register` and
+      `receive_cancel_registration`.
+
+crates:
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major
+  - name: pallet-broker
+    bump: major
+  - name: coretime-westend-runtime
+    bump: patch

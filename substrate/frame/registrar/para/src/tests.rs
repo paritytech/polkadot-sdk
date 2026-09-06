@@ -66,6 +66,33 @@ fn request_registration(who: AccountId, para_id: u32, head_len: usize, code_len:
 	blob
 }
 
+/// Reserve, register and confirm a para for `who` (message id 0), leaving the logs clean.
+///
+/// Head and code sizes are 20 and 300, so the registration deposit is `PER_BYTE * 320`.
+fn registered_para(who: AccountId) -> u32 {
+	let para_id = reserve_for(who);
+	request_registration(who, para_id, 20, 300);
+	assert_ok!(Registrar::receive(
+		RuntimeOrigin::root(),
+		MessageToPara::V1(MessageToParaV1::RegisterResponse {
+			para_id,
+			message_id: 0,
+			outcome: Ok(()),
+		}),
+	));
+	let _ = registrar_events();
+	let _ = take_sent();
+	para_id
+}
+
+/// Lock `who`'s registered para, leaving the logs clean.
+fn locked_para(who: AccountId) -> u32 {
+	let para_id = registered_para(who);
+	assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(who), para_id));
+	let _ = registrar_events();
+	para_id
+}
+
 mod reserve {
 	use super::*;
 
@@ -570,6 +597,197 @@ mod cancel_registration {
 				Registrar::cancel_registration(RuntimeOrigin::signed(BOB), para_id),
 				Error::<Test>::NotOwner
 			);
+		});
+	}
+}
+
+mod add_lock {
+	use super::*;
+
+	#[test]
+	fn the_manager_locks_a_registered_para() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
+		});
+	}
+
+	#[test]
+	fn the_para_itself_and_root_may_lock() {
+		new_test_ext().execute_with(|| {
+			// Another para cannot pose as this one.
+			let para_id = registered_para(ALICE);
+			assert_noop!(
+				Registrar::add_lock(para_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
+			);
+
+			assert_ok!(Registrar::add_lock(para_origin(para_id), para_id));
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
+
+			let other_id = registered_para(BOB);
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::root(), other_id));
+			assert!(Paras::<Test>::get(other_id).unwrap().locked);
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id: other_id }]);
+		});
+	}
+
+	#[test]
+	fn rejects_an_unknown_id_a_non_manager_and_a_para_that_is_not_registered() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), 4242),
+				Error::<Test>::NotReserved
+			);
+
+			// Reserved, not registered.
+			let para_id = reserve_for(ALICE);
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(BOB), para_id),
+				Error::<Test>::NotOwner
+			);
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotRegistered
+			);
+
+			// And a registration in flight is not registered either.
+			request_registration(ALICE, para_id, 20, 300);
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotRegistered
+			);
+		});
+	}
+
+	#[test]
+	fn a_locked_para_cannot_be_locked_again() {
+		new_test_ext().execute_with(|| {
+			let para_id = locked_para(ALICE);
+
+			// The manager is turned away by the lock itself, before the state is looked at.
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+
+			// Root and the para are not, so they get the state error.
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::root(), para_id),
+				Error::<Test>::AlreadyLocked
+			);
+			assert_noop!(
+				Registrar::add_lock(para_origin(para_id), para_id),
+				Error::<Test>::AlreadyLocked
+			);
+		});
+	}
+}
+
+mod lock_para {
+	use super::*;
+
+	#[test]
+	fn locks_without_an_origin_and_refuses_what_add_lock_refuses() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(Registrar::lock_para(4242), Error::<Test>::NotReserved);
+
+			let reserved = reserve_for(ALICE);
+			assert_noop!(Registrar::lock_para(reserved), Error::<Test>::NotRegistered);
+
+			let para_id = registered_para(ALICE);
+			assert_ok!(Registrar::lock_para(para_id));
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
+
+			assert_noop!(Registrar::lock_para(para_id), Error::<Test>::AlreadyLocked);
+		});
+	}
+}
+
+mod remove_lock {
+	use super::*;
+
+	#[test]
+	fn root_unlocks() {
+		new_test_ext().execute_with(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
+
+			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::ParaUnlocked { para_id }]);
+		});
+	}
+
+	#[test]
+	fn the_para_itself_unlocks() {
+		new_test_ext().execute_with(|| {
+			let para_id = locked_para(ALICE);
+
+			// Another para cannot pose as this one.
+			assert_noop!(
+				Registrar::remove_lock(para_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
+			);
+
+			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
+			assert!(!Paras::<Test>::get(para_id).unwrap().locked);
+			assert_eq!(registrar_events(), vec![Event::ParaUnlocked { para_id }]);
+		});
+	}
+
+	#[test]
+	fn the_manager_may_not_unlock() {
+		new_test_ext().execute_with(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::signed(ALICE), para_id),
+				DispatchError::BadOrigin
+			);
+			assert!(Paras::<Test>::get(para_id).unwrap().locked);
+		});
+	}
+
+	#[test]
+	fn rejects_an_unknown_id_and_a_para_that_is_not_locked() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::root(), 4242),
+				Error::<Test>::NotReserved
+			);
+
+			let para_id = registered_para(ALICE);
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::root(), para_id),
+				Error::<Test>::NotLocked
+			);
+		});
+	}
+
+	#[test]
+	fn a_lock_shuts_the_manager_out_until_it_is_lifted() {
+		new_test_ext().execute_with(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
 		});
 	}
 }

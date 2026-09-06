@@ -27,19 +27,19 @@
 //! commit to the exact bytes and let anybody upload them here directly, so registration arrives in
 //! two pieces:
 //!
-//! 1. [`Pallet::authorize_code`] takes the parachain's request, which carries the head data plus
-//!    the hash and length of the code that is coming, and parks it in [`PendingRegistrations`].
-//!    Only callable by a trusted XCM origin (e.g. the Coretime chain).
+//! 1. [`Pallet::receive`] takes the parachain's request, which carries the head data plus the hash
+//!    and length of the code that is coming, and parks it in [`PendingRegistrations`]. Only
+//!    callable by a trusted XCM origin (e.g. the Coretime chain).
 //! 2. [`Pallet::apply_authorized_code`] takes the blob itself. It needs no signature: anybody may
 //!    push the code, because a pending entry already pins down exactly which bytes are acceptable,
 //!    and the parachain has already made the manager pay for them. If the blob matches, the para is
 //!    onboarded and the outcome is reported back to the parachain.
 //!
 //! An authorization does not time out here. If the code never turns up, missing the deadline is the
-//! manager's problem, not this chain's: the parachain sends [`Pallet::cancel_authorization`] when
-//! it gives up, this pallet drops the entry and confirms, and the parachain releases the deposit.
-//! So no per-block sweep runs on the relay chain, and whoever wants the deposit back pays for the
-//! round trip. No deposit is ever taken here.
+//! manager's problem, not this chain's: the parachain sends
+//! [`MessageToRelayV1::CancelRegistration`] when it gives up, this pallet drops the entry and
+//! confirms, and the parachain releases the deposit. So no per-block sweep runs on the relay chain,
+//! and whoever wants the deposit back pays for the round trip. No deposit is ever taken here.
 //!
 //! ## Runtime requirement
 //!
@@ -108,19 +108,6 @@ pub struct PendingRegistration<AccountId, MaxHeadDataSize: Get<u32>> {
 	/// The parachain sized the manager's deposit from this, so a blob of any other length would
 	/// mean the manager underpaid, even if the hash somehow matched.
 	pub code_len: u32,
-}
-
-/// How much head data a message carries, for weighing [`Pallet::authorize_code`].
-///
-/// Worth doing rather than always charging `MaxHeadDataSize`: that bound is a megabyte on
-/// production relay chains, and a typical genesis head is nowhere near it.
-pub fn head_data_len<AccountId>(message: &MessageToRelay<AccountId>) -> u32 {
-	match message {
-		MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) => {
-			genesis_head.len() as u32
-		},
-		MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => 0,
-	}
 }
 
 /// [`PendingRegistration`] as this pallet stores it.
@@ -217,24 +204,31 @@ pub mod pallet {
 		CodeLenMismatch,
 		/// The validation code is larger than this pallet will accept.
 		CodeTooLarge,
-		/// The message is not one this call serves.
-		UnexpectedMessage,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Accept a control-plane message from the parachain's registrar pallet and authorize the
-		/// validation code that will follow.
+		/// Accept a control-plane message from the parachain's registrar pallet.
 		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users.
+		/// Not callable by users: the origin must be a trusted XCM origin (e.g. the Coretime
+		/// chain). A registration request authorizes the validation code that will follow; a
+		/// cancellation drops an authorization the parachain has given up on.
 		///
 		/// A request this pallet will not act on is *not* an extrinsic failure. Failing would roll
 		/// back the rejection report along with everything else, and the parachain would sit on a
 		/// held deposit waiting for news that never comes. So a rejection is applied, reported, and
 		/// returns `Ok`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::authorize_code(head_data_len(message)))]
-		pub fn authorize_code(
+		// A `Register` is weighed by the head data it actually carries rather than by
+		// `MaxHeadDataSize`: that bound is a megabyte on production relay chains, and a typical
+		// genesis head is nowhere near it.
+		#[pallet::weight(match message {
+			MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) =>
+				T::WeightInfo::receive_register(genesis_head.len() as u32),
+			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
+				T::WeightInfo::receive_cancel_registration(),
+		})]
+		pub fn receive(
 			origin: OriginFor<T>,
 			message: MessageToRelay<T::AccountId>,
 		) -> DispatchResult {
@@ -248,19 +242,21 @@ pub mod pallet {
 					genesis_head,
 					code_hash,
 					code_len,
-				}) => {
-					Self::on_register_request(
-						para_id,
-						message_id,
-						manager,
-						genesis_head,
-						code_hash,
-						code_len,
-					);
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
+				}) => Self::on_register_request(
+					para_id,
+					message_id,
+					manager,
+					genesis_head,
+					code_hash,
+					code_len,
+				),
+				MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
+					para_id,
+					message_id,
+				}) => Self::on_cancel_request(para_id, message_id),
 			}
+
+			Ok(())
 		}
 
 		/// Upload the validation code for a pending authorization, onboarding the para.
@@ -297,39 +293,6 @@ pub mod pallet {
 				manager: pending.manager,
 			});
 			Ok(Pays::No.into())
-		}
-
-		/// Drop the authorization held for a para id, at the parachain's request.
-		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. This is
-		/// the only way an authorization that never received its code goes away, and the manager
-		/// pays for it on the parachain: nothing here expires on its own.
-		///
-		/// Answered with [`MessageToParaV1::CancelResponse`], which is what lets the parachain
-		/// release the deposit. Refused, and reported as such, if the code did land in the meantime
-		/// and the para is registered: the deposit is then owed after all.
-		///
-		/// Cancelling something that was never pending is not an error. The request may simply have
-		/// been rejected here and the report lost, and the parachain still needs an answer it can
-		/// act on.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::cancel_authorization())]
-		pub fn cancel_authorization(
-			origin: OriginFor<T>,
-			message: MessageToRelay<T::AccountId>,
-		) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
-			match message {
-				MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
-					para_id,
-					message_id,
-				}) => {
-					Self::on_cancel_request(para_id, message_id);
-					Ok(())
-				},
-				_ => Err(Error::<T>::UnexpectedMessage.into()),
-			}
 		}
 	}
 
@@ -412,6 +375,10 @@ pub mod pallet {
 		/// this chain has registered is not one whose deposit can be handed back, so that is the
 		/// whole test. The entry goes either way: once the id is taken, an authorization for it can
 		/// never be applied.
+		///
+		/// Cancelling something that was never pending is not an error either. The request may
+		/// simply have been rejected here and the report lost, and the parachain still needs an
+		/// answer it can act on.
 		fn on_cancel_request(para_id: ParaId, message_id: u64) {
 			PendingRegistrations::<T>::remove(para_id);
 
@@ -456,7 +423,6 @@ pub mod pallet {
 				Error::<T>::CodeHashMismatch => 1,
 				Error::<T>::CodeLenMismatch => 2,
 				Error::<T>::CodeTooLarge => 3,
-				Error::<T>::UnexpectedMessage => 4,
 			}
 		}
 

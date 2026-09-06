@@ -2510,6 +2510,16 @@ impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
 		Some(account.into())
 	}
 }
+
+/// Locks a para in the registrar once the broker has given it Coretime.
+pub struct LockParaOnCoretime;
+impl pallet_broker::ParaLock for LockParaOnCoretime {
+	fn lock(task: TaskId) {
+		// Having nothing to lock is the normal case: a task need not be a para registered here.
+		let _ = RegistrarPara::lock_para(task);
+	}
+}
+
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -2518,6 +2528,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
+	type ParaLock = LockParaOnCoretime;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
@@ -2715,6 +2726,7 @@ impl pallet_registrar_para::Config for Runtime {
 	>;
 	type SendToRelay = DiscardRegistrarMessages;
 	type RelayOrigin = EnsureRoot<AccountId>;
+	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
 	type FirstPublicParaId = ConstU32<2000>;
 	type MinCodeSize = ConstU32<9>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
