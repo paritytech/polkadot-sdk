@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788612851546,
+  "lastUpdate": 1788733402113,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -121175,6 +121175,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2702904308,
             "range": "± 33039292",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "32b52bbbf8076d1de938e5d2fbf391f0cb7a5532",
+          "message": "feat(sc-consensus-babe): expose build_verifier like Aura (#13061)\n\n# Description\n\n**Motivation:** BABE cannot be used with a custom import queue today,\nbecause `BabeVerifier` is only constructed inside `import_queue` and\nimmediately wrapped in `BasicQueue`.\n\nAura already exposes `build_verifier` for that. This PR adds the same\nAPI for BABE (`build_verifier` + `BuildVerifierParams`) so a node can\ncompose `BabeVerifier` into its own `ImportQueue`.\n\n`import_queue` is unchanged for existing callers: it still builds a\n`BasicQueue` and still spawns the epoch-data worker.\n\n# Integration\n\nNo change for callers of `import_queue`.\n\nTo compose BABE with a custom queue (same pattern as Aura):\n\n```rust\nlet verifier = sc_consensus_babe::build_verifier(sc_consensus_babe::BuildVerifierParams {\n    client: client.clone(),\n    slot_duration,\n    config: babe_link.config().clone(),\n    epoch_changes: babe_link.epoch_changes().clone(),\n    telemetry,\n});\n// pass `verifier` into BasicQueue::new or any ImportQueue\n```\n\n`BabeVerifier::new` stays `pub(crate)`. Epoch RPC still comes only from\n`import_queue` (`BabeWorkerHandle`).\n\n# Review Notes\n\n- `BuildVerifierParams` + `build_verifier` are the Aura equivalents\n(`sc_consensus_aura::{BuildVerifierParams, build_verifier}`).\n- `import_queue` now calls `build_verifier` instead of constructing\n`BabeVerifier { ... }` inline. Worker spawn and `BasicQueue::new` are\nunchanged.\n- No verification or import-path behavior change. No tests: API surface\nonly.\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-09-06T21:06:25Z",
+          "tree_id": "315bd18f8a1a3a8915bb025cb4757348042783a9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/32b52bbbf8076d1de938e5d2fbf391f0cb7a5532"
+        },
+        "date": 1788733362529,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20357272,
+            "range": "± 154486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20357738,
+            "range": "± 124445",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21967964,
+            "range": "± 120612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26914896,
+            "range": "± 123714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61735411,
+            "range": "± 507667",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 380205988,
+            "range": "± 8893662",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2725468419,
+            "range": "± 95751069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17589591,
+            "range": "± 288071",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17554210,
+            "range": "± 99859",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17940743,
+            "range": "± 175498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22551344,
+            "range": "± 196875",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60989603,
+            "range": "± 1047473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 368943341,
+            "range": "± 7527218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2789714178,
+            "range": "± 30780543",
             "unit": "ns/iter"
           }
         ]
