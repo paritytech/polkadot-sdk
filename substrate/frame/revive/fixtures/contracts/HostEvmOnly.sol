@@ -16,6 +16,11 @@ contract HostEvmOnly {
     function extcodecopyOp(address account, uint64 offset, uint64 size) public view returns (bytes memory code) {
         code = new bytes(size);
         assembly {
+            // dirty the buffer so that tests can tell zero padding written by
+            // EXTCODECOPY apart from memory that was already zero
+            let ptr := add(code, 32)
+            let end := add(ptr, size)
+            for {} lt(ptr, end) { ptr := add(ptr, 32) } { mstore(ptr, not(0)) }
             extcodecopy(account, add(code, 32), offset, size)
         }
     }
