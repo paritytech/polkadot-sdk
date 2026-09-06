@@ -36,12 +36,6 @@ fn main() -> Result<(), sc_cli::Error> {
 	let cli = TestCollatorCli::from_args();
 
 	match &cli.subcommand {
-		#[allow(deprecated)]
-		Some(Subcommand::BuildSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-		},
-
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			let chain_spec = cli.load_spec(&cmd.chain)?;
 			cmd.run(chain_spec)

@@ -1,0 +1,23 @@
+title: Remove deprecated build-spec CLI subcommand
+doc:
+- audience: Node Dev
+  description: |-
+    ## Summary
+
+    - Remove the deprecated `build-spec` CLI subcommand and `BuildSpecCmd` from `sc-cli`.
+    - Migrate all callers (nodes, templates, scripts, docs, zombienet) to `export-chain-spec`.
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-cli
+  bump: major
+- name: staging-chain-spec-builder
+  bump: patch
+- name: sc-cli
+  bump: major
+- name: staging-xcm
+  bump: patch
+- name: sc-transaction-pool
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch

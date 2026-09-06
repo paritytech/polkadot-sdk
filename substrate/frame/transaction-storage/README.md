@@ -13,7 +13,7 @@ The following describes how to set up a new storage chain.
 Start with generating a chain spec.
 
 ```bash
-cargo run --release -- build-spec --chain=local > sc_init.json
+cargo run --release -- export-chain-spec --chain=local > sc_init.json
 ```
 
 Edit the json chain spec file to customise the chain. The storage chain genesis params are configured in the
@@ -23,7 +23,7 @@ changes at the moment.
 Build a raw spec from the init spec.
 
 ```bash
-cargo run --release build-spec --chain=sc_init.json --raw > sc.json
+cargo run --release export-chain-spec --chain=sc_init.json --raw > sc.json
 ```
 
 Run a few validator nodes.

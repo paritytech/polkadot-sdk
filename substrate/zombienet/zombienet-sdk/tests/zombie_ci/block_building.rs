@@ -157,9 +157,10 @@ fn build_network_config() -> Result<NetworkConfig> {
 				.with_chain("local")
 				.with_default_command("substrate")
 				.with_default_image(integration_image.as_str())
-				.with_chain_spec_command(
-					"substrate build-spec --chain {{chainName}} --disable-default-bootnode --raw",
-				)
+				// `--raw` is required here: kitchensink's plain genesis cannot be converted via
+				// zombienet's GenericChainSpec path (missing `mixnet`). This is a substrate-only
+				// network, so skipping plain-spec customization is fine.
+				.with_chain_spec_command("substrate export-chain-spec --chain {{chainName}} --raw")
 				.chain_spec_command_is_local(true)
 				.with_default_args(default_args)
 				.with_validator(|node| node.with_name("alice"))
