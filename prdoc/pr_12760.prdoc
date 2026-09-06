@@ -4,8 +4,10 @@ doc:
 - audience: Node Operator
   description: |-
     A `polkadot-omni-node` built with the new `experimental-eth-rpc-in-node` compile-time
-    feature serves the Ethereum JSON-RPC server itself on `--eth-rpc-port` (8545 by
-    default), instead of running a separate `eth-rpc` process over a loopback WebSocket.
+    feature can serve the Ethereum JSON-RPC endpoint itself, instead of running a separate
+    `eth-rpc` process over a loopback WebSocket. Pass `--eth-rpc` to start it; without the
+    flag the node behaves exactly as one built without the feature. It listens on
+    `--eth-rpc-port` (8545 by default), on localhost unless `--eth-rpc-external` is given.
     Experimental: the in-process transport between the embedded server and the node (how
     it dispatches JSON-RPC calls into the node without a socket) is still being reworked
     and may change.
@@ -14,16 +16,15 @@ doc:
   description: |-
     `pallet-revive-eth-rpc` gains `in_process::InProcessRpcClient`, a `subxt` `RpcClientT`
     that dispatches into a node's in-memory `RpcModule` instead of a socket, and
-    `service::start_embedded`, which builds the ETH RPC client on it and spawns the
+    `in_process::start_embedded`, which builds the ETH RPC client on it and spawns the
     server on an existing `TaskManager`. Both are gated behind the crate's own
     `experimental-eth-rpc-in-node` feature, off by default, which `polkadot-omni-node-lib`
     forwards under the same feature name.
 
-    `polkadot-omni-node-lib` now optionally depends on `pallet-revive-eth-rpc`, which
-    build-depends on `revive-dev-runtime` for its subxt metadata. That's cyclic through
-    the umbrella crate (which re-exports `polkadot-omni-node-lib`), so `revive-dev-runtime`
-    now depends on individual `polkadot-sdk` crates instead of the umbrella one, and gains
-    `try-runtime`/`runtime-benchmarks` features so it still builds with `--all-features`.
+    The subxt metadata the crate generates its client from is now checked in as
+    `revive_chain.scale` rather than dumped by the build script, so `pallet-revive-eth-rpc`
+    no longer build-depends on `revive-dev-runtime`. A unit test keeps the file in step with
+    the runtime's `metadata_at_version(16)`; run it with `BLESS_METADATA=1` to refresh it.
 
 crates:
 - name: pallet-revive-eth-rpc
@@ -31,8 +32,4 @@ crates:
 - name: polkadot-omni-node-lib
   bump: minor
 - name: polkadot-omni-node
-  bump: patch
-- name: revive-dev-runtime
-  bump: minor
-- name: revive-dev-node
   bump: patch

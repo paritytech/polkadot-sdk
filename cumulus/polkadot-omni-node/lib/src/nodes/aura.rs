@@ -465,7 +465,9 @@ where
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
 		#[cfg(feature = "experimental-eth-rpc-in-node")]
-		let eth_rpc = crate::common::eth_rpc::embedded_config(eth_rpc, &config);
+		let eth_rpc = eth_rpc
+			.as_ref()
+			.map(|params| crate::common::eth_rpc::embedded_config(params, &config));
 
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
@@ -484,13 +486,15 @@ where
 		})?;
 
 		#[cfg(feature = "experimental-eth-rpc-in-node")]
-		tokio::task::block_in_place(|| {
-			futures::executor::block_on(crate::common::eth_rpc::start(
-				eth_rpc,
-				&_rpc_handlers,
-				&mut task_manager,
-			))
-		})?;
+		if let Some(eth_rpc) = eth_rpc {
+			tokio::task::block_in_place(|| {
+				futures::executor::block_on(crate::common::eth_rpc::start(
+					eth_rpc,
+					&_rpc_handlers,
+					&mut task_manager,
+				))
+			})?;
+		}
 
 		// Spawn the storage monitor.
 		if let Some(database_path) = database_path {

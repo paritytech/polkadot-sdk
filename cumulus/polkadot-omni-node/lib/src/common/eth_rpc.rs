@@ -19,17 +19,21 @@
 //! Experimental, gated on the `experimental-eth-rpc-in-node` compile-time feature: the server
 //! reaches the node through `sc-service`'s in-memory RPC module instead of a loopback WebSocket,
 //! so no separate `eth-rpc` process is needed. It listens on its own port.
+//!
+//! The feature only compiles the server in. Starting it takes `--eth-rpc`, so a node built with
+//! the feature but run without the flag behaves exactly like one built without it.
 
 use clap::Args;
 use jsonrpsee::core::server::Methods;
 use pallet_revive_eth_rpc::{
 	cli::EthPruningMode,
-	service::{start_embedded, EmbeddedConfig},
+	in_process::{start_embedded, EmbeddedConfig},
 };
 use sc_service::{
-	config::{BasePath, RpcConfiguration},
+	config::{BasePath, RpcConfiguration, RpcEndpoint},
 	ChainType, Configuration, RpcHandlers, TaskManager,
 };
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 /// Matches the standalone `eth-rpc` binary.
 const DEFAULT_PORT: u16 = 8545;
@@ -40,9 +44,17 @@ const DB_DIR: &str = "eth-rpc";
 /// CLI options for the embedded Ethereum JSON-RPC server.
 #[derive(Debug, Clone, Args)]
 pub struct EthRpcParams {
+	/// Serve an Ethereum JSON-RPC endpoint for `pallet-revive` from inside this node.
+	#[arg(id = "eth-rpc", long = "eth-rpc")]
+	pub enabled: bool,
+
 	/// Port of the Ethereum JSON-RPC server.
 	#[arg(long, value_name = "PORT", default_value_t = DEFAULT_PORT)]
 	pub eth_rpc_port: u16,
+
+	/// Listen on all interfaces rather than localhost only.
+	#[arg(long)]
+	pub eth_rpc_external: bool,
 
 	/// Pruning mode of the Ethereum receipt database: either `archive` to index every block, or
 	/// a positive number of recent blocks to keep in an in-memory database.
@@ -58,11 +70,36 @@ pub struct EthRpcParams {
 /// configuration, which happens before the in-memory RPC handlers exist.
 pub(crate) fn embedded_config(params: &EthRpcParams, config: &Configuration) -> EmbeddedConfig {
 	let node_rpc = &config.rpc;
+
+	// `None` leaves `sc-service` to bind localhost, so the endpoint is never reachable from
+	// outside just because the node's own RPC is.
+	let addr = params.eth_rpc_external.then(|| {
+		let endpoint = |ip: IpAddr, is_optional: bool| RpcEndpoint {
+			listen_addr: SocketAddr::new(ip, params.eth_rpc_port),
+			batch_config: node_rpc.batch_config,
+			cors: node_rpc.cors.clone(),
+			max_buffer_capacity_per_connection: node_rpc.message_buffer_capacity,
+			max_connections: node_rpc.max_connections,
+			max_payload_in_mb: node_rpc.max_request_size,
+			max_payload_out_mb: node_rpc.max_response_size,
+			max_subscriptions_per_connection: node_rpc.max_subs_per_conn,
+			rpc_methods: node_rpc.methods,
+			rate_limit: node_rpc.rate_limit,
+			rate_limit_trust_proxy_headers: node_rpc.rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips: node_rpc.rate_limit_whitelisted_ips.clone(),
+			retry_random_port: true,
+			is_optional,
+		};
+
+		vec![
+			endpoint(Ipv4Addr::UNSPECIFIED.into(), false),
+			endpoint(Ipv6Addr::UNSPECIFIED.into(), true),
+		]
+	});
+
 	EmbeddedConfig {
 		rpc: RpcConfiguration {
-			// Binds localhost, so the server is never exposed just because the node's
-			// own RPC is.
-			addr: None,
+			addr,
 			port: params.eth_rpc_port,
 			max_connections: node_rpc.max_connections,
 			cors: node_rpc.cors.clone(),

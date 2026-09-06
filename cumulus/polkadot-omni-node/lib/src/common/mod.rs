@@ -149,6 +149,7 @@ pub struct NodeExtraArgs {
 	pub hop: Option<sc_hop::HopParams>,
 
 	/// Options for the embedded Ethereum JSON-RPC server.
+	/// `None` leaves it off, which is what `--eth-rpc` switches on.
 	#[cfg(feature = "experimental-eth-rpc-in-node")]
-	pub eth_rpc: eth_rpc::EthRpcParams,
+	pub eth_rpc: Option<eth_rpc::EthRpcParams>,
 }

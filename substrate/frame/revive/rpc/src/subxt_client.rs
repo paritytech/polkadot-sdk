@@ -15,12 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The generated subxt client.
-//! Generated against a substrate chain configured with [`pallet_revive`] using:
-//! subxt metadata  --url ws://localhost:9944 -o rpc/revive_chain.scale
+//!
+//! Generated from the checked-in `revive_chain.scale`, which is `revive-dev-runtime`'s v16
+//! metadata. `metadata_matches_the_dev_runtime` below keeps the two in step; run it with
+//! `BLESS_METADATA=1` to refresh the file after changing the runtime.
 pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 #[subxt::subxt(
-	runtime_metadata_path = "$OUT_DIR/revive_chain.scale",
+	runtime_metadata_path = "revive_chain.scale",
 	// TODO remove once subxt use the same U256 type
 	substitute_type(
 		path = "primitive_types::U256",
@@ -666,3 +668,27 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 )]
 mod src_chain {}
 pub use src_chain::*;
+
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn metadata_matches_the_dev_runtime() {
+		let path = concat!(env!("CARGO_MANIFEST_DIR"), "/revive_chain.scale");
+		let metadata = sp_io::TestExternalities::default().execute_with(|| {
+			revive_dev_runtime::Runtime::metadata_at_version(16)
+				.expect("the dev runtime serves v16 metadata")
+		});
+
+		if std::env::var_os("BLESS_METADATA").is_some() {
+			std::fs::write(path, &*metadata).expect("cannot write revive_chain.scale");
+			return;
+		}
+
+		let checked_in = std::fs::read(path).expect("cannot read revive_chain.scale");
+		assert!(
+			checked_in == *metadata,
+			"revive_chain.scale is stale; regenerate it with \
+			 `BLESS_METADATA=1 cargo test -p pallet-revive-eth-rpc --lib metadata_matches`"
+		);
+	}
+}

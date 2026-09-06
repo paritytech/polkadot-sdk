@@ -36,19 +36,6 @@ use sqlx::{
 use subxt::rpcs::RpcClient;
 use tokio::sync::mpsc::Receiver;
 
-#[cfg(feature = "experimental-eth-rpc-in-node")]
-use crate::{cli::resolve_db_options, in_process::InProcessRpcClient};
-#[cfg(feature = "experimental-eth-rpc-in-node")]
-use jsonrpsee::core::server::Methods;
-#[cfg(feature = "experimental-eth-rpc-in-node")]
-use prometheus_endpoint::Registry;
-#[cfg(feature = "experimental-eth-rpc-in-node")]
-use sc_service::{
-	TaskManager,
-	config::{BasePath, RpcConfiguration},
-	create_rpc_runtime, start_rpc_servers,
-};
-
 /// Query the maximum number of bound parameters SQLite allows per query
 async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
 	let limit = async {
@@ -198,57 +185,4 @@ pub(crate) fn spawn_indexing_tasks(
 			panic!("Block subscription task failed: {err:?}",)
 		}
 	});
-}
-
-/// Settings for an ETH RPC server embedded in a Substrate node.
-#[cfg(feature = "experimental-eth-rpc-in-node")]
-pub struct EmbeddedConfig {
-	/// Settings of the Ethereum JSON-RPC server, which is separate from the node's own RPC
-	/// server.
-	pub rpc: RpcConfiguration,
-	/// Pruning mode for the receipt database.
-	pub eth_pruning: EthPruningMode,
-	/// Where an archive-mode receipt database is stored.
-	pub base_path: Option<BasePath>,
-	/// Accept transactions that carry no chain id.
-	pub allow_unprotected_txs: bool,
-	/// Preload the well-known development accounts and estimate gas against the pending block.
-	pub dev_accounts: bool,
-}
-
-/// Start an ETH RPC server that talks to the node it runs inside.
-///
-/// `node_methods` comes from [`RpcHandlers::handle`](sc_service::RpcHandlers::handle). Tasks are
-/// spawned on `task_manager`, so the server shuts down with the node.
-#[cfg(feature = "experimental-eth-rpc-in-node")]
-pub async fn start_embedded(
-	node_methods: Methods,
-	task_manager: &mut TaskManager,
-	config: EmbeddedConfig,
-	prometheus_registry: Option<&Registry>,
-) -> anyhow::Result<()> {
-	let EmbeddedConfig { rpc, eth_pruning, base_path, allow_unprotected_txs, dev_accounts } =
-		config;
-
-	let db_options = resolve_db_options(eth_pruning, base_path)?;
-	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
-
-	let rpc_client = RpcClient::new(InProcessRpcClient::new(node_methods));
-	let client = build_client(rpc_client, eth_pruning, db_options, subscription_gap_queue).await?;
-
-	let rpc_runtime = create_rpc_runtime(rpc.max_connections)
-		.map_err(|e| anyhow::anyhow!("Failed to create the ETH RPC runtime: {e}"))?;
-	let server_handle = start_rpc_servers(
-		&rpc,
-		prometheus_registry,
-		&tokio::runtime::Handle::current(),
-		rpc_module(dev_accounts, client.clone(), allow_unprotected_txs)?,
-		rpc_runtime,
-		None,
-	)?;
-
-	spawn_indexing_tasks(&task_manager.spawn_essential_handle(), client, eth_pruning, gap_fill_rx);
-	task_manager.keep_alive(server_handle);
-
-	Ok(())
 }

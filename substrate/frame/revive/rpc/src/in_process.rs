@@ -14,14 +14,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! A [`subxt`] transport that dispatches JSON-RPC calls into a node running in the same
-//! process, replacing the loopback WebSocket connection. Only the transport changes; subxt
-//! still serializes and decodes as normal. Skipping that needs subxt's sealed `Backend` trait.
+//! Serving the ETH RPC from inside the node it indexes.
+//!
+//! [`InProcessRpcClient`] is a [`subxt`] transport that dispatches JSON-RPC calls into a node
+//! running in the same process, replacing the loopback WebSocket connection. Only the transport
+//! changes; subxt still serializes and decodes as normal. Skipping that needs subxt's sealed
+//! `Backend` trait. [`start_embedded`] builds the ETH RPC server on top of it.
 
+use crate::{
+	cli::{EthPruningMode, resolve_db_options},
+	client::SubscriptionGapQueue,
+	service::{build_client, rpc_module, spawn_indexing_tasks},
+};
 use futures::{Stream, stream};
 use jsonrpsee::{
 	core::{server::Methods, traits::ToRpcParams},
 	types::SubscriptionId,
+};
+use prometheus_endpoint::Registry;
+use sc_service::{
+	TaskManager,
+	config::{BasePath, RpcConfiguration},
+	create_rpc_runtime, start_rpc_servers,
 };
 use serde_json::value::RawValue;
 use std::{
@@ -31,7 +45,7 @@ use std::{
 	task::{Context, Poll},
 };
 use subxt::rpcs::{
-	Error as RpcError, UserError,
+	Error as RpcError, RpcClient, UserError,
 	client::{RawRpcFuture, RawRpcSubscription, RpcClientT},
 };
 
@@ -170,14 +184,66 @@ impl Stream for UnsubscribeOnDrop {
 
 impl Drop for UnsubscribeOnDrop {
 	fn drop(&mut self) {
+		// Dropping outside a runtime (a plain thread, a non-tokio executor) leaves nowhere to
+		// run the call; the node ends the subscription when the notification channel closes.
+		let Ok(handle) = tokio::runtime::Handle::try_current() else { return };
+
 		let methods = self.methods.clone();
 		let unsub = std::mem::take(&mut self.unsub);
 		let subscription_id = self.subscription_id.clone();
-		tokio::spawn(async move {
+		handle.spawn(async move {
 			let params = serde_json::value::to_raw_value(&[subscription_id]).ok();
 			let _ = methods.call::<_, bool>(&unsub, Params(params)).await;
 		});
 	}
+}
+
+/// Settings for an ETH RPC server embedded in a Substrate node.
+pub struct EmbeddedConfig {
+	/// Settings of the Ethereum JSON-RPC server, which is separate from the node's own RPC
+	/// server.
+	pub rpc: RpcConfiguration,
+	/// Pruning mode for the receipt database.
+	pub eth_pruning: EthPruningMode,
+	/// Where an archive-mode receipt database is stored.
+	pub base_path: Option<BasePath>,
+	/// Accept transactions that carry no chain id.
+	pub allow_unprotected_txs: bool,
+	/// Preload the well-known development accounts and estimate gas against the pending block.
+	pub dev_accounts: bool,
+}
+
+/// Start an ETH RPC server that talks to the node it runs inside.
+pub async fn start_embedded(
+	node_methods: Methods,
+	task_manager: &mut TaskManager,
+	config: EmbeddedConfig,
+	prometheus_registry: Option<&Registry>,
+) -> anyhow::Result<()> {
+	let EmbeddedConfig { rpc, eth_pruning, base_path, allow_unprotected_txs, dev_accounts } =
+		config;
+
+	let db_options = resolve_db_options(eth_pruning, base_path)?;
+	let (subscription_gap_queue, gap_fill_rx) = SubscriptionGapQueue::new();
+
+	let rpc_client = RpcClient::new(InProcessRpcClient::new(node_methods));
+	let client = build_client(rpc_client, eth_pruning, db_options, subscription_gap_queue).await?;
+
+	let rpc_runtime = create_rpc_runtime(rpc.max_connections)
+		.map_err(|e| anyhow::anyhow!("Failed to create the ETH RPC runtime: {e}"))?;
+	let server_handle = start_rpc_servers(
+		&rpc,
+		prometheus_registry,
+		&tokio::runtime::Handle::current(),
+		rpc_module(dev_accounts, client.clone(), allow_unprotected_txs)?,
+		rpc_runtime,
+		None,
+	)?;
+
+	spawn_indexing_tasks(&task_manager.spawn_essential_handle(), client, eth_pruning, gap_fill_rx);
+	task_manager.keep_alive(server_handle);
+
+	Ok(())
 }
 
 #[cfg(test)]

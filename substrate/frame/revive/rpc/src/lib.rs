@@ -44,7 +44,7 @@ pub mod client;
 pub mod example;
 #[cfg(feature = "experimental-eth-rpc-in-node")]
 pub mod in_process;
-pub mod service;
+mod service;
 pub mod subxt_client;
 
 #[cfg(test)]

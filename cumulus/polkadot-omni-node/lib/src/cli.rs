@@ -332,7 +332,7 @@ impl<Config: CliConfig> Cli<Config> {
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
 			#[cfg(feature = "experimental-eth-rpc-in-node")]
-			eth_rpc: self.eth_rpc.clone(),
+			eth_rpc: self.eth_rpc.enabled.then(|| self.eth_rpc.clone()),
 		}
 	}
 
@@ -583,5 +583,63 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 
 	fn node_name(&self) -> sc_cli::Result<String> {
 		self.base.base.node_name()
+	}
+}
+
+#[cfg(all(test, feature = "experimental-eth-rpc-in-node"))]
+mod tests {
+	use super::*;
+
+	struct TestCliConfig;
+
+	impl CliConfig for TestCliConfig {
+		fn impl_version() -> String {
+			VERSION.to_string()
+		}
+
+		fn author() -> String {
+			String::new()
+		}
+
+		fn support_url() -> String {
+			String::new()
+		}
+
+		fn copyright_start_year() -> u16 {
+			2026
+		}
+	}
+
+	const VERSION: &str = "0.0.0";
+
+	fn extra_args(args: &[&str]) -> NodeExtraArgs {
+		// The binary sets the version through `SubstrateCli`; `propagate_version` asserts on it.
+		let matches = Cli::<TestCliConfig>::command()
+			.version(VERSION)
+			.try_get_matches_from(std::iter::once("polkadot-omni-node").chain(args.iter().copied()))
+			.expect("arguments parse");
+
+		Cli::<TestCliConfig>::from_arg_matches(&matches)
+			.expect("arguments map onto the struct")
+			.node_extra_args()
+	}
+
+	/// `experimental-eth-rpc-in-node` only compiles the server in. Cargo unifies features across
+	/// a build, so every binary linking this lib gets it; with the feature on and no flag passed
+	/// the node has to behave exactly as with the feature off.
+	#[test]
+	fn eth_rpc_stays_off_without_the_flag() {
+		assert!(extra_args(&[]).eth_rpc.is_none());
+		assert!(extra_args(&["--eth-rpc-port", "1234"]).eth_rpc.is_none());
+	}
+
+	#[test]
+	fn eth_rpc_flag_carries_its_options() {
+		let params = extra_args(&["--eth-rpc", "--eth-rpc-port", "1234", "--eth-rpc-external"])
+			.eth_rpc
+			.expect("--eth-rpc switches the server on");
+
+		assert_eq!(params.eth_rpc_port, 1234);
+		assert!(params.eth_rpc_external);
 	}
 }
