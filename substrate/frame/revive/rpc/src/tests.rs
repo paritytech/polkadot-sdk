@@ -34,7 +34,7 @@ use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
 use alloy_provider::{Provider, ProviderBuilder, ext::DebugApi as _};
 use alloy_rpc_types::{
-	BlockId, BlockNumberOrTag, Filter, TransactionRequest,
+	BlockId, BlockNumberOrTag, Filter, FilterChanges, TransactionRequest,
 	state::{AccountOverride, StateOverride},
 };
 use alloy_signer_local::PrivateKeySigner;
@@ -42,6 +42,7 @@ use anyhow::anyhow;
 use clap::Parser;
 use jsonrpsee::{
 	core::ClientError,
+	types::error::CALL_EXECUTION_FAILED_CODE,
 	ws_client::{WsClient, WsClientBuilder},
 };
 use pallet_revive::{
@@ -375,6 +376,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input,
 		test_transfer,
 		test_deploy_and_call,
+		test_log_filter_lifecycle,
+		test_block_filter_lifecycle,
 		test_receipt_mixed_revert_and_logs_same_block,
 		test_runtime_api_dry_run_addr_works,
 		test_invalid_transaction,
@@ -676,6 +679,134 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 		)
 		.await?;
 	assert_eq!(tx1.unwrap().hash, revert_receipt.transaction_hash);
+
+	Ok(())
+}
+
+/// How long a filter is given to report a change before the test gives up.
+const FILTER_POLL_TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(10);
+
+/// Poll `eth_getFilterChanges` until it reports something, or fail once [`FILTER_POLL_TIMEOUT`]
+/// elapses: a streamed event may not have reached the filter the instant its receipt is available.
+async fn poll_filter_changes(
+	provider: &impl Provider,
+	filter_id: AlloyU256,
+) -> anyhow::Result<FilterChanges> {
+	let mut ticker = tokio::time::interval(tokio::time::Duration::from_millis(250));
+	let poll = async {
+		loop {
+			ticker.tick().await;
+			match provider.get_filter_changes_dyn(filter_id).await? {
+				FilterChanges::Empty => continue,
+				changes => return anyhow::Ok(changes),
+			}
+		}
+	};
+	tokio::time::timeout(FILTER_POLL_TIMEOUT, poll)
+		.await
+		.map_err(|_| anyhow!("filter reported no changes within {FILTER_POLL_TIMEOUT:?}"))?
+}
+
+/// Exercise the log side of the polling filter API: `eth_newFilter`, `eth_getFilterChanges`,
+/// `eth_getFilterLogs` and `eth_uninstallFilter`.
+///
+/// The polling API and `eth_subscribe` are fed by the same log broadcast channel, so a filter
+/// reports only logs from blocks imported after it was installed; its `fromBlock`/`toBlock` bound
+/// only the historical `eth_getFilterLogs` replay.
+async fn test_log_filter_lifecycle() -> anyhow::Result<()> {
+	// Arrange: deploy a contract that emits `Received(address,uint256)` when it receives value.
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let contract_address =
+		deploy_contract(&provider, "SimpleReceiver", pallet_revive_fixtures::FixtureType::Solc, &[])
+			.await?;
+
+	// Install a log filter scoped to this (uniquely addressed) contract *before* emitting, so the
+	// event streams to it. `fromBlock` is earliest so `eth_getFilterLogs` replays its history.
+	let filter = Filter::new().from_block(BlockNumberOrTag::Earliest).address(contract_address);
+	let filter_id = provider.new_filter(&filter).await?;
+
+	// Act: emit a single event.
+	let emit_tx = TransactionRequest::default()
+		.from(from)
+		.to(contract_address)
+		.value(AlloyU256::from(1_000_000_000_000u128));
+	let emit_receipt = provider.send_transaction(emit_tx).await?.get_receipt().await?;
+
+	// Assert: the filter streams the freshly emitted log.
+	let FilterChanges::Logs(logs) = poll_filter_changes(&provider, filter_id).await? else {
+		return Err(anyhow!("Expected Logs from eth_getFilterChanges"));
+	};
+	let [log] = logs.as_slice() else {
+		return Err(anyhow!("Expected exactly one log, got {}", logs.len()));
+	};
+	let event_signature = B256::from(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
+	assert_eq!(log.inner.address, contract_address);
+	assert_eq!(log.topics().first(), Some(&event_signature));
+	assert_eq!(log.transaction_hash, Some(emit_receipt.transaction_hash));
+
+	// `eth_getFilterLogs` replays the contract's history and returns a plain vector of logs.
+	let all_logs = provider.get_filter_logs(filter_id).await?;
+	assert!(
+		all_logs.iter().any(|log| log.transaction_hash == Some(emit_receipt.transaction_hash)),
+		"getFilterLogs should include the emitted log"
+	);
+	assert!(
+		all_logs.iter().all(|log| log.inner.address == contract_address),
+		"getFilterLogs should only return logs from the filtered address"
+	);
+
+	// A second poll has no new logs, since the previous changes were already drained.
+	let empty = provider.get_filter_changes_dyn(filter_id).await?;
+	assert!(matches!(empty, FilterChanges::Empty), "a second poll should be empty, got: {empty:?}");
+
+	// Uninstall succeeds once; afterwards the id is unknown.
+	assert!(
+		provider.uninstall_filter(filter_id).await?,
+		"uninstall should report the filter existed"
+	);
+	assert!(!provider.uninstall_filter(filter_id).await?, "a filter is uninstalled only once");
+	let err = provider
+		.get_filter_changes_dyn(filter_id)
+		.await
+		.expect_err("polling a removed filter should error");
+	assert_eq!(
+		err.as_error_resp().map(|resp| resp.code),
+		Some(CALL_EXECUTION_FAILED_CODE.into()),
+		"an unknown filter id should report the execution-failed code, got: {err:?}"
+	);
+
+	Ok(())
+}
+
+/// A block filter reports the hashes of blocks imported after it was installed, and those hashes
+/// resolve to real blocks.
+async fn test_block_filter_lifecycle() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let to = AlloyAddress::from(Account::from(subxt_signer::eth::dev::baltathar()).address().0);
+	let filter_id = provider.new_block_filter().await?;
+
+	// Act: produce a block.
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(to)
+		.value(AlloyU256::from(1_000_000_000_000u128));
+	provider.send_transaction(tx).await?.get_receipt().await?;
+
+	// Assert
+	let FilterChanges::Hashes(hashes) = poll_filter_changes(&provider, filter_id).await? else {
+		return Err(anyhow!("Expected Hashes from eth_getFilterChanges"));
+	};
+	let [.., newest] = hashes.as_slice() else {
+		return Err(anyhow!("the poll helper only returns non-empty changes"));
+	};
+	assert!(
+		provider.get_block_by_hash(*newest).await?.is_some(),
+		"a reported block hash should resolve to a real block"
+	);
+	assert!(provider.uninstall_filter(filter_id).await?);
 
 	Ok(())
 }

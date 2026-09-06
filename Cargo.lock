@@ -14572,6 +14572,7 @@ dependencies = [
  "pallet-revive-types",
  "parity-scale-codec",
  "pretty_assertions",
+ "rand 0.8.5",
  "revive-dev-node",
  "revive-dev-runtime",
  "rlp 0.6.1",
