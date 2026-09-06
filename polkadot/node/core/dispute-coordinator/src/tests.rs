@@ -780,6 +780,47 @@ async fn handle_get_block_number(ctx_handle: &mut VirtualOverseer, test_state: &
 }
 
 #[test]
+fn conclude_before_the_first_leaf_shuts_down() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Ask the subsystem to conclude while it is waiting for its first leaf.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			// The subsystem should shut down cleanly.
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
+#[test]
+fn conclude_after_leafless_signals_shuts_down() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Signals without a new leaf should not stop initialization.
+			virtual_overseer
+				.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+					test_state.last_block,
+					2,
+				)))
+				.await;
+			virtual_overseer
+				.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+					ActiveLeavesUpdate::default(),
+				)))
+				.await;
+
+			// A `Conclude` signal should shut down the subsystem cleanly.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
+#[test]
 fn too_many_unconfirmed_statements_are_considered_spam() {
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {

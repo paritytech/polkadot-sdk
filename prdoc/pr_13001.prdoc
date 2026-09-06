@@ -1,0 +1,80 @@
+title: 'Fixes for issues reported by the Runtime Whitebox Fuzzer'
+doc:
+- audience: Node Dev
+  description: |-
+    Fixed an integer overflow in `is_scheduling_parent_valid` when calculating the next slot
+    for a leaf with slot `u64::MAX`. Slot calculation now uses checked addition.
+- audience: Runtime Dev
+  description: |-
+    Fixed an off-by-one check in `pallet-elections-phragmen::submit_candidacy` that allowed
+    one more candidate than `MaxCandidates`. It now properly rejects submissions when the limit
+    is reached, returning `TooManyCandidates`. The corresponding benchmark component range was
+    updated to `[0, MaxCandidates - 1]`.
+- audience: Runtime Dev
+  description: |-
+    `pallet-conviction-voting`'s `Tally::add` and `Tally::remove` now compute all field updates
+    before applying them. If an arithmetic overflow or underflow occurs, the tally remains
+    unmodified and returns `None`.
+- audience: Runtime Dev
+  description: |-
+    `cumulus_primitives_timestamp::InherentDataProvider::provide_inherent_data` now uses
+    saturating arithmetic for slot and timestamp calculations, avoiding panics and integer
+    overflows on large inputs.
+- audience: Node Dev
+  description: |-
+    The chain selection subsystem now uses saturating subtraction when calculating the prune
+    cutoff timestamp in `PruneOnly` mode, preventing underflow if the clock is behind the prune
+    delay.
+- audience: Node Dev
+  description: |-
+    `sc_consensus_slots::proposing_remaining_duration` now enforces the `max_block_proposal_slot_portion`
+    cap across all execution paths, not only when slot lenience is applied.
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    `pallet_scheduler::set_retry` now rejects named tasks with `Error::Named`. Callers must use
+    `set_retry_named` to configure retries for named tasks, ensuring the task ID is properly included
+    in emitted events. Existing retry configurations and `cancel_retry` remain unaffected.
+- audience: Runtime Dev
+  description: |-
+    `pallet-nft-fractionalization::unify` now attempts to finish destroying the fractional asset
+    upon unification, cleaning up asset metadata and freeing reserved deposits on the pallet account.
+    If open accounts or approvals prevent immediate destruction, the asset remains in the destroying
+    state without failing the `unify` call.
+- audience: Runtime Dev
+  description: |-
+    `pallet-derivatives` now correctly emits `DerivativeMappingCreated` when registering a derivative
+    mapping, rather than duplicating `DerivativeCreated`. The `DerivativeCreated` event is now only
+    emitted once upon derivative creation.
+- audience: Runtime Dev
+  description: |-
+    Widened intermediate calculations in `pallet-ranked-collective` to `u64` for `Linear` and `Geometric`
+    vote-weight converters as well as `Tally::approval`. This prevents integer overflows when calculating
+    vote weights or tally approval at `Rank::MAX` or with maxed votes.
+- audience: Node Dev
+  description: |-
+    Fixed an issue where `dispute-coordinator` failed to shut down cleanly when receiving a `Conclude`
+    signal before its first active leaf arrived. `initialize` now returns on `Conclude`, allowing
+    the subsystem to exit cleanly.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
+- name: pallet-elections-phragmen
+  bump: patch
+- name: pallet-conviction-voting
+  bump: patch
+- name: cumulus-primitives-timestamp
+  bump: patch
+- name: polkadot-node-core-chain-selection
+  bump: patch
+- name: sc-consensus-slots
+  bump: patch
+- name: pallet-scheduler
+  bump: patch
+- name: pallet-nft-fractionalization
+  bump: patch
+- name: pallet-derivatives
+  bump: patch
+- name: pallet-ranked-collective
+  bump: patch
+- name: polkadot-node-core-dispute-coordinator
+  bump: patch

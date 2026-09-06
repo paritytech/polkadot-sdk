@@ -899,6 +899,114 @@ fn set_retry_works() {
 }
 
 #[test]
+fn set_retry_rejects_named_tasks() {
+	new_test_ext().execute_with(|| {
+		// events are not recorded at block zero
+		System::run_to_block::<AllPalletsWithSystem>(1);
+		// named task 42 at #4
+		assert_ok!(Scheduler::do_schedule_named(
+			[42u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		// unnamed task 20 at #4
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 20,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		// the named task can only be configured through `set_retry_named`
+		assert_noop!(Scheduler::set_retry(root().into(), (4, 0), 10, 2), Error::<Test>::Named);
+		assert!(Retries::<Test>::get((4, 0)).is_none());
+		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, 2));
+		// and that way the name shows up in the event
+		System::assert_last_event(
+			crate::Event::RetrySet { task: (4, 0), id: Some([42u8; 32]), period: 2, retries: 10 }
+				.into(),
+		);
+
+		// the unnamed one next to it is unaffected
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 1), 10, 2));
+		assert_eq!(
+			Retries::<Test>::get((4, 1)),
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: 2 })
+		);
+	});
+}
+
+#[test]
+fn set_retry_on_named_task_checks_privilege_first() {
+	new_test_ext().execute_with(|| {
+		// named task 42 at #4 with account 101 as origin
+		assert_ok!(Scheduler::do_schedule_named(
+			[42u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			101.into(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		// account 1 may schedule, but has no privilege over a task owned by 101: it gets
+		// `BadOrigin`, not a hint that the task is named
+		let res: Result<(), DispatchError> =
+			Scheduler::set_retry(RuntimeOrigin::signed(1), (4, 0), 10, 2);
+		assert_eq!(res, Err(BadOrigin.into()));
+	});
+}
+
+#[test]
+fn set_retry_works_on_the_retry_clone_of_a_named_task() {
+	new_test_ext().execute_with(|| {
+		// task fails until block 8 is reached
+		Threshold::<Test>::put((8, 100));
+		// named task 42 at #4
+		assert_ok!(Scheduler::do_schedule_named(
+			[42u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, 2));
+
+		// it fails at #4 and is retried at #6 as an unnamed clone
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert!(Agenda::<Test>::get(6)[0].as_ref().unwrap().maybe_id.is_none());
+
+		// so the address based call still works on it
+		assert_ok!(Scheduler::set_retry(root().into(), (6, 0), 3, 1));
+		assert_eq!(
+			Retries::<Test>::get((6, 0)),
+			Some(RetryConfig { total_retries: 3, remaining: 3, period: 1 })
+		);
+	});
+}
+
+#[test]
 fn set_named_retry_works() {
 	new_test_ext().execute_with(|| {
 		// task 42 at #4 with account 101 as origin
@@ -2438,6 +2546,44 @@ fn postponed_named_task_cannot_be_rescheduled() {
 			Scheduler::do_reschedule(address, DispatchTime::At(1001)),
 			Error::<Test>::Named
 		);
+	});
+}
+
+#[test]
+fn postponed_named_task_cannot_have_a_retry_config_set() {
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(1000, 0) });
+		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let len = call.using_encoded(|x| x.len()) as u32;
+		let hashed = Bounded::Lookup { hash, len };
+		let name: [u8; 32] = hash.as_ref().try_into().unwrap();
+
+		let address =
+			Scheduler::do_schedule_named(name, DispatchTime::At(4), None, 127, root(), hashed)
+				.unwrap();
+
+		// The preimage is missing, so the task is postponed and loses its lookup entry while
+		// staying named in the agenda.
+		System::run_to_block::<AllPalletsWithSystem>(10);
+		assert!(!Lookup::<Test>::contains_key(name));
+
+		// Same dead end as `do_reschedule`: neither call reaches it any more.
+		assert_noop!(Scheduler::set_retry(root().into(), address, 10, 2), Error::<Test>::Named);
+		assert_noop!(
+			Scheduler::set_retry_named(root().into(), name, 10, 2),
+			Error::<Test>::NotFound
+		);
+		// Removing a configuration by address still works, which is why `cancel_retry` stays
+		// permissive. This is also the shape an older runtime could have left behind.
+		Retries::<Test>::insert(
+			address,
+			RetryConfig { total_retries: 10, remaining: 10, period: 2 },
+		);
+		assert_ok!(Scheduler::cancel_retry(root().into(), address));
+		assert!(Retries::<Test>::get(address).is_none());
+		// and it reports no id, as its doc comment says
+		System::assert_last_event(crate::Event::RetryCancelled { task: address, id: None }.into());
 	});
 }
 
