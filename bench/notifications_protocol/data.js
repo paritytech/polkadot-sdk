@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788612803889,
+  "lastUpdate": 1788733352921,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -216575,6 +216575,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2253246581,
             "range": "± 37649993",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "32b52bbbf8076d1de938e5d2fbf391f0cb7a5532",
+          "message": "feat(sc-consensus-babe): expose build_verifier like Aura (#13061)\n\n# Description\n\n**Motivation:** BABE cannot be used with a custom import queue today,\nbecause `BabeVerifier` is only constructed inside `import_queue` and\nimmediately wrapped in `BasicQueue`.\n\nAura already exposes `build_verifier` for that. This PR adds the same\nAPI for BABE (`build_verifier` + `BuildVerifierParams`) so a node can\ncompose `BabeVerifier` into its own `ImportQueue`.\n\n`import_queue` is unchanged for existing callers: it still builds a\n`BasicQueue` and still spawns the epoch-data worker.\n\n# Integration\n\nNo change for callers of `import_queue`.\n\nTo compose BABE with a custom queue (same pattern as Aura):\n\n```rust\nlet verifier = sc_consensus_babe::build_verifier(sc_consensus_babe::BuildVerifierParams {\n    client: client.clone(),\n    slot_duration,\n    config: babe_link.config().clone(),\n    epoch_changes: babe_link.epoch_changes().clone(),\n    telemetry,\n});\n// pass `verifier` into BasicQueue::new or any ImportQueue\n```\n\n`BabeVerifier::new` stays `pub(crate)`. Epoch RPC still comes only from\n`import_queue` (`BabeWorkerHandle`).\n\n# Review Notes\n\n- `BuildVerifierParams` + `build_verifier` are the Aura equivalents\n(`sc_consensus_aura::{BuildVerifierParams, build_verifier}`).\n- `import_queue` now calls `build_verifier` instead of constructing\n`BabeVerifier { ... }` inline. Worker spawn and `BasicQueue::new` are\nunchanged.\n- No verification or import-path behavior change. No tests: API surface\nonly.\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-09-06T21:06:25Z",
+          "tree_id": "315bd18f8a1a3a8915bb025cb4757348042783a9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/32b52bbbf8076d1de938e5d2fbf391f0cb7a5532"
+        },
+        "date": 1788733312739,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4795708,
+            "range": "± 47371",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 302458,
+            "range": "± 4030",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4538025,
+            "range": "± 35704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 377203,
+            "range": "± 3305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5714753,
+            "range": "± 37221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 915692,
+            "range": "± 10585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11179164,
+            "range": "± 93908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4972296,
+            "range": "± 48325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45984024,
+            "range": "± 387449",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40288036,
+            "range": "± 633151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 397507484,
+            "range": "± 5375724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 321333250,
+            "range": "± 3529082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2782769700,
+            "range": "± 17020750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2689676660,
+            "range": "± 205120661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3591415,
+            "range": "± 27968",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1892208,
+            "range": "± 9605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3649838,
+            "range": "± 24274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1944772,
+            "range": "± 9679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4203231,
+            "range": "± 48420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2299009,
+            "range": "± 19781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8305359,
+            "range": "± 119875",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5413101,
+            "range": "± 203313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38333454,
+            "range": "± 461762",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 41619244,
+            "range": "± 787465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 375627877,
+            "range": "± 7879689",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 296411961,
+            "range": "± 4806508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2594366321,
+            "range": "± 16638019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2818829902,
+            "range": "± 60931749",
             "unit": "ns/iter"
           }
         ]
