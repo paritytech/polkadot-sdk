@@ -17,6 +17,7 @@
 
 use crate::{
 	Pallet, RuntimeCosts,
+	access_list::{CallAccess, Transfer},
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
 		Ext,
@@ -65,6 +66,8 @@ pub fn charge_call_gas<'a, E: Ext>(
 ) -> ControlFlow<Halt, ()> {
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
+	let dust_transfer = Pallet::<E::T>::has_dust(value);
+	let mut transfer_keys = None;
 	match precompile {
 		Some(precompile) => {
 			// Base cost depending on contract info
@@ -83,12 +86,13 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.charge_or_halt(RuntimeCosts::PrecompileDecode(input_len as u32))?;
 		},
 		None => {
-			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
-			interpreter.ext.charge_or_halt(if scheme.is_delegate_call() {
-				RuntimeCosts::DelegateCallBase
-			} else {
-				RuntimeCosts::CallBase
-			})?;
+			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
+			let transfer = (!value.is_zero())
+				.then(|| Transfer { from: interpreter.ext.address(), dust: dust_transfer });
+			let call_access = CallAccess::new(callee, scheme.is_delegate_call(), transfer);
+			let warmth = interpreter.ext.warm(call_access);
+			transfer_keys = warmth.transfer_keys();
+			interpreter.ext.charge_or_halt(RuntimeCosts::CallBase(warmth))?;
 
 			interpreter
 				.ext
@@ -96,12 +100,14 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.charge_or_halt(RuntimeCosts::CopyFromContract(input_len as u32))?;
 		},
 	};
+
 	if !value.is_zero() {
 		interpreter
 			.ext
 			.frame_meter_mut()
 			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
-				dust_transfer: Pallet::<E::T>::has_dust(value),
+				dust_transfer,
+				keys: transfer_keys,
 			})?;
 	}
 
