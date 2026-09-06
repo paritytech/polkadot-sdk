@@ -25622,6 +25622,7 @@ dependencies = [
  "bytes",
  "docify",
  "ed25519-dalek",
+ "k256",
  "libsecp256k1",
  "log",
  "parity-scale-codec",

@@ -20,7 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 bytes = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
-secp256k1 = { features = ["global-context", "recovery"], optional = true, workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
@@ -37,8 +36,7 @@ sp-keystore = { workspace = true, default-features = false }
 sp-trie = { workspace = true, default-features = false }
 sp-state-machine = { workspace = true, default-features = false }
 log = { workspace = true, default-features = true }
-libsecp256k1 = { workspace = true, default-features = false, features = ["static-context"] }
-secp256k1 = { workspace = true, default-features = false, features = ["alloc", "recovery"] }
+k256 = { workspace = true, features = ["alloc", "ecdsa"] }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
 ed25519-dalek = { workspace = true }
@@ -51,16 +49,23 @@ polkavm-derive = { workspace = true }
 [build-dependencies]
 rustversion = { workspace = true }
 
+[dev-dependencies]
+# Only used to check that the k256-based implementations of the frozen
+# `secp256k1_ecdsa_recover*` host functions behave bit-for-bit like the historical
+# backends they replaced.
+libsecp256k1 = { workspace = true, features = ["static-context", "std"] }
+secp256k1 = { workspace = true, default-features = true, features = ["global-context", "recovery"] }
+
 [features]
 default = ["std"]
 std = [
 	"bytes/std",
 	"codec/std",
 	"ed25519-dalek/std",
+	"k256/precomputed-tables",
+	"k256/std",
 	"libsecp256k1/std",
 	"log/std",
-	"secp256k1/global-context",
-	"secp256k1/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",

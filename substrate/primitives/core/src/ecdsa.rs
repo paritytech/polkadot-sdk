@@ -27,7 +27,10 @@ use crate::{
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
+use k256::{
+	ecdsa::{SigningKey as SecretKey, VerifyingKey},
+	elliptic_curve::ops::Reduce,
+};
 
 #[cfg(feature = "full_crypto")]
 type NativeSignature = (k256::ecdsa::Signature, k256::ecdsa::RecoveryId);
@@ -103,7 +106,7 @@ impl<TAG> PartialEq<[u8; 33]> for GenericPublic<TAG> {
 
 impl<TAG> From<VerifyingKey> for GenericPublic<TAG> {
 	fn from(pubkey: VerifyingKey) -> Self {
-		Self::try_from(&pubkey.to_sec1_bytes()[..])
+		Self::try_from(pubkey.to_encoded_point(true).as_bytes())
 			.expect("Valid key is serializable to [u8; 33]. qed.")
 	}
 }
@@ -345,26 +348,32 @@ where
 	}
 
 	/// Verify a signature on a message. Returns true if the signature is good.
-	/// Parses Signature using parse_overflowing_slice.
+	/// Parses the signature with the legacy "overflowing" semantics: `r` and `s` values
+	/// greater than or equal to the curve order are reduced modulo the order instead of
+	/// being rejected. Backs version 1 of the `ecdsa_verify` host function, so its
+	/// behaviour is frozen.
 	#[deprecated(note = "please use `verify` instead")]
 	pub fn verify_deprecated<M: AsRef<[u8]>>(sig: &Signature, message: M, pubkey: &Public) -> bool {
-		let message =
-			libsecp256k1::Message::parse(&sp_crypto_hashing::blake2_256(message.as_ref()));
-
-		let parse_signature_overflowing = |x: [u8; SIGNATURE_SERIALIZED_SIZE]| {
-			let sig = libsecp256k1::Signature::parse_overflowing_slice(&x[..64]).ok()?;
-			let rid = libsecp256k1::RecoveryId::parse(x[64]).ok()?;
-			Some((sig, rid))
-		};
-
-		let (sig, rid) = match parse_signature_overflowing(sig.0) {
-			Some(sigri) => sigri,
-			_ => return false,
-		};
-		match libsecp256k1::recover(&message, &sig, &rid) {
-			Ok(actual) => pubkey == &actual.serialize_compressed(),
-			_ => false,
-		}
+		// Reduce `r` and `s` modulo the curve order, as the historical
+		// `libsecp256k1::Signature::parse_overflowing_slice` did. `recover_prehashed`
+		// supplies the rest of the legacy semantics: a raw `0..=3` recovery byte, zero
+		// scalars failing recovery and high-S signatures being accepted.
+		let mut reduced = sig.0;
+		reduced[..32].copy_from_slice(
+			&<k256::Scalar as Reduce<k256::U256>>::reduce_bytes(k256::FieldBytes::from_slice(
+				&sig.0[..32],
+			))
+			.to_bytes(),
+		);
+		reduced[32..64].copy_from_slice(
+			&<k256::Scalar as Reduce<k256::U256>>::reduce_bytes(k256::FieldBytes::from_slice(
+				&sig.0[32..64],
+			))
+			.to_bytes(),
+		);
+		Signature::from_raw(reduced)
+			.recover(message)
+			.is_some_and(|actual| actual == *pubkey)
 	}
 
 	fn derive<Iter: Iterator<Item = DeriveJunction>>(
@@ -814,38 +823,26 @@ mod test {
 		assert!(is_signature_normalized(&sig.0));
 	}
 
+	/// The high-S twin of a signature: `s' = n - s` with the recovery byte parity
+	/// flipped. Recovers the same key but is not normalised.
+	fn high_s_twin(sig: &Signature) -> Signature {
+		use k256::elliptic_curve::PrimeField;
+		let s = Option::<k256::Scalar>::from(k256::Scalar::from_repr(
+			k256::FieldBytes::clone_from_slice(&sig.0[32..64]),
+		))
+		.expect("signature carries a valid scalar; qed");
+		let mut twin = sig.0;
+		twin[32..64].copy_from_slice(&(-s).to_bytes());
+		twin[64] ^= 1;
+		Signature::from_raw(twin)
+	}
+
 	#[test]
 	fn is_signature_normalized_rejects_high_s() {
-		// Create a high-S signature by computing S' = N - S from a valid low-S signature
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let msg = sp_crypto_hashing::blake2_256(b"high-s test");
 		let sig = pair.sign_prehashed(&msg);
-
-		let order: [u8; 32] = [
-			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
-			0xd0, 0x36, 0x41, 0x41,
-		];
-
-		let s_bytes: [u8; 32] = sig.0[32..64].try_into().unwrap();
-		let mut s_prime = [0u8; 32];
-		let mut borrow = 0i16;
-		for i in (0..32).rev() {
-			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
-			if diff < 0 {
-				s_prime[i] = (diff + 256) as u8;
-				borrow = 1;
-			} else {
-				s_prime[i] = diff as u8;
-				borrow = 0;
-			}
-		}
-
-		let mut high_s_sig = [0u8; 65];
-		high_s_sig[0..32].copy_from_slice(&sig.0[0..32]);
-		high_s_sig[32..64].copy_from_slice(&s_prime);
-		high_s_sig[64] = sig.0[64] ^ 1;
-		assert!(!is_signature_normalized(&high_s_sig));
+		assert!(!is_signature_normalized(&high_s_twin(&sig).0));
 	}
 
 	#[test]
@@ -865,47 +862,126 @@ mod test {
 
 	#[test]
 	fn malleable_signature_is_rejected_by_normalization_check() {
-		let order: [u8; 32] = [
-			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
-			0xd0, 0x36, 0x41, 0x41,
-		];
-
 		let pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let msg = sp_crypto_hashing::blake2_256(b"malleable test");
 		let sig = pair.sign_prehashed(&msg);
-
-		// Original signature should be low-S
 		assert!(is_signature_normalized(&sig.0));
 
-		let s_bytes: [u8; 32] = sig.0[32..64].try_into().unwrap();
-		let mut s_prime = [0u8; 32];
-		let mut borrow = 0i16;
-		for i in (0..32).rev() {
-			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
-			if diff < 0 {
-				s_prime[i] = (diff + 256) as u8;
-				borrow = 1;
-			} else {
-				s_prime[i] = diff as u8;
-				borrow = 0;
-			}
-		}
-
-		let mut malleable_sig_bytes = [0u8; 65];
-		malleable_sig_bytes[0..32].copy_from_slice(&sig.0[0..32]);
-		malleable_sig_bytes[32..64].copy_from_slice(&s_prime);
-		malleable_sig_bytes[64] = sig.0[64] ^ 1;
-
-		// The malleable signature should have high-S (since original was low-S, complement is high)
+		let malleable_sig = high_s_twin(&sig);
 		assert!(
-			!is_signature_normalized(&malleable_sig_bytes),
+			!is_signature_normalized(&malleable_sig.0),
 			"malleable signature should be rejected as high-S"
 		);
 
 		// Raw recovery continues to accept high-S signatures. Protocols that require low-S enforce
 		// it before calling recovery.
-		let malleable_sig = Signature::from_raw(malleable_sig_bytes);
 		assert!(Pair::verify_prehashed(&malleable_sig, &msg, &pair.public()));
+	}
+
+	/// The historical `libsecp256k1` pipeline behind `verify_deprecated`, returning the
+	/// recovered key. Oracle for the differential test below.
+	fn libsecp_recover_overflowing(sig: &[u8; 65], msg: &[u8; 32]) -> Option<[u8; 33]> {
+		let parsed = libsecp256k1::Signature::parse_overflowing_slice(&sig[..64]).ok()?;
+		let rid = libsecp256k1::RecoveryId::parse(sig[64]).ok()?;
+		let msg = libsecp256k1::Message::parse(msg);
+		Some(libsecp256k1::recover(&msg, &parsed, &rid).ok()?.serialize_compressed())
+	}
+
+	/// 32-byte values probing the parsing and recovery boundaries: zero, the curve order
+	/// `n` and neighbours, the low-S/high-S boundary at `n >> 1`, `p - n` and neighbour
+	/// (the "reduced x" boundary for recovery ids 2/3), the maximum value and
+	/// pseudo-random scalars. Kept in sync with its twin in sp-io's tests.
+	fn scalar_edge_cases() -> Vec<[u8; 32]> {
+		const N: [u8; 32] = [
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+			0xd0, 0x36, 0x41, 0x41,
+		];
+		const HALF_N: [u8; 32] = [
+			0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xff, 0x5d, 0x57, 0x6e, 0x73, 0x57, 0xa4, 0x50, 0x1d, 0xdf, 0xe9, 0x2f, 0x46,
+			0x68, 0x1b, 0x20, 0xa0,
+		];
+		const P_MINUS_N: [u8; 32] = [
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x01, 0x45, 0x51, 0x23, 0x19, 0x50, 0xb7, 0x5f, 0xc4, 0x40, 0x2d, 0xa1, 0x72,
+			0x2f, 0xc9, 0xba, 0xee,
+		];
+		// The last bytes (0x41, 0xa0, 0xee) are away from 0x00/0xff, so the +/-1
+		// neighbours only change the last byte.
+		let tweak = |mut x: [u8; 32], d: i8| {
+			x[31] = x[31].wrapping_add_signed(d);
+			x
+		};
+		let mut one = [0u8; 32];
+		one[31] = 1;
+
+		let mut cases = vec![
+			[0u8; 32],
+			one,
+			tweak(N, -1),
+			N,
+			tweak(N, 1),
+			HALF_N,
+			tweak(HALF_N, 1),
+			P_MINUS_N,
+			tweak(P_MINUS_N, -1),
+			[0xffu8; 32],
+		];
+		let mut seed = sp_crypto_hashing::blake2_256(b"ecdsa differential vectors");
+		for _ in 0..2 {
+			seed = sp_crypto_hashing::blake2_256(&seed);
+			cases.push(seed);
+		}
+		cases
+	}
+
+	#[test]
+	#[allow(deprecated)]
+	fn verify_deprecated_matches_historical_libsecp256k1_implementation() {
+		let pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let public = pair.public();
+		let message = b"differential test message";
+		let msg_hash = sp_crypto_hashing::blake2_256(message);
+
+		// True positives: a real signature and its high-S twin, both with the raw
+		// recovery byte the legacy verifier expects.
+		let sig = pair.sign(message);
+		let twin = high_s_twin(&sig);
+		assert!(!is_signature_normalized(&twin.0));
+		for sig in [&sig, &twin] {
+			assert!(Pair::verify_deprecated(sig, message, &public));
+			assert_eq!(libsecp_recover_overflowing(&sig.0, &msg_hash), Some(public.0));
+		}
+
+		// Boundary sweep: the implementations must agree on every input, and whenever
+		// the historical pipeline recovers a key, the new one must accept exactly that
+		// key.
+		let cases = scalar_edge_cases();
+		for r in &cases {
+			for s in &cases {
+				for v in [0u8, 1, 2, 3, 4, 27] {
+					let mut raw = [0u8; 65];
+					raw[..32].copy_from_slice(r);
+					raw[32..64].copy_from_slice(s);
+					raw[64] = v;
+					let sig = Signature::from_raw(raw);
+
+					let legacy = libsecp_recover_overflowing(&raw, &msg_hash);
+					assert_eq!(
+						Pair::verify_deprecated(&sig, message, &public),
+						legacy == Some(public.0),
+						"implementations diverged for r={r:02x?} s={s:02x?} v={v}",
+					);
+					if let Some(key) = legacy {
+						assert!(
+							Pair::verify_deprecated(&sig, message, &Public::from_raw(key)),
+							"new implementation rejected the historically recovered key for \
+							 r={r:02x?} s={s:02x?} v={v}",
+						);
+					}
+				}
+			}
+		}
 	}
 }

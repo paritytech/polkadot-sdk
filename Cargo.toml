@@ -1571,6 +1571,7 @@ hash-db = { opt-level = 3 }
 hashbrown = { opt-level = 3 }
 hmac = { opt-level = 3 }
 integer-sqrt = { opt-level = 3 }
+k256 = { opt-level = 3 }
 libsecp256k1 = { opt-level = 3 }
 num-bigint = { opt-level = 3 }
 parking_lot = { opt-level = 3 }
