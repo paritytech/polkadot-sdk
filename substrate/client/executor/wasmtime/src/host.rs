@@ -33,14 +33,22 @@ pub struct HostState {
 	/// This is stored as an `Option` as we need to temporarily set this to `None` when we are
 	/// allocating/deallocating memory. The problem being that we can only mutable access `caller`
 	/// once.
-	allocator: Option<FreeingBumpHeapAllocator>,
+	pub(crate) allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
+	pub(crate) input_data: Option<Vec<u8>>,
 }
 
 impl HostState {
 	/// Constructs a new `HostState`.
-	pub fn new(allocator: FreeingBumpHeapAllocator) -> Self {
-		HostState { allocator: Some(allocator), panic_message: None }
+	///
+	/// `allocator` is `Some` for old-style runtimes that use host-side allocation
+	/// (`FreeingBumpHeapAllocator`), and `None` for new runtimes that manage their own
+	/// heap with a runtime-side allocator (picoalloc).
+	pub fn new(
+		allocator: Option<FreeingBumpHeapAllocator>,
+		input_data: impl Into<Vec<u8>>,
+	) -> Self {
+		HostState { allocator, panic_message: None, input_data: Some(input_data.into()) }
 	}
 
 	/// Takes the error message out of the host state, leaving a `None` in its place.
@@ -49,9 +57,7 @@ impl HostState {
 	}
 
 	pub(crate) fn allocation_stats(&self) -> AllocationStats {
-		self.allocator.as_ref()
-			.expect("Allocator is always set and only unavailable when doing an allocation/deallocation; qed")
-			.stats()
+		self.allocator.as_ref().map(|a| a.stats()).unwrap_or_default()
 	}
 }
 
@@ -86,11 +92,10 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
 		let memory = self.caller.data().memory();
-		let mut allocator = self
-			.host_state_mut()
-			.allocator
-			.take()
-			.expect("allocator is not empty when calling a function in wasm; qed");
+		let mut allocator = self.host_state_mut().allocator.take().expect(
+			"host-side allocator is not available; this runtime uses runtime-side allocation \
+				 and must not call host functions that allocate guest memory; qed",
+		);
 
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
@@ -104,11 +109,10 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn deallocate_memory(&mut self, ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
 		let memory = self.caller.data().memory();
-		let mut allocator = self
-			.host_state_mut()
-			.allocator
-			.take()
-			.expect("allocator is not empty when calling a function in wasm; qed");
+		let mut allocator = self.host_state_mut().allocator.take().expect(
+			"host-side allocator is not available; this runtime uses runtime-side allocation \
+				 and must not call host functions that deallocate guest memory; qed",
+		);
 
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
@@ -122,5 +126,12 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn register_panic_error_message(&mut self, message: &str) {
 		self.host_state_mut().panic_message = Some(message.to_owned());
+	}
+
+	fn take_input_data(&mut self) -> sp_wasm_interface::Result<Vec<u8>> {
+		self.host_state_mut()
+			.input_data
+			.take()
+			.ok_or_else(|| "Input data already taken".into())
 	}
 }

@@ -21,7 +21,10 @@
 use sp_runtime_interface::*;
 
 use sp_runtime_interface_test_wasm::{test_api::HostFunctions, wasm_binary_unwrap};
-use sp_runtime_interface_test_wasm_deprecated::wasm_binary_unwrap as wasm_binary_deprecated_unwrap;
+use sp_runtime_interface_test_wasm_deprecated::{
+	test_api::HostFunctions as DeprecatedHostFunctions,
+	wasm_binary_unwrap as wasm_binary_deprecated_unwrap,
+};
 
 use sc_executor_common::{runtime_blob::RuntimeBlob, wasm_runtime::AllocationStats};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions as HostFunctionsT};
@@ -32,6 +35,12 @@ use std::{
 };
 
 type TestExternalities = sp_state_machine::TestExternalities<sp_runtime::traits::BlakeTwo256>;
+
+fn call_wasm_method<HF: HostFunctionsT>(binary: &[u8], method: &str) -> TestExternalities {
+	call_wasm_method_with_result::<HF>(binary, method)
+		.0
+		.expect(&format!("Failed to execute `{}`", method))
+}
 
 fn call_wasm_method_with_result<HF: HostFunctionsT>(
 	binary: &[u8],
@@ -58,18 +67,13 @@ fn call_wasm_method_with_result<HF: HostFunctionsT>(
 	(result, allocation_stats)
 }
 
-fn call_wasm_method<HF: HostFunctionsT>(binary: &[u8], method: &str) -> TestExternalities {
-	call_wasm_method_with_result::<HF>(binary, method).0.unwrap()
-}
+// =========================================================================
+// V2 entry point tests (test-wasm, runtime-side allocation)
+// =========================================================================
 
 #[test]
 fn test_return_data() {
 	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_return_data");
-}
-
-#[test]
-fn test_return_option_data() {
-	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_return_option_data");
 }
 
 #[test]
@@ -96,11 +100,6 @@ fn test_get_and_return_array() {
 #[test]
 fn test_array_as_mutable_reference() {
 	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_array_as_mutable_reference");
-}
-
-#[test]
-fn test_return_input_public_key() {
-	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_return_input_public_key");
 }
 
 #[test]
@@ -132,42 +131,28 @@ fn test_overwrite_native_function_implementation() {
 }
 
 #[test]
-fn test_vec_return_value_memory_is_freed() {
-	call_wasm_method::<HostFunctions>(
-		wasm_binary_unwrap(),
-		"test_vec_return_value_memory_is_freed",
-	);
-}
-
-#[test]
-fn test_encoded_return_value_memory_is_freed() {
-	call_wasm_method::<HostFunctions>(
-		wasm_binary_unwrap(),
-		"test_encoded_return_value_memory_is_freed",
-	);
-}
-
-#[test]
-fn test_array_return_value_memory_is_freed() {
-	call_wasm_method::<HostFunctions>(
-		wasm_binary_unwrap(),
-		"test_array_return_value_memory_is_freed",
-	);
-}
-
-#[test]
 fn test_versioning_with_new_host_works() {
 	// We call to the new wasm binary with new host function.
 	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_versioning_works");
 
-	// we call to the old wasm binary with a new host functions
-	// old versions of host functions should be called and test should be ok!
-	call_wasm_method::<HostFunctions>(wasm_binary_deprecated_unwrap(), "test_versioning_works");
+	// We call to the old wasm binary with the deprecated host functions.
+	// The deprecated wasm uses V1 marshalling strategies (AllocateAndReturn*) which have
+	// incompatible signatures with the new V2 host functions, so we use the matching
+	// DeprecatedHostFunctions that provide the correct V1 function signatures.
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_versioning_works",
+	);
 }
 
 #[test]
 fn test_versioning_register_only() {
 	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_versioning_register_only_works");
+}
+
+#[test]
+fn test_v2_marshalling_strategies() {
+	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_v2_marshalling_strategies");
 }
 
 fn run_test_in_another_process(
@@ -243,7 +228,6 @@ fn test_tracing() {
 		let subscriber = TracingSubscriber(Default::default());
 		let _guard = tracing::subscriber::set_default(subscriber.clone());
 
-		// Call some method to generate a trace
 		call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_return_data");
 
 		let inner = subscriber.0.lock().unwrap();
@@ -251,20 +235,99 @@ fn test_tracing() {
 	});
 }
 
+// =========================================================================
+// V1 entry point tests (test-wasm-deprecated, host-side allocation)
+// =========================================================================
+
 #[test]
-fn test_return_input_as_tuple() {
-	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_return_input_as_tuple");
+fn test_versioning_with_deprecated_wasm() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_versioning_works",
+	);
+}
+
+#[test]
+fn test_return_data_v1() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_return_data",
+	);
+}
+
+#[test]
+fn test_return_option_data_v1() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_return_option_data",
+	);
+}
+
+#[test]
+fn test_get_and_return_array_v1() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_get_and_return_array",
+	);
+}
+
+#[test]
+fn test_return_input_public_key_v1() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_return_input_public_key",
+	);
+}
+
+#[test]
+fn test_return_input_as_tuple_v1() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_return_input_as_tuple",
+	);
+}
+
+#[test]
+fn test_vec_return_value_memory_is_freed() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_vec_return_value_memory_is_freed",
+	);
+}
+
+#[test]
+fn test_encoded_return_value_memory_is_freed() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_encoded_return_value_memory_is_freed",
+	);
+}
+
+#[test]
+fn test_array_return_value_memory_is_freed() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_array_return_value_memory_is_freed",
+	);
+}
+
+#[test]
+fn test_v1_marshalling_strategies() {
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_v1_marshalling_strategies",
+	);
 }
 
 #[test]
 fn test_returning_option_bytes_from_a_host_function_is_efficient() {
-	let (result, stats_vec) = call_wasm_method_with_result::<HostFunctions>(
-		wasm_binary_unwrap(),
+	let (result, stats_vec) = call_wasm_method_with_result::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
 		"test_return_option_vec",
 	);
 	result.unwrap();
-	let (result, stats_bytes) = call_wasm_method_with_result::<HostFunctions>(
-		wasm_binary_unwrap(),
+	let (result, stats_bytes) = call_wasm_method_with_result::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
 		"test_return_option_bytes",
 	);
 	result.unwrap();
@@ -272,31 +335,7 @@ fn test_returning_option_bytes_from_a_host_function_is_efficient() {
 	let stats_vec = stats_vec.unwrap();
 	let stats_bytes = stats_bytes.unwrap();
 
-	// The way we currently implement marshaling of `Option<Vec<u8>>` through
-	// the WASM FFI boundary from the host to the runtime requires that it is
-	// marshaled through SCALE. This is quite inefficient as it requires two
-	// memory allocations inside of the runtime:
-	//
-	//   1) the first allocation to copy the SCALE-encoded blob into the runtime;
-	//   2) and another allocation for the resulting `Vec<u8>` when decoding that blob.
-	//
-	// Both of these allocations are are as big as the `Vec<u8>` which is being
-	// passed to the runtime. This is especially bad when fetching big values
-	// from storage, as it can lead to an out-of-memory situation.
-	//
-	// Our `Option<Bytes>` marshaling is better; it still must go through SCALE,
-	// and it still requires two allocations, however since `Bytes` is zero-copy
-	// only the first allocation is `Vec<u8>`-sized, and the second allocation
-	// which creates the deserialized `Bytes` is tiny, and is only necessary because
-	// the underlying `Bytes` buffer from which we're deserializing gets automatically
-	// turned into an `Arc`.
-	//
-	// So this assertion tests that deserializing `Option<Bytes>` allocates less than
-	// deserializing `Option<Vec<u8>>`.
+	// With V1 entry points the host allocator is available. Option<Bytes> should be more
+	// efficient than Option<Vec<u8>> due to zero-copy deserialization.
 	assert_eq!(stats_bytes.bytes_allocated_sum + 16 * 1024 + 8, stats_vec.bytes_allocated_sum);
-}
-
-#[test]
-fn test_marshalling_strategies() {
-	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_marshalling_strategies");
 }

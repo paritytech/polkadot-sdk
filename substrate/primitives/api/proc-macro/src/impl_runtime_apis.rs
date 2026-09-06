@@ -223,34 +223,58 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 	let c = generate_crate_access();
 
 	let impl_calls =
-        generate_impl_calls(impls, &input)?
-            .into_iter()
-            .map(|(trait_, fn_name, impl_, attrs)| {
-                let fn_name =
-                    Ident::new(&prefix_function_with_trait(&trait_, &fn_name), Span::call_site());
+		generate_impl_calls(impls, &input)?
+			.into_iter()
+			.map(|(trait_, fn_name, impl_, attrs)| {
+				let fn_name =
+					Ident::new(&prefix_function_with_trait(&trait_, &fn_name), Span::call_site());
 
-                quote!(
-                    #c::std_disabled! {
-                        #( #attrs )*
-                        #[no_mangle]
-                        #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
-                        pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
-                            let mut #input = if input_len == 0 {
-                                &[0u8; 0]
-                            } else {
-                                unsafe {
-                                    ::core::slice::from_raw_parts(input_data, input_len)
-                                }
-                            };
+				quote!(
+					#c::std_disabled! {
+						// RFC-145 (V2) entry point: the input data is pulled in through the
+						// `input::read` host function.
+						#( #attrs )*
+						#[cfg(rfc145)]
+						#[no_mangle]
+						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+						pub unsafe extern fn #fn_name(input_len: usize) -> u64 {
+							let mut input_vec = #c::__private::vec![0; input_len];
+							let mut #input = {
+								if input_len != 0 {
+									#c::sp_io::input::read(&mut input_vec[..]);
+								}
+								&input_vec[..]
+							};
 
-                            #c::init_runtime_logger();
+							#c::init_runtime_logger();
 
-                            let output = (move || { #impl_ })();
-                            #c::to_substrate_wasm_fn_return_value(&output)
-                        }
-                    }
-                )
-            });
+							let output = (move || { #impl_ })();
+							#c::to_substrate_wasm_fn_return_value(&output)
+						}
+
+						// Legacy (V1) entry point: the host allocates runtime memory and writes
+						// the input data into it before the call.
+						#( #attrs )*
+						#[cfg(not(rfc145))]
+						#[no_mangle]
+						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+						pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
+							let mut #input = if input_len == 0 {
+								&[0u8; 0]
+							} else {
+								unsafe {
+									::core::slice::from_raw_parts(input_data, input_len)
+								}
+							};
+
+							#c::init_runtime_logger();
+
+							let output = (move || { #impl_ })();
+							#c::to_substrate_wasm_fn_return_value(&output)
+						}
+					}
+				)
+			});
 
 	Ok(quote!( #( #impl_calls )* ))
 }
@@ -400,10 +424,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> RuntimeApiImpl<Block, C> {
 				fn commit_or_rollback_transaction(&self, commit: bool) {
 					let proof = "\
-                    We only close a transaction when we opened one ourself.
-                    Other parts of the runtime that make use of transactions (state-machine)
-                    also balance their transactions. The runtime cannot close client initiated
-                    transactions; qed";
+					We only close a transaction when we opened one ourself.
+					Other parts of the runtime that make use of transactions (state-machine)
+					also balance their transactions. The runtime cannot close client initiated
+					transactions; qed";
 
 					let res = if commit {
 						let res = if let Some(recorder) = &self.recorder {
@@ -760,8 +784,8 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 			let mut error = Error::new(
 				span,
 				"Two traits with the same name detected! \
-                    The trait name is used to generate its ID. \
-                    Please rename one trait at the declaration!",
+					The trait name is used to generate its ID. \
+					Please rename one trait at the declaration!",
 			);
 
 			error.combine(Error::new(other_span, "First trait implementation."));

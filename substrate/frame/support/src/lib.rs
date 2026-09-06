@@ -64,7 +64,17 @@ pub mod __private {
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
-	pub use sp_io::{self, hashing, storage::root as storage_root};
+	pub use sp_io::{self, hashing};
+
+	/// Non-generic helper that returns the storage root bytes for use from macros
+	/// (`assert_noop!`, `assert_storage_noop!`) and benchmarking, where no hash type is in
+	/// scope.
+	pub fn storage_root(version: sp_runtime::StateVersion) -> alloc::vec::Vec<u8> {
+		// A buffer-sizing stand-in for the runtime's hash type, which isn't available here;
+		// large enough for any hash.
+		type MaxHashBytes = [u8; 256];
+		sp_io::storage::root::<MaxHashBytes>(version)
+	}
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};

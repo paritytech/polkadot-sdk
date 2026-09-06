@@ -364,8 +364,9 @@ pub mod v11 {
 			);
 			let old_pallet_prefix = twox_128(N::get().as_bytes());
 
+			let mut next_key = Vec::new();
 			frame_support::ensure!(
-				sp_io::storage::next_key(&old_pallet_prefix).is_some(),
+				sp_io::storage::next_key(&old_pallet_prefix, &mut next_key),
 				"no data for the old pallet name has been detected"
 			);
 
@@ -421,15 +422,16 @@ pub mod v11 {
 			}
 
 			let old_pallet_prefix = twox_128(N::get().as_bytes());
+			let mut next_key = Vec::new();
 			frame_support::ensure!(
-				sp_io::storage::next_key(&old_pallet_prefix).is_none(),
+				!sp_io::storage::next_key(&old_pallet_prefix, &mut next_key),
 				"old pallet data hasn't been removed"
 			);
 
 			let new_pallet_name = <P as PalletInfoAccess>::name();
 			let new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
 			frame_support::ensure!(
-				sp_io::storage::next_key(&new_pallet_prefix).is_some(),
+				sp_io::storage::next_key(&new_pallet_prefix, &mut next_key),
 				"new pallet data hasn't been created"
 			);
 

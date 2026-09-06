@@ -79,7 +79,11 @@
 
 extern crate alloc;
 
+#[cfg(rfc145)]
+use alloc::vec;
 use alloc::vec::Vec;
+
+use strum::{EnumCount, FromRepr};
 
 #[cfg(not(substrate_runtime))]
 use tracing;
@@ -122,6 +126,12 @@ use sp_runtime_interface::{
 	runtime_interface, Pointer,
 };
 
+#[cfg(rfc145)]
+use sp_runtime_interface::pass_by::{
+	ConvertAndPassAs, ConvertAndReturnAs, PassFatPointerAndWrite, PassOptionalFatPointerAndRead,
+	PassPointerAndWrite,
+};
+
 use codec::{Decode, Encode};
 
 #[cfg(not(substrate_runtime))]
@@ -135,8 +145,14 @@ use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, not(rfc145)))]
 mod global_alloc;
+
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, rfc145, target_family = "wasm"))]
+mod global_alloc_wasm;
+
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, rfc145, target_arch = "riscv64"))]
+mod global_alloc_riscv;
 
 #[cfg(not(substrate_runtime))]
 const LOG_TARGET: &str = "runtime::io";
@@ -150,6 +166,95 @@ pub enum EcdsaVerifyError {
 	BadV,
 	/// Invalid signature
 	BadSignature,
+}
+
+// The FFI representation of EcdsaVerifyError.
+#[derive(EnumCount, FromRepr)]
+#[repr(i16)]
+#[allow(missing_docs)]
+pub enum RIEcdsaVerifyError {
+	BadRS = -1_i16,
+	BadV = -2_i16,
+	BadSignature = -3_i16,
+}
+
+impl From<RIEcdsaVerifyError> for i64 {
+	fn from(error: RIEcdsaVerifyError) -> Self {
+		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIEcdsaVerifyError {
+	type Error = ();
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		let value: i16 = value.try_into().map_err(|_| ())?;
+		RIEcdsaVerifyError::from_repr(value).ok_or(())
+	}
+}
+
+impl From<EcdsaVerifyError> for RIEcdsaVerifyError {
+	fn from(error: EcdsaVerifyError) -> Self {
+		match error {
+			EcdsaVerifyError::BadRS => RIEcdsaVerifyError::BadRS,
+			EcdsaVerifyError::BadV => RIEcdsaVerifyError::BadV,
+			EcdsaVerifyError::BadSignature => RIEcdsaVerifyError::BadSignature,
+		}
+	}
+}
+
+impl From<RIEcdsaVerifyError> for EcdsaVerifyError {
+	fn from(error: RIEcdsaVerifyError) -> Self {
+		match error {
+			RIEcdsaVerifyError::BadRS => EcdsaVerifyError::BadRS,
+			RIEcdsaVerifyError::BadV => EcdsaVerifyError::BadV,
+			RIEcdsaVerifyError::BadSignature => EcdsaVerifyError::BadSignature,
+		}
+	}
+}
+
+// The FFI representation of HttpError.
+#[derive(EnumCount, FromRepr)]
+#[repr(i16)]
+#[allow(missing_docs)]
+pub enum RIHttpError {
+	DeadlineReached = -1_i16,
+	IoError = -2_i16,
+	Invalid = -3_i16,
+}
+
+impl From<RIHttpError> for i64 {
+	fn from(error: RIHttpError) -> Self {
+		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIHttpError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		let value: i16 = value.try_into().map_err(|_| ())?;
+		RIHttpError::from_repr(value).ok_or(())
+	}
+}
+
+impl From<HttpError> for RIHttpError {
+	fn from(error: HttpError) -> Self {
+		match error {
+			HttpError::DeadlineReached => RIHttpError::DeadlineReached,
+			HttpError::IoError => RIHttpError::IoError,
+			HttpError::Invalid => RIHttpError::Invalid,
+		}
+	}
+}
+
+impl From<RIHttpError> for HttpError {
+	fn from(error: RIHttpError) -> Self {
+		match error {
+			RIHttpError::DeadlineReached => HttpError::DeadlineReached,
+			RIHttpError::IoError => HttpError::IoError,
+			RIHttpError::Invalid => HttpError::Invalid,
+		}
+	}
 }
 
 /// The outcome of calling `storage_kill`. Returned value is the number of storage items
@@ -176,10 +281,350 @@ impl From<MultiRemovalResults> for KillStorageResult {
 	}
 }
 
+/// Storage iteration counters
+#[repr(C)]
+#[derive(Default)]
+pub struct StorageIterations {
+	/// The number of backend iterations.
+	pub backend: u32,
+	/// The number of unique iterations.
+	pub unique: u32,
+	/// The number of loops.
+	pub loops: u32,
+}
+
+impl AsRef<[u8]> for StorageIterations {
+	fn as_ref(&self) -> &[u8] {
+		#[cfg(target_endian = "big")]
+		compile_error!("StorageIterations only supports little-endian architectures");
+
+		// SAFETY: The layout of this type is the same as for [u32; 3] and all the possible byte
+		// sequences are valid for this type so casting it from and to a byte slice is safe.
+		// However, the data may become corrupted when copied if host and runtime have different
+		// endianness, so that is checked statically.
+		unsafe {
+			core::slice::from_raw_parts(
+				(&raw const *self).cast::<u8>(),
+				core::mem::size_of::<Self>(),
+			)
+		}
+	}
+}
+
+impl AsMut<[u8]> for StorageIterations {
+	fn as_mut(&mut self) -> &mut [u8] {
+		#[cfg(target_endian = "big")]
+		compile_error!("StorageIterations only supports little-endian architectures");
+
+		// SAFETY: The layout of this type is the same as for [u32; 3] and all the possible byte
+		// sequences are valid for this type so casting it from and to a byte slice is safe.
+		// However, the data may become corrupted when copied if host and runtime have different
+		// endianness, so that is checked statically.
+		unsafe {
+			core::slice::from_raw_parts_mut(
+				self as *mut Self as *mut u8,
+				core::mem::size_of::<Self>(),
+			)
+		}
+	}
+}
+
+/// Defines a `#[repr(transparent)]` newtype over a fixed-size byte array with `Default`,
+/// `AsRef<[u8]>`, and `AsMut<[u8]>` implementations.
+macro_rules! define_byte_array_type {
+	($(#[$meta:meta])* $vis:vis struct $name:ident(pub [u8; $size:expr])) => {
+		$(#[$meta])*
+		#[repr(transparent)]
+		$vis struct $name(pub [u8; $size]);
+
+		impl Default for $name {
+			fn default() -> Self {
+				Self([0; $size])
+			}
+		}
+
+		impl AsRef<[u8]> for $name {
+			fn as_ref(&self) -> &[u8] {
+				&self.0
+			}
+		}
+
+		impl AsMut<[u8]> for $name {
+			fn as_mut(&mut self) -> &mut [u8] {
+				&mut self.0
+			}
+		}
+	};
+}
+
+define_byte_array_type! {
+	/// Wrapper type for 512-bit hashes.
+	pub struct Hash512(pub [u8; 64])
+}
+
+define_byte_array_type! {
+	/// Wrapper type for 512-bit pubkeys.
+	pub struct Pubkey512(pub [u8; 64])
+}
+
+define_byte_array_type! {
+	/// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
+	pub struct Pubkey264(pub [u8; 33])
+}
+
+define_byte_array_type! {
+	/// Represents an opaque network peer ID.
+	pub struct NetworkPeerId(pub [u8; 38])
+}
+
+trait IntoI64: Into<i64> {
+	const MAX: i64;
+}
+
+impl IntoI64 for u8 {
+	const MAX: i64 = u8::MAX as i64;
+}
+impl IntoI64 for u16 {
+	const MAX: i64 = u16::MAX as i64;
+}
+impl IntoI64 for u32 {
+	const MAX: i64 = u32::MAX as i64;
+}
+
+/// A wrapper around `Option<T>` for the FFI marshalling.
+///
+/// Used to return less-than-64-bit passed as `i64` through the FFI boundary. `-1_i64` is used to
+/// represent `None`.
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct RIIntOption<T>(Option<T>);
+
+impl<T: IntoI64> From<RIIntOption<T>> for Option<T> {
+	fn from(r: RIIntOption<T>) -> Self {
+		r.0
+	}
+}
+
+impl<T: IntoI64> From<Option<T>> for RIIntOption<T> {
+	fn from(r: Option<T>) -> Self {
+		Self(r)
+	}
+}
+
+impl<T: IntoI64> From<RIIntOption<T>> for i64 {
+	fn from(r: RIIntOption<T>) -> Self {
+		match r.0 {
+			Some(value) => value.into(),
+			None => -1,
+		}
+	}
+}
+
+impl<T: TryFrom<i64> + IntoI64> TryFrom<i64> for RIIntOption<T> {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == -1 {
+			Ok(RIIntOption(None))
+		} else if value >= 0 && value <= T::MAX.into() {
+			Ok(RIIntOption(Some(value.try_into().map_err(|_| ())?)))
+		} else {
+			// Invalid FFI value (e.g., -2, or too large for T).
+			// `ConvertAndReturnAs` will panic when `TryFrom` returns an `Err`, which is the correct
+			// behavior here.
+			Err(())
+		}
+	}
+}
+
+/// Used to return less-than-64-bit value passed as `i64` through the FFI boundary.
+/// Negative values are used to represent error variants.
+pub enum RIIntResult<R, E> {
+	/// Successful result
+	Ok(R),
+	/// Error result
+	Err(E),
+}
+
+impl<R, E, OR, OE> From<Result<OR, OE>> for RIIntResult<R, E>
+where
+	R: From<OR>,
+	E: From<OE>,
+{
+	fn from(result: Result<OR, OE>) -> Self {
+		match result {
+			Ok(value) => Self::Ok(value.into()),
+			Err(error) => Self::Err(error.into()),
+		}
+	}
+}
+
+impl<R, E, OR, OE> From<RIIntResult<R, E>> for Result<OR, OE>
+where
+	OR: From<R>,
+	OE: From<E>,
+{
+	fn from(result: RIIntResult<R, E>) -> Self {
+		match result {
+			RIIntResult::Ok(value) => Ok(value.into()),
+			RIIntResult::Err(error) => Err(error.into()),
+		}
+	}
+}
+
+/// Represents a void successful result (always 0 in FFI)
+pub struct VoidResult;
+
+impl IntoI64 for VoidResult {
+	const MAX: i64 = 0;
+}
+
+impl From<VoidResult> for u32 {
+	fn from(_: VoidResult) -> Self {
+		0
+	}
+}
+
+impl From<u32> for VoidResult {
+	fn from(_: u32) -> Self {
+		VoidResult
+	}
+}
+
+impl From<()> for VoidResult {
+	fn from(_: ()) -> Self {
+		VoidResult
+	}
+}
+
+impl From<VoidResult> for () {
+	fn from(_: VoidResult) -> Self {
+		()
+	}
+}
+
+impl From<VoidResult> for i64 {
+	fn from(_: VoidResult) -> Self {
+		0
+	}
+}
+
+impl TryFrom<i64> for VoidResult {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == 0 {
+			Ok(VoidResult)
+		} else {
+			Err(())
+		}
+	}
+}
+
+/// Represents a void error (always -1 in FFI)
+pub struct VoidError;
+
+impl strum::EnumCount for VoidError {
+	const COUNT: usize = 1;
+}
+
+impl From<VoidError> for i64 {
+	fn from(_: VoidError) -> Self {
+		-1
+	}
+}
+
+impl From<VoidError> for () {
+	fn from(_: VoidError) -> Self {
+		()
+	}
+}
+
+impl From<()> for VoidError {
+	fn from(_: ()) -> Self {
+		VoidError
+	}
+}
+
+impl TryFrom<i64> for VoidError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value == -1 {
+			Ok(VoidError)
+		} else {
+			Err(())
+		}
+	}
+}
+
+impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> TryFrom<RIIntResult<R, E>> for i64 {
+	type Error = ();
+
+	fn try_from(result: RIIntResult<R, E>) -> Result<Self, ()> {
+		match result {
+			RIIntResult::Ok(value) => Ok(value.into()),
+			RIIntResult::Err(e) => {
+				let error_code: i64 = e.into();
+				if error_code < 0 && error_code >= -(E::COUNT as i64) {
+					Ok(error_code)
+				} else {
+					Err(())
+				}
+			},
+		}
+	}
+}
+
+impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i64>
+	for RIIntResult<R, E>
+{
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		if value >= 0 && value <= R::MAX.into() {
+			Ok(RIIntResult::Ok(value.try_into().map_err(|_| ())?))
+		} else if value < 0 && value >= -(E::COUNT as i64) {
+			Ok(RIIntResult::Err(value.try_into().map_err(|_| ())?))
+		} else {
+			Err(())
+		}
+	}
+}
+
+impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i32>
+	for RIIntResult<R, E>
+{
+	type Error = ();
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		(value as i64).try_into()
+	}
+}
+
+impl<E: Into<i64> + strum::EnumCount> TryFrom<RIIntResult<VoidResult, E>> for i32 {
+	type Error = ();
+
+	fn try_from(value: RIIntResult<VoidResult, E>) -> Result<Self, ()> {
+		match value {
+			RIIntResult::Ok(_) => Ok(0),
+			RIIntResult::Err(e) => {
+				let error_code: i64 = e.into();
+				if error_code < 0 && error_code >= -(E::COUNT as i64) {
+					Ok(error_code as i32)
+				} else {
+					Err(())
+				}
+			},
+		}
+	}
+}
+
 /// Interface for accessing the storage from within the runtime.
 #[runtime_interface]
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
+	#[version(1, register_only)]
 	fn get(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
@@ -205,6 +650,89 @@ pub trait Storage {
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
+	}
+
+	/// Get `key` from storage, placing the value into `value_out` and return the number of
+	/// bytes that the entry in storage has beyond the offset or `None` if the storage entry
+	/// doesn't exist at all.
+	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
+	/// are copied into `value_out`.
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
+	/// `value_out`, even if the value is longer than `value_out`.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn read(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
+		value_offset: u32,
+		allow_partial: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		self.storage(key).map(|value| {
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			if value_out.len() >= data.len() || allow_partial != 0 {
+				value_out[..out_len].copy_from_slice(&data[..out_len]);
+			}
+			data.len() as u32
+		})
+	}
+
+	/// A convenience wrapper providing exact-read interface to the `read` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn read_exact(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read__raw(key.as_ref(), &mut value_out[..], value_offset, 0)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	/// NOTE: unlike the RFC-145 version, the legacy host function copies partial data
+	/// into `value_out` even if the buffer is too small to hold the whole value.
+	fn read_exact(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read_version_1(key.as_ref(), value_out, value_offset)
+	}
+
+	/// A convenience wrapper providing interface for partial storage reads (e.g. for `decode_len`).
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn read_partial(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read__raw(key.as_ref(), &mut value_out[..], value_offset, 1)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn read_partial(key: impl AsRef<[u8]>, value_out: &mut [u8], value_offset: u32) -> Option<u32> {
+		read_version_1(key.as_ref(), value_out, value_offset)
+	}
+
+	/// A convenience wrapper implementing the deprecated `get` host function
+	/// functionality through the new interface.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = read_exact(key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			read_exact(key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		get_version_1(key.as_ref()).map(|value| value.to_vec())
 	}
 
 	/// Set `key` to `value` in the storage.
@@ -281,24 +809,26 @@ pub trait Storage {
 	/// operating on the same prefix should always pass `Some`, and this should be equal to the
 	/// previous call result's `maybe_cursor` field.
 	///
-	/// Returns [`MultiRemovalResults`](sp_io::MultiRemovalResults) to inform about the result. Once
-	/// the resultant `maybe_cursor` field is `None`, then no further items remain to be deleted.
+	/// Stores the output cursor and three counters (backend deletions, unique key deletions, number
+	/// of iterations performed) into the provided output buffers. See
+	/// [`MultiRemovalResults`](sp_io::MultiRemovalResults) for more details.
 	///
-	/// NOTE: After the initial call for any given prefix, it is important that no keys further
+	/// Returns the number of bytes in the output cursor. If the output buffer is not large enough,
+	/// the cursor will be truncated to the length of the buffer, but the full length of the cursor
+	/// is still returned.
+	///
+	/// NOTE: After the initial call for any given prefix, it is important that no further
 	/// keys under the same prefix are inserted. If so, then they may or may not be deleted by
 	/// subsequent calls.
 	///
-	/// # Note
-	///
-	/// Please note that keys which are residing in the overlay for that prefix when
+	/// NOTE: Please note that keys which are residing in the overlay for that prefix when
 	/// issuing this call are deleted without counting towards the `limit`.
 	#[version(3, register_only)]
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
-		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>, /* TODO Make work or just
-		                                                         * Option<Vec<u8>>? */
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
 		Externalities::clear_prefix(
 			*self,
@@ -307,6 +837,95 @@ pub trait Storage {
 			maybe_cursor.as_ref().map(|x| &x[..]),
 		)
 		.into()
+	}
+
+	/// Same as version 3 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_storage_clear_prefix_version_3`, but since
+	// version 3 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 4 instead.
+	#[version(4)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn clear_prefix(
+		&mut self,
+		maybe_prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
+		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
+	) -> u32 {
+		let removal_results = Externalities::clear_prefix(
+			*self,
+			maybe_prefix,
+			maybe_limit,
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		counters_out.backend = removal_results.backend;
+		counters_out.unique = removal_results.unique;
+		counters_out.loops = removal_results.loops;
+		cursor_out_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn clear_prefix(
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 1024];
+		let mut counters = StorageIterations::default();
+		let cursor_len = clear_prefix__raw(
+			maybe_prefix.as_ref(),
+			maybe_limit,
+			maybe_cursor_in,
+			&mut maybe_cursor_out,
+			&mut counters,
+		) as usize;
+		result.backend = counters.backend;
+		result.unique = counters.unique;
+		result.loops = counters.loops;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				assert_eq!(
+					cached_cursor_len.map(|len| len as usize),
+					Some(cursor_len),
+					"the cursor cached by the host must match the length it reported"
+				);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
+		result
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn clear_prefix(
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		_maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		use KillStorageResult::*;
+		let (maybe_cursor, i) = match clear_prefix_version_2(maybe_prefix.as_ref(), maybe_limit) {
+			AllRemoved(i) => (None, i),
+			SomeRemaining(i) => (Some(maybe_prefix.as_ref().to_vec()), i),
+		};
+		MultiRemovalResults { maybe_cursor, backend: i, unique: i, loops: i }
 	}
 
 	/// Append the encoded `value` to the storage item at `key`.
@@ -327,7 +946,11 @@ pub trait Storage {
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	fn root(&mut self) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		self.storage_root(StateVersion::V0)
+		// A pre-RFC-145 node computes the root with the state version implied by this host
+		// function version (`V0`) rather than with the ambient one.
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(StateVersion::V0);
+		self.storage_root()
 	}
 
 	/// "Commit" all existing operations and compute the resulting storage root.
@@ -335,12 +958,62 @@ pub trait Storage {
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
+	// The `version` argument is ignored: the state version is a property of the execution
+	// environment now. The host learns it from the `system_version` field of the runtime's
+	// `RuntimeVersion` and sets it on the externalities before dispatching the runtime call
+	// (see `Externalities::set_runtime_state_version`), so the value passed by the runtime
+	// here is redundant.
 	#[version(2)]
-	fn root(&mut self, version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		self.storage_root(version)
+	fn root(&mut self, _version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		// A pre-RFC-145 node computes the root with the state version passed by the runtime
+		// rather than with the ambient one.
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(_version);
+		self.storage_root()
+	}
+
+	/// "Commit" all existing operations and compute the resulting storage root.
+	///
+	/// The hashing algorithm is defined by the `Block`.
+	///
+	/// Fills provided output buffer with the raw hash bytes. Since the size of the resulting
+	/// value is known to the caller, this function requires the provided buffer to be large enough
+	/// to store the entire value; otherwise, it will panic.
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
+		let root = self.storage_root();
+		assert!(
+			out.len() >= root.len(),
+			"Output buffer provided to store the storage root hash must be large enough"
+		);
+		out[..root.len()].copy_from_slice(&root[..]);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `root` host
+	/// function. The generic parameter `H` is the hash type used by the runtime; the wrapper
+	/// uses it solely to size the output buffer.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn root<H: codec::MaxEncodedLen>(_version: StateVersion) -> Vec<u8> {
+		let mut root_out = vec![0u8; H::max_encoded_len()];
+		root__raw(&mut root_out[..]);
+		root_out
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function. Returns the same raw hash bytes: the legacy host
+	/// function SCALE-encodes the hash, which is an identity transformation for fixed-size
+	/// hashes.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn root<H: codec::MaxEncodedLen>(version: StateVersion) -> Vec<u8> {
+		root_version_2(version)
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
+	#[version(1, register_only)]
 	fn changes_root(
 		&mut self,
 		_parent_hash: PassFatPointerAndRead<&[u8]>,
@@ -354,6 +1027,66 @@ pub trait Storage {
 		key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		self.next_storage_key(key)
+	}
+
+	/// Get the next key in storage after the given one in lexicographic order.
+	#[raw_api]
+	#[version(2)]
+	#[abi_epoch(2)]
+	fn next_key(
+		&mut self,
+		key_in: PassFatPointerAndRead<&[u8]>,
+		key_out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> u32 {
+		let next_key = self.next_storage_key(key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
+		}
+		next_key_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `next_key` host
+	/// function.
+	///
+	/// On success, `key_out` is populated with the next storage key and `true` is returned.
+	/// If there is no next key, `key_out` is cleared and `false` is returned. The caller can reuse
+	/// the buffer across calls to avoid repeated allocations.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn next_key(key_in: impl AsRef<[u8]>, key_out: &mut Vec<u8>) -> bool {
+		let key_in = key_in.as_ref();
+		let len = next_key__raw(key_in, key_out.as_mut_slice()) as usize;
+		if len == 0 {
+			key_out.clear();
+			return false;
+		}
+		if len <= key_out.len() {
+			key_out.truncate(len);
+			return true;
+		}
+		key_out.resize(len, 0);
+		next_key__raw(key_in, &mut key_out[..]);
+		true
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn next_key(key_in: impl AsRef<[u8]>, key_out: &mut Vec<u8>) -> bool {
+		match next_key_version_1(key_in.as_ref()) {
+			Some(next) => {
+				*key_out = next;
+				true
+			},
+			None => {
+				key_out.clear();
+				false
+			},
+		}
 	}
 
 	/// Start a new nested transaction.
@@ -405,6 +1138,7 @@ pub trait DefaultChildStorage {
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result is `None` if the value for `key` in the child storage can not be found.
+	#[version(1, register_only)]
 	fn get(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -432,10 +1166,120 @@ pub trait DefaultChildStorage {
 		self.child_storage(&child_info, key).map(|value| {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = core::cmp::min(data.len(), value_out.len());
-			value_out[..written].copy_from_slice(&data[..written]);
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			value_out[..out_len].copy_from_slice(&data[..out_len]);
 			data.len() as u32
 		})
+	}
+
+	/// Allocation efficient variant of `get`.
+	///
+	/// Get `key` from child storage, placing the value into `value_out` and return the number
+	/// of bytes that the entry in storage has beyond the offset or `None` if the storage entry
+	/// doesn't exist at all.
+	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
+	/// are copied into `value_out`.
+	///
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
+	/// `value_out`, even if the value is longer than `value_out`.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn read(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
+		value_offset: u32,
+		allow_partial: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let child_info = ChildInfo::new_default(storage_key);
+		self.child_storage(&child_info, key)
+			.map(|value| {
+				let value_offset = value_offset as usize;
+				let data = &value[value_offset.min(value.len())..];
+				let out_len = core::cmp::min(data.len(), value_out.len());
+				if value_out.len() >= data.len() || allow_partial != 0 {
+					value_out[..out_len].copy_from_slice(&data[..out_len]);
+				}
+				data.len() as u32
+			})
+			.into()
+	}
+
+	/// A convenience wrapper providing exact-read interface to the `read` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn read_exact(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read__raw(storage_key.as_ref(), key.as_ref(), &mut value_out[..], value_offset, 0)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	/// NOTE: unlike the RFC-145 version, the legacy host function copies partial data
+	/// into `value_out` even if the buffer is too small to hold the whole value.
+	fn read_exact(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read_version_1(storage_key.as_ref(), key.as_ref(), value_out, value_offset)
+	}
+
+	/// A convenience wrapper providing interface for partial storage reads (e.g. for `decode_len`).
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn read_partial(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read__raw(storage_key.as_ref(), key.as_ref(), &mut value_out[..], value_offset, 1)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn read_partial(
+		storage_key: impl AsRef<[u8]>,
+		key: impl AsRef<[u8]>,
+		value_out: &mut [u8],
+		value_offset: u32,
+	) -> Option<u32> {
+		read_version_1(storage_key.as_ref(), key.as_ref(), value_out, value_offset)
+	}
+
+	/// A convenience wrapper implementing the deprecated `get` host function
+	/// functionality through the new interface.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = read_exact(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			read_exact(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		get_version_1(storage_key.as_ref(), key.as_ref())
 	}
 
 	/// Set a child storage value.
@@ -501,7 +1345,7 @@ pub trait DefaultChildStorage {
 
 	/// Clear a child storage key.
 	///
-	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
+	/// See `Storage` module `clear_prefix` documentation.
 	#[version(4, register_only)]
 	fn storage_kill(
 		&mut self,
@@ -512,6 +1356,97 @@ pub trait DefaultChildStorage {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.kill_child_storage(&child_info, maybe_limit, maybe_cursor.as_ref().map(|x| &x[..]))
 			.into()
+	}
+
+	/// Same as version 4 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_default_child_storage_storage_kill_version_4`,
+	// but since version 4 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 5 instead.
+	#[version(5)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn storage_kill(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
+		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
+	) -> u32 {
+		let child_info = ChildInfo::new_default(storage_key);
+		let removal_results = self.kill_child_storage(
+			&child_info,
+			maybe_limit,
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		counters_out.backend = removal_results.backend;
+		counters_out.unique = removal_results.unique;
+		counters_out.loops = removal_results.loops;
+		cursor_out_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `storage_kill` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn storage_kill(
+		storage_key: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 1024];
+		let mut counters = StorageIterations::default();
+		let cursor_len = storage_kill__raw(
+			storage_key.as_ref(),
+			maybe_limit,
+			maybe_cursor,
+			&mut maybe_cursor_out[..],
+			&mut counters,
+		) as usize;
+		result.backend = counters.backend;
+		result.unique = counters.unique;
+		result.loops = counters.loops;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				assert_eq!(
+					cached_cursor_len.map(|len| len as usize),
+					Some(cursor_len),
+					"the cursor cached by the host must match the length it reported"
+				);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
+
+		result
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn storage_kill(
+		storage_key: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		_maybe_cursor: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		use KillStorageResult::*;
+		let (maybe_cursor, backend) =
+			match storage_kill_version_3(storage_key.as_ref(), maybe_limit) {
+				AllRemoved(db) => (None, db),
+				SomeRemaining(db) => (Some(storage_key.as_ref().to_vec()), db),
+			};
+		MultiRemovalResults { maybe_cursor, backend, unique: backend, loops: backend }
 	}
 
 	/// Check a child storage key.
@@ -554,7 +1489,7 @@ pub trait DefaultChildStorage {
 
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
-	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
+	/// See `Storage` module `clear_prefix` documentation.
 	#[version(3, register_only)]
 	fn clear_prefix(
 		&mut self,
@@ -573,6 +1508,104 @@ pub trait DefaultChildStorage {
 		.into()
 	}
 
+	/// Same as version 3 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_default_child_storage_clear_prefix_version_3`,
+	// but since version 3 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 4 instead.
+	#[version(4)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn clear_prefix(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
+		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
+	) -> u32 {
+		let child_info = ChildInfo::new_default(storage_key);
+		let removal_results = self.clear_child_prefix(
+			&child_info,
+			prefix,
+			maybe_limit,
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			self.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		counters_out.backend = removal_results.backend;
+		counters_out.unique = removal_results.unique;
+		counters_out.loops = removal_results.loops;
+		cursor_out_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn clear_prefix(
+		storage_key: impl AsRef<[u8]>,
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 1024];
+		let mut counters = StorageIterations::default();
+		let cursor_len = clear_prefix__raw(
+			storage_key.as_ref(),
+			maybe_prefix.as_ref(),
+			maybe_limit,
+			maybe_cursor_in,
+			&mut maybe_cursor_out,
+			&mut counters,
+		) as usize;
+		result.backend = counters.backend;
+		result.unique = counters.unique;
+		result.loops = counters.loops;
+		if cursor_len > 0 {
+			if maybe_cursor_out.len() < cursor_len {
+				maybe_cursor_out.resize(cursor_len, 0);
+				let cached_cursor_len = misc::last_cursor(maybe_cursor_out.as_mut_slice());
+				assert_eq!(
+					cached_cursor_len.map(|len| len as usize),
+					Some(cursor_len),
+					"the cursor cached by the host must match the length it reported"
+				);
+			}
+			maybe_cursor_out.truncate(cursor_len);
+			result.maybe_cursor = Some(maybe_cursor_out);
+		}
+		result
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn clear_prefix(
+		storage_key: impl AsRef<[u8]>,
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		_maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		use KillStorageResult::*;
+		let (maybe_cursor, backend) = match clear_prefix_version_2(
+			storage_key.as_ref(),
+			maybe_prefix.as_ref(),
+			maybe_limit,
+		) {
+			AllRemoved(db) => (None, db),
+			SomeRemaining(db) => (Some(maybe_prefix.as_ref().to_vec()), db),
+		};
+		MultiRemovalResults { maybe_cursor, backend, unique: backend, loops: backend }
+	}
+
 	/// Default child root calculation.
 	///
 	/// "Commit" all existing operations and compute the resulting child storage root.
@@ -583,8 +1616,10 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(StateVersion::V0);
 		let child_info = ChildInfo::new_default(storage_key);
-		self.child_storage_root(&child_info, StateVersion::V0)
+		self.child_storage_root(&child_info)
 	}
 
 	/// Default child root calculation.
@@ -597,10 +1632,64 @@ pub trait DefaultChildStorage {
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		version: PassAs<StateVersion, u8>,
+		_version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		#[cfg(not(rfc145))]
+		self.set_runtime_state_version(_version);
 		let child_info = ChildInfo::new_default(storage_key);
-		self.child_storage_root(&child_info, version)
+		self.child_storage_root(&child_info)
+	}
+
+	/// Default child root calculation.
+	///
+	/// "Commit" all existing operations and compute the resulting child storage root.
+	/// The hashing algorithm is defined by the `Block`.
+	///
+	/// Fills provided output buffer with the raw hash bytes. Since the size of the resulting
+	/// value is known to the caller, this function requires the provided buffer to be large enough
+	/// to store the entire value; otherwise, it will panic.
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn root(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) {
+		let child_info = ChildInfo::new_default(storage_key);
+		let root = self.child_storage_root(&child_info);
+		assert!(
+			out.len() >= root.len(),
+			"Output buffer provided to store the child storage root hash must be large enough"
+		);
+		out[..root.len()].copy_from_slice(&root[..]);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `root` host
+	/// function. The generic parameter `H` is the hash type used by the runtime; the wrapper
+	/// uses it solely to size the output buffer.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn root<H: codec::MaxEncodedLen>(
+		storage_key: impl AsRef<[u8]>,
+		_version: StateVersion,
+	) -> Vec<u8> {
+		let mut root_out = vec![0u8; H::max_encoded_len()];
+		root__raw(storage_key.as_ref(), &mut root_out[..]);
+		root_out
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function. Returns the same raw hash bytes: the legacy host
+	/// function SCALE-encodes the hash, which is an identity transformation for fixed-size
+	/// hashes.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn root<H: codec::MaxEncodedLen>(
+		storage_key: impl AsRef<[u8]>,
+		version: StateVersion,
+	) -> Vec<u8> {
+		root_version_2(storage_key.as_ref(), version)
 	}
 
 	/// Child storage key iteration.
@@ -613,6 +1702,79 @@ pub trait DefaultChildStorage {
 	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.next_child_storage_key(&child_info, key)
+	}
+
+	/// Child storage key iteration.
+	///
+	/// Get the next key in storage after the given one in lexicographic order in child storage.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn next_key(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		key_in: PassFatPointerAndRead<&[u8]>,
+		key_out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> u32 {
+		let child_info = ChildInfo::new_default(storage_key);
+		let next_key = self.next_child_storage_key(&child_info, key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
+		}
+		next_key_len as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `next_key` host
+	/// function.
+	///
+	/// On success, `key_out` is populated with the next storage key and `true` is returned.
+	/// If there is no next key, `key_out` is cleared and `false` is returned. The caller can reuse
+	/// the buffer across calls to avoid repeated allocations.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn next_key(
+		storage_key: impl AsRef<[u8]>,
+		key_in: impl AsRef<[u8]>,
+		key_out: &mut Vec<u8>,
+	) -> bool {
+		let storage_key = storage_key.as_ref();
+		let key_in = key_in.as_ref();
+		let len = next_key__raw(storage_key, key_in, key_out.as_mut_slice()) as usize;
+		if len == 0 {
+			key_out.clear();
+			return false;
+		}
+		if len <= key_out.len() {
+			key_out.truncate(len);
+			return true;
+		}
+		key_out.resize(len, 0);
+		next_key__raw(storage_key, key_in, &mut key_out[..]);
+		true
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn next_key(
+		storage_key: impl AsRef<[u8]>,
+		key_in: impl AsRef<[u8]>,
+		key_out: &mut Vec<u8>,
+	) -> bool {
+		match next_key_version_1(storage_key.as_ref(), key_in.as_ref()) {
+			Some(next) => {
+				*key_out = next;
+				true
+			},
+			None => {
+				key_out.clear();
+				false
+			},
+		}
 	}
 }
 
@@ -638,6 +1800,31 @@ pub trait Trie {
 		}
 	}
 
+	/// A trie root formed from the iterated items.
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn blake2_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `blake2_256_root`
+	/// host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn blake2_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		blake2_256_root__raw(data, state_version, &mut root);
+		root
+	}
 	/// A trie root formed from the enumerated items.
 	fn blake2_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
@@ -655,6 +1842,32 @@ pub trait Trie {
 			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
 		}
+	}
+
+	/// A trie root formed from the enumerated items.
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn blake2_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_256_ordered_root` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		blake2_256_ordered_root__raw(data, state_version, &mut root);
+		root
 	}
 
 	/// A trie root formed from the iterated items.
@@ -676,6 +1889,32 @@ pub trait Trie {
 		}
 	}
 
+	/// A trie root formed from the iterated items.
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn keccak_256_root(
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `keccak_256_root`
+	/// host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn keccak_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		keccak_256_root__raw(data, state_version, &mut root);
+		root
+	}
+
 	/// A trie root formed from the enumerated items.
 	fn keccak_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
@@ -693,6 +1932,32 @@ pub trait Trie {
 			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(input),
 			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(input),
 		}
+	}
+
+	/// A trie root formed from the enumerated items.
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn keccak_256_ordered_root(
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
+		version: PassAs<StateVersion, u8>,
+		out: PassPointerAndWrite<&mut H256, 32>,
+	) {
+		let root = match version {
+			StateVersion::V0 => LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(input),
+			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(input),
+		};
+		out.0.copy_from_slice(&root.0);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_256_ordered_root` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn keccak_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		keccak_256_ordered_root__raw(data, state_version, &mut root);
+		root
 	}
 
 	/// Verify trie proof
@@ -843,6 +2108,95 @@ pub trait Misc {
 			},
 		}
 	}
+
+	/// Extract the runtime version of the given wasm blob by calling `Core_version`.
+	///
+	/// Returns `None` if calling the function failed for any reason. Otherwise, write the
+	/// SCALE-encoded version information to the provided output buffer if it's large enough.
+	/// Returns the full length of the encoded version information regardless of whether the
+	/// buffer was written or not.
+	///
+	/// # Performance
+	///
+	/// This function may be very expensive to call depending on the wasm binary. It may be
+	/// relatively cheap if the wasm binary contains version information. In that case,
+	/// uncompression of the wasm blob is the dominating factor.
+	///
+	/// If the wasm binary does not have the version information attached, then a legacy mechanism
+	/// may be involved. This means that a runtime call will be performed to query the version.
+	///
+	/// Calling into the runtime may be incredible expensive and should be approached with care.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn runtime_version(
+		&mut self,
+		wasm: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		use sp_core::traits::ReadRuntimeVersionExt;
+
+		let mut ext = sp_state_machine::BasicExternalities::default();
+
+		match self
+			.extension::<ReadRuntimeVersionExt>()
+			.expect("No `ReadRuntimeVersionExt` associated for the current context!")
+			.read_runtime_version(wasm, &mut ext)
+		{
+			Ok(v) => {
+				if out.len() >= v.len() {
+					out[..v.len()].copy_from_slice(v.as_slice());
+				}
+				Some(v.len() as u32)
+			},
+			Err(err) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"cannot read version from the given runtime: {}",
+					err,
+				);
+				None
+			},
+		}
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `runtime_version`
+	/// host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut version = vec![0u8; 1024];
+		let len = runtime_version__raw(code.as_ref(), &mut version[..])?;
+		if len as usize > version.len() {
+			version.resize(len as usize, 0);
+			runtime_version__raw(code.as_ref(), &mut version[..])?;
+		}
+		version.truncate(len as usize);
+		Some(version)
+	}
+
+	/// Get the last storage cursor stored by `storage::clear_prefix`,
+	/// `default_child_storage::clear_prefix` and `default_child_storage::storage_kill`. Returns
+	/// `None` if there is no stored cursor, otherwise returns the length of the cursor in bytes.
+	/// The cursor is written to `out` and consumed only if `out` is large enough to hold it;
+	/// otherwise, the cursor is retained and can be requested again with a larger buffer.
+	// ERRATA: The RFC requires passing a raw pointer without a length, which is not safe.
+	// Currently, we accept a fat pointer.
+	#[abi_epoch(2)]
+	fn last_cursor(
+		&mut self,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let cursor = self.take_last_cursor()?;
+
+		if out.len() >= cursor.len() {
+			out[..cursor.len()].copy_from_slice(&cursor[..]);
+		} else {
+			self.store_last_cursor(&cursor[..]);
+		}
+
+		Some(cursor.len() as u32)
+	}
 }
 
 #[cfg(not(substrate_runtime))]
@@ -873,6 +2227,47 @@ impl Default for UseDalekExt {
 	}
 }
 
+/// Per-algorithm snapshots of public keys retained by [`PublicKeysCacheExt`].
+///
+/// At most one snapshot is cached per algorithm — the one populated by the most
+/// recent `*_public_keys` host call whose output buffer was too small to receive
+/// the full result. The next call with a sufficiently large buffer drains the
+/// snapshot, giving the two-call probe-then-fetch pattern of the convenience
+/// wrappers a consistent view of the keystore.
+#[cfg(not(substrate_runtime))]
+#[derive(Default)]
+pub struct PublicKeysCache {
+	/// Cached `ed25519` public keys for one key type.
+	pub ed25519: Option<(KeyTypeId, Vec<ed25519::Public>)>,
+	/// Cached `sr25519` public keys for one key type.
+	pub sr25519: Option<(KeyTypeId, Vec<sr25519::Public>)>,
+	/// Cached `ecdsa` public keys for one key type.
+	pub ecdsa: Option<(KeyTypeId, Vec<ecdsa::Public>)>,
+}
+
+#[cfg(not(substrate_runtime))]
+sp_externalities::decl_extension! {
+	/// Externalities extension backing the [`PublicKeysCache`].
+	pub struct PublicKeysCacheExt(PublicKeysCache);
+}
+
+#[cfg(not(substrate_runtime))]
+impl Default for PublicKeysCacheExt {
+	fn default() -> Self {
+		Self(PublicKeysCache::default())
+	}
+}
+
+#[cfg(all(not(substrate_runtime), rfc145))]
+macro_rules! ensure_public_keys_cache_ext_registered {
+	($self:expr) => {
+		match $self.register_extension(PublicKeysCacheExt::default()) {
+			Ok(()) | Err(sp_externalities::Error::ExtensionAlreadyRegistered) => (),
+			Err(e) => panic!("Failed to register `PublicKeysCacheExt`: {e:?}"),
+		}
+	};
+}
+
 /// Interfaces for working with crypto related types from within the runtime.
 #[runtime_interface]
 pub trait Crypto {
@@ -884,6 +2279,63 @@ pub trait Crypto {
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_public_keys(id)
+	}
+
+	/// Stores all `ed25519` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	// ERRATA: Caching of the result was added to address security concerns, although it wasn't
+	// directly requested by the RFC
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn ed25519_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		out: PassFatPointerAndReadWrite<&mut [ed25519::Public]>,
+	) -> u32 {
+		ensure_public_keys_cache_ext_registered!(self);
+
+		let cached = self
+			.extension::<PublicKeysCacheExt>()
+			.expect("`PublicKeysCacheExt` was just registered; qed")
+			.ed25519
+			.take()
+			.and_then(|(cached_id, keys)| (cached_id == id).then_some(keys));
+
+		let keys = match cached {
+			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
+			_ => self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ed25519_public_keys(id),
+		};
+
+		let key_size = core::mem::size_of::<ed25519::Public>();
+		let total = keys.len();
+
+		if out.len() >= total {
+			out[..total].copy_from_slice(&keys);
+		} else {
+			self.extension::<PublicKeysCacheExt>()
+				.expect("`PublicKeysCacheExt` is registered; qed")
+				.ed25519 = Some((id, keys));
+		}
+
+		(total * key_size) as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `ed25519_public_keys` host function
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn ed25519_public_keys(id: KeyTypeId) -> Vec<ed25519::Public> {
+		let key_size = core::mem::size_of::<ed25519::Public>();
+		let num_keys = ed25519_public_keys__raw(id, &mut []) as usize / key_size;
+		let mut keys = vec![ed25519::Public::default(); num_keys];
+		let num_keys = ed25519_public_keys__raw(id, &mut keys) as usize / key_size;
+		keys.truncate(num_keys);
+		keys
 	}
 
 	/// Generate an `ed22519` key for the given key type using an optional `seed` and
@@ -904,6 +2356,43 @@ pub trait Crypto {
 			.expect("`ed25519_generate` failed")
 	}
 
+	/// Generate an `ed22519` key for the given key type using an optional `seed` and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Stores the public key in the provided output buffer.
+	// ERRATA: The RFC mentions the `seed` is `i32` in the prototype section, but in the description
+	// it calls for a pointer-size. Applies to all the *_generate functions.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn ed25519_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+		out: PassPointerAndWrite<&mut ed25519::Public, 32>,
+	) {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ed25519_generate_new(id, seed)
+				.expect("`ed25519_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_generate`
+	/// host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn ed25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
+		let mut public = ed25519::Public::default();
+		ed25519_generate__raw(id, seed, &mut public);
+		public
+	}
+
 	/// Sign the given `msg` with the `ed25519` key that corresponds to the given public key and
 	/// key type in the keystore.
 	///
@@ -919,6 +2408,46 @@ pub trait Crypto {
 			.ed25519_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
+	}
+
+	/// Sign the given `msg` with the `ed25519` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature.
+	// ERRATA: The RFC erroneously declares `out` to be `i64`. Applies to all *_sign_* functions.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn ed25519_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ed25519::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		out: PassPointerAndWrite<&mut ed25519::Signature, 64>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ed25519_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_sign` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn ed25519_sign(
+		id: KeyTypeId,
+		pub_key: &ed25519::Public,
+		message: &[u8],
+	) -> Option<ed25519::Signature> {
+		let mut signature = ed25519::Signature::default();
+		ed25519_sign__raw(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify `ed25519` signature.
@@ -1065,6 +2594,63 @@ pub trait Crypto {
 			.sr25519_public_keys(id)
 	}
 
+	/// Stores all `sr25519` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	// ERRATA: Caching of the result was added to address security concerns, although it wasn't
+	// directly requested by the RFC
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn sr25519_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		out: PassFatPointerAndReadWrite<&mut [sr25519::Public]>,
+	) -> u32 {
+		ensure_public_keys_cache_ext_registered!(self);
+
+		let cached = self
+			.extension::<PublicKeysCacheExt>()
+			.expect("`PublicKeysCacheExt` was just registered; qed")
+			.sr25519
+			.take()
+			.and_then(|(cached_id, keys)| (cached_id == id).then_some(keys));
+
+		let keys = match cached {
+			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
+			_ => self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.sr25519_public_keys(id),
+		};
+
+		let key_size = core::mem::size_of::<sr25519::Public>();
+		let total = keys.len();
+
+		if out.len() >= total {
+			out[..total].copy_from_slice(&keys);
+		} else {
+			self.extension::<PublicKeysCacheExt>()
+				.expect("`PublicKeysCacheExt` is registered; qed")
+				.sr25519 = Some((id, keys));
+		}
+
+		(total * key_size) as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `sr25519_public_keys` host function
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
+		let key_size = core::mem::size_of::<sr25519::Public>();
+		let num_keys = sr25519_public_keys__raw(id, &mut []) as usize / key_size;
+		let mut keys = vec![sr25519::Public::default(); num_keys];
+		let num_keys = sr25519_public_keys__raw(id, &mut keys) as usize / key_size;
+		keys.truncate(num_keys);
+		keys
+	}
+
 	/// Generate an `sr22519` key for the given key type using an optional seed and
 	/// store it in the keystore.
 	///
@@ -1083,6 +2669,41 @@ pub trait Crypto {
 			.expect("`sr25519_generate` failed")
 	}
 
+	/// Generate an `sr22519` key for the given key type using an optional seed and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Stores the public key in the provided output buffer.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn sr25519_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+		out: PassPointerAndWrite<&mut sr25519::Public, 32>,
+	) {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.sr25519_generate_new(id, seed)
+				.expect("`sr25519_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_generate`
+	/// host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn sr25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
+		let mut public = sr25519::Public::default();
+		sr25519_generate__raw(id, seed, &mut public);
+		public
+	}
+
 	/// Sign the given `msg` with the `sr25519` key that corresponds to the given public key and
 	/// key type in the keystore.
 	///
@@ -1098,6 +2719,45 @@ pub trait Crypto {
 			.sr25519_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
+	}
+
+	/// Sign the given `msg` with the `sr25519` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn sr25519_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&sr25519::Public, 32>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		out: PassPointerAndWrite<&mut sr25519::Signature, 64>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.sr25519_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_sign` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn sr25519_sign(
+		id: KeyTypeId,
+		pub_key: &sr25519::Public,
+		message: &[u8],
+	) -> Option<sr25519::Signature> {
+		let mut signature = sr25519::Signature::default();
+		sr25519_sign__raw(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify an `sr25519` signature.
@@ -1122,6 +2782,63 @@ pub trait Crypto {
 			.ecdsa_public_keys(id)
 	}
 
+	/// Stores all `ecdsa` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	// ERRATA: Caching of the result was added to address security concerns, although it wasn't
+	// directly requested by the RFC
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn ecdsa_public_keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		out: PassFatPointerAndReadWrite<&mut [ecdsa::Public]>,
+	) -> u32 {
+		ensure_public_keys_cache_ext_registered!(self);
+
+		let cached = self
+			.extension::<PublicKeysCacheExt>()
+			.expect("`PublicKeysCacheExt` was just registered; qed")
+			.ecdsa
+			.take()
+			.and_then(|(cached_id, keys)| (cached_id == id).then_some(keys));
+
+		let keys = match cached {
+			Some(snapshot) if out.len() >= snapshot.len() => snapshot,
+			_ => self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ecdsa_public_keys(id),
+		};
+
+		let key_size = core::mem::size_of::<ecdsa::Public>();
+		let total = keys.len();
+
+		if out.len() >= total {
+			out[..total].copy_from_slice(&keys);
+		} else {
+			self.extension::<PublicKeysCacheExt>()
+				.expect("`PublicKeysCacheExt` is registered; qed")
+				.ecdsa = Some((id, keys));
+		}
+
+		(total * key_size) as u32
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `ecdsa_public_keys` host function
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn ecdsa_public_keys(id: KeyTypeId) -> Vec<ecdsa::Public> {
+		let key_size = core::mem::size_of::<ecdsa::Public>();
+		let num_keys = ecdsa_public_keys__raw(id, &mut []) as usize / key_size;
+		let mut keys = vec![ecdsa::Public::default(); num_keys];
+		let num_keys = ecdsa_public_keys__raw(id, &mut keys) as usize / key_size;
+		keys.truncate(num_keys);
+		keys
+	}
+
 	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
@@ -1138,6 +2855,41 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_generate_new(id, seed)
 			.expect("`ecdsa_generate` failed")
+	}
+
+	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
+	/// store it in the keystore.
+	///
+	/// The `seed` needs to be a valid utf8.
+	///
+	/// Stores the public key in the provided output buffer.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn ecdsa_generate(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
+		out: PassPointerAndWrite<&mut ecdsa::Public, 33>,
+	) {
+		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
+		out.0.copy_from_slice(
+			&self
+				.extension::<KeystoreExt>()
+				.expect("No `keystore` associated for the current context!")
+				.ecdsa_generate_new(id, seed)
+				.expect("`ecdsa_generate` failed"),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_generate` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn ecdsa_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa::Public {
+		let mut public = ecdsa::Public::default();
+		ecdsa_generate__raw(id, seed, &mut public);
+		public
 	}
 
 	/// Sign the given `msg` with the `ecdsa` key that corresponds to the given public key and
@@ -1157,10 +2909,52 @@ pub trait Crypto {
 			.flatten()
 	}
 
+	/// Sign the given `msg` with the `ecdsa` key that corresponds to the given public key and
+	/// key type in the keystore.
+	///
+	/// Returns the signature.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn ecdsa_sign(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+		msg: PassFatPointerAndRead<&[u8]>,
+		out: PassPointerAndWrite<&mut ecdsa::Signature, 65>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_sign` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn ecdsa_sign(
+		id: KeyTypeId,
+		pub_key: &ecdsa::Public,
+		message: &[u8],
+	) -> Option<ecdsa::Signature> {
+		let mut signature = ecdsa::Signature::default();
+		ecdsa_sign__raw(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
+	}
+
 	/// Sign the given a pre-hashed `msg` with the `ecdsa` key that corresponds to the given public
 	/// key and key type in the keystore.
 	///
 	/// Returns the signature.
+	// ERRATA: The RFC gathers all the *_sign_{prehashed} functions under a single definition that
+	// requires `msg` to be a fat pointer which obviously doesn't make sense for a prehashed
+	// message.
 	fn ecdsa_sign_prehashed(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1172,6 +2966,45 @@ pub trait Crypto {
 			.ecdsa_sign_prehashed(id, pub_key, msg)
 			.ok()
 			.flatten()
+	}
+
+	/// Sign the given a pre-hashed `msg` with the `ecdsa` key that corresponds to the given public
+	/// key and key type in the keystore.
+	///
+	/// Returns the signature.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn ecdsa_sign_prehashed(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		pub_key: PassPointerAndRead<&ecdsa::Public, 33>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+		out: PassPointerAndWrite<&mut ecdsa::Signature, 65>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_sign_prehashed(id, pub_key, msg)
+			.ok()
+			.flatten()
+			.map(|sig| {
+				out.0.copy_from_slice(&sig);
+			})
+			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `ecdsa_sign_prehashed` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn ecdsa_sign_prehashed(
+		id: KeyTypeId,
+		pub_key: &ecdsa::Public,
+		msg: &[u8; 32],
+	) -> Option<ecdsa::Signature> {
+		let mut signature = ecdsa::Signature::default();
+		ecdsa_sign_prehashed__raw(id, pub_key, msg, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify `ecdsa` signature.
@@ -1308,8 +3141,54 @@ pub trait Crypto {
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
 		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		let mut res = [0u8; 64];
-		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
+		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..65]);
 		Ok(res)
+	}
+
+	/// Verify and recover a SECP256k1 ECDSA signature.
+	///
+	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
+	/// - `msg` is the blake2-256 hash of the message.
+	///
+	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
+	/// (doesn't include the 0x04 prefix).
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn secp256k1_ecdsa_recover(
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+		out: PassPointerAndWrite<&mut Pubkey512, 64>,
+	) -> ConvertAndReturnAs<
+		Result<(), EcdsaVerifyError>,
+		RIIntResult<VoidResult, RIEcdsaVerifyError>,
+		i32,
+	> {
+		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+			.map_err(|_| EcdsaVerifyError::BadV)?;
+		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
+			.map_err(|_| EcdsaVerifyError::BadRS)?;
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
+		out.0.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
+		Ok(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `secp256k1_ecdsa_recover` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn secp256k1_ecdsa_recover(
+		signature: &[u8; 65],
+		message: &[u8; 32],
+	) -> Result<[u8; 64], EcdsaVerifyError> {
+		let mut public = Pubkey512([0u8; 64]);
+		secp256k1_ecdsa_recover__raw(signature, message, &mut public)?;
+		Ok(public.0)
 	}
 
 	/// Verify and recover a SECP256k1 ECDSA signature.
@@ -1364,6 +3243,51 @@ pub trait Crypto {
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
 		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		Ok(pubkey.serialize())
+	}
+
+	/// Verify and recover a SECP256k1 ECDSA signature.
+	///
+	/// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
+	/// - `msg` is the blake2-256 hash of the message.
+	///
+	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
+	#[version(3)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn secp256k1_ecdsa_recover_compressed(
+		sig: PassPointerAndRead<&[u8; 65], 65>,
+		msg: PassPointerAndRead<&[u8; 32], 32>,
+		out: PassPointerAndWrite<&mut Pubkey264, 33>,
+	) -> ConvertAndReturnAs<
+		Result<(), EcdsaVerifyError>,
+		RIIntResult<VoidResult, RIEcdsaVerifyError>,
+		i32,
+	> {
+		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
+			.map_err(|_| EcdsaVerifyError::BadV)?;
+		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
+			.map_err(|_| EcdsaVerifyError::BadRS)?;
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
+		#[cfg(feature = "std")]
+		let ctx = secp256k1::SECP256K1;
+		#[cfg(not(feature = "std"))]
+		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
+		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
+		out.0.copy_from_slice(&pubkey.serialize());
+		Ok(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `secp256k1_ecdsa_recover_compressed` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn secp256k1_ecdsa_recover_compressed(
+		signature: &[u8; 65],
+		message: &[u8; 32],
+	) -> Result<[u8; 33], EcdsaVerifyError> {
+		let mut public = Pubkey264([0u8; 33]);
+		secp256k1_ecdsa_recover_compressed__raw(signature, message, &mut public)?;
+		Ok(public.0)
 	}
 
 	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
@@ -1468,9 +3392,45 @@ pub trait Hashing {
 		sp_crypto_hashing::keccak_256(data)
 	}
 
+	/// Conduct a 256-bit Keccak hash.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn keccak_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::keccak_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_256` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn keccak_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		keccak_256__raw(data, &mut out);
+		out
+	}
+
 	/// Conduct a 512-bit Keccak hash.
 	fn keccak_512(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 64], 64> {
 		sp_crypto_hashing::keccak_512(data)
+	}
+
+	/// Conduct a 512-bit Keccak hash.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Hash512, 64>) {
+		out.0.copy_from_slice(&sp_crypto_hashing::keccak_512(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_512` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn keccak_512(data: &[u8]) -> [u8; 64] {
+		let mut out = Hash512::default();
+		keccak_512__raw(data, &mut out);
+		out.0
 	}
 
 	/// Conduct a 256-bit Sha2 hash.
@@ -1478,9 +3438,45 @@ pub trait Hashing {
 		sp_crypto_hashing::sha2_256(data)
 	}
 
+	/// Conduct a 256-bit Sha2 hash.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn sha2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::sha2_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `sha2_256` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn sha2_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		sha2_256__raw(data, &mut out);
+		out
+	}
+
 	/// Conduct a 128-bit Blake2 hash.
 	fn blake2_128(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 16], 16> {
 		sp_crypto_hashing::blake2_128(data)
+	}
+
+	/// Conduct a 128-bit Blake2 hash.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn blake2_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		out.copy_from_slice(&sp_crypto_hashing::blake2_128(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_128` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn blake2_128(data: &[u8]) -> [u8; 16] {
+		let mut out = [0u8; 16];
+		blake2_128__raw(data, &mut out);
+		out
 	}
 
 	/// Conduct a 256-bit Blake2 hash.
@@ -1488,9 +3484,45 @@ pub trait Hashing {
 		sp_crypto_hashing::blake2_256(data)
 	}
 
+	/// Conduct a 256-bit Blake2 hash.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn blake2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_256` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn blake2_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		blake2_256__raw(data, &mut out);
+		out
+	}
+
 	/// Conduct four XX hashes to give a 256-bit result.
 	fn twox_256(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 32], 32> {
 		sp_crypto_hashing::twox_256(data)
+	}
+
+	/// Conduct four XX hashes to give a 256-bit result.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn twox_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(&sp_crypto_hashing::twox_256(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_256` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn twox_256(data: &[u8]) -> [u8; 32] {
+		let mut out = [0u8; 32];
+		twox_256__raw(data, &mut out);
+		out
 	}
 
 	/// Conduct two XX hashes to give a 128-bit result.
@@ -1498,9 +3530,45 @@ pub trait Hashing {
 		sp_crypto_hashing::twox_128(data)
 	}
 
+	/// Conduct two XX hashes to give a 128-bit result.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn twox_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		out.copy_from_slice(&sp_crypto_hashing::twox_128(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_128` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn twox_128(data: &[u8]) -> [u8; 16] {
+		let mut out = [0u8; 16];
+		twox_128__raw(data, &mut out);
+		out
+	}
+
 	/// Conduct two XX hashes to give a 64-bit result.
 	fn twox_64(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 8], 8> {
 		sp_crypto_hashing::twox_64(data)
+	}
+
+	/// Conduct two XX hashes to give a 64-bit result.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn twox_64(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 8], 8>) {
+		out.copy_from_slice(&sp_crypto_hashing::twox_64(data));
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_64` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn twox_64(data: &[u8]) -> [u8; 8] {
+		let mut out = [0u8; 8];
+		twox_64__raw(data, &mut out);
+		out
 	}
 }
 
@@ -1576,11 +3644,81 @@ pub trait Offchain {
 			.submit_transaction(data)
 	}
 
+	/// Submit an encoded transaction to the pool.
+	///
+	/// The transaction will end up in the pool.
+	#[version(2)]
+	#[abi_epoch(2)]
+	fn submit_transaction(
+		&mut self,
+		data: PassFatPointerAndRead<Vec<u8>>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
+		self.extension::<TransactionPoolExt>()
+			.expect(
+				"submit_transaction can be called only in the offchain call context with
+				TransactionPool capabilities enabled",
+			)
+			.submit_transaction(data)
+	}
+
 	/// Returns information about the local node's network state.
+	#[version(1, register_only)]
 	fn network_state(&mut self) -> AllocateAndReturnByCodec<Result<OpaqueNetworkState, ()>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("network_state can be called only in the offchain worker context")
 			.network_state()
+	}
+
+	/// Returns the peer ID of the local node.
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn network_peer_id(
+		&mut self,
+		out: PassPointerAndWrite<&mut NetworkPeerId, 38>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i32> {
+		let encoded_peer_id = self
+			.extension::<OffchainWorkerExt>()
+			.expect("network_state can be called only in the offchain worker context")
+			.network_state()?
+			.peer_id
+			.0;
+
+		let peer_id: Vec<u8> = codec::Decode::decode(&mut &encoded_peer_id[..]).map_err(|_| ())?;
+		if peer_id.len() != out.0.len() {
+			log::warn!(
+				target: LOG_TARGET,
+				"`network_peer_id`: peer id length ({}) does not match the output buffer \
+				length ({})",
+				peer_id.len(),
+				out.0.len(),
+			);
+			return Err(());
+		}
+
+		out.0.copy_from_slice(&peer_id);
+		Ok(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `network_peer_id` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn network_peer_id(out: &mut NetworkPeerId) -> Result<(), ()> {
+		network_peer_id__raw(out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating `network_state` host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn network_peer_id(out: &mut NetworkPeerId) -> Result<(), ()> {
+		let state = network_state_version_1()?;
+		let peer_id: Vec<u8> = codec::Decode::decode(&mut &state.peer_id.0[..]).map_err(|_| ())?;
+		if peer_id.len() != out.0.len() {
+			return Err(());
+		}
+		out.0.copy_from_slice(&peer_id);
+		Ok(())
 	}
 
 	/// Returns current UNIX timestamp (in millis)
@@ -1605,6 +3743,32 @@ pub trait Offchain {
 		self.extension::<OffchainWorkerExt>()
 			.expect("random_seed can be called only in the offchain worker context")
 			.random_seed()
+	}
+
+	/// Writes a random seed to the provided output buffer.
+	///
+	/// This is a truly random, non-deterministic seed generated by host environment.
+	/// Obviously fine in the off-chain worker context.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn random_seed(&mut self, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
+		out.copy_from_slice(
+			&self
+				.extension::<OffchainWorkerExt>()
+				.expect("random_seed can be called only in the offchain worker context")
+				.random_seed(),
+		);
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `random_seed` host
+	/// function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn random_seed() -> [u8; 32] {
+		let mut seed = [0u8; 32];
+		random_seed__raw(&mut seed);
+		seed
 	}
 
 	/// Sets a value in the local storage.
@@ -1671,6 +3835,7 @@ pub trait Offchain {
 	/// If the value does not exist in the storage `None` will be returned.
 	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
+	#[version(1, register_only)]
 	fn local_storage_get(
 		&mut self,
 		kind: PassAs<StorageKind, u32>,
@@ -1682,6 +3847,58 @@ pub trait Offchain {
 				OffchainDb extension",
 			)
 			.local_storage_get(kind, key)
+	}
+
+	/// Reads a value from the local storage.
+	///
+	/// If the value does not exist in the storage `None` will be returned.
+	/// Note this storage is not part of the consensus, it's only accessible by
+	/// offchain worker tasks running on the same machine. It IS persisted between runs.
+	#[abi_epoch(2)]
+	fn local_storage_read(
+		&mut self,
+		kind: PassAs<StorageKind, u32>,
+		key: PassFatPointerAndRead<&[u8]>,
+		value_out: PassFatPointerAndWrite<&mut [u8]>,
+		offset: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		self.extension::<OffchainDbExt>()
+			.expect(
+				"local_storage_get can be called only in the offchain call context with
+				OffchainDb extension",
+			)
+			.local_storage_get(kind, key)
+			.map(|v| {
+				let value_offset = offset as usize;
+				let data = &v[value_offset.min(v.len())..];
+				if data.len() <= value_out.len() {
+					value_out[..data.len()].copy_from_slice(data);
+				}
+				data.len() as u32
+			})
+	}
+
+	/// A convenience wrapper implementing the deprecated `get` host function
+	/// functionality through the new interface.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn local_storage_get(kind: StorageKind, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = local_storage_read(kind, key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			local_storage_read(kind, key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn local_storage_get(kind: StorageKind, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		local_storage_get_version_1(kind, key.as_ref())
 	}
 
 	/// Initiates a http request given HTTP verb and the URL.
@@ -1699,6 +3916,42 @@ pub trait Offchain {
 			.http_request_start(method, uri, meta)
 	}
 
+	/// Initiates a http request given HTTP verb and the URL.
+	///
+	/// Meta is a future-reserved field containing additional, parity-scale-codec encoded
+	/// parameters. Returns the id of newly started request.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn http_request_start(
+		&mut self,
+		method: PassFatPointerAndRead<&str>,
+		uri: PassFatPointerAndRead<&str>,
+		meta: PassFatPointerAndDecode<Vec<u8>>,
+	) -> ConvertAndReturnAs<Result<HttpRequestId, ()>, RIIntResult<u16, VoidError>, i64> {
+		assert!(meta.is_empty(), "Meta must be empty in http_request_start");
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_request_start can be called only in the offchain worker context")
+			.http_request_start(method, uri, &[])
+			.into()
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `http_request_start` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn http_request_start(method: &str, uri: &str, meta: &[u8]) -> Result<HttpRequestId, ()> {
+		http_request_start__raw(method, uri, meta.to_vec())
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn http_request_start(method: &str, uri: &str, meta: &[u8]) -> Result<HttpRequestId, ()> {
+		http_request_start_version_1(method, uri, meta)
+	}
+
 	/// Append header to the request.
 	fn http_request_add_header(
 		&mut self,
@@ -1706,6 +3959,20 @@ pub trait Offchain {
 		name: PassFatPointerAndRead<&str>,
 		value: PassFatPointerAndRead<&str>,
 	) -> AllocateAndReturnByCodec<Result<(), ()>> {
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_request_add_header can be called only in the offchain worker context")
+			.http_request_add_header(request_id, name, value)
+	}
+
+	/// Append header to the request.
+	#[version(2)]
+	#[abi_epoch(2)]
+	fn http_request_add_header(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		name: PassFatPointerAndRead<&str>,
+		value: PassFatPointerAndRead<&str>,
+	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_add_header can be called only in the offchain worker context")
 			.http_request_add_header(request_id, name, value)
@@ -1728,6 +3995,25 @@ pub trait Offchain {
 			.http_request_write_body(request_id, chunk, deadline)
 	}
 
+	/// Write a chunk of request body.
+	///
+	/// Writing an empty chunks finalizes the request.
+	/// Passing `None` as deadline blocks forever.
+	///
+	/// Returns an error in case deadline is reached or the chunk couldn't be written.
+	#[version(2)]
+	#[abi_epoch(2)]
+	fn http_request_write_body(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		chunk: PassFatPointerAndRead<&[u8]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+	) -> ConvertAndReturnAs<Result<(), HttpError>, RIIntResult<VoidResult, RIHttpError>, i64> {
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_request_write_body can be called only in the offchain worker context")
+			.http_request_write_body(request_id, chunk, deadline)
+	}
+
 	/// Block and wait for the responses for given requests.
 	///
 	/// Returns a vector of request statuses (the len is the same as ids).
@@ -1745,10 +4031,63 @@ pub trait Offchain {
 			.http_response_wait(ids, deadline)
 	}
 
+	/// TODO: Original error codes are used as they do not contradict anything. That should be
+	/// either reflected in RFC-145 or changed here.
+	///
+	/// Block and wait for the responses for given requests.
+	///
+	/// Fills the provided output buffer with request statuses. The length of the provided buffer
+	/// should be no less than the length of the input ids.
+	///
+	/// Note that if deadline is not provided the method will block indefinitely,
+	/// otherwise unready responses will produce `DeadlineReached` status.
+	///
+	/// Passing `None` as deadline blocks forever.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn http_response_wait(
+		&mut self,
+		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+		out: PassFatPointerAndWrite<&mut [u32]>,
+	) {
+		assert!(
+			out.len() >= ids.len(),
+			"Output buffer of length {} cannot hold {} response statuses in http_response_wait",
+			out.len(),
+			ids.len()
+		);
+		let statuses = self
+			.extension::<OffchainWorkerExt>()
+			.expect("http_response_wait can be called only in the offchain worker context")
+			.http_response_wait(ids, deadline);
+		statuses.into_iter().zip(out).for_each(|(status, out)| {
+			*out = status.into();
+		});
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the `http_response_wait`
+	/// host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn http_response_wait(
+		ids: &[HttpRequestId],
+		deadline: Option<Timestamp>,
+	) -> Vec<HttpRequestStatus> {
+		let mut statuses = vec![0u32; ids.len()];
+		http_response_wait__raw(&ids, deadline.into(), &mut statuses[..]);
+		statuses
+			.into_iter()
+			.map(|s| HttpRequestStatus::try_from(s).unwrap_or(HttpRequestStatus::Invalid))
+			.collect::<Vec<_>>()
+	}
+
 	/// Read all response headers.
 	///
 	/// Returns a vector of pairs `(HeaderKey, HeaderValue)`.
 	/// NOTE: response headers have to be read before response body.
+	#[version(1, register_only)]
 	fn http_response_headers(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -1756,6 +4095,96 @@ pub trait Offchain {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_headers can be called only in the offchain worker context")
 			.http_response_headers(request_id)
+	}
+
+	/// Read the name of the header at the given index into the provided output buffer.
+	///
+	/// Returns the full length of the header name. The value is actually stored only if the
+	/// buffer is large enough. Otherwise, the buffer is not written into, and its contents are
+	/// unchanged.
+	///
+	/// Returns `None` if the index is out of bounds.
+	#[abi_epoch(2)]
+	fn http_response_header_name(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		header_index: u32,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let headers = self
+			.extension::<OffchainWorkerExt>()
+			.expect("http_response_header_name can be called only in the offchain worker context")
+			.http_response_headers(request_id);
+		let res = &headers.get(header_index as usize)?.0;
+		if res.len() <= out.len() {
+			out[..res.len()].copy_from_slice(res);
+		}
+		Some(res.len() as u32)
+	}
+
+	/// Read the value of the header at the given index into the provided output buffer.
+	///
+	/// Returns the full length of the header value. The value is actually stored only if the
+	/// buffer is large enough. Otherwise, the buffer is not written into, and its contents are
+	/// unchanged.
+	///
+	/// Returns `None` if the index is out of bounds.
+	#[abi_epoch(2)]
+	fn http_response_header_value(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		header_index: u32,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		let headers = self
+			.extension::<OffchainWorkerExt>()
+			.expect("http_response_header_value can be called only in the offchain worker context")
+			.http_response_headers(request_id);
+		let res = &headers.get(header_index as usize)?.1;
+		if res.len() <= out.len() {
+			out[..res.len()].copy_from_slice(res);
+		}
+		Some(res.len() as u32)
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
+	/// `http_response_headers` host function.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn http_response_headers(&mut self, request_id: HttpRequestId) -> Vec<(Vec<u8>, Vec<u8>)> {
+		let mut name_buf = vec![0u8; 256];
+		let mut value_buf = vec![0u8; 256];
+		let mut head_idx = 0;
+		let mut headers = Vec::new();
+
+		while let Some(name_len) =
+			http_response_header_name(request_id, head_idx, &mut name_buf[..])
+		{
+			let name_len = name_len as usize;
+			if name_len > name_buf.len() {
+				name_buf.resize(name_len, 0);
+				http_response_header_name(request_id, head_idx, &mut name_buf[..])
+					.expect("It was checked that the header exists");
+			}
+			let value_len = http_response_header_value(request_id, head_idx, &mut value_buf[..])
+				.expect("It was checked that the header exists") as usize;
+			if value_len > value_buf.len() {
+				value_buf.resize(value_len, 0);
+				http_response_header_value(request_id, head_idx, &mut value_buf[..])
+					.expect("It was checked that the header exists");
+			}
+			headers.push((name_buf[..name_len].to_vec(), value_buf[..value_len].to_vec()));
+			head_idx += 1;
+		}
+		headers
+	}
+
+	/// Legacy (pre-RFC-145) implementation of the wrapper above, backed by the
+	/// host-allocating host function.
+	#[wrapper]
+	#[abi_epoch(1)]
+	fn http_response_headers(request_id: HttpRequestId) -> Vec<(Vec<u8>, Vec<u8>)> {
+		http_response_headers_version_1(request_id)
 	}
 
 	/// Read a chunk of body response to given buffer.
@@ -1775,6 +4204,28 @@ pub trait Offchain {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
 			.http_response_read_body(request_id, buffer, deadline)
+			.map(|r| r as u32)
+	}
+
+	/// Read a chunk of body response to given buffer.
+	///
+	/// Returns the number of bytes written or an error in case a deadline
+	/// is reached or server closed the connection.
+	/// If `0` is returned it means that the response has been fully consumed
+	/// and the `request_id` is now invalid.
+	/// NOTE: this implies that response headers must be read before draining the body.
+	/// Passing `None` as a deadline blocks forever.
+	#[version(2)]
+	#[abi_epoch(2)]
+	fn http_response_read_body(
+		&mut self,
+		request_id: PassAs<HttpRequestId, u16>,
+		buffer_out: PassFatPointerAndWrite<&mut [u8]>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
+	) -> ConvertAndReturnAs<Result<u32, HttpError>, RIIntResult<u32, RIHttpError>, i64> {
+		self.extension::<OffchainWorkerExt>()
+			.expect("http_response_read_body can be called only in the offchain worker context")
+			.http_response_read_body(request_id, buffer_out, deadline)
 			.map(|r| r as u32)
 	}
 
@@ -2015,6 +4466,20 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 }
 
+/// Input data handling functions
+#[runtime_interface(wasm_only)]
+pub trait Input {
+	/// Read input data into the provided buffer.
+	#[abi_epoch(2)]
+	fn read(&mut self, buffer: PassFatPointerAndWrite<&mut [u8]>) {
+		let data = self
+			.take_input_data()
+			.expect("input data is not empty on code entry and is only taken once; qed");
+		assert!(buffer.len() >= data.len());
+		buffer[..data.len()].copy_from_slice(&data[..]);
+	}
+}
+
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
@@ -2038,6 +4503,7 @@ pub type SubstrateHostFunctions = (
 	crate::trie::HostFunctions,
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
+	input::HostFunctions,
 );
 
 #[cfg(test)]
@@ -2087,11 +4553,26 @@ mod tests {
 		});
 
 		t.execute_with(|| {
+			// `read_exact` with a buffer that is too small does NOT write data into the buffer
+			// (RFC-145). The legacy implementation copies partial data.
 			let mut v = [0u8; 4];
-			assert_eq!(storage::read(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			assert_eq!(storage::read_exact(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			#[cfg(rfc145)]
+			assert_eq!(v, [0u8, 0, 0, 0]);
+			#[cfg(not(rfc145))]
 			assert_eq!(v, [11u8, 0, 0, 0]);
+
+			// `read_partial` with a buffer that is too small DOES write partial data.
+			let mut v = [0u8; 4];
+			assert_eq!(storage::read_partial(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			assert_eq!(v, [11u8, 0, 0, 0]);
+
+			// `read_exact` with an exact-sized buffer works.
 			let mut w = [0u8; 11];
-			assert_eq!(storage::read(b":test", &mut w[..], 4).unwrap(), value.len() as u32 - 4);
+			assert_eq!(
+				storage::read_exact(b":test", &mut w[..], 4).unwrap(),
+				value.len() as u32 - 4
+			);
 			assert_eq!(&w, b"Hello world");
 		});
 	}
@@ -2109,30 +4590,40 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			// We can switch to this once we enable v3 of the `clear_prefix`.
-			// assert!(matches!(
-			// 	storage::clear_prefix(b":abc", None),
-			// 	MultiRemovalResults::NoneLeft { db: 2, total: 2 }
-			//));
-			assert!(matches!(
-				storage::clear_prefix(b":abc", None),
-				KillStorageResult::AllRemoved(2),
-			));
+			let res = storage::clear_prefix(b":abc", None, None);
+			assert_eq!(res.backend, 2);
+			assert_eq!(res.unique, 2);
+			assert_eq!(res.loops, 2);
 
 			assert!(storage::get(b":a").is_some());
 			assert!(storage::get(b":abdd").is_some());
 			assert!(storage::get(b":abcd").is_none());
 			assert!(storage::get(b":abc").is_none());
 
-			// We can switch to this once we enable v3 of the `clear_prefix`.
-			// assert!(matches!(
-			// 	storage::clear_prefix(b":abc", None),
-			// 	MultiRemovalResults::NoneLeft { db: 0, total: 0 }
-			//));
-			assert!(matches!(
-				storage::clear_prefix(b":abc", None),
-				KillStorageResult::AllRemoved(0),
-			));
+			let res = storage::clear_prefix(b":abc", None, None);
+			assert_eq!(res.backend, 0);
+			assert_eq!(res.unique, 0);
+			assert_eq!(res.loops, 0);
+		});
+	}
+
+	#[test]
+	fn network_peer_id_writes_raw_peer_id_bytes() {
+		use sp_core::offchain::{testing::TestOffchainExt, OffchainWorkerExt};
+
+		let (offchain, _state) = TestOffchainExt::new();
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(OffchainWorkerExt::new(offchain));
+
+		ext.execute_with(|| {
+			// `TestOffchainExt` reports the raw peer id `0..38`, SCALE-encoded (length-prefixed)
+			// in the network state, exactly as the real `sc-offchain` externalities do.
+			// `network_peer_id` must strip the length prefix and write the raw bytes into the
+			// fixed-size buffer. Regression test for the panic where the length-prefixed vec (39
+			// bytes) was copied straight into a `[u8; 38]`.
+			let mut peer_id = NetworkPeerId::default();
+			assert_eq!(offchain::network_peer_id(&mut peer_id), Ok(()));
+			assert_eq!(peer_id.0.to_vec(), (0u8..38).collect::<Vec<u8>>());
 		});
 	}
 

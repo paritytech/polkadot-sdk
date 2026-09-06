@@ -711,21 +711,18 @@ async fn ensure_is_block_in_core_impl(
 ) -> Result<(), anyhow::Error> {
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_hash).await?;
-	let block_core_info = find_core_info(&block)?;
 
 	if is_only_block_in_core {
-		let parent = blocks.at(block.header().parent_hash).await?;
-
-		// Genesis is for sure on a different core :)
-		if parent.number() != 0 {
-			let parent_core_info = find_core_info(&parent)?;
-
-			if parent_core_info == block_core_info {
-				return Err(anyhow::anyhow!(
-					"Not first block ({}) in core, at least the parent block is on the same core.",
-					block.header().number
-				));
-			}
+		// A block with a non-zero bundle index continues the bundle of its parent, i.e. shares
+		// the core with it. Comparing the parent's `CoreInfo` instead would produce false
+		// positives: the core selector restarts at `0` every parachain slot, so after a reorg a
+		// first-in-core block may legitimately carry the same `CoreInfo` as a parent that was
+		// produced in a previous slot.
+		if find_block_bundle_info(&block)?.index != 0 {
+			return Err(anyhow::anyhow!(
+				"Not first block ({}) in core, the block continues the bundle of its parent.",
+				block.header().number
+			));
 		}
 	}
 
@@ -753,9 +750,9 @@ async fn ensure_is_block_in_core_impl(
 		}
 	};
 
-	let next_block_core_info = find_core_info(&next_block)?;
-
-	if next_block_core_info == block_core_info {
+	// The direct descendant either opens a new bundle (index 0), meaning it occupies a new
+	// core, or continues the bundle of the checked block, meaning it shares the core with it.
+	if find_block_bundle_info(&next_block)?.index != 0 {
 		return Err(anyhow::anyhow!(
 			"Not {} block ({}) in core, at least the following block is on the same core.",
 			if is_only_block_in_core { "first" } else { "last" },

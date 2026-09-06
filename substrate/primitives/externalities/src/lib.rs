@@ -52,7 +52,7 @@ pub enum Error {
 }
 
 /// Results concerning an operation to remove many keys.
-#[derive(codec::Encode, codec::Decode)]
+#[derive(codec::Encode, codec::Decode, Default)]
 #[must_use]
 pub struct MultiRemovalResults {
 	/// A continuation cursor which, if `Some` must be provided to the subsequent removal call.
@@ -190,12 +190,17 @@ pub trait Externalities: ExtensionStore {
 	/// Set or clear a child storage entry.
 	fn place_child_storage(&mut self, child_info: &ChildInfo, key: Vec<u8>, value: Option<Vec<u8>>);
 
+	/// Set the runtime's state version that subsequent calls to `storage_root` and
+	/// `child_storage_root` will use to compute the trie layout. The default implementation is a
+	/// no-op for externalities that don't compute roots.
+	fn set_runtime_state_version(&mut self, _state_version: StateVersion) {}
+
 	/// Get the trie root of the current storage map.
 	///
 	/// This will also update all child storage keys in the top-level storage map.
 	///
 	/// The returned hash is defined by the `Block` and is SCALE encoded.
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8>;
+	fn storage_root(&mut self) -> Vec<u8>;
 
 	/// Get the trie root of a child storage map.
 	///
@@ -203,11 +208,7 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// If the storage root equals the default hash as defined by the trie, the key in the top-level
 	/// storage map will be removed.
-	fn child_storage_root(
-		&mut self,
-		child_info: &ChildInfo,
-		state_version: StateVersion,
-	) -> Vec<u8>;
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8>;
 
 	/// Append storage item.
 	///
@@ -246,6 +247,20 @@ pub trait Externalities: ExtensionStore {
 	/// Renew existing piece of transaction storage.
 	fn storage_renew_transaction_index(&mut self, _index: u32, _hash: &[u8]) {
 		unimplemented!("storage_renew_transaction_index");
+	}
+
+	/// Store the last cursor of a storage operation.
+	///
+	/// The stored cursor is transactional: [`Self::storage_start_transaction`] snapshots it, and
+	/// [`Self::storage_rollback_transaction`] restores the snapshot, so a rollback discards any
+	/// cursor stored within the rolled back transaction.
+	fn store_last_cursor(&mut self, _cursor: &[u8]) {
+		unimplemented!("store_last_cursor");
+	}
+
+	/// Take the last cursor of a storage operation.
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		unimplemented!("take_last_cursor");
 	}
 
 	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

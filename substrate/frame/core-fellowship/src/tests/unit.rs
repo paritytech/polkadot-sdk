@@ -271,12 +271,12 @@ fn import_member_same_as_import() {
 
 			let import_root = hypothetically!({
 				assert_ok!(CoreFellowship::import(signed(0)));
-				sp_io::storage::root(sp_runtime::StateVersion::V1)
+				sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 			});
 
 			let import_member_root = hypothetically!({
 				assert_ok!(CoreFellowship::import_member(signed(1), 0));
-				sp_io::storage::root(sp_runtime::StateVersion::V1)
+				sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 			});
 
 			// `import` and `import_member` do exactly the same thing.
@@ -395,7 +395,7 @@ fn promote_fast_identical_to_promote() {
 		let root_promote = hypothetically!({
 			assert_ok!(CoreFellowship::promote(signed(alice), alice, 1));
 			// Don't clean the events since they should emit the same events:
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 		});
 
 		// This is using thread locals instead of storage...
@@ -404,7 +404,7 @@ fn promote_fast_identical_to_promote() {
 		let root_promote_fast = hypothetically!({
 			assert_ok!(CoreFellowship::promote_fast(signed(alice), alice, 1));
 
-			sp_io::storage::root(sp_runtime::StateVersion::V1)
+			sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 		});
 
 		assert_eq!(root_promote, root_promote_fast);

@@ -86,6 +86,7 @@ type HostFunctions = (
 	sp_io::logging::HostFunctions,
 	sp_io::storage::HostFunctions,
 	sp_io::hashing::HostFunctions,
+	sp_io::input::HostFunctions,
 );
 
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {

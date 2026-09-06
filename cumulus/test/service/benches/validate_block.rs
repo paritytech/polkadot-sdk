@@ -19,11 +19,11 @@ use codec::{Decode, Encode};
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use cumulus_primitives_core::{
-	relay_chain::AccountId, ParaId, PersistedValidationData, ValidationParams,
+	relay_chain::AccountId, ParaId, ParachainBlockData, PersistedValidationData, ValidationParams,
 };
 use cumulus_test_client::{
-	generate_extrinsic_with_pair, BuildBlockBuilder, BuildParachainBlockData, TestClientBuilder,
-	ValidationResult,
+	generate_extrinsic_with_pair, seal_block, BuildBlockBuilder, BuildParachainBlockData,
+	TestClientBuilder, ValidationResult,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{BalancesCall, Block, Header, UncheckedExtrinsic};
@@ -111,10 +111,14 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let cumulus_test_client::BlockBuilderAndSupportData { mut block_builder, .. } = client
+	let cumulus_test_client::BlockBuilderAndSupportData {
+		mut block_builder,
+		persisted_validation_data,
+		..
+	} = client
 		.init_block_builder_builder()
 		.with_validation_data(validation_data)
-		.with_relay_sproof_builder(sproof_builder.clone())
+		.with_relay_sproof_builder(sproof_builder)
 		.build();
 
 	for extrinsic in extrinsics {
@@ -123,15 +127,22 @@ fn benchmark_block_validation(c: &mut Criterion) {
 
 	let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
 
+	// The block builder produces unsealed blocks, while `validate_block` requires an AuRa seal.
+	let (blocks, proof) = parachain_block.into_inner();
+	let blocks = blocks.into_iter().map(|block| seal_block(block, &client)).collect();
+	let parachain_block = ParachainBlockData::new(blocks, proof, None);
+
 	let proof_size_in_kb = parachain_block.proof().encoded_size() as f64 / 1024f64;
 	let runtime = utils::get_wasm_module();
 
-	let (relay_parent_storage_root, _) = sproof_builder.into_state_root_and_proof();
+	// The block builder enriches the relay state sproof (e.g. with the current relay slot), so
+	// the storage root must be taken from the enriched validation data rather than re-derived
+	// from the original sproof builder.
 	let encoded_params = ValidationParams {
 		block_data: cumulus_test_client::BlockData(parachain_block.encode()),
 		parent_head: HeadData(parent_header.encode()),
-		relay_parent_number: 1,
-		relay_parent_storage_root,
+		relay_parent_number: persisted_validation_data.relay_parent_number,
+		relay_parent_storage_root: persisted_validation_data.relay_parent_storage_root,
 	}
 	.encode();
 

@@ -203,10 +203,8 @@ impl<'a, I: AsRef<[u8]>, T: IntoIterator<Item = I>> Request<'a, T> {
 	/// Err is returned in case the deadline is reached
 	/// or the request timeouts.
 	pub fn send(self) -> Result<PendingRequest, HttpError> {
-		let meta = &[];
-
 		// start an http request.
-		let id = sp_io::offchain::http_request_start(self.method.as_ref(), self.url, meta)
+		let id = sp_io::offchain::http_request_start(self.method.as_ref(), self.url, &[])
 			.map_err(|_| HttpError::IoError)?;
 
 		// add custom headers
