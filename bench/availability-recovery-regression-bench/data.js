@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788613802567,
+  "lastUpdate": 1788734157053,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "davxy@datawok.net",
-            "name": "Davide Galassi",
-            "username": "davxy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4e2597df86c2506780644cef6e447b7c390aa0a0",
-          "message": "Rework experimental EC hostcalls (#10830)\n\n- Change mul param to Affine form (was Projective)\n([Context](https://github.com/paritytech/polkadot-sdk/pull/10147#issuecomment-3458638915))\n    - `msm_g(1/2)(&[Affine], &[Scalar]) -> Projective` \n        - changed to `msm_g(1/2)(&[Affine], &[Scalar]) -> Affine` \n    - `mul_projective_g(1/2)(Projective, Scalar) -> Projective` \n        - changed to `mul_affine_g(1/2)(Affine, Scalar) -> Affine`\n\n- Caller-allocated buffers: Callers pre-allocate output buffers using\n`buffer_for::<T>()` instead of host allocating and returning Vec<u8>\n(introduced by https://github.com/paritytech/polkadot-sdk/pull/10969)\n- New passing strategy: `PassFatPointerAndWrite` allows host to write\ninto guest memory without reading first\n- Typed error codes: Replaces `Result<Vec<u8>, ()>` with HostcallResult\nreturning specific error variants\n- In-place operations: final_exponentiation now operates in-place via\n`PassFatPointerAndReadWrite`\n\n- Prefer panicking on error rather than returning a dummy value that the\nruntime might treat as valid. Since such panics would typically occur\nwithin the runtime, the impact looks acceptable.\n\n- Cleanup/Docs/Tests\n\n---\n\nNOTE1: Hostcalls are experimental and not exposed in production! An\n[RFC](https://github.com/polkadot-fellows/RFCs/pull/163) proposal has\nbeen opened for production usage\n\nNOTE2: The `arkworks-extensions` `Hooks` trait methods remain unchanged;\nno updates are required there. Only the hostcalls are affected.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-02-05T10:29:03Z",
-          "tree_id": "b309e20e965902b5c93f429e1305d57f4e091102",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4e2597df86c2506780644cef6e447b7c390aa0a0"
-        },
-        "date": 1770291624313,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12332941136666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.317521444033328,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.248793486066663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "32b52bbbf8076d1de938e5d2fbf391f0cb7a5532",
+          "message": "feat(sc-consensus-babe): expose build_verifier like Aura (#13061)\n\n# Description\n\n**Motivation:** BABE cannot be used with a custom import queue today,\nbecause `BabeVerifier` is only constructed inside `import_queue` and\nimmediately wrapped in `BasicQueue`.\n\nAura already exposes `build_verifier` for that. This PR adds the same\nAPI for BABE (`build_verifier` + `BuildVerifierParams`) so a node can\ncompose `BabeVerifier` into its own `ImportQueue`.\n\n`import_queue` is unchanged for existing callers: it still builds a\n`BasicQueue` and still spawns the epoch-data worker.\n\n# Integration\n\nNo change for callers of `import_queue`.\n\nTo compose BABE with a custom queue (same pattern as Aura):\n\n```rust\nlet verifier = sc_consensus_babe::build_verifier(sc_consensus_babe::BuildVerifierParams {\n    client: client.clone(),\n    slot_duration,\n    config: babe_link.config().clone(),\n    epoch_changes: babe_link.epoch_changes().clone(),\n    telemetry,\n});\n// pass `verifier` into BasicQueue::new or any ImportQueue\n```\n\n`BabeVerifier::new` stays `pub(crate)`. Epoch RPC still comes only from\n`import_queue` (`BabeWorkerHandle`).\n\n# Review Notes\n\n- `BuildVerifierParams` + `build_verifier` are the Aura equivalents\n(`sc_consensus_aura::{BuildVerifierParams, build_verifier}`).\n- `import_queue` now calls `build_verifier` instead of constructing\n`BabeVerifier { ... }` inline. Worker spawn and `BasicQueue::new` are\nunchanged.\n- No verification or import-path behavior change. No tests: API surface\nonly.\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-09-06T21:06:25Z",
+          "tree_id": "315bd18f8a1a3a8915bb025cb4757348042783a9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/32b52bbbf8076d1de938e5d2fbf391f0cb7a5532"
+        },
+        "date": 1788734116508,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.185848779666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13248234943333334,
             "unit": "seconds"
           }
         ]
