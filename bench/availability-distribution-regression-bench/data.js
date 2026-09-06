@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788613850315,
+  "lastUpdate": 1788734207056,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cac11f4a5325b217ca74b0c339459597daf03838",
-          "message": "Take the header size into account for the total block size (#10804)",
-          "timestamp": "2026-02-04T22:54:01Z",
-          "tree_id": "927659770ce8eb4baa4881d4a8d4a616d5920db7",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cac11f4a5325b217ca74b0c339459597daf03838"
-        },
-        "date": 1770250453997,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023080936260000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007397080113333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1461343893333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010420444453333315,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010016682886666645,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "32b52bbbf8076d1de938e5d2fbf391f0cb7a5532",
+          "message": "feat(sc-consensus-babe): expose build_verifier like Aura (#13061)\n\n# Description\n\n**Motivation:** BABE cannot be used with a custom import queue today,\nbecause `BabeVerifier` is only constructed inside `import_queue` and\nimmediately wrapped in `BasicQueue`.\n\nAura already exposes `build_verifier` for that. This PR adds the same\nAPI for BABE (`build_verifier` + `BuildVerifierParams`) so a node can\ncompose `BabeVerifier` into its own `ImportQueue`.\n\n`import_queue` is unchanged for existing callers: it still builds a\n`BasicQueue` and still spawns the epoch-data worker.\n\n# Integration\n\nNo change for callers of `import_queue`.\n\nTo compose BABE with a custom queue (same pattern as Aura):\n\n```rust\nlet verifier = sc_consensus_babe::build_verifier(sc_consensus_babe::BuildVerifierParams {\n    client: client.clone(),\n    slot_duration,\n    config: babe_link.config().clone(),\n    epoch_changes: babe_link.epoch_changes().clone(),\n    telemetry,\n});\n// pass `verifier` into BasicQueue::new or any ImportQueue\n```\n\n`BabeVerifier::new` stays `pub(crate)`. Epoch RPC still comes only from\n`import_queue` (`BabeWorkerHandle`).\n\n# Review Notes\n\n- `BuildVerifierParams` + `build_verifier` are the Aura equivalents\n(`sc_consensus_aura::{BuildVerifierParams, build_verifier}`).\n- `import_queue` now calls `build_verifier` instead of constructing\n`BabeVerifier { ... }` inline. Worker spawn and `BasicQueue::new` are\nunchanged.\n- No verification or import-path behavior change. No tests: API surface\nonly.\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-09-06T21:06:25Z",
+          "tree_id": "315bd18f8a1a3a8915bb025cb4757348042783a9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/32b52bbbf8076d1de938e5d2fbf391f0cb7a5532"
+        },
+        "date": 1788734166398,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007726714280000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1460628350333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02504425344666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009835483439999982,
             "unit": "seconds"
           }
         ]
