@@ -151,6 +151,36 @@ pub fn new_test_ext() -> TestState {
 	ext
 }
 
+/// Run `test` in a fresh externality, then assert the pallet invariants hold.
+fn new_test_ext_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Proxy::do_try_state().expect("All invariants must hold after each test");
+	});
+}
+
+/// [`new_test_ext_and_execute`] for tests ending with a deposit left stale by a `*Deposit*`
+/// parameter change, which the hook only warns about.
+///
+/// These tests change parameters, so the `fuzzing` premise that they are constant does not hold
+/// and that one error is tolerated. Every other invariant is still asserted under both features.
+fn new_test_ext_and_execute_with_stale_deposit(test: impl FnOnce()) {
+	#[cfg(not(feature = "fuzzing"))]
+	new_test_ext_and_execute(test);
+
+	#[cfg(feature = "fuzzing")]
+	new_test_ext().execute_with(|| {
+		test();
+		if let Err(e) = Proxy::do_try_state() {
+			assert_eq!(
+				e,
+				TryRuntimeError::Other("Proxies deposit does not match the current parameters"),
+				"All invariants but the stale deposit must hold after each test"
+			);
+		}
+	});
+}
+
 fn last_events(n: usize) -> Vec<RuntimeEvent> {
 	frame_system::Pallet::<Test>::events()
 		.into_iter()
@@ -171,7 +201,7 @@ fn call_transfer(dest: u64, value: u64) -> RuntimeCall {
 
 #[test]
 fn announcement_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		System::assert_last_event(
 			ProxyEvent::ProxyAdded {
@@ -213,7 +243,7 @@ fn announcement_works() {
 
 #[test]
 fn remove_announcement_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
@@ -232,7 +262,7 @@ fn remove_announcement_works() {
 
 #[test]
 fn reject_announcement_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(3), 1, [1; 32].into()));
@@ -253,7 +283,7 @@ fn reject_announcement_works() {
 
 #[test]
 fn announcer_must_be_proxy() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_noop!(
 			Proxy::announce(RuntimeOrigin::signed(2), 1, H256::zero()),
 			Error::<Test>::NotProxy
@@ -263,7 +293,7 @@ fn announcer_must_be_proxy() {
 
 #[test]
 fn calling_proxy_doesnt_remove_announcement() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 
 		let call = Box::new(call_transfer(6, 1));
@@ -280,7 +310,7 @@ fn calling_proxy_doesnt_remove_announcement() {
 
 #[test]
 fn delayed_requires_pre_announcement() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 1));
 		let call = Box::new(call_transfer(6, 1));
 		let e = Error::<Test>::Unannounced;
@@ -296,7 +326,7 @@ fn delayed_requires_pre_announcement() {
 
 #[test]
 fn proxy_announced_removes_announcement_and_returns_deposit() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 1));
 		let call = Box::new(call_transfer(6, 1));
@@ -317,7 +347,7 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 
 #[test]
 fn filtering_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		Balances::make_free_balance_be(&1, 1000);
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::JustTransfer, 0));
@@ -438,7 +468,7 @@ fn filtering_works() {
 
 #[test]
 fn add_remove_proxies_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_noop!(
 			Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0),
@@ -512,7 +542,7 @@ fn add_remove_proxies_works() {
 
 #[test]
 fn cannot_add_proxy_without_balance() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(5), 2);
 		assert_noop!(
@@ -524,7 +554,7 @@ fn cannot_add_proxy_without_balance() {
 
 #[test]
 fn proxying_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::JustTransfer, 0));
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
 
@@ -564,7 +594,7 @@ fn proxying_works() {
 
 #[test]
 fn pure_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		Balances::make_free_balance_be(&1, 11); // An extra one for the ED.
 		assert_ok!(Proxy::create_pure(RuntimeOrigin::signed(1), ProxyType::Any, 0, 0));
 		let anon = Proxy::pure_account(&1, &ProxyType::Any, 0, None);
@@ -640,7 +670,7 @@ fn pure_works() {
 
 #[test]
 fn poke_deposit_works_for_proxy_deposits() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Add a proxy and check initial deposit
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -668,7 +698,7 @@ fn poke_deposit_works_for_proxy_deposits() {
 
 #[test]
 fn poke_deposit_works_for_announcement_deposits() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Setup proxy and make announcement
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 1));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -705,7 +735,7 @@ fn poke_deposit_works_for_announcement_deposits() {
 
 #[test]
 fn poke_deposit_charges_fee_when_deposit_unchanged() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// Add a proxy and check initial deposit
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -746,7 +776,8 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 
 #[test]
 fn poke_deposit_handles_insufficient_balance() {
-	new_test_ext().execute_with(|| {
+	// Ends stale by design: account 5 cannot afford the raised base, so its deposit stays behind.
+	new_test_ext_and_execute_with_stale_deposit(|| {
 		// Setup with account that has minimal balance
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(5), 3, ProxyType::Any, 0));
 		let initial_deposit = Balances::reserved_balance(5);
@@ -767,7 +798,8 @@ fn poke_deposit_handles_insufficient_balance() {
 
 #[test]
 fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
-	new_test_ext().execute_with(|| {
+	// Ends stale by design: only account 2 pokes, so account 1's entry keeps the older price.
+	new_test_ext_and_execute_with_stale_deposit(|| {
 		// Setup both proxy and announcement for the same account
 		assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
 		assert_eq!(Balances::reserved_balance(1), 2); // Base(1) + Factor(1) * 1
@@ -862,7 +894,285 @@ fn poke_deposit_updates_both_proxy_and_announcement_deposits() {
 
 #[test]
 fn poke_deposit_fails_for_unsigned_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		assert_noop!(Proxy::poke_deposit(RuntimeOrigin::none()), DispatchError::BadOrigin,);
 	});
+}
+
+mod try_state {
+	use super::*;
+
+	type ProxiesValue =
+		(BoundedVec<ProxyDefinition<u64, ProxyType, u64>, <Test as Config>::MaxProxies>, u64);
+	type AnnouncementsValue =
+		(BoundedVec<Announcement<u64, CallHashOf<Test>, u64>, <Test as Config>::MaxPending>, u64);
+
+	#[test]
+	fn passes_on_genesis_state() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Proxy::do_try_state());
+		});
+	}
+
+	#[test]
+	fn passes_with_pure_proxy_and_announcement() {
+		// Exercises the trickiest legitimate case: a pure proxy's deposit is held by its
+		// spawner, not by the pure account itself, which must not trip the deposit check.
+		new_test_ext_and_execute(|| {
+			assert_ok!(Proxy::create_pure(RuntimeOrigin::signed(1), ProxyType::Any, 0, 0));
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
+		});
+	}
+
+	#[test]
+	fn detects_empty_proxies_entry() {
+		new_test_ext().execute_with(|| {
+			let value: ProxiesValue = (vec![].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies entry must never be empty")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_unsorted_proxies_entry() {
+		new_test_ext().execute_with(|| {
+			let higher = ProxyDefinition { delegate: 3, proxy_type: ProxyType::Any, delay: 0 };
+			let lower = ProxyDefinition { delegate: 2, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![higher, lower].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies must be strictly sorted and duplicate-free")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_duplicate_proxies_entry() {
+		new_test_ext().execute_with(|| {
+			let def = ProxyDefinition { delegate: 2, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![def, def].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies must be strictly sorted and duplicate-free")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_self_proxy() {
+		new_test_ext().execute_with(|| {
+			let def = ProxyDefinition { delegate: 1, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![def].try_into().unwrap(), 0);
+			Proxies::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Proxies entry must not list the key account as its own delegate"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn proxies_deposit_shortfall_only_warns() {
+		// Mirrors an untouched pure proxy: a deposit is recorded but nothing is reserved on
+		// the key account itself. This must not fail the check, only warn.
+		new_test_ext().execute_with(|| {
+			let def = ProxyDefinition { delegate: 2, proxy_type: ProxyType::Any, delay: 0 };
+			let value: ProxiesValue = (vec![def].try_into().unwrap(), 2);
+			Proxies::<Test>::insert(1, value);
+			assert_ok!(Proxy::do_try_state());
+		});
+	}
+
+	#[test]
+	fn detects_proxies_deposit_disagreeing_with_formula() {
+		// A deposit that is fully reserved but no longer priced by the current parameters, as
+		// left behind by a governance change until the account calls `poke_deposit`. Legal on a
+		// live chain, hence a warning; a hard error under `fuzzing`, where parameters are fixed.
+		new_test_ext().execute_with(|| {
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			// One proxy priced at `ProxyDepositBase + ProxyDepositFactor`, fully reserved.
+			assert_eq!(Proxies::<Test>::get(1).1, 2);
+			assert_eq!(Balances::reserved_balance(1), 2);
+
+			// Governance drops the per-proxy factor: the entry now prices at 1, not 2.
+			ProxyDepositFactor::set(0);
+			assert_eq!(Proxy::deposit(1), 1);
+			assert_eq!(Proxies::<Test>::get(1).1, 2);
+
+			#[cfg(not(feature = "fuzzing"))]
+			assert_ok!(Proxy::do_try_state());
+			#[cfg(feature = "fuzzing")]
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies deposit does not match the current parameters")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_empty_announcements_entry() {
+		new_test_ext().execute_with(|| {
+			let value: AnnouncementsValue = (vec![].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Announcements entry must never be empty")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_decreasing_announcement_heights() {
+		new_test_ext().execute_with(|| {
+			let later = Announcement { real: 2, call_hash: [1; 32].into(), height: 5 };
+			let earlier = Announcement { real: 2, call_hash: [2; 32].into(), height: 4 };
+			let value: AnnouncementsValue = (vec![later, earlier].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Announcements heights must be non-decreasing")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_self_announcement() {
+		new_test_ext().execute_with(|| {
+			let ann = Announcement { real: 1, call_hash: [1; 32].into(), height: 1 };
+			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements entry must not name the key account as `real`"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_future_announcement_height() {
+		new_test_ext().execute_with(|| {
+			// `new_test_ext` starts at block 1.
+			let ann = Announcement { real: 2, call_hash: [1; 32].into(), height: 100 };
+			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 0);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements entry has a height later than the current block"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_underreserved_announcement_deposit() {
+		new_test_ext().execute_with(|| {
+			let ann = Announcement { real: 2, call_hash: [1; 32].into(), height: 1 };
+			// Nothing is reserved on account 1, but a deposit is recorded.
+			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 5);
+			Announcements::<Test>::insert(1, value);
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements deposit exceeds the key account's reserved balance"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_announcement_deposit_disagreeing_with_formula() {
+		// The `Announcements` mirror of `detects_proxies_deposit_disagreeing_with_formula`: fully
+		// reserved, but no longer what the current parameters price the entry at.
+		new_test_ext().execute_with(|| {
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
+			// One announcement priced at `AnnouncementDepositBase + AnnouncementDepositFactor`,
+			// fully reserved.
+			assert_eq!(Announcements::<Test>::get(2).1, 2);
+			assert_eq!(Balances::reserved_balance(2), 2);
+
+			// Governance drops the per-announcement factor: the entry now prices at 1, not 2.
+			AnnouncementDepositFactor::set(0);
+			assert_eq!(Announcements::<Test>::get(2).1, 2);
+
+			#[cfg(not(feature = "fuzzing"))]
+			assert_ok!(Proxy::do_try_state());
+			#[cfg(feature = "fuzzing")]
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements deposit does not match the current parameters"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_reserve_shared_between_both_deposits() {
+		// Account 2 has an entry in both maps, each deposit covered by the reserve on its own,
+		// but the two together are not: the same units back both claims. Checks 4 and 10 read one
+		// map each and pass; only the cross-map check sees it.
+		new_test_ext().execute_with(|| {
+			// Account 2 delegates to 3, and announces for 1, who delegates to it.
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 0));
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
+			// Both entries priced at 2, and both are genuinely reserved.
+			assert_eq!(Proxies::<Test>::get(2).1, 2);
+			assert_eq!(Announcements::<Test>::get(2).1, 2);
+			assert_eq!(Balances::reserved_balance(2), 4);
+
+			// Release half the reserve, leaving 2 to cover a sum of 4.
+			Balances::unreserve(&2, 2);
+			assert_eq!(Balances::reserved_balance(2), 2);
+
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Reserve does not cover the sum of both deposits")
+			);
+		});
+	}
+
+	#[test]
+	fn pure_proxy_reserve_shortfall_skips_the_sum_check() {
+		// The guard on the cross-map check: a pure proxy's `Proxies` deposit is reserved on its
+		// spawner, so the key account's own reserve covers neither that deposit nor the sum. Only
+		// check 4's warning applies, and the sum check must stay silent.
+		new_test_ext().execute_with(|| {
+			// Account 2 announces for 1, reserving its announcement deposit of 2 on itself.
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
+			assert_eq!(Announcements::<Test>::get(2).1, 2);
+			assert_eq!(Balances::reserved_balance(2), 2);
+
+			// It also holds a `Proxies` entry whose deposit exceeds that reserve, as a pure
+			// proxy's does, its deposit being reserved on the spawner instead.
+			let proxy_def = ProxyDefinition { delegate: 3, proxy_type: ProxyType::Any, delay: 0 };
+			let proxies: ProxiesValue = (vec![proxy_def].try_into().unwrap(), 3);
+			Proxies::<Test>::insert(2, proxies);
+
+			// Uncovered `Proxies` deposit: check 4 warns and the sum check is skipped, rather
+			// than the pair failing this legal state.
+			#[cfg(not(feature = "fuzzing"))]
+			assert_ok!(Proxy::do_try_state());
+			// Under `fuzzing` the fabricated deposit of 3 trips check 5 first, and the sum check
+			// is still not what fires.
+			#[cfg(feature = "fuzzing")]
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Proxies deposit does not match the current parameters")
+			);
+		});
+	}
 }

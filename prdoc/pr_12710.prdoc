@@ -1,0 +1,13 @@
+title: 'pallet-proxy: add try_state invariant checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    In the new `try_state` hook, several storage invariants for the pallet are checked,
+    with consideration for future use as an oracle in pallet fuzzing campaigns. The two
+    deposit-amount checks warn by default and become hard errors under a new `fuzzing`
+    feature. Unit tests were added to validate the checks.
+
+crates:
+- name: pallet-proxy
+  bump: minor
