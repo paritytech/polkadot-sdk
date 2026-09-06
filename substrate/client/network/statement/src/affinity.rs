@@ -43,6 +43,14 @@ const MAX_BLOOM_BITS: usize = MAX_STATEMENT_NOTIFICATION_SIZE as usize * 8;
 /// practical configurations while preventing CPU abuse from peers.
 const MAX_NUM_HASHES: u32 = 64;
 
+/// Floor for sizing a filter built from a local topic list. Sizing against a fixed floor instead
+/// of the exact count keeps the encoded length from revealing how many topics a node follows.
+const MIN_EXPECTED_ITEMS: usize = 128;
+
+/// Default false-positive rate used when building a filter from a local topic list.
+// TODO: make this configurable through the statement-protocol config.
+const BLOOM_FALSE_POS_RATE: f64 = 0.01;
+
 /// A [`BuildHasher`] factory that produces [`PortableHasher`] instances with
 /// platform-independent hashing.  This ensures bloom-filter bits are identical
 /// on `wasm32` and 64-bit targets when hashing types whose `Hash` impl calls
@@ -131,7 +139,11 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 	}
 }
 
-#[derive(Debug)]
+/// A bloom filter over the statement topics a node is interested in.
+///
+/// It is only a sender-side hint: the node advertises additional topics of interest.
+/// Doesn't gate inbound statements — the node accepts and relays everything.
+#[derive(Clone, Debug)]
 pub struct AffinityFilter {
 	/// Bloom filter bytes representing the topics this peer is interested in.
 	bloom: BloomFilter<PortableBuildHasher>,
@@ -140,7 +152,8 @@ pub struct AffinityFilter {
 }
 
 impl AffinityFilter {
-	#[cfg(test)]
+	/// Create an empty filter sized for `expected_items` topics at the given false-positive rate.
+	#[allow(dead_code)]
 	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
 		let bloom = BloomFilter::with_false_pos(false_pos)
 			.hasher(PortableBuildHasher::seeded(seed))
@@ -149,9 +162,33 @@ impl AffinityFilter {
 	}
 
 	/// Insert a topic into the bloom filter.
-	#[cfg(test)]
+	#[allow(dead_code)]
 	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
 		self.bloom.insert(topic);
+	}
+
+	/// Build a filter advertising the given topics, sized against [`MIN_EXPECTED_ITEMS`].
+	///
+	/// An empty topic set yields a filter that matches nothing, not everything;
+	/// use [`Self::match_all`] for the latter.
+	#[allow(dead_code)]
+	pub(crate) fn from_topics<'a>(topics: impl Iterator<Item = &'a [u8; 32]>, seed: u128) -> Self {
+		let topics: Vec<&[u8; 32]> = topics.collect();
+		let expected_items = topics.len().max(MIN_EXPECTED_ITEMS);
+		let mut filter = Self::new(seed, BLOOM_FALSE_POS_RATE, expected_items);
+		for topic in topics {
+			filter.insert(topic);
+		}
+		filter
+	}
+
+	/// Build a filter that matches every topic, for a node that wants the full statement stream.
+	#[allow(dead_code)]
+	pub(crate) fn match_all(seed: u128) -> Self {
+		let bloom = BloomFilter::from_vec(vec![u64::MAX; 16])
+			.hasher(PortableBuildHasher::seeded(seed))
+			.hashes(1);
+		AffinityFilter { bloom, seed }
 	}
 
 	/// Check if a topic is likely present in the bloom filter.
@@ -389,5 +426,91 @@ mod tests {
 		};
 		let bytes = encoded.encode();
 		assert!(AffinityFilter::decode(&mut bytes.as_slice()).is_ok());
+	}
+
+	/// Build `count` distinct topics derived from their index.
+	fn topics(count: usize) -> Vec<[u8; 32]> {
+		(0..count)
+			.map(|i| {
+				let mut key = [0u8; 32];
+				key[..8].copy_from_slice(&(i as u64).to_le_bytes());
+				key
+			})
+			.collect()
+	}
+
+	#[test]
+	fn from_topics_applies_minimum_floor() {
+		let reference = AffinityFilter::new(BLOOM_SEED, BLOOM_FALSE_POS_RATE, MIN_EXPECTED_ITEMS)
+			.encode()
+			.len();
+
+		// Counts at or below the floor must encode identically, so the count is not observable.
+		for count in [0usize, 1, MIN_EXPECTED_ITEMS / 2, MIN_EXPECTED_ITEMS] {
+			let filter = AffinityFilter::from_topics(topics(count).iter(), BLOOM_SEED);
+			assert_eq!(
+				filter.encode().len(),
+				reference,
+				"encoded size for {count} topics must match the floor-sized filter"
+			);
+		}
+
+		let filter = AffinityFilter::from_topics(topics(MIN_EXPECTED_ITEMS * 4).iter(), BLOOM_SEED);
+		assert!(
+			filter.encode().len() > reference,
+			"a filter sized above the floor must encode larger"
+		);
+	}
+
+	#[test]
+	fn from_topics_empty_is_not_match_all() {
+		let filter = AffinityFilter::from_topics(core::iter::empty::<&[u8; 32]>(), BLOOM_SEED);
+
+		// Empty set ("nothing specific") must reject a concrete topic, not match everything.
+		let mut stmt = Statement::new();
+		stmt.set_plain_data(b"specific".to_vec());
+		stmt.set_topic(0, [0x01; 32].into());
+		assert!(!filter.matches_statement(&stmt));
+
+		// Topic-less (broadcast) statements still match — independent of affinity.
+		let mut broadcast = Statement::new();
+		broadcast.set_plain_data(b"broadcast".to_vec());
+		assert!(filter.matches_statement(&broadcast));
+	}
+
+	#[test]
+	fn built_filters_satisfy_decode_bounds() {
+		// A built filter must always pass its own decode path. `num_hashes` is the bound at risk:
+		// the smallest `expected_items` is the worst case, yielding the most hash functions.
+		let cases = [
+			AffinityFilter::new(BLOOM_SEED, BLOOM_FALSE_POS_RATE, 1),
+			AffinityFilter::from_topics(topics(MIN_EXPECTED_ITEMS * 4).iter(), BLOOM_SEED),
+			AffinityFilter::match_all(BLOOM_SEED),
+		];
+		for filter in cases {
+			let num_hashes = filter.bloom.num_hashes();
+			assert!(
+				(1..=MAX_NUM_HASHES).contains(&num_hashes),
+				"num_hashes {num_hashes} must stay within 1..={MAX_NUM_HASHES}"
+			);
+			assert!(
+				AffinityFilter::decode(&mut filter.encode().as_slice()).is_ok(),
+				"builder output must decode"
+			);
+		}
+	}
+
+	#[test]
+	fn match_all_matches_every_topic() {
+		let filter = AffinityFilter::match_all(BLOOM_SEED);
+
+		for topic in [[0x00; 32], [0xAA; 32], [0xFF; 32]] {
+			assert!(filter.contains(&topic), "match_all must contain every topic");
+		}
+
+		// Match-everything must survive a wire round-trip.
+		let decoded =
+			AffinityFilter::decode(&mut filter.encode().as_slice()).expect("match_all must decode");
+		assert!(decoded.contains(&[0x42; 32]));
 	}
 }

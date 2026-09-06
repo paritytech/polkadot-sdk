@@ -65,6 +65,10 @@ pub(crate) fn build_statement_store<
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
 	config: sc_statement_store::Config,
 ) -> sc_service::error::Result<Arc<Store>> {
+	let network_workers = config.network_workers;
+	let rate_limit = config.rate_limit;
+	let v2dht_config = config.v2dht.clone();
+
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
 		config,
@@ -86,9 +90,15 @@ pub(crate) fn build_statement_store<
 		statement_store.clone(),
 		parachain_config.prometheus_registry(),
 		statement_protocol_executor,
-		config.network_workers,
-		config.rate_limit,
+		network_workers,
+		rate_limit,
+		v2dht_config,
 	)?;
+	if sc_network_statement::v2dht_enabled() {
+		if let Some(resolver) = statement_handler.retention_resolver() {
+			statement_store.set_retention_resolver(resolver);
+		}
+	}
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
 		Some("networking"),

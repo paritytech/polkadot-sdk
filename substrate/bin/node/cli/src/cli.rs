@@ -82,6 +82,41 @@ pub struct Cli {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
+	/// Affinity topic advertised by this node. Repeatable; each value is a 32-byte hex
+	/// hash.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
+	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
+
+	/// DHT replication factor (K): number of closest peers a statement is routed to.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "K",
+		default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR,
+		hide = true
+	)]
+	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Number of peers to gossip a statement to within the affinity set.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "N",
+		default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET,
+		hide = true
+	)]
+	pub statement_gossip_target: std::num::NonZeroUsize,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
@@ -147,4 +182,27 @@ pub enum Subcommand {
 
 	/// Db meta columns information.
 	ChainInfo(sc_cli::ChainInfoCmd),
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn statement_affinity_topics_accumulate_repeated_flags() {
+		use clap::Parser;
+		let topic_a = "11".repeat(32);
+		let topic_b = "22".repeat(32);
+		let cli = Cli::parse_from([
+			"substrate-node",
+			"--statement-affinity-topic",
+			&format!("0x{topic_a}"),
+			"--statement-affinity-topic",
+			&format!("0x{topic_b}"),
+		]);
+		assert_eq!(
+			cli.statement_affinity_topics,
+			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
+		);
+	}
 }

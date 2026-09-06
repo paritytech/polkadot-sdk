@@ -1,0 +1,22 @@
+title: 'statement-store: land the gated v2 DHT-affinity path'
+doc:
+- audience: Node Dev
+  description: |-
+    Lands the statement-store DHT-affinity work: a v2 gossip path that routes
+    statements to interested peers by topic affinity instead of flooding.
+    The path is experimental and off by default; a node runs it only with the
+    `STATEMENT_STORE_V2_DHT_ENABLED=1` environment variable set. With the gate
+    off, node behavior is unchanged.
+crates:
+- name: sc-network-statement
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: sc-network
+  bump: major
+- name: sp-statement-store
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: major
+- name: staging-node-cli
+  bump: minor

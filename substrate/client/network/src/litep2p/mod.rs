@@ -828,8 +828,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::RoutingTableUpdate { peers }) => {
-						for peer in peers {
-							self.peerstore_handle.add_known_peer(peer.into());
+						let peers = peers.into_iter().map(Into::into).collect::<Vec<_>>();
+
+						for peer in &peers {
+							self.peerstore_handle.add_known_peer(*peer);
+						}
+
+						if !peers.is_empty() {
+							self.event_streams.send(Event::PeerRoutingTableUpdate(peers));
 						}
 					}
 					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
@@ -1132,6 +1138,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) => {
+						self.event_streams.send(Event::PeerIdentified {
+							peer: peer.into(),
+							supported_protocols: supported_protocols.iter().cloned().map(Into::into).collect(),
+						});
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
