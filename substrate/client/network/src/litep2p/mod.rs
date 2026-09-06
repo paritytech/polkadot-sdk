@@ -1382,7 +1382,7 @@ mod tests {
 		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
 		));
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		let (keypair, _peer_id) =
 			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
@@ -1411,7 +1411,7 @@ mod tests {
 		let mut network_config = NetworkConfiguration::new_local();
 		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
 		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		// Completing the addresses pinned the key, so this is the key the backend serves.
 		let (keypair, _peer_id) =
@@ -1441,7 +1441,7 @@ mod tests {
 		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
 		));
-		network_config.validate_and_complete_webrtc_addresses().unwrap();
+		network_config.validate_and_complete_addresses().unwrap();
 
 		// Held for the duration of the test: dropping it closes the node's sockets.
 		let backend = start_backend(&network_config).unwrap();
@@ -1457,6 +1457,9 @@ mod tests {
 		);
 	}
 
+	/// A configured `/certhash` is checked against the node's own and removed by
+	/// `NetworkConfiguration::validate_and_complete_addresses`, which this test deliberately skips:
+	/// the backend is the guard for a configuration built without it.
 	#[tokio::test]
 	async fn webrtc_listen_address_with_certhash_refuses_to_start() {
 		let listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();
