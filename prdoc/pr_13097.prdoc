@@ -1,0 +1,19 @@
+title: 'litep2p/req-resp: fix inbound request serve time reporting'
+doc:
+- audience: Todo
+  description: |-
+    The litep2p backend reported a near-zero serve time in the `substrate_sub_libp2p_requests_in_success_total` histogram for inbound requests.
+
+    The timestamp paired with a pending inbound request was evaluated only after the response was ready (`Instant::now()` after awaiting the response channel), so the reported duration covered just the response hand-off to the transport instead of the actual time spent serving the request.
+
+    ## Changes
+
+    - Stamp the start time when the request arrives, matching the libp2p backend, so the reported serve time covers the time the request spends queued and being processed by the handler.
+    - Add a regression test (`inbound_request_serve_time_includes_handler_time`) which delays the response in the request handler and asserts the recorded serve time covers that delay. The test fails against the previous behavior.
+
+    ## Review notes
+
+    The analogous outbound metric (`requests_out_success_total`) already stamps on send and is unaffected.
+crates:
+- name: sc-network
+  bump: major

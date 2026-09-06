@@ -284,6 +284,10 @@ impl RequestResponseProtocol {
 
 		self.metrics.register_inbound_request_bytes(request.len());
 
+		// Stamped on arrival, matching the libp2p backend, so that the serve time reported by
+		// `requests_in_success_total` covers the time spent queued and generating the response.
+		let started = Instant::now();
+
 		let Some(inbound_queue) = &self.inbound_queue else {
 			log::trace!(
 				target: LOG_TARGET,
@@ -316,7 +320,7 @@ impl RequestResponseProtocol {
 		}) {
 			Ok(_) => {
 				self.pending_outbound_responses.push(Box::pin(async move {
-					(peer, request_id, rx.await.map_err(|_| ()), Instant::now())
+					(peer, request_id, rx.await.map_err(|_| ()), started)
 				}));
 			},
 			Err(error) => {

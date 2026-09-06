@@ -22,6 +22,7 @@ use crate::{
 		shim::request_response::{OutboundRequest, RequestResponseProtocol},
 	},
 	request_responses::{IfDisconnected, IncomingRequest, OutgoingResponse},
+	service::metrics::register_without_sources,
 	ProtocolName, RequestFailure,
 };
 
@@ -39,7 +40,9 @@ use litep2p::{
 use sc_network_types::PeerId;
 use sc_utils::mpsc::tracing_unbounded;
 
-use std::{collections::HashMap, sync::Arc, task::Poll};
+use prometheus_endpoint::Registry;
+
+use std::{collections::HashMap, sync::Arc, task::Poll, time::Duration};
 
 /// Create `litep2p` for testing.
 async fn make_litep2p() -> (Litep2p, RequestResponseHandle) {
@@ -903,4 +906,78 @@ async fn old_protocol_supported_but_no_fallback_provided() {
 		},
 		event => panic!("invalid event: {event:?}"),
 	}
+}
+
+#[tokio::test]
+async fn inbound_request_serve_time_includes_handler_time() {
+	let (mut litep2p1, handle1) = make_litep2p().await;
+	let (mut litep2p2, mut handle2) = make_litep2p().await;
+
+	let peer1 = *litep2p1.local_peer_id();
+
+	connect_peers(&mut litep2p1, &mut litep2p2).await;
+
+	let (outbound_tx, outbound_rx) = tracing_unbounded("outbound-request", 1000);
+	let senders = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx)]);
+	let (tx, rx) = async_channel::bounded(4);
+
+	let metrics = register_without_sources(&Registry::new()).unwrap();
+	let serve_time_histogram = metrics.requests_in_success_total.clone();
+
+	let protocol = RequestResponseProtocol::new(
+		ProtocolName::from("/protocol/1"),
+		handle1,
+		Arc::new(peerstore_handle_test()),
+		Some(tx),
+		outbound_rx,
+		senders,
+		Some(metrics),
+	);
+
+	tokio::spawn(protocol.run());
+	tokio::spawn(async move { while let Some(_) = litep2p1.next_event().await {} });
+	tokio::spawn(async move { while let Some(_) = litep2p2.next_event().await {} });
+
+	const HANDLER_DELAY: Duration = Duration::from_millis(300);
+
+	handle2
+		.send_request(peer1, vec![1, 2, 3, 4], DialOptions::Reject)
+		.await
+		.unwrap();
+
+	match rx.recv().await {
+		Ok(IncomingRequest { pending_response, .. }) => {
+			// Simulate a slow request handler. The reported serve time must cover this delay,
+			// i.e. measurement starts when the request is received, not when the response is
+			// ready.
+			tokio::time::sleep(HANDLER_DELAY).await;
+
+			pending_response
+				.send(OutgoingResponse {
+					result: Ok(vec![5, 6, 7, 8]),
+					reputation_changes: Vec::new(),
+					sent_feedback: None,
+				})
+				.unwrap();
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	match handle2.next().await {
+		Some(RequestResponseEvent::ResponseReceived { response, .. }) => {
+			assert_eq!(response, vec![5, 6, 7, 8]);
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	// The serve time is recorded before the response is handed to the transport, so by now
+	// the sample is guaranteed to be there.
+	let metric = serve_time_histogram.with_label_values(&["/protocol/1"]);
+	assert_eq!(metric.get_sample_count(), 1);
+	assert!(
+		metric.get_sample_sum() >= HANDLER_DELAY.as_secs_f64(),
+		"reported serve time {}s does not cover the handler delay {}s",
+		metric.get_sample_sum(),
+		HANDLER_DELAY.as_secs_f64(),
+	);
 }
