@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788613947317,
+  "lastUpdate": 1788734306221,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "aaf8ab15b68a826e79fded0f4d7aca6da631eed0",
-          "message": "[Pool] Use active era for withdrawals (#10986)\n\nStandardising using active era in pools and staking. Current Era should\nonly be used for election logic\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2026-02-04T15:01:29Z",
-          "tree_id": "daec796376b0adfb04642cc8ff0bf86b60d2f4e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/aaf8ab15b68a826e79fded0f4d7aca6da631eed0"
-        },
-        "date": 1770221631884,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.06999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06705458803199993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038163931265999984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038431733768,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "11329616+Klapeyron@users.noreply.github.com",
+            "name": "Klapeyron",
+            "username": "Klapeyron"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "32b52bbbf8076d1de938e5d2fbf391f0cb7a5532",
+          "message": "feat(sc-consensus-babe): expose build_verifier like Aura (#13061)\n\n# Description\n\n**Motivation:** BABE cannot be used with a custom import queue today,\nbecause `BabeVerifier` is only constructed inside `import_queue` and\nimmediately wrapped in `BasicQueue`.\n\nAura already exposes `build_verifier` for that. This PR adds the same\nAPI for BABE (`build_verifier` + `BuildVerifierParams`) so a node can\ncompose `BabeVerifier` into its own `ImportQueue`.\n\n`import_queue` is unchanged for existing callers: it still builds a\n`BasicQueue` and still spawns the epoch-data worker.\n\n# Integration\n\nNo change for callers of `import_queue`.\n\nTo compose BABE with a custom queue (same pattern as Aura):\n\n```rust\nlet verifier = sc_consensus_babe::build_verifier(sc_consensus_babe::BuildVerifierParams {\n    client: client.clone(),\n    slot_duration,\n    config: babe_link.config().clone(),\n    epoch_changes: babe_link.epoch_changes().clone(),\n    telemetry,\n});\n// pass `verifier` into BasicQueue::new or any ImportQueue\n```\n\n`BabeVerifier::new` stays `pub(crate)`. Epoch RPC still comes only from\n`import_queue` (`BabeWorkerHandle`).\n\n# Review Notes\n\n- `BuildVerifierParams` + `build_verifier` are the Aura equivalents\n(`sc_consensus_aura::{BuildVerifierParams, build_verifier}`).\n- `import_queue` now calls `build_verifier` instead of constructing\n`BabeVerifier { ... }` inline. Worker spawn and `BasicQueue::new` are\nunchanged.\n- No verification or import-path behavior change. No tests: API surface\nonly.\n\nSigned-off-by: Tomasz Bartos <tomasz.bartos@shielded.io>",
+          "timestamp": "2026-09-06T21:06:25Z",
+          "tree_id": "315bd18f8a1a3a8915bb025cb4757348042783a9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/32b52bbbf8076d1de938e5d2fbf391f0cb7a5532"
+        },
+        "date": 1788734266165,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11800000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038754540238000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08400743927399992,
             "unit": "seconds"
           }
         ]
