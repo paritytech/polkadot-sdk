@@ -143,28 +143,28 @@ impl From<Keyring> for [u8; PUBLIC_RAW_LEN] {
 	fn from(k: Keyring) -> Self {
 		match k {
 			Keyring::Alice => {
-				hex2array!("4d8e57b723e8bb4eca5c28d79cb95b9e84b4e2319d9851d45504014633e55d01")
+				hex2array!("2b62f3cc88815b7b7ebd35cd80fe5f4892f7a55ad1a65003134c38effcefadd8")
 			},
 			Keyring::Bob => {
-				hex2array!("aa6daf4784d581804d8f5cc1edb2ad171dbdf9c5188ddc071b11c3479c150c37")
+				hex2array!("dc8c7a1b7f0519c5dcbb12e1b8f4f760d341239aeb6e0a1efc27ae39c7ed9889")
 			},
 			Keyring::Charlie => {
-				hex2array!("331d681392223b35b92319e059d3dbc2869b2ef74400a70e678b4a5108c81ec0")
+				hex2array!("e8524d8b12597bac747e4aae0ef4a042e736adcda2c6aa39e08a5f26874e5f48")
 			},
 			Keyring::Dave => {
-				hex2array!("374384c19a877040c84bb07fcf3aac74ff7fafface0b1c01a93fd2ddbf5c1660")
+				hex2array!("aa902401c2b90411e3f8db9d84a8eddca9c31f7d96c06ff4bb6e39d3d3b65a0b")
 			},
 			Keyring::Eve => {
-				hex2array!("14bdd9381e80c07b75b8f1e92d6b2e4652e5135beaad1eedb1b81ff01ee562ad")
+				hex2array!("7ec57310eae4e8cd6e1c3a72e5608610733fbb7d5aaf9d132c1600e1164f9807")
 			},
 			Keyring::Ferdie => {
-				hex2array!("e13bd31b0575076479914c16c5ad69779f206375dbf19519219eeba3b10cc063")
+				hex2array!("03580b40c0dc6adeff388e1dae0664ee70af24c51aae2490abe64e28d8659020")
 			},
 			Keyring::One => {
-				hex2array!("03466a4de97ae18bc4604a3c40dfbddc6bac9f707c9b3c31a94a2c1725a03253")
+				hex2array!("1a2215572a62d026a60458a6d93907ad70eed2a0d67835482a088ff2726cce25")
 			},
 			Keyring::Two => {
-				hex2array!("0fda0d1336e8d6ee687ebf6d14eaa9b92b5601068e6159222623c8e14c004293")
+				hex2array!("1cf31b677feb2dfe1c7368287f1c345a9e6af06625548d2c9114dbccb20628b1")
 			},
 		}
 	}
