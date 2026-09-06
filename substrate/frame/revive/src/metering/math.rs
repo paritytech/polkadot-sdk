@@ -18,11 +18,157 @@
 use super::{
 	BalanceOf, CallResources, Config, DispatchError, Error, EthTxInfo, FixedPointNumber, FixedU128,
 	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, SignedGas, State,
-	StorageDeposit, Token, TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
+	StorageDeposit, Token, TransactionLimits, TransactionMeter, Weight, WeightMeter,
 };
 use crate::vm::{RuntimeCosts, evm::EVMGas};
 use core::marker::PhantomData;
+use num_traits::{One, Zero};
 use revm::interpreter::gas::CALL_STIPEND;
+use sp_runtime::Saturating;
+
+/// EIP-150 63/64 gas rule helpers.
+///
+/// A subcall receives at most 63/64ths of the parent's remaining gas.
+/// This module provides the [`Peak`] type for tracking the minimum starting
+/// value a meter needs, as well as apply and overhead functions for both
+/// `BalanceOf<T>` (deposit/gas) and `Weight` types.
+pub(crate) mod eip_150 {
+	use super::*;
+	use core::fmt::Debug;
+
+	pub(crate) const NUMERATOR: u64 = 63;
+	pub(crate) const DENOMINATOR: u64 = 64;
+
+	/// EIP-150 peak tracking: stores the minimum starting value a meter needs
+	/// so that every subcall receives enough resources after the 63/64 split.
+	#[derive(Copy, Clone)]
+	pub(crate) enum Peak<V> {
+		/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
+		TopCall(V),
+		/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
+		Subcall(V),
+	}
+
+	/// Whether the EIP-150 63/64 gas rule should be applied.
+	#[derive(Copy, Clone, Debug)]
+	pub(crate) enum Rule {
+		/// Apply the 63/64 rule (nested subcall).
+		Apply,
+		/// Skip the rule (top-level call).
+		Skip,
+	}
+
+	impl Rule {
+		/// Returns `true` when the 63/64 rule should be applied.
+		pub(crate) fn should_apply(&self) -> bool {
+			matches!(self, Self::Apply)
+		}
+	}
+
+	impl<V: Copy + Zero> Peak<V> {
+		/// Create a zero-initialized peak tracker from the given rule.
+		pub(crate) fn new(rule: Rule) -> Self {
+			match rule {
+				Rule::Apply => Self::Subcall(V::zero()),
+				Rule::Skip => Self::TopCall(V::zero()),
+			}
+		}
+	}
+
+	impl<V: Copy + Zero> Default for Peak<V> {
+		fn default() -> Self {
+			Self::TopCall(V::zero())
+		}
+	}
+
+	impl<V: Debug> Debug for Peak<V> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+			match self {
+				Self::TopCall(v) => f.debug_tuple("TopCall").field(v).finish(),
+				Self::Subcall(v) => f.debug_tuple("Subcall").field(v).finish(),
+			}
+		}
+	}
+
+	impl<V: Copy> Peak<V> {
+		/// Get the tracked peak value.
+		pub(crate) fn get(&self) -> V {
+			match self {
+				Self::TopCall(v) | Self::Subcall(v) => *v,
+			}
+		}
+
+		/// Update the peak to the maximum of the current and new value.
+		///
+		/// Uses a caller-provided `max_fn` because `Weight` provides a component-wise
+		/// `max()` that does not come from `Ord`.
+		pub(crate) fn update(&mut self, new: V, max_fn: fn(V, V) -> V) {
+			match self {
+				Self::TopCall(v) | Self::Subcall(v) => {
+					*v = max_fn(*v, new);
+				},
+			}
+		}
+	}
+
+	impl<V: Copy> Peak<V> {
+		/// Compute the total EIP-150 63/64 overhead stored in this peak.
+		///
+		/// - `required`: the meter's own resource consumption.
+		/// - `max_fn`: component-wise max (needed because `Weight` doesn't impl `Ord`).
+		/// - `overhead_fn`: computes `ceil(value / 63)` for the value type.
+		/// - `sat_add`/`sat_sub`: saturating arithmetic (needed because `Weight` doesn't impl
+		///   `Saturating`).
+		///
+		/// For top calls: returns `peak - required` (children's overhead only).
+		/// For subcalls: returns children's overhead + own `ceil(needed / 63)`.
+		pub(crate) fn compute_total_overhead(
+			&self,
+			required: V,
+			max_fn: fn(V, V) -> V,
+			overhead_fn: fn(V) -> V,
+			sat_add: fn(V, V) -> V,
+			sat_sub: fn(V, V) -> V,
+		) -> V {
+			match *self {
+				Self::TopCall(peak) => sat_sub(peak, required),
+				Self::Subcall(peak) => {
+					let needed_at_boundary = max_fn(peak, required);
+					let children_overhead = sat_sub(needed_at_boundary, required);
+					sat_add(children_overhead, overhead_fn(needed_at_boundary))
+				},
+			}
+		}
+	}
+
+	/// Apply EIP-150 rule to a balance: `value - ceil(value/64)`.
+	pub(crate) fn apply_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
+		value.saturating_sub(
+			(value.saturating_add((DENOMINATOR as u32 - 1).into())) / (DENOMINATOR as u32).into(),
+		)
+	}
+
+	/// EIP-150 63/64 overhead for a deposit balance: `ceil(value / 63)`.
+	pub(crate) fn overhead_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
+		(value.saturating_add((NUMERATOR as u32 - 1).into())) / (NUMERATOR as u32).into()
+	}
+
+	/// Apply EIP-150 rule to Weight: `weight - ceil(weight / 64)` for each component.
+	pub(crate) fn apply_weight(weight: Weight) -> Weight {
+		Weight::from_parts(
+			weight.ref_time().saturating_sub(weight.ref_time().div_ceil(DENOMINATOR)),
+			weight.proof_size().saturating_sub(weight.proof_size().div_ceil(DENOMINATOR)),
+		)
+	}
+
+	/// EIP-150 63/64 overhead for Weight: `ceil(weight / 63)` for each component.
+	pub(crate) fn overhead_weight(weight: Weight) -> Weight {
+		Weight::from_parts(
+			weight.ref_time().div_ceil(NUMERATOR),
+			weight.proof_size().div_ceil(NUMERATOR),
+		)
+	}
+}
 
 /// Maximum number of LOG topics a stipend frame is expected to emit.
 const STIPEND_LOG_TOPICS: u32 = 4;
@@ -38,9 +184,39 @@ fn determine_call_stipend<T: Config>() -> Weight {
 	gas_weight.saturating_add(event_weight)
 }
 
-pub mod substrate_execution {
-	use num_traits::One;
+/// Validate that there's enough weight for the stipend and return the stipend weight.
+pub(crate) fn validate_and_get_stipend<T: Config>(
+	weight_left: Weight,
+) -> Result<Weight, DispatchError> {
+	let weight_stipend = determine_call_stipend::<T>();
+	if weight_left.any_lt(weight_stipend) {
+		return Err(<Error<T>>::OutOfGas.into());
+	}
+	Ok(weight_stipend)
+}
 
+/// Compute the ratio of requested gas to available gas.
+/// Returns a value in [0, 1]
+pub(crate) fn compute_gas_ratio<T: Config>(
+	gas_limit: BalanceOf<T>,
+	remaining_gas: BalanceOf<T>,
+) -> FixedU128 {
+	if remaining_gas.is_zero() || gas_limit >= remaining_gas {
+		return FixedU128::one();
+	}
+
+	FixedU128::from_rational(gas_limit.saturated_into(), remaining_gas.saturated_into())
+}
+
+/// Scale weight by the given ratio.
+pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
+	Weight::from_parts(
+		ratio.saturating_mul_int(weight.ref_time()),
+		ratio.saturating_mul_int(weight.proof_size()),
+	)
+}
+
+pub mod substrate_execution {
 	use super::*;
 
 	/// Create a transaction-level (root) meter for Substrate-style execution.
@@ -76,19 +252,21 @@ pub mod substrate_execution {
 	/// - applying the requested `CallResources` (no limits, ethereum gas conversion, or explicit
 	///   weight+deposit) to derive per-frame limits.
 	///
+	/// The `eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
+	///
 	/// Returns `Err(Error::OutOfGas)` when weight is exhausted, or
 	/// `Err(Error::StorageDepositLimitExhausted)` when deposit bookkeeping forbids further storage.
 	pub fn new_nested_meter<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
+		eip_150_rule: eip_150::Rule,
 	) -> Result<FrameMeter<T>, DispatchError> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (
+			self_consumed_weight,
+			self_consumed_deposit,
+			total_consumed_weight,
+			total_consumed_deposit,
+		) = meter.consumed_resources();
 
 		let weight_left = meter
 			.weight
@@ -103,6 +281,12 @@ pub mod substrate_execution {
 		let deposit_left = self_consumed_deposit
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
+
+		let (weight_left, deposit_left) = if eip_150_rule.should_apply() {
+			(eip_150::apply_weight(weight_left), eip_150::apply_balance::<T>(deposit_left))
+		} else {
+			(weight_left, deposit_left)
+		};
 
 		let (nested_weight_limit, nested_deposit_limit, stipend) = {
 			match limit {
@@ -131,29 +315,15 @@ pub mod substrate_execution {
 
 					let gas_limit = remaining_gas.min(*gas);
 
-					let ratio = if remaining_gas.is_zero() {
-						FixedU128::one()
-					} else {
-						FixedU128::from_rational(
-							gas_limit.saturated_into(),
-							remaining_gas.saturated_into(),
-						)
-					};
-
-					let mut weight_limit = Weight::from_parts(
-						ratio.saturating_mul_int(weight_left.ref_time()),
-						ratio.saturating_mul_int(weight_left.proof_size()),
-					);
+					let ratio = compute_gas_ratio::<T>(gas_limit, remaining_gas);
+					let mut weight_limit = scale_weight_by_ratio(weight_left, ratio);
 					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 
+					// Stipend: check against `weight_left` (parent's actual budget) but
+					// add to `weight_limit` (nested frame's allowance) as a bonus
 					let stipend = if *add_stipend {
-						let weight_stipend = determine_call_stipend::<T>();
-						if weight_left.any_lt(weight_stipend) {
-							return Err(<Error<T>>::OutOfGas.into());
-						}
-
+						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
 						weight_limit.saturating_accrue(weight_stipend);
-
 						Some(weight_stipend)
 					} else {
 						None
@@ -172,8 +342,8 @@ pub mod substrate_execution {
 		};
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(nested_weight_limit, stipend),
-			deposit: meter.deposit.nested(Some(nested_deposit_limit)),
+			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
+			deposit: meter.deposit.nested_with_eip_150(Some(nested_deposit_limit), eip_150_rule),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
@@ -226,13 +396,7 @@ pub mod substrate_execution {
 	/// This returns a `SignedGas` as the consumed gas can be negative (when there are major storage
 	/// deposit refunds)
 	pub fn total_consumed_gas<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> SignedGas<T> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		let consumed_weight_gas =
 			SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee_average(&total_consumed_weight));
@@ -308,6 +472,8 @@ pub mod ethereum_execution {
 	/// - otherwise computes concrete nested weight/deposit limits derived from the remaining
 	///   ethereum gas
 	///
+	/// The `eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
+	///
 	/// The function ensures the nested frame's derived gas+resources remain within the parent's
 	/// remaining budget and returns `Err(Error::OutOfGas)` when the derived limits would exhaust
 	/// available resources.
@@ -315,27 +481,32 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
 		eth_tx_info: &EthTxInfo<T>,
+		eip_150_rule: eip_150::Rule,
 	) -> Result<FrameMeter<T>, DispatchError> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (
+			self_consumed_weight,
+			self_consumed_deposit,
+			total_consumed_weight,
+			total_consumed_deposit,
+		) = meter.consumed_resources();
 
 		let total_gas_consumption =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);
 
 		let remaining_gas = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
+		let (remaining_gas, max_total_gas) = if eip_150_rule.should_apply() {
+			let capped_remaining_gas = remaining_gas.apply_eip_150();
+			let retained_gas = remaining_gas.saturating_sub(&capped_remaining_gas);
+			let max_total_gas = meter.max_total_gas.saturating_sub(&retained_gas);
+			(capped_remaining_gas, max_total_gas)
+		} else {
+			(remaining_gas, meter.max_total_gas.clone())
+		};
+
 		let weight_left = {
 			let unbounded_weight_left = eth_tx_info
-				.weight_remaining(
-					&meter.max_total_gas,
-					&total_consumed_weight,
-					&total_consumed_deposit,
-				)
+				.weight_remaining(&max_total_gas, &total_consumed_weight, &total_consumed_deposit)
 				.ok_or(<Error<T>>::OutOfGas)?;
 
 			unbounded_weight_left.min(
@@ -373,19 +544,14 @@ pub mod ethereum_execution {
 
 				CallResources::Ethereum { gas, add_stipend } => {
 					let gas_limit = SignedGas::from_ethereum_gas(*gas);
-
+					// Stipend: validate against `weight_left`, add to gas_limit.
 					let (gas_limit, stipend) = if *add_stipend {
-						let weight_stipend = determine_call_stipend::<T>();
-						if weight_left.any_lt(weight_stipend) {
-							return Err(<Error<T>>::OutOfGas.into());
-						}
-
-						(
+						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
+						let gas_with_stipend =
 							gas_limit.saturating_add(&SignedGas::<T>::from_weight_fee(
 								T::FeeInfo::weight_to_fee(&weight_stipend),
-							)),
-							Some(weight_stipend),
-						)
+							));
+						(gas_with_stipend, Some(weight_stipend))
 					} else {
 						(gas_limit, None)
 					};
@@ -423,8 +589,8 @@ pub mod ethereum_execution {
 		let nested_max_total_gas = total_gas_consumption.saturating_add(&nested_gas_limit);
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(nested_weight_limit, stipend),
-			deposit: meter.deposit.nested(nested_deposit_limit),
+			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
+			deposit: meter.deposit.nested_with_eip_150(nested_deposit_limit, eip_150_rule),
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
@@ -438,13 +604,7 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> Option<SignedGas<T>> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		let total_gas_consumption =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);
@@ -457,13 +617,8 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> Option<Weight> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (self_consumed_weight, _, total_consumed_weight, total_consumed_deposit) =
+			meter.consumed_resources();
 
 		let weight_left = eth_tx_info.weight_remaining(
 			&meter.max_total_gas,
@@ -495,13 +650,7 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> SignedGas<T> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit)
 	}
@@ -511,13 +660,7 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> SignedGas<T> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		let total_gas_consumed =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);

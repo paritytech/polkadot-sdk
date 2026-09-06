@@ -23,7 +23,9 @@ mod tests;
 use super::{Nested, Root, State};
 use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, storage::ContractInfo,
+	StorageDeposit as Deposit,
+	metering::math::{eip_150, eip_150::Peak as Eip150Peak},
+	storage::ContractInfo,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
@@ -92,6 +94,8 @@ pub struct RawMeter<T: Config, E, S: State> {
 	///
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
+	/// EIP-150 63/64 peak deposit tracking for dry-run estimation.
+	pub(crate) eip_150_peak: Eip150Peak<BalanceOf<T>>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -244,12 +248,22 @@ where
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
+	#[cfg(test)]
 	pub fn nested(&self, mut limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		if let (Some(new_limit), Some(old_limit)) = (limit, self.limit) {
 			limit = Some(new_limit.min(old_limit));
 		}
 
 		RawMeter { limit, ..Default::default() }
+	}
+
+	/// Like [`Self::nested`] but initializes EIP-150 peak tracking from the given rule.
+	pub fn nested_with_eip_150(
+		&self,
+		limit: Option<BalanceOf<T>>,
+		eip_150_rule: eip_150::Rule,
+	) -> RawMeter<T, E, Nested> {
+		RawMeter { limit, eip_150_peak: Eip150Peak::new(eip_150_rule), ..Default::default() }
 	}
 
 	/// Reset this meter to its original setting.
@@ -281,6 +295,9 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
+		// Track deposit EIP-150 peak before absorb modifies the meters.
+		self.update_eip_150_peak_from_child(&absorbed);
+
 		// We are now at the position to calculate the actual final net charge of `absorbed` as we
 		// now have the contract information `info`. Before that we only took net charges related to
 		// the contract storage into account but ignored net refunds.
@@ -317,6 +334,9 @@ where
 	///
 	/// - `absorbed`: The child storage meter
 	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
+		// Track deposit EIP-150 peak before absorb modifies the meters.
+		self.update_eip_150_peak_from_child(&absorbed);
+
 		self.max_charged = self
 			.max_charged
 			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
@@ -347,6 +367,41 @@ where
 	/// Recaluclate the max deposit value
 	fn recalulculate_max_charged(&mut self) {
 		self.max_charged = self.max_charged.max(self.consumed().charge_or_zero());
+	}
+
+	/// Get the deposit required including EIP-150 63/64 overhead.
+	pub(crate) fn deposit_required_with_eip_150(&self) -> DepositOf<T> {
+		Deposit::Charge(self.eip_150_peak.get()).max(self.max_charged())
+	}
+
+	/// Track the EIP-150 deposit peak when absorbing a child meter.
+	fn update_eip_150_peak_from_child(&mut self, child: &RawMeter<T, E, Nested>) {
+		let consumed_deposit = self.consumed().charge_or_zero();
+		let child_deposit_required = child.max_charged().charge_or_zero();
+		let child_deposit_overhead = child.compute_eip_150_total_overhead();
+		let current_deposit_peak = consumed_deposit
+			.saturating_add(child_deposit_required)
+			.saturating_add(child_deposit_overhead);
+		self.eip_150_peak.update(current_deposit_peak, Ord::max);
+	}
+
+	/// Get the tracked EIP-150 deposit peak.
+	#[cfg(test)]
+	pub(crate) fn eip_150_peak(&self) -> BalanceOf<T> {
+		self.eip_150_peak.get()
+	}
+
+	/// Compute the total EIP-150 deposit overhead for this meter.
+	pub(crate) fn compute_eip_150_total_overhead(&self) -> BalanceOf<T> {
+		use super::math::eip_150;
+
+		self.eip_150_peak.compute_total_overhead(
+			self.max_charged().charge_or_zero(),
+			Ord::max,
+			eip_150::overhead_balance::<T>,
+			|a, b| a.saturating_add(b),
+			|a, b| a.saturating_sub(b),
+		)
 	}
 
 	/// The amount of balance still available from the current meter.
@@ -477,7 +532,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// separately from the storage charge.
 	///
 	/// If this functions is used the amount of the charge has to be stored by the caller somewhere
-	/// alese in order to be able to refund it.
+	/// else in order to be able to refund it.
 	pub fn charge_deposit(&mut self, contract: T::AccountId, amount: DepositOf<T>) {
 		// will not fail in a nested meter
 		self.record_charge(&amount);
