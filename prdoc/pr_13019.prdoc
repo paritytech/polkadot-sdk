@@ -1,0 +1,16 @@
+title: 'CI: Improve zombienet stability'
+doc:
+- audience: Node Dev
+  description: |-
+    Three small things bundled here:
+
+    1. Download of the binaries in `.github/zombienet-tests/zombienet_polkadot_tests.yml` could fail because of some connection reset during download that was not covered by the current `--retry` flag. Now retries on all errors.
+    2. Update zombienet to 0.4.16 to get [560](https://github.com/paritytech/zombienet-sdk/pull/560)
+    3. My tip sync zombienet was sometimes stumbling because the relay chain side was slow syncing. Now uses --relay-chain-rpc URL directly.
+crates:
+- name: sp-weights
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: staging-xcm
+  bump: patch

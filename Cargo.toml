@@ -1313,7 +1313,7 @@ sc-transaction-pool-api = { path = "substrate/client/transaction-pool/api", defa
 sc-utils = { path = "substrate/client/utils", default-features = false }
 sc-virtualization = { path = "substrate/client/virtualization", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
-schemars = { version = "0.8.13", default-features = false }
+schemars = { version = "1.2.1", default-features = false }
 schnellru = { version = "0.2.3" }
 schnorrkel = { version = "0.11.4", default-features = false }
 seccompiler = { version = "0.4.0" }
@@ -1520,9 +1520,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.13" }
-zombienet-orchestrator = { version = "0.4.13" }
-zombienet-sdk = { version = "0.4.13" }
+zombienet-configuration = { version = "0.4.18" }
+zombienet-orchestrator = { version = "0.4.18" }
+zombienet-sdk = { version = "0.4.18" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
