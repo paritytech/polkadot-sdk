@@ -548,7 +548,8 @@ pub mod pallet {
 		InputForwarded = 0x0E,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		TooManyTopics = 0x0F,
-		/// A contract with the same AccountId already exists.
+		/// A contract with the same AccountId already exists, or the address is occupied by a
+		/// pre-compile.
 		DuplicateContract = 0x12,
 		/// A contract self destructed in its constructor.
 		///

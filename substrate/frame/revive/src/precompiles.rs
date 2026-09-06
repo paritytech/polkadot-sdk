@@ -95,10 +95,28 @@ pub enum AddressMatcher {
 	/// xxxxxxxx000000000000000000000000pppp0000
 	/// ```
 	///
-	/// Where `p` is the `u16` defined here as big endian. Hence a maximum of 2 byte can be encoded
-	/// into the address. Allowing more bytes could lead to the situation where legitimate
+	/// Where `p` is the `u16` defined here as big endian. Hence a maximum of 4 bytes can be
+	/// encoded into the address. Allowing more bytes could lead to the situation where legitimate
 	/// accounts could exist at this address. Either by accident or on purpose.
+	///
+	/// Use [`Self::VarPrefix`] when a different number of data bytes is required.
 	Prefix(NonZero<u16>),
+	/// Same as [`Self::Prefix`] but with a caller defined number of data bytes.
+	///
+	/// This means the precompile will be invoked for all `x`, shown here for `data_bytes = 8`:
+	/// ```ignore
+	/// xxxxxxxxxxxxxxxx0000000000000000pppp0000
+	/// ```
+	///
+	/// Every byte between the data bytes and the matcher suffix must still be zero. `data_bytes`
+	/// must not exceed 16 because the remaining bytes are reserved for the matcher itself. This
+	/// is enforced at compile time.
+	///
+	/// Widening the window trades collision resistance for id space: a keccak derived address
+	/// (EOA, `CREATE`, `CREATE2`) falls into the range with a probability of
+	/// `2^-(8 * (20 - data_bytes))`. Only declare as many data bytes as the encoded value
+	/// actually occupies, so that no two addresses in the range decode to the same value.
+	VarPrefix { id: NonZero<u16>, data_bytes: u8 },
 }
 
 /// Same as `AddressMatcher` but for builtin pre-compiles.
@@ -108,7 +126,7 @@ pub enum AddressMatcher {
 /// external pre-compiles.
 pub(crate) enum BuiltinAddressMatcher {
 	Fixed(NonZero<u32>),
-	Prefix(NonZero<u32>),
+	Prefix { id: NonZero<u32>, data_bytes: u8 },
 }
 
 /// A pre-compile can error in the same way that a real contract can.
@@ -421,7 +439,9 @@ impl<T: Config> Precompiles<T> for Tuple {
 			#(
 				let is_fixed = Tuple::MATCHER.is_fixed();
 				let has_info = Tuple::HAS_CONTRACT_INFO;
+				let is_valid = Tuple::MATCHER.is_valid();
 				assert!(is_fixed || !has_info, "Only fixed precompiles can have a contract info.");
+				assert!(is_valid, "A VarPrefix precompile must not declare more than 16 data bytes.");
 			)*
 		);
 	};
@@ -525,7 +545,10 @@ impl AddressMatcher {
 
 		match self {
 			Self::Fixed(i) => BuiltinAddressMatcher::Fixed(left_shift(*i)),
-			Self::Prefix(i) => BuiltinAddressMatcher::Prefix(left_shift(*i)),
+			Self::Prefix(i) => BuiltinAddressMatcher::Prefix { id: left_shift(*i), data_bytes: 4 },
+			Self::VarPrefix { id, data_bytes } => {
+				BuiltinAddressMatcher::Prefix { id: left_shift(*id), data_bytes: *data_bytes }
+			},
 		}
 	}
 }
@@ -542,26 +565,28 @@ impl BuiltinAddressMatcher {
 		address
 	}
 
+	/// The number of leading bytes that carry data and are therefore not matched.
+	const fn data_bytes(&self) -> usize {
+		match self {
+			Self::Fixed(_) => 0,
+			Self::Prefix { data_bytes, .. } => *data_bytes as usize,
+		}
+	}
+
 	pub const fn highest_address(&self) -> [u8; 20] {
 		let mut address = self.base_address();
-		match self {
-			Self::Fixed(_) => (),
-			Self::Prefix(_) => {
-				address[0] = 0xFF;
-				address[1] = 0xFF;
-				address[2] = 0xFF;
-				address[3] = 0xFF;
-			},
+		let data_bytes = self.data_bytes();
+		let mut i = 0;
+		while i < data_bytes {
+			address[i] = 0xFF;
+			i = i + 1;
 		}
 		address
 	}
 
 	pub const fn matches(&self, address: &[u8; 20]) -> bool {
 		let base_address = self.base_address();
-		let mut i = match self {
-			Self::Fixed(_) => 0,
-			Self::Prefix(_) => 4,
-		};
+		let mut i = self.data_bytes();
 		while i < base_address.len() {
 			if address[i] != base_address[i] {
 				return false;
@@ -573,9 +598,14 @@ impl BuiltinAddressMatcher {
 
 	const fn suffix(&self) -> u32 {
 		match self {
-			Self::Fixed(i) => i.get(),
-			Self::Prefix(i) => i.get(),
+			Self::Fixed(i) | Self::Prefix { id: i, .. } => i.get(),
 		}
+	}
+
+	/// Data bytes must not reach into `address[16..20]` or the suffix would stop being compared,
+	/// which is what makes the pairwise `has_duplicates` check sufficient.
+	const fn is_valid(&self) -> bool {
+		self.data_bytes() <= 16
 	}
 
 	const fn has_duplicates(nums: &[Self]) -> bool {

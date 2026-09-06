@@ -1169,6 +1169,13 @@ where
 						},
 					)
 				};
+
+				// A contract here would be permanently shadowed: pre-compiles take precedence on
+				// every lookup, so it could never be called, terminated or refunded.
+				if is_precompile::<T, E>(&address) {
+					return Err(Error::<T>::DuplicateContract.into());
+				}
+
 				let contract = ContractInfo::new(
 					&address,
 					<System<T>>::account_nonce(&sender),

@@ -134,7 +134,7 @@ fn matching_works() {
 	impl PrimitivePrecompile for Matcher2 {
 		type T = Test;
 		const MATCHER: BuiltinAddressMatcher =
-			BuiltinAddressMatcher::Prefix(NonZero::new(0x88).unwrap());
+			BuiltinAddressMatcher::Prefix { id: NonZero::new(0x88).unwrap(), data_bytes: 4 };
 		const HAS_CONTRACT_INFO: bool = false;
 
 		fn call(
@@ -196,6 +196,72 @@ fn matching_works() {
 }
 
 #[test]
+fn var_prefix_matching_works() {
+	struct Wide;
+	struct Narrow;
+
+	// Consumes the whole window: only the matcher suffix is compared.
+	impl PrimitivePrecompile for Wide {
+		type T = Test;
+		const MATCHER: BuiltinAddressMatcher =
+			BuiltinAddressMatcher::Prefix { id: NonZero::new(0x88).unwrap(), data_bytes: 16 };
+		const HAS_CONTRACT_INFO: bool = false;
+
+		fn call(
+			address: &[u8; 20],
+			_input: Vec<u8>,
+			_env: &mut impl Ext<T = Self::T>,
+		) -> Result<Vec<u8>, Error> {
+			Ok(address.to_vec())
+		}
+	}
+
+	// Leaves `address[8..16]` pinned to zero.
+	impl PrimitivePrecompile for Narrow {
+		type T = Test;
+		const MATCHER: BuiltinAddressMatcher =
+			BuiltinAddressMatcher::Prefix { id: NonZero::new(0x77).unwrap(), data_bytes: 8 };
+		const HAS_CONTRACT_INFO: bool = false;
+
+		fn call(
+			address: &[u8; 20],
+			_input: Vec<u8>,
+			_env: &mut impl Ext<T = Self::T>,
+		) -> Result<Vec<u8>, Error> {
+			Ok(address.to_vec())
+		}
+	}
+
+	type Col = (Wide, Narrow);
+
+	assert_eq!(
+		<Wide as PrimitivePrecompile>::MATCHER.base_address(),
+		hex!("0000000000000000000000000000000000000088")
+	);
+	assert_eq!(
+		<Wide as PrimitivePrecompile>::MATCHER.highest_address(),
+		hex!("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000088")
+	);
+	assert_eq!(
+		<Narrow as PrimitivePrecompile>::MATCHER.highest_address(),
+		hex!("FFFFFFFFFFFFFFFF000000000000000000000077")
+	);
+
+	// The whole 16 byte window is free.
+	assert!(Col::get::<Env>(&hex!("aabbccddeeff0011223344556677889900000088")).is_some());
+	assert!(Col::get::<Env>(&hex!("ffffffffffffffffffffffffffffffff00000088")).is_some());
+	assert!(Col::get::<Env>(&hex!("0000000000000000000000000000000000000088")).is_some());
+
+	// A different suffix is still a different pre-compile.
+	assert!(Col::get::<Env>(&hex!("aabbccddeeff0011223344556677889900000089")).is_none());
+
+	// Only the declared data bytes are free; the rest stays pinned to zero.
+	assert!(Col::get::<Env>(&hex!("aabbccddeeff0011000000000000000000000077")).is_some());
+	assert!(Col::get::<Env>(&hex!("aabbccddeeff0011000000000000000100000077")).is_none());
+	assert!(Col::get::<Env>(&hex!("aabbccddeeff0011ff0000000000000000000077")).is_none());
+}
+
+#[test]
 fn builtin_matching_works() {
 	let _ = <All<Test>>::CHECK_COLLISION;
 
@@ -247,12 +313,22 @@ fn builtin_matching_works() {
 fn public_matching_works() {
 	let matcher_fixed = AddressMatcher::Fixed(NonZero::new(0x42).unwrap());
 	let matcher_prefix = AddressMatcher::Prefix(NonZero::new(0x8).unwrap());
+	let matcher_var = AddressMatcher::VarPrefix { id: NonZero::new(0x8).unwrap(), data_bytes: 16 };
 
 	assert_eq!(matcher_fixed.base_address(), hex!("0000000000000000000000000000000000420000"));
 	assert_eq!(matcher_fixed.base_address(), matcher_fixed.highest_address());
 
 	assert_eq!(matcher_prefix.base_address(), hex!("0000000000000000000000000000000000080000"));
 	assert_eq!(matcher_prefix.highest_address(), hex!("FFFFFFFF00000000000000000000000000080000"));
+
+	assert_eq!(matcher_var.base_address(), matcher_prefix.base_address());
+	assert_eq!(matcher_var.highest_address(), hex!("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00080000"));
+
+	// `Prefix` is exactly `VarPrefix` with four data bytes.
+	let matcher_var_4 = AddressMatcher::VarPrefix { id: NonZero::new(0x8).unwrap(), data_bytes: 4 };
+	assert_eq!(matcher_var_4.highest_address(), matcher_prefix.highest_address());
+	assert!(matcher_var_4.matches(&hex!("aabbccdd00000000000000000000000000080000")));
+	assert!(!matcher_var_4.matches(&hex!("aabbccddee000000000000000000000000080000")));
 }
 
 #[test]
