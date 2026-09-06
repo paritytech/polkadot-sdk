@@ -48,7 +48,6 @@ parking_lot = { workspace = true, default-features = true }
 partial_sort = { workspace = true }
 pin-project = { workspace = true }
 prometheus-endpoint = { workspace = true, default-features = true }
-prost = { workspace = true }
 rand = { workspace = true, default-features = true }
 rustls = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
@@ -63,7 +62,6 @@ smallvec = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { features = ["macros", "sync"], workspace = true, default-features = true }
@@ -76,7 +74,6 @@ zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-multihash-codetable = { workspace = true }
 multistream-select = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
@@ -88,9 +85,6 @@ tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-fe
 tokio-util = { features = ["compat"], workspace = true }
 
 criterion = { workspace = true, default-features = true, features = ["async_tokio"] }
-
-[build-dependencies]
-prost-build = { workspace = true }
 
 [features]
 default = []
