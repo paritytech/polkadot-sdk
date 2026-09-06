@@ -2142,7 +2142,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_account_empty() -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_address_empty() -> Result<(), BenchmarkError> {
 		// The address family needs its own baseline: its keys are shorter and never on the heap.
 		let (mut al, entry) = access_list_with(0, KeyFamily::Address);
 		let outcome;
@@ -2167,7 +2167,7 @@ mod benchmarks {
 		Ok(())
 	}
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_account_single_element() -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_address_single_element() -> Result<(), BenchmarkError> {
 		let (mut al, entry) = access_list_with(1, KeyFamily::Address);
 		let outcome;
 		#[block]
@@ -2204,7 +2204,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_account_full() -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_address_full() -> Result<(), BenchmarkError> {
 		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Address);
 		let entry = access_entry(KeyFamily::Address, MAX_ACCESS_LIST_ENTRIES as u32);
 		let outcome;
@@ -2217,7 +2217,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_account_full() -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_address_full() -> Result<(), BenchmarkError> {
 		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Address);
 		let outcome;
 		#[block]
@@ -2617,8 +2617,22 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call_hot(t: Linear<0, 1>, d: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		hot_call_setup!(do_call, VmBinaryModule::dummy(), t, d);
+	fn seal_call_hot() -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::dummy());
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_hot_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		hot_call_setup!(do_call, VmBinaryModule::dummy(), 1, d);
 
 		let result;
 		#[block]

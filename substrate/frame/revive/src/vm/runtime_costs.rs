@@ -17,7 +17,9 @@
 
 use crate::{
 	Config,
-	access_list::{Access, CallAccess, CallWarmth, KeyFamily, StorageOp, Transfer, Warmth},
+	access_list::{
+		Access, CallAccess, CallWarmth, KeyFamily, StorageOp, Transfer, TransferWarmth, Warmth,
+	},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -129,7 +131,8 @@ pub enum RuntimeCosts {
 	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
 	/// parameter `dust_transfer` indicates whether the transfer has a `dust` value.
-	CallTransferSurcharge { dust_transfer: bool },
+	/// A precompile's account state is untracked, so it has no `keys` and prices cold.
+	CallTransferSurcharge { dust_transfer: bool, keys: Option<TransferWarmth> },
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate`.
@@ -274,8 +277,8 @@ impl RuntimeCosts {
 						T::WeightInfo::access_list_touch_cold_empty(),
 					),
 					KeyFamily::Address => touch_cost(
-						T::WeightInfo::access_list_touch_cold_account_full(),
-						T::WeightInfo::access_list_touch_cold_account_empty(),
+						T::WeightInfo::access_list_touch_cold_address_full(),
+						T::WeightInfo::access_list_touch_cold_address_empty(),
 					),
 				};
 				if revertible {
@@ -290,8 +293,8 @@ impl RuntimeCosts {
 					T::WeightInfo::access_list_touch_hot_single_element(),
 				),
 				KeyFamily::Address => touch_cost(
-					T::WeightInfo::access_list_touch_hot_account_full(),
-					T::WeightInfo::access_list_touch_hot_account_single_element(),
+					T::WeightInfo::access_list_touch_hot_address_full(),
+					T::WeightInfo::access_list_touch_hot_address_single_element(),
 				),
 			},
 		}
@@ -458,41 +461,14 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				CallWarmth::Plain {
-					account,
-					sender_account,
-					original_account,
-					account_info,
-					sender_account_info,
-					dust,
-				} => {
-					// The transfer rides in the bench the warmth picks.
-					let balance_transfer = u32::from(account.is_some());
-					let dust_transfer = u32::from(dust);
-					let info_op = Transfer::info_op(dust);
-					let items = account
-						.into_iter()
-						.chain(sender_account)
-						.chain(sender_account_info)
-						.chain([original_account, account_info]);
-					let base = weight_by_warmth::<T, _>(
-						items,
+				// The transfer is priced by `CallTransferSurcharge`, at its own keys' warmth.
+				CallWarmth::Plain { original_account, account_info, transfer: _ } => {
+					weight_by_warmth::<T, _>(
+						[original_account, account_info],
 						CallAccess::KEY_FAMILY,
-						|| T::WeightInfo::seal_call(balance_transfer, dust_transfer, 0),
-						|| T::WeightInfo::seal_call_hot(balance_transfer, dust_transfer),
-					);
-					// The hot bench whitelists these keys, so each written one owes its commit.
-					let writes = [
-						(account, StorageOp::Write),
-						(sender_account, StorageOp::Write),
-						(Some(account_info), info_op),
-						(sender_account_info, info_op),
-					]
-					.into_iter()
-					.filter_map(|(warmth, op)| warmth.map(|warmth| (warmth, op)))
-					.map(|(warmth, op)| Self::write_commit_owed::<T>(warmth, op))
-					.fold(Weight::zero(), |sum, owed| sum.saturating_add(owed));
-					base.saturating_add(writes)
+						|| T::WeightInfo::seal_call(0, 0, 0),
+						T::WeightInfo::seal_call_hot,
+					)
 				},
 				CallWarmth::Delegate { account_info } => weight_by_warmth::<T, _>(
 					[account_info],
@@ -504,8 +480,36 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge { dust_transfer } => {
-				cost_args!(seal_call, 1, dust_transfer.into(), 0)
+			CallTransferSurcharge { dust_transfer, keys } => {
+				let dust = dust_transfer.into();
+				let cold_transfer = || cost_args!(seal_call, 1, dust, 0);
+				match keys {
+					None => cold_transfer(),
+					Some(keys) => {
+						let surcharge = weight_by_warmth::<T, _>(
+							[keys.account, keys.sender_account, keys.sender_account_info],
+							CallAccess::KEY_FAMILY,
+							cold_transfer,
+							|| {
+								T::WeightInfo::seal_call_hot_transfer(dust)
+									.saturating_sub(T::WeightInfo::seal_call_hot())
+							},
+						);
+						// The hot benches whitelist these keys, so each written one owes its
+						// commit.
+						let info_op = Transfer::info_op(dust_transfer);
+						let commits = [
+							(keys.account, StorageOp::Write),
+							(keys.sender_account, StorageOp::Write),
+							(keys.account_info, info_op),
+							(keys.sender_account_info, info_op),
+						]
+						.into_iter()
+						.map(|(warmth, op)| Self::write_commit_owed::<T>(warmth, op))
+						.fold(Weight::zero(), |sum, owed| sum.saturating_add(owed));
+						surcharge.saturating_add(commits)
+					},
+				}
 			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
@@ -614,31 +618,19 @@ mod tests {
 	#[test]
 	fn call_base_cold_hot_pricing() {
 		let weight_of = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+		let plain = |original_account, account_info| {
+			RuntimeCosts::CallBase(CallWarmth::Plain {
+				original_account,
+				account_info,
+				transfer: None,
+			})
+		};
+		let hot = Warmth::Hot { charged: StorageOp::Read };
+		let cold = Warmth::cold_non_revertible();
 
-		let all_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
-			account: Some(Warmth::Hot { charged: StorageOp::Read }),
-			sender_account: Some(Warmth::Hot { charged: StorageOp::Read }),
-			sender_account_info: Some(Warmth::Hot { charged: StorageOp::Read }),
-			dust: false,
-			original_account: Warmth::Hot { charged: StorageOp::Read },
-			account_info: Warmth::Hot { charged: StorageOp::Read },
-		}));
-		let all_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
-			account: Some(Warmth::cold_non_revertible()),
-			sender_account: Some(Warmth::cold_non_revertible()),
-			sender_account_info: Some(Warmth::cold_non_revertible()),
-			dust: false,
-			original_account: Warmth::cold_non_revertible(),
-			account_info: Warmth::cold_non_revertible(),
-		}));
-		let mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
-			account: Some(Warmth::cold_non_revertible()),
-			sender_account: Some(Warmth::Hot { charged: StorageOp::Read }),
-			sender_account_info: Some(Warmth::Hot { charged: StorageOp::Read }),
-			dust: false,
-			original_account: Warmth::Hot { charged: StorageOp::Read },
-			account_info: Warmth::Hot { charged: StorageOp::Read },
-		}));
+		let all_hot = weight_of(plain(hot, hot));
+		let all_cold = weight_of(plain(cold, cold));
+		let mixed = weight_of(plain(hot, cold));
 
 		assert!(
 			all_cold.ref_time() > all_hot.ref_time(),
@@ -652,14 +644,7 @@ mod tests {
 			"any cold item prices the call as fully cold: mixed={mixed:?} all_cold={all_cold:?}",
 		);
 
-		let revertible = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
-			account: Some(Warmth::cold_revertible()),
-			sender_account: Some(Warmth::cold_revertible()),
-			sender_account_info: Some(Warmth::cold_non_revertible()),
-			dust: false,
-			original_account: Warmth::cold_non_revertible(),
-			account_info: Warmth::cold_non_revertible(),
-		}));
+		let revertible = weight_of(plain(Warmth::cold_revertible(), Warmth::cold_revertible()));
 		assert!(
 			revertible.ref_time() > all_cold.ref_time(),
 			"a revertible cold touch prepays the rollback: rev={revertible:?} cold={all_cold:?}",
@@ -670,47 +655,19 @@ mod tests {
 			"the rollback prepayment is ref_time only: rev={revertible:?} cold={all_cold:?}",
 		);
 
-		let delegate_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
-			account_info: Warmth::Hot { charged: StorageOp::Read },
-		}));
-		let delegate_cold = weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate {
-			account_info: Warmth::cold_non_revertible(),
-		}));
+		let delegate_hot =
+			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { account_info: hot }));
+		let delegate_cold =
+			weight_of(RuntimeCosts::CallBase(CallWarmth::Delegate { account_info: cold }));
 		assert!(
 			delegate_cold.ref_time() > delegate_hot.ref_time(),
 			"cold delegate call must be more expensive than hot: cold={delegate_cold:?} hot={delegate_hot:?}",
 		);
 		assert_eq!(delegate_hot.proof_size(), 0, "hot delegate call: {delegate_hot:?}");
 		assert!(delegate_cold.proof_size() > 0, "cold delegate call: {delegate_cold:?}");
-
-		let zero_value_hot = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
-			account: None,
-			sender_account: None,
-			sender_account_info: None,
-			dust: false,
-			original_account: Warmth::Hot { charged: StorageOp::Read },
-			account_info: Warmth::Hot { charged: StorageOp::Read },
-		}));
 		assert!(
-			zero_value_hot.ref_time() < all_hot.ref_time(),
-			"a zero-value call prices fewer items than a transferring one",
-		);
-		assert!(
-			zero_value_hot.ref_time() > delegate_hot.ref_time(),
-			"but more than a delegate call's single item",
-		);
-		let zero_value_mixed = weight_of(RuntimeCosts::CallBase(CallWarmth::Plain {
-			account: None,
-			sender_account: None,
-			sender_account_info: None,
-			dust: false,
-			original_account: Warmth::Hot { charged: StorageOp::Read },
-			account_info: Warmth::cold_non_revertible(),
-		}));
-		assert_eq!(
-			zero_value_mixed.proof_size(),
-			all_cold.proof_size(),
-			"one cold item prices the zero-value call fully cold: {zero_value_mixed:?}",
+			all_hot.ref_time() > delegate_hot.ref_time(),
+			"a plain call prices one more item than a delegate call",
 		);
 	}
 
@@ -776,45 +733,47 @@ mod tests {
 
 	#[test]
 	fn a_value_call_prices_the_transfer_at_its_own_warmth() {
+		type W = <Test as Config>::WeightInfo;
 		let write_paid = Warmth::Hot { charged: StorageOp::Write };
-		// Every written key already paid for a write, so nothing is owed on top of the bench.
-		let weight_of = |original_account, transfer: Option<bool>| {
-			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
-				account: transfer.map(|_| write_paid),
-				sender_account: transfer.map(|_| write_paid),
-				sender_account_info: transfer.map(|_| write_paid),
-				dust: transfer.unwrap_or(false),
-				original_account,
-				account_info: write_paid,
-			}))
+		// Every key already paid for a write, so nothing is owed on top of the bench.
+		let weight_of = |dust_transfer, warmth: Option<Warmth>| {
+			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallTransferSurcharge {
+				dust_transfer,
+				keys: warmth.map(|warmth| TransferWarmth {
+					account: warmth,
+					sender_account: warmth,
+					account_info: write_paid,
+					sender_account_info: warmth,
+				}),
+			})
 		};
+		let cold_term = |dust: u32| W::seal_call(1, dust, 0).saturating_sub(W::seal_call(0, 0, 0));
+		let hot_term =
+			|dust: u32| W::seal_call_hot_transfer(dust).saturating_sub(W::seal_call_hot());
 		let arms = [
-			(
-				"hot",
-				Warmth::Hot { charged: StorageOp::Read },
-				<Test as Config>::WeightInfo::seal_call_hot(1, 0)
-					.saturating_sub(<Test as Config>::WeightInfo::seal_call_hot(0, 0)),
-			),
-			(
-				"cold",
-				Warmth::cold_non_revertible(),
-				<Test as Config>::WeightInfo::seal_call(1, 0, 0)
-					.saturating_sub(<Test as Config>::WeightInfo::seal_call(0, 0, 0)),
-			),
+			("hot", Some(write_paid), hot_term(0)),
+			("cold", Some(Warmth::cold_non_revertible()), cold_term(0)),
+			("untracked (precompile)", None, cold_term(0)),
 		];
-		for (arm, original_account, transfer_term) in arms {
+		for (arm, warmth, transfer_term) in arms {
 			assert!(
-				weight_of(original_account, Some(true)).ref_time() >
-					weight_of(original_account, Some(false)).ref_time(),
+				weight_of(true, warmth).ref_time() > weight_of(false, warmth).ref_time(),
 				"{arm}: the dust half of the transfer is priced apart from the value half",
 			);
 			assert!(
-				weight_of(original_account, Some(false))
-					.saturating_sub(weight_of(original_account, None))
-					.all_gte(transfer_term),
-				"{arm}: a call that moves value carries the transfer term of its own bench",
+				weight_of(false, warmth).all_gte(transfer_term),
+				"{arm}: the surcharge carries its own bench's transfer term",
 			);
 		}
+		assert_eq!(
+			weight_of(false, None),
+			cold_term(0),
+			"a transfer to untracked state is exactly the cold bench's transfer term",
+		);
+		assert!(
+			weight_of(false, Some(write_paid)).ref_time() < W::seal_call_hot_transfer(0).ref_time(),
+			"the hot surcharge is the transfer's share, not the whole hot value call",
+		);
 	}
 
 	#[test]
@@ -822,15 +781,16 @@ mod tests {
 		let read_paid = Warmth::Hot { charged: StorageOp::Read };
 		let write_paid = Warmth::Hot { charged: StorageOp::Write };
 		// Each pair at the same paid level, so a difference is only what the writes owe.
-		let weight_of = |dust, accounts, infos| {
-			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
-				account: Some(accounts),
-				sender_account: Some(accounts),
-				sender_account_info: Some(infos),
-				dust,
-				original_account: read_paid,
-				account_info: infos,
-			}))
+		let weight_of = |dust_transfer, accounts, infos| {
+			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallTransferSurcharge {
+				dust_transfer,
+				keys: Some(TransferWarmth {
+					account: accounts,
+					sender_account: accounts,
+					account_info: infos,
+					sender_account_info: infos,
+				}),
+			})
 		};
 		let owed = RuntimeCosts::deferred_write_cost::<Test>()
 			.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());

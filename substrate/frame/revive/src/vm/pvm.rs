@@ -645,6 +645,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			CallType::DelegateCall => U256::zero(),
 		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
+		let mut transfer_keys = None;
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
@@ -655,9 +656,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					from: self.ext.address(),
 					dust: Pallet::<E::T>::has_dust(value),
 				});
-				let state_access =
+				let call_access =
 					CallAccess::new(callee, matches!(&call_type, CallType::DelegateCall), transfer);
-				let warmth = self.ext.warm(state_access);
+				let warmth = self.ext.warm(call_access);
+				transfer_keys = warmth.transfer_keys();
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?
 			},
 		};
@@ -694,12 +696,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					// Only precompiles: a contract's transfer rides in `CallBase`, at its warmth.
-					if precompile.is_some() {
-						self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-							dust_transfer: Pallet::<E::T>::has_dust(value),
-						})?;
-					}
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
+						dust_transfer: Pallet::<E::T>::has_dust(value),
+						keys: transfer_keys,
+					})?;
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {

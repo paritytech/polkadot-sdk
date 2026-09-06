@@ -1132,7 +1132,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(644_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	fn access_list_touch_cold_account_empty() -> Weight {
+	fn access_list_touch_cold_address_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1148,7 +1148,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(470_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	fn access_list_touch_hot_account_single_element() -> Weight {
+	fn access_list_touch_hot_address_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1172,7 +1172,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(4_610_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	fn access_list_touch_cold_account_full() -> Weight {
+	fn access_list_touch_cold_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1180,7 +1180,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(1_340_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	fn access_list_touch_hot_account_full() -> Weight {
+	fn access_list_touch_hot_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1325,17 +1325,22 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(t.into())))
 	}
 	/// The range of component `t` is `[0, 1]`.
-	/// The range of component `d` is `[0, 1]`.
-	fn seal_call_hot(t: u32, d: u32, ) -> Weight {
+	fn seal_call_hot() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 78_879_000 picoseconds.
-		Weight::from_parts(64_334_950, 0)
+		// PLACEHOLDER, needs /cmd bench: the last measurement of this bench without components.
+		Weight::from_parts(32_396_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 94_099
-			.saturating_add(Weight::from_parts(18_054_776, 0).saturating_mul(t.into()))
-			// Standard Error: 94_099
+	}
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_call_hot_transfer(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench: `seal_call_hot` plus `seal_call`'s own transfer terms.
+		Weight::from_parts(50_450_776, 0)
+			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(24_030_006, 0).saturating_mul(d.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)

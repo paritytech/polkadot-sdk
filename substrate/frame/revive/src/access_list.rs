@@ -127,7 +127,8 @@ pub enum AccessEntry {
 
 impl AccessEntry {
 	/// Which bench family prices a touch of this entry.
-	pub fn key_family(&self) -> KeyFamily {
+	#[cfg(test)]
+	fn key_family(&self) -> KeyFamily {
 		match self {
 			Self::Storage { .. } => KeyFamily::Slot,
 			Self::Account { .. } |
@@ -230,19 +231,32 @@ pub trait Access {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
-	/// A normal call reads the target's address mapping and contract info, and both parties'
-	/// account state only when it transfers value (`None` otherwise). `dust` prices the transfer
-	/// and writes the contract infos.
-	Plain {
-		account: Option<Warmth>,
-		sender_account: Option<Warmth>,
-		original_account: Warmth,
-		account_info: Warmth,
-		sender_account_info: Option<Warmth>,
-		dust: bool,
-	},
+	/// A normal call reads the target's address mapping and contract info; `transfer` carries the
+	/// value transfer's keys when the call moves value.
+	Plain { original_account: Warmth, account_info: Warmth, transfer: Option<TransferWarmth> },
 	/// A delegate call reads only the target's contract info.
 	Delegate { account_info: Warmth },
+}
+
+/// Warmth of the keys a call's value transfer touches, priced apart from the call itself.
+#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone, Copy, Debug)]
+pub struct TransferWarmth {
+	pub account: Warmth,
+	pub sender_account: Warmth,
+	/// The target's contract info: the call reads it either way, a dust transfer also writes it.
+	pub account_info: Warmth,
+	pub sender_account_info: Warmth,
+}
+
+impl CallWarmth {
+	/// The transfer's keys, when the call moves value.
+	pub fn transfer_keys(self) -> Option<TransferWarmth> {
+		match self {
+			Self::Plain { transfer, .. } => transfer,
+			Self::Delegate { .. } => None,
+		}
+	}
 }
 
 /// A call opcode's access, one variant per call kind.
@@ -306,23 +320,22 @@ impl Access for CallAccess {
 			Self::Plain { target, transfer } => {
 				let dust = transfer.is_some_and(|transfer| transfer.dust);
 				let info_op = Transfer::info_op(dust);
-				CallWarmth::Plain {
-					account: transfer.map(|_| {
-						resolve(AccessEntry::Account { address: target }, StorageOp::Write)
-					}),
-					sender_account: transfer.map(|transfer| {
-						resolve(AccessEntry::Account { address: transfer.from }, StorageOp::Write)
-					}),
-					original_account: resolve(
-						AccessEntry::OriginalAccount { address: target },
-						StorageOp::Read,
+				let original_account =
+					resolve(AccessEntry::OriginalAccount { address: target }, StorageOp::Read);
+				let account_info = resolve(AccessEntry::AccountInfo { address: target }, info_op);
+				let transfer = transfer.map(|transfer| TransferWarmth {
+					account: resolve(AccessEntry::Account { address: target }, StorageOp::Write),
+					sender_account: resolve(
+						AccessEntry::Account { address: transfer.from },
+						StorageOp::Write,
 					),
-					account_info: resolve(AccessEntry::AccountInfo { address: target }, info_op),
-					sender_account_info: transfer.map(|transfer| {
-						resolve(AccessEntry::AccountInfo { address: transfer.from }, info_op)
-					}),
-					dust,
-				}
+					account_info,
+					sender_account_info: resolve(
+						AccessEntry::AccountInfo { address: transfer.from },
+						info_op,
+					),
+				});
+				CallWarmth::Plain { original_account, account_info, transfer }
 			},
 			Self::Delegate { target } => CallWarmth::Delegate {
 				account_info: resolve(
@@ -750,12 +763,14 @@ mod tests {
 		let access =
 			CallAccess::Plain { target, transfer: Some(Transfer { from: sender, dust: false }) };
 		let expected = CallWarmth::Plain {
-			account: Some(Warmth::cold_revertible()),
-			sender_account: Some(Warmth::cold_non_revertible()),
-			sender_account_info: Some(Warmth::cold_non_revertible()),
-			dust: false,
-			original_account: Warmth::cold_non_revertible(),
+			original_account: Warmth::cold_revertible(),
 			account_info: Warmth::cold_non_revertible(),
+			transfer: Some(TransferWarmth {
+				account: Warmth::cold_non_revertible(),
+				sender_account: Warmth::cold_non_revertible(),
+				account_info: Warmth::cold_non_revertible(),
+				sender_account_info: Warmth::cold_non_revertible(),
+			}),
 		};
 		assert_eq!(
 			al.warmth_of(access),

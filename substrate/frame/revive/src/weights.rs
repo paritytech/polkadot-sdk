@@ -146,13 +146,13 @@ pub trait WeightInfo {
 	fn take_storage(n: u32, ) -> Weight;
 	fn take_storage_hot(n: u32, ) -> Weight;
 	fn access_list_touch_cold_empty() -> Weight;
-	fn access_list_touch_cold_account_empty() -> Weight;
+	fn access_list_touch_cold_address_empty() -> Weight;
 	fn access_list_touch_hot_single_element() -> Weight;
-	fn access_list_touch_hot_account_single_element() -> Weight;
+	fn access_list_touch_hot_address_single_element() -> Weight;
 	fn access_list_touch_cold_full() -> Weight;
 	fn access_list_touch_hot_full() -> Weight;
-	fn access_list_touch_cold_account_full() -> Weight;
-	fn access_list_touch_hot_account_full() -> Weight;
+	fn access_list_touch_cold_address_full() -> Weight;
+	fn access_list_touch_hot_address_full() -> Weight;
 	fn access_list_touch_hot_upgrade() -> Weight;
 	fn access_list_rollback_amortization() -> Weight;
 	fn set_transient_storage_empty() -> Weight;
@@ -166,7 +166,8 @@ pub trait WeightInfo {
 	fn seal_contains_transient_storage(n: u32, ) -> Weight;
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
 	fn seal_call(t: u32, d: u32, i: u32, ) -> Weight;
-	fn seal_call_hot(t: u32, d: u32, ) -> Weight;
+	fn seal_call_hot() -> Weight;
+	fn seal_call_hot_transfer(d: u32, ) -> Weight;
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_delegate_call_hot() -> Weight;
@@ -1173,7 +1174,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 466_000 picoseconds.
 		Weight::from_parts(582_000, 0)
 	}
-	fn access_list_touch_cold_account_empty() -> Weight {
+	fn access_list_touch_cold_address_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1187,7 +1188,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 407_000 picoseconds.
 		Weight::from_parts(490_000, 0)
 	}
-	fn access_list_touch_hot_account_single_element() -> Weight {
+	fn access_list_touch_hot_address_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1208,14 +1209,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 4_462_000 picoseconds.
 		Weight::from_parts(4_637_000, 0)
 	}
-	fn access_list_touch_cold_account_full() -> Weight {
+	fn access_list_touch_cold_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 1_168_000 picoseconds.
 		Weight::from_parts(1_286_000, 0)
 	}
-	fn access_list_touch_hot_account_full() -> Weight {
+	fn access_list_touch_hot_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1350,16 +1351,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(t.into())))
 	}
 	/// The range of component `t` is `[0, 1]`.
-	/// The range of component `d` is `[0, 1]`.
-	fn seal_call_hot(t: u32, d: u32, ) -> Weight {
+	fn seal_call_hot() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 68_800_000 picoseconds.
-		Weight::from_parts(54_492_989, 0)
-			// Standard Error: 75_575
-			.saturating_add(Weight::from_parts(17_847_045, 0).saturating_mul(t.into()))
-			// Standard Error: 75_575
+		// PLACEHOLDER, needs /cmd bench: the last measurement of this bench without components.
+		Weight::from_parts(25_764_000, 0)
+	}
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_call_hot_transfer(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench: `seal_call_hot` plus `seal_call`'s own transfer terms.
+		Weight::from_parts(43_611_045, 0)
 			.saturating_add(Weight::from_parts(22_798_064, 0).saturating_mul(d.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
@@ -2798,7 +2803,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 466_000 picoseconds.
 		Weight::from_parts(582_000, 0)
 	}
-	fn access_list_touch_cold_account_empty() -> Weight {
+	fn access_list_touch_cold_address_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -2812,7 +2817,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 407_000 picoseconds.
 		Weight::from_parts(490_000, 0)
 	}
-	fn access_list_touch_hot_account_single_element() -> Weight {
+	fn access_list_touch_hot_address_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -2833,14 +2838,14 @@ impl WeightInfo for () {
 		// Minimum execution time: 4_462_000 picoseconds.
 		Weight::from_parts(4_637_000, 0)
 	}
-	fn access_list_touch_cold_account_full() -> Weight {
+	fn access_list_touch_cold_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 1_168_000 picoseconds.
 		Weight::from_parts(1_286_000, 0)
 	}
-	fn access_list_touch_hot_account_full() -> Weight {
+	fn access_list_touch_hot_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -2975,16 +2980,20 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(t.into())))
 	}
 	/// The range of component `t` is `[0, 1]`.
-	/// The range of component `d` is `[0, 1]`.
-	fn seal_call_hot(t: u32, d: u32, ) -> Weight {
+	fn seal_call_hot() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 68_800_000 picoseconds.
-		Weight::from_parts(54_492_989, 0)
-			// Standard Error: 75_575
-			.saturating_add(Weight::from_parts(17_847_045, 0).saturating_mul(t.into()))
-			// Standard Error: 75_575
+		// PLACEHOLDER, needs /cmd bench: the last measurement of this bench without components.
+		Weight::from_parts(25_764_000, 0)
+	}
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_call_hot_transfer(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// PLACEHOLDER, needs /cmd bench: `seal_call_hot` plus `seal_call`'s own transfer terms.
+		Weight::from_parts(43_611_045, 0)
 			.saturating_add(Weight::from_parts(22_798_064, 0).saturating_mul(d.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)

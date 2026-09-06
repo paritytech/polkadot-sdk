@@ -25,7 +25,7 @@ use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
 		CallAccess, CallWarmth, CodeLoad, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES,
-		MAX_INLINE_KEY_LEN, StorageOp, Transfer, Warmth,
+		MAX_INLINE_KEY_LEN, StorageOp, Transfer, TransferWarmth, Warmth,
 	},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
@@ -3438,12 +3438,9 @@ fn cold_hot_call_target_warms_across_calls() {
 				transfer: Some(Transfer { from: ALICE_ADDR, dust: false })
 			}),
 			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				sender_account: Some(_),
-				sender_account_info: Some(_),
-				dust: _,
 				original_account: Warmth::Cold { .. },
-				account_info: Warmth::Cold { .. }
+				account_info: Warmth::Cold { .. },
+				transfer: Some(TransferWarmth { account: Warmth::Cold { .. }, .. })
 			},
 			"an uncalled target starts cold",
 		);
@@ -3456,12 +3453,9 @@ fn cold_hot_call_target_warms_across_calls() {
 				transfer: Some(Transfer { from: ALICE_ADDR, dust: false })
 			}),
 			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				sender_account: Some(_),
-				sender_account_info: Some(_),
-				dust: _,
 				original_account: Warmth::Hot { .. },
-				account_info: Warmth::Hot { .. }
+				account_info: Warmth::Hot { .. },
+				transfer: Some(TransferWarmth { account: Warmth::Cold { .. }, .. })
 			},
 			"a zero-value call warms the metadata but not the unread account state",
 		);
@@ -3542,12 +3536,9 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 				transfer: Some(Transfer { from: ALICE_ADDR, dust: false })
 			}),
 			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				sender_account: Some(_),
-				sender_account_info: Some(_),
-				dust: _,
 				original_account: Warmth::Cold { .. },
-				account_info: Warmth::Cold { .. }
+				account_info: Warmth::Cold { .. },
+				transfer: Some(TransferWarmth { account: Warmth::Cold { .. }, .. })
 			},
 			"B's revert drops the warmth of targets B touched",
 		);
@@ -3557,12 +3548,9 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 				transfer: Some(Transfer { from: ALICE_ADDR, dust: false })
 			}),
 			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				sender_account: Some(_),
-				sender_account_info: Some(_),
-				dust: _,
 				original_account: Warmth::Hot { .. },
-				account_info: Warmth::Hot { .. }
+				account_info: Warmth::Hot { .. },
+				transfer: Some(TransferWarmth { account: Warmth::Cold { .. }, .. })
 			},
 			"the caller's touch of B persists even though B reverted",
 		);
@@ -3611,12 +3599,9 @@ fn cold_hot_first_frame_warms_entry_target() {
 				transfer: Some(Transfer { from: ALICE_ADDR, dust: false })
 			}),
 			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				sender_account: Some(_),
-				sender_account_info: Some(_),
-				dust: _,
 				original_account: Warmth::Hot { .. },
-				account_info: Warmth::Hot { .. }
+				account_info: Warmth::Hot { .. },
+				transfer: Some(TransferWarmth { account: Warmth::Cold { .. }, .. })
 			},
 			"the entry target's metadata is pre-warmed by the first frame",
 		);
@@ -3642,12 +3627,9 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 				transfer: Some(Transfer { from: ALICE_ADDR, dust: false })
 			}),
 			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				sender_account: Some(_),
-				sender_account_info: Some(_),
-				dust: _,
 				original_account: Warmth::Cold { .. },
-				account_info: Warmth::Cold { .. }
+				account_info: Warmth::Cold { .. },
+				transfer: Some(TransferWarmth { account: Warmth::Cold { .. }, .. })
 			},
 			"an uncalled target starts cold",
 		);
@@ -3660,12 +3642,9 @@ fn cold_hot_plain_account_warms_then_code_loads_cold() {
 				transfer: Some(Transfer { from: ALICE_ADDR, dust: false })
 			}),
 			CallWarmth::Plain {
-				account: Some(Warmth::Cold { .. }),
-				sender_account: Some(_),
-				sender_account_info: Some(_),
-				dust: _,
 				original_account: Warmth::Hot { .. },
-				account_info: Warmth::Hot { .. }
+				account_info: Warmth::Hot { .. },
+				transfer: Some(TransferWarmth { account: Warmth::Cold { .. }, .. })
 			},
 			"a zero-value call to a plain account warms only its metadata",
 		);
