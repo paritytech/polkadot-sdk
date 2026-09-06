@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, StorageAccessKind, StorageOp},
+	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -552,20 +552,13 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Checks if `key` was already accessed in this transaction and inserts it
 	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the slot's [`StorageAccessKind`]. `op` is the operation being performed:
-	/// a write upgrades a slot that had only paid for a read. When
-	/// `transient` is true, skips the access list and returns the `Transient`
-	/// variant.
-	fn touch_storage_access(
-		&mut self,
-		transient: bool,
-		key: &Key,
-		op: StorageOp,
-	) -> StorageAccessKind;
+	/// the slot's [`Warmth`]. `op` is the operation being performed: a write
+	/// upgrades a slot that had only paid for a read.
+	fn touch_storage_access(&mut self, key: &Key, op: StorageOp) -> Warmth;
 
-	/// Non-mutating sibling of `touch_storage_access`: prices the access without
-	/// warming the slot.
-	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
+	/// Non-mutating sibling of `touch_storage_access`: reports the warmth
+	/// without warming the slot.
+	fn peek_storage_access(&self, key: &Key) -> Warmth;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -2640,29 +2633,14 @@ where
 		)
 	}
 
-	fn touch_storage_access(
-		&mut self,
-		transient: bool,
-		key: &Key,
-		op: StorageOp,
-	) -> StorageAccessKind {
-		if transient {
-			return StorageAccessKind::Transient;
-		}
+	fn touch_storage_access(&mut self, key: &Key, op: StorageOp) -> Warmth {
 		let address = self.address();
-		StorageAccessKind::Persistent(
-			self.access_list.touch(AccessEntry { address, slot: key.into() }, op),
-		)
+		self.access_list.touch(AccessEntry { address, slot: key.into() }, op)
 	}
 
-	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
-		if transient {
-			return StorageAccessKind::Transient;
-		}
+	fn peek_storage_access(&self, key: &Key) -> Warmth {
 		let address = self.address();
-		StorageAccessKind::Persistent(
-			self.access_list.peek(&AccessEntry { address, slot: key.into() }),
-		)
+		self.access_list.peek(&AccessEntry { address, slot: key.into() })
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {
