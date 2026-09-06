@@ -60,7 +60,11 @@ pub(crate) use builtin::{
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
 
 /// A minimal EVM bytecode to be returned when a pre-compile is queried for its code.
-pub(crate) const EVM_REVERT: [u8; 5] = sp_core::hex2array!("60006000fd");
+///
+/// This is the default value of [`Precompile::CODE`]. It decodes as `PUSH1 0x00, PUSH1 0x00,
+/// REVERT`, so a pre-compile called through the EVM interpreter rather than through the
+/// pre-compile dispatch would revert rather than do something unexpected.
+pub const EVM_REVERT: [u8; 5] = sp_core::hex2array!("60006000fd");
 
 /// The composition of all available pre-compiles.
 ///
@@ -216,6 +220,19 @@ pub trait Precompile {
 	/// unlocks.
 	const HAS_CONTRACT_INFO: bool;
 
+	/// The bytecode reported for every address this pre-compile matches.
+	///
+	/// This code is never executed. It is only what `EXTCODESIZE`, `EXTCODEHASH`, `EXTCODECOPY`
+	/// and `eth_getCode` observe. The default reverts, which is enough to stop the address being
+	/// mistaken for an externally owned account.
+	///
+	/// Overriding it is worthwhile because block explorers key contract metadata on the exact
+	/// bytecode: two pre-compiles sharing this constant are indistinguishable to them, so an ABI
+	/// verified against one address is attributed to all of them. Supply a distinct blob per
+	/// interface — not per address — so that a single verification covers every address the
+	/// pre-compile matches.
+	const CODE: &[u8] = &EVM_REVERT;
+
 	/// Entry point for your pre-compile when `HAS_CONTRACT_INFO = false`.
 	#[allow(unused_variables)]
 	fn call(
@@ -357,6 +374,7 @@ impl<P: Precompile> BuiltinPrecompile for P {
 	type Interface = <Self as Precompile>::Interface;
 	const MATCHER: BuiltinAddressMatcher = P::MATCHER.into_builtin();
 	const HAS_CONTRACT_INFO: bool = P::HAS_CONTRACT_INFO;
+	const CODE: &[u8] = <P as Precompile>::CODE;
 
 	fn call(
 		address: &[u8; 20],

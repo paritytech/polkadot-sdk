@@ -1894,6 +1894,16 @@ where
 		top_frame_mut!(self)
 	}
 
+	/// Code that exists only virtually and is never written to `PristineCode`.
+	fn virtual_code(&self, address: &H160) -> Option<&[u8]> {
+		<AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		})
+	}
+
 	/// Iterator over all frames.
 	///
 	/// The iterator starts with the top frame and ends with the root frame.
@@ -2383,12 +2393,7 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
+		if let Some(code) = self.virtual_code(address) {
 			return sp_io::hashing::keccak_256(code).into();
 		}
 
@@ -2403,12 +2408,7 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
+		if let Some(code) = self.virtual_code(address) {
 			return code.len() as u64;
 		}
 
@@ -2559,15 +2559,26 @@ where
 			return;
 		}
 
-		let code_hash = self.code_hash(address);
-		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+		let mut copy = move |mut code: &[u8]| {
+			let len = if let Some(code) = code.split_off(code_offset..) {
+				// Get the minimum length of the two slices to avoid out of bounds panics.
+				let len = len.min(code.len());
+				if len > 0 {
+					buf[..len].copy_from_slice(&code[..len]);
+				}
+				len
+			} else {
+				0
+			};
+			buf[len..].fill(0);
+		};
 
-		let len = len.min(code.len().saturating_sub(code_offset));
-		if len > 0 {
-			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+		if let Some(code) = self.virtual_code(address) {
+			return copy(code);
 		}
 
-		buf[len..].fill(0);
+		let code_hash = self.code_hash(address);
+		copy(&crate::PristineCode::<T>::get(&code_hash).unwrap_or_default());
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
