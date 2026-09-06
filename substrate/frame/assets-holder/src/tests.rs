@@ -556,3 +556,22 @@ mod impl_hold_mutate {
 		});
 	}
 }
+
+mod impl_inspect {
+	use super::*;
+
+	#[test]
+	fn is_sufficient_delegates_to_pallet_assets() {
+		new_test_ext(|| {
+			// The genesis asset is sufficient; the wrapper must report the same answer as
+			// the wrapped pallet rather than the trait's `false` default.
+			assert!(AssetsHolder::is_sufficient(ASSET_ID));
+			assert_eq!(
+				AssetsHolder::is_sufficient(ASSET_ID),
+				<Assets as Inspect<AccountId>>::is_sufficient(ASSET_ID),
+			);
+			// An unknown asset is not sufficient.
+			assert!(!AssetsHolder::is_sufficient(ASSET_ID + 1));
+		});
+	}
+}
