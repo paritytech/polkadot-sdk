@@ -672,6 +672,13 @@ impl Statement {
 		(self.expiry >> 32) as u32
 	}
 
+	/// Whether the statement has expired at `now_secs`, a unix timestamp in seconds.
+	///
+	/// Expired once `now_secs` reaches the expiration timestamp.
+	pub fn is_expired(&self, now_secs: u64) -> bool {
+		now_secs >= u64::from(self.get_expiration_timestamp_secs())
+	}
+
 	/// Return encoded fields that can be signed to construct or verify a proof
 	fn signature_material(&self) -> Vec<u8> {
 		self.encoded(true)
