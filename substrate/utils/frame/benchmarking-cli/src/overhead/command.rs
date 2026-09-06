@@ -65,6 +65,7 @@ use sp_runtime::{
 };
 use sp_storage::Storage;
 use sp_wasm_interface::HostFunctions;
+use sp_weights::Weight;
 use std::{
 	fmt::{Display, Formatter},
 	fs,
@@ -154,6 +155,42 @@ pub struct OverheadParams {
 	/// Useful for creating specific testing scenarios like many accounts for benchmarking.
 	#[arg(long)]
 	pub genesis_patch: Option<PathBuf>,
+
+	/// Subtract extension and signature weights from the generated extrinsic base weight.
+	///
+	/// The per-extrinsic overhead benchmark measures wall-clock time to execute a block that
+	/// contains `System::remark` extrinsics built by the default [SubstrateRemarkBuilder]
+	/// (subxt-based signed remark) unless a custom builder is provided via
+	/// `run_with_extrinsic_builder*`. Raw timing statistics are left unchanged.
+	///
+	/// This flag controls whether the generated weight expression in the template includes
+	/// explicit `Weight::saturating_sub(...)` terms for `--signature-weight` and
+	/// `--extension-weight`. Defaults to `true`; pass `--extrinsic-subtract-weight=false` to
+	/// disable.
+	#[arg(
+		long,
+		alias = "subtract-extensions",
+		num_args = 0..=1,
+		default_value_t = true,
+		default_missing_value = "true",
+		action = clap::ArgAction::Set,
+	)]
+	pub extrinsic_subtract_weight: bool,
+
+	/// `ref_time` of signature verification for the remark extrinsic used by the benchmark.
+	///
+	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
+	/// reporting benchmark statistics. Proof size is assumed to be zero (signature verification
+	/// does not touch storage).
+	#[arg(long)]
+	pub signature_weight: Option<u64>,
+
+	/// `ref_time` of all transaction extensions on the remark extrinsic used by the benchmark.
+	///
+	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
+	/// reporting benchmark statistics. Proof size is assumed to be zero.
+	#[arg(long)]
+	pub extension_weight: Option<u64>,
 }
 
 /// How the genesis state for benchmarking should be built.
@@ -620,12 +657,19 @@ impl OverheadCmd {
 				&self.params,
 				&stats,
 				proof_size,
+				None,
 			)?;
 			template.write(&self.params.weight.weight_path)?;
 		}
 		// per-extrinsic execution overhead
 		{
 			let (stats, proof_size) = bench.bench_extrinsic(ext_builder)?;
+
+			let subtract_weights = self.params.extrinsic_subtract_weight.then_some((
+				Weight::from_parts(self.params.signature_weight.unwrap_or_default(), 0),
+				Weight::from_parts(self.params.extension_weight.unwrap_or_default(), 0),
+			));
+
 			info!(target: LOG_TARGET, "Per-extrinsic execution overhead [ns]:\n{:?}", stats);
 			let template = TemplateData::new(
 				BenchmarkType::Extrinsic,
@@ -633,6 +677,7 @@ impl OverheadCmd {
 				&self.params,
 				&stats,
 				proof_size,
+				subtract_weights,
 			)?;
 			template.write(&self.params.weight.weight_path)?;
 		}

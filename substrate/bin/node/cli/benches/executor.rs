@@ -151,7 +151,7 @@ fn test_blocks(
 		function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: 0 }),
 	}];
 	block1_extrinsics.extend((0..20).map(|i| CheckedExtrinsic {
-		format: ExtrinsicFormat::Signed(alice(), tx_ext(i, 0)),
+		format: ExtrinsicFormat::Signed(alice(), tx_ext(i, 0), Default::default()),
 		function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 			dest: bob().into(),
 			value: 1 * DOLLARS,

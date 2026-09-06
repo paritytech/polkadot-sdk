@@ -50,7 +50,10 @@ pub enum ExtrinsicFormat<AccountId, ExtensionV0, ExtensionOtherVersions = Invali
 	Bare,
 	/// Extrinsic has a default `Origin` of `Signed(AccountId)` and must pass all
 	/// `TransactionExtension`s regular checks and includes all extension data.
-	Signed(AccountId, ExtensionV0),
+	///
+	/// The trailing [`Weight`] is the static signature-verification weight of the (already
+	/// verified and discarded) signature, recorded so it can be accounted as preamble weight.
+	Signed(AccountId, ExtensionV0, Weight),
 	/// Extrinsic has a default `Origin` of `None` and must pass all `TransactionExtension`s.
 	/// regular checks and includes all extension data.
 	General(ExtensionVariant<ExtensionV0, ExtensionOtherVersions>),
@@ -103,7 +106,7 @@ where
 				let legacy_validation = ExtensionV0::bare_validate(&self.function, info, len)?;
 				Ok(legacy_validation.combine_with(inherent_validation))
 			},
-			ExtrinsicFormat::Signed(ref signer, ref extension) => {
+			ExtrinsicFormat::Signed(ref signer, ref extension, _) => {
 				let origin = Some(signer.clone()).into();
 				extension
 					.validate_only(origin, &self.function, info, len, source, EXTENSION_V0_VERSION)
@@ -135,7 +138,7 @@ where
 				ExtensionV0::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
 				Ok(res)
 			},
-			ExtrinsicFormat::Signed(signer, extension) => extension.dispatch_transaction(
+			ExtrinsicFormat::Signed(signer, extension, _) => extension.dispatch_transaction(
 				Some(signer).into(),
 				self.function,
 				info,
@@ -162,8 +165,18 @@ where
 	pub fn extension_weight(&self) -> Weight {
 		match &self.format {
 			ExtrinsicFormat::Bare => Weight::zero(),
-			ExtrinsicFormat::Signed(_, ext) => ext.weight(&self.function),
+			ExtrinsicFormat::Signed(_, ext, _) => ext.weight(&self.function),
 			ExtrinsicFormat::General(ext) => ext.weight(&self.function),
+		}
+	}
+
+	/// Returns the static signature-verification weight of this transaction's preamble.
+	///
+	/// Non-zero only for signed extrinsics; it is the value recorded during signature verification.
+	pub fn signature_weight(&self) -> Weight {
+		match &self.format {
+			ExtrinsicFormat::Signed(_, _, weight) => *weight,
+			ExtrinsicFormat::Bare | ExtrinsicFormat::General(_) => Weight::zero(),
 		}
 	}
 }
