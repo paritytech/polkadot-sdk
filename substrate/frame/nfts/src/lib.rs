@@ -414,6 +414,18 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>>
+		for Pallet<T, I>
+	{
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
@@ -1931,6 +1943,192 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			Self::validate_signature(&Encode::encode(&data), &signature, &signer)?;
 			Self::do_set_attributes_pre_signed(origin, data, signer)
+		}
+	}
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet.
+		///
+		/// This should be valid before or after each state transition of this pallet.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::try_state_collection_counters()?;
+			Self::try_state_collection_references()?;
+			Self::try_state_collection_configs()?;
+			Self::try_state_item_accounts()?;
+			Self::try_state_collection_accounts()?;
+			Self::try_state_item_prices()?;
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * A collection caches how many items, item metadata entries and item configs it holds.
+		///   `destroy` checks these counts against the witness it is given and uses `item_configs`
+		///   to bound how many configs it clears, so a stale count either blocks the collection
+		///   from being destroyed or leaves configs behind once it has run.
+		///
+		/// Note that `attributes` is deliberately not checked here.
+		/// `cancel_item_attributes_approval` drains a delegate's attributes without decrementing
+		/// the counter, so the cached value can legitimately exceed the number of stored
+		/// attributes until that is fixed.
+		fn try_state_collection_counters() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, details) in Collection::<T, I>::iter() {
+				ensure!(
+					details.items as usize == Item::<T, I>::iter_prefix(&collection).count(),
+					"`items` must match the number of items held by the collection"
+				);
+
+				ensure!(
+					details.item_metadatas as usize ==
+						ItemMetadataOf::<T, I>::iter_prefix(&collection).count(),
+					"`item_metadatas` must match the number of item metadata entries"
+				);
+
+				ensure!(
+					details.item_configs as usize ==
+						ItemConfigOf::<T, I>::iter_prefix(&collection).count(),
+					"`item_configs` must match the number of item configs"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * Destroying a collection clears everything keyed by it, so no item, metadata entry,
+		///   attribute, item config or role may name a collection which no longer exists.
+		fn try_state_collection_references() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, _) in Item::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"an item must belong to a collection that exists"
+				);
+			}
+
+			for (collection, _) in ItemMetadataOf::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"item metadata must belong to a collection that exists"
+				);
+			}
+
+			for collection in CollectionMetadataOf::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"collection metadata must belong to a collection that exists"
+				);
+			}
+
+			for (collection, _) in ItemConfigOf::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"an item config must belong to a collection that exists"
+				);
+			}
+
+			for (collection, _, _, _) in Attribute::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"an attribute must belong to a collection that exists"
+				);
+			}
+
+			for (collection, _) in CollectionRoleOf::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"a role must belong to a collection that exists"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * A collection and its config are written together when it is created and removed
+		///   together when it is destroyed. Every dispatchable reads the config to decide what is
+		///   permitted, so a collection without one cannot be operated on at all.
+		fn try_state_collection_configs() -> Result<(), sp_runtime::TryRuntimeError> {
+			for collection in Collection::<T, I>::iter_keys() {
+				ensure!(
+					CollectionConfigOf::<T, I>::contains_key(&collection),
+					"a collection must have a config"
+				);
+			}
+
+			for collection in CollectionConfigOf::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"a config must belong to a collection that exists"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `Account` is the reverse index used to enumerate the items held by an account. It must
+		///   name exactly the owner recorded against each item, otherwise an item is either missing
+		///   from that enumeration or attributed to the wrong account.
+		fn try_state_item_accounts() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, item, details) in Item::<T, I>::iter() {
+				ensure!(
+					Account::<T, I>::contains_key((&details.owner, &collection, &item)),
+					"an item's owner must be recorded in `Account`"
+				);
+			}
+
+			for (owner, collection, item) in Account::<T, I>::iter_keys() {
+				let details = Item::<T, I>::get(&collection, &item)
+					.ok_or("`Account` must not name an item which does not exist")?;
+
+				ensure!(details.owner == owner, "`Account` must name the owner of the item");
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `CollectionAccount` is the same reverse index one level up, used to enumerate the
+		///   collections owned by an account, and must agree with the owner of each collection.
+		fn try_state_collection_accounts() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, details) in Collection::<T, I>::iter() {
+				ensure!(
+					CollectionAccount::<T, I>::contains_key(&details.owner, &collection),
+					"a collection's owner must be recorded in `CollectionAccount`"
+				);
+			}
+
+			for (owner, collection) in CollectionAccount::<T, I>::iter_keys() {
+				let details = Collection::<T, I>::get(&collection)
+					.ok_or("`CollectionAccount` must not name a collection which does not exist")?;
+
+				ensure!(
+					details.owner == owner,
+					"`CollectionAccount` must name the owner of the collection"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * A price is cleared whenever the item it belongs to is transferred, burned or has its
+		///   price unset, so a price may never outlive its item and be paid against nothing.
+		fn try_state_item_prices() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, item) in ItemPriceOf::<T, I>::iter_keys() {
+				ensure!(
+					Item::<T, I>::contains_key(&collection, &item),
+					"a price must belong to an item that exists"
+				);
+			}
+
+			Ok(())
 		}
 	}
 }
