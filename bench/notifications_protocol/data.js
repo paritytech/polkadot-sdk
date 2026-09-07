@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788777385484,
+  "lastUpdate": 1788787691807,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -217151,6 +217151,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2675942865,
             "range": "± 69201628",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a9522c5393682d44440ae4f9d9ea6d1aa9c247f2",
+          "message": "Bump alloy-dyn-abi from 1.2.1 to 1.5.7 (#12748)\n\nBumps [alloy-dyn-abi](https://github.com/alloy-rs/core) from 1.2.1 to\n1.5.7.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/alloy-rs/core/releases\">alloy-dyn-abi's\nreleases</a>.</em></p>\n<blockquote>\n<h2>alloy-core v1.5.7</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>fix(sol-macro): prevent direct String usage in expanded code by <a\nhref=\"https://github.com/klkvr\"><code>@​klkvr</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1076\">alloy-rs/core#1076</a></li>\n<li>chore: release 1.5.7 by <a\nhref=\"https://github.com/klkvr\"><code>@​klkvr</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1077\">alloy-rs/core#1077</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/alloy-rs/core/compare/v1.5.6...v1.5.7\">https://github.com/alloy-rs/core/compare/v1.5.6...v1.5.7</a></p>\n<h2>alloy-core v1.5.6</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>chore(deps): bump fixed-cache by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1073\">alloy-rs/core#1073</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/alloy-rs/core/compare/v1.5.5...v1.5.6\">https://github.com/alloy-rs/core/compare/v1.5.5...v1.5.6</a></p>\n<h2>alloy-core v1.5.5</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>chore: enable alloy-rlp MSRV features by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1068\">alloy-rs/core#1068</a></li>\n<li>chore(deps): bump breakings by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1069\">alloy-rs/core#1069</a></li>\n<li>feat(primitives): add <em>flatten</em> extensions by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1070\">alloy-rs/core#1070</a></li>\n<li>test: use checked methods in Signed tests for cranelift compat by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1071\">alloy-rs/core#1071</a></li>\n<li>test: speed up Miri tests by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1072\">alloy-rs/core#1072</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/alloy-rs/core/compare/v1.5.4...v1.5.5\">https://github.com/alloy-rs/core/compare/v1.5.4...v1.5.5</a></p>\n<h2>alloy-core v1.5.4</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>ci: fix rkyv miri breakage by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1066\">alloy-rs/core#1066</a></li>\n<li>chore(sol-macro): use sha3 by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1064\">alloy-rs/core#1064</a></li>\n<li>perf(primitives): remove unnecessary keccak cache length hash\ncomputation by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1065\">alloy-rs/core#1065</a></li>\n<li>perf(primitives): use keccak_asm::Keccak256::digest by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1067\">alloy-rs/core#1067</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/alloy-rs/core/compare/v1.5.3...v1.5.4\">https://github.com/alloy-rs/core/compare/v1.5.3...v1.5.4</a></p>\n<h2>alloy-core v1.5.3</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>chore(deps): run cargo shear by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1055\">alloy-rs/core#1055</a></li>\n<li>chore(primitives): switch default keccak to sha3 by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1057\">alloy-rs/core#1057</a></li>\n<li>perf(primitives): always enable 'sha3/asm' feature by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1058\">alloy-rs/core#1058</a></li>\n<li>feat(primitives): FixedBytes: schemars::JsonSchema by <a\nhref=\"https://github.com/aatifsyed\"><code>@​aatifsyed</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1059\">alloy-rs/core#1059</a></li>\n<li>chore: allow bincode advisory in deny.toml by <a\nhref=\"https://github.com/mattsse\"><code>@​mattsse</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1060\">alloy-rs/core#1060</a></li>\n<li>ci: update to tempoxyz by <a\nhref=\"https://github.com/DaniPopes\"><code>@​DaniPopes</code></a> in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1062\">alloy-rs/core#1062</a></li>\n</ul>\n<h2>New Contributors</h2>\n<ul>\n<li><a href=\"https://github.com/aatifsyed\"><code>@​aatifsyed</code></a>\nmade their first contribution in <a\nhref=\"https://redirect.github.com/alloy-rs/core/pull/1059\">alloy-rs/core#1059</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/alloy-rs/core/compare/v1.5.2...v1.5.3\">https://github.com/alloy-rs/core/compare/v1.5.2...v1.5.3</a></p>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/alloy-rs/core/blob/main/CHANGELOG.md\">alloy-dyn-abi's\nchangelog</a>.</em></p>\n<blockquote>\n<h2><a\nhref=\"https://github.com/alloy-rs/core/releases/tag/v1.5.7\">1.5.7</a> -\n2026-02-27</h2>\n<h3>Bug Fixes</h3>\n<ul>\n<li>[sol-macro] Prevent direct String usage in expanded code (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1076\">#1076</a>)</li>\n</ul>\n<h3>Miscellaneous Tasks</h3>\n<ul>\n<li>Release 1.5.7 (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1077\">#1077</a>)</li>\n</ul>\n<h2><a\nhref=\"https://github.com/alloy-rs/core/releases/tag/v1.5.6\">1.5.6</a> -\n2026-02-12</h2>\n<h3>Dependencies</h3>\n<ul>\n<li>[deps] Bump fixed-cache (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1073\">#1073</a>)</li>\n</ul>\n<h3>Miscellaneous Tasks</h3>\n<ul>\n<li>Release 1.5.6</li>\n<li>Fix changelog</li>\n</ul>\n<h2><a\nhref=\"https://github.com/alloy-rs/core/releases/tag/v1.5.5\">1.5.5</a> -\n2026-02-11</h2>\n<h3>Dependencies</h3>\n<ul>\n<li>[deps] Bump breakings (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1069\">#1069</a>)</li>\n</ul>\n<h3>Features</h3>\n<ul>\n<li>[primitives] Add <em>flatten</em> extensions (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1070\">#1070</a>)</li>\n</ul>\n<h3>Miscellaneous Tasks</h3>\n<ul>\n<li>Release 1.5.5</li>\n<li>Enable alloy-rlp MSRV features (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1068\">#1068</a>)</li>\n</ul>\n<h3>Testing</h3>\n<ul>\n<li>Speed up Miri tests (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1072\">#1072</a>)</li>\n<li>Use checked methods in Signed tests for cranelift compat (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1071\">#1071</a>)</li>\n</ul>\n<h2><a\nhref=\"https://github.com/alloy-rs/core/releases/tag/v1.5.4\">1.5.4</a> -\n2026-01-28</h2>\n<h3>Miscellaneous Tasks</h3>\n<ul>\n<li>Release 1.5.4</li>\n<li>[sol-macro] Use sha3 (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1064\">#1064</a>)</li>\n</ul>\n<h3>Other</h3>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/e6b30e4c2407cd1d2ea93e79f2768e5a4f21d266\"><code>e6b30e4</code></a>\nchore: release 1.5.7 (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1077\">#1077</a>)</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/b198aed364f5da85ccad5ad25ca2c5aaead5185c\"><code>b198aed</code></a>\nfix(sol-macro): prevent direct String usage in expanded code (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1076\">#1076</a>)</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/0fc5ab481952347a594984b47e7fa64a6a29016e\"><code>0fc5ab4</code></a>\nchore: release 1.5.6</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/f170adf94cc66d570db65c3d660ea42491c83480\"><code>f170adf</code></a>\nchore(deps): bump fixed-cache (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1073\">#1073</a>)</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/b6ab15e06b29375911dde77997a8ed1fd789fa5b\"><code>b6ab15e</code></a>\nchore: fix changelog</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/d91340207417b4b7c120b8abed87e8ad704f154e\"><code>d913402</code></a>\nchore: release 1.5.5</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/a12d70389d0a6b5c9191f08110a9b0f2e9b7aba5\"><code>a12d703</code></a>\ntest: speed up Miri tests (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1072\">#1072</a>)</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/372b9d129381b665130d7a240e384a899399d71b\"><code>372b9d1</code></a>\ntest: use checked methods in Signed tests for cranelift compat (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1071\">#1071</a>)</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/25039848cfa2c171d2f52dd4b68eb03dae8ba53b\"><code>2503984</code></a>\nfeat(primitives): add <em>flatten</em> extensions (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1070\">#1070</a>)</li>\n<li><a\nhref=\"https://github.com/alloy-rs/core/commit/9b846b99493d641c908ff0e9bd73dda9b172d5d4\"><code>9b846b9</code></a>\nchore(deps): bump breakings (<a\nhref=\"https://redirect.github.com/alloy-rs/core/issues/1069\">#1069</a>)</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/alloy-rs/core/compare/v1.2.1...v1.5.7\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=alloy-dyn-abi&package-manager=cargo&previous-version=1.2.1&new-version=1.5.7)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nYou can trigger a rebase of this PR by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the\n[Security Alerts\npage](https://github.com/paritytech/polkadot-sdk/network/alerts).\n\n</details>\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-07T11:40:50Z",
+          "tree_id": "8efa1def92de7bd9c05caabd4618d20cb6c844c2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9522c5393682d44440ae4f9d9ea6d1aa9c247f2"
+        },
+        "date": 1788787654182,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4684072,
+            "range": "± 55275",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 304970,
+            "range": "± 5062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4807528,
+            "range": "± 51755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 387078,
+            "range": "± 3659",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5946393,
+            "range": "± 78981",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 963909,
+            "range": "± 14588",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11579132,
+            "range": "± 124388",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5066071,
+            "range": "± 111992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 47544053,
+            "range": "± 674534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40453837,
+            "range": "± 610498",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 396796770,
+            "range": "± 11549420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 314325164,
+            "range": "± 5288446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2695086172,
+            "range": "± 27359413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2440790935,
+            "range": "± 20262038",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3479493,
+            "range": "± 62280",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1874258,
+            "range": "± 19878",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3618658,
+            "range": "± 53285",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1929307,
+            "range": "± 16255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4082671,
+            "range": "± 48990",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2244579,
+            "range": "± 12858",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8199193,
+            "range": "± 99345",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5282748,
+            "range": "± 87375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38550716,
+            "range": "± 348122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37316102,
+            "range": "± 427548",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 320761917,
+            "range": "± 1086217",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 278360908,
+            "range": "± 1561178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2583183616,
+            "range": "± 39109728",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2497858524,
+            "range": "± 61810570",
             "unit": "ns/iter"
           }
         ]
