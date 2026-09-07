@@ -97,8 +97,7 @@ pub mod pallet {
 		/// system.
 		type Coretime: CoretimeInterface;
 
-		/// Locks the para behind a task once the task is given Coretime, so that its manager can
-		/// no longer act on it. `()` where this chain has no registrar to lock it in.
+		/// Told when a task is given Coretime. `()` for a runtime with nothing to tell.
 		///
 		/// Whatever this costs is measured as part of `assign`, which is what calls it, so a
 		/// runtime that sets it to anything but `()` has to rerun this pallet's benchmarks.
