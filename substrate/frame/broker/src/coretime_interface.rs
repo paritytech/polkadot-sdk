@@ -133,19 +133,16 @@ impl CoretimeInterface for () {
 	}
 }
 
-/// Locks the para behind a task that has been given Coretime.
+/// Told when a task is given Coretime.
 ///
-/// A para that holds a core should answer to its own governance rather than to whoever registered
-/// it, so the registrar is told to shut the manager out. `()` where there is no registrar to talk
-/// to.
-pub trait ParaLock {
-	/// Lock the para behind `task`.
-	///
-	/// Having nothing to lock is not an error: `task` may be a para the local registrar never
-	/// handed out, or one that is locked already. Implementations swallow that.
-	fn lock(task: TaskId);
+/// Exists so a chain that registers tasks as well as selling them Coretime can learn that one of
+/// them has started using a core. Whether that means anything, and whether only the first time
+/// counts, is the listener's business. `()` for a runtime with nothing to tell.
+pub trait OnCoreAssigned {
+	/// `task` now has Coretime.
+	fn on_core_assigned(task: TaskId);
 }
 
-impl ParaLock for () {
-	fn lock(_task: TaskId) {}
+impl OnCoreAssigned for () {
+	fn on_core_assigned(_task: TaskId) {}
 }
