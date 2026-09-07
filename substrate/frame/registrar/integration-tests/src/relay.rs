@@ -65,6 +65,9 @@ pub type BlockNumber = u32;
 pub const BLOCKS_PER_SESSION: BlockNumber = 3;
 pub const MAX_PENDING: u32 = 4;
 
+/// How long the relay chain will accept the blob for an authorized code upgrade.
+pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
+
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
 
@@ -196,6 +199,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = frame_support::traits::ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = frame_support::traits::ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = frame_support::traits::ConstU32<MAX_PENDING>;
+	type CodeUpgradeValidPeriod = frame_support::traits::ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = RegistrarUnsignedPriority;
 	type WeightInfo = ();
 }

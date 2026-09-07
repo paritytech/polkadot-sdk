@@ -45,6 +45,13 @@
 //! The relay chain also tells the parachain when a para produces a head, so the chain holding
 //! the manager relationship can lock the para. See [`OnNewParaHead`].
 //!
+//! ## Code upgrades
+//!
+//! [`Pallet::apply_authorized_code_upgrade`] splits the same way, but the authorization does lapse
+//! after [`Config::CodeUpgradeValidPeriod`]: whether an upgrade may be scheduled at all depends on
+//! relay-chain state that moves on its own. No deposit is involved, so nothing has to be given
+//! back and no cancellation round trip exists.
+//!
 //! ## Runtime requirement
 //!
 //! `apply_authorized_code` authorizes itself through [`frame_support::pallet_macros::authorize`],
@@ -115,12 +122,31 @@ pub struct PendingRegistration<AccountId, MaxHeadDataSize: Get<u32>> {
 pub type PendingRegistrationOf<T> =
 	PendingRegistration<<T as frame_system::Config>::AccountId, <T as Config>::MaxHeadDataSize>;
 
+/// A code upgrade the parachain has authorized, waiting on its validation code.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug,
+)]
+pub struct PendingCodeUpgrade<BlockNumber> {
+	/// The id of the [`MessageToRelayV1::AuthorizeCodeUpgrade`] that created this entry.
+	pub message_id: u64,
+	/// Blake2-256 hash the validation code must have.
+	pub code_hash: H256,
+	/// Exact length the validation code must have.
+	pub code_len: u32,
+	/// The block from which the blob is no longer accepted.
+	///
+	/// Unlike a registration this does time out: whether an upgrade may be scheduled at all
+	/// depends on relay-chain state that moves on its own, so an old authorization is no longer
+	/// something this chain has really agreed to.
+	pub expire_at: BlockNumber,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{BlakeTwo256, Hash};
+	use sp_runtime::traits::{BlakeTwo256, Hash, SaturatedConversion, Saturating};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -155,7 +181,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPendingRegistrations: Get<u32>;
 
-		/// Priority given to a valid [`Pallet::apply_authorized_code`] in the transaction pool.
+		/// How long an authorized code upgrade stays valid for.
+		///
+		/// [`PendingCodeUpgrades`] is not capped: an entry needs a para this chain has already
+		/// registered, is a single fixed-size item, and a fresh request from the same para
+		/// replaces it. So no sweep runs here; an expired entry simply stops being applicable.
+		#[pallet::constant]
+		type CodeUpgradeValidPeriod: Get<BlockNumberFor<Self>>;
+
+		/// Priority given to a valid code upload in the transaction pool.
 		#[pallet::constant]
 		type UnsignedPriority: Get<TransactionPriority>;
 
@@ -173,6 +207,11 @@ pub mod pallet {
 	pub type PendingRegistrations<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingRegistrationOf<T>>;
 
+	/// Code upgrades waiting on their validation code, by para id.
+	#[pallet::storage]
+	pub type PendingCodeUpgrades<T: Config> =
+		StorageMap<_, Blake2_128Concat, ParaId, PendingCodeUpgrade<BlockNumberFor<T>>>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -186,6 +225,17 @@ pub mod pallet {
 		AuthorizationCancelled { para_id: ParaId, message_id: u64 },
 		/// A cancellation arrived after the para had already been onboarded, and was refused.
 		CancellationRefused { para_id: ParaId, message_id: u64 },
+		/// A code upgrade was authorized and is waiting on its validation code.
+		CodeUpgradePending {
+			para_id: ParaId,
+			message_id: u64,
+			code_hash: H256,
+			expire_at: BlockNumberFor<T>,
+		},
+		/// A code upgrade request was refused.
+		CodeUpgradeRejected { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// An authorized code upgrade was scheduled.
+		CodeUpgradeApplied { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
 		ReportFailed { para_id: ParaId, message_id: u64 },
 		/// The parachain was told that a para produced its first head.
@@ -204,6 +254,8 @@ pub mod pallet {
 		CodeLenMismatch,
 		/// The validation code is larger than this pallet will accept.
 		CodeTooLarge,
+		/// The code upgrade authorization has lapsed.
+		AuthorizationExpired,
 	}
 
 	#[pallet::call]
@@ -219,9 +271,10 @@ pub mod pallet {
 				T::WeightInfo::receive_register(genesis_head.len() as u32),
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
 				T::WeightInfo::receive_cancel_registration(),
+			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) =>
+				T::WeightInfo::receive_authorize_code_upgrade(),
 			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::zero(),
 		})]
 		pub fn receive(
@@ -258,11 +311,10 @@ pub mod pallet {
 				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
 					para_id,
 					message_id,
-					manager,
 					code_hash,
 					code_len,
 				}) => Self::on_authorize_code_upgrade_request(
-					para_id, message_id, manager, code_hash, code_len,
+					para_id, message_id, code_hash, code_len,
 				),
 				MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
 					para_id,
@@ -313,6 +365,34 @@ pub mod pallet {
 			});
 			Ok(Pays::No.into())
 		}
+
+		/// Upload the validation code for an authorized upgrade, scheduling it.
+		///
+		/// Needs no signature and pays no fee, for the same reason as
+		/// [`Pallet::apply_authorized_code`]: the authorization already fixes the exact bytes.
+		#[pallet::call_index(2)]
+		#[pallet::authorize(Self::authorize_apply_authorized_code_upgrade)]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_apply_authorized_code_upgrade(validation_code.len() as u32))]
+		#[pallet::weight(T::WeightInfo::apply_authorized_code_upgrade(validation_code.len() as u32))]
+		pub fn apply_authorized_code_upgrade(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			validation_code: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			ensure_authorized(origin)?;
+
+			let pending = Self::validate_pending_upgrade(para_id, &validation_code)?;
+
+			// A refusal here fails the extrinsic and leaves the authorization in place, so the
+			// upload can be retried once whatever blocked it clears.
+			T::Registrar::schedule_code_upgrade(para_id, validation_code)?;
+			PendingCodeUpgrades::<T>::remove(para_id);
+
+			let message_id = pending.message_id;
+			Self::report_code_upgrade_scheduled(para_id, message_id);
+			Self::deposit_event(Event::CodeUpgradeApplied { para_id, message_id });
+			Ok(Pays::No.into())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -333,6 +413,31 @@ pub mod pallet {
 			// until the code is applied or the parachain cancels, and revalidation drops it then.
 			let validity = ValidTransaction::with_tag_prefix("RegistrarApplyAuthorizedCode")
 				.priority(T::UnsignedPriority::get())
+				.and_provides((*para_id, pending.code_hash))
+				.propagate(true)
+				.build()?;
+
+			Ok((validity, Weight::zero()))
+		}
+
+		/// Decide whether an unsigned [`Pallet::apply_authorized_code_upgrade`] may enter the pool
+		/// and a block.
+		#[allow(clippy::ptr_arg)]
+		pub fn authorize_apply_authorized_code_upgrade(
+			_source: TransactionSource,
+			para_id: &ParaId,
+			validation_code: &Vec<u8>,
+		) -> TransactionValidityWithRefund {
+			let pending = Self::validate_pending_upgrade(*para_id, validation_code)
+				.map_err(|e| InvalidTransaction::Custom(Self::err_to_code(e)))?;
+
+			// This one does expire, so it must not outlive the authorization in the pool.
+			let now = frame_system::Pallet::<T>::block_number();
+			let longevity = pending.expire_at.saturating_sub(now);
+
+			let validity = ValidTransaction::with_tag_prefix("RegistrarApplyCodeUpgrade")
+				.priority(T::UnsignedPriority::get())
+				.longevity(longevity.try_into().unwrap_or(64))
 				.and_provides((*para_id, pending.code_hash))
 				.propagate(true)
 				.build()?;
@@ -425,6 +530,30 @@ pub mod pallet {
 			Ok(pending)
 		}
 
+		/// Check `validation_code` against the authorized upgrade for `para_id`.
+		fn validate_pending_upgrade(
+			para_id: ParaId,
+			validation_code: &[u8],
+		) -> Result<PendingCodeUpgrade<BlockNumberFor<T>>, Error<T>> {
+			let code_len =
+				u32::try_from(validation_code.len()).map_err(|_| Error::<T>::CodeTooLarge)?;
+			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+
+			let pending =
+				PendingCodeUpgrades::<T>::get(para_id).ok_or(Error::<T>::NothingPending)?;
+			ensure!(
+				frame_system::Pallet::<T>::block_number() <= pending.expire_at,
+				Error::<T>::AuthorizationExpired
+			);
+			ensure!(code_len == pending.code_len, Error::<T>::CodeLenMismatch);
+			ensure!(
+				BlakeTwo256::hash(validation_code) == pending.code_hash,
+				Error::<T>::CodeHashMismatch
+			);
+
+			Ok(pending)
+		}
+
 		/// Map a validation failure onto the `InvalidTransaction::Custom` code it reports.
 		pub fn err_to_code(error: Error<T>) -> u8 {
 			match error {
@@ -432,6 +561,7 @@ pub mod pallet {
 				Error::<T>::CodeHashMismatch => 1,
 				Error::<T>::CodeLenMismatch => 2,
 				Error::<T>::CodeTooLarge => 3,
+				Error::<T>::AuthorizationExpired => 4,
 			}
 		}
 
@@ -458,15 +588,45 @@ pub mod pallet {
 			todo!()
 		}
 
+		/// Park an upgrade authorization for `para_id`, or refuse it, and report either way.
+		///
+		/// Any authorization the para already had is replaced: only the newest one was paid for,
+		/// and this is what keeps the map from growing past one entry per registered para.
 		fn on_authorize_code_upgrade_request(
 			para_id: ParaId,
 			message_id: u64,
-			manager: T::AccountId,
 			code_hash: H256,
 			code_len: u32,
 		) {
-			let _ = (para_id, message_id, manager, code_hash, code_len);
-			todo!()
+			let reason = if code_len > T::MaxCodeSize::get() {
+				Some(FailureReason::InvalidCodeSize)
+			} else {
+				T::Registrar::check_code_upgrade(para_id, code_len).err()
+			};
+
+			if let Some(reason) = reason {
+				Self::report_code_upgrade(para_id, message_id, Err(reason.clone()));
+				return Self::deposit_event(Event::CodeUpgradeRejected {
+					para_id,
+					message_id,
+					reason,
+				});
+			}
+
+			let expire_at = frame_system::Pallet::<T>::block_number()
+				.saturating_add(T::CodeUpgradeValidPeriod::get());
+			PendingCodeUpgrades::<T>::insert(
+				para_id,
+				PendingCodeUpgrade { message_id, code_hash, code_len, expire_at },
+			);
+
+			Self::report_code_upgrade(para_id, message_id, Ok(expire_at.saturated_into()));
+			Self::deposit_event(Event::CodeUpgradePending {
+				para_id,
+				message_id,
+				code_hash,
+				expire_at,
+			});
 		}
 
 		fn on_set_current_head_request(
@@ -502,7 +662,7 @@ pub mod pallet {
 			);
 		}
 
-		#[allow(dead_code)]
+		/// Tell the parachain whether the upgrade was authorized, and until when.
 		fn report_code_upgrade(
 			para_id: ParaId,
 			message_id: u64,
@@ -515,7 +675,7 @@ pub mod pallet {
 			);
 		}
 
-		#[allow(dead_code)]
+		/// Tell the parachain that the uploaded code is now scheduled.
 		fn report_code_upgrade_scheduled(para_id: ParaId, message_id: u64) {
 			Self::report(
 				para_id,
