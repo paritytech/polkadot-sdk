@@ -3144,3 +3144,54 @@ fn force_transfer_can_transfer_provisionally_assigned_region() {
 		);
 	});
 }
+
+/// A claim removes the contribution and reduces the stored payouts before it pays the payee.
+/// If the payment fails, all of these changes must revert. If they do not, the payee keeps no
+/// claim and receives no money, and a later attempt reports `UnknownContribution`.
+#[test]
+fn claim_revenue_reverts_when_pot_cannot_pay() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Give account 2 a claim on pool revenue: reserve a pool core, sell a region to
+		// account 1, and pool that region with account 2 as the payee.
+		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
+		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region, None, 2, Final));
+
+		// Account 1 buys and spends credit. This sends revenue to the pot, where 4 units
+		// belong to account 2 and stay there until it claims them.
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		advance_to(11);
+		assert_eq!(pot(), 4);
+
+		// Empty the pot, so the payout to the payee cannot complete.
+		burn_from_pot(pot());
+		assert_eq!(pot(), 0);
+
+		// Call the extrinsic. It reverts the storage changes when the payout fails.
+		// A direct call to `do_claim_revenue` does not revert them.
+		let contribution_before = InstaPoolContribution::<Test>::get(region);
+		let history_before: Vec<_> = InstaPoolHistory::<Test>::iter().collect();
+
+		// The claim must fail, and it must leave the claim of account 2 in storage.
+		assert_err!(
+			Broker::claim_revenue(RuntimeOrigin::signed(2), region, 100),
+			TokenError::FundsUnavailable
+		);
+
+		assert_eq!(balance(2), 0);
+		assert_eq!(InstaPoolContribution::<Test>::get(region), contribution_before);
+		assert_eq!(InstaPoolHistory::<Test>::iter().collect::<Vec<_>>(), history_before);
+
+		// The claim stays valid. Account 2 receives the full amount after the pot holds
+		// funds again.
+		mint_to_pot(4);
+		assert_ok!(Broker::claim_revenue(RuntimeOrigin::signed(2), region, 100));
+		assert_eq!(balance(2), 4);
+		assert_eq!(pot(), 0);
+	});
+}
