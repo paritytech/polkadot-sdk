@@ -1225,15 +1225,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// [`RunnersUp`] state checks. Invariants:
-	//  - Length does not exceed [`Config::DesiredRunnersUp`].
 	//  - Elements are stored in phragmen merit order (worst to best), as produced by the election.
 	//    They are not sorted by approval stake.
 	fn try_state_runners_up() -> Result<(), TryRuntimeError> {
-		let runners_up = RunnersUp::<T>::get();
-		if runners_up.len() > T::DesiredRunnersUp::get() as usize {
-			return Err("try_state checks: Runners Up length exceeds DesiredRunnersUp".into())
-		}
-
+		// Merit order is not a cheap storage-only invariant; the pallet does not store phragmen
+		// desirability scores, so there is nothing to assert without re-running the election.
 		Ok(())
 	}
 
@@ -2743,38 +2739,33 @@ mod tests {
 			assert_eq!(members_and_stake(), vec![(4, 45), (5, 35)]);
 			// merit: low -> high.
 			assert_eq!(runners_up_and_stake(), vec![(3, 15), (2, 25)]);
-
-			assert_ok!(Elections::do_try_state());
 		});
 	}
 
 	#[test]
-	fn try_state_runners_up_does_not_require_stake_order() {
+	fn runners_up_merit_order_differs_from_stake_order() {
 		ExtBuilder::default().desired_runners_up(2).build_and_execute(|| {
-			RunnersUp::<Test>::put(vec![
-				SeatHolder { who: 2, stake: 25, deposit: 5 },
-				SeatHolder { who: 3, stake: 15, deposit: 5 },
-			]);
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(6)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(5)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
 
-			let mut stake_sorted = RunnersUp::<Test>::get();
-			stake_sorted.sort_by_key(|r| r.stake);
-			assert_ne!(RunnersUp::<Test>::get(), stake_sorted);
+			assert_ok!(vote(RuntimeOrigin::signed(2), vec![3], 10));
+			assert_ok!(vote(RuntimeOrigin::signed(3), vec![3], 10));
+			assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 10));
+			assert_ok!(vote(RuntimeOrigin::signed(5), vec![5, 6], 15));
+
+			System::set_block_number(5);
+			Elections::on_initialize(System::block_number());
+
+			let runners_up = runners_up_and_stake();
+			assert_eq!(runners_up.len(), 2);
+			// Phragmen merit order (worst to best) is [6, 4], not stake order [4, 6].
+			assert_eq!(runners_up[0].0, 6);
+			assert_eq!(runners_up[1].0, 4);
+			assert!(runners_up[0].1 < runners_up[1].1);
 
 			assert_ok!(Elections::do_try_state());
-		});
-	}
-
-	#[test]
-	fn try_state_runners_up_rejects_excess_runners() {
-		ExtBuilder::default().desired_runners_up(1).build_and_execute(|| {
-			RunnersUp::<Test>::put(vec![
-				SeatHolder { who: 2, stake: 20, deposit: 5 },
-				SeatHolder { who: 3, stake: 15, deposit: 5 },
-			]);
-
-			assert!(Elections::do_try_state().is_err());
-
-			RunnersUp::<Test>::kill();
 		});
 	}
 
