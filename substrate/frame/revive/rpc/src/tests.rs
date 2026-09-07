@@ -393,6 +393,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_new_heads_subscription_delivers_matching_header_via_alloy,
 		test_subscribe_new_heads_multiple_blocks,
 		test_subscribe_logs,
+		test_log_subscription_respects_inclusive_block_bounds,
 		test_subscribe_logs_with_address_filter,
 		test_subscribe_logs_with_topic_filter,
 		test_subscribe_logs_address_filter_excludes_non_matching,
@@ -1398,6 +1399,74 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 	assert!(rpc_logs.contains(&log), "Subscription log should match eth_getLogs result");
 
 	drop(sub);
+	Ok(())
+}
+
+async fn test_log_subscription_respects_inclusive_block_bounds() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let deployment = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let deployment_receipt = deployment.wait_for_receipt().await?;
+	let contract_address = deployment_receipt.contract_address.expect("Contract was deployed");
+	let from_block = deployment_receipt.block_number.as_u64() + 2;
+	let to_block = from_block + 1;
+	let filter = Filter::new()
+		.from_block(from_block)
+		.to_block(to_block)
+		.address([contract_address]);
+	let mut sub = client
+		.eth_subscribe(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(filter)))
+		.await?;
+
+	// Act
+	let mut receipts = Vec::new();
+	for _ in 0..4 {
+		let tx = TransactionBuilder::new(client.clone())
+			.to(contract_address)
+			.value(U256::from(1_000_000_000_000u128))
+			.send()
+			.await?;
+		receipts.push(tx.wait_for_receipt().await?);
+	}
+	let logs = tokio::time::timeout(tokio::time::Duration::from_secs(10), async {
+		let mut logs = Vec::new();
+		for _ in 0..2 {
+			let notification = sub.next().await.expect("Subscription ended before both bounds")?;
+			match notification {
+				SubscriptionItem::Log(log) => logs.push(log),
+				other => panic!("Expected Log, got: {other:?}"),
+			}
+		}
+		anyhow::Ok(logs)
+	})
+	.await
+	.expect("Timed out waiting for logs at both window bounds")?;
+	let extra_notification =
+		tokio::time::timeout(tokio::time::Duration::from_secs(1), sub.next()).await;
+
+	// Assert
+	assert_eq!(
+		receipts.iter().map(|receipt| receipt.block_number).collect::<Vec<_>>(),
+		[from_block - 1, from_block, to_block, to_block + 1].map(U256::from),
+	);
+	for receipt in &receipts {
+		assert_eq!(receipt.logs.len(), 1, "Each transaction must emit a log to exercise its bound");
+	}
+	assert_eq!(
+		logs,
+		receipts[1..=2]
+			.iter()
+			.flat_map(|receipt| receipt.logs.iter().cloned())
+			.collect::<Vec<_>>(),
+	);
+	assert!(
+		matches!(extra_notification, Err(_) | Ok(None)),
+		"Unexpected notification outside the block window: {extra_notification:?}",
+	);
 	Ok(())
 }
 
