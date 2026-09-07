@@ -28,6 +28,7 @@ fn get_parent_hash(hash: Hash) -> Hash {
 
 /// Handle a view update.
 pub(super) async fn update_view(
+	expected_connected: Option<Vec<AuthorityDiscoveryId>>,
 	test_state: &TestState,
 	virtual_overseer: &mut VirtualOverseer,
 	new_view: Vec<(Hash, u32)>, // Hash and block number.
@@ -73,7 +74,6 @@ pub(super) async fn update_view(
 			.take(ancestry_len as usize);
 		let ancestry_numbers = (min_number..=leaf_number).rev();
 		let mut ancestry_iter = ancestry_hashes.clone().zip(ancestry_numbers).peekable();
-
 		if let Some((hash, number)) = ancestry_iter.next() {
 			assert_matches!(
 				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
@@ -190,6 +190,14 @@ pub(super) async fn update_view(
 			);
 		}
 
+		for (_core, _paras) in test_state
+			.claim_queue
+			.iter()
+			.filter(|(_, paras)| paras.contains(&test_state.para_id))
+		{
+			expect_determine_validator_group(virtual_overseer, &test_state).await;
+		}
+
 		for _ in ancestry_iter {
 			while let Some(msg) =
 				overseer_peek_with_timeout(virtual_overseer, Duration::from_millis(50)).await
@@ -206,8 +214,31 @@ pub(super) async fn update_view(
 						_,
 						RuntimeApiRequest::CandidateEvents(_),
 					))
+				) && !matches!(
+					&msg,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionIndexForChild(_),
+					))
 				) {
 					break
+				}
+
+				if matches!(
+					&msg,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionIndexForChild(_),
+					))
+				) {
+					for (_core, _paras) in test_state
+						.claim_queue
+						.iter()
+						.filter(|(_, paras)| paras.contains(&test_state.para_id))
+					{
+						expect_determine_validator_group(virtual_overseer, &test_state).await;
+					}
+					break;
 				}
 
 				match overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50))
@@ -232,6 +263,9 @@ pub(super) async fn update_view(
 				}
 			}
 		}
+	}
+	if let Some(expected_connected) = expected_connected {
+		check_connected_to_validators(virtual_overseer, expected_connected).await;
 	}
 }
 
@@ -313,12 +347,25 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 
 			if validator_sends_view_first {
 				// Activate leaf `c` to accept at least the collation.
-				update_view(&test_state, virtual_overseer, vec![(head_c, head_c_num)], 1).await;
+				update_view(
+					Some(test_state.current_group_validator_authority_ids()),
+					&test_state,
+					virtual_overseer,
+					vec![(head_c, head_c_num)],
+					1,
+				)
+				.await;
 			} else {
 				// Activated leaf is `b`, but the collation will be based on `c`.
-				update_view(&test_state, virtual_overseer, vec![(head_b, head_b_num)], 1).await;
+				update_view(
+					Some(test_state.current_group_validator_authority_ids()),
+					&test_state,
+					virtual_overseer,
+					vec![(head_b, head_b_num)],
+					1,
+				)
+				.await;
 			}
-
 			let validator_peer_ids = test_state.current_group_validator_peer_ids();
 			for (val, peer) in test_state
 				.current_group_validator_authority_ids()
@@ -342,27 +389,16 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 				..Default::default()
 			}
 			.build();
+
 			let DistributeCollation { candidate, pov_block: _ } =
 				distribute_collation_with_receipt(
 					virtual_overseer,
-					&test_state,
-					head_c,
-					false, // Check the group manually.
+					test_state.current_group_validator_authority_ids(),
 					candidate,
 					pov,
 					parent_head_data_hash,
 				)
 				.await;
-			assert_matches!(
-				overseer_recv(virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(
-					NetworkBridgeTxMessage::ConnectToValidators { validator_ids, .. }
-				) => {
-					let expected_validators = test_state.current_group_validator_authority_ids();
-
-					assert_eq!(expected_validators, validator_ids);
-				}
-			);
 
 			let candidate_hash = candidate.hash();
 
@@ -383,7 +419,8 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 
 			if validator_sends_view_first {
 				// Activated leaf is `b`, but the collation will be based on `c`.
-				update_view(&test_state, virtual_overseer, vec![(head_b, head_b_num)], 1).await;
+				update_view(None, &test_state, virtual_overseer, vec![(head_b, head_b_num)], 1)
+					.await;
 
 				for _ in &validator_peer_ids {
 					expect_advertise_collation_msg(
@@ -394,11 +431,24 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 					)
 					.await;
 				}
+
+				check_connected_to_validators(
+					virtual_overseer,
+					test_state.current_group_validator_authority_ids(),
+				)
+				.await;
 			}
 
 			// Head `c` goes out of view.
 			// Build a different candidate for this relay parent and attempt to distribute it.
-			update_view(&test_state, virtual_overseer, vec![(head_a, head_a_num)], 1).await;
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				virtual_overseer,
+				vec![(head_a, head_a_num)],
+				1,
+			)
+			.await;
 
 			let pov = PoV { block_data: BlockData(vec![4, 5, 6]) };
 			let parent_head_data_hash = Hash::repeat_byte(0xBB);
@@ -419,6 +469,12 @@ fn distribute_collation_from_implicit_view(#[case] validator_sends_view_first: b
 					result_sender: None,
 					core_index: CoreIndex(0),
 				},
+			)
+			.await;
+
+			check_connected_to_validators(
+				virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
 			)
 			.await;
 
@@ -463,7 +519,14 @@ fn distribute_collation_up_to_limit() {
 			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
 				.await;
 			// Activated leaf is `a`, but the collation will be based on `b`.
-			update_view(&test_state, virtual_overseer, vec![(head_a, head_a_num)], 1).await;
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				virtual_overseer,
+				vec![(head_a, head_a_num)],
+				1,
+			)
+			.await;
 
 			for i in 0..expected_assignments {
 				let pov = PoV { block_data: BlockData(vec![i as u8]) };
@@ -478,9 +541,7 @@ fn distribute_collation_up_to_limit() {
 				.build();
 				distribute_collation_with_receipt(
 					virtual_overseer,
-					&test_state,
-					head_b,
-					true,
+					test_state.current_group_validator_authority_ids(),
 					candidate,
 					pov,
 					parent_head_data_hash,
@@ -511,6 +572,11 @@ fn distribute_collation_up_to_limit() {
 			)
 			.await;
 
+			check_connected_to_validators(
+				virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+			)
+			.await;
 			// Limit has been reached.
 			assert!(overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(100))
 				.await
@@ -538,6 +604,12 @@ fn distribute_collation_up_to_limit() {
 					result_sender: None,
 					core_index: CoreIndex(1),
 				},
+			)
+			.await;
+
+			check_connected_to_validators(
+				virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
 			)
 			.await;
 
@@ -576,7 +648,24 @@ fn send_parent_head_data_for_elastic_scaling() {
 				CollatorProtocolMessage::CollateOn(test_state.para_id),
 			)
 			.await;
-			update_view(&test_state, &mut virtual_overseer, vec![(head_b, head_b_num)], 1).await;
+			let expected_connected = [CoreIndex(0), CoreIndex(2), CoreIndex(3)]
+				.into_iter()
+				.map(|core| test_state.validator_authority_ids_for_core(core))
+				.fold(HashSet::new(), |mut acc, res| {
+					acc.extend(res.into_iter());
+					acc
+				})
+				.into_iter()
+				.collect::<Vec<_>>();
+
+			update_view(
+				Some(expected_connected.clone()),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(head_b, head_b_num)],
+				1,
+			)
+			.await;
 
 			let pov_data = PoV { block_data: BlockData(vec![1 as u8]) };
 			let candidate = TestCandidateBuilder {
@@ -592,9 +681,7 @@ fn send_parent_head_data_for_elastic_scaling() {
 
 			distribute_collation_with_receipt(
 				&mut virtual_overseer,
-				&test_state,
-				head_b,
-				true,
+				expected_connected,
 				candidate.clone(),
 				pov_data.clone(),
 				phdh,
@@ -689,8 +776,22 @@ fn advertise_and_send_collation_by_hash() {
 				CollatorProtocolMessage::CollateOn(test_state.para_id),
 			)
 			.await;
-			update_view(&test_state, &mut virtual_overseer, vec![(head_b, head_b_num)], 1).await;
-			update_view(&test_state, &mut virtual_overseer, vec![(head_a, head_a_num)], 1).await;
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(head_b, head_b_num)],
+				1,
+			)
+			.await;
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				&mut virtual_overseer,
+				vec![(head_a, head_a_num)],
+				1,
+			)
+			.await;
 
 			let candidates: Vec<_> = (0..2)
 				.map(|i| {
@@ -709,9 +810,7 @@ fn advertise_and_send_collation_by_hash() {
 			for (candidate, pov) in &candidates {
 				distribute_collation_with_receipt(
 					&mut virtual_overseer,
-					&test_state,
-					head_b,
-					true,
+					test_state.current_group_validator_authority_ids(),
 					candidate.clone(),
 					pov.clone(),
 					Hash::zero(),
