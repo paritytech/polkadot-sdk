@@ -295,6 +295,7 @@ members = [
 	"substrate/client/network/common",
 	"substrate/client/network/light",
 	"substrate/client/network/statement",
+	"substrate/client/network/statement/fuzz",
 	"substrate/client/network/sync",
 	"substrate/client/network/test",
 	"substrate/client/network/transactions",

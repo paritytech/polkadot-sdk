@@ -140,8 +140,8 @@ pub struct AffinityFilter {
 }
 
 impl AffinityFilter {
-	#[cfg(test)]
-	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
 		let bloom = BloomFilter::with_false_pos(false_pos)
 			.hasher(PortableBuildHasher::seeded(seed))
 			.expected_items(expected_items);
@@ -149,12 +149,19 @@ impl AffinityFilter {
 	}
 
 	/// Insert a topic into the bloom filter.
-	#[cfg(test)]
-	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn insert(&mut self, topic: &[u8; 32]) {
 		self.bloom.insert(topic);
 	}
 
 	/// Check if a topic is likely present in the bloom filter.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn contains(&self, topic: &[u8; 32]) -> bool {
+		self.bloom.contains(topic)
+	}
+
+	/// Check if a topic is likely present in the bloom filter.
+	#[cfg(not(any(test, feature = "test-helpers")))]
 	pub(crate) fn contains(&self, topic: &[u8; 32]) -> bool {
 		self.bloom.contains(topic)
 	}
