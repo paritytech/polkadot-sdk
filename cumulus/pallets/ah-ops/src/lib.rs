@@ -83,6 +83,7 @@ pub mod pallet {
 			+ LockableCurrency<Self::AccountId, Balance = u128>;
 
 		/// Access the block number of the Relay Chain.
+		#[pallet::constant(::IDENTIFIER)]
 		type RcBlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
 		/// The Weight information for extrinsics in this pallet.

@@ -1,0 +1,35 @@
+title: Expose the BlockNumberProvider used for a given pallet
+doc:
+- audience: Runtime Dev
+  description: Exposes the block number provider used for a given pallet.
+crates:
+- name: sp-runtime
+  bump: minor
+- name: frame-system
+  bump: minor
+- name: frame-support
+  bump: patch
+- name: pallet-treasury
+  bump: minor
+- name: pallet-vesting
+  bump: minor
+- name: pallet-society
+  bump: minor
+- name: pallet-scheduler
+  bump: minor
+- name: pallet-recovery
+  bump: minor
+- name: pallet-referenda
+  bump: minor
+- name: pallet-proxy
+  bump: minor
+- name: pallet-nomination-pools
+  bump: minor
+- name: pallet-nfts
+  bump: minor
+- name: pallet-multisig
+  bump: minor
+- name: pallet-conviction-voting
+  bump: minor
+- name: pallet-ah-ops
+  bump: minor

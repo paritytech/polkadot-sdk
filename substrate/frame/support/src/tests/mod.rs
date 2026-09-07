@@ -34,6 +34,7 @@ pub mod frame_system {
 	use super::{frame_system, frame_system::pallet_prelude::*};
 	pub use crate::dispatch::RawOrigin;
 	use crate::{pallet_prelude::*, traits::tasks::Task as TaskTrait};
+	use sp_runtime::traits::BlockNumberProvider;
 
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
@@ -80,6 +81,9 @@ pub mod frame_system {
 		#[deprecated = "this constant is deprecated"]
 		#[allow(deprecated)]
 		type ExampleConstant: Get<()>;
+		#[pallet::constant(::IDENTIFIER)]
+		#[pallet::no_default]
+		type BlockNumberProvider: sp_runtime::traits::BlockNumberProvider;
 	}
 
 	#[pallet::error]
@@ -257,6 +261,7 @@ impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
 	type ExampleConstant = ();
+	type BlockNumberProvider = ();
 }
 
 fn new_test_ext() -> TestExternalities {
@@ -741,16 +746,25 @@ fn constant_metadata() {
 		Pallet::<Runtime>::pallet_constants_metadata();
 	pretty_assertions::assert_eq!(
 		metadata,
-		vec![sp_metadata_ir::PalletConstantMetadataIR {
-			name: "ExampleConstant",
-			ty: scale_info::meta_type::<()>(),
-			value: vec![],
-			docs: vec![],
-			deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::Deprecated {
-				note: "this constant is deprecated",
-				since: None
-			}
-		},]
+		vec![
+			sp_metadata_ir::PalletConstantMetadataIR {
+				name: "ExampleConstant",
+				ty: scale_info::meta_type::<()>(),
+				value: vec![],
+				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::Deprecated {
+					note: "this constant is deprecated",
+					since: None
+				}
+			},
+			sp_metadata_ir::PalletConstantMetadataIR {
+				name: "BlockNumberProvider",
+				ty: scale_info::meta_type::<&'static str>(),
+				value: codec::Encode::encode(&"System"),
+				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
+			},
+		]
 	);
 }
 
