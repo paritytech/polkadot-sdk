@@ -70,13 +70,13 @@ pub struct Log {
 #[serde(try_from = "FilterRepr", into = "FilterRepr")]
 pub struct Filter {
 	pub block_option: FilterBlockOption,
-	pub address: BTreeSet<H160>,
+	pub addresses: BoundedBTreeSet<H160, ConstU32<1000>>,
 	pub topics: BoundedVec<BoundedBTreeSet<H256, ConstU32<1000>>, ConstU32<4>>,
 }
 
 impl Filter {
 	pub fn matches(&self, log: &Log) -> bool {
-		(self.address.is_empty() || self.address.contains(&log.address)) &&
+		(self.addresses.is_empty() || self.addresses.contains(&log.address)) &&
 			self.topics.len() <= log.topics.len() &&
 			self.topics
 				.iter()
@@ -116,7 +116,11 @@ impl Filter {
 	}
 
 	pub fn address(mut self, addresses: impl IntoIterator<Item = H160>) -> Self {
-		self.address = addresses.into_iter().collect();
+		self.addresses = addresses
+			.into_iter()
+			.collect::<BTreeSet<_>>()
+			.try_into()
+			.expect("test addresses are within bounds");
 		self
 	}
 
@@ -215,9 +219,9 @@ struct FilterRepr {
 	from_block: Option<BlockNumberOrTag>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	to_block: Option<BlockNumberOrTag>,
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	#[serde(rename = "address", default, skip_serializing_if = "Vec::is_empty")]
 	#[serde_as(as = "DefaultOnNull<OneOrMany<_>>")]
-	address: Vec<H160>,
+	addresses: Vec<H160>,
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	#[serde_as(as = "DefaultOnNull<Vec<DefaultOnNull<OneOrMany<_>>>>")]
 	topics: Vec<Vec<Option<H256>>>,
@@ -227,7 +231,7 @@ impl TryFrom<FilterRepr> for Filter {
 	type Error = FilterError;
 
 	fn try_from(repr: FilterRepr) -> Result<Self, Self::Error> {
-		let FilterRepr { block_hash, from_block, to_block, address, topics } = repr;
+		let FilterRepr { block_hash, from_block, to_block, addresses, topics } = repr;
 
 		let block_option = match (block_hash, from_block, to_block) {
 			(Some(block_hash), None, None) => FilterBlockOption::AtBlock { block_hash },
@@ -238,6 +242,11 @@ impl TryFrom<FilterRepr> for Filter {
 			},
 		};
 
+		let addresses = addresses
+			.into_iter()
+			.collect::<BTreeSet<_>>()
+			.try_into()
+			.map_err(|_| FilterError::ExceedMaxAddresses)?;
 		let topics = topics
 			.into_iter()
 			.map(|alternatives| {
@@ -252,7 +261,7 @@ impl TryFrom<FilterRepr> for Filter {
 			.collect::<Result<Vec<_>, _>>()?;
 		let topics = BoundedVec::try_from(topics).map_err(|_| FilterError::ExceedMaxTopics)?;
 
-		Ok(Self { block_option, address: address.into_iter().collect(), topics })
+		Ok(Self { block_option, addresses, topics })
 	}
 }
 
@@ -269,7 +278,7 @@ impl From<Filter> for FilterRepr {
 			block_hash,
 			from_block,
 			to_block,
-			address: filter.address.into_iter().collect(),
+			addresses: filter.addresses.into_iter().collect(),
 			topics: filter
 				.topics
 				.into_iter()
@@ -283,6 +292,8 @@ impl From<Filter> for FilterRepr {
 pub enum FilterError {
 	#[error("cannot specify both BlockHash and FromBlock/ToBlock, choose one or the other")]
 	BlockHashCombinedWithRange,
+	#[error("exceed max addresses")]
+	ExceedMaxAddresses,
 	#[error("exceed max topics")]
 	ExceedMaxTopics,
 }
@@ -383,7 +394,7 @@ mod tests {
 
 		// Assert
 		for filter in [missing, null, empty] {
-			assert!(filter.address.is_empty());
+			assert!(filter.addresses.is_empty());
 			assert!(filter.topics.is_empty());
 		}
 	}
@@ -401,8 +412,8 @@ mod tests {
 		let array = serde_json::from_value::<Filter>(array).unwrap();
 
 		// Assert
-		assert_eq!(scalar.address, BTreeSet::from([first_address]));
-		assert_eq!(array.address, BTreeSet::from([first_address, second_address]));
+		assert_eq!(scalar.addresses, BTreeSet::from([first_address]));
+		assert_eq!(array.addresses, BTreeSet::from([first_address, second_address]));
 	}
 
 	#[test]

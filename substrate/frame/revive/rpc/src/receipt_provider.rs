@@ -775,10 +775,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			},
 		}
 
-		if !filter.address.is_empty() {
+		if !filter.addresses.is_empty() {
 			qb.push(" AND address IN (");
 			let mut separated = qb.separated(", ");
-			for address in filter.address {
+			for address in filter.addresses {
 				separated.push_bind(address.as_bytes().to_vec());
 			}
 			separated.push_unseparated(")");

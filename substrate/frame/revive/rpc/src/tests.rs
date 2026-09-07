@@ -1419,7 +1419,9 @@ async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
 	let options = SubscriptionOptions::LogsOptions(Filter {
-		address: BTreeSet::from([contract_address]),
+		addresses: BTreeSet::from([contract_address])
+			.try_into()
+			.expect("Single address is within bounds"),
 		..Default::default()
 	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
@@ -1604,7 +1606,9 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 	assert_ne!(contract_a, contract_b, "The two contracts must have different addresses");
 
 	let options = SubscriptionOptions::LogsOptions(Filter {
-		address: BTreeSet::from([contract_a]),
+		addresses: BTreeSet::from([contract_a])
+			.try_into()
+			.expect("Single address is within bounds"),
 		..Default::default()
 	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
@@ -1672,7 +1676,9 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 
 	let options = SubscriptionOptions::LogsOptions(Filter {
-		address: BTreeSet::from([contract_a, contract_b]),
+		addresses: BTreeSet::from([contract_a, contract_b])
+			.try_into()
+			.expect("Two addresses are within bounds"),
 		..Default::default()
 	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
@@ -1794,7 +1800,9 @@ async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 
 	let options = SubscriptionOptions::LogsOptions(Filter {
-		address: BTreeSet::from([Account::default().address()]),
+		addresses: BTreeSet::from([Account::default().address()])
+			.try_into()
+			.expect("Single address is within bounds"),
 		..Default::default()
 	});
 
