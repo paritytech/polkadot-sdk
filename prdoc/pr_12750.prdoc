@@ -18,5 +18,6 @@ doc:
 crates:
 - name: pallet-broker
   bump: major
+  validate: false
 - name: coretime-westend-runtime
   bump: patch
