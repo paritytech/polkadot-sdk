@@ -690,31 +690,42 @@ mod add_lock {
 	}
 }
 
-mod lock_para {
+mod note_core_assigned {
 	use super::*;
 
 	#[test]
-	fn locks_without_an_origin() {
+	fn locks_a_registered_para_with_no_origin() {
 		new_test_ext().execute_with(|| {
-			assert_noop!(Registrar::lock_para(4242), Error::<Test>::NotReserved);
-
-			let reserved = reserve_for(ALICE);
-			assert_noop!(Registrar::lock_para(reserved), Error::<Test>::NotRegistered);
-
 			let para_id = registered_para(ALICE);
-			assert_ok!(Registrar::lock_para(para_id));
+
+			Registrar::note_core_assigned(para_id);
+
 			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
 			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
 		});
 	}
 
 	#[test]
-	fn locking_again_changes_nothing() {
+	fn ignores_what_it_cannot_lock() {
+		new_test_ext().execute_with(|| {
+			Registrar::note_core_assigned(4242);
+
+			// Reserved, so there is nothing scheduled for it to be using a core with.
+			let reserved = reserve_for(ALICE);
+			Registrar::note_core_assigned(reserved);
+
+			assert!(!Paras::<Test>::get(reserved).unwrap().is_locked());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_second_assignment_changes_nothing() {
 		new_test_ext().execute_with(|| {
 			let para_id = locked_para(ALICE);
 			let _ = registrar_events();
 
-			assert_ok!(Registrar::lock_para(para_id));
+			Registrar::note_core_assigned(para_id);
 
 			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
 			assert!(registrar_events().is_empty());
@@ -728,7 +739,7 @@ mod lock_para {
 			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
 			let _ = registrar_events();
 
-			assert_ok!(Registrar::lock_para(para_id));
+			Registrar::note_core_assigned(para_id);
 
 			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
 			assert!(registrar_events().is_empty());

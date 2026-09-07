@@ -51,9 +51,9 @@
 //!
 //! [`Pallet::add_lock`] shuts the manager out of a registered para, leaving it to the para's own
 //! governance. Only root or the para itself can lift it again with [`Pallet::remove_lock`].
-//! [`Pallet::lock_para`] is the same lock without the origin check, for a runtime that applies it
-//! on its own trigger. It only ever sets the lock once, so a para deliberately left unlocked stays
-//! that way no matter how often the trigger fires.
+//!
+//! [`Pallet::note_core_assigned`] locks a para the first time the pallet is told it has a core.
+//! Who does the telling is the runtime's business, not this pallet's.
 //!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
 
@@ -554,27 +554,20 @@ impl<T: Config> Pallet<T> {
 		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
 	}
 
-	/// Lock `para_id` with no origin check, for a runtime that locks paras on its own trigger.
+	/// Note that `para_id` has been assigned a core, whoever says so.
 	///
-	/// Only the first call does anything: once the lock has been set either way it is left alone,
-	/// so a lock lifted with [`Pallet::remove_lock`] stays lifted however often the trigger fires.
-	///
-	/// Fails if the para is unknown here or not registered on the relay chain.
-	pub fn lock_para(para_id: ParaId) -> DispatchResult {
-		let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-		if info.locked.is_some() {
-			return Ok(());
+	/// The first assignment locks the para; a lock lifted with [`Pallet::remove_lock`] outranks
+	/// every later one, so an on-demand para is not relocked in each gap between its cores.
+	pub fn note_core_assigned(para_id: ParaId) {
+		let Some(mut info) = Paras::<T>::get(para_id) else { return };
+		if info.locked.is_some() || !matches!(info.state, RegistrationState::Registered { .. }) {
+			return;
 		}
-		ensure!(
-			matches!(info.state, RegistrationState::Registered { .. }),
-			Error::<T>::NotRegistered
-		);
 
 		info.locked = Some(true);
 		Paras::<T>::insert(para_id, info);
 
 		Self::deposit_event(Event::ParaLocked { para_id });
-		Ok(())
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its manager while unlocked, or root.
