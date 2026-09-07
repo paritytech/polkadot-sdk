@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788757751037,
+  "lastUpdate": 1788778336323,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "298bf2cb182b6fe3530568060a47853e630f52cb",
-          "message": "Enforce match_arm_blocks = true for consistent formatting (#10958)\n\n## Summary\n\nFlips `match_arm_blocks` from `false` to `true` to ensure all multi-line\nmatch arm bodies are wrapped in braces consistently.\n\n## Problem\n\nWith `match_arm_blocks = false`, rustfmt doesn't *add* braces to\nmulti-line match arms, but it also doesn't *remove* existing braces.\nThis means both styles are valid:\n\n```rust\n// Style A (no braces)\nAccountIdOrAddress::AccountId(id) =>\n    <T::AddressMapper as AddressMapper<T>>::to_address(id),\n\n// Style B (with braces) - also valid, rustfmt won't change it\nAccountIdOrAddress::AccountId(id) => {\n    <T::AddressMapper as AddressMapper<T>>::to_address(id)\n},\n```\n\nLLMs tend to produce Style B, which creates unnecessary diff noise in\nPRs.\n\n## Solution\n\nSet `match_arm_blocks = true` to enforce Style B everywhere. Now there's\nexactly one valid style, eliminating the ambiguity.\n\n## Impact\n\n556 files changed — this is a one-time formatting update. All future\ncode will be consistently formatted.\n\nFollow-up to #10939.\n\n---------\n\nCo-authored-by: PG <pg@parity.io>\nCo-authored-by: PG Herveou <pg@pgherveou.com>",
-          "timestamp": "2026-02-06T07:25:57Z",
-          "tree_id": "b9543d172b17bc251288c321811b843ef4fc6cbd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/298bf2cb182b6fe3530568060a47853e630f52cb"
-        },
-        "date": 1770366781574,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.22682425786667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11870397589999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13862501463333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78ef156b85dbd1753497f49138125a237bb589ed",
+          "message": "Fix auto-renewal charging tasks for foreign workloads (#12750)\n\n## Summary\n\nA core index doesn't permanently belong to a task. Core assignments are\nrebuilt every region, and a renewal buys a core in the next sale, so a\nworkload can end up on a different core index each region. Because of\nthis, `PotentialRenewals` can hold records for the same core index\nbelonging to different tasks at the same time. For example, the pending\nrenewal of the task running on that core in the current bulk period, and\nthe renewal record of the task that will run on it in the next bulk\nperiod.\n\n`enable_auto_renew` didn't account for this. It first checks whether\nthere is any renewable workload at (core, current region begin), and if\nthere is one it renews it immediately and charges the task's sovereign\naccount, without checking whose workload it is and without looking at\nthe hint. So a task following the documented flow (passing its own core\nand its own renewal record's timeslice as the hint) could end up paying\nfor the renewal of a completely unrelated task. The stored auto-renewal\nrecord then keeps charging it for that foreign workload every sale.\n\nThis happened on Polkadot Coretime: task 3428 enabled auto-renewal for\nits twelve cores with correct parameters, but five of those core indices\nwere still carrying other tasks' pending renewals for the current sale.\nOne went through, so task 3428 paid for task 2094's renewal:\n[Link](https://coretime-polkadot.subscan.io/event/4766580-87)\n\n## Fix\n\n- `enable_auto_renew` only renews immediately if the expiring workload\nincludes the task. If the core is expiring with another task's workload,\nwe fall through to the workload_end_hint path instead, which must point\nto the task's own renewal record (otherwise the call fails with the new\n`TaskNotInWorkload` error).\n- `renew_cores` re-checks this before charging the sovereign account. On\na mismatch it emits `AutoRenewalFailed` and drops the record instead of\ncharging. This also cleans up the mismatched record that is currently\non-chain.\n- If the core was renewed immediately when enabling, `next_renewal` is\nnow set to the end of the period that was just renewed. Previously the\n`workload_end_hint` was stored instead, so auto-renewal would skip the\nnext renewal and the task would lose its core.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-07T08:52:32Z",
+          "tree_id": "bed919506246088c0a74fd258c9c96637837edf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ef156b85dbd1753497f49138125a237bb589ed"
+        },
+        "date": 1788778297893,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.361401543000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13655210276666668,
             "unit": "seconds"
           }
         ]
