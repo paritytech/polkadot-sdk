@@ -77,9 +77,9 @@
 //!   environment variable should only be required in certain circumstances.
 //! - `WASM_BUILD_RUSTFLAGS` - Extend `RUSTFLAGS` given to `cargo build` while building the wasm
 //!   binary.
-//! - `RFC145` - Build the runtime with RFC-145 support (`--cfg rfc145`), i.e. using the
+//! - `SUBSTRATE_RFC145` - Build the runtime with RFC-145 support (`--cfg rfc145`), i.e. using the
 //!   allocator-free host function ABI. This is implied when the outer build itself is compiled with
-//!   `--cfg rfc145` in its `RUSTFLAGS`.
+//!   `--cfg rfc145` in its `RUSTFLAGS` or when `WASM_BUILD_RUSTFLAGS` contains `--cfg rfc145`.
 //! - `WASM_BUILD_NO_COLOR` - Disable color output of the wasm build.
 //! - `WASM_TARGET_DIRECTORY` - Will copy any build Wasm binary to the given directory. The path
 //!   needs to be absolute.
@@ -180,22 +180,39 @@ const RUNTIME_TARGET: &str = "SUBSTRATE_RUNTIME_TARGET";
 /// Environment variable that makes the runtime be built with RFC-145 support
 /// (`--cfg rfc145`), the same as when the outer build itself is compiled with that
 /// `cfg` in its `RUSTFLAGS`.
-const RFC145_ENV: &str = "RFC145";
+const RFC145_ENV: &str = "SUBSTRATE_RFC145";
+
+/// Environment variable through which cargo tells the build script that the outer build is
+/// compiled with `--cfg rfc145`.
+const CARGO_CFG_RFC145_ENV: &str = "CARGO_CFG_RFC145";
 
 /// Returns `true` if the runtime should be built with RFC-145 support (`--cfg rfc145`).
 ///
-/// That is the case when the outer build itself is compiled with `--cfg rfc145` (the
-/// flag is inherited from the `RUSTFLAGS`/`CARGO_ENCODED_RUSTFLAGS` visible to the build script,
-/// so that a node built with RFC-145 support embeds an RFC-145 runtime), or when the
-/// `SUBSTRATE_RFC145` environment variable is set to a truthy value (for runtime-only builds).
+/// That is the case when the outer build itself is compiled with `--cfg rfc145` (cargo exposes
+/// every `cfg` of the outer build to the build script as `CARGO_CFG_<NAME>`, so that a node built
+/// with RFC-145 support embeds an RFC-145 runtime), when the `SUBSTRATE_RFC145` environment
+/// variable is set to a truthy value (for runtime-only builds), or when `WASM_BUILD_RUSTFLAGS`
+/// passes the `cfg` to the runtime build directly.
 fn is_rfc145_build() -> bool {
-	let flags_contain =
-		|var: &str| env::var(var).map(|flags| flags.contains("rfc145")).unwrap_or(false);
 	let env_enabled = env::var(RFC145_ENV)
 		.map(|v| !matches!(v.as_str(), "" | "0" | "false"))
 		.unwrap_or(false);
 
-	flags_contain("CARGO_ENCODED_RUSTFLAGS") || flags_contain("RUSTFLAGS") || env_enabled
+	env::var_os(CARGO_CFG_RFC145_ENV).is_some() ||
+		env_enabled ||
+		rustflags_enable_rfc145(&env::var(WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default())
+}
+
+/// Returns `true` if the given whitespace separated `rustc` flags contain `--cfg rfc145`.
+fn rustflags_enable_rfc145(flags: &str) -> bool {
+	let mut flags = flags.split_whitespace();
+	while let Some(flag) = flags.next() {
+		let cfg = if flag == "--cfg" { flags.next() } else { flag.strip_prefix("--cfg=") };
+		if cfg == Some("rfc145") {
+			return true;
+		}
+	}
+	false
 }
 
 /// Write to the given `file` if the `content` is different.

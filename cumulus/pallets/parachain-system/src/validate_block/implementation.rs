@@ -596,7 +596,7 @@ fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Opt
 			let data = &value[value_offset.min(value.len())..];
 			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
-			Some(data.len() as u32)
+			Some(value.len() as u32)
 		},
 		None => None,
 	}
@@ -657,8 +657,9 @@ fn host_storage_clear_prefix(
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
 			ext.store_last_cursor(&cursor_out[..]);
-			let write_len = cursor_out_len.min(maybe_cursor_out.len());
-			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
 		}
 		counters.backend = removal_results.backend;
 		counters.unique = removal_results.unique;
@@ -682,8 +683,9 @@ fn host_storage_next_key(key_in: &[u8], key_out: &mut [u8]) -> u32 {
 		let next_key = ext.next_storage_key(key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
 		if let Some(next_key) = next_key {
-			let write_len = next_key.len().min(key_out.len());
-			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
 		}
 		next_key_len as u32
 	})
@@ -745,7 +747,7 @@ fn host_default_child_storage_read(
 			let data = &value[value_offset.min(value.len())..];
 			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
-			Some(data.len() as u32)
+			Some(value.len() as u32)
 		},
 		None => None,
 	}
@@ -783,8 +785,9 @@ fn host_default_child_storage_storage_kill(
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
 			ext.store_last_cursor(&cursor_out[..]);
-			let write_len = cursor_out_len.min(maybe_cursor_out.len());
-			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
 		}
 		counters.backend = removal_results.backend;
 		counters.unique = removal_results.unique;
@@ -823,8 +826,9 @@ fn host_default_child_storage_clear_prefix(
 		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
 		if let Some(cursor_out) = removal_results.maybe_cursor {
 			ext.store_last_cursor(&cursor_out[..]);
-			let write_len = cursor_out_len.min(maybe_cursor_out.len());
-			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
 		}
 		counters.backend = removal_results.backend;
 		counters.unique = removal_results.unique;
@@ -879,8 +883,9 @@ fn host_default_child_storage_next_key(
 		let next_key = ext.next_child_storage_key(&child_info, key_in);
 		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
 		if let Some(next_key) = next_key {
-			let write_len = next_key.len().min(key_out.len());
-			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
 		}
 		next_key_len as u32
 	})

@@ -462,11 +462,11 @@ impl<T: Config> ContractInfo<T> {
 
 			if outcome.maybe_cursor.is_some() {
 				remaining = remaining
-					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.backend.into()));
+					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.loops.into()));
 				break;
 			} else {
 				remaining = remaining
-					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.backend.into()));
+					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.loops.into()));
 				entry.remove();
 			}
 		}

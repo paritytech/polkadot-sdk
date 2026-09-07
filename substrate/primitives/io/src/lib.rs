@@ -3662,7 +3662,6 @@ pub trait Offchain {
 	}
 
 	/// Returns information about the local node's network state.
-	#[version(1, register_only)]
 	fn network_state(&mut self) -> AllocateAndReturnByCodec<Result<OpaqueNetworkState, ()>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("network_state can be called only in the offchain worker context")
@@ -3712,7 +3711,7 @@ pub trait Offchain {
 	#[wrapper]
 	#[abi_epoch(1)]
 	fn network_peer_id(out: &mut NetworkPeerId) -> Result<(), ()> {
-		let state = network_state_version_1()?;
+		let state = network_state()?;
 		let peer_id: Vec<u8> = codec::Decode::decode(&mut &state.peer_id.0[..]).map_err(|_| ())?;
 		if peer_id.len() != out.0.len() {
 			return Err(());

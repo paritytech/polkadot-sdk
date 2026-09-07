@@ -45,8 +45,16 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	core::intrinsics::abort();
 }
 
-#[cfg(not(feature = "std"))]
+// RFC-145 (V2) entry point.
+#[cfg(all(not(feature = "std"), rfc145))]
 #[no_mangle]
 pub extern "C" fn validate_block(_arguments_len: usize) -> u64 {
+	loop {}
+}
+
+// Legacy (V1) entry point.
+#[cfg(all(not(feature = "std"), not(rfc145)))]
+#[no_mangle]
+pub extern "C" fn validate_block(_params: *const u8, _len: usize) -> u64 {
 	loop {}
 }

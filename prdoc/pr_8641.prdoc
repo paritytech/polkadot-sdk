@@ -3,7 +3,24 @@ doc:
 - audience: Runtime Dev
   description: |-
     This implements the host functions introduced by [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145).
-    The implementation is gated behind the `rfc145` compile-time `cfg`.
+    The implementation is gated behind the `rfc145` compile-time `cfg`: without `--cfg rfc145` a runtime
+    imports and a node registers exactly the same host functions as before, while the RFC-145 host
+    functions, the V2 entry point and the runtime-side allocator are only compiled in with the `cfg`
+    set, both for the node and (through `substrate-wasm-builder`) for the runtime.
+
+    The `sp-io` API is the same in both builds, which comes with the following changes for every user,
+    including those never enabling the `cfg`:
+    - `sp_io::storage::read` is split into `read_exact` and `read_partial` (same for the child storage).
+    - `sp_io::storage::next_key` writes the next key into a caller provided `&mut Vec<u8>` and returns
+      a `bool` instead of returning an `Option<Vec<u8>>` (same for the child storage).
+    - `sp_io::storage::root` and `sp_io::default_child_storage::root` are generic over the hash type
+      of the runtime: `root::<H>(version)`.
+    - `sp_io::storage::clear_prefix` and the child storage `clear_prefix`/`storage_kill` take an
+      optional cursor and return `MultiRemovalResults`; `frame_support::storage::child::kill_storage`
+      and `frame_support::storage::unhashed::kill_prefix` are removed in favour of the cursor based
+      `clear_storage`/`clear_prefix`.
+    - `sp_externalities::Externalities::storage_root` no longer takes the state version, which is set
+      through the new `set_runtime_state_version` instead.
 crates:
 - name: sp-io
   bump: major
@@ -18,7 +35,7 @@ crates:
 - name: sc-executor-wasmtime
   bump: patch
 - name: sp-wasm-interface
-  bump: minor
+  bump: major
 - name: sp-core
   bump: minor
 - name: sp-state-machine
@@ -47,8 +64,6 @@ crates:
   bump: patch
 - name: frame-benchmarking
   bump: minor
-- name: frame-support-procedural
-  bump: patch
 - name: pallet-migrations
   bump: patch
 - name: polkadot-primitives
