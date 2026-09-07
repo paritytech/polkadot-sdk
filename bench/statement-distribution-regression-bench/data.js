@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788734306221,
+  "lastUpdate": 1788757876286,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a09c18f60eb31198d1422c7d4903b82a0c507e9c",
-          "message": "statement-store: validation without runtime (#10787)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/10799\n\nThis removes slow runtime validation from statement-submission hot path.\nValidation now happens on the node side via direct signature\nverification and storage reads for account quotas.\n\n## Integration\n\nNode validates signatures directly, reads quotas from storage. Setting\nallowances is implementing in another PR.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-04T20:37:11Z",
-          "tree_id": "c68144a42eb5a7b82421e852f69b10c1f1bcb1c1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a09c18f60eb31198d1422c7d4903b82a0c507e9c"
-        },
-        "date": 1770241820307,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.078,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06813568904199992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03875900832999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08400743927399992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0433ae35e33efcff9a2bfaddd42fe8f3230dcd3a",
+          "message": "pallet-psm: use recorded decimals when minting (#13062)\n\nPSM debt is denominated using decimal snapshots recorded when the PSM\nand external asset are registered. Redemption already uses those\nsnapshots, while minting rejected calls when mutable asset metadata no\nlonger matched them.\n\nUse the recorded decimals for minting as well, keeping both directions\non the same conversion rate and preventing metadata-only updates from\ndisabling minting.\n\nNo downstream integration changes are required.",
+          "timestamp": "2026-09-07T02:19:39Z",
+          "tree_id": "ecf87377df1a9925bcdabead34dc9a9f6ed4c6ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0433ae35e33efcff9a2bfaddd42fe8f3230dcd3a"
+        },
+        "date": 1788757840625,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.17400000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038222235146000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08508822079199999,
             "unit": "seconds"
           }
         ]
