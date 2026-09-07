@@ -612,14 +612,21 @@ where
 				},
 			};
 
-			// `determine_cores` just read the claim queue at `claim_queue_relay_block`, which is
-			// the segment's scheduling anchor for both V2 and V3, so this is a cache hit. Passing
-			// it down means the collation task performs no claim-queue runtime call per core.
-			let anchor_claim_queue = relay_chain_data_cache
-				.get_by_hash(claim_queue_relay_block.hash())
-				.await
-				.ok()
-				.map(|data| data.claim_queue.clone());
+			// The scheduling anchor for both V2 and V3, so `determine_cores` above already read
+			// it: a cache hit that spares the collation task a runtime call per core.
+			let anchor_claim_queue =
+				match relay_chain_data_cache.get_by_hash(claim_queue_relay_block.hash()).await {
+					Ok(data) => data.claim_queue.clone(),
+					Err(()) => {
+						tracing::error!(
+							target: LOG_TARGET,
+							anchor = ?claim_queue_relay_block.hash(),
+							"Failed to read the claim queue at the scheduling anchor."
+						);
+
+						break;
+					},
+				};
 
 			let number_of_blocks =
 				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
@@ -751,8 +758,8 @@ struct BuildCollationParams<
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
 	v3_enabled: bool,
-	/// The claim queue at the scheduling anchor, if the builder already had it cached.
-	anchor_claim_queue: Option<ClaimQueueSnapshot>,
+	/// The claim queue at the scheduling anchor, forwarded to the collation task.
+	anchor_claim_queue: ClaimQueueSnapshot,
 }
 
 /// Build a collation for one core.

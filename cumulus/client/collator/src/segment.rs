@@ -17,14 +17,14 @@
 
 //! Turning collations into segments and handing them to the collator protocol.
 
-use crate::metrics::Metrics;
+use crate::{
+	collation::{build_segment, SegmentToDistribute},
+	metrics::Metrics,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment};
-use polkadot_node_subsystem_util::collation::{build_segment, SegmentToDistribute};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	transpose_claim_queue, Hash, Id as ParaId, SessionIndex, TransposedClaimQueue,
-};
+use polkadot_primitives::{Hash, Id as ParaId, SessionIndex, TransposedClaimQueue};
 use schnellru::{ByLength, LruMap};
 
 const LOG_TARGET: &str = "cumulus-collator::segment";
@@ -63,17 +63,14 @@ impl<RClient: RelayChainInterface> SegmentDistributor<RClient> {
 
 	/// Build the segment and send it to the collator protocol. Errors are logged, since there is
 	/// nothing the caller can do about a collation that cannot be turned into a candidate.
-	/// `claim_queue` is the transposed claim queue at the segment's scheduling anchor. Callers
-	/// that already hold it should pass it: neither `RelayChainInterface` implementation caches
-	/// the claim queue, so re-fetching here costs an uncached round trip per core in the window
-	/// between authoring and advertisement.
+	/// `claim_queue` is the transposed claim queue at the segment's scheduling anchor. It is the
+	/// caller's because no `RelayChainInterface` implementation caches it, so fetching it here
+	/// would cost an uncached round trip per core.
 	pub async fn distribute(
 		&mut self,
 		segment: SegmentToDistribute,
-		claim_queue: Option<TransposedClaimQueue>,
+		claim_queue: TransposedClaimQueue,
 	) {
-		let _timer = self.metrics.time_submit_collation();
-
 		let core_index = segment.core_index;
 		let anchor = segment.scheduling.anchor();
 
@@ -82,25 +79,14 @@ impl<RClient: RelayChainInterface> SegmentDistributor<RClient> {
 			return;
 		};
 
-		let claim_queue = match claim_queue {
-			Some(claim_queue) => claim_queue,
-			None => match self.relay_client.claim_queue(anchor).await {
-				Ok(claim_queue) => transpose_claim_queue(claim_queue),
-				Err(error) => {
-					tracing::error!(
-						target: LOG_TARGET,
-						?error,
-						?anchor,
-						"Failed to query claim queue, not distributing segment",
-					);
-					return;
-				},
-			},
-		};
+		let timer = self.metrics.time_submit_collation();
 
 		let segment = match build_segment(segment, self.para_id, n_validators, &claim_queue) {
 			Ok(segment) => segment,
 			Err(error) => {
+				if let Some(timer) = timer {
+					timer.stop_and_discard();
+				}
 				tracing::error!(
 					target: LOG_TARGET,
 					?error,
@@ -146,9 +132,7 @@ impl<RClient: RelayChainInterface> SegmentDistributor<RClient> {
 			return Some(*n_validators);
 		}
 
-		// The key is the scheduling context's session — `session_index_for_child(anchor)` at the
-		// call sites — while the value is `validators(anchor)`. On the last block of a session
-		// those name different sets, so the count can be stale for that one block.
+		// Key and value are both read at `anchor`, so they always describe the same session.
 		match self.relay_client.validators(relay_parent).await {
 			Ok(validators) => {
 				let n_validators = validators.len();

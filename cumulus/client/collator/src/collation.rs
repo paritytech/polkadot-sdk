@@ -1,18 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Collator-side helpers for turning collations into the [`Segment`] that is handed to the
 //! collator protocol via [`CollatorProtocolMessage::DistributeSegment`].
@@ -22,11 +23,11 @@
 //! entry fields.
 //!
 //! [`CollatorProtocolMessage::DistributeSegment`]:
-//!     polkadot_node_subsystem_types::messages::CollatorProtocolMessage::DistributeSegment
+//!     polkadot_node_subsystem::messages::CollatorProtocolMessage::DistributeSegment
 
 use codec::Encode;
 use polkadot_node_primitives::{AvailableData, PoV, SegmentCollation, MAX_SEGMENT_LEN};
-use polkadot_node_subsystem_types::messages::{Segment, SegmentEntry};
+use polkadot_node_subsystem::messages::{Segment, SegmentEntry};
 use polkadot_primitives::{
 	v9::parse_ump_signals_for_commitments, CandidateCommitments, CandidateDescriptorVersion,
 	CommittedCandidateReceiptError, CoreIndex, Hash, Id as ParaId, PersistedValidationData,
@@ -59,6 +60,9 @@ pub enum Error {
 	/// Only V2 and V3 candidate descriptors can be built.
 	#[error("Only V2 and V3 candidate descriptor versions can be built")]
 	UnsupportedDescriptorVersion,
+	/// A V2 collation's relay parent differs from the scheduling context's.
+	#[error("V2 collation relay parent {0} does not match scheduling parent {1}")]
+	V2RelayParentMismatch(Hash, Hash),
 }
 
 /// Everything needed to build a single [`SegmentEntry`].
@@ -167,9 +171,13 @@ pub fn build_segment(
 
 	let mut entries = Vec::with_capacity(len);
 	for mut collation in collations {
-		// V2: derive session_index from the scheduling context so the emitted entry
-		// cannot carry a wrong session by construction.
-		if let SchedulingContext::V2 { session, .. } = scheduling {
+		// V2: the scheduling parent *is* the relay parent, so the context's session is the
+		// collation's session. Overwriting a mismatched relay parent's session would emit a
+		// candidate every validator rejects, so reject it here instead.
+		if let SchedulingContext::V2 { relay_parent, session } = scheduling {
+			if collation.relay_parent != relay_parent {
+				return Err(Error::V2RelayParentMismatch(collation.relay_parent, relay_parent));
+			}
 			collation.session_index = session;
 		}
 		entries.push(build_segment_entry(

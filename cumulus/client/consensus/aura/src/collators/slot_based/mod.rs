@@ -296,7 +296,6 @@ struct CollatorMessage<Block: BlockT> {
 	pub core_index: CoreIndex,
 	/// The persisted validation data for this collation.
 	pub validation_data: PersistedValidationData,
-	/// The claim queue at this segment's scheduling anchor, when the block builder already had
-	/// it. `None` makes the collation task fetch it, which costs an uncached runtime call.
-	pub claim_queue: Option<ClaimQueueSnapshot>,
+	/// The claim queue at this segment's scheduling anchor.
+	pub claim_queue: ClaimQueueSnapshot,
 }

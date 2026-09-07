@@ -197,3 +197,64 @@ fn no_core_at_committed_offset() {
 		Err(CoreSelectionError::NoAssignment(1))
 	);
 }
+
+/// The cores the duplicating collator would distribute on, in order.
+fn duplication_order(
+	claim_queue: &ClaimQueueSnapshot,
+	selector: Option<CoreSelectorData>,
+) -> Result<Vec<u32>, CoreSelectionError> {
+	duplication_cores(claim_queue, PARA_ID, &upward_messages(&selector))
+		.map(|cores| cores.into_iter().map(|core| core.0).collect())
+}
+
+#[rstest]
+#[case(0, vec![1, 2, 0])]
+#[case(1, vec![0, 2, 1])]
+#[case(2, vec![0, 1, 2])]
+#[case(4, vec![0, 2, 1])]
+// The candidate is duplicated on every assigned core, with the core the para selected last: it is
+// valid there, so it must not be the one the collator protocol keeps.
+fn distributes_the_selected_core_last(#[case] cs_index: u8, #[case] expected_cores: Vec<u32>) {
+	let claim_queue = claim_queue((0..3).map(|core| (core, vec![PARA_ID])));
+
+	assert_eq!(
+		duplication_order(
+			&claim_queue,
+			Some(CoreSelectorData { index: cs_index, increment_index_by: 0, cq_offset: 0 }),
+		)
+		.unwrap(),
+		expected_cores,
+	);
+}
+
+#[test]
+// The cores are read at the offset the para committed to, the same one the selection resolves
+// against.
+fn duplicates_over_the_cores_at_the_committed_offset() {
+	let other_para_id = ParaId::from(10);
+	let claim_queue = claim_queue((0..3).map(|core| (core, vec![other_para_id, PARA_ID])));
+
+	assert_eq!(
+		duplication_order(
+			&claim_queue,
+			Some(CoreSelectorData { index: 0, increment_index_by: 0, cq_offset: 1 }),
+		)
+		.unwrap(),
+		vec![1, 2, 0],
+	);
+	assert_matches::assert_matches!(
+		duplication_order(
+			&claim_queue,
+			Some(CoreSelectorData { index: 0, increment_index_by: 0, cq_offset: 0 }),
+		),
+		Err(CoreSelectionError::NoAssignment(0))
+	);
+}
+
+#[test]
+// A single assigned core leaves nothing to duplicate, but is not an error.
+fn duplication_with_a_single_assigned_core() {
+	let claim_queue = claim_queue([(7, vec![PARA_ID])]);
+
+	assert_eq!(duplication_order(&claim_queue, None).unwrap(), vec![7]);
+}

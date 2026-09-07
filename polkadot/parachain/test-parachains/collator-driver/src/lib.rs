@@ -28,20 +28,18 @@
 
 #![deny(missing_docs)]
 
+use cumulus_client_collator::collation::{
+	build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams,
+};
 use futures::{channel::oneshot, future::BoxFuture, StreamExt};
 use polkadot_node_primitives::{Collation, SegmentCollation, UpwardMessages};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, SegmentEntry};
-use polkadot_node_subsystem_util::{
-	collation::{build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams},
-	runtime::ClaimQueueSnapshot,
-	TimeoutExt,
-};
+use polkadot_node_subsystem_util::{runtime::ClaimQueueSnapshot, TimeoutExt};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	runtime_api::ParachainHost, transpose_claim_queue, Block, CandidateCommitments,
 	CandidateDescriptorVersion, CommittedCandidateReceiptError, CoreIndex, Hash, Id as ParaId,
 	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, ValidationCodeHash,
-	DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use sc_client_api::BlockchainEvents;
 use sp_api::ProvideRuntimeApi;
@@ -52,9 +50,10 @@ mod tests;
 
 const LOG_TARGET: &str = "parachain::collator-driver";
 
-/// A leaf the overseer already deactivated is never answered, so the wait needs a cap. One block
-/// time: past that the leaf is stale anyway.
-const ACTIVATION_TIMEOUT: Duration = Duration::from_secs(6);
+/// A leaf the overseer already deactivated is never answered, so the wait needs a cap. Kept well
+/// below any relay-chain block time: the overseer sees the same import notification we do, so the
+/// normal wait is negligible, and a miss must not push us further behind than the leaf we skip.
+const ACTIVATION_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// Builds a collation on top of the given [`PersistedValidationData`].
 ///
@@ -102,11 +101,12 @@ where
 	while let Some(notification) = import_notifications.next().await {
 		let relay_parent = notification.hash;
 
+		// The runtime API guard is cheap and rules out most leaves, so it runs before the wait.
+		let Some(leaf) = leaf_info(&*client, relay_parent, para_id) else { continue };
+
 		if !wait_for_activation(&mut overseer_handle, relay_parent).await {
 			continue;
 		}
-
-		let Some(leaf) = leaf_info(&*client, relay_parent, para_id) else { continue };
 
 		match distribution_mode {
 			DistributionMode::OnePerAssignedCore => {
@@ -159,10 +159,12 @@ async fn wait_for_activation(overseer_handle: &mut OverseerHandle, relay_parent:
 			false
 		},
 		None => {
-			gum::debug!(
+			// A skipped leaf silently costs the para a leaf's worth of candidates, with no retry.
+			gum::warn!(
 				target: LOG_TARGET,
 				?relay_parent,
-				"Activation timed out, not collating on this leaf",
+				?ACTIVATION_TIMEOUT,
+				"Leaf skipped: the overseer did not activate it before the timeout expired",
 			);
 			false
 		},
@@ -346,7 +348,7 @@ async fn collate_on_assigned_cores(
 }
 
 /// Author a single collation and distribute the very same candidate on every core assigned to
-/// the para at the default claim queue offset.
+/// the para at the claim queue offset the collation committed to.
 async fn duplicate_to_assigned_cores(
 	overseer_handle: &mut OverseerHandle,
 	para_id: ParaId,
@@ -363,26 +365,28 @@ async fn duplicate_to_assigned_cores(
 		..
 	} = leaf;
 
-	let scheduled_cores = claim_queue
-		.iter_claims_at_depth_for_para(DEFAULT_CLAIM_QUEUE_OFFSET as usize, para_id)
-		.collect::<Vec<_>>();
-
-	match scheduled_cores.len() {
-		0 => return,
-		1 => gum::info!(
-			target: LOG_TARGET,
-			"Malus collator configured with duplicate collations, but only 1 core assigned. \
-			Collator will not do anything malicious.",
-		),
-		_ => {},
-	}
-
 	let Some(collation) = build_collation(relay_parent, &validation_data).await else {
 		gum::info!(target: LOG_TARGET, ?para_id, "Collator returned no collation");
 		return;
 	};
 
-	let upward_messages = collation.upward_messages.clone();
+	// The cores are read at the offset the collation itself committed to, so that they are the
+	// same set the core selection resolves against.
+	let cores = match duplication_cores(&claim_queue, para_id, &collation.upward_messages) {
+		Ok(cores) => cores,
+		Err(error) => {
+			gum::warn!(target: LOG_TARGET, ?para_id, "Not distributing: {error}");
+			return;
+		},
+	};
+
+	if cores.len() == 1 {
+		gum::info!(
+			target: LOG_TARGET,
+			"Malus collator configured with duplicate collations, but only 1 core assigned. \
+			Collator will not do anything malicious.",
+		);
+	}
 
 	// The UMP-signal check enforces that the parachain selects the core the candidate is
 	// submitted on, so it has to be skipped in order to submit the same candidate on several
@@ -403,16 +407,6 @@ async fn duplicate_to_assigned_cores(
 			return;
 		},
 	};
-
-	// The collator protocol stores only the first candidate per output head at a scheduling
-	// parent, so the one that reaches validators must be on a core the parachain did not select
-	// — on the selected core it is a valid candidate and no mismatch is ever detected.
-	let mut cores = scheduled_cores;
-	if let Ok(selected) =
-		select_core_index(&claim_queue, para_id, &upward_messages, 0, &HashSet::new())
-	{
-		cores.sort_by_key(|core| *core == selected);
-	}
 
 	for core_index in cores {
 		distribute(overseer_handle, para_id, core_index, entry.clone()).await;
@@ -450,6 +444,64 @@ enum CoreSelectionError {
 	CoreReused(u32),
 }
 
+/// The cores to duplicate a collation over, ordered so that the core the parachain selected is
+/// distributed last.
+fn duplication_cores(
+	claim_queue: &ClaimQueueSnapshot,
+	para_id: ParaId,
+	upward_messages: &UpwardMessages,
+) -> Result<Vec<CoreIndex>, CoreSelectionError> {
+	let (selector, cq_offset) = core_selector(upward_messages, 0)?;
+	let cores = cores_at_depth(claim_queue, para_id, cq_offset)?;
+
+	// Resolved exactly as `select_core_index` does, against the same non-empty core set, so the
+	// selected core is a member of `cores` by construction.
+	let selected = cores[selector % cores.len()];
+
+	Ok(distribution_order(cores, selected))
+}
+
+/// Order `cores` so that `selected` comes last.
+///
+/// The collator protocol stores only the first candidate per output head at a scheduling parent,
+/// so the one that reaches validators must be on a core the parachain did not select — on the
+/// selected core it is a valid candidate and no mismatch is ever detected.
+fn distribution_order(mut cores: Vec<CoreIndex>, selected: CoreIndex) -> Vec<CoreIndex> {
+	cores.sort_by_key(|core| *core == selected);
+	cores
+}
+
+/// The core selector index and claim queue offset the collation committed to via its UMP signals.
+/// Absent a commitment, the collation's position in the chain selects the core, at depth `0`.
+fn core_selector(
+	upward_messages: &UpwardMessages,
+	index: usize,
+) -> Result<(usize, usize), CoreSelectionError> {
+	let commitments =
+		CandidateCommitments { upward_messages: upward_messages.clone(), ..Default::default() };
+	let ump_signals = commitments.ump_signals().map_err(CoreSelectionError::UmpSignals)?;
+
+	Ok(ump_signals
+		.core_selector()
+		.map(|(selector, offset)| (selector.0 as usize, offset.0 as usize))
+		.unwrap_or((index, 0)))
+}
+
+/// The cores assigned to the para at claim queue depth `cq_offset`, or an error if there are none.
+fn cores_at_depth(
+	claim_queue: &ClaimQueueSnapshot,
+	para_id: ParaId,
+	cq_offset: usize,
+) -> Result<Vec<CoreIndex>, CoreSelectionError> {
+	let cores = claim_queue
+		.iter_claims_at_depth_for_para(cq_offset, para_id)
+		.collect::<Vec<_>>();
+
+	(!cores.is_empty())
+		.then_some(cores)
+		.ok_or(CoreSelectionError::NoAssignment(cq_offset))
+}
+
 /// Pick the core to submit the `index`-th chained collation of a leaf on.
 ///
 /// The parachain may commit to a core selector and a claim queue offset via its UMP signals; if
@@ -462,22 +514,8 @@ fn select_core_index(
 	index: usize,
 	used_cores: &HashSet<CoreIndex>,
 ) -> Result<CoreIndex, CoreSelectionError> {
-	let commitments =
-		CandidateCommitments { upward_messages: upward_messages.clone(), ..Default::default() };
-	let ump_signals = commitments.ump_signals().map_err(CoreSelectionError::UmpSignals)?;
-
-	let (selector, cq_offset) = ump_signals
-		.core_selector()
-		.map(|(selector, offset)| (selector.0 as usize, offset.0 as usize))
-		.unwrap_or((index, 0));
-
-	let cores_to_build_on = claim_queue
-		.iter_claims_at_depth_for_para(cq_offset, para_id)
-		.collect::<Vec<_>>();
-
-	if cores_to_build_on.is_empty() {
-		return Err(CoreSelectionError::NoAssignment(cq_offset));
-	}
+	let (selector, cq_offset) = core_selector(upward_messages, index)?;
+	let cores_to_build_on = cores_at_depth(claim_queue, para_id, cq_offset)?;
 
 	let core_index = cores_to_build_on[selector % cores_to_build_on.len()];
 	if used_cores.contains(&core_index) {

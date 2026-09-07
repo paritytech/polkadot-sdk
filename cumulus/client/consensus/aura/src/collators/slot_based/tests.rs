@@ -17,7 +17,9 @@
 
 use super::{
 	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
+	collation_task::handle_collation_message,
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+	CollatorMessage,
 };
 use async_trait::async_trait;
 use codec::Encode;
@@ -29,6 +31,7 @@ use polkadot_primitives::{
 	vstaging::RelayParentInfo, CandidateEvent, CommittedCandidateReceiptV2, CoreIndex,
 	Hash as RelayHash, Header as RelayHeader, Id as ParaId, NodeFeatures,
 };
+use rstest::rstest;
 use sc_consensus_babe::{
 	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
 };
@@ -40,6 +43,9 @@ use std::{
 	pin::Pin,
 	sync::{Arc, Mutex},
 };
+
+const N_VALIDATORS: usize = 4;
+const SESSION_INDEX: SessionIndex = 3;
 
 fn header_numbers(headers: &Vec<RelayHeader>) -> Vec<BlockNumber> {
 	headers.iter().map(|header| header.number).collect()
@@ -229,8 +235,12 @@ async fn offset_with_2_session_changes() {
 	assert_eq!(header_numbers(&data.descendants), vec![3, 4, 5, 6, 7]);
 }
 
+#[rstest]
+#[case(1)]
+#[case(2)]
+#[case(3)]
 #[tokio::test]
-async fn determine_core_new_relay_parent() {
+async fn determine_core_new_relay_parent(#[case] n_cores: u32) {
 	let (headers, _best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -245,7 +255,8 @@ async fn determine_core_new_relay_parent() {
 	};
 
 	// Setup claim queue data for the cache
-	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)], Default::default());
+	let cores = (0..n_cores).map(CoreIndex).collect();
+	cache.set_test_data(relay_parent.clone(), cores, Default::default());
 
 	// For V1/V2 mode: claim_queue_relay_block = relay_parent.hash()
 	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
@@ -254,7 +265,7 @@ async fn determine_core_new_relay_parent() {
 	let core = core.unwrap();
 	assert_eq!(core.core_info().selector, CoreSelector(0));
 	assert_eq!(core.core_index(), CoreIndex(0));
-	assert_eq!(core.total_cores(), 2);
+	assert_eq!(core.total_cores(), n_cores);
 }
 
 #[tokio::test]
@@ -315,89 +326,6 @@ async fn determine_cores_only_returns_para_assigned_cores() {
 	assert_eq!(cores.core_index(), CoreIndex(2));
 }
 
-#[tokio::test]
-// The assigned cores come back in `CoreIndex` order, not claim-queue insertion order.
-async fn determine_cores_are_ordered_by_core_index() {
-	let (headers, _best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	let relay_parent = RelayHeader {
-		parent_hash: Default::default(),
-		number: 100,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	let our_para = ParaId::from(1);
-	let other_para = ParaId::from(2);
-
-	// Ours are cores 3 and 1, inserted out of order and interleaved with another para's.
-	let mut claim_queue = BTreeMap::new();
-	claim_queue.insert(CoreIndex(3), VecDeque::from([our_para]));
-	claim_queue.insert(CoreIndex(0), VecDeque::from([other_para]));
-	claim_queue.insert(CoreIndex(1), VecDeque::from([our_para]));
-	claim_queue.insert(CoreIndex(2), VecDeque::from([other_para]));
-
-	cache.set_test_data_with_claim_queue(relay_parent.clone(), claim_queue, Default::default());
-
-	let cores = determine_cores(&mut cache, &relay_parent, our_para, 0).await.unwrap().unwrap();
-	assert_eq!(cores.total_cores(), 2);
-	// Selector 0 must map to the lowest assigned core, not the first one inserted.
-	assert_eq!(cores.core_index(), CoreIndex(1));
-}
-
-#[tokio::test]
-async fn determine_core_new_relay_parent_single_core() {
-	let (headers, _best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	let relay_parent = RelayHeader {
-		parent_hash: Default::default(),
-		number: 100,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0)], Default::default());
-
-	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
-	let core = result.unwrap().unwrap();
-	assert_eq!(core.core_info().selector, CoreSelector(0));
-	assert_eq!(core.core_index(), CoreIndex(0));
-	assert_eq!(core.total_cores(), 1);
-}
-
-#[tokio::test]
-async fn determine_core_new_relay_parent_three_cores() {
-	let (headers, _best_hash) = create_header_chain();
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	let relay_parent = RelayHeader {
-		parent_hash: Default::default(),
-		number: 100,
-		state_root: Default::default(),
-		extrinsics_root: Default::default(),
-		digest: Default::default(),
-	};
-
-	cache.set_test_data(
-		relay_parent.clone(),
-		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
-		Default::default(),
-	);
-
-	let result = determine_cores(&mut cache, &relay_parent, 1.into(), 0).await;
-	let core = result.unwrap().unwrap();
-	assert_eq!(core.core_info().selector, CoreSelector(0));
-	assert_eq!(core.core_index(), CoreIndex(0));
-	assert_eq!(core.total_cores(), 3);
-}
-
 #[derive(Clone)]
 pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
@@ -437,7 +365,9 @@ impl TestRelayClient {
 #[async_trait]
 impl RelayChainInterface for TestRelayClient {
 	async fn validators(&self, _: RelayHash) -> RelayChainResult<Vec<ValidatorId>> {
-		unimplemented!("Not needed for test")
+		Ok((0..N_VALIDATORS)
+			.map(|i| ValidatorId::from(sr25519::Public::from_raw([i as u8; 32])))
+			.collect())
 	}
 
 	async fn best_block_hash(&self) -> RelayChainResult<RelayHash> {
@@ -512,7 +442,7 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn session_index_for_child(&self, _: RelayHash) -> RelayChainResult<SessionIndex> {
-		unimplemented!("Not needed for test")
+		Ok(SESSION_INDEX)
 	}
 
 	async fn import_notification_stream(
@@ -787,5 +717,234 @@ pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) ->
 		state_root: Default::default(),
 		extrinsics_root: Default::default(),
 		digest,
+	}
+}
+
+/// Covers `anchor_claim_queue` -> [`CollatorMessage::claim_queue`] -> `SegmentDistributor`.
+///
+/// The claim queue the block builder captured at the scheduling anchor is the one the UMP core
+/// selection is checked against, so a segment is distributed only when the collation's selected
+/// core matches that claim queue — not some other queue the collation task might reach for.
+mod claim_queue_plumbing {
+	use super::*;
+	use cumulus_client_collator::{
+		metrics::Metrics, segment::SegmentDistributor, service::ServiceInterface,
+	};
+	use cumulus_client_consensus_common::ParachainCandidate;
+	use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
+	use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV};
+	use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage, Segment};
+	use polkadot_node_subsystem_util::metered::MeteredReceiver;
+	use polkadot_overseer::{Event, Handle};
+	use polkadot_primitives::{
+		Block as PBlock, ClaimQueueOffset, HeadData, PersistedValidationData, UMPSignal,
+		ValidationCodeHash, UMP_SEPARATOR,
+	};
+	use sp_api::StorageProof;
+	use sp_trie::CompactProof;
+
+	const OUR_PARA: u32 = 1;
+
+	/// Hands back a fixed collation carrying `SelectCore(0, 0)`, so the core the segment is
+	/// accepted on is decided entirely by the claim queue that reaches `build_segment`.
+	struct MockCollatorService;
+
+	impl ServiceInterface<PBlock> for MockCollatorService {
+		fn check_block_status(&self, _: RelayHash, _: &RelayHeader) -> bool {
+			true
+		}
+
+		fn build_collation(
+			&self,
+			_: &RelayHeader,
+			_: RelayHash,
+			_: ParachainCandidate<PBlock>,
+			_: Option<SchedulingProof>,
+		) -> Option<(Collation, ParachainBlockData<PBlock>)> {
+			unimplemented!("Not needed for test")
+		}
+
+		fn build_multi_block_collation(
+			&self,
+			_: &RelayHeader,
+			_: Vec<PBlock>,
+			_: StorageProof,
+			_: Option<SchedulingProof>,
+		) -> Option<(Collation, ParachainBlockData<PBlock>)> {
+			let mut collation = Collation {
+				upward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+				new_validation_code: None,
+				head_data: HeadData(vec![1, 2, 3]),
+				proof_of_validity: MaybeCompressedPoV::Raw(PoV { block_data: BlockData(vec![]) }),
+				processed_downward_messages: 0,
+				hrmp_watermark: 0,
+			};
+			collation.upward_messages.force_push(UMP_SEPARATOR);
+			collation
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
+			let block_data = ParachainBlockData::new(
+				Vec::new(),
+				CompactProof { encoded_nodes: Vec::new() },
+				None,
+			);
+			Some((collation, block_data))
+		}
+
+		fn announce_block(&self, _: RelayHash, _: Option<Vec<u8>>) {}
+	}
+
+	fn message(core_index: CoreIndex, claim_queue: ClaimQueueSnapshot) -> CollatorMessage<PBlock> {
+		CollatorMessage {
+			relay_parent: RelayHash::repeat_byte(0xAA),
+			scheduling_proof: None,
+			parent_header: RelayHeader {
+				parent_hash: Default::default(),
+				number: 1,
+				state_root: Default::default(),
+				extrinsics_root: Default::default(),
+				digest: Default::default(),
+			},
+			blocks: Vec::new(),
+			proof: StorageProof::empty(),
+			validation_code_hash: ValidationCodeHash::from(RelayHash::repeat_byte(42)),
+			core_index,
+			validation_data: PersistedValidationData {
+				parent_head: HeadData(vec![1, 2, 3]),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+				max_pov_size: 1024 * 1024,
+			},
+			claim_queue,
+		}
+	}
+
+	/// The same message, but scheduled at a block other than its relay parent, so the collation
+	/// task has to build a V3 segment anchored at [`scheduling_anchor`].
+	fn v3_message(
+		core_index: CoreIndex,
+		claim_queue: ClaimQueueSnapshot,
+	) -> CollatorMessage<PBlock> {
+		CollatorMessage {
+			scheduling_proof: Some(SchedulingProof {
+				header_chain: Vec::new(),
+				internal_scheduling_parent_header: scheduling_anchor_header(),
+				signed_scheduling_info: None,
+			}),
+			..message(core_index, claim_queue)
+		}
+	}
+
+	/// The header the V3 scheduling proof anchors at. Distinct from the message's relay parent.
+	fn scheduling_anchor_header() -> RelayHeader {
+		RelayHeader {
+			parent_hash: RelayHash::repeat_byte(0xBB),
+			number: 7,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		}
+	}
+
+	fn scheduling_anchor() -> RelayHash {
+		scheduling_anchor_header().hash()
+	}
+
+	fn claim_queue(cores: &[u32]) -> ClaimQueueSnapshot {
+		ClaimQueueSnapshot::from(
+			cores
+				.iter()
+				.map(|core| (CoreIndex(*core), VecDeque::from([ParaId::from(OUR_PARA)])))
+				.collect::<BTreeMap<_, _>>(),
+		)
+	}
+
+	/// Run `handle_collation_message` and return the collator protocol messages it produced.
+	async fn distributed(message: CollatorMessage<PBlock>) -> Vec<CollatorProtocolMessage> {
+		let (headers, _) = create_header_chain();
+		let relay_client = TestRelayClient::new(headers);
+		let (tx, mut rx): (_, MeteredReceiver<Event>) =
+			polkadot_node_subsystem_util::metered::channel(16);
+		let mut distributor = SegmentDistributor::new(
+			relay_client.clone(),
+			Handle::new(tx),
+			ParaId::from(OUR_PARA),
+			Metrics::default(),
+		);
+
+		handle_collation_message(
+			message,
+			&MockCollatorService,
+			&mut distributor,
+			relay_client,
+			None,
+		)
+		.await;
+
+		let mut messages = Vec::new();
+		while let Ok(Some(event)) = rx.try_next() {
+			if let Event::MsgToSubsystem { msg: AllMessages::CollatorProtocol(msg), .. } = event {
+				messages.push(msg);
+			}
+		}
+		messages
+	}
+
+	/// The forwarded claim queue assigns core 2, and that is the core the segment goes out on.
+	#[tokio::test]
+	async fn forwarded_claim_queue_decides_the_core() {
+		let messages = distributed(message(CoreIndex(2), claim_queue(&[2]))).await;
+
+		match &messages[..] {
+			[CollatorProtocolMessage::DistributeSegment { core_index, para_id, .. }] => {
+				assert_eq!(*core_index, CoreIndex(2));
+				assert_eq!(*para_id, ParaId::from(OUR_PARA));
+			},
+			other => panic!("expected exactly one `DistributeSegment`, got {}", other.len()),
+		}
+	}
+
+	/// A claim queue that does not back the message's core rejects the segment. This is the case
+	/// that breaks if the claim queue for some other block is used in place of the anchor's.
+	#[tokio::test]
+	async fn claim_queue_for_another_anchor_rejects_the_segment() {
+		let messages = distributed(message(CoreIndex(2), claim_queue(&[0]))).await;
+
+		assert!(messages.is_empty());
+	}
+
+	/// V3: the scheduling anchor is not the relay parent. The segment must be tagged with the
+	/// anchor and go out on the core the anchor's claim queue backs.
+	#[tokio::test]
+	async fn v3_segment_is_anchored_at_the_scheduling_parent() {
+		let messages = distributed(v3_message(CoreIndex(2), claim_queue(&[2]))).await;
+
+		match &messages[..] {
+			[CollatorProtocolMessage::DistributeSegment { core_index, para_id, segment }] => {
+				assert_eq!(*core_index, CoreIndex(2));
+				assert_eq!(*para_id, ParaId::from(OUR_PARA));
+				match segment {
+					Segment::V3 { scheduling_parent, scheduling_session, candidates } => {
+						assert_eq!(*scheduling_parent, scheduling_anchor());
+						assert_ne!(*scheduling_parent, RelayHash::repeat_byte(0xAA));
+						assert_eq!(*scheduling_session, SESSION_INDEX);
+						assert_eq!(candidates.len(), 1);
+					},
+					other => panic!("expected a V3 segment, got {other:?}"),
+				}
+			},
+			other => panic!("expected exactly one `DistributeSegment`, got {}", other.len()),
+		}
+	}
+
+	/// V3: the core is checked against the anchor's claim queue, so one that does not back it
+	/// rejects the segment.
+	#[tokio::test]
+	async fn v3_claim_queue_for_another_anchor_rejects_the_segment() {
+		let messages = distributed(v3_message(CoreIndex(2), claim_queue(&[0]))).await;
+
+		assert!(messages.is_empty());
 	}
 }

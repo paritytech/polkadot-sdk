@@ -1,18 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
 use assert_matches::assert_matches;
@@ -167,6 +168,31 @@ fn v2_session_index_derived_from_scheduling_context() {
 		// Must be 7 (from context), not 99 (from collation).
 		assert_eq!(entry.session_index, 7);
 	});
+}
+
+#[test]
+// A V2 context's session only describes the collation if the two share a relay parent, so a
+// mismatch is a caller error rather than something to paper over by overwriting the session.
+fn rejects_v2_collation_with_foreign_relay_parent() {
+	let relay_parent = Hash::repeat_byte(0xAA);
+	let scheduling_parent = Hash::repeat_byte(0xBB);
+	let collation =
+		collation_with_signals(&[UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0))]);
+
+	assert_matches!(
+		build_seg(
+			SegmentToDistribute {
+				core_index: CoreIndex(0),
+				scheduling: SchedulingContext::V2 { relay_parent: scheduling_parent, session: 7 },
+				collations: vec![segment_collation(collation, relay_parent)],
+			},
+			&claim_queue(&[0]),
+		),
+		Err(Error::V2RelayParentMismatch(got, expected)) => {
+			assert_eq!(got, relay_parent);
+			assert_eq!(expected, scheduling_parent);
+		}
+	);
 }
 
 /// The erasure root of the available data, computed independently of the code under test.
@@ -350,7 +376,7 @@ fn rejects_v3_segment_exceeding_max_segment_len() {
 }
 
 #[test]
-// The unchecked builder accepts a core index that the UMP signal checks would reject.
+// The unchecked builder builds an entry from UMP signals that the checked builder rejects.
 fn unchecked_builder_skips_ump_signal_checks() {
 	let relay_parent = Hash::repeat_byte(0);
 

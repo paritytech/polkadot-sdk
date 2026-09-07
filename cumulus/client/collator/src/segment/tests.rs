@@ -17,7 +17,10 @@
 
 use super::*;
 
-use crate::metrics::Metrics;
+use crate::{
+	collation::{SchedulingContext, SegmentToDistribute},
+	metrics::Metrics,
+};
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use codec::Encode;
@@ -29,17 +32,14 @@ use cumulus_relay_chain_interface::{
 };
 use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV, SegmentCollation};
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage, Segment};
-use polkadot_node_subsystem_util::{
-	collation::{SchedulingContext, SegmentToDistribute},
-	metered::MeteredReceiver,
-};
+use polkadot_node_subsystem_util::metered::MeteredReceiver;
 use polkadot_overseer::{Event, Handle};
 use polkadot_primitives::{
 	transpose_claim_queue, vstaging::RelayParentInfo, BlockId, BlockNumber, CandidateEvent,
 	ClaimQueueOffset, CoreIndex, CoreSelector, Hash, HeadData, Id as ParaId, NodeFeatures,
 	SessionIndex, UMPSignal, ValidationCodeHash, ValidatorId, UMP_SEPARATOR,
 };
-use prometheus_endpoint::{PrometheusError, Registry};
+use prometheus_endpoint::Registry;
 use sc_client_api::StorageProof;
 use sp_version::RuntimeVersion;
 use std::{
@@ -48,7 +48,6 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
-const PARA_ID_2: u32 = 9;
 const PARA_ID: ParaId = ParaId::new(5);
 
 fn pvd() -> RCPersistedValidationData {
@@ -99,23 +98,17 @@ struct MockRelayClient {
 	validators_calls: Arc<Mutex<Vec<Hash>>>,
 	/// Hashes passed to `claim_queue()`.
 	claim_queue_calls: Arc<Mutex<Vec<Hash>>>,
-	/// The claim queue to return, or `None` to return an error.
-	claim_queue_result: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	/// Number of validators to return.
 	n_validators: usize,
 }
 
 impl MockRelayClient {
-	fn new(
-		claim_queue_result: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
-		n_validators: usize,
-	) -> (Self, Arc<Mutex<Vec<Hash>>>, Arc<Mutex<Vec<Hash>>>) {
+	fn new(n_validators: usize) -> (Self, Arc<Mutex<Vec<Hash>>>, Arc<Mutex<Vec<Hash>>>) {
 		let validators_calls = Arc::new(Mutex::new(Vec::new()));
 		let claim_queue_calls = Arc::new(Mutex::new(Vec::new()));
 		let client = Self {
 			validators_calls: validators_calls.clone(),
 			claim_queue_calls: claim_queue_calls.clone(),
-			claim_queue_result,
 			n_validators,
 		};
 		(client, validators_calls, claim_queue_calls)
@@ -135,11 +128,9 @@ impl RelayChainInterface for MockRelayClient {
 		&self,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<RelayParaId>>> {
+		// The distributor takes the claim queue from its caller; a call here is a regression.
 		self.claim_queue_calls.lock().unwrap().push(relay_parent);
-		match &self.claim_queue_result {
-			Some(cq) => Ok(cq.clone()),
-			None => Err(RelayChainError::GenericError("test error".into())),
-		}
+		Err(RelayChainError::GenericError("claim queue must not be fetched".into()))
 	}
 
 	async fn session_index_for_child(&self, _block_id: PHash) -> RelayChainResult<RCSessionIndex> {
@@ -332,15 +323,14 @@ fn claim_queue_for_core(core: u32) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 
 // ---- Tests ----
 
-/// V3 segments must query `claim_queue` and `validators` against the scheduling parent,
-/// not the collation's individual relay parent.
+/// V3 segments must query `validators` against the scheduling parent, not the collation's
+/// individual relay parent, and must never fetch the claim queue itself.
 #[tokio::test]
 async fn v3_queries_scheduling_parent() {
 	let relay_parent = Hash::repeat_byte(0xAA);
 	let scheduling_parent = Hash::repeat_byte(0xBB);
 
-	let (client, validators_calls, claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
+	let (client, validators_calls, claim_queue_calls) = MockRelayClient::new(4);
 	let (overseer_handle, mut rx) = make_overseer_handle();
 
 	let mut distributor =
@@ -359,13 +349,12 @@ async fn v3_queries_scheduling_parent() {
 					relay_parent,
 				)],
 			},
-			None,
+			transpose_claim_queue(claim_queue_for_core(0)),
 		)
 		.await;
 
-	// Both calls must use the scheduling_parent, not relay_parent.
 	assert_eq!(validators_calls.lock().unwrap().as_slice(), [scheduling_parent]);
-	assert_eq!(claim_queue_calls.lock().unwrap().as_slice(), [scheduling_parent]);
+	assert!(claim_queue_calls.lock().unwrap().is_empty());
 
 	let msgs = drain(&mut rx);
 	assert_matches!(
@@ -387,8 +376,7 @@ async fn v3_queries_scheduling_parent() {
 async fn v2_shape() {
 	let relay_parent = Hash::repeat_byte(0x01);
 
-	let (client, _validators_calls, _claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
+	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(4);
 	let (overseer_handle, mut rx) = make_overseer_handle();
 
 	let mut distributor =
@@ -407,7 +395,7 @@ async fn v2_shape() {
 					relay_parent,
 				)],
 			},
-			None,
+			transpose_claim_queue(claim_queue_for_core(0)),
 		)
 		.await;
 
@@ -423,8 +411,7 @@ async fn v2_shape() {
 async fn validator_count_cached_within_session() {
 	let relay_parent = Hash::repeat_byte(0x02);
 
-	let (client, validators_calls, _claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
+	let (client, validators_calls, _claim_queue_calls) = MockRelayClient::new(4);
 	let (overseer_handle, _rx) = make_overseer_handle();
 
 	let mut distributor =
@@ -442,47 +429,15 @@ async fn validator_count_cached_within_session() {
 		)],
 	};
 
-	distributor.distribute(make_segment(), None).await;
-	distributor.distribute(make_segment(), None).await;
+	distributor
+		.distribute(make_segment(), transpose_claim_queue(claim_queue_for_core(0)))
+		.await;
+	distributor
+		.distribute(make_segment(), transpose_claim_queue(claim_queue_for_core(0)))
+		.await;
 
 	// Only one validators() call for both distributes since the session didn't change.
 	assert_eq!(validators_calls.lock().unwrap().len(), 1);
-}
-
-/// A `claim_queue` error must be silent and non-fatal: no message reaches the collator protocol.
-#[tokio::test]
-async fn claim_queue_error_is_non_fatal() {
-	let relay_parent = Hash::repeat_byte(0x03);
-
-	// Pass `None` so `claim_queue()` returns an error.
-	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(None, 4);
-	let (overseer_handle, mut rx) = make_overseer_handle();
-
-	let mut distributor =
-		SegmentDistributor::new(client, overseer_handle, PARA_ID, Default::default());
-
-	distributor
-		.distribute(
-			SegmentToDistribute {
-				core_index: CoreIndex(0),
-				scheduling: SchedulingContext::V3 {
-					scheduling_parent: relay_parent,
-					scheduling_session: 1,
-				},
-				collations: vec![segment_collation(
-					collation_with_signals(&[UMPSignal::SelectCore(
-						CoreSelector(0),
-						ClaimQueueOffset(0),
-					)]),
-					relay_parent,
-				)],
-			},
-			None,
-		)
-		.await;
-
-	// No message should have been sent.
-	assert!(drain(&mut rx).is_empty());
 }
 
 /// Read the current value of `polkadot_parachain_collations_generated_total` from a registry.
@@ -496,6 +451,17 @@ fn counter_value(registry: &Registry) -> f64 {
 		.unwrap_or(0.0)
 }
 
+/// Number of observations recorded in the submit-collation histogram.
+fn submit_collation_sample_count(registry: &Registry) -> u64 {
+	registry
+		.gather()
+		.into_iter()
+		.find(|mf| mf.get_name() == "polkadot_parachain_collation_generation_submit_collation")
+		.and_then(|mf| mf.get_metric().first().cloned())
+		.map(|m| m.get_histogram().get_sample_count())
+		.unwrap_or(0)
+}
+
 /// The counter must advance by `candidates.len()` for a V3 segment carrying multiple candidates.
 #[tokio::test]
 async fn counter_increments_per_candidate_v3() {
@@ -504,12 +470,11 @@ async fn counter_increments_per_candidate_v3() {
 
 	// Claim queue must have slots for two candidates on core 0.
 	let claim_queue = [(CoreIndex(0), VecDeque::from([PARA_ID, PARA_ID]))].into();
-	let (client, _validators_calls, _claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue), 4);
+	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(4);
 	let (overseer_handle, _rx) = make_overseer_handle();
 
 	let registry = Registry::new();
-	let metrics = Metrics::register(Some(&registry), PARA_ID).expect("metrics registered; qed");
+	let metrics = Metrics::register(Some(&registry)).expect("metrics registered; qed");
 	let mut distributor = SegmentDistributor::new(client, overseer_handle, PARA_ID, metrics);
 
 	assert_eq!(counter_value(&registry), 0.0);
@@ -536,25 +501,27 @@ async fn counter_increments_per_candidate_v3() {
 					),
 				],
 			},
-			None,
+			transpose_claim_queue(claim_queue),
 		)
 		.await;
 
 	// Two candidates in the segment → counter must be 2.
 	assert_eq!(counter_value(&registry), 2.0);
+	// One distribute → one latency sample.
+	assert_eq!(submit_collation_sample_count(&registry), 1);
 }
 
-/// A build failure (invalid claim queue) must not increment the counter.
+/// A build failure must neither increment the counter nor contribute a latency sample: a
+/// distribute that produced nothing is not a fast submission.
 #[tokio::test]
-async fn counter_not_incremented_on_build_failure() {
+async fn build_failure_records_no_metrics() {
 	let relay_parent = Hash::repeat_byte(0x20);
 
-	// Pass `None` so `claim_queue()` returns an error, causing `build_segment` to never run.
-	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(None, 4);
-	let (overseer_handle, _rx) = make_overseer_handle();
+	let (client, _validators_calls, _claim_queue_calls) = MockRelayClient::new(4);
+	let (overseer_handle, mut rx) = make_overseer_handle();
 
 	let registry = Registry::new();
-	let metrics = Metrics::register(Some(&registry), PARA_ID).expect("metrics registered; qed");
+	let metrics = Metrics::register(Some(&registry)).expect("metrics registered; qed");
 	let mut distributor = SegmentDistributor::new(client, overseer_handle, PARA_ID, metrics);
 
 	distributor
@@ -573,22 +540,22 @@ async fn counter_not_incremented_on_build_failure() {
 					relay_parent,
 				)],
 			},
-			None,
+			// Core 0 is not assigned to our para, so the UMP signal check rejects the candidate.
+			transpose_claim_queue(claim_queue_for_core(1)),
 		)
 		.await;
 
-	// The build failed; counter must remain at zero.
+	assert!(drain(&mut rx).is_empty());
 	assert_eq!(counter_value(&registry), 0.0);
+	assert_eq!(submit_collation_sample_count(&registry), 0);
 }
 
-/// A caller that already holds the claim queue at the anchor must suppress the runtime call.
-/// Re-fetching here costs an uncached round trip per core in the window between authoring and
-/// advertisement, so this asserts the fetch does not happen.
+/// The distributor must never reach for the claim queue itself: the caller already holds it at
+/// the anchor, and no `RelayChainInterface` implementation caches it.
 #[tokio::test]
-async fn supplied_claim_queue_suppresses_the_fetch() {
+async fn distribute_never_fetches_the_claim_queue() {
 	let relay_parent = Hash::repeat_byte(0x07);
-	let (client, _validators_calls, claim_queue_calls) =
-		MockRelayClient::new(Some(claim_queue_for_core(0)), 4);
+	let (client, _validators_calls, claim_queue_calls) = MockRelayClient::new(4);
 	let (overseer_handle, mut rx) = make_overseer_handle();
 	let mut distributor =
 		SegmentDistributor::new(client, overseer_handle, PARA_ID, Default::default());
@@ -606,26 +573,10 @@ async fn supplied_claim_queue_suppresses_the_fetch() {
 					relay_parent,
 				)],
 			},
-			Some(transpose_claim_queue(claim_queue_for_core(0))),
+			transpose_claim_queue(claim_queue_for_core(0)),
 		)
 		.await;
 
-	// No claim-queue runtime call, and the segment still went out.
 	assert!(claim_queue_calls.lock().unwrap().is_empty());
 	assert_eq!(drain(&mut rx).len(), 1);
-}
-
-/// Registering twice against one registry still fails: the collector name is registry-global, so
-/// the `para_id` label alone does not make registration idempotent. Both call sites log a warning
-/// and fall back to no-op metrics — correct for a node (one para per process), but it means a
-/// second para sharing a process gets no collation metrics.
-#[test]
-fn second_registration_against_the_same_registry_is_rejected() {
-	let registry = Registry::new();
-
-	assert!(Metrics::register(Some(&registry), PARA_ID).is_ok());
-	assert!(matches!(
-		Metrics::register(Some(&registry), ParaId::from(PARA_ID_2)),
-		Err(PrometheusError::AlreadyReg)
-	));
 }

@@ -20,6 +20,7 @@ use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::Id as ParaId;
 
+pub mod collation;
 pub mod metrics;
 pub mod segment;
 pub mod service;

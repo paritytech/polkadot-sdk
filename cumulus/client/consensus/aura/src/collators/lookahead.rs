@@ -34,7 +34,9 @@
 
 use codec::{Codec, Encode};
 use cumulus_client_collator::{
-	metrics::Metrics, segment::SegmentDistributor,
+	collation::{SchedulingContext, SegmentToDistribute},
+	metrics::Metrics,
+	segment::SegmentDistributor,
 	service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_client_consensus_common::{
@@ -46,7 +48,6 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::SegmentCollation;
-use polkadot_node_subsystem_util::collation::{SchedulingContext, SegmentToDistribute};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{transpose_claim_queue, Id as ParaId, OccupiedCoreAssumption};
 use sp_consensus::Environment;
@@ -251,7 +252,7 @@ where
 		)
 		.await;
 
-		let metrics = match Metrics::register(params.prometheus_registry.as_ref(), params.para_id) {
+		let metrics = match Metrics::register(params.prometheus_registry.as_ref()) {
 			Ok(m) => m,
 			Err(err) => {
 				tracing::warn!(
@@ -552,7 +553,7 @@ where
 								}],
 							},
 							// Already fetched at this relay parent for core selection above.
-							Some(transpose_claim_queue(claim_queue.0.clone())),
+							transpose_claim_queue(claim_queue.0.clone()),
 						)
 						.await;
 				},

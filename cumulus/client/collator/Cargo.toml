@@ -28,10 +28,9 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 # Polkadot
+polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-types = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
@@ -55,9 +54,15 @@ sp-version = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives-test-helpers = { workspace = true }
 
 # Cumulus
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
+
+[features]
+# Exposes segment-entry builders that skip the UMP-signal checks an honest collator must
+# perform. Only the test parachain collators may enable this.
+test-utils = []

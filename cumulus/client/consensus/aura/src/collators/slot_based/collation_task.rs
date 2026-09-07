@@ -18,11 +18,12 @@
 use std::path::PathBuf;
 
 use cumulus_client_collator::{
-	metrics::Metrics, segment::SegmentDistributor,
+	collation::{SchedulingContext, SegmentToDistribute},
+	metrics::Metrics,
+	segment::SegmentDistributor,
 	service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_node_subsystem_util::collation::{SchedulingContext, SegmentToDistribute};
 use prometheus_endpoint::Registry;
 
 use polkadot_node_primitives::{MaybeCompressedPoV, SegmentCollation};
@@ -82,7 +83,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 
 	cumulus_client_collator::initialize_collator_subsystems(&mut overseer_handle, para_id).await;
 
-	let metrics = match Metrics::register(prometheus_registry.as_ref(), para_id) {
+	let metrics = match Metrics::register(prometheus_registry.as_ref()) {
 		Ok(m) => m,
 		Err(err) => {
 			tracing::warn!(target: LOG_TARGET, ?err, "Failed to register collation metrics.");
@@ -108,7 +109,10 @@ pub async fn run_collation_task<Block, RClient, CS>(
 /// Handle an incoming collation message from the block builder task.
 /// This builds the collation from the [`CollatorMessage`] and hands it to the segment
 /// distributor, which turns it into a candidate and passes it on to the collator protocol.
-async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
+pub(super) async fn handle_collation_message<
+	Block: BlockT,
+	RClient: RelayChainInterface + Clone + 'static,
+>(
 	message: CollatorMessage<Block>,
 	collator_service: &impl CollatorServiceInterface<Block>,
 	segment_distributor: &mut SegmentDistributor<RClient>,
@@ -226,7 +230,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 					validation_data,
 				}],
 			},
-			claim_queue.map(|cq| transpose_claim_queue(cq.0)),
+			transpose_claim_queue(claim_queue.0),
 		)
 		.await;
 }
