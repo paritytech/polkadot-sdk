@@ -44,6 +44,7 @@ use tokio::sync::Mutex;
 mod adder;
 #[cfg(target_os = "linux")]
 mod process;
+mod security_checks;
 mod worker_common;
 
 const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
