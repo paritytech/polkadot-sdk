@@ -1,0 +1,10 @@
+title: 'Derive DecodeWithMemTracking'
+doc:
+  - audience: Runtime Dev
+    description: |-
+      - Derive `DecodeWithMemTracking` on structs
+crates:
+  - name: sp-core
+    bump: minor
+  - name: sp-mmr-primitives
+    bump: minor
