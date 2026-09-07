@@ -87,13 +87,7 @@ impl LocalKeystore {
 	}
 
 	fn public_keys<T: CorePair>(&self, key_type: KeyTypeId) -> Vec<T::Public> {
-		self.0
-			.read()
-			.raw_public_keys(key_type)
-			.map(|v| {
-				v.into_iter().filter_map(|k| T::Public::from_slice(k.as_slice()).ok()).collect()
-			})
-			.unwrap_or_default()
+		self.0.read().public_keys_by_type::<T>(key_type).unwrap_or_default()
 	}
 
 	fn generate_new<T: CorePair>(
@@ -555,14 +549,15 @@ impl KeystoreInner {
 		Ok(())
 	}
 
-	/// Returns `true` if the plain hex-encoded filename for `public` would exceed the
-	/// filesystem's filename-length limit, requiring the hashed-filename fallback.
+	/// Returns `true` if the plain hex-encoded filename for a public key of `public_len` bytes
+	/// would exceed the filesystem's filename-length limit, requiring the hashed-filename
+	/// fallback.
 	///
 	/// The key-type prefix is always [`KEY_TYPE_PREFIX_LEN`] bytes regardless of the
-	/// concrete `KeyTypeId`, so the predicate is a pure function of `public.len()`.
-	fn requires_hashed_filename(public: &[u8]) -> bool {
+	/// concrete `KeyTypeId`, so the predicate is a pure function of the public key length.
+	fn requires_hashed_filename(public_len: usize) -> bool {
 		// 2 hex chars per byte; KEY_TYPE_PREFIX_LEN bytes are always present.
-		(KEY_TYPE_PREFIX_LEN + public.len()) * 2 > MAX_FILENAME_LEN
+		(KEY_TYPE_PREFIX_LEN + public_len) * 2 > MAX_FILENAME_LEN
 	}
 
 	/// Read the phrase stored in the key file at `path`.
@@ -571,26 +566,22 @@ impl KeystoreInner {
 		serde_json::from_reader(&file).map_err(Into::into)
 	}
 
+	/// Derive a `Pair` from `phrase` and return its public key if it hashes to `hash`.
+	fn public_matching_hash<Pair: CorePair>(&self, phrase: &str, hash: &[u8]) -> Option<Vec<u8>> {
+		let public = Pair::from_string(phrase, self.password()).ok()?.public().to_raw_vec();
+		(sp_crypto_hashing::blake2_256(&public) == hash).then_some(public)
+	}
+
 	sp_keystore::bls_experimental_enabled! {
-		/// Recover the public key of a key file with a hashed name.
+		/// Recover the public key of a hashed-name entry whose scheme isn't known.
 		///
-		/// The name only carries `blake2_256(public_key)`, so the key is re-derived from the
-		/// stored `phrase` with every scheme whose public key is long enough to need a hashed
-		/// name, and the derivation hashing to `hash` wins. Returns `None` if none does, e.g.
-		/// because the file wasn't written by this keystore or the password is wrong.
+		/// Every scheme whose public key is long enough to need a hashed name is tried, and the
+		/// derivation hashing to `hash` wins. Only the scheme-agnostic [`Self::raw_public_keys`]
+		/// has to resort to this: when the scheme is known, [`Self::public_keys_by_type`] derives
+		/// with that scheme alone.
 		fn recover_hashed_public(&self, phrase: &str, hash: &[u8]) -> Option<Vec<u8>> {
 			self.public_matching_hash::<bls381::Pair>(phrase, hash)
 				.or_else(|| self.public_matching_hash::<ecdsa_bls381::Pair>(phrase, hash))
-		}
-
-		/// Derive a `Pair` from `phrase` and return its public key if it hashes to `hash`.
-		fn public_matching_hash<Pair: CorePair>(
-			&self,
-			phrase: &str,
-			hash: &[u8],
-		) -> Option<Vec<u8>> {
-			let public = Pair::from_string(phrase, self.password()).ok()?.public().to_raw_vec();
-			(sp_crypto_hashing::blake2_256(&public) == hash).then_some(public)
 		}
 	}
 
@@ -664,11 +655,11 @@ impl KeystoreInner {
 	/// * **Hashed**: used when the plain name would exceed [`MAX_FILENAME_LEN`] (notably for BLS381
 	///   / ECDSA_BLS381 public keys): `hex(key_type || blake2_256(public_key))` followed by
 	///   [`HASHED_FILENAME_SUFFIX`]. The public key is re-derived from the phrase when needed, see
-	///   [`Self::recover_hashed_public`].
+	///   [`Self::public_keys_by_type`].
 	fn key_file_path(&self, public: &[u8], key_type: KeyTypeId) -> Option<PathBuf> {
 		let mut buf = self.path.as_ref()?.clone();
 		let key_type = array_bytes::bytes2hex("", &key_type.0);
-		let name = if Self::requires_hashed_filename(public) {
+		let name = if Self::requires_hashed_filename(public.len()) {
 			let hash = array_bytes::bytes2hex("", sp_crypto_hashing::blake2_256(public));
 			key_type + &hash + HASHED_FILENAME_SUFFIX
 		} else {
@@ -678,8 +669,44 @@ impl KeystoreInner {
 		Some(buf)
 	}
 
-	/// Returns a list of raw public keys filtered by `KeyTypeId`
+	/// Returns a list of raw public keys filtered by `KeyTypeId`, whatever their scheme.
+	///
+	/// As the scheme of an entry isn't known, a hashed-name entry has to be recovered by trying
+	/// every scheme that can have written one, see [`Self::recover_hashed_public`]. Prefer
+	/// [`Self::public_keys_by_type`] whenever the scheme is known.
 	fn raw_public_keys(&self, key_type: KeyTypeId) -> Result<Vec<Vec<u8>>> {
+		let recover = |phrase: &str, hash: &[u8]| self.recover_hashed_public(phrase, hash);
+		self.raw_public_keys_with(key_type, Some(recover))
+	}
+
+	/// Returns the public keys of scheme `Pair` filtered by `KeyTypeId`.
+	///
+	/// A hashed-name entry is only ever derived with `Pair`, and not at all when `Pair`'s public
+	/// key is short enough to always get a plain name, as no such entry can be a `Pair` key then.
+	fn public_keys_by_type<Pair: CorePair>(
+		&self,
+		key_type: KeyTypeId,
+	) -> Result<Vec<Pair::Public>> {
+		let recover = Self::requires_hashed_filename(<Pair::Public as ByteArray>::LEN)
+			.then_some(|phrase: &str, hash: &[u8]| self.public_matching_hash::<Pair>(phrase, hash));
+		let public_keys = self
+			.raw_public_keys_with(key_type, recover)?
+			.into_iter()
+			.filter_map(|k| Pair::Public::from_slice(k.as_slice()).ok())
+			.collect();
+		Ok(public_keys)
+	}
+
+	/// Returns a list of raw public keys filtered by `KeyTypeId`.
+	///
+	/// The name of a hashed-name entry only carries a hash of the public key, which `recover`
+	/// re-derives from the stored phrase, given the phrase and the hash. Without a `recover`,
+	/// hashed-name entries are skipped.
+	fn raw_public_keys_with(
+		&self,
+		key_type: KeyTypeId,
+		recover: Option<impl Fn(&str, &[u8]) -> Option<Vec<u8>>>,
+	) -> Result<Vec<Vec<u8>>> {
 		let mut public_keys: Vec<Vec<u8>> = self
 			.additional
 			.keys()
@@ -709,9 +736,10 @@ impl KeystoreInner {
 				};
 				let public = if hashed {
 					// The name only carries a hash of the public key: re-derive it from the phrase.
+					let Some(recover) = &recover else { continue };
 					match Self::read_phrase(&path)
 						.ok()
-						.and_then(|phrase| self.recover_hashed_public(&phrase, &payload))
+						.and_then(|phrase| recover(&phrase, &payload))
 					{
 						Some(public) => public,
 						None => continue,
@@ -1081,9 +1109,10 @@ mod tests {
 
 		assert_filenames_within_filesystem_limit(temp_dir.path());
 
-		// The public keys must still be enumerable.
+		// The public keys must still be enumerable, both by scheme and scheme-agnostically.
 		assert_eq!(store.bls381_public_keys(BLS381), vec![bls381]);
 		assert_eq!(store.ecdsa_bls381_public_keys(ECDSA_BLS381), vec![ecdsa_bls381]);
+		assert_eq!(store.keys(BLS381).unwrap(), vec![bls381.to_raw_vec()]);
 	}
 
 	#[test]
