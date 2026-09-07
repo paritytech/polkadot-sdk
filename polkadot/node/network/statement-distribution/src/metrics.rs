@@ -13,6 +13,30 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Metrics for the statement distribution module
+//!
+//! # Metric Status
+//!
+//! After the migration to V2 (asynchronous backing), the statement distribution subsystem
+//! only has a V2 implementation. The "V1" metrics below are legacy and currently unused,
+//! kept for backwards compatibility. The "V3" mentioned in protocol messages refers to the
+//! network protocol version, not a separate subsystem implementation.
+//!
+//! ## Active Metrics (V2)
+//! - `statements_distributed` - statements sent to peers
+//! - `active_leaves_update` - timing for active leaves processing
+//! - `share` - timing for share operations
+//! - `peer_rate_limit_request_drop` - requests dropped due to peer rate limiting
+//! - `max_parallel_requests_reached` - times max parallel request limit was hit
+//! - `v2_requests_sent` - attested candidate requests sent (V2)
+//! - `v2_responses_received` - attested candidate responses received (V2)
+//! - `v2_statements_unexpected` - unexpected statements by error type (V2)
+//!
+//! ## Deprecated Metrics (V1 Legacy - Unused)
+//! - `sent_requests` - was for large statement fetching in V1
+//! - `received_responses` - was for large statement responses in V1
+//! - `network_bridge_update` - was for V1 message type timing
+//! - `statements_unexpected` - was for V1 unexpected statement categories
+//! - `created_message_size` - was for V1 message size tracking
 
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
 
@@ -24,19 +48,46 @@ const HISTOGRAM_LATENCY_BUCKETS: &[f64] = &[
 
 #[derive(Clone)]
 struct MetricsInner {
-	// V1
+	// ===== DEPRECATED V1 METRICS =====
+	// These metrics are from the legacy V1 implementation and are currently unused.
+	// They are kept for backwards compatibility but may be removed in a future release.
+	/// Number of large statement fetching requests sent.
+	/// Deprecated: was only used in V1.
 	sent_requests: prometheus::Counter<prometheus::U64>,
+	/// Number of received responses for large statement data.
+	/// Deprecated: was only used in V1.
 	received_responses: prometheus::CounterVec<prometheus::U64>,
+	/// Time spent processing network bridge updates by message type.
+	/// Deprecated: was only used in V1.
 	network_bridge_update: prometheus::HistogramVec,
+	/// Number of unexpected statements by type (valid/seconded/large).
+	/// Deprecated: was only used in V1.
 	statements_unexpected: prometheus::CounterVec<prometheus::U64>,
+	/// Size of created messages containing Seconded statements.
+	/// Deprecated: was only used in V1.
 	created_message_size: prometheus::Gauge<prometheus::U64>,
-	// V1+
+
+	// ===== ACTIVE METRICS =====
+	// These metrics are actively used in the V2 implementation.
+	/// Number of candidate validity statements distributed to peers.
 	statements_distributed: prometheus::Counter<prometheus::U64>,
+	/// Time spent within `statement_distribution::active_leaves_update`.
 	active_leaves_update: prometheus::Histogram,
+	/// Time spent within `statement_distribution::share`.
 	share: prometheus::Histogram,
-	// V2+
+	/// Number of requests dropped because of peer rate limiting.
 	peer_rate_limit_request_drop: prometheus::Counter<prometheus::U64>,
+	/// Number of times the maximum number of parallel requests was reached.
 	max_parallel_requests_reached: prometheus::Counter<prometheus::U64>,
+
+	// ===== V2 METRICS =====
+	// New metrics specific to the V2 implementation.
+	/// Number of attested candidate requests sent to peers.
+	v2_requests_sent: prometheus::Counter<prometheus::U64>,
+	/// Number of attested candidate responses received, by outcome.
+	v2_responses_received: prometheus::CounterVec<prometheus::U64>,
+	/// Number of unexpected statements received, by error type.
+	v2_statements_unexpected: prometheus::CounterVec<prometheus::U64>,
 }
 
 /// Statement Distribution metrics.
@@ -58,18 +109,20 @@ impl Metrics {
 		}
 	}
 
-	/// Update sent requests counter
-	/// This counter is updated merely for the statements sent via request/response method,
-	/// meaning that it counts large statements only
+	/// Update sent requests counter.
+	///
+	/// Deprecated: This was only used in V1 for large statement fetching.
+	#[deprecated(note = "V1 metric, unused in V2. Use on_v2_request_sent instead.")]
 	pub fn on_sent_request(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.sent_requests.inc();
 		}
 	}
 
-	/// Update counters for the received responses with `succeeded` or `failed` labels
-	/// These counters are updated merely for the statements received via request/response method,
-	/// meaning that they count large statements only
+	/// Update counters for received responses.
+	///
+	/// Deprecated: This was only used in V1 for large statement responses.
+	#[deprecated(note = "V1 metric, unused in V2. Use on_v2_response_received instead.")]
 	pub fn on_received_response(&self, success: bool) {
 		if let Some(metrics) = &self.0 {
 			let label = if success { "succeeded" } else { "failed" };
@@ -90,6 +143,9 @@ impl Metrics {
 	}
 
 	/// Provide a timer for `network_bridge_update` which observes on drop.
+	///
+	/// Deprecated: This was only used in V1.
+	#[deprecated(note = "V1 metric, unused in V2.")]
 	pub fn time_network_bridge_update(
 		&self,
 		message_type: &'static str,
@@ -99,21 +155,30 @@ impl Metrics {
 		})
 	}
 
-	/// Update the out-of-view statements counter for unexpected valid statements
+	/// Update the out-of-view statements counter for unexpected valid statements.
+	///
+	/// Deprecated: This was only used in V1.
+	#[deprecated(note = "V1 metric, unused in V2. Use on_v2_unexpected_statement instead.")]
 	pub fn on_unexpected_statement_valid(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.statements_unexpected.with_label_values(&["valid"]).inc();
 		}
 	}
 
-	/// Update the out-of-view statements counter for unexpected seconded statements
+	/// Update the out-of-view statements counter for unexpected seconded statements.
+	///
+	/// Deprecated: This was only used in V1.
+	#[deprecated(note = "V1 metric, unused in V2. Use on_v2_unexpected_statement instead.")]
 	pub fn on_unexpected_statement_seconded(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.statements_unexpected.with_label_values(&["seconded"]).inc();
 		}
 	}
 
-	/// Update the out-of-view statements counter for unexpected large statements
+	/// Update the out-of-view statements counter for unexpected large statements.
+	///
+	/// Deprecated: This was only used in V1.
+	#[deprecated(note = "V1 metric, unused in V2. Use on_v2_unexpected_statement instead.")]
 	pub fn on_unexpected_statement_large(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.statements_unexpected.with_label_values(&["large"]).inc();
@@ -121,26 +186,50 @@ impl Metrics {
 	}
 
 	/// Report size of a created message.
+	///
+	/// Deprecated: This was only used in V1.
+	#[deprecated(note = "V1 metric, unused in V2.")]
 	pub fn on_created_message(&self, size: usize) {
 		if let Some(metrics) = &self.0 {
 			metrics.created_message_size.set(size as u64);
 		}
 	}
 
-	/// Update sent dropped requests counter when request dropped because
-	/// of peer rate limit
+	/// Update counter when request dropped because of peer rate limiting.
 	pub fn on_request_dropped_peer_rate_limit(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.peer_rate_limit_request_drop.inc();
 		}
 	}
 
-	/// Update max parallel requests reached counter
-	/// This counter is updated when the maximum number of parallel requests is reached
-	/// and we are waiting for one of the requests to finish
+	/// Update counter when the maximum number of parallel requests is reached.
 	pub fn on_max_parallel_requests_reached(&self) {
 		if let Some(metrics) = &self.0 {
 			metrics.max_parallel_requests_reached.inc();
+		}
+	}
+
+	// ===== V2 METRICS =====
+
+	/// Update counter when an attested candidate request is sent.
+	pub fn on_v2_request_sent(&self) {
+		if let Some(metrics) = &self.0 {
+			metrics.v2_requests_sent.inc();
+		}
+	}
+
+	/// Update counter when an attested candidate response is received.
+	pub fn on_v2_response_received(&self, success: bool) {
+		if let Some(metrics) = &self.0 {
+			let label = if success { "success" } else { "failure" };
+			metrics.v2_responses_received.with_label_values(&[label]).inc();
+		}
+	}
+
+	/// Update counter for unexpected statements by error type.
+	pub fn on_v2_unexpected_statement(&self, error_type: &'static str) {
+		if let Some(metrics) = &self.0 {
+			metrics.v2_statements_unexpected.with_label_values(&[error_type]).inc();
 		}
 	}
 }
@@ -160,7 +249,7 @@ impl metrics::Metrics for Metrics {
 			sent_requests: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_parachain_statement_distribution_sent_requests_total",
-					"Number of large statement fetching requests sent.",
+					"Number of large statement fetching requests sent (deprecated, V1 only).",
 				)?,
 				registry,
 			)?,
@@ -168,7 +257,7 @@ impl metrics::Metrics for Metrics {
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
 						"polkadot_parachain_statement_distribution_received_responses_total",
-						"Number of received responses for large statement data.",
+						"Number of received responses for large statement data (deprecated, V1 only).",
 					),
 					&["success"],
 				)?,
@@ -198,7 +287,7 @@ impl metrics::Metrics for Metrics {
 				prometheus::HistogramVec::new(
 					prometheus::HistogramOpts::new(
 						"polkadot_parachain_statement_distribution_network_bridge_update",
-						"Time spent within `statement_distribution::network_bridge_update`",
+						"Time spent within `statement_distribution::network_bridge_update` (deprecated, V1 only).",
 					)
 					.buckets(HISTOGRAM_LATENCY_BUCKETS.into()),
 					&["message_type"],
@@ -209,7 +298,7 @@ impl metrics::Metrics for Metrics {
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
 						"polkadot_parachain_statement_distribution_statements_unexpected",
-						"Number of statements that were not expected to be received.",
+						"Number of unexpected statements received (deprecated, V1 only).",
 					),
 					&["type"],
 				)?,
@@ -218,7 +307,7 @@ impl metrics::Metrics for Metrics {
 			created_message_size: prometheus::register(
 				prometheus::Gauge::with_opts(prometheus::Opts::new(
 					"polkadot_parachain_statement_distribution_created_message_size",
-					"Size of created messages containing Seconded statements.",
+					"Size of created messages containing Seconded statements (deprecated, V1 only).",
 				))?,
 				registry,
 			)?,
@@ -233,6 +322,34 @@ impl metrics::Metrics for Metrics {
 				prometheus::Counter::new(
 					"polkadot_parachain_statement_distribution_max_parallel_requests_reached_total",
 					"Number of times the maximum number of parallel requests was reached.",
+				)?,
+				registry,
+			)?,
+			// V2 metrics
+			v2_requests_sent: prometheus::register(
+				prometheus::Counter::new(
+					"polkadot_parachain_statement_distribution_v2_requests_sent_total",
+					"Number of attested candidate requests sent to peers (V2).",
+				)?,
+				registry,
+			)?,
+			v2_responses_received: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_statement_distribution_v2_responses_received_total",
+						"Number of attested candidate responses received (V2).",
+					),
+					&["outcome"],
+				)?,
+				registry,
+			)?,
+			v2_statements_unexpected: prometheus::register(
+				prometheus::CounterVec::new(
+					prometheus::Opts::new(
+						"polkadot_parachain_statement_distribution_v2_statements_unexpected_total",
+						"Number of unexpected statements received by error type (V2).",
+					),
+					&["error_type"],
 				)?,
 				registry,
 			)?,
