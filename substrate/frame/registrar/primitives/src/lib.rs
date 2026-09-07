@@ -120,7 +120,8 @@ pub enum MessageToRelayV1<AccountId> {
 	/// Ask the relay chain to authorize a validation code upgrade for `para_id`.
 	///
 	/// As with a registration, the blob itself is not sent: the relay chain is told which bytes to
-	/// accept and they are uploaded to it separately. Answered with
+	/// accept and they are uploaded to it separately. Ownership and the lock are checked on the
+	/// parachain, so nothing about the caller travels with this. Answered with
 	/// [`MessageToParaV1::CodeUpgradeResponse`].
 	#[codec(index = 4)]
 	AuthorizeCodeUpgrade {
@@ -128,8 +129,6 @@ pub enum MessageToRelayV1<AccountId> {
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
-		/// The account that manages this para on the parachain.
-		manager: AccountId,
 		/// Blake2-256 hash of the validation code that will be uploaded.
 		code_hash: H256,
 		/// Length of the validation code that will be uploaded, in bytes.
@@ -295,9 +294,18 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
+	/// The relay chain does not know this para id.
+	#[codec(index = 2)]
+	NotRegistered,
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// An upgrade is already in flight for this para, or it is in its post-upgrade cooldown.
+	#[codec(index = 5)]
+	CannotUpgradeCode,
+	/// The declared validation code length is outside what the relay chain accepts.
+	#[codec(index = 6)]
+	InvalidCodeSize,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -326,6 +334,18 @@ pub trait ParachainRegistrar {
 		manager: Self::AccountId,
 		para_id: ParaId,
 		genesis_head: Vec<u8>,
+		validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult;
+
+	/// Whether `para_id` could have a code upgrade of this size scheduled right now.
+	///
+	/// Covers the para being unknown as well, so a doomed request is refused with the reason it
+	/// deserves before the user uploads megabytes of code.
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), FailureReason>;
+
+	/// Schedule a validation code upgrade for `para_id`.
+	fn schedule_code_upgrade(
+		para_id: ParaId,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
 }
