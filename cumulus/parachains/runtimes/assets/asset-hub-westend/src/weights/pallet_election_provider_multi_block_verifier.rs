@@ -19,7 +19,6 @@
 //! DATE: 2026-09-04, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `9abb36fd1460`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
-//! HOSTNAME: `1c5f6a9d1eea`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -79,8 +78,6 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 		//  Estimated: `377144`
 		// Minimum execution time: 628_571_000 picoseconds.
 		Weight::from_parts(704_736_000, 0)
-		// Minimum execution time: 669_093_000 picoseconds.
-		Weight::from_parts(705_687_000, 0)
 			.saturating_add(Weight::from_parts(0, 377144))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -124,13 +121,6 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 			.saturating_add(Weight::from_parts(0, 492747))
 			.saturating_add(T::DbWeight::get().reads(77))
 			.saturating_add(T::DbWeight::get().writes(73))
-		//  Measured:  `408841`
-		//  Estimated: `491506`
-		// Minimum execution time: 1_128_006_000 picoseconds.
-		Weight::from_parts(1_217_989_000, 0)
-			.saturating_add(Weight::from_parts(0, 491506))
-			.saturating_add(T::DbWeight::get().reads(76))
-			.saturating_add(T::DbWeight::get().writes(72))
 	}
 	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
 	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
@@ -169,13 +159,6 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 			.saturating_add(Weight::from_parts(0, 492917))
 			.saturating_add(T::DbWeight::get().reads(107))
 			.saturating_add(T::DbWeight::get().writes(102))
-		//  Measured:  `408841`
-		//  Estimated: `491506`
-		// Minimum execution time: 1_157_533_000 picoseconds.
-		Weight::from_parts(1_213_925_000, 0)
-			.saturating_add(Weight::from_parts(0, 491506))
-			.saturating_add(T::DbWeight::get().reads(106))
-			.saturating_add(T::DbWeight::get().writes(101))
 	}
 	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
 	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
@@ -216,14 +199,6 @@ impl<T: frame_system::Config> pallet_election_provider_multi_block::verifier::We
 			// Standard Error: 140_230
 			.saturating_add(Weight::from_parts(3_213_352, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(43))
-		//  Measured:  `417408 + v * (35 ±0)`
-		//  Estimated: `487440 + v * (2557 ±234)`
-		// Minimum execution time: 798_014_000 picoseconds.
-		Weight::from_parts(895_002_155, 0)
-			.saturating_add(Weight::from_parts(0, 487440))
-			// Standard Error: 136_367
-			.saturating_add(Weight::from_parts(3_832_980, 0).saturating_mul(v.into()))
-			.saturating_add(T::DbWeight::get().reads(42))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().writes(38))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(v.into())))
