@@ -79,22 +79,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
-	///
-	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
-	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
-	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
-	/// runtime, and requires a `chain-spec` path to be passed to its `--chain` flag, the command
-	/// isn't bringing significant value as it does for other node binaries (e.g. the
-	///  `polkadot` binary).
-	///
-	/// For a more versatile `chain-spec` manipulation experience please check out the
-	/// `polkadot-omni-node chain-spec-builder` subcommand.
-	#[deprecated(
-		note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead"
-	)]
-	BuildSpec(sc_cli::BuildSpecCmd),
-
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
 
