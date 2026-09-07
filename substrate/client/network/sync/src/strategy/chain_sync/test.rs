@@ -1692,24 +1692,21 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 	assert!(request.fields.contains(BlockAttributes::BODY));
 }
 
-// Regression test for the gap-sync head-of-line stall: a gap block request that fails at the
-// network layer must free the in-flight range so it is retried, without waiting for the peer to
-// disconnect. Gap sync downloads each range from a single peer (`max_parallel = 1`), so a range
-// left pinned to an unresponsive peer is never re-requested; once the download front advances
-// past `MAX_DOWNLOAD_AHEAD` the whole block-history backfill wedges.
-#[test]
-fn gap_sync_failed_request_frees_head_of_line_range_without_dropping_peer() {
-	sp_tracing::try_init_simple();
-
+/// Replacing a block download must let another peer retry it before ancestry search finishes.
+fn ancestry_search_releases_block_download(gap: bool) {
+	let remote = TestClientBuilder::new().build();
+	let blocks = (0..10).map(|_| build_block(&remote, None, false)).collect::<Vec<_>>();
 	let client = Arc::new(TestClientBuilder::new().build());
-	let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
-	client.finalize_block(blocks[9].hash(), None).unwrap();
-
-	// Blocks #1..=#10 exist, #10 is finalized and the gap covers #1..=#9.
+	if gap {
+		for block in &blocks {
+			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		}
+		client.finalize_block(blocks[9].hash(), None).unwrap();
+	}
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
-		client.clone(),
-		5,
+		client,
+		1,
 		2,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
@@ -1718,56 +1715,171 @@ fn gap_sync_failed_request_frees_head_of_line_range_without_dropping_peer() {
 		std::iter::empty(),
 	)
 	.unwrap();
+	if gap {
+		sync.gap_sync = Some(GapSync {
+			best_queued_number: 6,
+			target: 8,
+			blocks: BlockCollection::new(),
+			stats: GapSyncStats::new(),
+		});
+	}
 
-	sync.gap_sync = Some(GapSync {
-		best_queued_number: 6,
-		target: 9,
-		blocks: BlockCollection::new(),
-		stats: GapSyncStats::new(),
-	});
+	let peers = [PeerId::random(), PeerId::random()];
+	let best = if gap { 10 } else { 2 };
+	for peer in peers {
+		sync.add_peer(peer, blocks[best - 1].hash(), best as u64);
+	}
+	// Only one range exists, so exactly one peer is assigned it and the other stays idle.
+	let mut requests = sync.block_requests();
+	assert_eq!(requests.len(), 1);
+	let (busy, original) = requests.pop().unwrap();
+	let idle = *peers.iter().find(|peer| **peer != busy).unwrap();
+	assert!(sync.allowed_requests.is_empty());
+	assert!(!sync.is_major_syncing());
 
-	// The head-of-line gap range #7..=#8 is requested from `peer1`, which pins it.
-	let peer1 = PeerId::random();
-	sync.add_peer(peer1, blocks[9].hash(), 10);
-	let _ = get_block_request(&mut sync, FromBlock::Number(8), 2, &peer1);
-	assert!(matches!(
-		sync.peers.get(&peer1).unwrap().state,
-		PeerSyncState::DownloadingGap(_),
-	));
+	let mut header = blocks[best - 1].header().clone();
+	header.set_parent_hash(Hash::random());
+	send_block_announce(header, busy, &mut sync);
+	assert!(matches!(sync.peers[&busy].state, PeerSyncState::AncestorSearch { .. }));
+	let actions = sync.take_actions().collect::<Vec<_>>();
 
-	// A second peer cannot take over the pinned range while `peer1` holds it — it is only
-	// offered the next range (#9). This is the wedge: nothing retries #7..=#8 if `peer1`'s
-	// request is lost.
-	let peer2 = PeerId::random();
-	sync.add_peer(peer2, blocks[9].hash(), 10);
-	sync.allowed_requests.set_all();
-	let while_pinned = sync.block_requests();
-	assert!(
-		while_pinned.iter().all(|(_, req)| req.from != FromBlock::Number(8)),
-		"the in-flight head range must not be re-requested while a peer holds it, \
-		 got {while_pinned:?}",
-	);
+	// No response from `busy`, and no manual change to scheduling permissions. The other
+	// peer must take over immediately, without relying on needed_blocks' stale-peer guard.
+	let retried = get_block_request(&mut sync, original.from, 2, &idle);
+	assert!(matches!(actions.as_slice(), [
+		SyncingAction::CancelRequest { peer_id: canceled, .. },
+		SyncingAction::StartRequest { peer_id: started, .. },
+	] if *canceled == busy && *started == busy));
+	let response_blocks = if gap { &blocks[6..8] } else { &blocks[..2] };
+	sync.on_block_data(
+		&idle,
+		Some(retried),
+		create_block_response(response_blocks.iter().rev().cloned().collect()),
+	)
+	.unwrap();
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert!(matches!(actions.as_slice(), [SyncingAction::ImportBlocks { origin, blocks }]
+		if *origin == if gap { BlockOrigin::GapSync } else { BlockOrigin::NetworkBroadcast }
+			&& blocks.len() == 2));
+	assert!(matches!(sync.peers[&busy].state, PeerSyncState::AncestorSearch { .. }));
+}
 
-	// `peer1`'s request now fails at the network layer (timeout / refusal / dropped
-	// connection). The strategy must free the in-flight range so it is retried — and, unlike
-	// `remove_peer`, keep `peer1` around.
-	sync.on_request_failed(&peer1, ChainSync::<Block, TestClient>::STRATEGY_KEY);
+#[test]
+fn ancestry_search_releases_gap_download() {
+	ancestry_search_releases_block_download(true);
+}
 
-	assert!(
-		sync.peers.contains_key(&peer1),
-		"peer must not be removed on request failure",
-	);
-	assert_eq!(sync.peers.get(&peer1).unwrap().state, PeerSyncState::Available);
+#[test]
+fn ancestry_search_releases_regular_download() {
+	ancestry_search_releases_block_download(false);
+}
 
-	// The freed head-of-line range #7..=#8 is requested again.
-	sync.allowed_requests.set_all();
-	let after_failure = sync.block_requests();
-	assert!(
-		after_failure
-			.iter()
-			.any(|(_, req)| req.from == FromBlock::Number(8) && req.max == Some(2)),
-		"the freed head-of-line gap range should be retried, got {after_failure:?}",
-	);
+#[test]
+fn ancestry_search_requeues_justification_download() {
+	let client = Arc::new(TestClientBuilder::new().build());
+	let block = build_block(&client, None, false);
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client,
+		1,
+		2,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+	let busy = PeerId::random();
+	let idle = PeerId::random();
+	sync.add_peer(busy, block.hash(), 1);
+	sync.request_justification(&block.hash(), 1);
+	assert_eq!(sync.justification_requests().len(), 1);
+	sync.add_peer(idle, block.hash(), 1);
+
+	let mut header = block.header().clone();
+	header.set_parent_hash(Hash::random());
+	send_block_announce(header, busy, &mut sync);
+	assert!(matches!(sync.peers[&busy].state, PeerSyncState::AncestorSearch { .. }));
+	assert_eq!(sync.extra_justifications.active_requests().count(), 0);
+	assert_eq!(sync.extra_justifications.pending_requests().count(), 1);
+	let requests = sync.justification_requests();
+	assert_eq!(requests.len(), 1);
+	assert_eq!(requests[0].0, idle);
+	assert_eq!(requests[0].1.from, FromBlock::Hash(block.hash()));
+	assert!(sync.disconnected_peers.is_peer_available(&busy));
+}
+
+#[test]
+fn ancestry_search_allows_state_request_to_move_to_another_peer() {
+	let client = Arc::new(TestClientBuilder::new().build());
+	let block = build_block(&client, None, false);
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client,
+		1,
+		2,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+	let peers = [PeerId::random(), PeerId::random()];
+	for peer in peers {
+		sync.add_peer(peer, block.hash(), 1);
+	}
+	sync.attempt_state_sync(block.hash(), 1, false);
+	let (busy, original) = sync.state_request().unwrap();
+	assert!(sync.allowed_requests.is_empty());
+
+	let mut header = block.header().clone();
+	header.set_parent_hash(Hash::random());
+	send_block_announce(header, busy, &mut sync);
+	let (replacement_peer, retried) = sync.state_request().unwrap();
+	assert_ne!(replacement_peer, busy);
+	assert_eq!(retried, original);
+	assert!(matches!(sync.peers[&busy].state, PeerSyncState::AncestorSearch { .. }));
+}
+
+#[test]
+fn ancestry_search_preserves_pending_fork_download() {
+	let client = Arc::new(TestClientBuilder::new().build());
+	let blocks = (0..3).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client,
+		1,
+		2,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		GapSyncBodyPolicy::HeadersOnly,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+	let peer = PeerId::random();
+	sync.add_peer(peer, blocks[2].hash(), 3);
+	let fork_hash = Hash::random();
+	sync.set_sync_fork_request(vec![peer], &fork_hash, 2);
+	get_block_request(&mut sync, FromBlock::Hash(fork_hash), 2, &peer);
+	assert_eq!(sync.peers[&peer].state, PeerSyncState::DownloadingStale(fork_hash));
+
+	let mut header = blocks[2].header().clone();
+	header.set_parent_hash(Hash::random());
+	send_block_announce(header, peer, &mut sync);
+	assert!(sync.fork_targets.contains_key(&fork_hash));
+	assert!(matches!(sync.peers[&peer].state, PeerSyncState::AncestorSearch { .. }));
+	sync.take_actions().for_each(drop);
+	// Complete ancestry search. The interrupted fork target is still schedulable.
+	sync.on_block_data(
+		&peer,
+		Some(ancestry_request::<Block>(3)),
+		create_block_response(vec![blocks[2].clone()]),
+	)
+	.unwrap();
+	get_block_request(&mut sync, FromBlock::Hash(fork_hash), 2, &peer);
 }
 
 #[test]

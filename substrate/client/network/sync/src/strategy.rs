@@ -98,16 +98,6 @@ where
 		response: Box<dyn Any + Send>,
 	);
 
-	/// Notify the strategy that a request it issued failed.
-	///
-	/// Called when a request (e.g. a block or state request) fails at the network layer — it
-	/// timed out, was refused, the connection dropped, or a pending response was dropped as
-	/// obsolete. The strategy must release any in-flight download bookkeeping tied to the
-	/// request so the affected work is retried, rather than leaving it pinned to the peer until
-	/// the peer happens to disconnect. Leaving it pinned can permanently wedge gap sync (which
-	/// downloads each range from a single peer) behind the download-ahead window.
-	fn on_request_failed(&mut self, peer_id: &PeerId, key: StrategyKey);
-
 	/// A batch of blocks that have been processed, with or without errors.
 	///
 	/// Call this when a batch of blocks that have been processed by the import queue, with or
@@ -161,15 +151,11 @@ impl StrategyKey {
 }
 
 pub enum SyncingAction<B: BlockT> {
-	/// Start request to peer.
-	StartRequest {
-		peer_id: PeerId,
-		key: StrategyKey,
-		request: ResponseFuture,
-		// Whether to remove obsolete pending responses.
-		remove_obsolete: bool,
-	},
-	/// Drop stale request.
+	/// Start a request to a peer. Any previous request with the same peer and strategy key
+	/// must have completed or been explicitly canceled.
+	StartRequest { peer_id: PeerId, key: StrategyKey, request: ResponseFuture },
+	/// Drop a pending response. The strategy must release the canceled request's bookkeeping
+	/// before recording a replacement and emit this action before its `StartRequest`.
 	CancelRequest { peer_id: PeerId, key: StrategyKey },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
 	DropPeer(BadPeer),
@@ -194,12 +180,8 @@ where
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match &self {
-			Self::StartRequest { peer_id, key, remove_obsolete, .. } => {
-				write!(
-					f,
-					"StartRequest {{ peer_id: {:?}, key: {:?}, remove_obsolete: {:?} }}",
-					peer_id, key, remove_obsolete
-				)
+			Self::StartRequest { peer_id, key, .. } => {
+				write!(f, "StartRequest {{ peer_id: {:?}, key: {:?} }}", peer_id, key)
 			},
 			Self::CancelRequest { peer_id, key } => {
 				write!(f, "CancelRequest {{ peer_id: {:?}, key: {:?} }}", peer_id, key)

@@ -121,15 +121,11 @@ impl<B: BlockT> BlockCollection<B> {
 			// Bail out early
 			return None;
 		}
-		// A peer releases its in-flight range when its response arrives, its request fails, or
-		// it disconnects, so by the time it is asked for a new range it should no longer be
-		// tracked here. If a stale entry somehow remains — e.g. a pending response was dropped
-		// as obsolete without notifying sync — release it now. Otherwise the `peer_requests`
-		// insert at the end of this function would overwrite the entry and orphan the old
-		// `Downloading` marker: nothing would ever clear it, it would pin the collection's
-		// lowest block, and (for gap sync, which downloads each range from a single peer) the
-		// backfill would stall permanently behind `MAX_DOWNLOAD_AHEAD`.
+		// Cancellation, responses and disconnection should release the previous range.
+		// Defensively release stale ownership before overwriting it, which would orphan
+		// the old Downloading marker and prevent that range from being retried.
 		if self.peer_requests.contains_key(&who) {
+			log::warn!(target: LOG_TARGET, "Releasing stale block download reservation for {who}");
 			self.clear_peer_download(&who);
 		}
 		// First block number that we need to download
@@ -568,10 +564,7 @@ mod test {
 		// The first request is recorded as in-flight for the peer.
 		let first = bc.needed_blocks(peer, count, best, 0, max_parallel, max_ahead).unwrap();
 		assert_eq!(bc.peer_requests.get(&peer), Some(&first.start));
-		assert!(matches!(
-			bc.blocks.get(&first.start),
-			Some(BlockRangeState::Downloading { .. }),
-		));
+		assert!(matches!(bc.blocks.get(&first.start), Some(BlockRangeState::Downloading { .. }),));
 
 		// The same peer is asked for a new range while its previous one is still tracked. The
 		// stale range is released, so the peer is tracked only for the new range and exactly

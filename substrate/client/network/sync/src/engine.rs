@@ -35,7 +35,7 @@ use crate::{
 
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::oneshot, StreamExt};
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
@@ -602,7 +602,7 @@ where
 	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
 		for action in self.strategy.actions(&self.network_service)? {
 			match action {
-				SyncingAction::StartRequest { peer_id, key, request, remove_obsolete } => {
+				SyncingAction::StartRequest { peer_id, key, request } => {
 					if !self.peers.contains_key(&peer_id) {
 						trace!(
 							target: LOG_TARGET,
@@ -611,21 +611,6 @@ where
 						);
 						debug_assert!(false);
 						continue;
-					}
-					if remove_obsolete {
-						if self.pending_responses.remove(peer_id, key) {
-							warn!(
-								target: LOG_TARGET,
-								"Processed `SyncingAction::StartRequest` to {peer_id} with \
-								strategy key {key:?}. Stale response removed!",
-							)
-						} else {
-							trace!(
-								target: LOG_TARGET,
-								"Processed `SyncingAction::StartRequest` to {peer_id} with \
-								strategy key {key:?}.",
-							)
-						}
 					}
 
 					self.pending_responses.insert(peer_id, key, request);
@@ -1095,11 +1080,6 @@ where
 			Ok(Err(e)) => {
 				debug!(target: LOG_TARGET, "Request to peer {peer_id:?} failed: {e:?}.");
 
-				// Release any in-flight download the strategy tracked for this request so the
-				// affected range is retried instead of being pinned to the peer (which can
-				// permanently wedge gap sync).
-				self.strategy.on_request_failed(&peer_id, key);
-
 				match e {
 					RequestFailure::Network(OutboundFailure::Timeout) => {
 						self.network_service.report_peer(peer_id, rep::TIMEOUT);
@@ -1150,7 +1130,6 @@ where
 					target: LOG_TARGET,
 					"Request to peer {peer_id:?} failed due to oneshot being canceled.",
 				);
-				self.strategy.on_request_failed(&peer_id, key);
 				self.network_service
 					.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 			},

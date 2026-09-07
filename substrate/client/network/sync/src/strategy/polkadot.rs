@@ -122,17 +122,6 @@ where
 		self.peer_best_blocks.remove(peer_id);
 	}
 
-	fn on_request_failed(&mut self, peer_id: &PeerId, key: StrategyKey) {
-		// Only `ChainSync` tracks per-range download bookkeeping that can be orphaned by a
-		// failed request; warp and state sync retry their single in-flight request on their
-		// own. Route by key so we only touch the strategy that issued the failed request.
-		if key == ChainSync::<B, Client>::STRATEGY_KEY {
-			if let Some(ref mut chain_sync) = self.chain_sync {
-				chain_sync.on_request_failed(peer_id, key);
-			}
-		}
-	}
-
 	fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,

@@ -535,37 +535,6 @@ where
 		}
 	}
 
-	fn on_request_failed(&mut self, peer_id: &PeerId, key: StrategyKey) {
-		if key != Self::STRATEGY_KEY {
-			return;
-		}
-
-		// A block request we issued to this peer failed (timed out, was refused, the
-		// connection dropped, or an obsolete response was discarded). Release the in-flight
-		// download so the affected range is retried instead of staying pinned to this peer:
-		// gap sync downloads each range from a single peer, so a range that is never freed
-		// stalls the whole block-history backfill once the download front advances past the
-		// `MAX_DOWNLOAD_AHEAD` window. Unlike `remove_peer`, the peer is kept — it may still
-		// serve announcements and later requests.
-		self.blocks.clear_peer_download(peer_id);
-		if let Some(gap_sync) = &mut self.gap_sync {
-			gap_sync.blocks.clear_peer_download(peer_id);
-		}
-
-		if let Some(peer) = self.peers.get_mut(peer_id) {
-			if matches!(
-				peer.state,
-				PeerSyncState::DownloadingNew(_) |
-					PeerSyncState::DownloadingStale(_) |
-					PeerSyncState::DownloadingGap(_)
-			) {
-				peer.state = PeerSyncState::Available;
-			}
-		}
-
-		self.allowed_requests.add(peer_id);
-	}
-
 	fn on_validated_block_announce(
 		&mut self,
 		is_best: bool,
@@ -624,7 +593,12 @@ where
 			// major sync to avoid pulling peers out of the download pool.
 			if !continues_known_fork && !is_major_syncing {
 				let current = number.min(best_queued_number);
-				peer.common_number = peer.common_number.min(self.client.info().finalized_number);
+				let common_number = peer.common_number.min(self.client.info().finalized_number);
+				// Release the old work before assigning the peer an ancestry request. Dropping
+				// its response in the engine cannot clean up the strategy's reservations.
+				self.cancel_peer_request(peer_id);
+				let peer = self.peers.get_mut(&peer_id).expect("Peer was checked above; qed");
+				peer.common_number = common_number;
 				peer.state = PeerSyncState::AncestorSearch {
 					current,
 					start: best_queued_number,
@@ -1107,7 +1081,6 @@ where
 					}))
 				}
 				.boxed(),
-				remove_obsolete: false,
 			}
 		});
 		self.actions.extend(state_request);
@@ -1323,6 +1296,36 @@ where
 		}
 	}
 
+	/// Cancel a peer's current request before assigning it different work.
+	///
+	/// Bookkeeping is released here, before the replacement is recorded. The engine only
+	/// drops the old response future; doing cleanup there would see the replacement's state.
+	fn cancel_peer_request(&mut self, peer_id: PeerId) {
+		let Some(peer) = self.peers.get_mut(&peer_id) else { return };
+		match peer.state {
+			PeerSyncState::Available => return,
+			PeerSyncState::DownloadingNew(_) => self.blocks.clear_peer_download(&peer_id),
+			PeerSyncState::DownloadingGap(_) => {
+				if let Some(gap_sync) = &mut self.gap_sync {
+					gap_sync.blocks.clear_peer_download(&peer_id);
+				}
+			},
+			PeerSyncState::DownloadingJustification(_) => {
+				self.extra_justifications.cancel_request(&peer_id);
+			},
+			// State requests are regenerated from the last imported cursor; fork targets
+			// remain pending. Neither has a separate in-flight range reservation.
+			PeerSyncState::DownloadingState |
+			PeerSyncState::DownloadingStale(_) |
+			PeerSyncState::AncestorSearch { .. } => {},
+		}
+		peer.state = PeerSyncState::Available;
+		self.actions
+			.push(SyncingAction::CancelRequest { peer_id, key: Self::STRATEGY_KEY });
+		// Another peer can take over the released work while this peer does ancestry search.
+		self.allowed_requests.set_all();
+	}
+
 	fn create_block_request_action(
 		&mut self,
 		peer_id: PeerId,
@@ -1344,9 +1347,6 @@ where
 				))
 			}
 			.boxed(),
-			// Sending block request implies dropping obsolete pending response as we are not
-			// interested in it anymore.
-			remove_obsolete: true,
 		}
 	}
 
@@ -1884,6 +1884,15 @@ where
 	/// of new block requests to make to peers. Peers that were downloading finality data (i.e.
 	/// their state was `DownloadingJustification`) are unaffected and will stay in the same state.
 	fn restart(&mut self) {
+		let peers_to_cancel = self
+			.peers
+			.iter()
+			.filter(|(_, peer)| !matches!(peer.state, PeerSyncState::DownloadingJustification(_)))
+			.map(|(peer_id, _)| *peer_id)
+			.collect::<Vec<_>>();
+		for peer_id in peers_to_cancel {
+			self.cancel_peer_request(peer_id);
+		}
 		self.blocks.clear();
 		if let Err(e) = self.reset_sync_start_point() {
 			warn!(target: LOG_TARGET, "💔  Unable to restart sync: {e}");
@@ -1899,19 +1908,6 @@ where
 
 		old_peers.into_iter().for_each(|(peer_id, mut peer_sync)| {
 			match peer_sync.state {
-				PeerSyncState::Available => {
-					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
-				},
-				PeerSyncState::AncestorSearch { .. } |
-				PeerSyncState::DownloadingNew(_) |
-				PeerSyncState::DownloadingStale(_) |
-				PeerSyncState::DownloadingGap(_) |
-				PeerSyncState::DownloadingState => {
-					// Cancel a request first, as `add_peer` may generate a new request.
-					self.actions
-						.push(SyncingAction::CancelRequest { peer_id, key: Self::STRATEGY_KEY });
-					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
-				},
 				PeerSyncState::DownloadingJustification(_) => {
 					// Peers that were downloading justifications
 					// should be kept in that state.
@@ -1925,6 +1921,10 @@ where
 					);
 					peer_sync.common_number = self.best_queued_number;
 					self.peers.insert(peer_id, peer_sync);
+				},
+				_ => {
+					debug_assert!(peer_sync.state.is_available());
+					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
 				},
 			}
 		});
