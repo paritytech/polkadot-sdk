@@ -71,6 +71,31 @@ fn basic_happy_path_works() {
 }
 
 #[test]
+fn enactment_dropped_on_transaction_version_mismatch() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Referenda::submit(
+			RuntimeOrigin::signed(1),
+			Box::new(RawOrigin::Root.into()),
+			set_balance_proposal_bounded(1),
+			DispatchTime::At(10),
+		));
+		assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(2), 0));
+		run_to(6);
+		set_tally(0, 100, 0);
+		run_to(9);
+		// Approved; enactment scheduled (recording `transaction_version` 0).
+		assert_eq!(approved_since(0), 9);
+		run_to(12);
+		assert_eq!(Balances::free_balance(&42), 0);
+		// Simulate a runtime upgrade bumping the `transaction_version` before enactment.
+		CurrentTransactionVersion::set(&1);
+		run_to(13);
+		// The enactment is dropped by the scheduler; the balance never changes.
+		assert_eq!(Balances::free_balance(&42), 0);
+	});
+}
+
+#[test]
 fn insta_confirm_then_kill_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let r = Confirming { immediate: true }.create();

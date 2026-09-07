@@ -77,11 +77,28 @@ parameter_types! {
 		);
 }
 
+parameter_types! {
+	/// Settable `transaction_version` for tests, used to simulate a runtime upgrade.
+	pub storage CurrentTransactionVersion: u32 = 0;
+}
+
+/// A [`Get<RuntimeVersion>`] whose `transaction_version` can be changed at runtime in tests.
+pub struct TestVersion;
+impl frame_support::traits::Get<sp_version::RuntimeVersion> for TestVersion {
+	fn get() -> sp_version::RuntimeVersion {
+		sp_version::RuntimeVersion {
+			transaction_version: CurrentTransactionVersion::get(),
+			..Default::default()
+		}
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type Version = TestVersion;
 }
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;

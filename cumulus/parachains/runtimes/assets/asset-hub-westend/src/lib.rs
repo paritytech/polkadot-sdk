@@ -1859,6 +1859,8 @@ pub type Migrations = (
 		staking::StakingPotsPalletId,
 		staking::StakingStakerRewardKind,
 	>,
+	// Record `transaction_version` for stored scheduler tasks.
+	pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
 	// Records the cutoff era from which the weighted-points validator self-stake
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.

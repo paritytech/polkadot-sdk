@@ -1,0 +1,70 @@
+title: 'feat: VersionedCall primitive + version-checking for stored calls (#1138)'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/1138
+
+    Introduces the `VersionedCall<Call>` primitive in `sp-runtime` (an opaque `Call` plus the
+    `transaction_version` it was created at, with `validate_version`/`into_inner` helpers and a
+    `VersionMismatchError`) and integrates version-checking into the pallets that store calls for
+    later execution, so that a runtime upgrade changing call encoding/semantics cannot silently
+    change the effect of an already-stored call.
+
+    pallet-scheduler:
+    - One-shot tasks created through the user-facing extrinsics record the runtime's
+      `transaction_version`. At dispatch, a version mismatch drops the task with a
+      `CallVersionMismatch` event instead of executing it. This is opt-in per task (stored as
+      `Scheduled::maybe_transaction_version`): tasks scheduled via the internal `schedule::v2`/`v3`
+      traits record no version and are unaffected, preserving existing behaviour for pallet
+      bookkeeping (e.g. referenda alarms). Periodic tasks are also left unversioned, so a periodic
+      schedule keeps running across upgrades rather than being dropped on a `transaction_version`
+      change; a runtime upgrade that breaks such a call should re-stamp or reschedule it via a
+      migration.
+    - Migration `migration::v5::MigrateV4ToV5` upgrades existing agendas (existing tasks unchecked).
+
+    frame-support: adds a non-breaking `schedule_named_versioned` method to the `schedule::v3::Named`
+    trait (default implementation delegates to `schedule_named`), so callers can opt a deferred call
+    into version-checking. The scheduler overrides it to record the current `transaction_version`.
+
+    pallet-collective: the `transaction_version` at proposal time is recorded in a new
+    `ProposalVersionOf` storage map. `ProposalOf` keeps its existing value type and encoding, so
+    tooling that decodes it is unaffected. On approval, a version mismatch drops the proposal with a
+    `ProposalVersionMismatch` event (returning zero dispatch weight, since nothing is executed)
+    instead of executing it. Migration `migrations::v5::MigrateToV5` records the current
+    `transaction_version` for every already-stored proposal.
+
+    pallet-democracy / pallet-referenda: route referendum enactment through
+    `schedule_named_versioned`, so an enactment whose `transaction_version` changed before it runs is
+    dropped by the scheduler. No storage change or migration is needed in these pallets (the version
+    lives on the scheduler task); internal referenda alarms remain unversioned.
+
+    The in-repo runtimes using pallet-scheduler / pallet-collective are wired with the respective
+    `MigrateV4ToV5` / `MigrateToV5` migration in their `Migrations` tuple.
+
+    Multisig and lottery are intentionally not covered: they do not persist a full call across blocks
+    (multisig stores only a call hash, lottery only call indices), so `VersionedCall` does not apply.
+crates:
+- name: sp-runtime
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: pallet-scheduler
+  bump: major
+- name: pallet-collective
+  bump: major
+- name: pallet-democracy
+  bump: minor
+- name: pallet-referenda
+  bump: minor
+- name: pallet-alliance
+  bump: none
+- name: kitchensink-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major

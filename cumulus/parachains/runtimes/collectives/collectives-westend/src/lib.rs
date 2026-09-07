@@ -852,6 +852,9 @@ type Migrations = (
 	>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	// Record `transaction_version` for stored scheduler tasks and collective proposals.
+	pallet_scheduler::migration::v5::MigrateV4ToV5<Runtime>,
+	pallet_collective::migrations::v5::MigrateToV5<Runtime, AllianceCollective>,
 );
 
 // Helpers for the core fellowship pallet v1->v2 storage migration.
