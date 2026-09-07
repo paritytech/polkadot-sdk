@@ -1,0 +1,37 @@
+title: "Add PVQ foundation layer (primitives, runtime API, and executor)"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      ## Summary
+      
+      This PR introduces the foundation layer for PVQ (PolkaVM Query), a system that enables 
+      runtime developers to expose chain-specific functionality through standardized interfaces 
+      while allowing client-side developers to perform custom computations through PolkaVM programs.
+      
+      ## What's included
+      
+      This PR adds three new crates that form the base infrastructure for PVQ:
+      
+      - **pvq-primitives** (~50 lines): Core types including `PvqResult`, `PvqResponse`, and `PvqError` 
+        with both `std` and `no_std` support
+      - **pvq-runtime-api** (~35 lines): Substrate runtime API definition with `PvqApi` trait 
+        providing `execute_query` and `metadata` methods  
+      - **pvq-executor** (~400-500 lines): PolkaVM execution wrapper including `PvqExecutor`, 
+        `PvqExecutorContext` trait for registering host functions, gas limits, and error handling
+      
+      ## For runtime developers
+      
+      These crates provide the foundation that will be extended in subsequent PRs with:
+      - Extension framework for registering custom host functions
+      - Concrete extensions for fungibles, swaps, etc.
+      - Guest-side SDK for writing PVQ programs
+
+crates:
+  - name: pvq-primitives
+    bump: minor
+  - name: pvq-runtime-api
+    bump: minor
+  - name: pvq-executor
+    bump: minor
+
