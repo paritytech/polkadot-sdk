@@ -1,0 +1,19 @@
+title: 'security: Bump litep2p to 0.15.2 to fix panic in WebRTC'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    litep2p 0.15.2 fixes a panic in the WebRTC transport that could be triggered
+    remotely by sending oversized UDP datagrams to a WebRTC endpoint.
+
+    Only nodes with the WebRTC transport enabled are affected. Operators of such
+    nodes are advised to upgrade.
+
+    See the [litep2p v0.15.2 release notes](https://github.com/paritytech/litep2p/releases/tag/v0.15.2)
+    for details.
+crates:
+  - name: sc-network
+    bump: patch
+    validate: false
+  - name: sc-network-types
+    bump: patch
+    validate: false
