@@ -243,8 +243,6 @@ the instance’s <code>min_swap_amount</code>.</li>
 <li><a href="../enum.Error.html#variant.FeeTooHigh" title="variant yet_another_parachain_runtime::pallet_psm::Error::FeeTooHigh"><code>Error::FeeTooHigh</code></a>: If the configured minting fee exceeds <code>max_fee</code>.</li>
 <li><a href="../enum.Error.html#variant.ExceedsMaxPsmDebt" title="variant yet_another_parachain_runtime::pallet_psm::Error::ExceedsMaxPsmDebt"><code>Error::ExceedsMaxPsmDebt</code></a>: If minting would exceed this PSM’s debt ceiling
 (aggregate or per-asset).</li>
-<li><a href="../enum.Error.html#variant.DecimalsMismatch" title="variant yet_another_parachain_runtime::pallet_psm::Error::DecimalsMismatch"><code>Error::DecimalsMismatch</code></a>: If live decimals diverged from the snapshot taken at
-registration.</li>
 <li><a href="../enum.Error.html#variant.AmountTooSmallAfterConversion" title="variant yet_another_parachain_runtime::pallet_psm::Error::AmountTooSmallAfterConversion"><code>Error::AmountTooSmallAfterConversion</code></a>: If the conversion to the counter-asset
 rounds to zero; swap would transfer nothing.</li>
 </ul>
@@ -453,8 +451,6 @@ increments <a href="../struct.PsmInfo.html#structfield.external_count" title="fi
 <li><a href="../enum.Error.html#variant.AssetAlreadyApproved" title="variant yet_another_parachain_runtime::pallet_psm::Error::AssetAlreadyApproved"><code>Error::AssetAlreadyApproved</code></a>: If <code>external_asset</code> is already approved on this PSM.</li>
 <li><a href="../enum.Error.html#variant.AssetDoesNotExist" title="variant yet_another_parachain_runtime::pallet_psm::Error::AssetDoesNotExist"><code>Error::AssetDoesNotExist</code></a>: If <code>external_asset</code> does not exist in the underlying
 fungibles backend.</li>
-<li><a href="../enum.Error.html#variant.DecimalsMismatch" title="variant yet_another_parachain_runtime::pallet_psm::Error::DecimalsMismatch"><code>Error::DecimalsMismatch</code></a>: If the internal asset’s live decimals diverged from the
-snapshot in <a href="../struct.PsmInfo.html" title="struct yet_another_parachain_runtime::pallet_psm::PsmInfo"><code>PsmInfo</code></a>.</li>
 <li><a href="../enum.Error.html#variant.DecimalsRangeExceeded" title="variant yet_another_parachain_runtime::pallet_psm::Error::DecimalsRangeExceeded"><code>Error::DecimalsRangeExceeded</code></a>: If <code>|asset_decimals − internal_decimals|</code> exceeds
 <a href="../constant.MAX_DECIMALS_DIFF.html" title="constant yet_another_parachain_runtime::pallet_psm::MAX_DECIMALS_DIFF"><code>MAX_DECIMALS_DIFF</code></a>.</li>
 </ul>
