@@ -32,11 +32,11 @@
 //!
 //! ## Who may ask
 //!
-//! Coretime accepts either the para itself, arriving as a `Transact` from the sibling chain, or
-//! the para's registrar manager as a signed account. The para-origin path is what preserves
-//! today's trust model: a parachain still speaks for itself, it just retargets its message from
-//! the relay chain to Coretime. The manager path is the recovery route when a para cannot build
-//! the message at all.
+//! The same set the relay chain accepts today: the para itself, arriving as a `Transact` from the
+//! sibling chain (or relayed by the relay chain on its behalf), or root. There is deliberately no
+//! registrar-manager path: HRMP on the relay chain never had one, and adding one would let an
+//! account other than the para commit the para's sovereign funds — a new trust shape for the
+//! auditor to bless, with no counterpart in what it replaces.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -324,26 +324,6 @@ pub trait HrmpRegistry {
 	/// Arrange for `channel` to be openable, so the request paths can be benchmarked.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_openable(channel: ChannelId);
-}
-
-/// Who manages a para on the chain that now holds its deposits.
-///
-/// Implemented by `pallet-registrar-para`. Lives here rather than in `registrar-primitives` so the
-/// HRMP pallets do not have to depend on the registrar's wire types just to ask one question.
-pub trait ParaManager {
-	/// The account id a manager is identified by.
-	type AccountId;
-
-	/// The manager of `para_id`, if this chain knows the para at all.
-	fn manager_of(para_id: ParaId) -> Option<Self::AccountId>;
-}
-
-impl ParaManager for () {
-	type AccountId = sp_runtime::AccountId32;
-
-	fn manager_of(_para_id: ParaId) -> Option<Self::AccountId> {
-		None
-	}
 }
 
 // Deliberately no "on para registered" hook. An earlier design opened a control channel with

@@ -255,10 +255,9 @@ impl pallet_hrmp_para::Config for Runtime {
 	>;
 	type SendToRelay = ParaHrmpSendToRelay;
 	type RelayOrigin = EnsureRoot<AccountId>;
-	// No para origin in the simulator, so channels are driven by managers and root here. The
-	// para-origin path is covered by the pallet's own tests.
+	// No para origin in the simulator, so channels are driven by root here. The para-origin path
+	// is covered by the pallet's own tests.
 	type ParachainOrigin = frame_system::EnsureNever<u32>;
-	type ParaManager = Registrar;
 	type SovereignAccountOf = SovereignOf;
 	type SelfParaId = ConstU32<{ crate::senders::PARA_ID }>;
 	type SystemParas = SystemParas;

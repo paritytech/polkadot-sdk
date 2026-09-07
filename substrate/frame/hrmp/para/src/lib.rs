@@ -26,11 +26,12 @@
 //!
 //! ## Who may ask
 //!
-//! Either the para itself, arriving as an origin resolved by [`Config::ParachainOrigin`], or the
-//! para's registrar manager as a signed account, or root. The para-origin path is what preserves
-//! the trust model HRMP has today: a parachain still speaks for itself, it just retargets its
-//! message from the relay chain to this one. The manager path is the recovery route for a para
-//! that cannot build the message at all.
+//! The same set the relay chain's HRMP accepts: the para itself, arriving as an origin resolved by
+//! [`Config::ParachainOrigin`], or root. A parachain still speaks for itself, it just retargets its
+//! message from the relay chain to this one (or has the relay chain relay it). There is
+//! deliberately no registrar-manager path: HRMP never had one, and adding one would let an account
+//! other than the para commit the para's sovereign funds — a new trust shape with no counterpart
+//! in what it replaces. A para that cannot build the message falls back on governance, as today.
 //!
 //! ## Whose money
 //!
@@ -65,7 +66,7 @@ use frame_support::{
 };
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	MigratedChannel, Outcome, ParaId, ParaManager, ReceiveMigratedChannels,
+	MigratedChannel, Outcome, ParaId, ReceiveMigratedChannels,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -218,12 +219,6 @@ pub mod pallet {
 
 		/// An origin a parachain uses to act as itself, resolved to its para id.
 		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
-
-		/// Where to look up who manages a para on this chain.
-		///
-		/// Normally `pallet-registrar-para`. A para with no manager here can still act through
-		/// [`Config::ParachainOrigin`].
-		type ParaManager: ParaManager<AccountId = Self::AccountId>;
 
 		/// The sovereign account of a para on this chain.
 		///
@@ -384,7 +379,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Ask the relay chain to record an open-channel request.
 		///
-		/// Callable by the sending para itself, its registrar manager, or root.
+		/// Callable by the sending para itself or root.
 		///
 		/// ## Costs
 		///
@@ -400,7 +395,7 @@ pub mod pallet {
 			max_capacity: u32,
 			max_message_size: u32,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_manager(origin, sender)?;
+			Self::ensure_root_or_para(origin, sender)?;
 			let channel = ChannelId { sender, recipient };
 			ensure!(sender != recipient, Error::<T>::ToSelf);
 			ensure!(!Channels::<T>::contains_key(channel), Error::<T>::AlreadyExists);
@@ -440,8 +435,8 @@ pub mod pallet {
 
 		/// Ask the relay chain to confirm an open-channel request.
 		///
-		/// Callable by the receiving para itself, its registrar manager, or root. Takes the
-		/// recipient's half of the deposit, on the same terms as [`Pallet::open_channel`].
+		/// Callable by the receiving para itself or root. Takes the recipient's half of the
+		/// deposit, on the same terms as [`Pallet::open_channel`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::accept_open_channel())]
 		pub fn accept_open_channel(
@@ -449,7 +444,7 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_manager(origin, recipient)?;
+			Self::ensure_root_or_para(origin, recipient)?;
 			let channel = ChannelId { sender, recipient };
 			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
 			ensure!(info.state == ChannelState::Pending, Error::<T>::WrongState);
@@ -473,17 +468,17 @@ pub mod pallet {
 
 		/// Ask the relay chain to close an open channel.
 		///
-		/// Callable by **either** end, its registrar manager, or root — the same set the relay
-		/// chain accepts today. Nothing is released here: only the relay chain's confirmation
-		/// releases the deposits, because a close that is merely requested must not hand the money
-		/// back while the channel still carries messages.
+		/// Callable by **either** end or root — the same set the relay chain accepts today. Nothing
+		/// is released here: only the relay chain's confirmation releases the deposits, because a
+		/// close that is merely requested must not hand the money back while the channel still
+		/// carries messages.
 		///
 		/// `initiator` is named by the caller rather than inferred from the origin, and the origin
-		/// check is what says whether they may claim it: a para may only close as itself, a manager
-		/// only as the end it manages, and root — governance, or a relay chain relaying a para's own
-		/// request — names it outright. Either end may close, so this is attribution rather than
-		/// authority; but the relay chain records who asked, and inferring it would mean picking a
-		/// default for the one caller that has nothing to infer from.
+		/// check is what says whether they may claim it: a para may only close as itself, and root
+		/// — governance, or a relay chain relaying a para's own request — names it outright. Either
+		/// end may close, so this is attribution rather than authority; but the relay chain records
+		/// who asked, and inferring it would mean picking a default for the one caller that has
+		/// nothing to infer from.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::close_channel())]
 		pub fn close_channel(
@@ -515,8 +510,8 @@ pub mod pallet {
 
 		/// Ask the relay chain to drop a request the recipient never confirmed.
 		///
-		/// Callable by the sending para, its registrar manager, or root. As with
-		/// [`Pallet::close_channel`], the deposit comes back only on the relay chain's answer.
+		/// Callable by the sending para or root. As with [`Pallet::close_channel`], the deposit
+		/// comes back only on the relay chain's answer.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::cancel_open_request())]
 		pub fn cancel_open_request(
@@ -524,7 +519,7 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_manager(origin, sender)?;
+			Self::ensure_root_or_para(origin, sender)?;
 			let channel = ChannelId { sender, recipient };
 			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
 			ensure!(info.state == ChannelState::Pending, Error::<T>::WrongState);
@@ -589,11 +584,13 @@ pub mod pallet {
 		///
 		/// Origins mirror what they replaced, rather than being root-only:
 		///
-		/// - **Root** may pair any two paras, standing in for `establish_system_channel`.
-		/// - **A para, or its registrar manager**, may open a channel between itself and a system
-		///   chain, standing in for `establish_channel_with_system`. Requiring governance for this
-		///   would mean every newly registered para needed a referendum before it could talk to
-		///   Asset Hub, which is not a trade anybody would take.
+		/// - **Any signed account** may pair two system chains, as `establish_system_channel`
+		///   allowed.
+		/// - **A para** may open a channel between itself and a system chain, as
+		///   `establish_channel_with_system` allowed. Requiring governance for this would mean
+		///   every newly registered para needed a referendum before it could talk to Asset Hub,
+		///   which is not a trade anybody would take.
+		/// - **Root** may pair any two paras.
 		///
 		/// Safe to leave open because it is deposit-free at both ends by definition, and the
 		/// relay chain still enforces its own per-para channel limits. Also the retry for a
@@ -606,21 +603,7 @@ pub mod pallet {
 			recipient: ParaId,
 		) -> DispatchResult {
 			ensure!(sender != recipient, Error::<T>::ToSelf);
-
-			if frame_system::ensure_root(origin.clone()).is_err() {
-				// Not root: one end must be a system chain, and the caller must be the other.
-				let other = match (
-					T::SystemParas::contains(&sender),
-					T::SystemParas::contains(&recipient),
-				) {
-					(true, false) => recipient,
-					(false, true) => sender,
-					// Neither end is a system chain, or both are: not a pairing a para may make
-					// for itself.
-					_ => return Err(Error::<T>::NotOwner.into()),
-				};
-				Self::ensure_root_para_or_manager(origin, other)?;
-			}
+			Self::ensure_may_pair_deposit_free(origin, sender, recipient)?;
 
 			let message_id = Self::do_establish_system_channel(sender, recipient)?;
 
@@ -810,23 +793,40 @@ impl<T: Config> Pallet<T> {
 		Ok(message_id)
 	}
 
-	/// Ensure `origin` may act for `para_id`: the para itself, its manager, or root.
-	fn ensure_root_para_or_manager(
+	/// Ensure `origin` may act for `para_id`: the para itself or root.
+	fn ensure_root_or_para(
 		origin: frame_system::pallet_prelude::OriginFor<T>,
 		para_id: ParaId,
 	) -> DispatchResult {
-		// The para is tried first: a runtime may deliver a para origin that also reads as a
-		// signed one, and the manager branch must not swallow it.
 		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
 			ensure!(id == para_id, Error::<T>::NotOwner);
 			return Ok(());
 		}
-		if let Ok(who) = frame_system::ensure_signed(origin.clone()) {
-			ensure!(T::ParaManager::manager_of(para_id) == Some(who), Error::<T>::NotOwner);
-			return Ok(());
-		}
 		frame_system::ensure_root(origin)?;
 		Ok(())
+	}
+
+	/// Ensure `origin` may pair `sender` and `recipient` deposit-free, on the relay chain's
+	/// terms: anyone signed for two system chains, a para for itself and a system chain, root
+	/// for anything.
+	fn ensure_may_pair_deposit_free(
+		origin: frame_system::pallet_prelude::OriginFor<T>,
+		sender: ParaId,
+		recipient: ParaId,
+	) -> DispatchResult {
+		if frame_system::ensure_root(origin.clone()).is_ok() {
+			return Ok(());
+		}
+		match (T::SystemParas::contains(&sender), T::SystemParas::contains(&recipient)) {
+			(true, true) => {
+				frame_system::ensure_signed(origin)?;
+				Ok(())
+			},
+			(true, false) => Self::ensure_root_or_para(origin, recipient),
+			(false, true) => Self::ensure_root_or_para(origin, sender),
+			// Free channels between two public paras would be a way around the deposit entirely.
+			(false, false) => Err(Error::<T>::NotOwner.into()),
+		}
 	}
 
 	/// Ensure `origin` may act for *either* end of `channel`, and say which end it was.
@@ -843,14 +843,6 @@ impl<T: Config> Pallet<T> {
 		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
 			// A para closes as itself and nobody else.
 			ensure!(id == initiator, Error::<T>::NotOwner);
-			return Ok(());
-		}
-		if let Ok(who) = frame_system::ensure_signed(origin.clone()) {
-			// A manager closes as the end it manages.
-			ensure!(
-				T::ParaManager::manager_of(initiator) == Some(who),
-				Error::<T>::NotOwner
-			);
 			return Ok(());
 		}
 		// Root names the end outright: either governance, or the relay chain relaying a para's own

@@ -70,7 +70,6 @@ use frame_support::{
 		Consideration, EnsureOrigin, Footprint, Get,
 	},
 };
-use hrmp_primitives::ParaManager;
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, MigratedPara,
 	MigratedParaState, Outcome, ParaId, ReceiveMigratedParas,
@@ -1438,19 +1437,6 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
-	}
-}
-
-/// Who manages a para here, for pallets that need to know without depending on this one's
-/// wire types.
-///
-/// `pallet-hrmp-para` uses it to let a para's manager act for it as a signed account, alongside
-/// the para speaking for itself.
-impl<T: Config> ParaManager for Pallet<T> {
-	type AccountId = T::AccountId;
-
-	fn manager_of(para_id: ParaId) -> Option<T::AccountId> {
-		Paras::<T>::get(para_id).map(|info| info.manager)
 	}
 }
 

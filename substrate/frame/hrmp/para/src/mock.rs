@@ -25,7 +25,7 @@ use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{fungible::HoldConsideration, ConstU32, ConstantStoragePrice, Contains},
 };
-use hrmp_primitives::{MessageToRelay, ParaId, ParaManager};
+use hrmp_primitives::{MessageToRelay, ParaId};
 use sp_runtime::{traits::Convert, BuildStorage};
 
 pub type AccountId = u64;
@@ -41,10 +41,9 @@ pub const PARA_A: ParaId = 2000;
 pub const PARA_B: ParaId = 2001;
 pub const PARA_C: ParaId = 2002;
 
-/// Managers, so the signed-account path has something to resolve.
-pub const ALICE: AccountId = 1; // manages PARA_A
-pub const BOB: AccountId = 2; // manages PARA_B
-pub const CHARLIE: AccountId = 3; // manages nothing
+/// An ordinary signed account with no standing over any para. Funded, so a refusal is about the
+/// origin and never about money.
+pub const ALICE: AccountId = 1;
 
 pub const FIRST_PUBLIC_PARA_ID: ParaId = 2000;
 pub const CHANNEL_DEPOSIT: Balance = 500;
@@ -124,7 +123,7 @@ pub fn take_sent() -> Vec<MessageToRelay> {
 /// The origin para `para_id` itself calls with, backed by a fresh stand-in account.
 ///
 /// An explicit list rather than an account range, so no other account can resolve as a para by
-/// accident — in particular the manager accounts, which must go down the signed path.
+/// accident — in particular [`ALICE`], who must stay an ordinary signed account.
 pub fn para_origin(para_id: ParaId) -> RuntimeOrigin {
 	let account = 1_000_000 + para_id as AccountId;
 	ParaOriginAccounts::mutate(|paras| {
@@ -160,23 +159,8 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for ParaAccounts {
 	}
 }
 
-/// Stands in for `pallet-registrar-para`'s view of who manages what.
-pub struct MockManagers;
-
-impl ParaManager for MockManagers {
-	type AccountId = AccountId;
-
-	fn manager_of(para_id: ParaId) -> Option<AccountId> {
-		match para_id {
-			PARA_A => Some(ALICE),
-			PARA_B => Some(BOB),
-			_ => None,
-		}
-	}
-}
-
-/// A para's sovereign account here. Kept far from the manager accounts so a test that means one
-/// cannot accidentally assert the other.
+/// A para's sovereign account here. Kept far from the para-origin stand-ins so a test that means
+/// one cannot accidentally assert the other.
 pub struct SovereignOf;
 
 impl Convert<ParaId, AccountId> for SovereignOf {
@@ -210,7 +194,6 @@ impl pallet_hrmp_para::Config for Test {
 	type SendToRelay = RecordingSender;
 	type RelayOrigin = frame_system::EnsureRoot<AccountId>;
 	type ParachainOrigin = ParaAccounts;
-	type ParaManager = MockManagers;
 	type SovereignAccountOf = SovereignOf;
 	type SelfParaId = ConstU32<SELF_PARA>;
 	type SystemParas = SystemParas;
@@ -232,7 +215,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		balances: [PARA_A, PARA_B, PARA_C, SYSTEM_PARA, SELF_PARA]
 			.into_iter()
 			.map(|p| (SovereignOf::convert(p), 1_000_000))
-			.chain([(ALICE, 1_000_000), (BOB, 1_000_000), (CHARLIE, 1_000_000)])
+			.chain([(ALICE, 1_000_000)])
 			.collect(),
 		..Default::default()
 	}

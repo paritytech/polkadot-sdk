@@ -740,14 +740,14 @@ fn channel_held(para_id: u32) -> u128 {
 fn a_channel_opens_end_to_end_and_both_deposits_settle_on_the_parachain() {
 	MockNet::reset();
 
-	// Two paras, both managed by Alice, so one account can drive both ends.
+	// Two paras. The simulator has no para origin, so root drives both ends.
 	let a = onboard(ALICE, 32, 64);
 	let b = onboard(ALICE, 32, 65);
 	let channel = ChannelId { sender: a, recipient: b };
 
 	RegistrarPara::execute_with(|| {
 		assert_ok!(para::HrmpControl::open_channel(
-			para::RuntimeOrigin::signed(ALICE),
+			para::RuntimeOrigin::root(),
 			a,
 			b,
 			crate::MAX_CAPACITY,
@@ -775,7 +775,7 @@ fn a_channel_opens_end_to_end_and_both_deposits_settle_on_the_parachain() {
 		assert_eq!(channel_state(channel), Some(ChannelState::Pending));
 
 		assert_ok!(para::HrmpControl::accept_open_channel(
-			para::RuntimeOrigin::signed(ALICE),
+			para::RuntimeOrigin::root(),
 			a,
 			b,
 		));
@@ -810,7 +810,7 @@ fn closing_returns_both_deposits_only_after_the_relay_chain_confirms() {
 
 	RegistrarPara::execute_with(|| {
 		assert_ok!(para::HrmpControl::open_channel(
-			para::RuntimeOrigin::signed(ALICE),
+			para::RuntimeOrigin::root(),
 			a,
 			b,
 			crate::MAX_CAPACITY,
@@ -819,7 +819,7 @@ fn closing_returns_both_deposits_only_after_the_relay_chain_confirms() {
 	});
 	RegistrarPara::execute_with(|| {
 		assert_ok!(para::HrmpControl::accept_open_channel(
-			para::RuntimeOrigin::signed(ALICE),
+			para::RuntimeOrigin::root(),
 			a,
 			b,
 		));
@@ -829,9 +829,9 @@ fn closing_returns_both_deposits_only_after_the_relay_chain_confirms() {
 	RegistrarPara::execute_with(|| {
 		assert_eq!(channel_state(channel), Some(ChannelState::Open));
 
-		// Alice manages `a`, so that is the end she may close as.
+		// Root names which end asked; here the sender.
 		assert_ok!(para::HrmpControl::close_channel(
-			para::RuntimeOrigin::signed(ALICE),
+			para::RuntimeOrigin::root(),
 			a,
 			b,
 			a,
@@ -863,7 +863,7 @@ fn a_request_the_relay_chain_refuses_gives_the_deposit_straight_back() {
 
 	RegistrarPara::execute_with(|| {
 		assert_ok!(para::HrmpControl::open_channel(
-			para::RuntimeOrigin::signed(ALICE),
+			para::RuntimeOrigin::root(),
 			a,
 			ghost,
 			crate::MAX_CAPACITY,

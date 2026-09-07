@@ -106,20 +106,14 @@ mod origins {
 	use super::*;
 
 	#[test]
-	fn the_para_itself_and_its_manager_and_root_may_all_open() {
+	fn the_para_itself_and_root_may_open() {
 		build_and_execute(|| {
-			// GIVEN three paras, one opened by each kind of origin the pallet accepts.
+			// GIVEN the two kinds of origin the pallet accepts, the same set the relay chain's
+			// HRMP takes.
 			// WHEN each opens a channel.
 			assert_ok!(Hrmp::open_channel(
 				para_origin(PARA_A),
 				PARA_A,
-				PARA_C,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			assert_ok!(Hrmp::open_channel(
-				RuntimeOrigin::signed(BOB), // manager of PARA_B
-				PARA_B,
 				PARA_C,
 				MAX_CAPACITY,
 				MAX_MESSAGE_SIZE
@@ -132,36 +126,25 @@ mod origins {
 				MAX_MESSAGE_SIZE
 			));
 
-			// THEN all three requests went out. The para-origin path is what preserves today's
-			// trust model; the manager path is the fallback.
-			assert_eq!(take_sent().len(), 3);
+			// THEN both requests went out.
+			assert_eq!(take_sent().len(), 2);
 		});
 	}
 
 	#[test]
-	fn a_stranger_and_the_wrong_manager_are_both_refused() {
+	fn a_signed_account_and_the_wrong_para_are_both_refused() {
 		build_and_execute(|| {
-			// Charlie manages nothing.
+			// An ordinary signed account, however well funded: there is no manager path, exactly
+			// as on the relay chain.
 			assert_noop!(
 				Hrmp::open_channel(
-					RuntimeOrigin::signed(CHARLIE),
+					RuntimeOrigin::signed(ALICE),
 					PARA_A,
 					PARA_B,
 					MAX_CAPACITY,
 					MAX_MESSAGE_SIZE
 				),
-				Error::<Test>::NotOwner
-			);
-			// Bob manages PARA_B, not PARA_A.
-			assert_noop!(
-				Hrmp::open_channel(
-					RuntimeOrigin::signed(BOB),
-					PARA_A,
-					PARA_B,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				Error::<Test>::NotOwner
+				DispatchError::BadOrigin
 			);
 			// A para may only speak for itself.
 			assert_noop!(
@@ -193,10 +176,10 @@ mod origins {
 				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_B),
 				Error::<Test>::NotOwner
 			);
-			// A manager claiming an end it does not manage. Bob manages PARA_B.
+			// A signed account claiming an end: there is no manager path.
 			assert_noop!(
-				Hrmp::close_channel(RuntimeOrigin::signed(BOB), PARA_A, PARA_B, PARA_A),
-				Error::<Test>::NotOwner
+				Hrmp::close_channel(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B, PARA_A),
+				DispatchError::BadOrigin
 			);
 			// Nobody may name a para that is not on the channel at all, root included.
 			assert_noop!(
@@ -216,8 +199,8 @@ mod origins {
 			// GIVEN an open channel A -> B.
 			let channel = open_channel(PARA_A, PARA_B);
 
-			// WHEN the *recipient's* manager closes it.
-			assert_ok!(Hrmp::close_channel(RuntimeOrigin::signed(BOB), PARA_A, PARA_B, PARA_B));
+			// WHEN the *recipient* closes it.
+			assert_ok!(Hrmp::close_channel(para_origin(PARA_B), PARA_A, PARA_B, PARA_B));
 
 			// THEN the relay chain is told B asked, not A: it has to know which end initiated.
 			assert_eq!(
@@ -639,13 +622,9 @@ mod system_channels {
 	#[test]
 	fn a_para_may_pair_itself_with_a_system_chain_without_governance() {
 		build_and_execute(|| {
-			// GIVEN a para whose manager wants a channel to a system chain. Requiring root here
-			// would mean a referendum before a new para could talk to Asset Hub.
-			assert_ok!(Hrmp::establish_system_channel(
-				RuntimeOrigin::signed(ALICE), // manager of PARA_A
-				PARA_A,
-				SYSTEM_PARA,
-			));
+			// GIVEN a para that wants a channel to a system chain. Requiring root here would mean
+			// a referendum before a new para could talk to Asset Hub.
+			assert_ok!(Hrmp::establish_system_channel(para_origin(PARA_A), PARA_A, SYSTEM_PARA,));
 			confirm_system_channel(chan(PARA_A, SYSTEM_PARA), 0);
 			assert_eq!(state_of(chan(PARA_A, SYSTEM_PARA)), Some(ChannelState::Open));
 			assert_eq!(state_of(chan(SYSTEM_PARA, PARA_A)), Some(ChannelState::Open));
@@ -666,36 +645,44 @@ mod system_channels {
 	}
 
 	#[test]
-	fn a_para_cannot_use_it_to_pair_anyone_else() {
+	fn anyone_signed_may_pair_two_system_chains() {
 		build_and_execute(|| {
-			// Not the caller's own para.
+			// GIVEN an ordinary signed account, which is all the relay chain's
+			// `establish_system_channel` ever asked for.
+			// WHEN it pairs two system chains.
+			assert_ok!(Hrmp::establish_system_channel(
+				RuntimeOrigin::signed(ALICE),
+				SELF_PARA,
+				SYSTEM_PARA,
+			));
+			confirm_system_channel(chan(SELF_PARA, SYSTEM_PARA), 0);
+
+			// THEN both directions open, deposit-free.
+			assert_eq!(state_of(chan(SELF_PARA, SYSTEM_PARA)), Some(ChannelState::Open));
+			assert_eq!(state_of(chan(SYSTEM_PARA, SELF_PARA)), Some(ChannelState::Open));
+			assert_eq!(held(SELF_PARA), 0);
+			assert_eq!(held(SYSTEM_PARA), 0);
+		});
+	}
+
+	#[test]
+	fn nobody_may_use_it_to_pair_a_public_para_they_are_not() {
+		build_and_execute(|| {
+			// A para naming another para as the public end.
 			assert_noop!(
-				Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), PARA_B, SYSTEM_PARA),
+				Hrmp::establish_system_channel(para_origin(PARA_A), PARA_B, SYSTEM_PARA),
 				Error::<Test>::NotOwner
 			);
 			// Neither end is a system chain: free channels between two public paras would be a
 			// way around the deposit entirely.
 			assert_noop!(
-				Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B),
+				Hrmp::establish_system_channel(para_origin(PARA_A), PARA_A, PARA_B),
 				Error::<Test>::NotOwner
 			);
-			// Both ends are system chains: only root pairs those.
+			// A signed account naming a public para: only that para may ask for itself.
 			assert_noop!(
-				Hrmp::establish_system_channel(
-					RuntimeOrigin::signed(ALICE),
-					SELF_PARA,
-					SYSTEM_PARA
-				),
-				Error::<Test>::NotOwner
-			);
-			// A manager of nothing.
-			assert_noop!(
-				Hrmp::establish_system_channel(
-					RuntimeOrigin::signed(CHARLIE),
-					PARA_A,
-					SYSTEM_PARA
-				),
-				Error::<Test>::NotOwner
+				Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), PARA_A, SYSTEM_PARA),
+				DispatchError::BadOrigin
 			);
 			assert_eq!(take_sent(), vec![]);
 		});
@@ -1231,28 +1218,25 @@ mod deposits {
 	use super::*;
 
 	#[test]
-	fn a_deposit_is_taken_from_and_returned_to_the_sovereign_account_not_the_caller() {
+	fn a_deposit_is_taken_from_and_returned_to_the_sovereign_account() {
 		build_and_execute(|| {
-			// GIVEN a manager with a balance of their own. Alice manages PARA_A.
-			let alice_before = Balances::free_balance(ALICE);
+			// GIVEN a para's sovereign account, which is not the account its origin arrives from.
 			let sovereign = SovereignOf::convert(PARA_A);
 			let sovereign_before = Balances::free_balance(sovereign);
 
-			// WHEN the manager opens a channel and then cancels it.
+			// WHEN the para opens a channel and then cancels it.
 			let channel = pending_channel(PARA_A, PARA_B);
-			assert_eq!(Balances::free_balance(ALICE), alice_before, "manager paid");
 			assert_eq!(
 				Balances::free_balance(sovereign),
 				sovereign_before - CHANNEL_DEPOSIT,
 				"deposit did not come off the sovereign account"
 			);
 
-			assert_ok!(Hrmp::cancel_open_request(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B));
+			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
 			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_response(channel, Ok(()))));
 
-			// THEN the money is back where it came from, and the manager's balance never moved.
-			// This is what makes a migrated channel and a fresh one indistinguishable.
-			assert_eq!(Balances::free_balance(ALICE), alice_before);
+			// THEN the money is back where it came from. This is what makes a migrated channel
+			// and a fresh one indistinguishable.
 			assert_eq!(Balances::free_balance(sovereign), sovereign_before);
 		});
 	}
