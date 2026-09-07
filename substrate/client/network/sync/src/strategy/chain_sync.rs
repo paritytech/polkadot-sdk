@@ -1618,8 +1618,12 @@ where
 					.collect()
 			}
 		} else {
-			// We don't know of this peer, so we also did not request anything from it.
-			return Err(BadPeer(*peer_id, rep::NOT_REQUESTED));
+			// The peer may have disconnected before the block response arrived.
+			trace!(
+				target: LOG_TARGET,
+				"Block data response from unknown (disconnected?) peer {peer_id:?}, ignoring",
+			);
+			return Ok(());
 		};
 
 		self.validate_and_queue_blocks(new_blocks, gap);
@@ -1678,58 +1682,72 @@ where
 		peer_id: PeerId,
 		response: BlockResponse<B>,
 	) -> Result<(), BadPeer> {
-		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
-			peer
-		} else {
-			error!(
-				target: LOG_TARGET,
-				"💔 Called on_block_justification with a peer ID of an unknown peer",
-			);
-			return Ok(());
-		};
+		let justification = if let Some(peer) = self.peers.get_mut(&peer_id) {
+			self.allowed_requests.add(&peer_id);
+			if let PeerSyncState::DownloadingJustification(hash) = peer.state {
+				peer.state = PeerSyncState::Available;
 
-		self.allowed_requests.add(&peer_id);
-		if let PeerSyncState::DownloadingJustification(hash) = peer.state {
-			peer.state = PeerSyncState::Available;
+				// We only request one justification at a time
+				if let Some(block) = response.blocks.into_iter().next() {
+					if hash != block.hash {
+						warn!(
+							target: LOG_TARGET,
+							"💔 Invalid block justification provided by {}: requested: {:?} \
+							got: {:?}",
+							peer_id,
+							hash,
+							block.hash,
+						);
+						return Err(BadPeer(peer_id, rep::BAD_JUSTIFICATION));
+					}
 
-			// We only request one justification at a time
-			let justification = if let Some(block) = response.blocks.into_iter().next() {
-				if hash != block.hash {
-					warn!(
+					block
+						.justifications
+						.or_else(|| legacy_justification_mapping(block.justification))
+				} else {
+					// we might have asked the peer for a justification on a block that we
+					// assumed it had but didn't (regardless of whether it had a justification
+					// for it or not).
+					trace!(
 						target: LOG_TARGET,
-						"💔 Invalid block justification provided by {}: requested: {:?} got: {:?}",
-						peer_id,
-						hash,
-						block.hash,
+						"Peer {peer_id:?} provided empty response for justification request \
+						{hash:?}",
 					);
-					return Err(BadPeer(peer_id, rep::BAD_JUSTIFICATION));
+
+					None
 				}
-
-				block
-					.justifications
-					.or_else(|| legacy_justification_mapping(block.justification))
 			} else {
-				// we might have asked the peer for a justification on a block that we assumed it
-				// had but didn't (regardless of whether it had a justification for it or not).
-				trace!(
-					target: LOG_TARGET,
-					"Peer {peer_id:?} provided empty response for justification request {hash:?}",
-				);
-
-				None
-			};
-
-			if let Some((peer_id, hash, number, justifications)) =
-				self.extra_justifications.on_response(peer_id, justification)
-			{
-				self.actions.push(SyncingAction::ImportJustifications {
-					peer_id,
-					hash,
-					number,
-					justifications,
-				});
 				return Ok(());
 			}
+		} else {
+			// The peer has disconnected before the justification response arrived.
+			// Still try to process the justification via `on_response` which will
+			// check `pending_requests` for a request moved there by `peer_disconnected`.
+			trace!(
+				target: LOG_TARGET,
+				"Justification response from disconnected peer {peer_id:?}",
+			);
+
+			response
+				.blocks
+				.into_iter()
+				.next()
+				.and_then(|block| {
+					block
+						.justifications
+						.or_else(|| legacy_justification_mapping(block.justification))
+				})
+		};
+
+		if let Some((peer_id, hash, number, justifications)) =
+			self.extra_justifications.on_response(peer_id, justification)
+		{
+			self.actions.push(SyncingAction::ImportJustifications {
+				peer_id,
+				hash,
+				number,
+				justifications,
+			});
 		}
 
 		Ok(())

@@ -215,6 +215,40 @@ impl<B: BlockT> ExtraRequests<B> {
 				metrics.failed.set(self.failed_requests.len().try_into().unwrap_or(u64::MAX));
 				metrics.pending.inc();
 			}
+		} else if let Some(r) = resp {
+			// The request may have been moved from `active_requests` to
+			// `pending_requests` by `peer_disconnected()` if the sync peer
+			// disconnect event from the notifications protocol was processed
+			// before this response from the request-response protocol arrived.
+			// Accept the valid justification in this case.
+			if let Some(pos) = self
+				.pending_requests
+				.iter()
+				.position(|r| !self.failed_requests.contains_key(r))
+			{
+				let request = self.pending_requests.remove(pos).expect(
+					"`pos` is a valid index in `pending_requests`; qed",
+				);
+				if let Some(metrics) = &self.metrics {
+					metrics.pending.dec();
+				}
+
+				trace!(target: LOG_TARGET,
+					"Queuing import of {} from disconnected peer {:?} for {:?}",
+					self.request_type_name, who, request,
+				);
+
+				if self.importing_requests.insert(request) {
+					if let Some(metrics) = &self.metrics {
+						metrics.importing.inc();
+					}
+				}
+				return Some((who, request.0, request.1, r));
+			}
+			trace!(target: LOG_TARGET,
+				"No active or pending {} request to {:?}",
+				self.request_type_name, who,
+			);
 		} else {
 			trace!(target: LOG_TARGET,
 				"No active {} request to {:?}",
@@ -523,6 +557,54 @@ mod tests {
 		}
 
 		QuickCheck::new().quickcheck(property as fn(ArbitraryPeers) -> bool)
+	}
+
+	#[test]
+	fn response_after_disconnect_is_accepted() {
+		let mut requests = ExtraRequests::<Block>::new("test", None);
+
+		let peer = PeerId::random();
+		let hash = Hash::random();
+		let request = (hash, 1u64);
+
+		// Schedule a request
+		requests.schedule(request, |a, b| Ok(a[0] >= b[0]));
+
+		// Create a peer and assign the request to it
+		let mut peers = HashMap::new();
+		peers.insert(
+			peer,
+			PeerSync {
+				peer_id: peer,
+				common_number: 0,
+				best_hash: Hash::random(),
+				best_number: 10,
+				state: PeerSyncState::Available,
+			},
+		);
+
+		let mut m = requests.matcher();
+		let (matched_peer, matched_request) = m.next(&peers).unwrap();
+		assert_eq!(matched_peer, peer);
+		assert_eq!(matched_request, request);
+		drop(m);
+
+		// Peer disconnects - request moved from active to pending
+		requests.peer_disconnected(&peer);
+		assert!(requests.active_requests.is_empty());
+		assert!(requests.pending_requests.contains(&request));
+
+		// Response arrives after disconnect - should still be accepted
+		let result = requests.on_response(peer, Some(42u32));
+		assert!(result.is_some());
+		let (resp_peer, resp_hash, resp_number, resp_data) = result.unwrap();
+		assert_eq!(resp_peer, peer);
+		assert_eq!(resp_hash, hash);
+		assert_eq!(resp_number, 1u64);
+		assert_eq!(resp_data, 42u32);
+
+		// The request should no longer be in pending
+		assert!(requests.pending_requests.is_empty());
 	}
 
 	#[test]
