@@ -31,7 +31,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
-use sp_core::{ConstU32, ConstU64, Get};
+use sp_core::{ConstU32, ConstU64, ConstU8, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity, MaybeConvert},
 	BuildStorage, Saturating,
@@ -217,6 +217,7 @@ impl crate::Config for Test {
 	type MaxAutoRenewals = ConstU32<3>;
 	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+	type MaxAutoRenewalRetries = ConstU8<2>;
 }
 
 pub fn advance_to(b: u64) {
