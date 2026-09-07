@@ -301,27 +301,87 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn block_window_includes_both_bounds_and_excludes_blocks_outside_them() {
+	fn subscription_validity_rejects_invalid_ranges_and_unsupported_tags() {
+		use BlockNumberOrTag::{Earliest, Finalized, Latest, Number, Pending, Safe};
+
 		// Arrange
-		let range = FilterBlockOption::Range {
-			from_block: BlockNumberOrTag::Number(10),
-			to_block: BlockNumberOrTag::Number(20),
-		};
+		let range = |from_block, to_block| FilterBlockOption::Range { from_block, to_block };
+		let cases = [
+			(FilterBlockOption::AtBlock { block_hash: H256::repeat_byte(1) }, true),
+			(range(Latest, Latest), true),
+			(range(Earliest, Latest), true),
+			(range(Number(10), Latest), true),
+			(range(Latest, Number(20)), false),
+			(range(Earliest, Number(20)), true),
+			(range(Earliest, Earliest), true),
+			(range(Number(0), Earliest), true),
+			(range(Number(10), Earliest), false),
+			(range(Number(10), Number(10)), true),
+			(range(Number(10), Number(20)), true),
+			(range(Number(20), Number(10)), false),
+		];
+		let unsupported_bounds = [Safe, Finalized, Pending].into_iter().flat_map(|tag| {
+			[(range(tag, Latest), false), (range(Earliest, tag), false), (range(tag, tag), false)]
+		});
 
 		// Act
-		let windows = [9_u64, 10, 15, 20, 21].map(|block_number| range.window(block_number.into()));
+		let results = cases
+			.into_iter()
+			.chain(unsupported_bounds)
+			.map(|(option, expected)| (option, option.is_valid_for_subscription(), expected))
+			.collect::<Vec<_>>();
 
 		// Assert
-		assert_eq!(
-			windows,
-			[
-				LogWindow::NotYetOpen,
-				LogWindow::Open,
-				LogWindow::Open,
-				LogWindow::Open,
-				LogWindow::Closed,
-			],
-		);
+		for (option, actual, expected) in results {
+			assert_eq!(actual, expected, "Subscription validity for {option:?}");
+		}
+	}
+
+	#[test]
+	fn block_windows_handle_inclusive_and_open_ended_ranges() {
+		use BlockNumberOrTag::{Earliest, Latest, Number};
+		use LogWindow::{Closed, NotYetOpen, Open};
+
+		// Arrange
+		let range = |from_block, to_block| FilterBlockOption::Range { from_block, to_block };
+		let bounded = range(Number(10), Number(20));
+		let single_block = range(Number(10), Number(10));
+		let open_ended = range(Number(10), Latest);
+		let at_block = FilterBlockOption::AtBlock { block_hash: H256::repeat_byte(1) };
+		let cases = [
+			(bounded, 9, NotYetOpen),
+			(bounded, 10, Open),
+			(bounded, 15, Open),
+			(bounded, 20, Open),
+			(bounded, 21, Closed),
+			(single_block, 9, NotYetOpen),
+			(single_block, 10, Open),
+			(single_block, 11, Closed),
+			(open_ended, 9, NotYetOpen),
+			(open_ended, 10, Open),
+			(open_ended, u64::MAX, Open),
+			(range(Earliest, Number(20)), 0, Open),
+			(range(Earliest, Number(20)), 20, Open),
+			(range(Earliest, Number(20)), 21, Closed),
+			(range(Earliest, Earliest), 0, Open),
+			(range(Earliest, Earliest), 1, Closed),
+			(range(Earliest, Latest), 0, Open),
+			(range(Earliest, Latest), u64::MAX, Open),
+			(range(Latest, Latest), 0, Open),
+			(range(Latest, Latest), u64::MAX, Open),
+			(at_block, 0, Open),
+			(at_block, u64::MAX, Open),
+		];
+
+		// Act
+		let results = cases.map(|(option, block_number, expected)| {
+			(option, block_number, option.window(block_number.into()), expected)
+		});
+
+		// Assert
+		for (option, block_number, actual, expected) in results {
+			assert_eq!(actual, expected, "Window for {option:?} at block {block_number}");
+		}
 	}
 
 	/// Keep the data field present on the wire even when an event has no payload.
