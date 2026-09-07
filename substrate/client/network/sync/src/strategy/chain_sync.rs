@@ -2268,7 +2268,7 @@ where
 
 		match import_result {
 			ImportResult::Import(hash, header, state, body, justifications) => {
-				let origin = BlockOrigin::NetworkInitialSync;
+				let origin = BlockOrigin::StateSync { is_verified: false };
 				let block = IncomingBlock {
 					hash,
 					header: Some(header),
