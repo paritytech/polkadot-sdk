@@ -2554,20 +2554,30 @@ where
 	}
 
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
-		let len = buf.len();
-		if len == 0 {
+		fn copy_padded(buf: &mut [u8], code: &[u8], code_offset: usize) {
+			let len = buf.len().min(code.len().saturating_sub(code_offset));
+			if len > 0 {
+				buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+			}
+			buf[len..].fill(0);
+		}
+
+		if buf.is_empty() {
 			return;
+		}
+
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		}) {
+			return copy_padded(buf, code, code_offset);
 		}
 
 		let code_hash = self.code_hash(address);
 		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
-
-		let len = len.min(code.len().saturating_sub(code_offset));
-		if len > 0 {
-			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
-		}
-
-		buf[len..].fill(0);
+		copy_padded(buf, &code, code_offset);
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {

@@ -621,8 +621,9 @@ impl Default for Origin<Test> {
 }
 
 /// Dummy EVM bytecode for mocked addresses.
-/// This is minimal EVM bytecode (STOP) that terminates successfully.
-pub const MOCK_CODE: [u8; 1] = [0x00];
+/// This is minimal EVM bytecode (JUMPDEST; STOP) that terminates successfully. It is never
+/// executed; its bytes are non-zero so that tests can tell it apart from zero padding.
+pub const MOCK_CODE: [u8; 2] = [0x5B, 0x00];
 
 /// A mock handler implementation for testing purposes.
 #[derive(DefaultNoBound)]
