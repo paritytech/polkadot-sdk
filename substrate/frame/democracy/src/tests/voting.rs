@@ -21,7 +21,7 @@ use super::*;
 
 #[test]
 fn overvoting_should_fail() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = begin_referendum();
 		assert_noop!(
 			Democracy::vote(RuntimeOrigin::signed(1), r, aye(2)),
@@ -32,7 +32,7 @@ fn overvoting_should_fail() {
 
 #[test]
 fn split_voting_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = begin_referendum();
 		let v = AccountVote::Split { aye: 40, nay: 20 };
 		assert_noop!(
@@ -48,7 +48,7 @@ fn split_voting_should_work() {
 
 #[test]
 fn split_vote_cancellation_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = begin_referendum();
 		let v = AccountVote::Split { aye: 30, nay: 20 };
 		assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, v));
@@ -61,7 +61,7 @@ fn split_vote_cancellation_should_work() {
 
 #[test]
 fn single_proposal_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		System::set_block_number(0);
 		assert_ok!(propose_set_balance(1, 2, 1));
 		let r = 0;
@@ -103,7 +103,7 @@ fn single_proposal_should_work() {
 
 #[test]
 fn controversial_voting_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -129,7 +129,7 @@ fn controversial_voting_should_work() {
 
 #[test]
 fn controversial_low_turnout_voting_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let r = Democracy::inject_referendum(
 			2,
 			set_balance_proposal(2),
@@ -150,7 +150,7 @@ fn controversial_low_turnout_voting_should_work() {
 
 #[test]
 fn passing_low_turnout_voting_should_work() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
 
