@@ -413,7 +413,10 @@ impl PolkadotTestNode {
 			.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 			.await;
 
-		self.task_manager.spawn_handle().spawn(
+		// Essential: a driver that stops leaves the node up but no longer collating, which a
+		// test would otherwise observe only as a timeout.
+		let spawner = self.task_manager.spawn_handle();
+		self.task_manager.spawn_essential_handle().spawn(
 			"test-collator",
 			None,
 			test_parachain_collator_driver::run(test_parachain_collator_driver::Params {
@@ -423,6 +426,7 @@ impl PolkadotTestNode {
 				build_collation,
 				distribution_mode:
 					test_parachain_collator_driver::DistributionMode::OnePerAssignedCore,
+				spawner,
 			}),
 		);
 	}

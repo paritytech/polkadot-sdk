@@ -144,7 +144,10 @@ fn main() -> Result<()> {
 					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
 
-				full_node.task_manager.spawn_handle().spawn(
+				// Essential: a driver that stops leaves the node up but no longer
+				// collating, where the removed subsystem used to take the node down.
+				let spawner = full_node.task_manager.spawn_handle();
+				full_node.task_manager.spawn_essential_handle().spawn(
 					"undying-collator",
 					None,
 					test_parachain_collator_driver::run(test_parachain_collator_driver::Params {
@@ -153,6 +156,7 @@ fn main() -> Result<()> {
 						para_id,
 						build_collation: collator.create_collation_builder(),
 						distribution_mode,
+						spawner,
 					}),
 				);
 

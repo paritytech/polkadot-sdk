@@ -21,17 +21,18 @@
 //! no such machinery: they author one chain of collations per imported relay-chain block. This
 //! crate keeps that loop in one place.
 //!
-//! On every relay-chain block import it queries the claim queue, the persisted validation data,
-//! the validation code hash and the validator count, then asks the parachain for one collation
-//! per assigned core, chaining them on the same relay parent, and distributes each as a
-//! single-candidate V2 segment.
+//! Every relay-chain block import spawns one task, which queries the claim queue, the persisted
+//! validation data, the validation code hash and the validator count, then asks the parachain for
+//! one collation per assigned core, chaining them on the same relay parent, and distributes each
+//! as a single-candidate V2 segment. The runtime queries and the erasure coding must not run on
+//! the import loop: falling behind it means the overseer deactivates a leaf before we wait on it.
 
 #![deny(missing_docs)]
 
 use cumulus_client_collator::collation::{
 	build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams,
 };
-use futures::{channel::oneshot, future::BoxFuture, StreamExt};
+use futures::{channel::oneshot, future::BoxFuture, FutureExt, StreamExt};
 use polkadot_node_primitives::{Collation, SegmentCollation, UpwardMessages};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, SegmentEntry};
 use polkadot_node_subsystem_util::{runtime::ClaimQueueSnapshot, TimeoutExt};
@@ -43,6 +44,7 @@ use polkadot_primitives::{
 };
 use sc_client_api::BlockchainEvents;
 use sp_api::ProvideRuntimeApi;
+use sp_core::traits::SpawnNamed;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 #[cfg(test)]
@@ -52,7 +54,7 @@ const LOG_TARGET: &str = "parachain::collator-driver";
 
 /// A leaf the overseer already deactivated is never answered, so the wait needs a cap. Kept well
 /// below any relay-chain block time: the overseer sees the same import notification we do, so the
-/// normal wait is negligible, and a miss must not push us further behind than the leaf we skip.
+/// normal wait is negligible, and a stuck leaf must not hold its task open across several leaves.
 const ACTIVATION_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// Builds a collation on top of the given [`PersistedValidationData`].
@@ -74,7 +76,7 @@ pub enum DistributionMode {
 }
 
 /// Parameters for [`run`].
-pub struct Params<Client> {
+pub struct Params<Client, Spawner> {
 	/// The relay-chain client, used for block import notifications and runtime API calls.
 	pub client: Arc<Client>,
 	/// A handle to the relay-chain node's overseer.
@@ -85,51 +87,82 @@ pub struct Params<Client> {
 	pub build_collation: CollationBuilder,
 	/// How to spread the collations over the assigned cores.
 	pub distribution_mode: DistributionMode,
+	/// Spawner for the per-leaf collation tasks.
+	pub spawner: Spawner,
 }
 
 /// Drive collation generation off relay-chain block imports until the notification stream ends.
-pub async fn run<Client>(params: Params<Client>)
+pub async fn run<Client, Spawner>(params: Params<Client, Spawner>)
 where
-	Client: ProvideRuntimeApi<Block> + BlockchainEvents<Block> + 'static,
+	Client: ProvideRuntimeApi<Block> + BlockchainEvents<Block> + Send + Sync + 'static,
 	Client::Api: ParachainHost<Block>,
+	Spawner: SpawnNamed,
 {
-	let Params { client, mut overseer_handle, para_id, build_collation, distribution_mode } =
+	let Params { client, overseer_handle, para_id, build_collation, distribution_mode, spawner } =
 		params;
 
+	let build_collation = Arc::new(build_collation);
 	let mut import_notifications = client.import_notification_stream();
 
 	while let Some(notification) = import_notifications.next().await {
-		let relay_parent = notification.hash;
+		// One task per leaf, so that neither the activation wait nor the erasure coding of one
+		// leaf delays the next: a leaf dequeued late here is already deactivated.
+		spawner.spawn(
+			"collator-driver-leaf",
+			Some("collator-driver"),
+			collate_on_leaf(
+				client.clone(),
+				overseer_handle.clone(),
+				para_id,
+				notification.hash,
+				build_collation.clone(),
+				distribution_mode,
+			)
+			.boxed(),
+		);
+	}
+}
 
-		// The runtime API guard is cheap and rules out most leaves, so it runs before the wait.
-		let Some(leaf) = leaf_info(&*client, relay_parent, para_id) else { continue };
+/// Collate on one relay-chain leaf, once the overseer has activated it.
+async fn collate_on_leaf<Client>(
+	client: Arc<Client>,
+	mut overseer_handle: OverseerHandle,
+	para_id: ParaId,
+	relay_parent: Hash,
+	build_collation: Arc<CollationBuilder>,
+	distribution_mode: DistributionMode,
+) where
+	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	Client::Api: ParachainHost<Block>,
+{
+	// The runtime API guard is cheap and rules out most leaves, so it runs before the wait.
+	let Some(leaf) = leaf_info(&*client, relay_parent, para_id) else { return };
 
-		if !wait_for_activation(&mut overseer_handle, relay_parent).await {
-			continue;
-		}
+	if !wait_for_activation(&mut overseer_handle, relay_parent).await {
+		return;
+	}
 
-		match distribution_mode {
-			DistributionMode::OnePerAssignedCore => {
-				collate_on_assigned_cores(
-					&mut overseer_handle,
-					para_id,
-					relay_parent,
-					leaf,
-					&build_collation,
-				)
-				.await
-			},
-			DistributionMode::DuplicateToAllAssignedCores => {
-				duplicate_to_assigned_cores(
-					&mut overseer_handle,
-					para_id,
-					relay_parent,
-					leaf,
-					&build_collation,
-				)
-				.await
-			},
-		}
+	match distribution_mode {
+		DistributionMode::OnePerAssignedCore => {
+			collate_on_assigned_cores(
+				&mut overseer_handle,
+				para_id,
+				relay_parent,
+				leaf,
+				&build_collation,
+			)
+			.await
+		},
+		DistributionMode::DuplicateToAllAssignedCores => {
+			duplicate_to_assigned_cores(
+				&mut overseer_handle,
+				para_id,
+				relay_parent,
+				leaf,
+				&build_collation,
+			)
+			.await
+		},
 	}
 }
 
