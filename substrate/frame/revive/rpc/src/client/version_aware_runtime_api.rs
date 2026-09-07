@@ -885,7 +885,7 @@ impl VersionAwareRuntimeApiProvider {
 	}
 
 	/// The subxt client this provider computes capabilities through.
-	pub(crate) fn api(&self) -> &OnlineClient<SrcChainConfig> {
+	pub(crate) fn online_client(&self) -> &OnlineClient<SrcChainConfig> {
 		&self.api
 	}
 

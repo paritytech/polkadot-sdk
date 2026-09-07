@@ -323,8 +323,6 @@ impl Client {
 			let block_number = block.block_number();
 			let block_hash = block.block_hash();
 
-			// A block whose runtime predates pallet-revive reads as `None` and is treated exactly
-			// like a block without an EVM hash: it marks the end of the backward sync.
 			let ethereum_hash = match StorageApi::new(block.as_ref().clone())
 				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
 				.await

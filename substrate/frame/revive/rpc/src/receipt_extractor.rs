@@ -243,7 +243,7 @@ impl ReceiptExtractor {
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
-		let api = runtime_api_provider.api().clone();
+		let api = runtime_api_provider.online_client().clone();
 		let fetch_eth_block_hash = Arc::new(move |substrate_block_hash, substrate_block_number| {
 			let api = api.clone();
 
