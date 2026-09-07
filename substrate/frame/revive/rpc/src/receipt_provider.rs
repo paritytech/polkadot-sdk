@@ -744,18 +744,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					anyhow::bail!("pending logs are not supported");
 				}
 
-				// A single head snapshot resolves `latest` and validates the range,
-				// mirroring geth.
+				let from_block = resolve_block_number(from_block).await?;
+				let to_block = resolve_block_number(to_block).await?;
+
+				// Read the ceiling after resolving tags so advancing heads do not cause false
+				// future-block errors.
 				let latest_block = U256::from(self.block_provider.latest_block_number().await);
-				let from_block = match from_block {
-					BlockNumberOrTag::Latest => latest_block,
-					bound => resolve_block_number(bound).await?,
-				};
-				let to_block = match to_block {
-					BlockNumberOrTag::Latest => latest_block,
-					bound => resolve_block_number(bound).await?,
-				};
-				let earliest_block = resolve_block_number(BlockNumberOrTag::Earliest).await?;
 
 				if from_block > to_block {
 					anyhow::bail!("invalid block range params");
