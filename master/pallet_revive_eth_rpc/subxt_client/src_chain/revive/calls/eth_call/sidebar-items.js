@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["Data","Dest","EffectiveGasPrice","EncodedLen","EthGasLimit","TransactionEncoded","Value","WeightLimit"]};
+window.SIDEBAR_ITEMS = {"type":["AuthorizationList","Data","Dest","EffectiveGasPrice","EncodedLen","EthGasLimit","TransactionEncoded","Value","WeightLimit"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["eth_address","process_authorizations","sign_authorization","worst_case_authorization_weight"],"struct":["AuthorizationResult"]};

@@ -455,52 +455,54 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#305 id=305 data-nosnippet>305</a>		transaction_encoded: Vec&lt;u8&gt;,
 <a href=#306 id=306 data-nosnippet>306</a>		effective_gas_price: U256,
 <a href=#307 id=307 data-nosnippet>307</a>		encoded_len: u32,
-<a href=#308 id=308 data-nosnippet>308</a>	) -&gt; DispatchResultWithPostInfo;
-<a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a>	<span class="doccomment">/// Create a [`EthCallBuilder`] with default values.
-<a href=#311 id=311 data-nosnippet>311</a>	</span><span class="kw">pub fn </span>eth_call(origin: OriginFor&lt;T&gt;, dest: H160) -&gt; <span class="self">Self </span>{
-<a href=#312 id=312 data-nosnippet>312</a>		<span class="self">Self </span>{
-<a href=#313 id=313 data-nosnippet>313</a>			origin,
-<a href=#314 id=314 data-nosnippet>314</a>			dest,
-<a href=#315 id=315 data-nosnippet>315</a>			value: <span class="number">0u32</span>.into(),
-<a href=#316 id=316 data-nosnippet>316</a>			weight_limit: WEIGHT_LIMIT,
-<a href=#317 id=317 data-nosnippet>317</a>			eth_gas_limit: ETH_GAS_LIMIT.into(),
-<a href=#318 id=318 data-nosnippet>318</a>			data: <span class="macro">vec!</span>[],
-<a href=#319 id=319 data-nosnippet>319</a>			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
-<a href=#320 id=320 data-nosnippet>320</a>			effective_gas_price: <span class="number">0u32</span>.into(),
-<a href=#321 id=321 data-nosnippet>321</a>			encoded_len: <span class="number">0</span>,
-<a href=#322 id=322 data-nosnippet>322</a>		}
-<a href=#323 id=323 data-nosnippet>323</a>	}
-<a href=#324 id=324 data-nosnippet>324</a>);
-<a href=#325 id=325 data-nosnippet>325</a>
-<a href=#326 id=326 data-nosnippet>326</a><span class="macro">builder!</span>(
-<a href=#327 id=327 data-nosnippet>327</a>	eth_instantiate_with_code(
-<a href=#328 id=328 data-nosnippet>328</a>			origin: OriginFor&lt;T&gt;,
-<a href=#329 id=329 data-nosnippet>329</a>			value: U256,
-<a href=#330 id=330 data-nosnippet>330</a>			gas_limit: Weight,
-<a href=#331 id=331 data-nosnippet>331</a>			eth_gas_limit: U256,
-<a href=#332 id=332 data-nosnippet>332</a>			code: Vec&lt;u8&gt;,
-<a href=#333 id=333 data-nosnippet>333</a>			data: Vec&lt;u8&gt;,
-<a href=#334 id=334 data-nosnippet>334</a>			transaction_encoded: Vec&lt;u8&gt;,
-<a href=#335 id=335 data-nosnippet>335</a>			effective_gas_price: U256,
-<a href=#336 id=336 data-nosnippet>336</a>			encoded_len: u32,
-<a href=#337 id=337 data-nosnippet>337</a>	) -&gt; DispatchResultWithPostInfo;
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>	<span class="doccomment">/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
-<a href=#340 id=340 data-nosnippet>340</a>	</span><span class="kw">pub fn </span>eth_instantiate_with_code(origin: OriginFor&lt;T&gt;, code: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
-<a href=#341 id=341 data-nosnippet>341</a>		<span class="self">Self </span>{
-<a href=#342 id=342 data-nosnippet>342</a>			origin,
-<a href=#343 id=343 data-nosnippet>343</a>			value: <span class="number">0u32</span>.into(),
-<a href=#344 id=344 data-nosnippet>344</a>			gas_limit: WEIGHT_LIMIT,
-<a href=#345 id=345 data-nosnippet>345</a>			eth_gas_limit: ETH_GAS_LIMIT.into(),
-<a href=#346 id=346 data-nosnippet>346</a>			code,
-<a href=#347 id=347 data-nosnippet>347</a>			data: <span class="macro">vec!</span>[],
-<a href=#348 id=348 data-nosnippet>348</a>			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
-<a href=#349 id=349 data-nosnippet>349</a>			effective_gas_price: <span class="number">0u32</span>.into(),
-<a href=#350 id=350 data-nosnippet>350</a>			encoded_len: <span class="number">0</span>,
-<a href=#351 id=351 data-nosnippet>351</a>		}
-<a href=#352 id=352 data-nosnippet>352</a>	}
-<a href=#353 id=353 data-nosnippet>353</a>);
+<a href=#308 id=308 data-nosnippet>308</a>		authorization_list: Vec&lt;<span class="kw">crate</span>::evm::AuthorizationListEntry&gt;,
+<a href=#309 id=309 data-nosnippet>309</a>	) -&gt; DispatchResultWithPostInfo;
+<a href=#310 id=310 data-nosnippet>310</a>
+<a href=#311 id=311 data-nosnippet>311</a>	<span class="doccomment">/// Create a [`EthCallBuilder`] with default values.
+<a href=#312 id=312 data-nosnippet>312</a>	</span><span class="kw">pub fn </span>eth_call(origin: OriginFor&lt;T&gt;, dest: H160) -&gt; <span class="self">Self </span>{
+<a href=#313 id=313 data-nosnippet>313</a>		<span class="self">Self </span>{
+<a href=#314 id=314 data-nosnippet>314</a>			origin,
+<a href=#315 id=315 data-nosnippet>315</a>			dest,
+<a href=#316 id=316 data-nosnippet>316</a>			value: <span class="number">0u32</span>.into(),
+<a href=#317 id=317 data-nosnippet>317</a>			weight_limit: WEIGHT_LIMIT,
+<a href=#318 id=318 data-nosnippet>318</a>			eth_gas_limit: ETH_GAS_LIMIT.into(),
+<a href=#319 id=319 data-nosnippet>319</a>			data: <span class="macro">vec!</span>[],
+<a href=#320 id=320 data-nosnippet>320</a>			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
+<a href=#321 id=321 data-nosnippet>321</a>			effective_gas_price: <span class="number">0u32</span>.into(),
+<a href=#322 id=322 data-nosnippet>322</a>			encoded_len: <span class="number">0</span>,
+<a href=#323 id=323 data-nosnippet>323</a>			authorization_list: <span class="macro">vec!</span>[],
+<a href=#324 id=324 data-nosnippet>324</a>		}
+<a href=#325 id=325 data-nosnippet>325</a>	}
+<a href=#326 id=326 data-nosnippet>326</a>);
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a><span class="macro">builder!</span>(
+<a href=#329 id=329 data-nosnippet>329</a>	eth_instantiate_with_code(
+<a href=#330 id=330 data-nosnippet>330</a>			origin: OriginFor&lt;T&gt;,
+<a href=#331 id=331 data-nosnippet>331</a>			value: U256,
+<a href=#332 id=332 data-nosnippet>332</a>			gas_limit: Weight,
+<a href=#333 id=333 data-nosnippet>333</a>			eth_gas_limit: U256,
+<a href=#334 id=334 data-nosnippet>334</a>			code: Vec&lt;u8&gt;,
+<a href=#335 id=335 data-nosnippet>335</a>			data: Vec&lt;u8&gt;,
+<a href=#336 id=336 data-nosnippet>336</a>			transaction_encoded: Vec&lt;u8&gt;,
+<a href=#337 id=337 data-nosnippet>337</a>			effective_gas_price: U256,
+<a href=#338 id=338 data-nosnippet>338</a>			encoded_len: u32,
+<a href=#339 id=339 data-nosnippet>339</a>	) -&gt; DispatchResultWithPostInfo;
+<a href=#340 id=340 data-nosnippet>340</a>
+<a href=#341 id=341 data-nosnippet>341</a>	<span class="doccomment">/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
+<a href=#342 id=342 data-nosnippet>342</a>	</span><span class="kw">pub fn </span>eth_instantiate_with_code(origin: OriginFor&lt;T&gt;, code: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
+<a href=#343 id=343 data-nosnippet>343</a>		<span class="self">Self </span>{
+<a href=#344 id=344 data-nosnippet>344</a>			origin,
+<a href=#345 id=345 data-nosnippet>345</a>			value: <span class="number">0u32</span>.into(),
+<a href=#346 id=346 data-nosnippet>346</a>			gas_limit: WEIGHT_LIMIT,
+<a href=#347 id=347 data-nosnippet>347</a>			eth_gas_limit: ETH_GAS_LIMIT.into(),
+<a href=#348 id=348 data-nosnippet>348</a>			code,
+<a href=#349 id=349 data-nosnippet>349</a>			data: <span class="macro">vec!</span>[],
+<a href=#350 id=350 data-nosnippet>350</a>			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
+<a href=#351 id=351 data-nosnippet>351</a>			effective_gas_price: <span class="number">0u32</span>.into(),
+<a href=#352 id=352 data-nosnippet>352</a>			encoded_len: <span class="number">0</span>,
+<a href=#353 id=353 data-nosnippet>353</a>		}
+<a href=#354 id=354 data-nosnippet>354</a>	}
+<a href=#355 id=355 data-nosnippet>355</a>);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
