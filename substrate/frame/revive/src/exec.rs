@@ -550,14 +550,14 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Checks if `key` was already accessed in this transaction and inserts it
-	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the slot's [`Warmth`]. `op` is the operation being performed: a write
-	/// upgrades a slot that had only paid for a read.
+	/// Checks if the persistent storage slot `key` was already accessed in this transaction
+	/// and inserts it otherwise, so subsequent accesses to the same slot bill as hot. Returns
+	/// the slot's [`Warmth`]. `op` is the operation being performed: a write upgrades a slot
+	/// that had only paid for a read.
 	fn touch_storage_access(&mut self, key: &Key, op: StorageOp) -> Warmth;
 
-	/// Non-mutating sibling of `touch_storage_access`: reports the warmth
-	/// without warming the slot.
+	/// Non-mutating sibling of `touch_storage_access`: reports the persistent storage
+	/// slot's warmth without warming it.
 	fn peek_storage_access(&self, key: &Key) -> Warmth;
 
 	/// Charges `diff` from the meter.
