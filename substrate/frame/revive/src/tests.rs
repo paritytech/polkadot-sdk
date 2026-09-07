@@ -19,7 +19,7 @@ mod block_hash;
 mod deposit_payment;
 mod eth_estimate_gas;
 mod pallet_dummy;
-mod precompiles;
+pub(crate) mod precompiles;
 mod pvm;
 mod sol;
 mod stipends;

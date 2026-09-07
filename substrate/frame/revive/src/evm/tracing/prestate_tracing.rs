@@ -182,6 +182,10 @@ where
 {
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
+		use crate::precompiles::{All, Precompiles};
+		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()).filter(|c| !c.is_empty()) {
+			return Some(code.to_vec().into());
+		}
 		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
 		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
 		return Some(code.into());
@@ -344,6 +348,34 @@ where
 		let include_code = !self.config.disable_code;
 		get_entry!(self, *addr).or_insert_with_key(|addr| {
 			Self::prestate_info(addr, value, include_code.then(|| Self::bytecode(addr)).flatten())
+		});
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		precompiles::{EVM_REVERT, Precompile},
+		tests::{ExtBuilder, Test, precompiles::NoInfo},
+	};
+
+	#[test]
+	fn bytecode_reports_precompile_code() {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = H160(<NoInfo<Test> as Precompile>::MATCHER.base_address());
+			assert_eq!(PrestateTracer::<Test>::bytecode(&addr), Some(Bytes(EVM_REVERT.to_vec())));
+		});
+	}
+
+	#[test]
+	fn bytecode_reports_no_code_for_primitive_precompiles() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Primitive precompiles declare `CODE = &[]`, which must not be reported as code.
+			for i in 0x01..=0x0A {
+				let addr = H160::from_low_u64_be(i);
+				assert_eq!(PrestateTracer::<Test>::bytecode(&addr), None);
+			}
 		});
 	}
 }
