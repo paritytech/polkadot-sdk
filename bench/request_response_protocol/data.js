@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788733402113,
+  "lastUpdate": 1788757041285,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -121283,6 +121283,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2789714178,
             "range": "± 30780543",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0433ae35e33efcff9a2bfaddd42fe8f3230dcd3a",
+          "message": "pallet-psm: use recorded decimals when minting (#13062)\n\nPSM debt is denominated using decimal snapshots recorded when the PSM\nand external asset are registered. Redemption already uses those\nsnapshots, while minting rejected calls when mutable asset metadata no\nlonger matched them.\n\nUse the recorded decimals for minting as well, keeping both directions\non the same conversion rate and preventing metadata-only updates from\ndisabling minting.\n\nNo downstream integration changes are required.",
+          "timestamp": "2026-09-07T02:19:39Z",
+          "tree_id": "ecf87377df1a9925bcdabead34dc9a9f6ed4c6ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0433ae35e33efcff9a2bfaddd42fe8f3230dcd3a"
+        },
+        "date": 1788757002001,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20159056,
+            "range": "± 144475",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20869940,
+            "range": "± 258735",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22164279,
+            "range": "± 239589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27069864,
+            "range": "± 113896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 64592441,
+            "range": "± 1221208",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 372502257,
+            "range": "± 8671218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2972704761,
+            "range": "± 33891575",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17694665,
+            "range": "± 183754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17652634,
+            "range": "± 181142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18509530,
+            "range": "± 193936",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22944614,
+            "range": "± 252302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65528289,
+            "range": "± 618084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376287957,
+            "range": "± 4761778",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2796258328,
+            "range": "± 18203677",
             "unit": "ns/iter"
           }
         ]
