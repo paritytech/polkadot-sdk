@@ -21536,6 +21536,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
+ "sp-test-primitives",
  "sp-timestamp",
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint 0.17.0",
