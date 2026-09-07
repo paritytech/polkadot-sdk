@@ -112,6 +112,14 @@ impl SomeAssociation2 for u64 {
 	type _2 = u64;
 }
 
+/// Storage key written by `Example::on_non_genesis_integration` so tests can detect the call.
+const ON_NON_GENESIS_INTEGRATION_KEY: &[u8] = b":test:on_non_genesis_integration:";
+
+/// Storage key written by `Example::on_non_genesis_integration` recording the number of
+/// frame-system events present **at the moment** the hook fires.
+const ON_NON_GENESIS_INTEGRATION_EVENT_COUNT_KEY: &[u8] =
+	b":test:on_non_genesis_integration_event_count:";
+
 #[frame_support::pallet]
 /// Pallet documentation
 // Comments should not be included in the pallet documentation
@@ -200,6 +208,12 @@ pub mod pallet {
 			let _ = T::AccountId::from(SomeType2); // Test for where clause
 			Self::deposit_event(Event::Something(30));
 			Weight::from_parts(30, 0)
+		}
+		fn on_non_genesis_integration() {
+			// Write a marker so tests can assert this hook was called.
+			unhashed::put(ON_NON_GENESIS_INTEGRATION_KEY, &true);
+			let event_count = <frame_system::Pallet<T>>::events().len() as u32;
+			unhashed::put(ON_NON_GENESIS_INTEGRATION_EVENT_COUNT_KEY, &event_count);
 		}
 		fn integrity_test() {
 			let _ = T::AccountId::from(SomeType1); // Test for where clause
@@ -2377,6 +2391,117 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		let on_chain_version_after = StorageVersion::get::<Example4>();
 		assert_eq!(StorageVersion::exists::<Example4>(), true);
 		assert_eq!(on_chain_version_after, StorageVersion::new(0));
+	});
+}
+
+/// `on_non_genesis_integration` must NOT fire at genesis: pallets present from genesis are
+/// expected to initialize themselves via their `GenesisConfig`. Calling `OnGenesis::on_genesis`
+/// must only initialize the storage version.
+#[test]
+fn on_non_genesis_integration_not_called_at_genesis() {
+	TestExternalities::default().execute_with(|| {
+		assert!(
+			!unhashed::exists(ON_NON_GENESIS_INTEGRATION_KEY),
+			"hook must not have run yet"
+		);
+		Example::on_genesis();
+		assert!(
+			!unhashed::exists(ON_NON_GENESIS_INTEGRATION_KEY),
+			"hook must NOT run during on_genesis — pallets at genesis initialize via GenesisConfig"
+		);
+		// `on_genesis` must still have set the on-chain storage version.
+		assert!(StorageVersion::exists::<Example>());
+	});
+}
+
+/// `on_non_genesis_integration` must fire during `execute_on_runtime_upgrade` when the pallet
+/// is new to the runtime (i.e., it has no existing prefixed storage keys).
+#[test]
+fn on_non_genesis_integration_called_for_new_pallet_post_genesis() {
+	type Executive = frame_executive::Executive<
+		Runtime,
+		Block,
+		frame_system::ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	TestExternalities::default().execute_with(|| {
+		let pallet_prefix = twox_128(Example::name().as_bytes());
+		assert!(!contains_prefixed_key(&pallet_prefix));
+
+		assert!(
+			!unhashed::exists(ON_NON_GENESIS_INTEGRATION_KEY),
+			"hook must not have run yet"
+		);
+
+		Executive::execute_on_runtime_upgrade();
+
+		assert!(
+			unhashed::exists(ON_NON_GENESIS_INTEGRATION_KEY),
+			"hook must have run when new pallet is detected post-genesis"
+		);
+	});
+}
+
+/// `on_non_genesis_integration` must NOT fire during `execute_on_runtime_upgrade` for a pallet
+/// that already has on-chain storage (i.e., it isn't newly added to the runtime).
+#[test]
+fn on_non_genesis_integration_not_called_for_existing_pallet_on_upgrade() {
+	type Executive = frame_executive::Executive<
+		Runtime,
+		Block,
+		frame_system::ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	TestExternalities::default().execute_with(|| {
+		// Simulate a runtime that already has this pallet from genesis: storage version is set,
+		// the hook was not (and must not have been) called.
+		Example::on_genesis();
+		assert!(StorageVersion::exists::<Example>());
+		assert!(!unhashed::exists(ON_NON_GENESIS_INTEGRATION_KEY));
+
+		Executive::execute_on_runtime_upgrade();
+
+		assert!(
+			!unhashed::exists(ON_NON_GENESIS_INTEGRATION_KEY),
+			"hook must NOT run on upgrade for a pallet that already exists in the runtime"
+		);
+	});
+}
+
+/// `on_non_genesis_integration` must fire *after* `Hooks::on_runtime_upgrade`, so that any
+/// pending runtime migrations have already produced their effects by the time the newly added
+/// pallet first initializes itself.
+#[test]
+fn on_non_genesis_integration_runs_after_runtime_upgrade() {
+	type Executive = frame_executive::Executive<
+		Runtime,
+		Block,
+		frame_system::ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	TestExternalities::default().execute_with(|| {
+		frame_system::Pallet::<Runtime>::set_block_number(1);
+
+		let pallet_prefix = twox_128(Example::name().as_bytes());
+		assert!(!contains_prefixed_key(&pallet_prefix));
+
+		Executive::execute_on_runtime_upgrade();
+
+		assert!(unhashed::exists(ON_NON_GENESIS_INTEGRATION_KEY), "hook must have fired");
+
+		let event_count_at_fire = unhashed::get::<u32>(ON_NON_GENESIS_INTEGRATION_EVENT_COUNT_KEY)
+			.expect("event count snapshot must exist");
+		assert!(
+			event_count_at_fire >= 1,
+			"on_non_genesis_integration must run after Hooks::on_runtime_upgrade (which emits \
+			 at least one event); observed event count at fire: {event_count_at_fire}"
+		);
 	});
 }
 
