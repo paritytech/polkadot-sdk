@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-registrar-relay`.
 
-use crate::{mock::*, Error, Event, PendingRegistrations};
+use crate::{mock::*, Error, Event, PendingCodeUpgrades, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
@@ -557,6 +557,367 @@ mod reporting {
 					Event::ReportFailed { para_id: PARA_A, message_id: MSG_ID },
 					Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE },
 				]
+			);
+		});
+	}
+}
+
+mod receive_authorize_code_upgrade {
+	use super::*;
+
+	/// The message id every test upgrade request carries, distinct from the registration's.
+	const UPGRADE_ID: u64 = 7;
+
+	fn upgrade_msg(para_id: ParaId, code_len: usize) -> (MessageToRelay<AccountId>, Vec<u8>) {
+		let blob = code(code_len);
+		let msg = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+			para_id,
+			message_id: UPGRADE_ID,
+			code_hash: hash_of(&blob),
+			code_len: code_len as u32,
+		});
+		(msg, blob)
+	}
+
+	fn upgrade_report(para_id: ParaId, outcome: Result<u32, FailureReason>) -> MessageToPara {
+		MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
+			para_id,
+			message_id: UPGRADE_ID,
+			outcome,
+		})
+	}
+
+	/// Onboard `para_id` and authorize an upgrade for it, returning the code it now expects.
+	fn authorize(para_id: ParaId, code_len: usize) -> Vec<u8> {
+		AlreadyKnown::mutate(|known| known.push(para_id));
+		let (msg, blob) = upgrade_msg(para_id, code_len);
+		assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+		let _ = take_sent();
+		let _ = registrar_events();
+		blob
+	}
+
+	#[test]
+	fn parks_the_authorization_and_tells_the_parachain_when_it_lapses() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+			let (msg, blob) = upgrade_msg(PARA_A, 300);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			let expire_at = 1 + CODE_UPGRADE_VALID_PERIOD;
+			let pending = PendingCodeUpgrades::<Test>::get(PARA_A).unwrap();
+			assert_eq!(pending.message_id, UPGRADE_ID);
+			assert_eq!(pending.code_hash, hash_of(&blob));
+			assert_eq!(pending.code_len, 300);
+			assert_eq!(pending.expire_at, expire_at);
+
+			assert_eq!(take_sent(), vec![upgrade_report(PARA_A, Ok(expire_at))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradePending {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID,
+					code_hash: hash_of(&blob),
+					expire_at,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_para_this_chain_does_not_know_is_refused_and_reported() {
+		new_test_ext().execute_with(|| {
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+
+			// A refusal is not an extrinsic failure.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![upgrade_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeRejected {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID,
+					reason: FailureReason::NotRegistered,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn the_registrys_own_refusal_is_forwarded_verbatim() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+			UpgradeRefusal::set(Some(FailureReason::CannotUpgradeCode));
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![upgrade_report(PARA_A, Err(FailureReason::CannotUpgradeCode))]
+			);
+		});
+	}
+
+	#[test]
+	fn the_code_size_is_bounded_by_this_pallet_and_by_the_registry() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+
+			for (code_len, reason) in [
+				(MAX_CODE_SIZE as usize + 1, FailureReason::InvalidCodeSize),
+				(MIN_CODE_SIZE as usize - 1, FailureReason::InvalidCodeSize),
+			] {
+				let (msg, _) = upgrade_msg(PARA_A, code_len);
+				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+				assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+				assert_eq!(take_sent(), vec![upgrade_report(PARA_A, Err(reason))]);
+				let _ = registrar_events();
+			}
+		});
+	}
+
+	#[test]
+	fn a_second_request_replaces_the_first() {
+		new_test_ext().execute_with(|| {
+			let _ = authorize(PARA_A, 300);
+
+			System::set_block_number(50);
+			let blob = code(400);
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID + 1,
+					code_hash: hash_of(&blob),
+					code_len: 400,
+				}),
+			));
+
+			let pending = PendingCodeUpgrades::<Test>::get(PARA_A).unwrap();
+			assert_eq!(pending.message_id, UPGRADE_ID + 1);
+			assert_eq!(pending.code_hash, hash_of(&blob));
+			assert_eq!(pending.code_len, 400);
+			assert_eq!(pending.expire_at, 50 + CODE_UPGRADE_VALID_PERIOD);
+		});
+	}
+
+	#[test]
+	fn a_bounced_report_does_not_undo_the_authorization() {
+		new_test_ext().execute_with(|| {
+			AlreadyKnown::mutate(|known| known.push(PARA_A));
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+			SendFails::set(true);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
+
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert!(registrar_events().iter().any(
+				|e| matches!(e, Event::ReportFailed { message_id, .. } if *message_id == UPGRADE_ID)
+			));
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_authorize() {
+		new_test_ext().execute_with(|| {
+			let (msg, _) = upgrade_msg(PARA_A, 300);
+			assert_noop!(
+				Registrar::receive(RuntimeOrigin::signed(ALICE), msg),
+				DispatchError::BadOrigin
+			);
+		});
+	}
+
+	/// Run the pool check and the dispatch together, the way the node does.
+	fn upgrade_and_dispatch(
+		para_id: ParaId,
+		validation_code: Vec<u8>,
+	) -> (Result<(), InvalidTransaction>, Result<(), DispatchError>) {
+		let authorized = Registrar::authorize_apply_authorized_code_upgrade(
+			TransactionSource::External,
+			&para_id,
+			&validation_code,
+		)
+		.map(|_| ())
+		.map_err(|e| match e {
+			sp_runtime::transaction_validity::TransactionValidityError::Invalid(i) => i,
+			other => panic!("unexpected validity error: {other:?}"),
+		});
+
+		let dispatched = Registrar::apply_authorized_code_upgrade(
+			frame_system::RawOrigin::Authorized.into(),
+			para_id,
+			validation_code,
+		)
+		.map(|_| ())
+		.map_err(|e| e.error);
+
+		(authorized, dispatched)
+	}
+
+	#[test]
+	fn the_right_blob_schedules_the_upgrade_and_reports_it() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+
+			let (authorized, dispatched) = upgrade_and_dispatch(PARA_A, blob.clone());
+			assert_eq!(authorized, Ok(()));
+			assert_eq!(dispatched, Ok(()));
+
+			assert_eq!(ScheduledUpgrades::get(), vec![(PARA_A, blob)]);
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::CodeUpgradeScheduled {
+					para_id: PARA_A,
+					message_id: UPGRADE_ID,
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeApplied { para_id: PARA_A, message_id: UPGRADE_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_blob_that_is_not_the_authorized_one_is_refused_by_both() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+
+			// Nothing authorized for this para at all.
+			assert_eq!(
+				upgrade_and_dispatch(PARA_B, blob.clone()),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::NothingPending
+					))),
+					Err(Error::<Test>::NothingPending.into())
+				)
+			);
+
+			// Right length, wrong bytes.
+			let mut impostor = blob.clone();
+			*impostor.last_mut().unwrap() ^= 0xff;
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, impostor),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CodeHashMismatch
+					))),
+					Err(Error::<Test>::CodeHashMismatch.into())
+				)
+			);
+
+			// Right bytes, wrong length.
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob[..blob.len() - 1].to_vec()),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CodeLenMismatch
+					))),
+					Err(Error::<Test>::CodeLenMismatch.into())
+				)
+			);
+
+			// Too large to be worth hashing.
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, code(MAX_CODE_SIZE as usize + 1)),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CodeTooLarge
+					))),
+					Err(Error::<Test>::CodeTooLarge.into())
+				)
+			);
+
+			assert!(ScheduledUpgrades::get().is_empty());
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+		});
+	}
+
+	#[test]
+	fn an_authorization_stops_being_applicable_once_it_lapses() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			let expire_at = PendingCodeUpgrades::<Test>::get(PARA_A).unwrap().expire_at;
+
+			// Still good on the last block.
+			System::set_block_number(expire_at);
+			assert_eq!(
+				Registrar::authorize_apply_authorized_code_upgrade(
+					TransactionSource::External,
+					&PARA_A,
+					&blob,
+				)
+				.map(|_| ()),
+				Ok(())
+			);
+
+			System::set_block_number(expire_at + 1);
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::AuthorizationExpired
+					))),
+					Err(Error::<Test>::AuthorizationExpired.into())
+				)
+			);
+			assert!(ScheduledUpgrades::get().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_registry_failure_leaves_the_authorization_in_place() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			ScheduleFails::set(true);
+
+			assert!(upgrade_and_dispatch(PARA_A, blob.clone()).1.is_err());
+
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+			assert!(take_sent().is_empty());
+
+			// And the upload works once whatever blocked it clears.
+			ScheduleFails::set(false);
+			assert_eq!(upgrade_and_dispatch(PARA_A, blob).1, Ok(()));
+		});
+	}
+
+	#[test]
+	fn it_cannot_be_replayed() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			assert_eq!(upgrade_and_dispatch(PARA_A, blob.clone()).1, Ok(()));
+
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob).1,
+				Err(Error::<Test>::NothingPending.into())
+			);
+			assert_eq!(ScheduledUpgrades::get().len(), 1);
+		});
+	}
+
+	#[test]
+	fn a_signed_origin_is_not_an_authorized_one() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			assert_noop!(
+				Registrar::apply_authorized_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					PARA_A,
+					blob
+				),
+				DispatchError::BadOrigin
 			);
 		});
 	}
