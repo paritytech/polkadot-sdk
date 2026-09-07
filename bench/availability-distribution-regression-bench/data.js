@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788788549133,
+  "lastUpdate": 1788819256908,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b4a1f75c4f26109c76f1e4b90eb93a2f44d0b0e7",
-          "message": "revive-eth-rpc: Use pending block for estimate_gas in dev mode (#10963)\n\nUse Pending as the default block for eth_estimateGas in dev mode,\nmatching Anvil/EDR behavior. Non-dev mode continues to use Latest\n(go-ethereum behavior).\n\nRefs https://github.com/paritytech/contract-issues/issues/261\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-06T11:55:08Z",
-          "tree_id": "3111445c469f16231e3b8e0028ad88c87824f5f5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b4a1f75c4f26109c76f1e4b90eb93a2f44d0b0e7"
-        },
-        "date": 1770383303779,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022948290226666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007003437706666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009709129406666682,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14455502298000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1484311668000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4d63d92fa5e0a31c03385fa01f76c65be7ed83f4",
+          "message": "[pallet-revive] EIP-7702 (continued) (#12229)\n\nContinuation of #10936 (itself continuing #10851).\n\nImplements [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) (\"Set EOA\nAccount Code\") for `pallet-revive`: an EOA can sign an authorization\ndesignating a contract whose code runs on its behalf, while using the\nEOA's own storage and balance. See #9569 for background.\n\n## Changes\n\n**Pallet integration.** `eth_call` now takes an `authorization_list`\n(`Vec<AuthorizationListEntry>`) and processes it before the call. List\nsize is bounded by gas: each entry must be covered by\n`worst_case_delegation_deposit()`, and an empty list on a type-4 tx is\nrejected in `into_call`.\n\n> Updating the `eth_call` signature is safe — it's not dispatched\ndirectly by users, but is the inner call of `eth_transact` (signed by an\nEthereum wallet, submitted via `eth-rpc`).\n\n**Authorization processing.** `process_authorizations` validates each\nentry (chain ID, signature, nonce, account type), creates the authority\naccount if needed, and sets/clears the delegation. Invalid entries are\nsilently skipped per spec; each tuple's state changes are applied\ntransactionally (all-or-nothing per tuple). Delegation changes are\napplied outside the call's transactional context, so they persist even\nif the call reverts.\n\n**Revive-specific cost.** Per-authorization gas is higher than EVM: an\nentry may create a new account (needs ED, drawn from the transaction\nfee), and delegating to a contract requires a code-lockup deposit plus a\nrefcount bump on the code hash.\n\n**Storage.** New `AccountType::DelegatedEOA { delegate_target:\nOption<H160>, contract_info: ContractInfo<T>, payer: Option<AccountId>\n}`:\n- `EOA` → `DelegatedEOA` is permanent; clearing only sets\n`delegate_target = None`.\n- Delegated EOAs get their own child trie keyed by the EOA's address;\nre-delegating preserves it.\n- Code refcounts are incremented on set, decremented on clear.\n- Clearing refunds the `storage_base_deposit` (code-lockup portion) but\nkeeps the child trie and per-item accounting.\n- `payer` records who funded the current deposit, so refunds reach the\noriginal payer even when a different relayer submits the next set/clear.\n\n**Execution.**\n- Callee is a delegated EOA → code loaded from the target, storage stays\nthe EOA's.\n- Constructors skip delegation lookup.\n- No chain following: delegation is resolved at most once. Calling an\nauthority whose target is itself delegated reverts (spec: execution\ntraps on the `0xef` indicator byte).\n- `EXTCODESIZE`/`EXTCODEHASH`/`EXTCODECOPY`/`eth_getCode` report the\n23-byte `0xef0100 || target` indicator for delegated EOAs.\n- `seal_terminate` on a delegated EOA is rejected with the new\n`CannotTerminateDelegatedAccount` error.\n\n**Benchmarks.** `process_new_account_authorization(n)` (worst case),\n`process_existing_account_authorization(n)` (best case, for weight\nrefunds), and `process_invalid_authorization(n)`\n(signature-recovery-only cost of skipped tuples).\n\n**RPC.** `eth-rpc` can submit and dry-run EIP-7702 txs; `eth_getCode`\nreturns the delegation indicator for delegated EOAs. The end-to-end test\nconstructs 7702 transactions with alloy's\n`TransactionRequest::with_authorization_list`, the same path external\ntooling uses.\n\n## Review focus\n\nPlaces where a trade-off or design decision was made, roughly in order\nof review value:\n\n1. **`load_contract` semantics widened** (`storage.rs`): it now returns\na `ContractInfo` for actively delegated EOAs (the authority's own info),\nnot just deployed contracts. Every existing caller sees this change;\n`is_contract` remains the strict check. This is the highest-blast-radius\nchange in the PR.\n2. **Deposit payer routing** (`evm/eip7702.rs`, `payer` field):\nauthorizations are relayable, so the account that paid the deposit and\nthe account submitting the next set/clear can differ. Same-payer updates\napply a net diff (avoids a refund/charge round-trip that would burn `1 -\nRefundPercent` under `PGasDeposit`); payer-change fully refunds the old\npayer via a direct `Funds::Balance` transfer (the `Funds::TxFee` rail\nwould return it to the fee pot instead) and charges the new payer in\nfull. The deposit reported to the metering budget reflects only what the\nsubmitter paid.\n3. **Weight model** (`worst_case_authorization_weight`,\n`RuntimeCosts::Delegations`): pre-dispatch reserves `n ×` component-wise\n`max`(all-new, all-existing) — neither benchmark dominates on both\n`ref_time` and `proof_size` — and post-dispatch refunds the gap between\nreservation and actual (new/existing/invalid mix). Invalid tuples are\nbilled at signature-recovery cost.\n4. **Auth list bounded by gas, not by a hard cap** (`evm/call.rs`):\nvalidation requires the tx's max deposit budget to cover\n`worst_case_delegation_deposit() × len`. The net auth deposit is\npre-charged into the root `TransactionMeter` (`metering/mod.rs`), and\ndry-run bumps `max_storage_deposit` to the worst case so estimates\nsurvive pool validation.\n5. **Code snapshot at delegation time — spec deviation**\n(`set_delegation` doc): the target's code hash is resolved when the\nauthorization is processed, not at call time. Delegating to an address\nthat receives code later never activates (pinned by an `#[ignore]`\ntest). Call-time resolution is the known fix, left as a follow-up.\n6. **Chained delegation → trap** (`exec.rs`): the check lives in\n`new_frame` rather than per-call guards — a chained delegation always\npresents as an account with no loadable code but a delegation target (a\ndelegation snapshot only carries a code hash when the target is a\ndeployed contract, and a contract can never become delegated), so one\nread of the target decides. Nested callers observe `CalleeTrapped`, the\nsame observable as an EVM invalid opcode; a top-level call fails with\n`ContractTrapped`. Pinned by `delegation_chain_does_not_execute` and\n`self_delegation_traps_on_call`.\n7. **PVM host-function aliasing — spec deviation** (`exec.rs`\n`code_size`/`code_copy` comments): on PolkaVM, `CODESIZE`/`CODECOPY` and\n`EXTCODESIZE`/`EXTCODECOPY` lower to the same host functions, so inside\na delegated EOA's execution `CODESIZE`/`CODECOPY` incorrectly report the\n23-byte indicator. Fixing this needs a new host function plus a resolc\nchange; follow-up.\n8. **EIP-7702 → `RUNTIME_PALLETS_ADDR` rejected** (`evm/call.rs`): spec\nwould process the auths; we invalidate the tx because\n`eth_substrate_call` has no `authorization_list` and the auths would be\nsilently dropped while the user paid worst-case costs.\n9. **EIP-3541 check moved** (`vm/evm.rs`): the `0xEF` rejection moved\nfrom init-code ingestion to the runtime-code path — it now guards\nexactly the collision that matters (deployed code that would masquerade\nas a delegation indicator).\n10. **`Tracing` trait change** (`tracing.rs`): `enter_child_span` now\ntakes `code_address: Option<H160>` + `is_delegate_call: bool` instead of\n`delegate_call: Option<H160>` (breaking for external `Tracing` impls).\nThe prestate tracer additionally watches authorities before mutation so\npre-state diffs capture pre-delegation code/nonce.\n11. **Strict `y_parity ∈ {0, 1}`** (`recover_authority`): the shared\n`secp256k1_ecdsa_recover` primitive silently normalises legacy `v ∈ {27,\n28}`; we filter before recovery so those are per-tuple skips as the spec\nrequires. High-`s` signatures are rejected per EIP-2 in the shared\nrecovery helper (`recover_eth_address_from_message`), so they are\nper-tuple skips too — pinned by `high_s_authorization_is_rejected`.\n12. **`eth_estimate_gas` re-runs `process_authorizations` per bisection\niteration** (`lib.rs` TODO): recovered authorities are invariant across\niterations; caching them is a known optimization, deferred.\n\n## Tests\n\n- **Validation**: invalid chain_id / nonce skipped, chain_id 0 wildcard,\ncontract accounts rejected, same-authority replay resolves to first\nvalid entry, oversized nonce / y_parity invalidate the whole tx, empty\nauth list on type-4 rejected.\n- **Lifecycle**: set / update / clear, delegation resolution during\ncalls, cleared delegations stop executing.\n- **Storage**: re-delegation preserves storage across targets; dust\npreserved on EOA transition.\n- **Deposits**: charges/refunds, re-delegation adjustments, refcount\ntracking, EOA→EOA charges nothing, multiple authorities each get their\nown deposit, payer-change refund routing (see review focus 2).\n- **Edge cases**: chains not followed, SELFDESTRUCT preserves\ndelegation, delegation to a nonexistent address is a no-op, terminate\nprecompile blocked.\n- **Tracing**: call tracer, prestate and prestate-diff coverage for\nset/revoke.\n- **RPC**: end-to-end delegate → call → clear flow via alloy.\n\nNote for reviewers: `tests/sol/host.rs` restructures\n`extcodesize/hash/copy_works` into table-driven tests — the pre-existing\ncases are unchanged, the delegated-EOA/EOA/nonexistent rows are\nappended.\n\n---------\n\nCo-authored-by: pgherveou <pgherveou@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-07T20:42:27Z",
+          "tree_id": "d43a378ab3e4c442c3f514740dc57bd7a2bdb100",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d63d92fa5e0a31c03385fa01f76c65be7ed83f4"
+        },
+        "date": 1788819217248,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022983196493333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1486722739266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00980578078666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00767605712,
             "unit": "seconds"
           }
         ]
