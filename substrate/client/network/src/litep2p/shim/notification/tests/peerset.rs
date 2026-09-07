@@ -44,6 +44,25 @@ use std::{
 	task::Poll,
 };
 
+/// Create a [`Peerset`] in reserved-only mode, which makes it reject every inbound substream from
+/// a non-reserved peer.
+fn reserved_only_peerset(
+	reserved_peers: HashSet<PeerId>,
+	connected_peers: Arc<AtomicUsize>,
+) -> Peerset {
+	Peerset::new(
+		ProtocolName::from("/notif/1"),
+		3,
+		3,
+		true,
+		reserved_peers,
+		connected_peers,
+		Arc::new(peerstore_handle_test()),
+		NotificationMetrics::new(None),
+	)
+	.0
+}
+
 // outbound substream was initiated for a peer but an inbound substream from that same peer
 // was receied while the `Peerset` was waiting for the outbound substream to be opened
 //
@@ -1332,4 +1351,104 @@ async fn reserved_only_rejects_non_reserved_peers() {
 		assert_eq!(peerset.num_out(), 2usize);
 		assert_eq!(connected_peers.load(Ordering::Relaxed), 5usize);
 	}
+}
+
+// The slot allocation must stop tracking the peers whose inbound substream was rejected, while
+// keeping the disconnected reserved peers it needs in order to dial them.
+//
+// Regression test for https://github.com/paritytech/polkadot-sdk/issues/6219: `Peerset` used to
+// keep a `PeerState::Disconnected` entry for every peer it had ever rejected, so the tracked peers
+// grew for the lifetime of the node.
+#[tokio::test]
+async fn slot_allocation_cleans_up_disconnected_peers() {
+	sp_tracing::try_init_simple();
+
+	let reserved_peers = HashSet::from_iter([PeerId::random(), PeerId::random()]);
+	let connected_peers = Arc::new(AtomicUsize::new(0));
+	let mut peerset = reserved_only_peerset(reserved_peers.clone(), connected_peers.clone());
+
+	// Every non-reserved peer is rejected because the protocol is in reserved-only mode.
+	let rejected_peers = (0..8).map(|_| PeerId::random()).collect::<Vec<_>>();
+	for peer in &rejected_peers {
+		assert_eq!(peerset.report_inbound_substream(*peer), ValidationResult::Reject);
+	}
+
+	// Until the next slot allocation, both the reserved and the rejected peers are tracked as
+	// disconnected.
+	assert_eq!(peerset.peers().len(), reserved_peers.len() + rejected_peers.len());
+	for peer in rejected_peers.iter().chain(reserved_peers.iter()) {
+		assert_eq!(peerset.peers().get(peer), Some(&PeerState::Disconnected));
+	}
+
+	// Rejected peers never consumed a slot.
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+	assert_eq!(connected_peers.load(Ordering::Relaxed), 0usize);
+
+	// The slot allocation runs the cleanup and then dials the reserved peers. Getting a command at
+	// all proves the cleanup kept them, as only a disconnected reserved peer is dialed.
+	match peerset.next().await {
+		Some(command) => {
+			assert!(command.close_peers.is_empty());
+			assert_eq!(command.open_peers.len(), reserved_peers.len());
+
+			for peer in &command.open_peers {
+				assert!(reserved_peers.contains(peer));
+				assert_eq!(
+					peerset.peers().get(peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) })
+				);
+			}
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	// The rejected peers are no longer tracked.
+	assert_eq!(peerset.peers().len(), reserved_peers.len());
+	for peer in &rejected_peers {
+		assert_eq!(peerset.peers().get(peer), None);
+	}
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+}
+
+// Since a rejected peer stops being tracked, litep2p can report a substream for a peer that
+// `Peerset` knows nothing about. Verify that this is treated as the rejection it is and that it
+// does not permanently start tracking the peer again.
+#[tokio::test]
+async fn substream_reported_for_untracked_peer() {
+	sp_tracing::try_init_simple();
+
+	let connected_peers = Arc::new(AtomicUsize::new(0));
+	let mut peerset = reserved_only_peerset(Default::default(), connected_peers.clone());
+	let peer = PeerId::random();
+
+	assert_eq!(peerset.report_inbound_substream(peer), ValidationResult::Reject);
+
+	peerset.cleanup_disconnected_peers_for_test();
+	assert!(peerset.peers().is_empty());
+
+	// litep2p reports the substream that `Peerset` had already asked it to reject.
+	assert_eq!(
+		peerset.report_substream_opened(peer, traits::Direction::Inbound),
+		OpenResult::Reject
+	);
+	assert!(peerset.peers().is_empty(), "an untracked peer must not be tracked again on open");
+	assert_eq!(connected_peers.load(Ordering::Relaxed), 0usize);
+
+	// The close that follows backs the peer off, exactly as it does for a rejected peer that is
+	// still tracked, so that the reputation report is not lost.
+	peerset.report_substream_closed(peer);
+	assert_eq!(peerset.peers().get(&peer), Some(&PeerState::Backoff));
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+	assert_eq!(connected_peers.load(Ordering::Relaxed), 0usize);
+
+	// Simulate the back-off expiring and verify the entry does not survive the next cleanup.
+	for (_, state) in peerset.peers_mut() {
+		*state = PeerState::Disconnected;
+	}
+	peerset.cleanup_disconnected_peers_for_test();
+
+	assert!(peerset.peers().is_empty(), "backed off peer is still tracked: {:?}", peerset.peers());
 }
