@@ -1,0 +1,12 @@
+title: '[FRAME] Deprecate `ProvideInherent::is_inherent_required`'
+doc:
+- audience: Runtime Dev
+  description: |
+    Deprecates `ProvideInherent::is_inherent_required` as a first step towards its
+    removal. Each inherent should always be included in every block. If the inherent
+    data is optional, wrap the inner data in an `Option` instead.
+    Downstream pallets that override `is_inherent_required` will see a deprecation
+    warning guiding them to restructure their inherent logic.
+crates:
+- name: frame-support
+  bump: patch
