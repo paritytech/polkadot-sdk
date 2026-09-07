@@ -23,7 +23,6 @@ std = [
 	"bridge-hub-test-utils?/std",
 	"bridge-runtime-common?/std",
 	"cumulus-pallet-aura-ext?/std",
-	"cumulus-pallet-dmp-queue?/std",
 	"cumulus-pallet-parachain-system-proc-macro?/std",
 	"cumulus-pallet-parachain-system?/std",
 	"cumulus-pallet-session-benchmarking?/std",
@@ -145,8 +144,8 @@ std = [
 	"pallet-root-testing?/std",
 	"pallet-safe-mode?/std",
 	"pallet-salary?/std",
+	"pallet-scarcity?/std",
 	"pallet-scheduler?/std",
-	"pallet-scored-pool?/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session?/std",
 	"pallet-skip-feeless-payment?/std",
@@ -250,7 +249,6 @@ runtime-benchmarks = [
 	"assets-common?/runtime-benchmarks",
 	"bridge-hub-common?/runtime-benchmarks",
 	"bridge-runtime-common?/runtime-benchmarks",
-	"cumulus-pallet-dmp-queue?/runtime-benchmarks",
 	"cumulus-pallet-parachain-system?/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking?/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim?/runtime-benchmarks",
@@ -343,6 +341,7 @@ runtime-benchmarks = [
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
 	"pallet-salary?/runtime-benchmarks",
+	"pallet-scarcity?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
 	"pallet-session?/runtime-benchmarks",
@@ -396,7 +395,6 @@ try-runtime = [
 	"assets-common?/try-runtime",
 	"bridge-hub-test-utils?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
-	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
 	"cumulus-pallet-solo-to-para?/try-runtime",
 	"cumulus-pallet-weight-reclaim?/try-runtime",
@@ -410,6 +408,7 @@ try-runtime = [
 	"frame-support?/try-runtime",
 	"frame-system?/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"generate-bags?/try-runtime",
 	"pallet-accumulate-and-forward?/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
@@ -494,8 +493,8 @@ try-runtime = [
 	"pallet-root-testing?/try-runtime",
 	"pallet-safe-mode?/try-runtime",
 	"pallet-salary?/try-runtime",
+	"pallet-scarcity?/try-runtime",
 	"pallet-scheduler?/try-runtime",
-	"pallet-scored-pool?/try-runtime",
 	"pallet-session?/try-runtime",
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
@@ -596,7 +595,6 @@ runtime-full = [
 	"bridge-hub-common",
 	"bridge-runtime-common",
 	"cumulus-pallet-aura-ext",
-	"cumulus-pallet-dmp-queue",
 	"cumulus-pallet-parachain-system",
 	"cumulus-pallet-parachain-system-proc-macro",
 	"cumulus-pallet-session-benchmarking",
@@ -722,8 +720,8 @@ runtime-full = [
 	"pallet-root-testing",
 	"pallet-safe-mode",
 	"pallet-salary",
+	"pallet-scarcity",
 	"pallet-scheduler",
-	"pallet-scored-pool",
 	"pallet-session",
 	"pallet-session-benchmarking",
 	"pallet-skip-feeless-payment",
@@ -907,6 +905,7 @@ node = [
 	"cumulus-client-parachain-inherent",
 	"cumulus-client-pov-recovery",
 	"cumulus-client-proof-size-recording",
+	"cumulus-client-resubmission-store",
 	"cumulus-client-service",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
@@ -995,6 +994,7 @@ node = [
 	"sc-keystore",
 	"sc-mixnet",
 	"sc-network",
+	"sc-network-bitswap",
 	"sc-network-common",
 	"sc-network-gossip",
 	"sc-network-light",
@@ -1012,6 +1012,7 @@ node = [
 	"sc-service",
 	"sc-state-db",
 	"sc-statement-store",
+	"sc-storage-chain-sync",
 	"sc-storage-monitor",
 	"sc-sync-state-rpc",
 	"sc-sysinfo",
@@ -1132,11 +1133,6 @@ path = "../bridges/bin/runtime-common"
 default-features = false
 optional = true
 path = "../cumulus/pallets/aura-ext"
-
-[dependencies.cumulus-pallet-dmp-queue]
-default-features = false
-optional = true
-path = "../cumulus/pallets/dmp-queue"
 
 [dependencies.cumulus-pallet-parachain-system]
 default-features = false
@@ -1763,15 +1759,15 @@ default-features = false
 optional = true
 path = "../substrate/frame/salary"
 
+[dependencies.pallet-scarcity]
+default-features = false
+optional = true
+path = "../substrate/frame/scarcity"
+
 [dependencies.pallet-scheduler]
 default-features = false
 optional = true
 path = "../substrate/frame/scheduler"
-
-[dependencies.pallet-scored-pool]
-default-features = false
-optional = true
-path = "../substrate/frame/scored-pool"
 
 [dependencies.pallet-session]
 default-features = false
@@ -2348,6 +2344,11 @@ default-features = false
 optional = true
 path = "../cumulus/client/proof-size-recording"
 
+[dependencies.cumulus-client-resubmission-store]
+default-features = false
+optional = true
+path = "../cumulus/client/resubmission-store"
+
 [dependencies.cumulus-client-service]
 default-features = false
 optional = true
@@ -2788,6 +2789,11 @@ default-features = false
 optional = true
 path = "../substrate/client/network"
 
+[dependencies.sc-network-bitswap]
+default-features = false
+optional = true
+path = "../substrate/client/network/bitswap"
+
 [dependencies.sc-network-common]
 default-features = false
 optional = true
@@ -2872,6 +2878,11 @@ path = "../substrate/client/state-db"
 default-features = false
 optional = true
 path = "../substrate/client/statement-store"
+
+[dependencies.sc-storage-chain-sync]
+default-features = false
+optional = true
+path = "../substrate/client/storage-chain-sync"
 
 [dependencies.sc-storage-monitor]
 default-features = false

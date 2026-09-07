@@ -12,7 +12,8 @@ use log::info;
 use sc_statement_store::test_utils::get_keypair;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
 use sp_statement_store::{
-	statement_allowance_key, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+	statement_allowance_key, StatementAllowance, StatementEvent, SubmitOutcome, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	path::{Path, PathBuf},
@@ -27,11 +28,15 @@ use zombienet_sdk::{
 };
 
 use sc_statement_store::subxt_client::CustomConfig;
-use statement_store_subxt::OnlineClient;
+use subxt::OnlineClient;
 pub(super) const RPC_POOL_SIZE: usize = 10000;
 pub(super) const COLLATOR_INFO_LOG_FILTER: &str = "info,statement-store=info,statement-gossip=info";
 pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
 	"info,statement-store=trace,statement-gossip=trace";
+
+pub(super) use sp_statement_store::{
+	AddFilterResponse as UnstableAddFilterResponse, SubscribeEvent as UnstableStatementEvent,
+};
 
 pub(super) async fn submit_statement(
 	rpc: &RpcClient,
@@ -40,6 +45,61 @@ pub(super) async fn submit_statement(
 	let encoded: Bytes = statement.encode().into();
 	let result: SubmitResult = rpc.request("statement_submit", rpc_params![encoded]).await?;
 	Ok(result)
+}
+
+// Helpers for the unstable statement JSON-RPC methods specified in:
+// https://github.com/paritytech/json-rpc-interface-spec/pull/185
+pub(super) async fn submit_statement_unstable(
+	rpc: &RpcClient,
+	statement: &sp_statement_store::Statement,
+) -> Result<SubmitOutcome, anyhow::Error> {
+	let encoded: Bytes = statement.encode().into();
+	let result: SubmitOutcome =
+		rpc.request("statement_unstable_submit", rpc_params![encoded]).await?;
+	Ok(result)
+}
+
+pub(super) async fn subscribe_unstable(
+	rpc: &RpcClient,
+) -> Result<RpcSubscription<UnstableStatementEvent>, anyhow::Error> {
+	let subscription = rpc
+		.subscribe::<UnstableStatementEvent>(
+			"statement_unstable_subscribe",
+			rpc_params![],
+			"statement_unstable_unsubscribe",
+		)
+		.await?;
+	Ok(subscription)
+}
+
+pub(super) fn unstable_subscription_id(
+	subscription: &RpcSubscription<UnstableStatementEvent>,
+) -> Result<String, anyhow::Error> {
+	subscription
+		.subscription_id()
+		.map(ToOwned::to_owned)
+		.ok_or_else(|| anyhow!("Subscription was accepted without an id"))
+}
+
+pub(super) async fn add_filter_unstable(
+	rpc: &RpcClient,
+	subscription_id: &str,
+	filter: TopicFilter,
+) -> Result<UnstableAddFilterResponse, anyhow::Error> {
+	let response = rpc
+		.request("statement_unstable_add_filter", rpc_params![subscription_id, filter])
+		.await?;
+	Ok(response)
+}
+
+pub(super) async fn remove_filter_unstable(
+	rpc: &RpcClient,
+	subscription_id: &str,
+	filter_id: &str,
+) -> Result<(), anyhow::Error> {
+	Ok(rpc
+		.request("statement_unstable_remove_filter", rpc_params![subscription_id, filter_id])
+		.await?)
 }
 
 pub(super) async fn expect_one_statement(

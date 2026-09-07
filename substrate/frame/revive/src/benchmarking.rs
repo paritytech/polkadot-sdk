@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	Pallet as Contracts,
-	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES},
+	access_list::{AccessEntry, AccessList, MAX_ACCESS_LIST_ENTRIES, StorageOp, Warmth},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
@@ -866,6 +866,29 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn origin_is_root() {
+		let input_bytes =
+			ISystem::ISystemCalls::originIsRoot(ISystem::originIsRootCall {}).abi_encode();
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_origin(ExecOrigin::Root);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		let raw_data = result.unwrap().data;
+		let is_root = Bool::abi_decode(&raw_data).expect("decoding failed");
+		assert!(is_root);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
 		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
@@ -1429,11 +1452,6 @@ mod benchmarks {
 		Hot,
 	}
 
-	enum StorageOp {
-		Read,
-		Write,
-	}
-
 	fn build_storage_contract<T: Config>(
 		op: StorageOp,
 		fill: TrieFill,
@@ -1568,6 +1586,99 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Worst-case lookup keys: differing only at the tail, comparisons walk the whole key.
+	fn shared_prefix_keys(count: usize, suffix_of: impl Fn(u64) -> u64) -> Vec<Vec<u8>> {
+		(0..count as u64)
+			.map(|i| {
+				let mut key = vec![0u8; limits::STORAGE_KEY_BYTES as usize];
+				key[limits::STORAGE_KEY_BYTES as usize - 8..]
+					.copy_from_slice(&suffix_of(i).to_be_bytes());
+				key
+			})
+			.collect()
+	}
+
+	/// Probed keys must exist, or reads measure a proof-of-absence walk instead.
+	/// Whitelisting keeps them out of the DB counters and pre-warms the cache.
+	fn setup_stored_keys<T: Config>(
+		count: usize,
+		value_byte: u8,
+		suffix_of: impl Fn(u64) -> u64,
+	) -> Result<(ContractInfo<T>, Vec<Vec<u8>>), BenchmarkError> {
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
+		let info = instance.info()?;
+		let child_trie_info = info.child_trie_info();
+		let value = vec![value_byte; limits::STORAGE_BYTES as usize];
+		let stored_keys = shared_prefix_keys(count, suffix_of);
+		for key in &stored_keys {
+			info.bench_write_raw(key, Some(value.clone()), false)
+				.map_err(|_| "Failed to write to storage during setup.")?;
+			frame_benchmarking::add_to_whitelist_child(
+				child_trie_info.storage_key().to_vec(),
+				key.clone(),
+			);
+		}
+		Ok((info, stored_keys))
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn overlay_probe_full(
+		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		let value_byte = 42;
+		// One stored key per probe; odd suffixes, so the even fill never overwrites them.
+		let (info, stored_keys) =
+			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
+		let child_trie_info = info.child_trie_info();
+		// The block's PoV budget bounds the overlay entries like the access list cap.
+		let fill_keys = shared_prefix_keys(MAX_ACCESS_LIST_ENTRIES, |i| (i + 1) * 2);
+
+		let mut result = None;
+		#[block]
+		{
+			// The benchmark framework drains the overlay right before the block, so fill here.
+			for key in &fill_keys {
+				child::put_raw(&child_trie_info, key, &[0u8]);
+			}
+			for i in 0..n {
+				let index = i as usize % stored_keys.len();
+				result = child::get_raw(&child_trie_info, &stored_keys[index]);
+			}
+		}
+
+		if n > 0 {
+			let expected = vec![value_byte; limits::STORAGE_BYTES as usize];
+			assert_eq!(result, Some(expected), "the stored value must be read back");
+		}
+		Ok(())
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn overlay_probe_empty(
+		n: Linear<0, { MAX_ACCESS_LIST_ENTRIES as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		let value_byte = 42;
+		// Reads must cost the same as in `overlay_probe_full`, so their shared cost cancels.
+		let (info, stored_keys) =
+			setup_stored_keys::<T>(MAX_ACCESS_LIST_ENTRIES, value_byte, |i| i * 2 + 1)?;
+		let child_trie_info = info.child_trie_info();
+
+		let mut result = None;
+		#[block]
+		{
+			for i in 0..n {
+				let index = i as usize % stored_keys.len();
+				result = child::get_raw(&child_trie_info, &stored_keys[index]);
+			}
+		}
+
+		if n > 0 {
+			let expected = vec![value_byte; limits::STORAGE_BYTES as usize];
+			assert_eq!(result, Some(expected), "the stored value must be read back");
+		}
+		Ok(())
+	}
+
 	// n: new byte size
 	// o: old byte size
 	#[benchmark(skip_meta, pov_mode = Measured)]
@@ -1626,7 +1737,7 @@ mod benchmarks {
 		);
 
 		// Add the key to access list so the op's touch is hot.
-		runtime.ext().touch_storage_access(false, &key);
+		runtime.ext().touch_storage_access(false, &key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -1679,7 +1790,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.touch_storage_access(false, &key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -1742,7 +1853,7 @@ mod benchmarks {
 			key.hash(),
 		);
 
-		runtime.ext().touch_storage_access(false, &key);
+		runtime.ext().touch_storage_access(false, &key, StorageOp::Read);
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -1796,7 +1907,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.touch_storage_access(false, &key, StorageOp::Read);
 
 		let result;
 		#[block]
@@ -1846,7 +1957,7 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(false, &key);
+		ext.touch_storage_access(false, &key, StorageOp::Write);
 
 		let result;
 		#[block]
@@ -1872,10 +1983,10 @@ mod benchmarks {
 	fn near_full_access_list() -> crate::access_list::AccessList {
 		let mut al = AccessList::new();
 		for i in 0..(MAX_ACCESS_LIST_ENTRIES - 1) {
-			al.touch(AccessEntry {
-				slot: worst_case_slot(),
-				address: H160::from_low_u64_be(i as u64),
-			});
+			al.touch(
+				AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(i as u64) },
+				StorageOp::Read,
+			);
 		}
 		al
 	}
@@ -1889,7 +2000,7 @@ mod benchmarks {
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry, StorageOp::Read);
 		}
 		assert!(outcome.is_cold());
 		Ok(())
@@ -1898,14 +2009,26 @@ mod benchmarks {
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
-		// Re-touch an entry that is already present (address zero is in the fill range).
-		let entry = AccessEntry { slot: worst_case_slot(), address: H160::zero() };
+		// Worst-case hot touch: the rightmost key and the write upgrades the read-paid entry.
+		let entry = AccessEntry {
+			slot: worst_case_slot(),
+			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64 - 2),
+		};
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry.clone(), StorageOp::Write);
 		}
-		assert!(!outcome.is_cold());
+		assert_eq!(
+			outcome,
+			Warmth::Hot { charged: StorageOp::Read },
+			"the fill seeded this entry read-paid"
+		);
+		assert_eq!(
+			al.peek(&entry),
+			Warmth::Hot { charged: StorageOp::Write },
+			"the write upgraded the entry"
+		);
 		Ok(())
 	}
 
@@ -1917,7 +2040,7 @@ mod benchmarks {
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry, StorageOp::Read);
 		}
 		assert!(outcome.is_cold());
 		Ok(())
@@ -1928,11 +2051,11 @@ mod benchmarks {
 		let mut al = AccessList::new();
 		let entry =
 			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) };
-		al.touch(entry.clone());
+		al.touch(entry.clone(), StorageOp::Read);
 		let outcome;
 		#[block]
 		{
-			outcome = al.touch(entry);
+			outcome = al.touch(entry, StorageOp::Read);
 		}
 		assert!(!outcome.is_cold());
 		Ok(())
@@ -1945,7 +2068,10 @@ mod benchmarks {
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
 		let mut al = near_full_access_list();
 		al.enter_frame();
-		al.touch(AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) });
+		al.touch(
+			AccessEntry { slot: worst_case_slot(), address: H160::from_low_u64_be(u64::MAX) },
+			StorageOp::Read,
+		);
 		#[block]
 		{
 			al.rollback_frame();

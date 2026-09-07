@@ -75,7 +75,7 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 		// The node could import blocks in bursts, and eth-rpc's subxt best-block subscription
 		// is best-effort, so allow some drift before reporting unhealthy. At a 2s block time,
 		// 128 blocks is ~4 minutes.
-		const MAX_BLOCK_DRIFT: u32 = 128;
+		const MAX_BLOCK_DRIFT: u64 = 128;
 		if sync_state.current_block > local_best.saturating_add(MAX_BLOCK_DRIFT) {
 			log::warn!(
 				target: LOG_TARGET,

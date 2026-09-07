@@ -36,7 +36,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		AsSystemOriginSigner, AsTransactionAuthorizedOrigin, CheckedSub, DispatchInfoOf,
-		Dispatchable, TransactionExtension, Zero,
+		Dispatchable, Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
@@ -240,6 +240,9 @@ pub mod pallet {
 		InvalidStatement,
 		/// The account already has a vested balance.
 		VestedBalanceExists,
+		/// The claim has a vesting schedule but its value is below the existential deposit, so the
+		/// destination account could not be kept alive to carry the vesting lock.
+		ClaimBelowExistentialDeposit,
 	}
 
 	#[pallet::storage]
@@ -377,7 +380,6 @@ pub mod pallet {
 			statement: Option<StatementKind>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-
 			Total::<T>::mutate(|t| *t += value);
 			Claims::<T>::insert(who, value);
 			if let Some(vs) = vesting_schedule {
@@ -581,6 +583,10 @@ impl<T: Config> Pallet<T> {
 	// Attempts to recover the Ethereum address from a message signature signed by using
 	// the Ethereum RPC's `personal_sign` and `eth_sign`.
 	fn eth_recover(s: &EcdsaSignature, what: &[u8], extra: &[u8]) -> Option<EthereumAddress> {
+		// Reject high-S signatures (EIP-2 / BIP-62 malleability protection)
+		if !sp_core::ecdsa::is_signature_normalized(&s.0) {
+			return None;
+		}
 		let msg = keccak_256(&Self::ethereum_signable_message(what, extra));
 		let mut res = EthereumAddress::default();
 		res.0
@@ -595,8 +601,20 @@ impl<T: Config> Pallet<T> {
 			Total::<T>::get().checked_sub(&balance_due).ok_or(Error::<T>::PotUnderflow)?;
 
 		let vesting = Vesting::<T>::get(&signer);
-		if vesting.is_some() && T::VestingSchedule::vesting_balance(&dest).is_some() {
-			return Err(Error::<T>::VestedBalanceExists.into());
+		if let Some(_) = vesting {
+			if T::VestingSchedule::vesting_balance(&dest).is_some() {
+				return Err(Error::<T>::VestedBalanceExists.into());
+			}
+
+			// A vesting schedule installs a balance lock, which requires the account to stay alive,
+			// otherwise it is dusted and the lock placed on a non-existent account. The `dest` may
+			// already hold funds, so a small claim that tops an existing account over the ED is
+			// valid.
+			let free_after = CurrencyOf::<T>::free_balance(&dest).saturating_add(balance_due);
+			ensure!(
+				free_after >= CurrencyOf::<T>::minimum_balance(),
+				Error::<T>::ClaimBelowExistentialDeposit,
+			);
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.
@@ -604,10 +622,10 @@ impl<T: Config> Pallet<T> {
 
 		// Check if this claim should have a vesting schedule.
 		if let Some(vs) = vesting {
-			// This can only fail if the account already has a vesting schedule,
-			// but this is checked above.
+			// This can only fail if the account already has a vesting schedule or its balance is
+			// below the existential deposit, both of which are checked above.
 			T::VestingSchedule::add_vesting_schedule(&dest, vs.0, vs.1, vs.2)
-				.expect("No other vesting schedule exists, as checked above; qed");
+				.map_err(|_| Error::<T>::VestedBalanceExists)?;
 		}
 
 		Total::<T>::put(new_total);
@@ -707,28 +725,27 @@ where
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod secp_utils {
 	use super::*;
+	use k256::ecdsa::SigningKey;
 
-	pub fn public(secret: &libsecp256k1::SecretKey) -> libsecp256k1::PublicKey {
-		libsecp256k1::PublicKey::from_secret_key(secret)
-	}
-	pub fn eth(secret: &libsecp256k1::SecretKey) -> EthereumAddress {
+	pub fn eth(secret: &SigningKey) -> EthereumAddress {
+		let vk = secret.verifying_key();
+		let uncompressed = vk.to_encoded_point(false);
 		let mut res = EthereumAddress::default();
-		res.0.copy_from_slice(&keccak_256(&public(secret).serialize()[1..65])[12..]);
+		res.0.copy_from_slice(&keccak_256(&uncompressed.as_bytes()[1..])[12..]);
 		res
 	}
-	pub fn sig<T: Config>(
-		secret: &libsecp256k1::SecretKey,
-		what: &[u8],
-		extra: &[u8],
-	) -> EcdsaSignature {
+	pub fn sig<T: Config>(secret: &SigningKey, what: &[u8], extra: &[u8]) -> EcdsaSignature {
 		let msg = keccak_256(&super::Pallet::<T>::ethereum_signable_message(
 			&to_ascii_hex(what)[..],
 			extra,
 		));
-		let (sig, recovery_id) = libsecp256k1::sign(&libsecp256k1::Message::parse(&msg), secret);
+
+		let (signature, recovery_id) = secret
+			.sign_prehash_recoverable(&msg)
+			.expect("Signing can't fail with a 32-byte hash. qed.");
 		let mut r = [0u8; 65];
-		r[0..64].copy_from_slice(&sig.serialize()[..]);
-		r[64] = recovery_id.serialize();
+		r[0..64].copy_from_slice(&signature.to_bytes());
+		r[64] = recovery_id.to_byte();
 		EcdsaSignature(r)
 	}
 }

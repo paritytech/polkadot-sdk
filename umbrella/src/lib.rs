@@ -118,6 +118,10 @@ pub use cumulus_client_pov_recovery;
 #[cfg(feature = "cumulus-client-proof-size-recording")]
 pub use cumulus_client_proof_size_recording;
 
+/// Per-block proof store for unincluded segment resubmission.
+#[cfg(feature = "cumulus-client-resubmission-store")]
+pub use cumulus_client_resubmission_store;
+
 /// Common functions used to assemble the components of a parachain node.
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
@@ -125,10 +129,6 @@ pub use cumulus_client_service;
 /// AURA consensus extension pallet for parachains.
 #[cfg(feature = "cumulus-pallet-aura-ext")]
 pub use cumulus_pallet_aura_ext;
-
-/// Migrates messages from the old DMP queue pallet.
-#[cfg(feature = "cumulus-pallet-dmp-queue")]
-pub use cumulus_pallet_dmp_queue;
 
 /// Base pallet for cumulus-based parachains.
 #[cfg(feature = "cumulus-pallet-parachain-system")]
@@ -698,13 +698,14 @@ pub use pallet_safe_mode;
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
 
+/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
+/// rest-time-prioritized transfers.
+#[cfg(feature = "pallet-scarcity")]
+pub use pallet_scarcity;
+
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
-
-/// FRAME pallet for scored pools.
-#[cfg(feature = "pallet-scored-pool")]
-pub use pallet_scored_pool;
 
 /// FRAME sessions pallet.
 #[cfg(feature = "pallet-session")]
@@ -1180,6 +1181,10 @@ pub use sc_mixnet;
 #[cfg(feature = "sc-network")]
 pub use sc_network;
 
+/// Substrate Bitswap client/server service.
+#[cfg(feature = "sc-network-bitswap")]
+pub use sc_network_bitswap;
+
 /// Substrate network common.
 #[cfg(feature = "sc-network-common")]
 pub use sc_network_common;
@@ -1248,6 +1253,10 @@ pub use sc_state_db;
 /// Substrate statement store.
 #[cfg(feature = "sc-statement-store")]
 pub use sc_statement_store;
+
+/// Substrate storage-chain bitswap peer rotation and indexed transaction fetching service.
+#[cfg(feature = "sc-storage-chain-sync")]
+pub use sc_storage_chain_sync;
 
 /// Storage monitor service for substrate.
 #[cfg(feature = "sc-storage-monitor")]
