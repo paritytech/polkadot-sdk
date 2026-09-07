@@ -302,6 +302,30 @@ pub enum FilterError {
 mod tests {
 	use super::*;
 
+	#[test]
+	fn block_window_includes_both_bounds_and_excludes_blocks_outside_them() {
+		// Arrange
+		let range = FilterBlockOption::Range {
+			from_block: BlockNumberOrTag::Number(10),
+			to_block: BlockNumberOrTag::Number(20),
+		};
+
+		// Act
+		let windows = [9_u64, 10, 15, 20, 21].map(|block_number| range.window(block_number.into()));
+
+		// Assert
+		assert_eq!(
+			windows,
+			[
+				LogWindow::NotYetOpen,
+				LogWindow::Open,
+				LogWindow::Open,
+				LogWindow::Open,
+				LogWindow::Closed,
+			],
+		);
+	}
+
 	/// Keep the data field present on the wire even when an event has no payload.
 	#[test]
 	fn empty_log_data_serializes_as_an_empty_hex_string() {
