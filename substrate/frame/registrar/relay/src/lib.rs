@@ -35,11 +35,10 @@
 //!    and the parachain has already made the manager pay for them. If the blob matches, the para is
 //!    onboarded and the outcome is reported back to the parachain.
 //!
-//! An authorization does not time out here. If the code never turns up, missing the deadline is the
-//! manager's problem, not this chain's: the parachain sends
-//! [`MessageToRelayV1::CancelRegistration`] when it gives up, this pallet drops the entry and
-//! confirms, and the parachain releases the deposit. So no per-block sweep runs on the relay chain,
-//! and whoever wants the deposit back pays for the round trip. No deposit is ever taken here.
+//! An authorization never times out here. The parachain sends
+//! [`MessageToRelayV1::CancelRegistration`] when the manager gives up, this pallet drops the entry
+//! and confirms, and the parachain releases the deposit. So the relay chain runs no per-block
+//! sweep, and whoever wants the deposit back pays for the round trip. No deposit is taken here.
 //!
 //! ## Runtime requirement
 //!
@@ -75,8 +74,8 @@ mod tests;
 pub trait SendToPara {
 	/// Send `message` to the parachain.
 	///
-	/// `Err(())` means the transport refused the message. Callers here are mid-way through
-	/// applying state that must survive, so they log and carry on rather than unwinding.
+	/// `Err(())` means the transport refused the message; callers log and carry on rather than
+	/// unwind committed state.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
 }
@@ -103,10 +102,7 @@ pub struct PendingRegistration<AccountId, MaxHeadDataSize: Get<u32>> {
 	pub genesis_head: frame_support::BoundedVec<u8, MaxHeadDataSize>,
 	/// Blake2-256 hash the validation code must have.
 	pub code_hash: H256,
-	/// Exact length the validation code must have.
-	///
-	/// The parachain sized the manager's deposit from this, so a blob of any other length would
-	/// mean the manager underpaid, even if the hash somehow matched.
+	/// Exact length the validation code must have; the parachain sized the deposit from it.
 	pub code_len: u32,
 }
 
@@ -150,9 +146,7 @@ pub mod pallet {
 
 		/// How many registrations may be waiting on their code at once.
 		///
-		/// Bounds the head data this pallet stores while no deposit is held here. Entries only ever
-		/// leave by the code landing or by the parachain cancelling, so a manager who does neither
-		/// occupies a slot for as long as they keep paying the deposit on the parachain.
+		/// Bounds the head data stored here, where no deposit is held.
 		#[pallet::constant]
 		type MaxPendingRegistrations: Get<u32>;
 
@@ -188,9 +182,6 @@ pub mod pallet {
 		/// A cancellation arrived after the para had already been onboarded, and was refused.
 		CancellationRefused { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
-		///
-		/// The relay chain's own state is already correct; the parachain is now out of step and
-		/// will need its manager to ask again.
 		ReportFailed { para_id: ParaId, message_id: u64 },
 	}
 
@@ -210,18 +201,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Accept a control-plane message from the parachain's registrar pallet.
 		///
-		/// Not callable by users: the origin must be a trusted XCM origin (e.g. the Coretime
-		/// chain). A registration request authorizes the validation code that will follow; a
-		/// cancellation drops an authorization the parachain has given up on.
-		///
-		/// A request this pallet will not act on is *not* an extrinsic failure. Failing would roll
-		/// back the rejection report along with everything else, and the parachain would sit on a
-		/// held deposit waiting for news that never comes. So a rejection is applied, reported, and
-		/// returns `Ok`.
+		/// The origin is a trusted XCM origin, not a user. A rejected request still returns `Ok`:
+		/// failing would roll back the rejection report and leave the parachain holding a deposit
+		/// for news that never comes.
 		#[pallet::call_index(0)]
-		// A `Register` is weighed by the head data it actually carries rather than by
-		// `MaxHeadDataSize`: that bound is a megabyte on production relay chains, and a typical
-		// genesis head is nowhere near it.
 		#[pallet::weight(match message {
 			MessageToRelay::V1(MessageToRelayV1::Register { genesis_head, .. }) =>
 				T::WeightInfo::receive_register(genesis_head.len() as u32),
@@ -261,9 +244,8 @@ pub mod pallet {
 
 		/// Upload the validation code for a pending authorization, onboarding the para.
 		///
-		/// Needs no signature and pays no fee. Anybody may submit: the pending entry already fixes
-		/// the exact bytes that will be accepted, and the manager has already paid for them on the
-		/// parachain.
+		/// Unsigned and free: the pending entry already pins the exact bytes accepted, and the
+		/// manager has paid for them on the parachain.
 		#[pallet::call_index(1)]
 		#[pallet::authorize(Self::authorize_apply_authorized_code)]
 		#[pallet::weight_of_authorize(T::WeightInfo::authorize_apply_authorized_code(validation_code.len() as u32))]
@@ -297,13 +279,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Decide whether an unsigned [`Pallet::apply_authorized_code`] may enter the pool and a
-		/// block.
-		///
-		/// Runs exactly the same checks as the dispatch, so the pool and the block never disagree
-		/// about which bytes are acceptable.
-		// `#[pallet::authorize]` hands the call arguments over by reference, so the parameter
-		// types have to mirror the call's exactly. `&[u8]` would not compile.
+		/// Validate an unsigned [`Pallet::apply_authorized_code`], with the same checks as the
+		/// dispatch so the pool and the block cannot disagree.
+		// `#[pallet::authorize]` passes the call arguments by reference, so the types must mirror
+		// the call's exactly; `&[u8]` would not compile.
 		#[allow(clippy::ptr_arg)]
 		pub fn authorize_apply_authorized_code(
 			_source: TransactionSource,
@@ -370,15 +349,8 @@ pub mod pallet {
 
 		/// Drop the authorization for `para_id`, unless the code beat the cancellation here.
 		///
-		/// The relay chain is the authority on which of the two happened first, which is what makes
-		/// it safe for the parachain to release a deposit on the strength of this answer. A para id
-		/// this chain has registered is not one whose deposit can be handed back, so that is the
-		/// whole test. The entry goes either way: once the id is taken, an authorization for it can
-		/// never be applied.
-		///
-		/// Cancelling something that was never pending is not an error either. The request may
-		/// simply have been rejected here and the report lost, and the parachain still needs an
-		/// answer it can act on.
+		/// A registered id keeps its deposit. Nothing pending still gets an `Ok`: the request may
+		/// have been rejected here and the report lost.
 		fn on_cancel_request(para_id: ParaId, message_id: u64) {
 			PendingRegistrations::<T>::remove(para_id);
 
@@ -446,8 +418,8 @@ pub mod pallet {
 
 		/// Hand a report to the transport.
 		///
-		/// A transport failure is only logged and surfaced as an event: every caller has already
-		/// committed relay-chain state that must not be unwound just because the report bounced.
+		/// A failure is only logged and evented: callers have committed relay-chain state that must
+		/// not unwind because a report bounced.
 		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
 			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
 				log::error!(
