@@ -2,10 +2,8 @@ title: 'fix(elections-phragmen): correct runners-up try_state invariant'
 doc:
 - audience: Runtime Dev
   description: |-
-    Fix `try_state_runners_up` to stop requiring approval-stake ordering. Runners-up
-    are stored in phragmen merit order (worst to best), matching election output and
-    `remove_member` replacement order. The check now documents this invariant and
-    performs no assertion; positive stakes remain validated elsewhere.
+    Remove the incorrect approval-stake ordering check because `RunnersUp` storage
+    follows election/Phragmen merit order rather than approval-stake ordering.
 crates:
 - name: pallet-elections-phragmen
   bump: patch

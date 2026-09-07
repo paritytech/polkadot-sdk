@@ -1204,7 +1204,6 @@ impl<T: Config> ContainsLengthBound for Pallet<T> {
 impl<T: Config> Pallet<T> {
 	fn do_try_state() -> Result<(), TryRuntimeError> {
 		Self::try_state_members()?;
-		Self::try_state_runners_up()?;
 		Self::try_state_candidates()?;
 		Self::try_state_candidates_runners_up_disjoint()?;
 		Self::try_state_members_disjoint()?;
@@ -1222,15 +1221,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Err("try_state checks: Members must be always sorted by account ID".into())
 		}
-	}
-
-	// [`RunnersUp`] state checks. Invariants:
-	//  - Elements are stored in phragmen merit order (worst to best), as produced by the election.
-	//    They are not sorted by approval stake.
-	fn try_state_runners_up() -> Result<(), TryRuntimeError> {
-		// Merit order is not a cheap storage-only invariant; the pallet does not store phragmen
-		// desirability scores, so there is nothing to assert without re-running the election.
-		Ok(())
 	}
 
 	// [`Candidates`] state checks. Invariants:
@@ -2744,29 +2734,38 @@ mod tests {
 
 	#[test]
 	fn runners_up_merit_order_differs_from_stake_order() {
-		ExtBuilder::default().desired_runners_up(2).build_and_execute(|| {
-			assert_ok!(submit_candidacy(RuntimeOrigin::signed(6)));
-			assert_ok!(submit_candidacy(RuntimeOrigin::signed(5)));
-			assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
-			assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
+		ExtBuilder::default()
+			.balance_factor(20)
+			.desired_members(1)
+			.desired_runners_up(3)
+			.build_and_execute(|| {
+				assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
+				assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
+				assert_ok!(submit_candidacy(RuntimeOrigin::signed(5)));
+				assert_ok!(submit_candidacy(RuntimeOrigin::signed(6)));
 
-			assert_ok!(vote(RuntimeOrigin::signed(2), vec![3], 10));
-			assert_ok!(vote(RuntimeOrigin::signed(3), vec![3], 10));
-			assert_ok!(vote(RuntimeOrigin::signed(4), vec![4], 10));
-			assert_ok!(vote(RuntimeOrigin::signed(5), vec![5, 6], 15));
+				assert_ok!(vote(RuntimeOrigin::signed(1), vec![3, 5], 100));
+				assert_ok!(vote(RuntimeOrigin::signed(2), vec![4, 6], 55));
 
-			System::set_block_number(5);
-			Elections::on_initialize(System::block_number());
+				System::set_block_number(5);
+				Elections::on_initialize(System::block_number());
 
-			let runners_up = runners_up_and_stake();
-			assert_eq!(runners_up.len(), 2);
-			// Phragmen merit order (worst to best) is [6, 4], not stake order [4, 6].
-			assert_eq!(runners_up[0].0, 6);
-			assert_eq!(runners_up[1].0, 4);
-			assert!(runners_up[0].1 < runners_up[1].1);
+				// Phragmen elects in merit order 3, 4, 5, 6: 3 becomes the sole member and the
+				// runners-up are stored worst-to-best merit as [6, 5, 4]. Voter 1's stake is
+				// split between 3 and 5 and voter 2's between 4 and 6, so 5 (elected in a later
+				// round than 4) ends up with more backing stake. The stored order therefore
+				// violates the removed approval-stake ascending invariant (#6815).
+				let runners_up = runners_up_and_stake();
+				assert_eq!(runners_up.iter().map(|r| r.0).collect::<Vec<_>>(), vec![6, 5, 4]);
+				assert!(runners_up[1].1 > runners_up[2].1);
 
-			assert_ok!(Elections::do_try_state());
-		});
+				let stored = RunnersUp::<Test>::get();
+				let mut stake_sorted = stored.clone();
+				stake_sorted.sort_by_key(|runner| runner.stake);
+				assert_ne!(stored, stake_sorted);
+
+				assert_ok!(Elections::do_try_state());
+			});
 	}
 
 	#[test]
