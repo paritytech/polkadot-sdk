@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788757876286,
+  "lastUpdate": 1788778481228,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0be9d3a1924bc3278e816495c925bddb07965844",
-          "message": "FixedPoint: Support parsing `x.y` format (#9184)\n\nThis makes it easier to declare a fixed point value. The old format is\nalso still supported.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-02-04T21:21:05Z",
-          "tree_id": "607bd7ed665e626059dc8fe90b415e3264704b78",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0be9d3a1924bc3278e816495c925bddb07965844"
-        },
-        "date": 1770245761523,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.02399999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038675757978000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06535138265799992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08508822079199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78ef156b85dbd1753497f49138125a237bb589ed",
+          "message": "Fix auto-renewal charging tasks for foreign workloads (#12750)\n\n## Summary\n\nA core index doesn't permanently belong to a task. Core assignments are\nrebuilt every region, and a renewal buys a core in the next sale, so a\nworkload can end up on a different core index each region. Because of\nthis, `PotentialRenewals` can hold records for the same core index\nbelonging to different tasks at the same time. For example, the pending\nrenewal of the task running on that core in the current bulk period, and\nthe renewal record of the task that will run on it in the next bulk\nperiod.\n\n`enable_auto_renew` didn't account for this. It first checks whether\nthere is any renewable workload at (core, current region begin), and if\nthere is one it renews it immediately and charges the task's sovereign\naccount, without checking whose workload it is and without looking at\nthe hint. So a task following the documented flow (passing its own core\nand its own renewal record's timeslice as the hint) could end up paying\nfor the renewal of a completely unrelated task. The stored auto-renewal\nrecord then keeps charging it for that foreign workload every sale.\n\nThis happened on Polkadot Coretime: task 3428 enabled auto-renewal for\nits twelve cores with correct parameters, but five of those core indices\nwere still carrying other tasks' pending renewals for the current sale.\nOne went through, so task 3428 paid for task 2094's renewal:\n[Link](https://coretime-polkadot.subscan.io/event/4766580-87)\n\n## Fix\n\n- `enable_auto_renew` only renews immediately if the expiring workload\nincludes the task. If the core is expiring with another task's workload,\nwe fall through to the workload_end_hint path instead, which must point\nto the task's own renewal record (otherwise the call fails with the new\n`TaskNotInWorkload` error).\n- `renew_cores` re-checks this before charging the sovereign account. On\na mismatch it emits `AutoRenewalFailed` and drops the record instead of\ncharging. This also cleans up the mismatched record that is currently\non-chain.\n- If the core was renewed immediately when enabling, `next_renewal` is\nnow set to the end of the period that was just renewed. Previously the\n`workload_end_hint` was stored instead, so auto-renewal would skip the\nnext renewal and the task would lose its core.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-07T08:52:32Z",
+          "tree_id": "bed919506246088c0a74fd258c9c96637837edf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ef156b85dbd1753497f49138125a237bb589ed"
+        },
+        "date": 1788778443331,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03872449876600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08691840555799991,
             "unit": "seconds"
           }
         ]
