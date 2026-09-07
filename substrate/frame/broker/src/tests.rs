@@ -1967,21 +1967,21 @@ fn assign_should_drop_invalid_region() {
 }
 
 #[test]
-fn assign_locks_the_task_para() {
+fn assign_reports_the_task() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
 		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert!(LockedParas::take().is_empty());
+		assert!(AssignedTasks::take().is_empty());
 
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
 
-		assert_eq!(LockedParas::take(), vec![1001]);
+		assert_eq!(AssignedTasks::take(), vec![1001]);
 	});
 }
 
 #[test]
-fn assigning_a_dropped_region_locks_nothing() {
+fn assigning_a_dropped_region_reports_nothing() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
@@ -1991,12 +1991,12 @@ fn assigning_a_dropped_region_locks_nothing() {
 		// The region has expired, so it is dropped rather than assigned.
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
 
-		assert!(LockedParas::take().is_empty());
+		assert!(AssignedTasks::take().is_empty());
 	});
 }
 
 #[test]
-fn pooling_a_region_locks_nothing() {
+fn pooling_a_region_reports_nothing() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
 		advance_to(2);
@@ -2004,7 +2004,7 @@ fn pooling_a_region_locks_nothing() {
 
 		assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
 
-		assert!(LockedParas::take().is_empty());
+		assert!(AssignedTasks::take().is_empty());
 	});
 }
 
