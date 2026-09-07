@@ -1023,9 +1023,13 @@ impl<T: Config> Pallet<T> {
 					// filter out those who end up with no backing stake.
 					let mut new_set_with_stake = winners
 						.into_iter()
-						.filter_map(
-							|(m, b)| if b.is_zero() { None } else { Some((m, to_balance(b))) },
-						)
+						.filter_map(|w| {
+							if w.backed_stake.is_zero() {
+								None
+							} else {
+								Some((w.who, to_balance(w.backed_stake)))
+							}
+						})
 						.collect::<Vec<(T::AccountId, BalanceOf<T>)>>();
 
 					// OPTIMIZATION NOTE: we could bail out here if `new_set.len() == 0`. There

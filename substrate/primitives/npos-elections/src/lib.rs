@@ -36,16 +36,19 @@
 //! `Validator` in the context of staking. `Edge`: A mapping from a `Voter` to a `Target`.
 //!
 //! The goal of an election algorithm is to provide an `ElectionResult`. A data composed of:
-//! - `winners`: A flat list of identifiers belonging to those who have won the election, usually
-//!   ordered in some meaningful way. They are zipped with their total backing stake.
-//! - `assignment`: A mapping from each voter to their winner-only targets, zipped with a ration
+//! - `winners`: A flat list of [`Winner`]s belonging to those who have won the election, sorted by
+//!   election round. Each winner includes its backed stake and the round at which it was elected.
+//! - `assignment`: A mapping from each voter to their winner-only targets, zipped with a ratio
 //!   denoting the amount of support given to that particular target.
 //!
 //! ```rust
 //! # use sp_npos_elections::*;
 //! # use sp_runtime::Perbill;
-//! // the winners.
-//! let winners = vec![(1, 100), (2, 50)];
+//! // the winners, with their backed stake and election round.
+//! let winners = vec![
+//!     Winner { who: 1, backed_stake: 100, round: 0 },
+//!     Winner { who: 2, backed_stake: 50, round: 1 },
+//! ];
 //! let assignments = vec![
 //!     // A voter, giving equal backing to both 1 and 2.
 //!     Assignment {
@@ -465,12 +468,25 @@ impl<AccountId: IdentifierT> Voter<AccountId> {
 	}
 }
 
+/// An elected candidate, part of an [`ElectionResult`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Winner<AccountId> {
+	/// The account id of the winner.
+	pub who: AccountId,
+	/// The backed stake of the winner. This is the sum of the stake of all the voters who back
+	/// this winner, after the election algorithm has distributed the stake.
+	pub backed_stake: ExtendedBalance,
+	/// The round index at which this candidate was elected. Lower round means higher priority.
+	/// A candidate elected in round 0 had the highest priority in the election.
+	pub round: u32,
+}
+
 /// Final result of the election.
 #[derive(Debug)]
 pub struct ElectionResult<AccountId, P: PerThing> {
-	/// Just winners zipped with their approval stake. Note that the approval stake is merely the
-	/// sub of their received stake and could be used for very basic sorting and approval voting.
-	pub winners: Vec<(AccountId, ExtendedBalance)>,
+	/// The elected winners, sorted by election round in ascending order. Each winner includes its
+	/// backed stake and the round at which it was elected.
+	pub winners: Vec<Winner<AccountId>>,
 	/// Individual assignments. for each tuple, the first elements is a voter and the second is the
 	/// list of candidates that it supports.
 	pub assignments: Vec<Assignment<AccountId, P>>,

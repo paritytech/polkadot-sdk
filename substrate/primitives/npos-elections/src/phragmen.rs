@@ -22,7 +22,7 @@
 
 use crate::{
 	balancing, setup_inputs, BalancingConfig, CandidatePtr, ElectionResult, ExtendedBalance,
-	IdentifierT, PerThing128, VoteWeight, Voter,
+	IdentifierT, PerThing128, VoteWeight, Voter, Winner,
 };
 use alloc::vec::Vec;
 use sp_arithmetic::{
@@ -100,7 +100,15 @@ pub fn seq_phragmen<AccountId: IdentifierT, P: PerThing128>(
 		.try_for_each(|a| a.try_normalize().map_err(|_| crate::Error::ArithmeticError))?;
 	let winners = winners
 		.into_iter()
-		.map(|w_ptr| (w_ptr.borrow().who.clone(), w_ptr.borrow().backed_stake))
+		.map(|w_ptr| {
+			let w = w_ptr.borrow();
+			Winner {
+				who: w.who.clone(),
+				backed_stake: w.backed_stake,
+				round: u32::try_from(w.round)
+					.expect("round is bounded by to_elect which fits in u32; qed"),
+			}
+		})
 		.collect();
 
 	Ok(ElectionResult { winners, assignments })
