@@ -624,7 +624,7 @@ where
 							"Failed to read the claim queue at the scheduling anchor."
 						);
 
-						break;
+						continue;
 					},
 				};
 
