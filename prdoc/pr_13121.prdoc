@@ -7,8 +7,9 @@ doc:
   - audience: Runtime Dev
     description: |-
       Removes the chunking mechanism in the way coretime assignments are being reported
-	  to the Relay Chain, reducing the number of XCM messages that will be sent when
-	  there are more than 28 assignments.
+      to the Relay Chain, reducing the number of XCM messages that will be sent when
+      there are more than 28 assignments.
+
 crates:
   - name: coretime-westend-runtime
     bump: patch
