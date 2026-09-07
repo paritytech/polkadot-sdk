@@ -758,9 +758,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				};
 				let earliest_block = resolve_block_number(BlockNumberOrTag::Earliest).await?;
 
-				if from_block < earliest_block {
-					anyhow::bail!("history below the earliest indexed block is not available");
-				}
 				if from_block > to_block {
 					anyhow::bail!("invalid block range params");
 				}
