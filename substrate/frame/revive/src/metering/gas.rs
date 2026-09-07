@@ -166,4 +166,14 @@ impl<T: Config> SignedGas<T> {
 			(Negative(lhs), Negative(rhs)) => Self::safe_new_negative((*lhs).max(*rhs)),
 		}
 	}
+
+	/// Apply EIP-150 rule to reduce positive gas by 1/64
+	pub fn apply_eip_150(&self) -> Self {
+		use super::math::eip_150;
+		match self {
+			Positive(gas) => Positive(eip_150::apply_balance::<T>(*gas)),
+			// Negative gas remains unchanged
+			Negative(gas) => Self::safe_new_negative(*gas),
+		}
+	}
 }

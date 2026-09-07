@@ -23,7 +23,7 @@ use crate::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
 	},
-	metering::{FrameMeter, TransactionLimits, TransactionMeter},
+	metering::{FrameMeter, TransactionLimits, TransactionMeter, math::eip_150},
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
@@ -48,7 +48,9 @@ impl<T: Config> MockExt<T> {
 			deposit_limit: BalanceOf::<T>::max_value(),
 		})
 		.unwrap();
-		let frame_meter = transaction_meter.new_nested(&CallResources::NoLimits).unwrap();
+		let frame_meter = transaction_meter
+			.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply)
+			.unwrap();
 		Self { frame_meter, _phantom: PhantomData }
 	}
 }
