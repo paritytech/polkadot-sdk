@@ -518,7 +518,7 @@ where
 			}
 		}
 
-		self.extra_justifications.peer_disconnected(peer_id);
+		self.extra_justifications.cancel_request(peer_id);
 		self.allowed_requests.set_all();
 		self.fork_targets.retain(|_, target| {
 			target.peers.remove(peer_id);

@@ -166,11 +166,6 @@ impl<B: BlockT> ExtraRequests<B> {
 		}
 	}
 
-	/// Retry any pending request if a peer disconnected.
-	pub(crate) fn peer_disconnected(&mut self, who: &PeerId) {
-		self.cancel_request(who);
-	}
-
 	/// Requeue a canceled request without recording a failure against the peer.
 	pub(crate) fn cancel_request(&mut self, who: &PeerId) {
 		if let Some(request) = self.active_requests.remove(who) {
@@ -519,7 +514,7 @@ mod tests {
 				requests.active_requests.values().cloned().collect::<HashSet<_>>();
 
 			for peer in &active_peers {
-				requests.peer_disconnected(peer)
+				requests.cancel_request(peer)
 			}
 
 			assert!(requests.active_requests.is_empty());
