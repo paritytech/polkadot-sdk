@@ -791,3 +791,288 @@ mod remove_lock {
 		});
 	}
 }
+
+mod force_register {
+	use super::*;
+
+	/// A system para id, below `FIRST_PARA_ID` and so out of reach of `reserve`.
+	const SYSTEM_PARA_ID: u32 = 100;
+
+	fn force(para_id: u32, manager: AccountId, head_len: usize, code_len: usize) -> Vec<u8> {
+		let blob = code(code_len);
+		assert_ok!(Registrar::force_register(
+			RuntimeOrigin::root(),
+			para_id,
+			manager,
+			head(head_len),
+			code_len as u32,
+			hash_of(&blob),
+		));
+		blob
+	}
+
+	#[test]
+	fn only_root_may_force_register() {
+		new_test_ext().execute_with(|| {
+			for origin in
+				[RuntimeOrigin::signed(ALICE), para_origin(SYSTEM_PARA_ID), RuntimeOrigin::none()]
+			{
+				assert_noop!(
+					Registrar::force_register(
+						origin,
+						SYSTEM_PARA_ID,
+						ALICE,
+						head(10),
+						100,
+						hash_of(&code(100)),
+					),
+					DispatchError::BadOrigin
+				);
+			}
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+		});
+	}
+
+	#[test]
+	fn onboards_an_unreserved_id_and_charges_the_manager_for_both() {
+		new_test_ext().execute_with(|| {
+			let head_len = 20;
+			let code_len = 300;
+			let blob = force(SYSTEM_PARA_ID, ALICE, head_len, code_len);
+
+			// The same bill as `reserve` followed by `register`.
+			let expected = PER_BYTE * (head_len as Balance + code_len as Balance);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + expected);
+
+			let info = Paras::<Test>::get(SYSTEM_PARA_ID).unwrap();
+			assert_eq!(info.manager, ALICE);
+			let expected_at = System::block_number() + PENDING_DEADLINE;
+			assert!(matches!(
+				info.state,
+				RegistrationState::Pending { cancellable_at, .. } if cancellable_at == expected_at
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::RegisterRequested {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					manager: ALICE
+				}]
+			);
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::Register {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					manager: ALICE,
+					genesis_head: head(head_len),
+					code_hash: hash_of(&blob),
+					code_len: code_len as u32,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn an_already_reserved_id_is_not_charged_twice() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+
+			force(para_id, ALICE, 20, 300);
+
+			// Only the registration is added; the reservation ticket is the one already held.
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + 300));
+		});
+	}
+
+	#[test]
+	fn rejects_an_id_reserved_by_somebody_else() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+
+			assert_noop!(
+				Registrar::force_register(
+					RuntimeOrigin::root(),
+					para_id,
+					BOB,
+					head(10),
+					100,
+					hash_of(&code(100)),
+				),
+				Error::<Test>::NotOwner
+			);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+		});
+	}
+
+	#[test]
+	fn rejects_a_para_that_is_pending_or_registered() {
+		new_test_ext().execute_with(|| {
+			let pending = reserve_for(ALICE);
+			request_registration(ALICE, pending, 10, 100);
+			let registered = registered_para(ALICE);
+
+			for para_id in [pending, registered] {
+				assert_noop!(
+					Registrar::force_register(
+						RuntimeOrigin::root(),
+						para_id,
+						ALICE,
+						head(10),
+						100,
+						hash_of(&code(100)),
+					),
+					Error::<Test>::AlreadyRegistered
+				);
+			}
+		});
+	}
+
+	#[test]
+	fn a_system_para_id_stays_out_of_reserves_way() {
+		new_test_ext().execute_with(|| {
+			force(SYSTEM_PARA_ID, ALICE, 10, 100);
+
+			assert_eq!(reserve_for(BOB), FIRST_PARA_ID);
+		});
+	}
+
+	#[test]
+	fn keeps_reserve_from_colliding_with_a_forced_public_id() {
+		new_test_ext().execute_with(|| {
+			force(FIRST_PARA_ID, ALICE, 10, 100);
+
+			assert_eq!(reserve_for(BOB), FIRST_PARA_ID + 1);
+		});
+	}
+
+	#[test]
+	fn enforces_the_relay_chains_size_bounds() {
+		new_test_ext().execute_with(|| {
+			let cases = [
+				(head(MAX_HEAD_SIZE as usize + 1), MIN_CODE_SIZE, Error::<Test>::HeadDataTooLarge),
+				(head(10), MIN_CODE_SIZE - 1, Error::<Test>::CodeTooSmall),
+				(head(10), MAX_CODE_SIZE + 1, Error::<Test>::CodeTooLarge),
+			];
+
+			for (genesis_head, code_len, expected) in cases {
+				assert_noop!(
+					Registrar::force_register(
+						RuntimeOrigin::root(),
+						SYSTEM_PARA_ID,
+						ALICE,
+						genesis_head,
+						code_len,
+						hash_of(&code(100)),
+					),
+					expected
+				);
+			}
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+		});
+	}
+
+	#[test]
+	fn fails_when_the_manager_cannot_pay() {
+		new_test_ext().execute_with(|| {
+			let broke = 3;
+
+			assert_noop!(
+				Registrar::force_register(
+					RuntimeOrigin::root(),
+					SYSTEM_PARA_ID,
+					broke,
+					head(10),
+					100,
+					hash_of(&code(100)),
+				),
+				TokenError::FundsUnavailable
+			);
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_rolls_the_whole_call_back() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::force_register(
+					RuntimeOrigin::root(),
+					SYSTEM_PARA_ID,
+					ALICE,
+					head(10),
+					100,
+					hash_of(&code(100)),
+				),
+				Error::<Test>::SendFailed
+			);
+
+			assert_eq!(held(ALICE), 0);
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+			assert_eq!(crate::NextFreeParaId::<Test>::get(), 0);
+			assert_eq!(crate::NextMessageId::<Test>::get(), 0);
+		});
+	}
+
+	#[test]
+	fn the_relay_chain_confirms_the_registration() {
+		new_test_ext().execute_with(|| {
+			force(SYSTEM_PARA_ID, ALICE, 20, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					outcome: Ok(()),
+				}),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(SYSTEM_PARA_ID).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + 300));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Registered { para_id: SYSTEM_PARA_ID, message_id: 0, manager: ALICE }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_rejection_releases_the_registration_and_leaves_the_id_reserved() {
+		new_test_ext().execute_with(|| {
+			force(SYSTEM_PARA_ID, ALICE, 20, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					outcome: Err(FailureReason::AlreadyRegistered),
+				}),
+			));
+
+			let info = Paras::<Test>::get(SYSTEM_PARA_ID).unwrap();
+			assert_eq!(info.state, RegistrationState::Reserved);
+			assert_eq!(info.manager, ALICE);
+			// The reservation stays, so the id can be retried.
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::RegistrationFailed {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					manager: ALICE,
+					reason: FailureReason::AlreadyRegistered,
+				}]
+			);
+		});
+	}
+}
