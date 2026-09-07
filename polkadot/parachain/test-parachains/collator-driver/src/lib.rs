@@ -382,6 +382,8 @@ async fn duplicate_to_assigned_cores(
 		return;
 	};
 
+	let upward_messages = collation.upward_messages.clone();
+
 	// The UMP-signal check enforces that the parachain selects the core the candidate is
 	// submitted on, so it has to be skipped in order to submit the same candidate on several
 	// cores.
@@ -402,7 +404,17 @@ async fn duplicate_to_assigned_cores(
 		},
 	};
 
-	for core_index in scheduled_cores {
+	// The collator protocol stores only the first candidate per output head at a scheduling
+	// parent, so the one that reaches validators must be on a core the parachain did not select
+	// — on the selected core it is a valid candidate and no mismatch is ever detected.
+	let mut cores = scheduled_cores;
+	if let Ok(selected) =
+		select_core_index(&claim_queue, para_id, &upward_messages, 0, &HashSet::new())
+	{
+		cores.sort_by_key(|core| *core == selected);
+	}
+
+	for core_index in cores {
 		distribute(overseer_handle, para_id, core_index, entry.clone()).await;
 	}
 }
