@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Preserve native deposit attribution during stale deletion cleanup
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Prevent stale pallet-revive deletion queue entries from clearing native
+    storage-deposit attribution belonging to a newer contract generation at
+    the same address.
+
+crates:
+- name: pallet-revive
+  bump: patch
