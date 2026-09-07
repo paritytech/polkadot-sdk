@@ -22,6 +22,8 @@ on:
         value: ${{ jobs.preflight.outputs.changes_rust }}
       changes_currentWorkflow:
         value: ${{ jobs.preflight.outputs.changes_currentWorkflow }}
+      changes_prdoc:
+        value: ${{ jobs.preflight.outputs.changes_prdoc }}
 
       IMAGE:
         value: ${{ jobs.preflight.outputs.IMAGE }}
@@ -79,6 +81,7 @@ jobs:
     outputs:
       changes_rust: ${{ steps.set_changes.outputs.rust_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
       changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
+      changes_prdoc: ${{ steps.set_changes.outputs.prdoc_any_changed }}
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
 
@@ -120,6 +123,9 @@ jobs:
               - '!.github/**/*'
               - '!prdoc/**/*'
               - '!docs/**/*'
+              - '!scripts/release/**/*'
+            prdoc:
+              - 'prdoc/**/*'
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/reusable-preflight.yml'
