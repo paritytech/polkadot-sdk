@@ -162,7 +162,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(who), para_id);
 
-		assert!(Paras::<T>::get(para_id).map(|i| i.locked).unwrap_or(false));
+		assert!(Paras::<T>::get(para_id).map(|i| i.is_locked()).unwrap_or(false));
 		Ok(())
 	}
 
@@ -175,7 +175,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id);
 
-		assert!(!Paras::<T>::get(para_id).map(|i| i.locked).unwrap_or(true));
+		assert!(!Paras::<T>::get(para_id).map(|i| i.is_locked()).unwrap_or(true));
 		Ok(())
 	}
 
