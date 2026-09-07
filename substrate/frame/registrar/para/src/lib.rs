@@ -52,8 +52,8 @@
 //! [`Pallet::add_lock`] shuts the manager out of a registered para, leaving it to the para's own
 //! governance. Only root or the para itself can lift it again with [`Pallet::remove_lock`].
 //! [`Pallet::lock_para`] is the same lock without the origin check, for a runtime that applies it
-//! on its own trigger: on the Coretime chain `pallet-broker` locks a para as soon as it is given
-//! a core.
+//! on its own trigger. It only ever sets the lock once, so a para deliberately left unlocked stays
+//! that way no matter how often the trigger fires.
 //!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
 
@@ -157,8 +157,18 @@ pub struct ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumbe
 	pub reservation: ReservationTicket,
 	/// Where this para id sits in the registration flow.
 	pub state: RegistrationState<RegistrationTicket, BlockNumber>,
-	/// Whether the manager is locked out of controlling this para.
-	pub locked: bool,
+	/// Whether the manager is locked out of controlling this para. `None` until the lock is set
+	/// for the first time, and read as unlocked.
+	pub locked: Option<bool>,
+}
+
+impl<AccountId, ReservationTicket, RegistrationTicket, BlockNumber>
+	ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumber>
+{
+	/// Whether the manager is locked out of this para.
+	pub fn is_locked(&self) -> bool {
+		self.locked.unwrap_or(false)
+	}
 }
 
 /// The [`ParaInfo`] type as configured.
@@ -384,7 +394,7 @@ pub mod pallet {
 					manager: who.clone(),
 					reservation,
 					state: RegistrationState::Reserved,
-					locked: false,
+					locked: None,
 				},
 			);
 			NextFreeParaId::<T>::put(next);
@@ -504,9 +514,19 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::add_lock())]
 		pub fn add_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
-			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
-			Self::lock_para(para_id)
+			ensure!(!info.is_locked(), Error::<T>::AlreadyLocked);
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+
+			info.locked = Some(true);
+			Paras::<T>::insert(para_id, info);
+
+			Self::deposit_event(Event::ParaLocked { para_id });
+			Ok(())
 		}
 
 		/// Unlock a para, handing control back to the manager.
@@ -517,9 +537,9 @@ pub mod pallet {
 		pub fn remove_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			Self::ensure_root_or_para(origin, para_id)?;
-			ensure!(info.locked, Error::<T>::NotLocked);
+			ensure!(info.is_locked(), Error::<T>::NotLocked);
 
-			info.locked = false;
+			info.locked = Some(false);
 			Paras::<T>::insert(para_id, info);
 
 			Self::deposit_event(Event::ParaUnlocked { para_id });
@@ -534,19 +554,23 @@ impl<T: Config> Pallet<T> {
 		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
 	}
 
-	/// Lock `para_id` with no origin check, for a runtime that locks paras on its own trigger:
-	/// the Coretime chain locks a para once it has been given a core.
+	/// Lock `para_id` with no origin check, for a runtime that locks paras on its own trigger.
 	///
-	/// Fails if the para is unknown here, not registered on the relay chain, or locked already.
+	/// Only the first call does anything: once the lock has been set either way it is left alone,
+	/// so a lock lifted with [`Pallet::remove_lock`] stays lifted however often the trigger fires.
+	///
+	/// Fails if the para is unknown here or not registered on the relay chain.
 	pub fn lock_para(para_id: ParaId) -> DispatchResult {
 		let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-		ensure!(!info.locked, Error::<T>::AlreadyLocked);
+		if info.locked.is_some() {
+			return Ok(());
+		}
 		ensure!(
 			matches!(info.state, RegistrationState::Registered { .. }),
 			Error::<T>::NotRegistered
 		);
 
-		info.locked = true;
+		info.locked = Some(true);
 		Paras::<T>::insert(para_id, info);
 
 		Self::deposit_event(Event::ParaLocked { para_id });
@@ -565,7 +589,7 @@ impl<T: Config> Pallet<T> {
 		}
 		if let Ok(who) = frame_system::ensure_signed(origin.clone()) {
 			ensure!(who == info.manager, Error::<T>::NotOwner);
-			ensure!(!info.locked, Error::<T>::ParaLocked);
+			ensure!(!info.is_locked(), Error::<T>::ParaLocked);
 			return Ok(());
 		}
 		frame_system::ensure_root(origin)?;
