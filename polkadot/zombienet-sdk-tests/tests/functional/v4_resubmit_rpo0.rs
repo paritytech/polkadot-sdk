@@ -17,14 +17,19 @@ use zombienet_sdk::{
 };
 
 #[rstest]
-#[case::single(1, false)]
-#[case::three(3, false)]
-#[case::single_glutton(1, true)]
-#[case::three_glutton(3, true)]
+#[case::single(1, false, "elastic-scaling-v3")]
+#[case::three(3, false, "elastic-scaling-v3")]
+#[case::single_glutton(1, true, "elastic-scaling-v3")]
+#[case::three_glutton(3, true, "elastic-scaling-v3")]
+#[case::single_rpo1(1, false, "elastic-scaling-v3-rpo-1")]
+#[case::three_rpo1(3, false, "elastic-scaling-v3-rpo-1")]
+#[case::single_glutton_rpo1(1, true, "elastic-scaling-v3-rpo-1")]
+#[case::three_glutton_rpo1(3, true, "elastic-scaling-v3-rpo-1")]
 #[tokio::test(flavor = "multi_thread")]
 async fn v4_resubmit_rpo0(
 	#[case] num_collators: usize,
 	#[case] glutton: bool,
+	#[case] chain: &'static str,
 ) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
@@ -69,7 +74,7 @@ async fn v4_resubmit_rpo0(
 				.with_id(2900)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling-v3")
+				.with_chain(chain)
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,parachain::collator-protocol=trace,aura::cumulus=debug,basic-authorship=debug,aura::resubmission=trace").into(),
 					"--authoring=slot-based".into(),
