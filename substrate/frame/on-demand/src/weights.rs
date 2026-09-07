@@ -31,6 +31,7 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn configure() -> Weight;
 	fn place_order() -> Weight;
+	fn on_finalize_with_orders(n: u32) -> Weight;
 }
 
 /// Weights for `pallet_on_demand` using the Substrate node and recommended hardware.
@@ -49,6 +50,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+
+	// TODO: run benchmarks
+	fn on_finalize_with_orders(_n: u32) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -62,6 +70,13 @@ impl WeightInfo for () {
 
 	// TODO: run benchmarks
 	fn place_order() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
+	// TODO: run benchmarks
+	fn on_finalize_with_orders(_n: u32) -> Weight {
 		Weight::from_parts(10_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))

@@ -36,7 +36,9 @@ extern crate alloc;
 
 pub use pallet::*;
 
+mod benchmarking;
 mod types;
+mod weightinfo_extension;
 pub mod weights;
 
 #[cfg(test)]
@@ -50,9 +52,15 @@ use frame_support::traits::EnsureOrigin;
 use sp_runtime::traits::BlockNumberProvider;
 
 pub use types::*;
+pub use weightinfo_extension::WeightInfoExt;
 pub use weights::WeightInfo;
 
 /// Maximum pending batch size.
+/// NOTE: Since we don't do chunking, this number of pending orders needs to fit within a single XCM
+/// message. This way `on_finalize` will never send more than one message. Since this pallet is
+/// intended to be a temporary solution, and current (as of September 2026) usage of the on-demand
+/// feature is low, it is expected not to be necessary to extend this functionality to allow more
+/// orders in a single block.
 const MAX_BATCH_SIZE: u32 = 1000;
 
 /// The default maximum number of outstanding on-demand orders beyond which new orders will be
@@ -190,8 +198,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// TODO: benchmark `on_finalize`.
-			T::DbWeight::get().reads_writes(1, 2)
+			T::WeightInfo::on_finalize_block_fixed()
 		}
 
 		fn on_finalize(_now: BlockNumberFor<T>) {
@@ -231,6 +238,10 @@ pub mod pallet {
 		/// - `para_id`: The parachain to schedule.
 		/// - `max_amount`: The maximum spot price the caller is willing to pay.
 		#[pallet::call_index(1)]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::place_order()
+			.saturating_add(T::WeightInfo::on_finalize_block_per_order())
+		)]
 		pub fn place_order(
 			origin: OriginFor<T>,
 			para_id: TaskId,
