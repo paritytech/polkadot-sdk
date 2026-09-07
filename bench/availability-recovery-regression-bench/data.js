@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788734157053,
+  "lastUpdate": 1788757751037,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexandre.balde@parity.io",
-            "name": "Alexandre R. Baldé",
-            "username": "rockbmb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4d53dff25c8028eccd062cea40b24d654f89ccd6",
-          "message": "Fix test for remote externality's selective child key retrieval mechanism (#10866)\n\n# Description\n\nFollow-up to #10766, which was closed in favor of #10779.\nRework remote externality child key test; it was failing since the proxy\npallet has no child storages.\n\n## Integration\n\nN/A\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-02-05T19:52:27Z",
-          "tree_id": "29b800d80999ea7878d7fc3455a061a8effb703b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d53dff25c8028eccd062cea40b24d654f89ccd6"
-        },
-        "date": 1770325461760,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.186375869666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12492903279999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13248234943333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0433ae35e33efcff9a2bfaddd42fe8f3230dcd3a",
+          "message": "pallet-psm: use recorded decimals when minting (#13062)\n\nPSM debt is denominated using decimal snapshots recorded when the PSM\nand external asset are registered. Redemption already uses those\nsnapshots, while minting rejected calls when mutable asset metadata no\nlonger matched them.\n\nUse the recorded decimals for minting as well, keeping both directions\non the same conversion rate and preventing metadata-only updates from\ndisabling minting.\n\nNo downstream integration changes are required.",
+          "timestamp": "2026-09-07T02:19:39Z",
+          "tree_id": "ecf87377df1a9925bcdabead34dc9a9f6ed4c6ba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0433ae35e33efcff9a2bfaddd42fe8f3230dcd3a"
+        },
+        "date": 1788757713516,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.23703465413333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13862501463333332,
             "unit": "seconds"
           }
         ]
