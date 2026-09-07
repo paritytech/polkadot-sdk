@@ -805,7 +805,7 @@ where
 }
 
 /// Parameters for [`gen_rpc_module`].
-pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TExPool: ?Sized, TRpc> {
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool: ?Sized> {
 	/// The handle to spawn tasks on the RPC runtime.
 	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
 	/// Access to the client.
@@ -841,7 +841,7 @@ pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TExPool: ?Sized, T
 }
 
 /// Generate RPC module using provided configuration
-pub fn gen_rpc_module<TBl, TBackend, TCl, TExPool, TRpc>(
+pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	GenRpcModuleParams {
 		spawn_handle,
 		client,
@@ -858,7 +858,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TExPool, TRpc>(
 		metrics,
 		sync_oracle,
 		tracing_execute_block: execute_block,
-	}: GenRpcModuleParams<TBl, TBackend, TCl, TExPool, TRpc>,
+	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
