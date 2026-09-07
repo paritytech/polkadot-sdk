@@ -30,7 +30,7 @@ use crate::host::*;
 use crate::wasm::*;
 
 #[cfg(not(substrate_runtime))]
-use byte_slice_cast::FromByteSlice;
+use byte_slice_cast::{ToByteSlice, ToMutByteSlice};
 #[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Pointer, Result};
 
@@ -278,12 +278,37 @@ where
 	}
 }
 
+/// Allocates a zero-initialized `Vec<T>` backing a `&mut [T]` argument that the runtime passed
+/// to the host as a fat pointer to a buffer of `len` bytes.
+#[cfg(not(substrate_runtime))]
+fn allocate_element_buffer<T: Default + Clone>(len: u32) -> Result<Vec<T>> {
+	const {
+		assert!(
+			core::mem::size_of::<T>() != 0,
+			"zero-sized types cannot be passed to the host by a fat pointer",
+		)
+	};
+	let element_size = core::mem::size_of::<T>();
+	let len = len as usize;
+	if len % element_size != 0 {
+		return Err(format!(
+			"could not marshal '&mut [{}]' through the FFI boundary: the buffer length {len} is \
+			 not a multiple of the element size {element_size}",
+			type_name::<T>(),
+		));
+	}
+	Ok(vec![T::default(); len / element_size])
+}
+
 /// Pass a value into the host by a fat pointer, writing it back after the host call ends.
 ///
-/// This casts the value into a `&mut [u8]` and passes a pointer to that byte blob and its length
-/// to the host. Then the host reads that blob and converts it into an owned type and passes it
-/// as a mutable reference to the host function. After the host function finishes the byte blob
-/// is written back into the guest memory.
+/// The runtime passes a pointer to a `&mut [T]` and its size in bytes to the host. The host reads
+/// that memory into an owned, properly aligned `Vec<T>` and passes it as a `&mut [T]` to the host
+/// function. After the host function finishes the buffer is written back into the guest memory.
+///
+/// `T` must be a plain-old-data type that is valid for any bit pattern (see
+/// `byte_slice_cast::ToMutByteSlice`). The host call fails with an error if the size passed by the
+/// runtime is not a multiple of `size_of::<T>()`.
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
 pub struct PassFatPointerAndReadWrite<T>(PhantomData<T>);
@@ -294,20 +319,24 @@ impl<T> RIType for PassFatPointerAndReadWrite<T> {
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [T]> {
-	type Owned = Vec<u8>;
+impl<'a, T> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [T]>
+where
+	T: Default + Clone + ToByteSlice + ToMutByteSlice,
+{
+	type Owned = Vec<T>;
 
 	fn from_ffi_value(
 		context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		context.read_memory(Pointer::new(ptr), len)
+		let mut owned = allocate_element_buffer::<T>(len)?;
+		context.read_memory_into(Pointer::new(ptr), T::to_mut_byte_slice(&mut owned))?;
+		Ok(owned)
 	}
 
 	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		FromByteSlice::from_mut_byte_slice(owned)
-			.expect("byte slice has wrong alignment or size for target type")
+		owned.as_mut_slice()
 	}
 
 	fn write_back_into_runtime(
@@ -316,8 +345,9 @@ impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a m
 		arg: Self::FFIType,
 	) -> Result<()> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		assert_eq!(len as usize, value.len());
-		context.write_memory(Pointer::new(ptr), &value)
+		let bytes = T::to_byte_slice(&value);
+		debug_assert_eq!(len as usize, bytes.len());
+		context.write_memory(Pointer::new(ptr), bytes)
 	}
 }
 
@@ -332,10 +362,13 @@ impl<'a, T> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [T]> {
 
 /// Pass a buffer into the host by a fat pointer. The host will write data into it.
 ///
-/// This casts the value into a `&mut [u8]` and passes a pointer to that byte blob and its length
-/// to the host. Then the host allocates a temporary buffer of the same size and passes it
-/// as a mutable reference to the host function. After the host function finishes the data is
-/// written back into the guest memory.
+/// The runtime passes a pointer to a `&mut [T]` and its size in bytes to the host. The host
+/// allocates a zero-initialized, properly aligned `Vec<T>` of the same size and passes it as a
+/// `&mut [T]` to the host function; the guest memory is not read. After the host function finishes
+/// the buffer is written back into the guest memory.
+///
+/// `T` must be a plain-old-data type (see `byte_slice_cast::ToByteSlice`). The host call fails
+/// with an error if the size passed by the runtime is not a multiple of `size_of::<T>()`.
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
 pub struct PassFatPointerAndWrite<T>(PhantomData<T>);
@@ -346,20 +379,22 @@ impl<T> RIType for PassFatPointerAndWrite<T> {
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]> {
-	type Owned = Vec<u8>;
+impl<'a, T> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]>
+where
+	T: Default + Clone + ToByteSlice,
+{
+	type Owned = Vec<T>;
 
 	fn from_ffi_value(
 		_context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
 		let (_, len) = unpack_ptr_and_len(arg);
-		Ok(vec![0u8; len as usize])
+		allocate_element_buffer::<T>(len)
 	}
 
 	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		FromByteSlice::from_mut_byte_slice(owned)
-			.expect("byte slice has wrong alignment or size for target type")
+		owned.as_mut_slice()
 	}
 
 	fn write_back_into_runtime(
@@ -368,8 +403,9 @@ impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [
 		arg: Self::FFIType,
 	) -> Result<()> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		assert_eq!(len as usize, value.len());
-		context.write_memory(Pointer::new(ptr), &value)
+		let bytes = T::to_byte_slice(&value);
+		debug_assert_eq!(len as usize, bytes.len());
+		context.write_memory(Pointer::new(ptr), bytes)
 	}
 }
 
