@@ -804,7 +804,6 @@ fn hrmp_signals_are_prioritized() {
 #[test]
 fn maybe_double_encoded_versioned_xcm_works() {
 	// pre conditions
-	assert_eq!(VersionedXcm::<()>::V3(Default::default()).encode(), &[3, 0]);
 	assert_eq!(VersionedXcm::<()>::V4(Default::default()).encode(), &[4, 0]);
 	assert_eq!(VersionedXcm::<()>::V5(Default::default()).encode(), &[5, 0]);
 }
