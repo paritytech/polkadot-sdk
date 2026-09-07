@@ -352,6 +352,10 @@ impl sp_externalities::Externalities for ValidationExternalities {
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
 		panic!("get_read_and_written_keys: unsupported feature for parachain validation")
 	}
+
+	fn record_proof_for_dirty_keys(&mut self) {
+		panic!("record_proof_for_dirty_keys: unsupported feature for parachain validation")
+	}
 }
 
 impl sp_externalities::ExtensionStore for ValidationExternalities {

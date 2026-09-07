@@ -184,6 +184,17 @@ pub struct StorageParams {
 	/// benchmarks under the same conditions.
 	#[arg(long)]
 	pub random_seed: Option<u64>,
+
+	/// Number of record_proof_for_dirty_keys calls per batch.
+	///
+	/// If set to 0, compute calls are disabled. If set to a value N > 0, the compute will be
+	/// called N times per batch_size, distributing the calls evenly across the batch.
+	/// For example, with batch_size=100 and estimation_batch_size=4, the compute will be called
+	/// every 25 writes.
+	///
+	/// Must be 0 or <= batch_size.
+	#[arg(long, default_value_t = 0)]
+	pub estimation_batch_size: usize,
 }
 
 impl StorageParams {

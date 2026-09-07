@@ -544,6 +544,7 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_storage_proof_size() -> u64 {
+	with_externalities(|ext| ext.record_proof_for_dirty_keys());
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 

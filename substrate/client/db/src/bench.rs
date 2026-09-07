@@ -30,7 +30,7 @@ use sp_core::{
 use sp_runtime::{traits::Hash, StateVersion, Storage};
 use sp_state_machine::{
 	backend::Backend as StateBackend, BackendTransaction, ChildStorageCollection, DBValue,
-	IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
+	DeltaKeyOp, IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
@@ -172,7 +172,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 				child_delta,
 				state_version,
 			);
-		state.genesis = transaction.clone().drain();
+		state.genesis = transaction.clone().drain().into_iter().collect();
 		state.genesis_root = root;
 		state.commit(root, transaction, Vec::new(), Vec::new())?;
 		state.record.take();
@@ -469,6 +469,24 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.borrow()
 			.as_ref()
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
+	}
+
+	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>) {
+		self.state
+			.borrow()
+			.as_ref()
+			.map_or(Default::default(), |s| s.record_proof_for_dirty_keys(delta))
+	}
+
+	fn record_proof_for_child_dirty_keys<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+	) {
+		self.state
+			.borrow()
+			.as_ref()
+			.map_or(Default::default(), |s| s.record_proof_for_child_dirty_keys(child_info, delta))
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

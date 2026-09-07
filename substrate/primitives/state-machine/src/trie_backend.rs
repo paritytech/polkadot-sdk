@@ -22,7 +22,7 @@ use crate::backend::AsTrieBackend;
 use crate::{
 	backend::{IterArgs, StorageIterator},
 	trie_backend_essence::{RawIter, TrieBackendEssence, TrieBackendStorage},
-	Backend, StorageKey, StorageValue,
+	Backend, DeltaKeyOp, StorageKey, StorageValue,
 };
 
 use codec::Codec;
@@ -528,6 +528,23 @@ where
 		H::Out: Ord,
 	{
 		self.essence.child_storage_root(child_info, delta, state_version)
+	}
+
+	fn record_proof_for_dirty_keys<'a>(&self, delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>)
+	where
+		H::Out: Ord,
+	{
+		self.essence.record_proof_for_dirty_keys(delta)
+	}
+
+	fn record_proof_for_child_dirty_keys<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+	) where
+		H::Out: Ord,
+	{
+		self.essence.record_proof_for_child_dirty_keys(child_info, delta)
 	}
 
 	fn register_overlay_stats(&self, _stats: &crate::stats::StateMachineStats) {}

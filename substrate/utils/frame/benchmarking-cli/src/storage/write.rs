@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::cmp::min;
+
 use codec::Encode;
 use frame_storage_access_test_runtime::StorageAccessParams;
 use log::{debug, info, trace, warn};
@@ -25,7 +27,7 @@ use sc_client_db::{DbHash, DbState, DbStateBuilder};
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_state_machine::Backend as StateBackend;
+use sp_state_machine::{Backend as StateBackend, DeltaKeyOp};
 use sp_storage::{ChildInfo, StateVersion};
 use sp_trie::{recorder::Recorder, PrefixedMemoryDB};
 use std::{
@@ -70,6 +72,13 @@ impl StorageCmd {
 			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
 		{
 			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into());
+		}
+		if self.params.estimation_batch_size > self.params.batch_size {
+			return Err(format!(
+				"estimation_batch_size ({}) must be 0 or <= batch_size ({})",
+				self.params.estimation_batch_size, self.params.batch_size
+			)
+			.into());
 		}
 
 		// Store the time that it took to write each value.
@@ -304,6 +313,31 @@ impl StorageCmd {
 			self.create_trie_backend::<Block, H>(original_root, storage, shared_trie_cache);
 
 		let start = Instant::now();
+
+		// Call record_proof_for_dirty_keys if enabled
+		if self.params.estimation_batch_size > 0 {
+			let triggers_per_batch = self.params.estimation_batch_size;
+			let trigger_interval = batch_size.div_ceil(triggers_per_batch);
+
+			for i in 0..triggers_per_batch {
+				let start_idx = i * trigger_interval;
+				let end_idx = min(batch_size, (i + 1) * trigger_interval);
+
+				let trigger_changes = &changes[start_idx..end_idx];
+				let trigger_delta =
+					trigger_changes.iter().map(|(key, _)| (key.as_ref(), DeltaKeyOp::Updated));
+
+				match child_info {
+					Some(info) => {
+						let _ = trie.record_proof_for_child_dirty_keys(info, trigger_delta);
+					},
+					None => {
+						let _ = trie.record_proof_for_dirty_keys(trigger_delta);
+					},
+				}
+			}
+		}
+
 		// Create a TX that will modify the Trie in the DB and
 		// calculate the root hash of the Trie after the modification.
 		let replace = changes
@@ -363,6 +397,7 @@ impl StorageCmd {
 			*root,
 			storage_proof,
 			(changes, maybe_child_info.cloned()),
+			self.params.estimation_batch_size as u32,
 		);
 
 		let mut durations_in_nanos = Vec::new();
