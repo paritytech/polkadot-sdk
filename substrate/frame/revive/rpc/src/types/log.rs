@@ -50,9 +50,8 @@ pub struct Log {
 	pub block_hash: H256,
 	/// block number
 	pub block_number: U256,
-	/// data
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub data: Option<Bytes>,
+	/// Event payload, serialized as `0x` when the log contains no data.
+	pub data: Bytes,
 	/// log index
 	pub log_index: U256,
 	/// removed
@@ -291,6 +290,21 @@ pub enum FilterError {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	/// Keep the data field present on the wire even when an event has no payload.
+	#[test]
+	fn empty_log_data_serializes_as_an_empty_hex_string() {
+		// Arrange
+		let log = Log::default();
+
+		// Act
+		let serialized = serde_json::to_value(&log).unwrap();
+		let deserialized = serde_json::from_value::<Log>(serialized.clone()).unwrap();
+
+		// Assert
+		assert_eq!(serialized["data"], "0x");
+		assert_eq!(deserialized, log);
+	}
 
 	fn bounded_set(
 		topics: impl IntoIterator<Item = H256>,

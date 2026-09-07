@@ -646,8 +646,8 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 	}
 
 	// Verify log data values
-	let ping_data = &emit_receipt.logs[0].data.as_ref().unwrap().0;
-	let pong_data = &emit_receipt.logs[1].data.as_ref().unwrap().0;
+	let ping_data = &emit_receipt.logs[0].data.0;
+	let pong_data = &emit_receipt.logs[1].data.0;
 	let ping = Ping::abi_decode_data(ping_data).expect("decode Ping data");
 	let pong = Pong::abi_decode_data(pong_data).expect("decode Pong data");
 	assert_eq!(ping.0, 1, "Ping value should be 1");

@@ -56,7 +56,7 @@ fn parse_log_row(row: sqlx::sqlite::SqliteRow) -> Result<Log, sqlx::Error> {
 		address: Address::from_slice(&address),
 		block_hash: H256::from_slice(&block_hash),
 		block_number: U256::from(block_number as u64),
-		data: Some(Bytes::from(data.unwrap_or_default())),
+		data: Bytes::from(data.unwrap_or_default()),
 		log_index: U256::from(log_index as u64),
 		topics,
 		transaction_hash: H256::from_slice(&transaction_hash),
@@ -702,7 +702,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					.push_bind(log.topics.get(1).map(|v| &v[..]))
 					.push_bind(log.topics.get(2).map(|v| &v[..]))
 					.push_bind(log.topics.get(3).map(|v| &v[..]))
-					.push_bind(log.data.as_ref().map(|v| &v.0[..]));
+					.push_bind(&log.data.0[..]);
 			});
 			query_builder.build().execute(&mut *db_tx).await?;
 		}
@@ -1034,6 +1034,47 @@ mod tests {
 			.with_keep_latest(Some(10))
 	}
 
+	/// Preserve empty payloads across inserts and reads of legacy rows containing SQL NULL.
+	#[sqlx::test]
+	async fn empty_log_data_is_stored_as_bytes_and_legacy_null_reads_as_empty(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		// Arrange
+		let provider = setup_sqlite_provider(pool).await;
+		let block = MockBlockInfo { hash: H256::repeat_byte(1), number: 1 };
+		let ethereum_hash = H256::repeat_byte(2);
+		let log = Log {
+			block_hash: ethereum_hash,
+			block_number: block.number.into(),
+			..Default::default()
+		};
+		let receipts = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo { logs: vec![log.clone()], ..Default::default() },
+		)];
+
+		// Act
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
+		let stored_data = sqlx::query_scalar::<_, Option<Vec<u8>>>("SELECT data FROM logs")
+			.fetch_one(&provider.db_ctx.pool)
+			.await?;
+		sqlx::query("UPDATE logs SET data = NULL")
+			.execute(&provider.db_ctx.pool)
+			.await?;
+		let logs = provider
+			.logs(
+				Some(Filter::new().at_block_hash(ethereum_hash)),
+				mock_resolve_block_number_with_latest(block.number),
+			)
+			.await?;
+
+		// Assert
+		assert_eq!(stored_data, Some(Vec::new()));
+		assert_eq!(logs, vec![log]);
+		assert_eq!(serde_json::to_value(&logs)?[0]["data"], "0x");
+		Ok(())
+	}
+
 	#[sqlx::test]
 	async fn test_insert_remove(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
@@ -1243,7 +1284,7 @@ mod tests {
 			block_number: block1.number.into(),
 			address: H160::from([1u8; 20]),
 			topics: vec![H256::from([1u8; 32]), H256::from([2u8; 32])],
-			data: Some(vec![0u8; 32].into()),
+			data: vec![0u8; 32].into(),
 			transaction_hash: H256::default(),
 			transaction_index: U256::from(1),
 			log_index: U256::from(1),
@@ -1254,7 +1295,7 @@ mod tests {
 			block_number: block2.number.into(),
 			address: H160::from([2u8; 20]),
 			topics: vec![H256::from([2u8; 32]), H256::from([3u8; 32])],
-			data: Some(vec![1u8; 32].into()),
+			data: vec![1u8; 32].into(),
 			transaction_hash: H256::from([1u8; 32]),
 			transaction_index: U256::from(2),
 			log_index: U256::from(1),
@@ -1563,7 +1604,7 @@ mod tests {
 			transaction_hash: H256::from([3u8; 32]),
 			transaction_index: U256::from(0),
 			log_index: U256::from(0),
-			data: Some(vec![0u8; 32].into()),
+			data: vec![0u8; 32].into(),
 			..Default::default()
 		};
 
